@@ -1,0 +1,143 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2, Heart, MapPin, Waves, Users, Car, Accessibility } from "lucide-react"
+import { getFavoriteBeaches, removeFavoriteBeach } from "@/actions/beach-actions"
+import { useAuth } from "@/context/auth-context"
+import Link from "next/link"
+import { toast } from "@/components/ui/use-toast"
+import type { Beach } from "@/types/database"
+
+export function FavoriteBeaches() {
+  const { user } = useAuth()
+  const [beaches, setBeaches] = useState<Beach[]>([])
+  const [loading, setLoading] = useState(true)
+  const [removing, setRemoving] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function loadFavoriteBeaches() {
+      if (!user) return
+
+      setLoading(true)
+      try {
+        const result = await getFavoriteBeaches(user.id)
+        if (result.success) {
+          setBeaches(result.data || [])
+        } else {
+          console.error("Error loading favorite beaches:", result.error)
+        }
+      } catch (error) {
+        console.error("Error loading favorite beaches:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadFavoriteBeaches()
+  }, [user])
+
+  const handleRemoveFavorite = async (beachId: string) => {
+    if (!user) return
+
+    setRemoving(beachId)
+    try {
+      const result = await removeFavoriteBeach(user.id, beachId)
+      if (result.success) {
+        setBeaches((prev) => prev.filter((beach) => beach.id !== beachId))
+        toast({
+          title: "Beach removed",
+          description: "Beach removed from favorites.",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to remove beach from favorites.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error removing favorite beach:", error)
+      toast({
+        title: "Error",
+        description: "Failed to remove beach from favorites.",
+        variant: "destructive",
+      })
+    } finally {
+      setRemoving(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (beaches.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <p>You don't have any favorite beaches yet.</p>
+        <Button variant="link" asChild>
+          <Link href="/">Explore beaches</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {beaches.map((beach) => (
+        <Card key={beach.id} className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">{beach.name}</CardTitle>
+            <CardDescription className="flex items-center">
+              <MapPin className="h-4 w-4 mr-1" />
+              {beach.location}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="flex items-center">
+                <Waves className="h-4 w-4 mr-1 text-blue-500" />
+                <span>Wave Quality: {beach.wave_quality_rating?.toFixed(1)}/5</span>
+              </div>
+              <div className="flex items-center">
+                <Users className="h-4 w-4 mr-1 text-orange-500" />
+                <span>Crowd: {beach.crowd_density_rating?.toFixed(1)}/5</span>
+              </div>
+              <div className="flex items-center">
+                <Car className="h-4 w-4 mr-1 text-gray-500" />
+                <span>Parking: {beach.parking_rating?.toFixed(1)}/5</span>
+              </div>
+              <div className="flex items-center">
+                <Accessibility className="h-4 w-4 mr-1 text-green-500" />
+                <span>Access: {beach.accessibility_rating?.toFixed(1)}/5</span>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between pt-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/beach/${beach.id}`}>View Details</Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleRemoveFavorite(beach.id)}
+              disabled={removing === beach.id}
+            >
+              {removing === beach.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Heart className="h-4 w-4 text-red-500 fill-red-500" />
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      ))}
+    </div>
+  )
+}
