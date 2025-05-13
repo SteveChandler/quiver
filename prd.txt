@@ -1,0 +1,272 @@
+roduct Requirements Document (PRD)
+
+Project: Quiver—Community-Driven Surf Sessions Tracker & PredictorAuthor: Product TeamDate: May 7, 2025Version: 1.0
+
+1. Document Purpose and Scope
+
+This PRD outlines the vision, objectives, functional and non-functional requirements, and high-level design for Quiver, a mobile-first surf app that enables surfers to plan, log, review, and predict surf sessions. It targets community engagement and integrates real-time forecasting.
+
+Scope Includes:
+
+Community features (reviews, media sharing)
+
+Session planning & logging
+
+Quiver management (personal boards)
+
+Real-time surf forecasts
+
+Scope Excludes:
+
+In-app purchases
+
+Offline-first sync beyond basic caching
+
+Advanced AI-driven wave analysis (v2)
+
+2. Vision & Goals
+
+Vision:A community‑driven, trail‑style surf app where surfers can plan sessions, share experiences, and leverage accurate forecasts to catch the best waves.
+
+Goals:
+
+Empower surfers with reliable surf forecasts.
+
+Build an engaged community sharing reviews & media.
+
+Provide personal logging for skill progression and equipment tracking.
+
+3. Target Audience & Personas
+
+Beginner Ben: New to surfing; seeks guidance on when/where to surf safely.
+
+Regular Riley: Experienced surfer; tracks sessions, compares conditions, shares media.
+
+Traveler Taylor: Visits new beaches; relies on community reviews & forecasts.
+
+4. User Journeys
+
+Plan a Session:
+
+Open Home, tap “Plan Session,” select nearest beach or search, view forecast, choose time & board, save.
+
+Log a Session:
+
+After surf, tap “Log Session,” pick beach, board, rate conditions, add notes & photos, submit.
+
+Browse Beaches:
+
+From Map/List, filter by region, tap beach for detailed forecast, veteran reviews & gallery.
+
+Manage Quiver:
+
+In Profile, add a new board (type, dimensions, photo), edit or remove existing boards.
+
+Engage Community:
+
+Rate a beach, comment on others’ sessions, like media posts.
+
+5. Functional Requirements
+
+5.1 User Profiles
+
+Sign up / log in via Supabase Auth (email/password, social).
+
+Profile details: avatar, display name, bio.
+
+View own session history, boards, contributions.
+
+5.2 Beach Directory
+
+Map & list views showing clickable beach markers.
+
+Integrate third‑party surf API for forecasts (e.g. Surfline).
+
+Display community ratings, reviews & user media gallery.
+
+5.3 Session Logging
+
+Form: beach, board, date/time picker, wave height, water temperature, crowd density, parking ease, notes.
+
+Attach photos/videos (upload to Firebase).
+
+Store session data in Supabase PostgreSQL.
+
+5.4 Media Uploads
+
+Upload photos & videos with metadata tags (beach, session).
+
+Thumbnail generation & streaming via Firebase Storage.
+
+5.5 Community Reviews & Interaction
+
+Rate factors (1–5 stars) and freeform comments.
+
+Like/comment on other users’ session logs.
+
+Follow users and get feed of their activity.
+
+5.6 Quiver (Personal Boards)
+
+Add/edit/delete board entries: name, dimensions, type, photo.
+
+Select board when planning/logging sessions.
+
+6. Non‑Functional Requirements
+
+6.1 Performance & Scalability
+
+API response < 200ms for core endpoints.
+
+CDN for media assets.
+
+Auto‑scale Supabase & Firebase.
+
+6.2 Security & Privacy
+
+Enforce HTTPS everywhere.
+
+Role‑based access: authenticated vs. public.
+
+Data encryption at rest & in transit.
+
+GDPR & CCPA compliance for user data.
+
+6.3 Reliability & Availability
+
+99.9% uptime target.
+
+Automated health checks & alerts.
+
+6.4 Maintainability
+
+Modular codebase: components/, lib/, types/.
+
+CI/CD: GitHub Actions for Next.js builds & Supabase migrations.
+
+6.5 Localization
+
+Support English at launch; architecture for additional languages.
+
+7. Technical Architecture
+
+7.1 Tech Stack
+
+Frontend: Next.js (App Router), Tailwind CSS, Shadcn UI
+
+Backend: Supabase (PostgreSQL, Auth, API)
+
+Media Storage: Firebase Storage & CDN
+
+7.2 Folder Structure (High‑Level)
+
+surfing-app/
+├── app/                # Next.js pages & layouts
+├── components/         # Reusable UI components
+├── lib/                # Supabase & Firebase client setup
+├── types/              # TypeScript interfaces & types
+├── public/             # Static assets
+├── styles/             # Tailwind config & global CSS
+└── utils/              # Helpers & API wrappers
+
+7.3 Data Model (Supabase)
+
+users (id, name, email, avatar_url, bio)
+
+beaches (id, name, coords, description)
+
+sessions (id, user_id, beach_id, board_id, timestamp, ratings JSON, notes)
+
+boards (id, user_id, name, dimensions, type, photo_url)
+
+reviews (id, user_id, beach_id, rating, comment, timestamp)
+
+media (id, user_id, session_id or beach_id, url, type, timestamp)
+
+8. UI/UX & Wireframes
+
+Home: bottom nav (Home, Plan, Map, Profile).
+
+Plan Session: form wizard UI.
+
+Beach Detail: forecast chart, reviews, gallery, “Log Session” CTA.
+
+Profile: avatar, stats (sessions, followers), quiver & history tabs.
+
+Responsive Design: optimized for mobile; tablet support.
+
+Note: Detailed wireframes available in Figma prototype.
+
+9. Milestones & Timeline
+
+Phase
+
+Deliverables
+
+Target Date
+
+Discovery & PRD
+
+PRD sign‑off, user interviews
+
+May 15, 2025
+
+Design & Prototyping
+
+UI mockups, Figma prototype
+
+June 7, 2025
+
+MVP Development
+
+Core features implementation
+
+Aug 1, 2025
+
+Beta Launch
+
+Internal testing, limited release
+
+Sep 15, 2025
+
+Public Launch
+
+App Store & Play Store release
+
+Oct 10, 2025
+
+10. Success Metrics
+
+MAU/DAU: 10,000/2,500 within 6 months.
+
+Session Logs: 5,000 sessions logged in first quarter post‑launch.
+
+Reviews Posted: 3,000 beach reviews.
+
+Media Uploads: 20,000 photos/videos.
+
+11. Risks & Mitigations
+
+Risk
+
+Mitigation
+
+Forecast data API instability
+
+Implement caching & fallback to basic NOAA data
+
+Low adoption of community
+
+Incentivize reviews (badges, leaderboards)
+
+Media storage cost overages
+
+Monitor usage; enforce size/compression limits
+
+12. Appendix
+
+Glossary
+
+API References
+
+Design assets links

@@ -1,68 +1,72 @@
-"use server"
+"use server";
 
-import { createServerClient } from "@/lib/supabase"
-import { revalidatePath } from "next/cache"
-import type { Profile } from "@/types/database"
+import { createServerClient } from "@/lib/supabase";
+import { revalidatePath } from "next/cache";
+import type { Profile } from "@/types/database";
 
 export async function getProfile(userId: string) {
   if (!userId) {
-    return { success: false, error: "No user ID provided" }
+    return { success: false, error: "No user ID provided" };
   }
 
   try {
-    const supabase = createServerClient()
+    const supabase = createServerClient();
 
     // First check if the connection is working
     try {
-      await supabase.from("profiles").select("count").limit(1)
+      await supabase.from("profiles").select("count").limit(1);
     } catch (connectionError) {
-      console.error("Database connection error:", connectionError)
+      console.error("Database connection error:", connectionError);
       return {
         success: false,
         error: "Database connection failed. Please try again later.",
         isConnectionError: true,
-      }
+      };
     }
 
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
 
     if (error) {
-      throw error
+      throw error;
     }
 
     // If no profile exists, create one
     if (!data) {
-      return await createProfile(userId)
+      return await createProfile(userId);
     }
 
-    return { success: true, data }
+    return { success: true, data };
   } catch (error) {
-    console.error("Error fetching profile:", error)
+    console.error("Error fetching profile:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
       isConnectionError: false,
-    }
+    };
   }
 }
 
 export async function createProfile(userId: string) {
   if (!userId) {
-    return { success: false, error: "No user ID provided" }
+    return { success: false, error: "No user ID provided" };
   }
 
   try {
-    const supabase = createServerClient()
+    const supabase = createServerClient();
 
     // First check if profile already exists
     const { data: existingProfile, error: checkError } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", userId)
-      .maybeSingle()
+      .maybeSingle();
 
     if (checkError) {
-      throw checkError
+      throw checkError;
     }
 
     // If profile already exists, return it
@@ -71,13 +75,13 @@ export async function createProfile(userId: string) {
         .from("profiles")
         .select("*")
         .eq("id", userId)
-        .single()
+        .single();
 
       if (fetchError) {
-        throw fetchError
+        throw fetchError;
       }
 
-      return { success: true, data: fullProfile }
+      return { success: true, data: fullProfile };
     }
 
     // Create new profile
@@ -86,6 +90,8 @@ export async function createProfile(userId: string) {
       .insert({
         id: userId,
         full_name: "",
+        email: "",
+        phone_number: "",
         avatar_url: "/placeholder.svg?height=200&width=200",
         bio: "",
         location: "",
@@ -95,30 +101,33 @@ export async function createProfile(userId: string) {
         twitter: "",
       })
       .select()
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    revalidatePath("/profile")
-    return { success: true, data }
+    revalidatePath("/profile");
+    return { success: true, data };
   } catch (error) {
-    console.error("Error creating profile:", error)
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    console.error("Error creating profile:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }
 
 export async function updateProfile(
   userId: string,
-  profileData: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>,
+  profileData: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>
 ) {
   if (!userId) {
-    return { success: false, error: "No user ID provided" }
+    return { success: false, error: "No user ID provided" };
   }
 
   try {
-    const supabase = createServerClient()
+    const supabase = createServerClient();
 
     const { data, error } = await supabase
       .from("profiles")
@@ -128,77 +137,83 @@ export async function updateProfile(
       })
       .eq("id", userId)
       .select()
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    revalidatePath("/profile")
-    return { success: true, data }
+    revalidatePath("/profile");
+    return { success: true, data };
   } catch (error) {
-    console.error("Error updating profile:", error)
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    console.error("Error updating profile:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }
 
 export async function getUserStats(userId: string) {
   if (!userId) {
-    return { success: false, error: "No user ID provided" }
+    return { success: false, error: "No user ID provided" };
   }
 
   try {
-    const supabase = createServerClient()
+    const supabase = createServerClient();
 
     // Get session count
     const { count: sessionCount, error: sessionError } = await supabase
       .from("sessions")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
+      .eq("user_id", userId);
 
     if (sessionError) {
-      throw sessionError
+      throw sessionError;
     }
 
     // Get board count
     const { count: boardCount, error: boardError } = await supabase
       .from("boards")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
+      .eq("user_id", userId);
 
     if (boardError) {
-      throw boardError
+      throw boardError;
     }
 
     // Get average session rating
     const { data: ratingData, error: ratingError } = await supabase
       .from("sessions")
       .select("rating")
-      .eq("user_id", userId)
+      .eq("user_id", userId);
 
     if (ratingError) {
-      throw ratingError
+      throw ratingError;
     }
 
-    let averageRating = 0
+    let averageRating = 0;
     if (ratingData.length > 0) {
-      const sum = ratingData.reduce((acc, session) => acc + session.rating, 0)
-      averageRating = Math.round((sum / ratingData.length) * 10) / 10 // Round to 1 decimal place
+      const sum = ratingData.reduce((acc, session) => acc + session.rating, 0);
+      averageRating = Math.round((sum / ratingData.length) * 10) / 10; // Round to 1 decimal place
     }
 
     // Get most visited beach
-    let mostVisitedBeach = null
-    let mostVisitedBeachCount = 0
+    let mostVisitedBeach = null;
+    let mostVisitedBeachCount = 0;
 
     try {
-      const { data: beachData, error: beachError } = await supabase.rpc("get_most_visited_beach", { user_id: userId })
+      const { data: beachData, error: beachError } = await supabase.rpc(
+        "get_most_visited_beach",
+        { user_id: userId }
+      );
 
       if (!beachError && beachData && beachData.length > 0) {
-        mostVisitedBeach = beachData[0].beach_name
-        mostVisitedBeachCount = beachData[0].visit_count
+        mostVisitedBeach = beachData[0].beach_name;
+        mostVisitedBeachCount = beachData[0].visit_count;
       }
     } catch (error) {
-      console.error("Error getting most visited beach:", error)
+      console.error("Error getting most visited beach:", error);
       // Continue execution even if this fails
     }
 
@@ -211,9 +226,12 @@ export async function getUserStats(userId: string) {
         mostVisitedBeach,
         mostVisitedBeachCount,
       },
-    }
+    };
   } catch (error) {
-    console.error("Error getting user stats:", error)
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    console.error("Error getting user stats:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }

@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Settings,
   LogOut,
@@ -18,104 +18,99 @@ import {
   AlertCircle,
   RefreshCw,
   Heart,
-} from "lucide-react"
-import { SessionCard } from "@/components/session-card"
-import { BoardCard } from "@/components/board-card"
-import { UserStats } from "@/components/user-stats"
-import { FavoriteBeaches } from "@/components/favorite-beaches"
-import { UserAvatar } from "@/components/user-avatar"
-import { EditProfileModal } from "@/components/edit-profile-modal"
-import { useAuth } from "@/context/auth-context"
-import { useRouter } from "next/navigation"
-import { getUserBoards } from "@/actions/board-actions"
-import { getUserSessions } from "@/actions/session-actions"
-import { getProfile } from "@/actions/profile-actions"
-import type { Board, SessionWithDetails, Profile } from "@/types/database"
-import Link from "next/link"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent } from "@/components/ui/card"
+} from "lucide-react";
+import { SessionCard } from "@/components/session-card";
+import { BoardCard } from "@/components/board-card";
+import { UserStats } from "@/components/user-stats";
+import { FavoriteBeaches } from "@/components/favorite-beaches";
+import { UserAvatar } from "@/components/user-avatar";
+import { EditProfileModal } from "@/components/edit-profile-modal";
+import { useAuth } from "@/context/auth-context";
+import { useRouter } from "next/navigation";
+import { getUserBoards } from "@/actions/board-actions";
+import { getUserSessions } from "@/actions/session-actions";
+import { getProfile } from "@/actions/profile-actions";
+import type { Board, SessionWithDetails, Profile } from "@/types/database";
+import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent } from "@/components/ui/card";
 
 export function ProfileView() {
-  const { user, signOut, isLoading: authLoading } = useAuth()
-  const router = useRouter()
-  const [boards, setBoards] = useState<Board[]>([])
-  const [sessions, setSessions] = useState<SessionWithDetails[]>([])
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
-  const [editModalOpen, setEditModalOpen] = useState(false)
+  const { user, signOut, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const handleSignOut = async () => {
     try {
-      await signOut()
-      router.push("/auth/sign-in")
+      await signOut();
+      router.push("/auth/sign-in");
     } catch (error) {
-      console.error("Error signing out:", error)
+      console.error("Error signing out:", error);
     }
-  }
+  };
 
   const loadUserData = async () => {
-    if (!user) return
+    if (!user) return;
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
       // Fetch user profile
-      const profileResult = await getProfile(user.id)
+      const profileResult = await getProfile(user.id);
       if (profileResult.success && profileResult.data) {
-        setProfile(profileResult.data as Profile)
+        setProfile(profileResult.data as Profile);
       } else {
         if (profileResult.isConnectionError) {
-          setError("Connection to the database failed. Please try again later.")
+          setError(
+            "Connection to the database failed. Please try again later."
+          );
         } else {
-          setError(profileResult.error || "Failed to load profile")
+          setError(profileResult.error || "Failed to load profile");
         }
-        return // Stop loading other data if profile fetch fails
+        return; // Stop loading other data if profile fetch fails
       }
 
       // Fetch user boards
-      const boardsResult = await getUserBoards(user.id)
+      const boardsResult = await getUserBoards(user.id);
       if (boardsResult.success && boardsResult.data) {
-        setBoards(boardsResult.data)
+        setBoards(boardsResult.data);
       } else {
-        console.error("Error loading boards:", boardsResult.error)
+        console.error("Error loading boards:", boardsResult.error);
       }
 
       // Fetch user sessions
-      const sessionsResult = await getUserSessions(user.id)
+      const sessionsResult = await getUserSessions(user.id);
       if (sessionsResult.success && sessionsResult.data) {
-        setSessions(sessionsResult.data)
+        setSessions(sessionsResult.data);
       } else {
-        console.error("Error loading sessions:", sessionsResult.error)
+        console.error("Error loading sessions:", sessionsResult.error);
       }
     } catch (error) {
-      console.error("Error loading user data:", error)
-      setError("Failed to load user data. Please try again.")
+      console.error("Error loading user data:", error);
+      setError("Failed to load user data. Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleRetry = () => {
-    setRetryCount((prev) => prev + 1)
-  }
+    setRetryCount((prev) => prev + 1);
+  };
 
   useEffect(() => {
     if (user) {
-      loadUserData()
+      loadUserData();
     } else if (!authLoading) {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [user, retryCount, authLoading])
-
-  // If user is not logged in and we're not loading auth state, redirect to sign in
-  useEffect(() => {
-    if (!authLoading && !user && !loading) {
-      router.push("/auth/sign-in")
-    }
-  }, [authLoading, user, loading, router])
+  }, [user, retryCount, authLoading]);
 
   // Show loading state while checking authentication
   if (authLoading || (loading && !error)) {
@@ -123,12 +118,23 @@ export function ProfileView() {
       <div className="flex-1 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-    )
+    );
   }
 
-  // If not authenticated, don't render anything (will redirect in useEffect)
+  // If not authenticated, show a sign-in prompt instead of redirecting
   if (!user && !loading) {
-    return null
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <Alert className="max-w-md mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Required</AlertTitle>
+          <AlertDescription>
+            Please sign in to view and manage your profile.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={() => router.push("/auth/sign-in")}>Sign In</Button>
+      </div>
+    );
   }
 
   return (
@@ -138,7 +144,11 @@ export function ProfileView() {
         <div className="container flex items-center justify-between h-16 px-4">
           <h1 className="text-xl font-bold">Profile</h1>
           <div className="flex items-center gap-2">
-            <Button size="icon" variant="ghost" onClick={() => setEditModalOpen(true)}>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setEditModalOpen(true)}
+            >
               <Settings className="h-5 w-5" />
             </Button>
             <Button size="icon" variant="ghost" onClick={handleSignOut}>
@@ -170,13 +180,22 @@ export function ProfileView() {
             <Card className="overflow-hidden">
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <UserAvatar src={profile?.avatar_url} name={profile?.full_name} email={user?.email} size="xl" />
+                  <UserAvatar
+                    src={profile?.avatar_url}
+                    name={profile?.full_name}
+                    email={user?.email}
+                    size="xl"
+                  />
                   <div className="flex-1 text-center sm:text-left">
-                    <h2 className="text-2xl font-bold">{profile?.full_name || "Surfer"}</h2>
+                    <h2 className="text-2xl font-bold">
+                      {profile?.full_name || "Surfer"}
+                    </h2>
                     <p className="text-muted-foreground">{user?.email}</p>
 
                     {/* Bio */}
-                    {profile?.bio && <p className="text-sm mt-2 max-w-md">{profile.bio}</p>}
+                    {profile?.bio && (
+                      <p className="text-sm mt-2 max-w-md">{profile.bio}</p>
+                    )}
 
                     {/* Additional Profile Info */}
                     <div className="flex flex-wrap justify-center sm:justify-start gap-4 mt-3 text-sm text-muted-foreground">
@@ -212,14 +231,19 @@ export function ProfileView() {
                     {/* Favorite Spot */}
                     {profile?.favorite_spot && (
                       <div className="text-sm mt-2">
-                        <span className="text-muted-foreground">Favorite spot: </span>
+                        <span className="text-muted-foreground">
+                          Favorite spot:{" "}
+                        </span>
                         <span>{profile.favorite_spot}</span>
                       </div>
                     )}
                   </div>
 
                   <div className="mt-4 sm:mt-0">
-                    <Button variant="outline" onClick={() => setEditModalOpen(true)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditModalOpen(true)}
+                    >
                       <Edit className="h-4 w-4 mr-2" />
                       Edit Profile
                     </Button>
@@ -260,10 +284,19 @@ export function ProfileView() {
                       id={session.id}
                       username="You"
                       beachName={session.beach?.name || "Unknown Beach"}
-                      date={new Date(session.session_date).toLocaleDateString() + ", " + session.session_time}
+                      date={
+                        new Date(session.session_date).toLocaleDateString() +
+                        ", " +
+                        session.session_time
+                      }
                       rating={session.rating}
-                      description={session.description || "No description provided."}
-                      imageUrl={session.image_url || "/placeholder.svg?height=200&width=300"}
+                      description={
+                        session.description || "No description provided."
+                      }
+                      imageUrl={
+                        session.image_url ||
+                        "/placeholder.svg?height=200&width=300"
+                      }
                       likes={session.likes_count}
                       comments={session.comments_count}
                       isOwner={true}
@@ -285,15 +318,18 @@ export function ProfileView() {
                   <Button
                     size="sm"
                     onClick={() => {
-                      setEditModalOpen(true)
+                      setEditModalOpen(true);
                       // Set active tab to boards after a short delay to allow modal to open
                       setTimeout(() => {
-                        const tabsElement = document.querySelector('[role="tablist"]')
-                        const boardsTab = tabsElement?.querySelector('[data-value="boards"]')
+                        const tabsElement =
+                          document.querySelector('[role="tablist"]');
+                        const boardsTab = tabsElement?.querySelector(
+                          '[data-value="boards"]'
+                        );
                         if (boardsTab instanceof HTMLElement) {
-                          boardsTab.click()
+                          boardsTab.click();
                         }
-                      }, 100)
+                      }, 100);
                     }}
                   >
                     <Plus className="h-4 w-4 mr-1" />
@@ -309,7 +345,10 @@ export function ProfileView() {
                         name={board.name}
                         type={board.board_type}
                         dimensions={board.dimensions}
-                        imageUrl={board.image_url || "/placeholder.svg?height=120&width=300"}
+                        imageUrl={
+                          board.image_url ||
+                          "/placeholder.svg?height=120&width=300"
+                        }
                         sessionCount={board.session_count}
                       />
                     ))
@@ -320,15 +359,18 @@ export function ProfileView() {
                         variant="link"
                         className="mt-2"
                         onClick={() => {
-                          setEditModalOpen(true)
+                          setEditModalOpen(true);
                           // Set active tab to boards after a short delay
                           setTimeout(() => {
-                            const tabsElement = document.querySelector('[role="tablist"]')
-                            const boardsTab = tabsElement?.querySelector('[data-value="boards"]')
+                            const tabsElement =
+                              document.querySelector('[role="tablist"]');
+                            const boardsTab = tabsElement?.querySelector(
+                              '[data-value="boards"]'
+                            );
                             if (boardsTab instanceof HTMLElement) {
-                              boardsTab.click()
+                              boardsTab.click();
                             }
-                          }, 100)
+                          }, 100);
                         }}
                       >
                         Add your first board
@@ -344,15 +386,18 @@ export function ProfileView() {
                   <Button
                     size="sm"
                     onClick={() => {
-                      setEditModalOpen(true)
+                      setEditModalOpen(true);
                       // Set active tab to beaches after a short delay
                       setTimeout(() => {
-                        const tabsElement = document.querySelector('[role="tablist"]')
-                        const beachesTab = tabsElement?.querySelector('[data-value="beaches"]')
+                        const tabsElement =
+                          document.querySelector('[role="tablist"]');
+                        const beachesTab = tabsElement?.querySelector(
+                          '[data-value="beaches"]'
+                        );
                         if (beachesTab instanceof HTMLElement) {
-                          beachesTab.click()
+                          beachesTab.click();
                         }
-                      }, 100)
+                      }, 100);
                     }}
                   >
                     <Plus className="h-4 w-4 mr-1" />
@@ -365,14 +410,18 @@ export function ProfileView() {
 
               <TabsContent value="media" className="space-y-4">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {sessions.filter((session) => session.image_url).length > 0 ? (
+                  {sessions.filter((session) => session.image_url).length >
+                  0 ? (
                     sessions
                       .filter((session) => session.image_url)
                       .map((session) => (
                         <Link href={`/sessions/${session.id}`} key={session.id}>
                           <div className="aspect-square relative rounded-md overflow-hidden bg-muted hover:opacity-90 transition-opacity">
                             <img
-                              src={session.image_url || "/placeholder.svg?height=120&width=120"}
+                              src={
+                                session.image_url ||
+                                "/placeholder.svg?height=120&width=120"
+                              }
                               alt={`Session at ${session.beach?.name}`}
                               className="object-cover w-full h-full"
                             />
@@ -383,7 +432,9 @@ export function ProfileView() {
                     <div className="text-center py-8 text-muted-foreground col-span-full">
                       <p>You haven't uploaded any photos yet.</p>
                       <Button variant="link" asChild className="mt-2">
-                        <Link href="/log-session">Log a session with photos</Link>
+                        <Link href="/log-session">
+                          Log a session with photos
+                        </Link>
                       </Button>
                     </div>
                   )}
@@ -402,5 +453,5 @@ export function ProfileView() {
         onProfileUpdated={loadUserData}
       />
     </div>
-  )
+  );
 }

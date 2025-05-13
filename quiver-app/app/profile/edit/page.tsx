@@ -1,36 +1,46 @@
-import { EditProfileForm } from "@/components/edit-profile-form"
-import { getProfile } from "@/actions/profile-actions"
-import { createServerClient } from "@/lib/supabase"
-import { redirect } from "next/navigation"
+import { createServerClient } from "@/lib/supabase";
+import { redirect } from "next/navigation";
+import { getProfile } from "@/actions/profile-actions";
+import { getUserBoards } from "@/actions/board-actions";
+import { getUserSessions } from "@/actions/session-actions";
+import { getAllBeaches } from "@/actions/beach-actions";
+import { ProfileEditForm } from "@/components/profile/profile-edit-form";
 
 export default async function EditProfilePage() {
-  const supabase = createServerClient()
+  const supabase = createServerClient();
 
   // Get the current user
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/auth/sign-in")
+    redirect("/auth/sign-in");
   }
 
   // Get the user's profile
-  const { data: profile } = await getProfile(user.id)
+  const { data: profile } = await getProfile(user.id);
+
+  // Get the user's boards (quiver)
+  const { data: boards = [] } = await getUserBoards(user.id);
+
+  // Get the user's recent sessions (last 3)
+  const { data: allSessions = [] } = await getUserSessions(user.id);
+  const recentSessions = allSessions.slice(0, 3);
+
+  // Get all beaches for default beach preference
+  const { data: beaches = [] } = await getAllBeaches();
 
   return (
-    <div className="container max-w-2xl py-10">
-      <EditProfileForm
-        initialData={{
-          full_name: profile?.full_name || "",
-          bio: profile?.bio || "",
-          location: profile?.location || "",
-          experience_level: profile?.experience_level || "",
-          favorite_spot: profile?.favorite_spot || "",
-          instagram: profile?.instagram || "",
-          avatar_url: profile?.avatar_url || "",
-        }}
+    <div className="container py-10">
+      <ProfileEditForm
+        userId={user.id}
+        email={user.email || ""}
+        profile={profile}
+        boards={boards}
+        recentSessions={recentSessions}
+        beaches={beaches}
       />
     </div>
-  )
+  );
 }

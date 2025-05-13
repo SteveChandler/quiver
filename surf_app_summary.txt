@@ -1,0 +1,48 @@
+App Vision
+A community-driven surf app (like AllTrails but for surfers) where users can:
+
+Plan surf sessions
+
+Review beaches and conditions
+
+Upload photos/videos
+
+Log personal boards
+
+View real-time surf forecasts
+
+Tech Stack
+Frontend: Next.js (App Router), Tailwind CSS, Shadcn UI
+
+Backend/Database: Supabase (PostgreSQL, Auth, API)
+
+Media Storage: Firebase (for photos/videos)
+
+Core Features
+User Profiles: Auth, avatar, boards, session history
+
+Beach Directory: Map/list view, forecast data, reviews
+
+Surf Session Logging: Add beach, board, time, notes, conditions
+
+Media Uploads: Upload photos/videos to Firebase
+
+Community Reviews: Rate beaches, comment, view others’ media
+
+Personal Boards: Save and manage quiver (surfboards)
+
+Folder Structure
+A full surfing-app/ directory structure was created to organize pages under app/, with components, lib/ for Supabase and Firebase setup, and TypeScript types in types/.
+
+User Flow Wireframe
+You now have a visual wireframe showing:
+
+Home screen navigation
+
+Log surf session form
+
+Beach info + reviews
+
+Uploading media
+
+Viewing profiles, sessions, and boards
