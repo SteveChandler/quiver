@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd quiver-app && npm install && npm run build",
+  "outputDirectory": "quiver-app/.next",
+  "devCommand": "cd quiver-app && npm run dev",
+  "installCommand": "cd quiver-app && npm install",
+  "framework": "nextjs",
+  "rewrites": [{ "source": "/(.*)", "destination": "/quiver-app/$1" }]
+}

@@ -27,7 +27,7 @@ Surf Session Logging: Add beach, board, time, notes, conditions
 
 Media Uploads: Upload photos/videos to Firebase
 
-Community Reviews: Rate beaches, comment, view others’ media
+Community Reviews: Rate beaches, comment, view others' media
 
 Personal Boards: Save and manage quiver (surfboards)
 
