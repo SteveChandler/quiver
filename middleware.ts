@@ -36,8 +36,8 @@ export async function middleware(request: NextRequest) {
   );
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
   // Check auth condition
   const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
@@ -47,12 +47,12 @@ export async function middleware(request: NextRequest) {
 
   // If user is not signed in and the route is protected, redirect to sign in
   // Note: Profile page is handled by the component itself, so we don't redirect
-  if (!user && isProtectedRoute) {
+  if (!session?.user && isProtectedRoute) {
     return NextResponse.redirect(new URL("/auth/sign-in", request.url));
   }
 
   // If user is signed in and the route is auth, redirect to home
-  if (user && isAuthRoute) {
+  if (session?.user && isAuthRoute) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
