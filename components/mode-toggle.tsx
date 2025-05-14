@@ -15,14 +15,6 @@ import {
 export function ModeToggle() {
   const { setTheme, resolvedTheme } = useTheme();
 
-  // Ensure theme is properly set when the component mounts
-  React.useEffect(() => {
-    const root = window.document.documentElement;
-    // Force dark mode on initial load
-    root.classList.add("dark");
-    setTheme("dark");
-  }, [setTheme]);
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
