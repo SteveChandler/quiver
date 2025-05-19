@@ -19,14 +19,8 @@ export type Profile = {
 export type Beach = {
   id: string;
   name: string;
-  location: string;
-  latitude: number;
-  longitude: number;
-  description: string | null;
-  wave_quality_rating: number | null;
-  crowd_density_rating: number | null;
-  parking_rating: number | null;
-  accessibility_rating: number | null;
+  location?: { x: number; y: number }; // POINT type in PostgreSQL
+  description?: string;
   created_at: string;
   updated_at: string;
 };
@@ -35,33 +29,45 @@ export type Board = {
   id: string;
   user_id: string;
   name: string;
-  board_type: string;
-  dimensions: string;
-  description: string | null;
-  image_url: string | null;
-  session_count: number;
+  type: string;
+  length?: number;
+  width?: number;
+  thickness?: number;
+  volume?: number;
+  brand?: string;
+  model?: string;
   created_at: string;
   updated_at: string;
 };
 
+export type SessionStatus = "planned" | "completed" | "cancelled";
+
 export type Session = {
   id: string;
   user_id: string;
-  beach_id: string;
-  board_id: string | null;
+  beach_id?: string;
+  board_id?: string;
+  beach_name?: string;
+  status: SessionStatus;
   session_date: string;
-  session_time: string;
-  wave_height: string | null;
-  water_temp: string | null;
-  rating: number;
-  crowd_rating: number | null;
-  description: string | null;
-  image_url: string | null;
-  likes_count: number;
-  comments_count: number;
-  is_public: boolean;
+  start_time?: string;
+  end_time?: string;
+  duration_minutes?: number;
+  wave_quality?: number;
+  water_temp?: string;
+  crowd_level?: number;
+  parking_ease?: number;
+  notes?: string;
   created_at: string;
   updated_at: string;
+};
+
+export type SessionMedia = {
+  id: string;
+  session_id: string;
+  storage_path: string;
+  media_type: "image" | "video";
+  created_at: string;
 };
 
 export type Forecast = {
@@ -87,4 +93,35 @@ export type SessionWithDetails = Session & {
   beach: Beach;
   board: Board | null;
   user: Profile;
+};
+
+// Database schema with tables
+export type Database = {
+  public: {
+    Tables: {
+      beaches: {
+        Row: Beach;
+        Insert: Omit<Beach, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Beach, "id" | "created_at" | "updated_at">>;
+      };
+      boards: {
+        Row: Board;
+        Insert: Omit<Board, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Board, "id" | "created_at" | "updated_at">>;
+      };
+      sessions: {
+        Row: Session;
+        Insert: Omit<Session, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Session, "id" | "created_at" | "updated_at">>;
+      };
+      session_media: {
+        Row: SessionMedia;
+        Insert: Omit<SessionMedia, "id" | "created_at">;
+        Update: Partial<Omit<SessionMedia, "id" | "created_at">>;
+      };
+    };
+    Enums: {
+      session_status: SessionStatus;
+    };
+  };
 };

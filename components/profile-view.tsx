@@ -36,7 +36,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function ProfileView() {
-  const { user, signOut, isLoading: authLoading } = useAuth();
+  const { user, signOut, isLoading: authLoading, refreshSession } = useAuth();
   const router = useRouter();
   const [boards, setBoards] = useState<Board[]>([]);
   const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
@@ -48,6 +48,13 @@ export function ProfileView() {
 
   const handleSignOut = async () => {
     try {
+      // Use the API route to sign out (which will clear cookies)
+      await fetch("/api/auth/supabase", {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      // Also call signOut to update the local auth state
       await signOut();
       router.push("/auth/sign-in");
     } catch (error) {

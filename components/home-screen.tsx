@@ -144,7 +144,7 @@ export function HomeScreen() {
 
         {/* Quick Actions */}
         <section className="grid grid-cols-2 gap-4">
-          <Link href={user ? "/plan-session" : "/auth/sign-in"}>
+          <Link href="/plan-session">
             <Button
               className="h-auto py-4 flex flex-col items-center gap-2 w-full"
               variant="default"
@@ -153,7 +153,7 @@ export function HomeScreen() {
               <span>Plan Session</span>
             </Button>
           </Link>
-          <Link href={user ? "/log-session" : "/auth/sign-in"}>
+          <Link href="/log-session">
             <Button
               className="h-auto py-4 flex flex-col items-center gap-2 w-full"
               variant="outline"
