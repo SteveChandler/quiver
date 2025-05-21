@@ -1,8 +1,16 @@
-import { type NextRequest } from "next/server";
-import { middleware as supabaseMiddleware } from "@/lib/supabase/middleware";
+import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  return await supabaseMiddleware(request);
+  const response = NextResponse.next({ request: { headers: request.headers } });
+
+  // Handle Supabase cookies
+  for (const cookie of request.cookies.getAll()) {
+    if (cookie.name.includes("supabase")) {
+      response.cookies.set(cookie.name, cookie.value);
+    }
+  }
+
+  return response;
 }
 
 export const config = {
