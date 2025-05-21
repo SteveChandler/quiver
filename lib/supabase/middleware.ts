@@ -1,22 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function updateSession(request: NextRequest) {
-  // Create a response that copies all the request headers
-  const response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
-
-  // Pass cookies from request to response
-  const cookies = request.cookies.getAll();
-  for (const cookie of cookies) {
-    // Skip the Supabase cookie to avoid manipulation in Edge
+export async function middleware(request: NextRequest) {
+  const response = NextResponse.next({ request: { headers: request.headers } });
+  for (const cookie of request.cookies.getAll()) {
     if (cookie.name.includes("supabase")) {
       response.cookies.set(cookie.name, cookie.value);
     }
   }
-
   return response;
 }
 
