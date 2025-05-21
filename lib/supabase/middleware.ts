@@ -2,10 +2,17 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+  // This `try/catch` block is only here for the purposes of logging your environment variables.
+  //ٹھیس  Can be removed once you'veCONFIRM  these values are available.
+  try {
+    console.log(process.env.NEXT_PUBLIC_SUPABASE_URL!);
+    console.log(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  } catch (error) {
+    console.log({ error });
+  }
+
+  let supabaseResponse = NextResponse.next({
+    request,
   });
 
   const supabase = createServerClient(
@@ -17,34 +24,14 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
+          supabaseResponse.cookies.set({
             name,
             value,
             ...options,
           });
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
+          supabaseResponse.cookies.set({
             name,
             value: "",
             ...options,
@@ -54,9 +41,20 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Avoid writing any code between createServerClient and supabase.auth.getUser()
-  // Returning early from here may break Next.js an Supabase cookies management
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return response;
+  // NOTE: if you have a redirect here, it may be because of an issue with your RLS policies.
+  // Or your user is not logged in. I have added a console.log below so you can see if a user is found.
+  // console.log({ user })
+
+  // if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+  //   // no user, force log in
+  //   const url = request.nextUrl.clone()
+  //   url.pathname = '/login'
+  //   return NextResponse.redirect(url)
+  // }
+
+  return supabaseResponse;
 }
