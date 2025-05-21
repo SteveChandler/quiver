@@ -1,16 +1,25 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ProfileView } from "@/components/profile-view";
 import { useAuth } from "@/context/auth-context";
-import * as navigation from "next/navigation";
+import { renderWithAppRouter } from "../test-utils/test-utils";
+import { mockRouter, resetMockRouter } from "../test-utils/nextNavigation";
 
-// Mock router
-const mockPush = jest.fn();
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
-  usePathname: () => "/",
-}));
+// Mock next/navigation for direct access to router.push
+jest.mock("next/navigation", () => {
+  return {
+    useRouter: () => ({
+      push: mockRouter.push,
+      replace: mockRouter.replace,
+      prefetch: mockRouter.prefetch,
+      back: mockRouter.back,
+      forward: mockRouter.forward,
+    }),
+    usePathname: () => "/",
+    useSearchParams: () => ({
+      get: jest.fn(() => null),
+    }),
+  };
+});
 
 // Mock the modules
 jest.mock("@/context/auth-context");
@@ -54,7 +63,7 @@ jest.mock("lucide-react", () => ({
 describe("ProfileView Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPush.mockClear();
+    resetMockRouter();
   });
 
   it("shows loading state when auth is loading", () => {
@@ -63,6 +72,7 @@ describe("ProfileView Component", () => {
       user: null,
       isLoading: true,
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
 
     render(<ProfileView />);
@@ -71,27 +81,24 @@ describe("ProfileView Component", () => {
     expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
   });
 
-  it("shows authentication required message for unauthenticated users", () => {
+  it("redirects to sign in page for unauthenticated users", async () => {
     // Mock auth context with no user
     (useAuth as jest.Mock).mockReturnValue({
       user: null,
       isLoading: false,
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
 
     render(<ProfileView />);
 
-    // Should show authentication message
-    expect(screen.getByText("Authentication Required")).toBeInTheDocument();
-    expect(
-      screen.getByText("Please sign in to view and manage your profile.")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /sign in/i })
-    ).toBeInTheDocument();
+    // Router should call push to redirect
+    await waitFor(() => {
+      expect(mockRouter.push).toHaveBeenCalledWith("/auth/sign-in");
+    });
   });
 
-  it("renders profile page for authenticated users", () => {
+  it("renders profile page for authenticated users", async () => {
     // Mock user data
     const mockUser = {
       id: "test-user-id",
@@ -110,45 +117,12 @@ describe("ProfileView Component", () => {
       user: mockUser,
       isLoading: false,
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
     });
-
-    // Need to mock the server action calls
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: mockProfile,
-          }),
-        ok: true,
-      })
-    ) as jest.Mock;
 
     render(<ProfileView />);
 
     // Initially should show loading state
     expect(screen.getByRole("status")).toBeInTheDocument();
-
-    // After data loads, should show profile content
-    // Note: This is hard to test in this setup since we're mocking fetch
-    // In a real test we would use waitFor to wait for state updates
-  });
-
-  it("redirects to sign in page when sign in button is clicked", () => {
-    // Mock auth context with no user
-    (useAuth as jest.Mock).mockReturnValue({
-      user: null,
-      isLoading: false,
-      signOut: jest.fn(),
-    });
-
-    render(<ProfileView />);
-
-    // Click sign in button
-    const signInButton = screen.getByRole("button", { name: /sign in/i });
-    fireEvent.click(signInButton);
-
-    // Should redirect to sign in page
-    expect(mockPush).toHaveBeenCalledWith("/auth/sign-in");
   });
 });

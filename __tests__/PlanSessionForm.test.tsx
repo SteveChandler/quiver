@@ -1,41 +1,33 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PlanSessionForm } from "@/components/plan-session-form";
+import { renderWithAppRouter } from "../test-utils/test-utils";
+import {
+  mockUseSearchParams,
+  resetMockRouter,
+} from "../test-utils/nextNavigation";
 
 // Mock the ForecastCard component
 jest.mock("@/components/forecast-card", () => ({
   ForecastCard: () => <div data-testid="forecast-card">Forecast Card</div>,
 }));
 
-// Mock useSearchParams from next/navigation
-jest.mock("next/navigation", () => ({
-  ...jest.requireActual("next/navigation"),
-  useSearchParams: () => ({
-    get: jest.fn().mockImplementation((param) => {
-      if (param === "mode") return null;
-      return null;
-    }),
-  }),
+// Mock session actions
+jest.mock("@/actions/session-actions", () => ({
+  createPlannedSession: jest.fn(),
+  createLoggedSession: jest.fn(),
+  getUserBoards: jest.fn().mockResolvedValue([]),
+  getBeaches: jest.fn().mockResolvedValue([]),
 }));
-
-const mockUseSearchParams = (mode: string | null) => {
-  jest
-    .spyOn(require("next/navigation"), "useSearchParams")
-    .mockImplementation(() => ({
-      get: jest.fn().mockImplementation((param) => {
-        if (param === "mode") return mode;
-        return null;
-      }),
-    }));
-};
 
 describe("PlanSessionForm", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetMockRouter();
   });
 
   describe("Plan Mode", () => {
     it("renders the plan session form with title", () => {
-      render(<PlanSessionForm mode="plan" />);
+      renderWithAppRouter(<PlanSessionForm mode="plan" />);
 
       expect(
         screen.getByRole("heading", { name: /Plan Session/i })
@@ -46,7 +38,7 @@ describe("PlanSessionForm", () => {
     });
 
     it("renders the beach selection step as first step", () => {
-      render(<PlanSessionForm mode="plan" />);
+      renderWithAppRouter(<PlanSessionForm mode="plan" />);
 
       expect(
         screen.getByText(/Which beach are you heading to/i)
@@ -57,7 +49,7 @@ describe("PlanSessionForm", () => {
     });
 
     it("includes progression steps and next button", () => {
-      render(<PlanSessionForm mode="plan" />);
+      renderWithAppRouter(<PlanSessionForm mode="plan" />);
 
       // Check for progression steps
       const firstStep = screen.getByText("1");
@@ -69,7 +61,9 @@ describe("PlanSessionForm", () => {
     });
 
     it("has a form element", () => {
-      const { container } = render(<PlanSessionForm mode="plan" />);
+      const { container } = renderWithAppRouter(
+        <PlanSessionForm mode="plan" />
+      );
 
       // Find the form element directly
       const formElement = container.querySelector("form");
@@ -79,7 +73,7 @@ describe("PlanSessionForm", () => {
 
   describe("Log Mode", () => {
     it("renders the log session form with title", () => {
-      render(<PlanSessionForm mode="log" />);
+      renderWithAppRouter(<PlanSessionForm mode="log" />);
 
       expect(
         screen.getByRole("heading", { name: /Log Session/i })
@@ -90,7 +84,7 @@ describe("PlanSessionForm", () => {
     });
 
     it("renders the beach selection step as first step in log mode", () => {
-      render(<PlanSessionForm mode="log" />);
+      renderWithAppRouter(<PlanSessionForm mode="log" />);
 
       expect(
         screen.getByText(/Which beach are you heading to/i)
@@ -101,7 +95,7 @@ describe("PlanSessionForm", () => {
     });
 
     it("displays the correct number of steps based on mode", () => {
-      const { container } = render(<PlanSessionForm mode="log" />);
+      const { container } = renderWithAppRouter(<PlanSessionForm mode="log" />);
 
       // Log mode should have more steps than plan mode (5 steps shown in progress bar)
       const steps = container.querySelectorAll(".rounded-full.h-8.w-8");
@@ -112,7 +106,7 @@ describe("PlanSessionForm", () => {
   describe("Mode Detection", () => {
     it("uses the mode from props if searchParams is not specified", () => {
       mockUseSearchParams(null);
-      render(<PlanSessionForm mode="plan" />);
+      renderWithAppRouter(<PlanSessionForm mode="plan" />);
 
       expect(
         screen.getByRole("heading", { name: /Plan Session/i })
@@ -121,7 +115,7 @@ describe("PlanSessionForm", () => {
 
     it("uses mode from searchParams if specified", () => {
       mockUseSearchParams("log");
-      render(<PlanSessionForm mode="plan" />);
+      renderWithAppRouter(<PlanSessionForm mode="plan" />);
 
       expect(
         screen.getByRole("heading", { name: /Log Session/i })

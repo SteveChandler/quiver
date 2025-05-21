@@ -10,18 +10,35 @@ if (typeof TextDecoder === "undefined") {
   global.TextDecoder = require("util").TextDecoder;
 }
 
-// Mock next/navigation
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    replace: jest.fn(),
-    prefetch: jest.fn(),
+// Create a more robust mock for next/navigation
+jest.mock("next/navigation", () => {
+  const router = {
     back: jest.fn(),
     forward: jest.fn(),
-  }),
-  usePathname: () => "/",
-  useSearchParams: () => new URLSearchParams(),
-}));
+    prefetch: jest.fn(),
+    push: jest.fn(),
+    refresh: jest.fn(),
+    replace: jest.fn(),
+  };
+
+  return {
+    useRouter: () => router,
+    usePathname: () => "/",
+    useSearchParams: () => ({
+      get: jest.fn((param) => null),
+      getAll: jest.fn(() => []),
+      has: jest.fn(() => false),
+      forEach: jest.fn(),
+      entries: jest.fn(() => []),
+      keys: jest.fn(() => []),
+      values: jest.fn(() => []),
+      toString: jest.fn(() => ""),
+    }),
+    useParams: jest.fn(() => ({})),
+    useSelectedLayoutSegment: jest.fn(() => null),
+    useSelectedLayoutSegments: jest.fn(() => []),
+  };
+});
 
 // Mock next/image
 jest.mock("next/image", () => ({
