@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-// Specify that this middleware is compatible with the Edge Runtime
+// Switch to Node.js runtime
 export const config = {
-  runtime: "edge",
+  runtime: "nodejs",
 };
