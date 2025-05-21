@@ -78,10 +78,29 @@ export const createServerClient = () => {
     console.error("Server: Supabase URL or Service Key is missing");
   }
 
+  // Try to get cookies from Next.js if available
+  let cookieStore;
+  try {
+    // Dynamically import to prevent errors in client components
+    const { cookies } = require("next/headers");
+    cookieStore = cookies();
+  } catch (error) {
+    // Running outside of Next.js middleware/route handler context
+    cookieStore = null;
+  }
+
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+      // Add cookie support if available
+      ...(cookieStore && {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+        },
+      }),
     },
   });
 };

@@ -1,6 +1,6 @@
 "use server";
 
-import { createServerClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   Session,
   SessionWithDetails,
@@ -18,7 +18,7 @@ type SessionInput = Omit<
 type BoardInput = Omit<Board, "id" | "created_at" | "updated_at" | "user_id">;
 
 export async function getUserSessions(userId: string) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     const { data, error } = await supabase
@@ -53,7 +53,7 @@ export async function getUserSessionsByDateRange(
   startDate: string,
   endDate: string
 ) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     const { data, error } = await supabase
@@ -86,7 +86,7 @@ export async function getUserSessionsByDateRange(
 }
 
 export async function getSessionById(id: string, userId: string) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     const { data, error } = await supabase
@@ -117,7 +117,7 @@ export async function getSessionById(id: string, userId: string) {
 }
 
 export async function getPublicSessions(limit = 10) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     const { data, error } = await supabase
@@ -160,7 +160,7 @@ export async function createSession(
     | "updated_at"
   >
 ) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     const { data, error } = await supabase
@@ -219,7 +219,7 @@ export async function updateSession(
     >
   >
 ) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     // First, get the current session to check if board_id is changing
@@ -303,7 +303,7 @@ export async function updateSessionForm(
   id: string,
   data: Partial<SessionInput>
 ) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get the current user
   const {
@@ -334,7 +334,7 @@ export async function updateSessionForm(
 }
 
 export async function deleteSession(id: string, userId: string) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     // First, get the session to check if it has a board_id
@@ -390,7 +390,7 @@ export async function deleteSession(id: string, userId: string) {
  * Create a new planned surf session
  */
 export async function createPlannedSession(data: SessionInput) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get the current user
   const {
@@ -426,7 +426,7 @@ export async function createPlannedSession(data: SessionInput) {
  * Create a new logged (completed) surf session
  */
 export async function createLoggedSession(data: SessionInput) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get the current user
   const {
@@ -462,7 +462,7 @@ export async function createLoggedSession(data: SessionInput) {
  * Get all sessions for the current user
  */
 export async function getCurrentUserSessions() {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get the current user
   const {
@@ -500,7 +500,7 @@ export async function getCurrentUserSessions() {
  * Get all user's boards (quiver)
  */
 export async function getUserBoards() {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get the current user
   const {
@@ -523,14 +523,14 @@ export async function getUserBoards() {
     throw new Error("Failed to fetch boards");
   }
 
-  return boards;
+  return boards || []; // Return boards or an empty array if null/undefined
 }
 
 /**
  * Add a new board to user's quiver
  */
 export async function addBoard(data: BoardInput) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get the current user
   const {
@@ -565,7 +565,7 @@ export async function addBoard(data: BoardInput) {
  * Get all beaches (for selection in forms)
  */
 export async function getBeaches() {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get all beaches
   const { data: beaches, error } = await supabase
@@ -589,7 +589,7 @@ export async function uploadSessionMedia(
   file: File,
   mediaType: "image" | "video"
 ) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   // Get the current user
   const {
@@ -647,4 +647,32 @@ export async function uploadSessionMedia(
 
   revalidatePath(`/sessions/${sessionId}`);
   return media;
+}
+
+/**
+ * Get all sessions for the community tab
+ */
+export async function getAllSessions(limit = 20) {
+  const supabase = await createSupabaseServerClient();
+
+  // Get all sessions, ordered by date (newest first)
+  const { data: sessions, error } = await supabase
+    .from("sessions")
+    .select(
+      `
+      *,
+      beach:beaches(*),
+      board:boards(*),
+      user:profiles(*)
+    `
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("Error fetching community sessions:", error);
+    throw new Error("Failed to fetch community sessions");
+  }
+
+  return sessions;
 }

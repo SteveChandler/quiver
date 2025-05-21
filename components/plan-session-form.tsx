@@ -73,6 +73,25 @@ export function PlanSessionForm({ mode = "plan" }: PlanSessionFormProps) {
   const [beaches, setBeaches] = useState<Beach[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
+  const [navVisible, setNavVisible] = useState(false);
+  const [filteredBeaches, setFilteredBeaches] = useState<Beach[]>([]);
+  const [isBeachInputFocused, setIsBeachInputFocused] = useState(false);
+
+  // Remove any existing datalist elements to prevent browser autocomplete dropdown
+  useEffect(() => {
+    // Remove any existing datalist elements
+    const removeDatalist = () => {
+      const datalist = document.getElementById("beach-list");
+      if (datalist) {
+        datalist.remove();
+      }
+    };
+
+    // Call once on mount and before unmount to clean up
+    removeDatalist();
+    return () => removeDatalist();
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -100,6 +119,43 @@ export function PlanSessionForm({ mode = "plan" }: PlanSessionFormProps) {
       setBoardId(board.id);
     }
   }, [selectedBoard, boards]);
+
+  useEffect(() => {
+    // Add CSS to hide the bottom nav by default
+    const style = document.createElement("style");
+    style.innerHTML = `
+      nav[class*="bottom"], div[class*="bottom-nav"] {
+        visibility: hidden;
+        opacity: 0;
+        transition: visibility 0.2s, opacity 0.2s;
+      }
+      nav[class*="bottom"].visible, div[class*="bottom-nav"].visible {
+        visibility: visible;
+        opacity: 1;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Add click listener to show nav
+    const handleClick = () => {
+      const navElements = document.querySelectorAll(
+        'nav[class*="bottom"], div[class*="bottom-nav"]'
+      );
+      navElements.forEach((nav) => {
+        nav.classList.add("visible");
+        setTimeout(() => {
+          nav.classList.remove("visible");
+        }, 3000); // Hide after 3 seconds
+      });
+    };
+
+    document.addEventListener("click", handleClick);
+
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.head.removeChild(style);
+    };
+  }, []);
 
   const handleNext = () => {
     setStep(step + 1);
@@ -235,39 +291,107 @@ export function PlanSessionForm({ mode = "plan" }: PlanSessionFormProps) {
                     placeholder="Search or select from your favorites"
                     className="pl-9"
                     value={selectedBeach}
-                    onChange={(e) => setSelectedBeach(e.target.value)}
+                    onChange={(e) => {
+                      const input = e.target.value;
+                      setSelectedBeach(input);
+                      if (input.trim() === "") {
+                        setFilteredBeaches([]);
+                      } else {
+                        const filtered = beaches.filter((beach) =>
+                          beach.name.toLowerCase().includes(input.toLowerCase())
+                        );
+                        setFilteredBeaches(filtered);
+                      }
+                    }}
+                    onFocus={() => setIsBeachInputFocused(true)}
+                    onBlur={() => setIsBeachInputFocused(false)}
+                    role="combobox"
+                    aria-autocomplete="none"
                   />
                 </div>
               </div>
 
-              <h3 className="text-sm font-medium pt-2">Popular Beaches</h3>
+              {(() => {
+                const trimmedQuery = selectedBeach.trim();
+                let currentListTitle: string | null = null;
+                let currentBeachesToList: Beach[] = [];
 
-              <div className="space-y-2">
-                {beaches.slice(0, 3).map((beach) => (
-                  <Card
-                    key={beach.id}
-                    className={`cursor-pointer ${
-                      selectedBeach === beach.name ? "border-primary" : ""
-                    }`}
-                    onClick={() => setSelectedBeach(beach.name)}
-                  >
-                    <CardContent className="p-3 flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">{beach.name}</p>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <MapPin className="h-3 w-3 mr-1" />
-                          <span>{beach.description?.slice(0, 30)}</span>
-                        </div>
+                if (trimmedQuery) {
+                  currentBeachesToList = filteredBeaches;
+                  if (filteredBeaches.length > 0) {
+                    currentListTitle = "Matching Beaches";
+                  } else {
+                    currentListTitle = "No Matching Beaches";
+                  }
+                } else {
+                  // No query
+                  if (isBeachInputFocused) {
+                    // Focused and empty: show nothing
+                    currentListTitle = null;
+                    currentBeachesToList = [];
+                  } else {
+                    // Not focused and empty: show popular
+                    if (beaches.length > 0) {
+                      currentListTitle = "Popular Beaches";
+                      currentBeachesToList = beaches.slice(0, 3);
+                    } else {
+                      currentListTitle = null;
+                      currentBeachesToList = [];
+                    }
+                  }
+                }
+
+                return (
+                  <>
+                    {currentListTitle && (
+                      <h3 className="text-sm font-medium pt-2">
+                        {currentListTitle}
+                      </h3>
+                    )}
+                    {currentBeachesToList.length > 0 && (
+                      <div className="space-y-2">
+                        {currentBeachesToList.map((beach) => (
+                          <Card
+                            key={beach.id}
+                            className={`cursor-pointer ${
+                              selectedBeach === beach.name
+                                ? "border-primary"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              setSelectedBeach(beach.name);
+                              // Consider blurring the input to hide list immediately after selection:
+                              // const beachSearchInput = document.getElementById('beach-search') as HTMLInputElement | null;
+                              // beachSearchInput?.blur();
+                            }}
+                          >
+                            <CardContent className="p-3 flex justify-between items-center">
+                              <div>
+                                <p className="font-medium">{beach.name}</p>
+                                <div className="flex items-center text-sm text-muted-foreground">
+                                  <MapPin className="h-3 w-3 mr-1" />
+                                  <span>{beach.description?.slice(0, 30)}</span>
+                                </div>
+                              </div>
+                              {selectedBeach === beach.name && (
+                                <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                                  <Check className="h-4 w-4 text-primary-foreground" />
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
-                      {selectedBeach === beach.name && (
-                        <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="h-4 w-4 text-primary-foreground" />
-                        </div>
+                    )}
+                    {currentListTitle === "No Matching Beaches" &&
+                      currentBeachesToList.length === 0 && (
+                        <p className="text-sm text-muted-foreground pt-2">
+                          No beaches found matching your search.
+                        </p>
                       )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                  </>
+                );
+              })()}
 
               <div className="pt-4">
                 <Button

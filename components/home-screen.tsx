@@ -15,7 +15,7 @@ import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { getBeaches, getNearbyBeaches } from "@/actions/beach-actions";
 import { getBeachForecasts } from "@/actions/forecast-actions";
-import { getPublicSessions } from "@/actions/session-actions";
+import { getAllSessions } from "@/actions/session-actions";
 import type { Beach, Forecast, SessionWithDetails } from "@/types/database";
 
 // Ocean Beach, San Diego coordinates
@@ -87,10 +87,10 @@ export function HomeScreen() {
           setForecasts(forecastsData);
         }
 
-        // Fetch public sessions
-        const sessionsResult = await getPublicSessions(5);
-        if (sessionsResult.success && sessionsResult.data) {
-          setSessions(sessionsResult.data);
+        // Fetch all sessions for community tab
+        const communitySessions = await getAllSessions(10);
+        if (communitySessions) {
+          setSessions(communitySessions);
         }
       } catch (error) {
         console.error("Error loading data:", error);

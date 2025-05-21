@@ -53,6 +53,13 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
         const userBoards = await getUserBoards();
         setBoards(userBoards);
 
+        if (userBoards.length === 0) {
+          toast.info(
+            "You don't have any boards yet. Add a board to get started!"
+          );
+          // Later, we can implement a more interactive prompt here.
+        }
+
         const beachList = await getBeaches();
         setBeaches(beachList);
       } catch (error) {

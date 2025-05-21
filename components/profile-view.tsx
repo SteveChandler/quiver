@@ -130,18 +130,9 @@ export function ProfileView() {
 
   // If not authenticated, show a sign-in prompt instead of redirecting
   if (!user && !loading) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <Alert className="max-w-md mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Authentication Required</AlertTitle>
-          <AlertDescription>
-            Please sign in to view and manage your profile.
-          </AlertDescription>
-        </Alert>
-        <Button onClick={() => router.push("/auth/sign-in")}>Sign In</Button>
-      </div>
-    );
+    // Redirect to sign-in page
+    router.push("/auth/sign-in");
+    return null;
   }
 
   return (

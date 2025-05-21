@@ -5,15 +5,22 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Notes } from "lucide-react";
+import {
+  ClipboardList,
+  MapPin,
+  CalendarDays,
+  WavesIcon as Surfboard,
+  Timer,
+  Target,
+  Users,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { useSessionForm, SessionFormMode } from "@/hooks/use-session-form";
 import { SessionFormHeader } from "./SessionFormHeader";
-import { ProgressIndicator } from "./ProgressIndicator";
 import { LocationStep } from "./LocationStep";
 import { DateTimeStep } from "./DateTimeStep";
 import { EquipmentStep } from "./EquipmentStep";
-import { FormNavigation } from "./FormNavigation";
 
 import {
   createPlannedSession,
@@ -33,9 +40,6 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
   const {
     mode,
     setMode,
-    step,
-    nextStep,
-    prevStep,
     loading,
     setLoading,
     boards,
@@ -52,7 +56,8 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
 
   const isComplete = Boolean(formState.selectedBeach && formState.selectedDate);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
 
     try {
@@ -107,78 +112,149 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     }
   };
 
-  // Dynamic content based on current step
-  const renderStepContent = () => {
-    switch (step) {
-      case 1:
-        return (
-          <LocationStep
-            formState={formState}
-            beaches={beaches}
-            updateField={updateField}
-          />
-        );
-      case 2:
-        return <DateTimeStep formState={formState} updateField={updateField} />;
-      case 3:
-        return (
-          <EquipmentStep
-            formState={formState}
-            boards={boards}
-            updateField={updateField}
-          />
-        );
-      case 4:
-        return (
-          <Card className="mb-4">
-            <CardContent className="pt-6">
-              <div className="flex items-center mb-4">
-                <Notes className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Additional Notes</h2>
-              </div>
-              <Textarea
-                placeholder="Any notes about this session..."
-                className="min-h-24"
-                value={formState.notes}
-                onChange={(e) => updateField("notes", e.target.value)}
-              />
-            </CardContent>
-          </Card>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const totalSteps = isPlanning ? 4 : 10;
-
   return (
     <div className="flex-1 flex flex-col">
       <SessionFormHeader mode={mode} />
-      <ProgressIndicator currentStep={step} mode={mode} />
 
       <div className="container flex-1 px-4">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (step === totalSteps) {
-              handleSubmit();
-            } else {
-              nextStep();
-            }
-          }}
-        >
-          {renderStepContent()}
+        <form onSubmit={handleSubmit}>
+          {/* Location Section */}
+          <Card className="mb-4">
+            <CardContent className="pt-6">
+              <div className="flex items-center mb-4">
+                <MapPin className="w-5 h-5 mr-2 text-primary" />
+                <h2 className="text-lg font-medium">Where</h2>
+              </div>
+              <LocationStep
+                formState={formState}
+                beaches={beaches}
+                updateField={updateField}
+              />
+            </CardContent>
+          </Card>
 
-          <FormNavigation
-            step={step}
-            totalSteps={totalSteps}
-            loading={loading}
-            onBack={prevStep}
-            onNext={nextStep}
-            onSubmit={handleSubmit}
-            isComplete={isComplete}
-          />
+          {/* Date/Time Section */}
+          <Card className="mb-4">
+            <CardContent className="pt-6">
+              <div className="flex items-center mb-4">
+                <CalendarDays className="w-5 h-5 mr-2 text-primary" />
+                <h2 className="text-lg font-medium">When</h2>
+              </div>
+              <DateTimeStep formState={formState} updateField={updateField} />
+            </CardContent>
+          </Card>
+
+          {/* Equipment Section */}
+          <Card className="mb-4">
+            <CardContent className="pt-6">
+              <div className="flex items-center mb-4">
+                <Surfboard className="w-5 h-5 mr-2 text-primary" />
+                <h2 className="text-lg font-medium">Board</h2>
+              </div>
+              <EquipmentStep
+                formState={formState}
+                boards={boards}
+                updateField={updateField}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Duration Section */}
+          <Card className="mb-4">
+            <CardContent className="pt-6">
+              <div className="flex items-center mb-4">
+                <Timer className="w-5 h-5 mr-2 text-primary" />
+                <h2 className="text-lg font-medium">Duration</h2>
+              </div>
+              <div className="space-y-4">
+                <input
+                  type="number"
+                  min={15}
+                  step={15}
+                  className="border rounded p-2 w-24"
+                  value={formState.duration ? parseInt(formState.duration) : 60}
+                  onChange={(e) =>
+                    updateField("duration", `${e.target.value}m`)
+                  }
+                />{" "}
+                minutes
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Goal Section */}
+          <Card className="mb-4">
+            <CardContent className="pt-6">
+              <div className="flex items-center mb-4">
+                <Target className="w-5 h-5 mr-2 text-primary" />
+                <h2 className="text-lg font-medium">Goal</h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {["Pop-ups", "Tube Riding", "Cutbacks", "Duck Dives"].map(
+                  (goal) => (
+                    <Button
+                      key={goal}
+                      type="button"
+                      variant={
+                        formState.notes?.includes(goal) ? "default" : "outline"
+                      }
+                      size="sm"
+                      onClick={() => {
+                        const currentNotes = formState.notes || "";
+                        if (currentNotes.includes(goal)) {
+                          updateField(
+                            "notes",
+                            currentNotes.replace(goal, "").trim()
+                          );
+                        } else {
+                          updateField(
+                            "notes",
+                            currentNotes ? `${currentNotes}, ${goal}` : goal
+                          );
+                        }
+                      }}
+                    >
+                      {goal}
+                    </Button>
+                  )
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notes & Invite Section */}
+          <Card className="mb-4">
+            <CardContent className="pt-6">
+              <div className="flex items-center mb-4">
+                <ClipboardList className="w-5 h-5 mr-2 text-primary" />
+                <h2 className="text-lg font-medium">Notes & Invite</h2>
+              </div>
+              <Textarea
+                placeholder="Any notes about this session..."
+                className="min-h-24 mb-4"
+                value={formState.notes}
+                onChange={(e) => updateField("notes", e.target.value)}
+              />
+              <div>
+                <input
+                  type="text"
+                  className="border rounded p-2 w-full"
+                  placeholder="Invite friends by email (comma-separated)"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Save Button */}
+          <div className="flex justify-center mt-6 mb-6">
+            <Button
+              type="submit"
+              disabled={loading || !isComplete}
+              className="w-full"
+            >
+              {loading ? "Saving..." : "Save"}
+            </Button>
+          </div>
         </form>
       </div>
     </div>

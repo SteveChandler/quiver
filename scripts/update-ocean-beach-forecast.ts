@@ -1,10 +1,10 @@
 import { createServerClient } from "@/lib/supabase";
 import { fetchForecastData, updateForecasts } from "@/lib/forecast-api";
-import dotenv from "dotenv";
+// import dotenv from "dotenv";
 import type { Beach } from "@/types/database";
 
 // Load environment variables from .env file
-dotenv.config();
+// dotenv.config();
 
 // Ocean Beach, San Diego coordinates
 const OCEAN_BEACH_LAT = 32.7503;
