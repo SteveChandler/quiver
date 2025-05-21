@@ -1,42 +1,26 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
+  // Create a response that copies all the request headers
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
-  try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get: (name: string) => request.cookies.get(name)?.value,
-          set: (name: string, value: string, options: CookieOptions) => {
-            response.cookies.set({
-              name,
-              value,
-              ...options,
-            });
-          },
-          remove: (name: string, options: CookieOptions) => {
-            response.cookies.set({
-              name,
-              value: "",
-              ...options,
-            });
-          },
-        },
-      }
-    );
-
-    await supabase.auth.getSession();
-  } catch (error) {
-    console.error("Error in Supabase middleware:", error);
+  // Pass cookies from request to response
+  const cookies = request.cookies.getAll();
+  for (const cookie of cookies) {
+    // Skip the Supabase cookie to avoid manipulation in Edge
+    if (cookie.name.includes("supabase")) {
+      response.cookies.set(cookie.name, cookie.value);
+    }
   }
 
   return response;
 }
+
+// Specify that this middleware is compatible with the Edge Runtime
+export const config = {
+  runtime: "edge",
+};
