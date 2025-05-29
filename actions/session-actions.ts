@@ -1,6 +1,8 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase";
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import type {
   Session,
   SessionWithDetails,
@@ -8,17 +10,20 @@ import type {
   Beach,
   SessionMedia,
 } from "@/types/database";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 type SessionInput = Omit<
   Session,
-  "id" | "created_at" | "updated_at" | "user_id"
+  "id" | "created_at" | "updated_at" | "profile_id"
 >;
 type BoardInput = Omit<Board, "id" | "created_at" | "updated_at" | "user_id">;
 
+// Wrapper to maintain previous API signature used throughout this file
+function createServerActionClient(_opts: { cookies: typeof cookies }) {
+  return createServerClient();
+}
+
 export async function getUserSessions(userId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   try {
     const { data, error } = await supabase
@@ -30,9 +35,8 @@ export async function getUserSessions(userId: string) {
         board:boards(*)
       `
       )
-      .eq("user_id", userId)
-      .order("session_date", { ascending: false })
-      .order("session_time", { ascending: false });
+      .eq("profile_id", userId)
+      .order("arrival_time", { ascending: false });
 
     if (error) {
       throw error;
@@ -53,7 +57,7 @@ export async function getUserSessionsByDateRange(
   startDate: string,
   endDate: string
 ) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   try {
     const { data, error } = await supabase
@@ -65,11 +69,10 @@ export async function getUserSessionsByDateRange(
         board:boards(*)
       `
       )
-      .eq("user_id", userId)
-      .gte("session_date", startDate)
-      .lte("session_date", endDate)
-      .order("session_date", { ascending: true })
-      .order("session_time", { ascending: true });
+      .eq("profile_id", userId)
+      .gte("arrival_time", startDate)
+      .lte("arrival_time", endDate)
+      .order("arrival_time", { ascending: true });
 
     if (error) {
       throw error;
@@ -86,7 +89,7 @@ export async function getUserSessionsByDateRange(
 }
 
 export async function getSessionById(id: string, userId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   try {
     const { data, error } = await supabase
@@ -99,7 +102,7 @@ export async function getSessionById(id: string, userId: string) {
       `
       )
       .eq("id", id)
-      .eq("user_id", userId)
+      .eq("profile_id", userId)
       .single();
 
     if (error) {
@@ -117,7 +120,7 @@ export async function getSessionById(id: string, userId: string) {
 }
 
 export async function getPublicSessions(limit = 10) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   try {
     const { data, error } = await supabase
@@ -153,21 +156,40 @@ export async function createSession(
   sessionData: Omit<
     Session,
     | "id"
-    | "user_id"
+    | "profile_id"
     | "likes_count"
     | "comments_count"
     | "created_at"
     | "updated_at"
   >
 ) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   try {
+    // Convert session_date and start_time to arrival_time if they exist
+    let finalData: any = { ...sessionData };
+
+    if (sessionData.session_date) {
+      const sessionDate = sessionData.session_date;
+      const startTime = sessionData.start_time || "00:00:00"; // Default to midnight if no time specified
+
+      // Combine date and time into a single timestamp
+      const arrivalTime = new Date(`${sessionDate}T${startTime}`);
+
+      // Remove fields that don't exist in the database
+      const { session_date, start_time, end_time, ...restData } = finalData;
+
+      finalData = {
+        ...restData,
+        arrival_time: arrivalTime.toISOString(),
+      };
+    }
+
     const { data, error } = await supabase
       .from("sessions")
       .insert({
-        user_id: userId,
-        ...sessionData,
+        profile_id: userId,
+        ...finalData,
         likes_count: 0,
         comments_count: 0,
       })
@@ -211,7 +233,7 @@ export async function updateSession(
     Omit<
       Session,
       | "id"
-      | "user_id"
+      | "profile_id"
       | "likes_count"
       | "comments_count"
       | "created_at"
@@ -219,7 +241,7 @@ export async function updateSession(
     >
   >
 ) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   try {
     // First, get the current session to check if board_id is changing
@@ -227,22 +249,41 @@ export async function updateSession(
       .from("sessions")
       .select("board_id")
       .eq("id", id)
-      .eq("user_id", userId)
+      .eq("profile_id", userId)
       .single();
 
     if (fetchError) {
       throw fetchError;
     }
 
+    // Convert session_date and start_time to arrival_time if they exist
+    let finalData: any = { ...sessionData };
+
+    if (sessionData.session_date) {
+      const sessionDate = sessionData.session_date;
+      const startTime = sessionData.start_time || "00:00:00"; // Default to midnight if no time specified
+
+      // Combine date and time into a single timestamp
+      const arrivalTime = new Date(`${sessionDate}T${startTime}`);
+
+      // Remove fields that don't exist in the database
+      const { session_date, start_time, end_time, ...restData } = finalData;
+
+      finalData = {
+        ...restData,
+        arrival_time: arrivalTime.toISOString(),
+      };
+    }
+
     // Update the session
     const { data, error } = await supabase
       .from("sessions")
       .update({
-        ...sessionData,
+        ...finalData,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .eq("user_id", userId)
+      .eq("profile_id", userId)
       .select()
       .single();
 
@@ -303,7 +344,7 @@ export async function updateSessionForm(
   id: string,
   data: Partial<SessionInput>
 ) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   // Get the current user
   const {
@@ -315,12 +356,31 @@ export async function updateSessionForm(
     throw new Error("Authentication required");
   }
 
+  // Convert session_date and start_time to arrival_time if they exist
+  let finalData: any = { ...data };
+
+  if (data.session_date) {
+    const sessionDate = data.session_date;
+    const startTime = data.start_time || "00:00:00"; // Default to midnight if no time specified
+
+    // Combine date and time into a single timestamp
+    const arrivalTime = new Date(`${sessionDate}T${startTime}`);
+
+    // Remove fields that don't exist in the database
+    const { session_date, start_time, end_time, ...restData } = finalData;
+
+    finalData = {
+      ...restData,
+      arrival_time: arrivalTime.toISOString(),
+    };
+  }
+
   // Update the session
   const { data: session, error } = await supabase
     .from("sessions")
-    .update(data)
+    .update(finalData)
     .eq("id", id)
-    .eq("user_id", user.id) // Make sure user owns this session
+    .eq("profile_id", user.id) // Make sure user owns this session
     .select()
     .single();
 
@@ -334,7 +394,7 @@ export async function updateSessionForm(
 }
 
 export async function deleteSession(id: string, userId: string) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   try {
     // First, get the session to check if it has a board_id
@@ -342,7 +402,7 @@ export async function deleteSession(id: string, userId: string) {
       .from("sessions")
       .select("board_id")
       .eq("id", id)
-      .eq("user_id", userId)
+      .eq("profile_id", userId)
       .single();
 
     if (fetchError) {
@@ -354,7 +414,7 @@ export async function deleteSession(id: string, userId: string) {
       .from("sessions")
       .delete()
       .eq("id", id)
-      .eq("user_id", userId);
+      .eq("profile_id", userId);
 
     if (error) {
       throw error;
@@ -390,79 +450,152 @@ export async function deleteSession(id: string, userId: string) {
  * Create a new planned surf session
  */
 export async function createPlannedSession(data: SessionInput) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  try {
+    // Get the current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    throw new Error("Authentication required");
+    if (userError) {
+      console.error("Auth error in createPlannedSession:", userError);
+      throw new Error("Authentication error: " + userError.message);
+    }
+
+    if (!user) {
+      console.error("No user found in createPlannedSession");
+      throw new Error("Authentication required - No user found");
+    }
+
+    // Ensure a beach has been selected (beach_id is mandatory)
+    if (!data.beach_id) {
+      throw new Error("Please select a beach before planning a session");
+    }
+
+    // Validate session_date as well
+    if (!data.session_date) {
+      throw new Error("Session date is required");
+    }
+
+    // Clean up data by removing undefined values
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(
+        ([_, v]) => v !== undefined && v !== "$undefined"
+      )
+    );
+
+    // Convert session_date and start_time to arrival_time timestamp
+    const sessionDate = data.session_date;
+    const startTime = data.start_time || "00:00:00"; // Default to midnight if no time specified
+
+    // Combine date and time into a single timestamp
+    const arrivalTime = new Date(`${sessionDate}T${startTime}`);
+
+    // Remove the separate date and time fields that don't exist in the database
+    const { session_date, start_time, end_time, ...restData } = cleanData;
+
+    // Create the session with planned status
+    const { data: session, error } = await supabase
+      .from("sessions")
+      .insert({
+        ...restData,
+        profile_id: user.id,
+        status: "planned",
+        arrival_time: arrivalTime.toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating planned session:", error);
+      throw new Error("Failed to create planned session: " + error.message);
+    }
+
+    revalidatePath("/dashboard");
+    return session;
+  } catch (error) {
+    console.error("Uncaught error in createPlannedSession:", error);
+    throw error; // Re-throw to let the client handle it
   }
-
-  // Create the session with planned status
-  const { data: session, error } = await supabase
-    .from("sessions")
-    .insert({
-      ...data,
-      user_id: user.id,
-      status: "planned",
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating planned session:", error);
-    throw new Error("Failed to create planned session");
-  }
-
-  revalidatePath("/dashboard");
-  return session;
 }
 
 /**
  * Create a new logged (completed) surf session
  */
 export async function createLoggedSession(data: SessionInput) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  try {
+    // Get the current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    throw new Error("Authentication required");
+    if (userError) {
+      console.error("Auth error in createLoggedSession:", userError);
+      throw new Error("Authentication required: " + userError.message);
+    }
+
+    if (!user) {
+      console.error("No user found in createLoggedSession");
+      throw new Error("Authentication required - No user found");
+    }
+
+    // Validate required fields
+    if (!data.beach_name || !data.session_date) {
+      throw new Error("Beach name and session date are required");
+    }
+
+    // Clean up data by removing undefined values
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(
+        ([_, v]) => v !== undefined && v !== "$undefined"
+      )
+    );
+
+    // Convert session_date and start_time to arrival_time timestamp
+    const sessionDate = data.session_date;
+    const startTime = data.start_time || "00:00:00"; // Default to midnight if no time specified
+
+    // Combine date and time into a single timestamp
+    const arrivalTime = new Date(`${sessionDate}T${startTime}`);
+
+    // Remove the separate date and time fields that don't exist in the database
+    const { session_date, start_time, end_time, ...restData } = cleanData;
+
+    // Create the session with completed status
+    const { data: session, error } = await supabase
+      .from("sessions")
+      .insert({
+        ...restData,
+        profile_id: user.id,
+        status: "completed",
+        arrival_time: arrivalTime.toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating logged session:", error);
+      throw new Error("Failed to create logged session: " + error.message);
+    }
+
+    revalidatePath("/dashboard");
+    return session;
+  } catch (error) {
+    console.error("Uncaught error in createLoggedSession:", error);
+    throw error; // Re-throw to let the client handle it
   }
-
-  // Create the session with completed status
-  const { data: session, error } = await supabase
-    .from("sessions")
-    .insert({
-      ...data,
-      user_id: user.id,
-      status: "completed",
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating logged session:", error);
-    throw new Error("Failed to create logged session");
-  }
-
-  revalidatePath("/dashboard");
-  return session;
 }
 
 /**
  * Get all sessions for the current user
  */
 export async function getCurrentUserSessions() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   // Get the current user
   const {
@@ -485,8 +618,8 @@ export async function getCurrentUserSessions() {
       media:session_media(*)
     `
     )
-    .eq("user_id", user.id)
-    .order("session_date", { ascending: false });
+    .eq("profile_id", user.id)
+    .order("arrival_time", { ascending: false });
 
   if (error) {
     console.error("Error fetching sessions:", error);
@@ -500,7 +633,7 @@ export async function getCurrentUserSessions() {
  * Get all user's boards (quiver)
  */
 export async function getUserBoards() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   // Get the current user
   const {
@@ -530,7 +663,7 @@ export async function getUserBoards() {
  * Add a new board to user's quiver
  */
 export async function addBoard(data: BoardInput) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   // Get the current user
   const {
@@ -565,7 +698,7 @@ export async function addBoard(data: BoardInput) {
  * Get all beaches (for selection in forms)
  */
 export async function getBeaches() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   // Get all beaches
   const { data: beaches, error } = await supabase
@@ -589,7 +722,7 @@ export async function uploadSessionMedia(
   file: File,
   mediaType: "image" | "video"
 ) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   // Get the current user
   const {
@@ -606,7 +739,7 @@ export async function uploadSessionMedia(
     .from("sessions")
     .select("id")
     .eq("id", sessionId)
-    .eq("user_id", user.id)
+    .eq("profile_id", user.id)
     .single();
 
   if (sessionError || !session) {
@@ -653,7 +786,7 @@ export async function uploadSessionMedia(
  * Get all sessions for the community tab
  */
 export async function getAllSessions(limit = 20) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createServerActionClient({ cookies });
 
   // Get all sessions, ordered by date (newest first)
   const { data: sessions, error } = await supabase
