@@ -19,8 +19,14 @@ export type Profile = {
 export type Beach = {
   id: string;
   name: string;
-  location?: { x: number; y: number }; // POINT type in PostgreSQL
+  location?: string; // location as text
+  latitude: number;
+  longitude: number;
   description?: string;
+  wave_quality_rating?: number;
+  crowd_density_rating?: number;
+  parking_rating?: number;
+  accessibility_rating?: number;
   created_at: string;
   updated_at: string;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { ForecastCard } from "@/components/forecast-card";
  * Beach search component that utilizes both the new API and existing components
  */
 export function BeachSearch() {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState("Ocean Beach");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [beachData, setBeachData] = useState<{
@@ -20,20 +20,14 @@ export function BeachSearch() {
     forecast: any;
   } | null>(null);
 
-  // Handle search submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!query.trim()) {
-      return;
-    }
-
+  // Fetch beach data
+  const fetchBeachData = async (beachName: string) => {
     setLoading(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `/api/surf?beach=${encodeURIComponent(query)}`
+        `/api/surf?beach=${encodeURIComponent(beachName)}`
       );
 
       const data = await response.json();
@@ -49,6 +43,22 @@ export function BeachSearch() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch Ocean Beach forecast on mount
+  useEffect(() => {
+    fetchBeachData("Ocean Beach");
+  }, []);
+
+  // Handle search submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!query.trim()) {
+      return;
+    }
+
+    await fetchBeachData(query);
   };
 
   return (

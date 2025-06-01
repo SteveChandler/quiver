@@ -59,9 +59,21 @@ export function resolveBeach(input: string | Coordinates): Beach {
       };
     }
 
-    // Fuzzy match - find closest matching beach name
-    const matches = beachNames.filter((name) => name.includes(normalizedName));
+    // Fuzzy match - find beaches where either:
+    // 1. The beach name is contained in the search term (e.g., "Ocean Beach, San Diego" contains "ocean beach")
+    // 2. The search term is contained in the beach name
+    const matches = beachNames.filter((name) => {
+      return normalizedName.includes(name) || name.includes(normalizedName);
+    });
+
     if (matches.length > 0) {
+      // Sort by best match (exact match first, then by length)
+      matches.sort((a, b) => {
+        if (a === normalizedName) return -1;
+        if (b === normalizedName) return 1;
+        return a.length - b.length;
+      });
+
       const match = matches[0];
       return {
         name: match,
@@ -173,10 +185,26 @@ export async function getSurfForecast({
 
       if (matchingBeaches.length === 0) {
         // Try to resolve using our static beach list as fallback
-        const resolvedBeach = resolveBeach(beach);
-        beachName = resolvedBeach.name;
-        coordinates = { lat: resolvedBeach.lat, lng: resolvedBeach.lng };
-        forecast = await fetchForecast(coordinates.lat, coordinates.lng);
+        try {
+          const resolvedBeach = resolveBeach(beach);
+          beachName = resolvedBeach.name;
+          coordinates = { lat: resolvedBeach.lat, lng: resolvedBeach.lng };
+          forecast = await fetchForecast(coordinates.lat, coordinates.lng);
+        } catch (staticError) {
+          // Provide more helpful error message
+          const availableBeaches = allBeachesResult.data
+            .map((b) => b.name)
+            .slice(0, 10) // Show first 10 beaches
+            .join(", ");
+
+          throw new Error(
+            `Beach "${beach}" not found in database. Available beaches include: ${availableBeaches}${
+              allBeachesResult.data.length > 10
+                ? `, and ${allBeachesResult.data.length - 10} more`
+                : ""
+            }. Also tried static beach list but failed: ${staticError.message}`
+          );
+        }
       } else {
         // Use the first match from the database
         const matchedBeach = matchingBeaches[0];
