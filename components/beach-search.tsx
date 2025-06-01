@@ -52,7 +52,7 @@ export function BeachSearch() {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full">
       <CardContent className="p-6">
         <h2 className="text-xl font-bold mb-4">Search Beach Forecast</h2>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { ForecastCard } from "@/components/forecast-card";
@@ -22,6 +23,13 @@ import type { Beach, Forecast, SessionWithDetails } from "@/types/database";
 const OCEAN_BEACH_LAT = 32.7503;
 const OCEAN_BEACH_LNG = -117.2534;
 
+// Cache keys and expiration time (30 minutes)
+const CACHE_KEYS = {
+  OCEAN_BEACH_FORECAST: "oceanBeachForecast",
+  OCEAN_BEACH_TIMESTAMP: "oceanBeachTimestamp",
+};
+const CACHE_EXPIRATION_MS = 30 * 60 * 1000; // 30 minutes
+
 export function HomeScreen() {
   const [activeTab, setActiveTab] = useState("forecast");
   const { user, isLoading: authLoading } = useAuth();
@@ -32,14 +40,75 @@ export function HomeScreen() {
   const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForecastPrompt, setShowForecastPrompt] = useState(false);
-  const [showBeachSearch, setShowBeachSearch] = useState(true);
+  const [showBeachSearch, setShowBeachSearch] = useState(false);
   const [oceanBeach, setOceanBeach] = useState<Beach | null>(null);
+  const [oceanBeachForecastData, setOceanBeachForecastData] =
+    useState<any>(null);
+  const [loadingOceanBeach, setLoadingOceanBeach] = useState(true);
 
   // Get user initials for avatar fallback
   const getInitials = () => {
     if (!user?.email) return "G";
     return user.email.charAt(0).toUpperCase();
   };
+
+  // Check if cached data is still valid
+  const isCacheValid = () => {
+    const timestamp = localStorage.getItem(CACHE_KEYS.OCEAN_BEACH_TIMESTAMP);
+    if (!timestamp) return false;
+
+    const cacheTime = parseInt(timestamp);
+    const currentTime = Date.now();
+    return currentTime - cacheTime < CACHE_EXPIRATION_MS;
+  };
+
+  // Load Ocean Beach forecast from cache or API
+  const loadOceanBeachForecast = async () => {
+    setLoadingOceanBeach(true);
+
+    // Check cache first
+    if (isCacheValid()) {
+      const cachedData = localStorage.getItem(CACHE_KEYS.OCEAN_BEACH_FORECAST);
+      if (cachedData) {
+        try {
+          const parsedData = JSON.parse(cachedData);
+          setOceanBeachForecastData(parsedData);
+          setLoadingOceanBeach(false);
+          return;
+        } catch (error) {
+          console.error("Error parsing cached data:", error);
+        }
+      }
+    }
+
+    // Fetch fresh data
+    try {
+      const response = await fetch("/api/surf?beach=Ocean Beach, San Diego");
+      if (response.ok) {
+        const data = await response.json();
+        setOceanBeachForecastData(data);
+
+        // Cache the data
+        localStorage.setItem(
+          CACHE_KEYS.OCEAN_BEACH_FORECAST,
+          JSON.stringify(data)
+        );
+        localStorage.setItem(
+          CACHE_KEYS.OCEAN_BEACH_TIMESTAMP,
+          Date.now().toString()
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching Ocean Beach forecast:", error);
+    } finally {
+      setLoadingOceanBeach(false);
+    }
+  };
+
+  // Load Ocean Beach forecast immediately when component mounts
+  useEffect(() => {
+    loadOceanBeachForecast();
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -52,10 +121,8 @@ export function HomeScreen() {
           setBeaches(beachesResult.data);
 
           // Find Ocean Beach
-          const oceanBeachData = beachesResult.data.find(
-            (beach) =>
-              beach.name.toLowerCase().includes("ocean beach") &&
-              beach.location.toLowerCase().includes("san diego")
+          const oceanBeachData = beachesResult.data.find((beach) =>
+            beach.name.toLowerCase().includes("ocean beach")
           );
 
           if (oceanBeachData) {
@@ -143,7 +210,7 @@ export function HomeScreen() {
         </section>
 
         {/* Quick Actions */}
-        <section className="grid grid-cols-2 gap-4">
+        <section className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
           <Link href="/plan-session">
             <Button
               className="h-auto py-4 flex flex-col items-center gap-2 w-full"
@@ -170,7 +237,7 @@ export function HomeScreen() {
           className="space-y-4"
           onValueChange={(value) => setActiveTab(value)}
         >
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className="grid grid-cols-3 w-full max-w-2xl mx-auto ">
             <TabsTrigger value="forecast">Forecast</TabsTrigger>
             <TabsTrigger value="nearby">Nearby</TabsTrigger>
             <TabsTrigger value="community">Community</TabsTrigger>
@@ -178,192 +245,171 @@ export function HomeScreen() {
 
           <TabsContent value="forecast" className="space-y-4">
             {/* Search methods selection */}
-            <div className="flex space-x-2 mb-4">
-              <Button
-                variant={showBeachSearch ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setShowBeachSearch(true);
-                  setShowForecastPrompt(false);
-                }}
-              >
-                Quick Search
-              </Button>
-              <Button
-                variant={showForecastPrompt ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setShowForecastPrompt(true);
-                  setShowBeachSearch(false);
-                }}
-              >
-                Advanced Search
-              </Button>
+            <div className="max-w-2xl mx-auto">
+              <div className="flex justify-center space-x-2 mb-4">
+                <Button
+                  variant={showBeachSearch ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setShowBeachSearch(true);
+                    setShowForecastPrompt(false);
+                  }}
+                >
+                  Quick Search
+                </Button>
+                <Button
+                  variant={showForecastPrompt ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setShowForecastPrompt(true);
+                    setShowBeachSearch(false);
+                  }}
+                >
+                  Advanced Search
+                </Button>
+              </div>
             </div>
 
-            {showBeachSearch && <BeachSearch />}
+            {/* Display Ocean Beach forecast by default */}
+            {!showBeachSearch && !showForecastPrompt && (
+              <div className="max-w-2xl mx-auto ">
+                <h3 className="text-lg font-semibold mb-4">
+                  Search Beach Forecast
+                </h3>
 
-            {showForecastPrompt && <ForecastPrompt />}
-
-            {!showBeachSearch && !showForecastPrompt && loading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : !showBeachSearch &&
-              !showForecastPrompt &&
-              beaches.length > 0 &&
-              Object.keys(forecasts).length > 0 ? (
-              <>
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Top Beaches</h3>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowBeachSearch(true)}
-                    >
-                      Quick Search
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowForecastPrompt(true)}
-                    >
-                      Advanced Search
-                    </Button>
+                {loadingOceanBeach ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
-                </div>
-
-                {/* Show Ocean Beach first if we have it */}
-                {oceanBeach &&
-                  forecasts[oceanBeach.id] &&
-                  forecasts[oceanBeach.id].length > 0 && (
-                    <div className="mb-2">
-                      <div className="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded-md mb-2">
-                        Default Location: Ocean Beach, San Diego
-                      </div>
-                      <ForecastCard
-                        key={oceanBeach.id}
-                        beachName={oceanBeach.name}
-                        waveHeight={forecasts[oceanBeach.id][0].wave_height}
-                        waterTemp={forecasts[oceanBeach.id][0].water_temp}
-                        windSpeed={forecasts[oceanBeach.id][0].wind_speed}
-                        tide={forecasts[oceanBeach.id][0].tide || "Unknown"}
-                        time={new Date(
-                          forecasts[oceanBeach.id][0].forecast_date +
-                            "T" +
-                            forecasts[oceanBeach.id][0].forecast_time
-                        ).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        windDirection={
-                          forecasts[oceanBeach.id][0].wind_direction
-                        }
-                        weatherCondition={
-                          forecasts[oceanBeach.id][0].weather_condition
-                        }
+                ) : oceanBeachForecastData ? (
+                  <div className="space-y-4">
+                    <div className="bg-muted/20 p-4 rounded-lg border">
+                      <Input
+                        placeholder="Ocean Beach"
+                        value="Ocean Beach"
+                        readOnly
+                        className="mb-4"
                       />
+                      <Button className="w-full" disabled>
+                        Search
+                      </Button>
                     </div>
-                  )}
 
-                {/* Show other beaches */}
-                {Object.keys(forecasts)
-                  .filter((id) => oceanBeach?.id !== id)
-                  .map((beachId) => {
-                    const beach = beaches.find((b) => b.id === beachId);
-                    const forecast = forecasts[beachId][0];
+                    <div className="text-green-600 text-sm p-2 bg-green-50 rounded dark:bg-green-950 dark:text-green-400">
+                      Showing surf conditions for Ocean Beach
+                    </div>
 
-                    if (!beach || !forecast) return null;
+                    <ForecastCard
+                      beachName={oceanBeachForecastData.beach}
+                      waveHeight={oceanBeachForecastData.forecast.wave_height}
+                      waterTemp={oceanBeachForecastData.forecast.water_temp}
+                      windSpeed={oceanBeachForecastData.forecast.wind_speed}
+                      tide={oceanBeachForecastData.forecast.tide}
+                      time={
+                        oceanBeachForecastData.forecast.forecast_time
+                          ? new Date(
+                              oceanBeachForecastData.forecast.forecast_date +
+                                "T" +
+                                oceanBeachForecastData.forecast.forecast_time
+                            ).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : new Date().toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                      }
+                      windDirection={
+                        oceanBeachForecastData.forecast.wind_direction
+                      }
+                      weatherCondition={
+                        oceanBeachForecastData.forecast.weather_condition ||
+                        "Sunny"
+                      }
+                    />
 
-                    return (
-                      <div key={beachId} className="mb-2">
-                        <ForecastCard
-                          beachName={beach.name}
-                          waveHeight={forecast.wave_height}
-                          waterTemp={forecast.water_temp}
-                          windSpeed={forecast.wind_speed}
-                          tide={forecast.tide || "Unknown"}
-                          time={new Date(
-                            forecast.forecast_date +
-                              "T" +
-                              forecast.forecast_time
-                          ).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                          windDirection={forecast.wind_direction}
-                          weatherCondition={forecast.weather_condition}
-                        />
-                      </div>
-                    );
-                  })}
-              </>
-            ) : (
-              !showBeachSearch &&
-              !showForecastPrompt && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No forecast data available
-                </div>
-              )
+                    <div className="text-xs text-muted-foreground p-2">
+                      Data provided for San Diego beaches. Results show the
+                      beach that most closely matches your search.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Unable to load Ocean Beach forecast
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showBeachSearch && (
+              <div className="max-w-2xl mx-auto ">
+                <BeachSearch />
+              </div>
+            )}
+
+            {showForecastPrompt && (
+              <div className="max-w-2xl mx-auto ">
+                <ForecastPrompt />
+              </div>
             )}
           </TabsContent>
 
           <TabsContent value="nearby" className="space-y-4">
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : beaches.length > 0 ? (
-              beaches.slice(0, 5).map((beach) => (
-                <BeachCard
-                  key={beach.id}
-                  name={beach.name}
-                  distance={`${Math.floor(Math.random() * 20) + 1} miles`} // Placeholder distance
-                  rating={beach.wave_quality_rating || 4.0}
-                  reviewCount={Math.floor(Math.random() * 200) + 50} // Placeholder review count
-                  imageUrl="/placeholder.svg?height=120&width=300"
-                />
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No beaches found nearby
-              </div>
-            )}
+            <div className="max-w-2xl mx-auto  space-y-4">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : beaches.length > 0 ? (
+                beaches.slice(0, 5).map((beach) => (
+                  <BeachCard
+                    key={beach.id}
+                    name={beach.name}
+                    distance={`${Math.floor(Math.random() * 20) + 1} miles`} // Placeholder distance
+                    rating={4.0}
+                    reviewCount={Math.floor(Math.random() * 200) + 50} // Placeholder review count
+                    imageUrl="/placeholder.svg?height=120&width=300"
+                  />
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No beaches found nearby
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="community" className="space-y-4">
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : sessions.length > 0 ? (
-              sessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  username={session.user?.full_name || "Anonymous Surfer"}
-                  beachName={session.beach?.name || "Unknown Beach"}
-                  date={
-                    new Date(session.session_date).toLocaleDateString() +
-                    ", " +
-                    session.session_time
-                  }
-                  rating={session.rating}
-                  description={
-                    session.description || "No description provided."
-                  }
-                  imageUrl={
-                    session.image_url || "/placeholder.svg?height=200&width=300"
-                  }
-                  likes={session.likes_count}
-                  comments={session.comments_count}
-                />
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No community sessions found
-              </div>
-            )}
+            <div className="max-w-2xl mx-auto  space-y-4">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : sessions.length > 0 ? (
+                sessions.map((session) => (
+                  <SessionCard
+                    key={session.id}
+                    username={session.user?.full_name || "Anonymous Surfer"}
+                    beachName={session.beach?.name || "Unknown Beach"}
+                    date={
+                      new Date(session.session_date).toLocaleDateString() +
+                      ", " +
+                      (session.start_time || "")
+                    }
+                    rating={session.wave_quality || 0}
+                    description={session.notes || "No description provided."}
+                    imageUrl={"/placeholder.svg?height=200&width=300"}
+                    likes={0}
+                    comments={0}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No community sessions found
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </main>
