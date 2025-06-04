@@ -31,8 +31,7 @@ export async function getUserSessions(userId: string) {
       `
       )
       .eq("user_id", userId)
-      .order("session_date", { ascending: false })
-      .order("session_time", { ascending: false });
+      .order("arrival_time", { ascending: false });
 
     if (error) {
       throw error;
@@ -66,10 +65,9 @@ export async function getUserSessionsByDateRange(
       `
       )
       .eq("user_id", userId)
-      .gte("session_date", startDate)
-      .lte("session_date", endDate)
-      .order("session_date", { ascending: true })
-      .order("session_time", { ascending: true });
+      .gte("arrival_time", startDate)
+      .lte("arrival_time", endDate)
+      .order("arrival_time", { ascending: true });
 
     if (error) {
       throw error;
@@ -141,62 +139,6 @@ export async function getPublicSessions(limit = 10) {
     return { success: true, data: data as SessionWithDetails[] };
   } catch (error) {
     console.error("Error fetching public sessions:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
-export async function createSession(
-  userId: string,
-  sessionData: Omit<
-    Session,
-    | "id"
-    | "user_id"
-    | "likes_count"
-    | "comments_count"
-    | "created_at"
-    | "updated_at"
-  >
-) {
-  const supabase = await createSupabaseServerClient();
-
-  try {
-    const { data, error } = await supabase
-      .from("sessions")
-      .insert({
-        user_id: userId,
-        ...sessionData,
-        likes_count: 0,
-        comments_count: 0,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    // If a board was used, increment its session count
-    if (sessionData.board_id) {
-      await supabase
-        .from("boards")
-        .update({
-          session_count: supabase.rpc("increment", {
-            row_id: sessionData.board_id,
-          }),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", sessionData.board_id)
-        .eq("user_id", userId);
-    }
-
-    revalidatePath("/sessions");
-    revalidatePath("/profile");
-    return { success: true, data: data as Session };
-  } catch (error) {
-    console.error("Error creating session:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -329,7 +271,7 @@ export async function updateSessionForm(
     throw new Error("Failed to update session");
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/sessions");
   return session;
 }
 
@@ -387,143 +329,99 @@ export async function deleteSession(id: string, userId: string) {
 }
 
 /**
- * Create a new planned surf session
- */
-export async function createPlannedSession(data: SessionInput) {
-  const supabase = await createSupabaseServerClient();
-
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    throw new Error("Authentication required");
-  }
-
-  // Create the session with planned status
-  const { data: session, error } = await supabase
-    .from("sessions")
-    .insert({
-      ...data,
-      user_id: user.id,
-      status: "planned",
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating planned session:", error);
-    throw new Error("Failed to create planned session");
-  }
-
-  revalidatePath("/dashboard");
-  return session;
-}
-
-/**
  * Create a new logged (completed) surf session
  */
-export async function createLoggedSession(data: SessionInput) {
+export async function createLoggedSession(data: SessionInput, userId: string) {
   const supabase = await createSupabaseServerClient();
 
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  try {
+    // Get the current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    throw new Error("Authentication required");
-  }
+    if (userError || !user) {
+      throw new Error("Authentication required");
+    }
 
-  // Create the session with completed status
-  const { data: session, error } = await supabase
-    .from("sessions")
-    .insert({
-      ...data,
-      user_id: user.id,
-      status: "completed",
-    })
-    .select()
-    .single();
+    // Verify the passed userId matches the authenticated user
+    if (user.id !== userId) {
+      throw new Error("User ID mismatch");
+    }
 
-  if (error) {
+    // Create the session with completed status
+    const { data: session, error } = await supabase
+      .from("sessions")
+      .insert({
+        ...data,
+        user_id: user.id,
+        status: "completed",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    revalidatePath("/sessions");
+    return { success: true, data: session };
+  } catch (error) {
     console.error("Error creating logged session:", error);
-    throw new Error("Failed to create logged session");
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
-
-  revalidatePath("/dashboard");
-  return session;
 }
 
 /**
- * Get all sessions for the current user
+ * Create a new planned surf session
  */
-export async function getCurrentUserSessions() {
+export async function createPlannedSession(data: SessionInput, userId: string) {
   const supabase = await createSupabaseServerClient();
 
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  try {
+    // Get the current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    throw new Error("Authentication required");
+    if (userError || !user) {
+      throw new Error("Authentication required");
+    }
+
+    // Verify the passed userId matches the authenticated user
+    if (user.id !== userId) {
+      throw new Error("User ID mismatch");
+    }
+
+    // Create the session with planned status
+    const { data: session, error } = await supabase
+      .from("sessions")
+      .insert({
+        ...data,
+        user_id: user.id,
+        status: "planned",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    revalidatePath("/sessions");
+    return { success: true, data: session };
+  } catch (error) {
+    console.error("Error creating planned session:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
-
-  // Get all sessions, ordered by date (newest first)
-  const { data: sessions, error } = await supabase
-    .from("sessions")
-    .select(
-      `
-      *,
-      beach:beaches(*),
-      board:boards(*),
-      media:session_media(*)
-    `
-    )
-    .eq("user_id", user.id)
-    .order("session_date", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching sessions:", error);
-    throw new Error("Failed to fetch sessions");
-  }
-
-  return sessions;
-}
-
-/**
- * Get all user's boards (quiver)
- */
-export async function getUserBoards() {
-  const supabase = await createSupabaseServerClient();
-
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    throw new Error("Authentication required");
-  }
-
-  // Get all boards
-  const { data: boards, error } = await supabase
-    .from("boards")
-    .select("*")
-    .eq("user_id", user.id);
-
-  if (error) {
-    console.error("Error fetching boards:", error);
-    throw new Error("Failed to fetch boards");
-  }
-
-  return boards || []; // Return boards or an empty array if null/undefined
 }
 
 /**
@@ -559,26 +457,6 @@ export async function addBoard(data: BoardInput) {
 
   revalidatePath("/quiver");
   return board;
-}
-
-/**
- * Get all beaches (for selection in forms)
- */
-export async function getBeaches() {
-  const supabase = await createSupabaseServerClient();
-
-  // Get all beaches
-  const { data: beaches, error } = await supabase
-    .from("beaches")
-    .select("*")
-    .order("name");
-
-  if (error) {
-    console.error("Error fetching beaches:", error);
-    throw new Error("Failed to fetch beaches");
-  }
-
-  return beaches;
 }
 
 /**

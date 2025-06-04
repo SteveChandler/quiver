@@ -1,18 +1,17 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
-import { getClientBrowserClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 
 // Unmock the actual AuthContext module for this test file
 jest.unmock("@/context/auth-context");
 
 // Mock the supabase client
-jest.mock("@/lib/supabase", () => ({
-  getClientBrowserClient: jest.fn(),
+jest.mock("@/lib/supabase/client", () => ({
+  createClient: jest.fn(),
   // Ensure other exports from lib/supabase are also mocked if AuthProvider uses them,
-  // though it seems to primarily use getClientBrowserClient.
-  // createServerClient: jest.fn(), // if needed
+  // though it seems to primarily use createClient.
 }));
 
 const mockGetSession = jest.fn();
@@ -23,7 +22,7 @@ const mockSignUp = jest.fn();
 
 // Helper to set up the mock Supabase client
 const setupMockSupabaseClient = (session: Session | null) => {
-  (getClientBrowserClient as jest.Mock).mockReturnValue({
+  (createClient as jest.Mock).mockReturnValue({
     auth: {
       getSession: mockGetSession.mockResolvedValue({
         data: { session },

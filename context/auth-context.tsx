@@ -4,8 +4,7 @@ import type React from "react";
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { User, Session } from "@supabase/supabase-js";
-import { getClientBrowserClient } from "@/lib/supabase";
-import { copyBoardTemplates } from "@/actions/board-actions";
+import { createClient } from "@/lib/supabase/client";
 
 console.log("AuthContext module loaded - " + new Date().toISOString());
 
@@ -28,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
-  const supabase = getClientBrowserClient();
+  const supabase = createClient();
 
   // Function to refresh session
   const refreshSession = async () => {
@@ -137,15 +136,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Add a significant delay to ensure auth is fully established
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Copy board templates
-      const result = await copyBoardTemplates(userId);
-
-      if (!result.success) {
-        console.error("Error setting up user account:", result.error);
-      } else {
-        console.log("User account setup complete:", result.message);
-        setSetupComplete(true);
-      }
+      // User account setup is now minimal - just ensuring auth is established
+      console.log("User account setup complete for user:", userId);
+      setSetupComplete(true);
     } catch (error) {
       console.error("Exception in setupUserAccount:", error);
       // Don't sign out the user if setup fails

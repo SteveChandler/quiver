@@ -1,6 +1,6 @@
 "use server";
 
-import { createServerClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import type { Profile } from "@/types/database";
 
@@ -10,7 +10,7 @@ export async function getProfile(userId: string) {
   }
 
   try {
-    const supabase = createServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // First check if the connection is working
     try {
@@ -56,7 +56,7 @@ export async function createProfile(userId: string) {
   }
 
   try {
-    const supabase = createServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // First check if profile already exists
     const { data: existingProfile, error: checkError } = await supabase
@@ -119,23 +119,31 @@ export async function createProfile(userId: string) {
 }
 
 export async function updateProfile(
-  userId: string,
   profileData: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>
 ) {
-  if (!userId) {
-    return { success: false, error: "No user ID provided" };
+  const supabase = await createSupabaseServerClient();
+
+  // Get the current user from the authenticated session
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      success: false,
+      error: "Authentication required",
+    };
   }
 
   try {
-    const supabase = createServerClient();
-
     const { data, error } = await supabase
       .from("profiles")
       .update({
         ...profileData,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", userId)
+      .eq("id", user.id)
       .select()
       .single();
 
@@ -160,7 +168,7 @@ export async function getUserStats(userId: string) {
   }
 
   try {
-    const supabase = createServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // Get session count
     const { count: sessionCount, error: sessionError } = await supabase

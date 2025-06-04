@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Search, MapPin, List, MapIcon, Loader2 } from "lucide-react";
 import { BeachCard } from "@/components/beach-card";
 import { getBeaches, getNearbyBeaches } from "@/actions/beach-actions";
+import { getStaticMapImageUrl } from "@/lib/map-utils";
 import type { Beach } from "@/types/database";
 
 // Default to Ocean Beach, San Diego coordinates
@@ -43,7 +44,8 @@ export function MapView() {
       const filtered = beaches.filter(
         (beach) =>
           beach.name.toLowerCase().includes(normalizedQuery) ||
-          beach.location.toLowerCase().includes(normalizedQuery)
+          (beach.location &&
+            beach.location.toLowerCase().includes(normalizedQuery))
       );
 
       if (filtered.length > 0) {
@@ -80,7 +82,8 @@ export function MapView() {
         const matchingBeaches = result.data.filter(
           (beach) =>
             beach.name.toLowerCase().includes(normalizedQuery) ||
-            beach.location.toLowerCase().includes(normalizedQuery)
+            (beach.location &&
+              beach.location.toLowerCase().includes(normalizedQuery))
         );
 
         if (matchingBeaches.length > 0) {
@@ -372,71 +375,58 @@ export function MapView() {
               </div>
             </div>
           ) : (
-            <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-              <div className="text-center p-4">
-                <MapPin className="h-12 w-12 text-primary mx-auto mb-2" />
-                <p className="text-lg font-medium">Interactive Map</p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {userLocation
-                    ? usingDefaultLocation
-                      ? `Showing beaches near Ocean Beach, San Diego (${filteredBeaches.length} found)`
-                      : `Found ${filteredBeaches.length} beaches near your location`
-                    : "Beach markers would be displayed here"}
-                </p>
-                {!userLocation && (
-                  <Button onClick={getUserLocation} size="sm">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    Use My Location
-                  </Button>
-                )}
-                {usingDefaultLocation && (
-                  <Button
-                    onClick={getUserLocation}
-                    size="sm"
-                    variant="outline"
-                    className="ml-2"
-                  >
-                    <MapPin className="h-4 w-4 mr-1" />
-                    Use My Actual Location
-                  </Button>
-                )}
-              </div>
+            <div className="absolute inset-0 flex flex-col">
+              {/* Static map image */}
+              <div className="flex-1 relative overflow-hidden">
+                <img
+                  src={getStaticMapImageUrl(
+                    selectedBeach?.latitude ||
+                      userLocation?.lat ||
+                      OCEAN_BEACH_LAT,
+                    selectedBeach?.longitude ||
+                      userLocation?.lng ||
+                      OCEAN_BEACH_LNG,
+                    { width: 800, height: 600, zoom: 12 }
+                  )}
+                  alt="Beach locations map"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
 
-              {/* This would be replaced with an actual map component (like Google Maps, Mapbox, etc.) */}
-              {/* Mock beach markers */}
-              {filteredBeaches.slice(0, 5).map((beach, index) => (
-                <div
-                  key={beach.id}
-                  className="absolute cursor-pointer"
-                  style={{
-                    left: `${20 + index * 15}%`,
-                    top: `${30 + index * 10}%`,
-                  }}
-                  onClick={() => handleBeachSelect(beach)}
-                >
-                  <MapPin
-                    className={`h-8 w-8 ${
-                      selectedBeach?.id === beach.id
-                        ? "text-primary fill-primary"
-                        : "text-primary"
-                    }`}
-                  />
-                </div>
-              ))}
-
-              {/* User location marker */}
-              {userLocation && (
-                <div className="absolute" style={{ left: "50%", top: "50%" }}>
-                  <div className="h-4 w-4 bg-blue-500 rounded-full relative">
-                    <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-75"></div>
-                  </div>
-                  {usingDefaultLocation && (
-                    <div className="absolute top-5 left-50 transform -translate-x-1/2 whitespace-nowrap bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                      Ocean Beach, San Diego
-                    </div>
+                {/* Map overlay with beach count */}
+                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md">
+                  <p className="text-sm font-medium">
+                    {userLocation
+                      ? usingDefaultLocation
+                        ? `Showing beaches near Ocean Beach, San Diego`
+                        : `Found ${filteredBeaches.length} beaches near your location`
+                      : "Loading beach locations..."}
+                  </p>
+                  {filteredBeaches.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {searchQuery
+                        ? "Search results"
+                        : "Tap a beach card below to see it on the map"}
+                    </p>
                   )}
                 </div>
-              )}
+
+                {/* Location controls */}
+                {(usingDefaultLocation || !userLocation) && (
+                  <div className="absolute top-4 right-4">
+                    <Button
+                      onClick={getUserLocation}
+                      size="sm"
+                      variant="secondary"
+                      className="shadow-md"
+                    >
+                      <MapPin className="h-4 w-4 mr-1" />
+                      {!userLocation
+                        ? "Use My Location"
+                        : "Use My Actual Location"}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -459,7 +449,7 @@ export function MapView() {
                                 selectedBeach.latitude,
                                 selectedBeach.longitude
                               )
-                            : selectedBeach.location}
+                            : selectedBeach.location || "San Diego"}
                         </span>
                       </div>
                       <div className="flex items-center mt-1">
@@ -536,18 +526,28 @@ export function MapView() {
                   </div>
                 )}
               {filteredBeaches.map((beach) => (
-                <BeachCard
+                <div
                   key={beach.id}
-                  name={beach.name}
-                  distance={
-                    userLocation
-                      ? getDistanceFromUser(beach.latitude, beach.longitude)
-                      : beach.location
-                  }
-                  rating={beach.wave_quality_rating || 4.0}
-                  reviewCount={128} // This would be dynamic in a real app
-                  imageUrl="/placeholder.svg?height=120&width=300"
-                />
+                  onClick={() => handleBeachSelect(beach)}
+                  className="cursor-pointer"
+                >
+                  <BeachCard
+                    id={beach.id}
+                    name={beach.name}
+                    distance={
+                      userLocation
+                        ? getDistanceFromUser(beach.latitude, beach.longitude)
+                        : beach.location || "San Diego"
+                    }
+                    rating={beach.wave_quality_rating || 4.0}
+                    reviewCount={128} // This would be dynamic in a real app
+                    imageUrl={getStaticMapImageUrl(
+                      beach.latitude,
+                      beach.longitude,
+                      { width: 300, height: 120, zoom: 15 }
+                    )}
+                  />
+                </div>
               ))}
             </>
           ) : (

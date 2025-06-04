@@ -66,24 +66,37 @@ export function HomeScreen() {
 
         {/* Quick Actions */}
         <section className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
-          <Link href="/plan-session">
-            <Button
-              className="h-auto py-4 flex flex-col items-center gap-2 w-full"
-              variant="default"
-            >
-              <CalendarDays className="h-6 w-6" />
-              <span>Plan Session</span>
-            </Button>
-          </Link>
-          <Link href="/log-session">
-            <Button
-              className="h-auto py-4 flex flex-col items-center gap-2 w-full"
-              variant="outline"
-            >
-              <Waves className="h-6 w-6" />
-              <span>Log Session</span>
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <Link href="/plan-session">
+                <Button
+                  className="h-auto py-4 flex flex-col items-center gap-2 w-full"
+                  variant="default"
+                >
+                  <CalendarDays className="h-6 w-6" />
+                  <span>Plan Session</span>
+                </Button>
+              </Link>
+              <Link href="/log-session">
+                <Button
+                  className="h-auto py-4 flex flex-col items-center gap-2 w-full"
+                  variant="outline"
+                >
+                  <Waves className="h-6 w-6" />
+                  <span>Log Session</span>
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <div className="col-span-2 text-center p-8 bg-muted/50 rounded-lg">
+              <p className="text-muted-foreground mb-4">
+                Sign in to plan and log your surf sessions
+              </p>
+              <Link href="/auth/sign-in">
+                <Button>Sign In to Get Started</Button>
+              </Link>
+            </div>
+          )}
         </section>
 
         {/* Tabs Section */}
@@ -113,11 +126,15 @@ export function HomeScreen() {
       </main>
 
       {/* Floating Action Button */}
-      <div className="fixed bottom-20 right-4 z-10">
-        <Button size="icon" className="h-14 w-14 rounded-full shadow-lg">
-          <Plus className="h-6 w-6" />
-        </Button>
-      </div>
+      {user && (
+        <div className="fixed bottom-20 right-4 z-10">
+          <Link href="/log-session">
+            <Button size="icon" className="h-14 w-14 rounded-full shadow-lg">
+              <Plus className="h-6 w-6" />
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <BottomNavigation />

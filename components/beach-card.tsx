@@ -1,20 +1,36 @@
-import { Card, CardContent } from "@/components/ui/card"
-import { MapPin, Star } from "lucide-react"
-import Image from "next/image"
+import { Card, CardContent } from "@/components/ui/card";
+import { MapPin, Star } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
 interface BeachCardProps {
-  name: string
-  distance: string
-  rating: number
-  reviewCount: number
-  imageUrl: string
+  id?: string;
+  name: string;
+  distance: string;
+  rating: number;
+  reviewCount: number;
+  imageUrl: string;
+  onViewDetails?: () => void;
 }
 
-export function BeachCard({ name, distance, rating, reviewCount, imageUrl }: BeachCardProps) {
+export function BeachCard({
+  id,
+  name,
+  distance,
+  rating,
+  reviewCount,
+  imageUrl,
+  onViewDetails,
+}: BeachCardProps) {
   return (
     <Card className="overflow-hidden">
       <div className="relative h-32">
-        <Image src={imageUrl || "/placeholder.svg"} alt={name} fill className="object-cover" />
+        <Image
+          src={imageUrl || "/placeholder.svg"}
+          alt={name}
+          fill
+          className="object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute bottom-0 left-0 p-3 text-white">
           <h3 className="font-semibold text-lg">{name}</h3>
@@ -29,11 +45,27 @@ export function BeachCard({ name, distance, rating, reviewCount, imageUrl }: Bea
           <div className="flex items-center">
             <Star className="h-4 w-4 text-yellow-500 mr-1 fill-yellow-500" />
             <span className="font-medium">{rating}</span>
-            <span className="text-muted-foreground text-sm ml-1">({reviewCount} reviews)</span>
+            <span className="text-muted-foreground text-sm ml-1">
+              ({reviewCount} reviews)
+            </span>
           </div>
-          <button className="text-primary text-sm font-medium">View Details</button>
+          {id ? (
+            <Link
+              href={`/beach/${id}`}
+              className="text-primary text-sm font-medium"
+            >
+              View Details
+            </Link>
+          ) : (
+            <button
+              onClick={onViewDetails}
+              className="text-primary text-sm font-medium"
+            >
+              View Details
+            </button>
+          )}
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

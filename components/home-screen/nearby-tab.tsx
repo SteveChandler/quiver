@@ -78,6 +78,7 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
         return (
           <BeachCard
             key={beach.id}
+            id={beach.id}
             name={beach.name}
             distance={distance}
             rating={4.0}

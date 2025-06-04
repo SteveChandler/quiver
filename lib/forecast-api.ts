@@ -1,4 +1,4 @@
-import { createServerClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Beach } from "@/types/database";
 
 // Stormglass API endpoints
@@ -203,7 +203,7 @@ export async function fetchForecastData(beach: Beach, apiKey: string) {
 
 // Function to update forecasts in the database
 export async function updateForecasts(beach: Beach, apiKey: string) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     // Fetch forecast data from API
@@ -236,7 +236,7 @@ export async function updateForecasts(beach: Beach, apiKey: string) {
 
 // Function to update forecasts for all beaches
 export async function updateAllForecasts(apiKey: string) {
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     // Get all beaches

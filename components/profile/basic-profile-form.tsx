@@ -30,7 +30,7 @@ import { updateProfile } from "@/actions/profile-actions";
 import { toast } from "@/components/ui/use-toast";
 import { uploadImage, deleteImage } from "@/lib/image-upload";
 import type { Profile } from "@/types/database";
-import { getClientBrowserClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 const profileFormSchema = z.object({
   full_name: z
@@ -98,7 +98,7 @@ export function BasicProfileForm({
     try {
       // First update the email in Supabase Auth if it has changed
       if (email !== data.email) {
-        const supabase = getClientBrowserClient();
+        const supabase = createClient();
         const { error: emailUpdateError } = await supabase.auth.updateUser({
           email: data.email,
         });

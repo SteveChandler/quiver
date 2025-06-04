@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies, headers } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({
-      cookies: () => cookieStore,
-      headers: headers(),
-    });
+    const supabase = await createSupabaseServerClient();
 
     // Use the resend confirmation email API
     const { error } = await supabase.auth.resend({

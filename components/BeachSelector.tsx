@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client";
 import { Beach } from "@/types/database";
 
 export function BeachSelector({
@@ -9,7 +9,7 @@ export function BeachSelector({
 }: {
   onBeachSelected: (beach: Beach) => void;
 }) {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const [allBeaches, setAllBeaches] = useState<Beach[]>([]);
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<Beach[]>([]);

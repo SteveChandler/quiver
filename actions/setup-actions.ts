@@ -1,20 +1,24 @@
-"use server"
+"use server";
 
-import { createServerClient } from "@/lib/supabase"
+import { revalidatePath } from "next/cache";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function setupDatabaseFunctions() {
-  const supabase = createServerClient()
+  const supabase = await createSupabaseServerClient();
 
   try {
     // Create increment function
-    await supabase.rpc("create_increment_function", {})
+    await supabase.rpc("create_increment_function", {});
 
     // Create decrement function
-    await supabase.rpc("create_decrement_function", {})
+    await supabase.rpc("create_decrement_function", {});
 
-    return { success: true }
+    return { success: true };
   } catch (error) {
-    console.error("Error setting up database functions:", error)
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    console.error("Error setting up database functions:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }

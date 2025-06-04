@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   ArrowLeft,
   Star,
@@ -15,14 +15,14 @@ import {
   Edit,
   Trash2,
   Loader2,
-} from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/context/auth-context"
-import { getSessionById, deleteSession } from "@/actions/session-actions"
-import type { SessionWithDetails } from "@/types/database"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
+import { getSessionById, deleteSession } from "@/actions/session-actions";
+import type { SessionWithDetails } from "@/types/database";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,68 +33,68 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 
 interface SessionDetailViewProps {
-  id: string
+  id: string;
 }
 
 export function SessionDetailView({ id }: SessionDetailViewProps) {
-  const router = useRouter()
-  const { user } = useAuth()
-  const [session, setSession] = useState<SessionWithDetails | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState(false)
+  const router = useRouter();
+  const { user } = useAuth();
+  const [session, setSession] = useState<SessionWithDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function loadSession() {
-      if (!user) return
+      if (!user) return;
 
-      setLoading(true)
+      setLoading(true);
       try {
-        const result = await getSessionById(id, user.id)
+        const result = await getSessionById(id, user.id);
         if (result.success && result.data) {
-          setSession(result.data)
+          setSession(result.data);
         } else {
-          setError("Session not found")
+          setError("Session not found");
         }
       } catch (error) {
-        console.error("Error loading session:", error)
-        setError("Failed to load session")
+        console.error("Error loading session:", error);
+        setError("Failed to load session");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    loadSession()
-  }, [id, user])
+    loadSession();
+  }, [id, user]);
 
   const handleDelete = async () => {
-    if (!user) return
+    if (!user) return;
 
-    setDeleting(true)
+    setDeleting(true);
     try {
-      const result = await deleteSession(id, user.id)
+      const result = await deleteSession(id, user.id);
       if (result.success) {
-        router.push("/sessions")
+        router.push("/sessions");
       } else {
-        setError("Failed to delete session")
+        setError("Failed to delete session");
       }
     } catch (error) {
-      console.error("Error deleting session:", error)
-      setError("Failed to delete session")
+      console.error("Error deleting session:", error);
+      setError("Failed to delete session");
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-    )
+    );
   }
 
   if (error || !session) {
@@ -119,16 +119,22 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           </div>
         </main>
       </div>
-    )
+    );
   }
 
-  const sessionDate = new Date(session.session_date)
-  const formattedDate = sessionDate.toLocaleDateString("en-US", {
+  const arrivalTime = session.session_date
+    ? new Date(session.session_date)
+    : null;
+  const formattedDate = arrivalTime?.toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
-  })
+  });
+  const formattedTime = arrivalTime?.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div className="flex-1 flex flex-col">
@@ -148,7 +154,11 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button size="icon" variant="ghost" className="text-destructive">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-destructive"
+                >
                   <Trash2 className="h-5 w-5" />
                 </Button>
               </AlertDialogTrigger>
@@ -156,7 +166,8 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Session</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete this session? This action cannot be undone.
+                    Are you sure you want to delete this session? This action
+                    cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -189,14 +200,20 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
         {/* Session Info */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">{session.beach?.name || "Unknown Beach"}</h2>
+            <h2 className="text-2xl font-bold">
+              {session.beach?.name || "Unknown Beach"}
+            </h2>
             <div className="flex">
               {Array(5)
                 .fill(0)
                 .map((_, i) => (
                   <Star
                     key={i}
-                    className={`h-5 w-5 ${i < session.rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"}`}
+                    className={`h-5 w-5 ${
+                      i < session.rating
+                        ? "text-yellow-500 fill-yellow-500"
+                        : "text-gray-300"
+                    }`}
                   />
                 ))}
             </div>
@@ -213,7 +230,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             </div>
             <div className="flex items-center gap-1 text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span>{session.session_time}</span>
+              <span>{formattedTime}</span>
             </div>
           </div>
 
@@ -263,7 +280,9 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
                           <Star
                             key={i}
                             className={`h-4 w-4 ${
-                              i < session.crowd_rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
+                              i < session.crowd_rating
+                                ? "text-yellow-500 fill-yellow-500"
+                                : "text-gray-300"
                             }`}
                           />
                         ))}
@@ -276,7 +295,9 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             {session.board && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
-                  <div className="h-6 w-6 text-primary flex items-center justify-center">🏄</div>
+                  <div className="h-6 w-6 text-primary flex items-center justify-center">
+                    🏄
+                  </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Board</p>
                     <p className="font-medium">{session.board.name}</p>
@@ -288,5 +309,5 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
         </div>
       </main>
     </div>
-  )
+  );
 }

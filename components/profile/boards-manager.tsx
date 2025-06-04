@@ -38,6 +38,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { createBoard, updateBoard, deleteBoard } from "@/actions/board-actions";
 import type { Board } from "@/types/database";
+import { useAuth } from "@/context/auth-context";
 
 const boardFormSchema = z.object({
   name: z
@@ -67,6 +68,7 @@ interface BoardsManagerProps {
 }
 
 export function BoardsManager({ userId, boards }: BoardsManagerProps) {
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -95,18 +97,120 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
     });
   };
 
-  const handleAddBoard = async (data: BoardFormValues) => {
-    if (!userId) return;
+  // Alternative function using API route if server action fails
+  const handleAddBoardViaAPI = async (data: BoardFormValues) => {
+    console.log("🎯 handleAddBoardViaAPI called");
+
+    if (isLoading) {
+      toast({
+        title: "Please wait",
+        description: "Authentication is still loading. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isAuthenticated || !user?.id) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to add boards.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const result = await createBoard(userId, {
+      console.log("📤 Calling API route...");
+      const response = await fetch("/api/boards", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // Important: include cookies
+        body: JSON.stringify({
+          ...data,
+          image_url: data.image_url || null,
+          description: data.description || null,
+        }),
+      });
+
+      const result = await response.json();
+      console.log("📥 API route result:", result);
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to create board");
+      }
+
+      toast({
+        title: "Board added",
+        description: "Your new board has been added to your quiver.",
+      });
+
+      setIsAddDialogOpen(false);
+      resetForm();
+      router.refresh();
+    } catch (error) {
+      console.error("Error adding board via API:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add board. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddBoard = async (data: BoardFormValues) => {
+    console.log("🎯 handleAddBoard called");
+    console.log("👤 Auth state:", {
+      hasUser: !!user,
+      userId: user?.id,
+      isAuthenticated,
+      isLoading,
+      passedUserId: userId,
+    });
+
+    // Enhanced authentication checks
+    if (isLoading) {
+      console.log("⏳ Authentication still loading, cannot proceed");
+      toast({
+        title: "Please wait",
+        description: "Authentication is still loading. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isAuthenticated || !user?.id) {
+      console.log("❌ User not authenticated");
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to add boards.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      console.log("📤 Calling createBoard server action...");
+      const result = await createBoard({
         ...data,
         image_url: data.image_url || null,
         description: data.description || null,
       });
 
+      console.log("📥 Server action result:", result);
+
       if (!result.success) {
+        // If server action fails with auth error, try API route as fallback
+        if (result.error === "Authentication required") {
+          console.log("🔄 Server action auth failed, trying API route...");
+          setIsSubmitting(false); // Reset before trying API
+          return await handleAddBoardViaAPI(data);
+        }
         throw new Error(result.error || "Failed to create board");
       }
 
@@ -131,11 +235,27 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
   };
 
   const handleEditBoard = async (data: BoardFormValues) => {
-    if (!userId || !selectedBoard) return;
+    if (isLoading) {
+      toast({
+        title: "Please wait",
+        description: "Authentication is still loading. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isAuthenticated || !user?.id || !selectedBoard) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to edit boards.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const result = await updateBoard(selectedBoard.id, userId, {
+      const result = await updateBoard(selectedBoard.id, {
         ...data,
         image_url: data.image_url || null,
         description: data.description || null,
@@ -166,11 +286,27 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
   };
 
   const handleDeleteBoard = async () => {
-    if (!userId || !selectedBoard) return;
+    if (isLoading) {
+      toast({
+        title: "Please wait",
+        description: "Authentication is still loading. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isAuthenticated || !user?.id || !selectedBoard) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to delete boards.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const result = await deleteBoard(selectedBoard.id, userId);
+      const result = await deleteBoard(selectedBoard.id);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to delete board");

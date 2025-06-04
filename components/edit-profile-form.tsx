@@ -1,55 +1,87 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useRef } from "react"
-import { useRouter } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Loader2, X, Camera } from "lucide-react"
-import { updateProfile } from "@/actions/profile-actions"
-import { useAuth } from "@/context/auth-context"
-import { toast } from "@/components/ui/use-toast"
-import { uploadImage, deleteImage } from "@/lib/image-upload"
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Loader2, X, Camera } from "lucide-react";
+import { updateProfile } from "@/actions/profile-actions";
+import { useAuth } from "@/context/auth-context";
+import { toast } from "@/components/ui/use-toast";
+import { uploadImage, deleteImage } from "@/lib/image-upload";
 
 const profileFormSchema = z.object({
-  full_name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
+  full_name: z
+    .string()
+    .min(2, "Name must be at least 2 characters")
+    .max(50, "Name must be less than 50 characters"),
   bio: z.string().max(300, "Bio must be less than 300 characters").optional(),
-  location: z.string().max(100, "Location must be less than 100 characters").optional(),
-  experience_level: z.string().max(50, "Experience level must be less than 50 characters").optional(),
-  favorite_spot: z.string().max(100, "Favorite spot must be less than 100 characters").optional(),
-  instagram: z.string().max(100, "Instagram handle must be less than 100 characters").optional(),
-})
+  location: z
+    .string()
+    .max(100, "Location must be less than 100 characters")
+    .optional(),
+  experience_level: z
+    .string()
+    .max(50, "Experience level must be less than 50 characters")
+    .optional(),
+  favorite_spot: z
+    .string()
+    .max(100, "Favorite spot must be less than 100 characters")
+    .optional(),
+  instagram: z
+    .string()
+    .max(100, "Instagram handle must be less than 100 characters")
+    .optional(),
+});
 
-type ProfileFormValues = z.infer<typeof profileFormSchema>
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 interface EditProfileFormProps {
   initialData?: {
-    full_name?: string
-    bio?: string
-    location?: string
-    experience_level?: string
-    favorite_spot?: string
-    instagram?: string
-    avatar_url?: string
-  }
-  onSuccess?: () => void
+    full_name?: string;
+    bio?: string;
+    location?: string;
+    experience_level?: string;
+    favorite_spot?: string;
+    instagram?: string;
+    avatar_url?: string;
+  };
+  onSuccess?: () => void;
 }
 
-export function EditProfileForm({ initialData, onSuccess }: EditProfileFormProps) {
-  const { user } = useAuth()
-  const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [avatarUrl, setAvatarUrl] = useState(initialData?.avatar_url || "")
-  const [isUploading, setIsUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+export function EditProfileForm({
+  initialData,
+  onSuccess,
+}: EditProfileFormProps) {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(initialData?.avatar_url || "");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -61,48 +93,48 @@ export function EditProfileForm({ initialData, onSuccess }: EditProfileFormProps
       favorite_spot: initialData?.favorite_spot || "",
       instagram: initialData?.instagram || "",
     },
-  })
+  });
 
   async function onSubmit(data: ProfileFormValues) {
-    if (!user) return
+    if (!user) return;
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const result = await updateProfile(user.id, {
+      const result = await updateProfile({
         ...data,
         avatar_url: avatarUrl,
-      })
+      });
 
       if (!result.success) {
-        throw new Error(result.error || "Failed to update profile")
+        throw new Error(result.error || "Failed to update profile");
       }
 
       toast({
         title: "Profile updated",
         description: "Your profile has been updated successfully.",
-      })
+      });
 
       if (onSuccess) {
-        onSuccess()
+        onSuccess();
       } else {
-        router.push("/profile")
-        router.refresh()
+        router.push("/profile");
+        router.refresh();
       }
     } catch (error) {
-      console.error("Error updating profile:", error)
+      console.error("Error updating profile:", error);
       toast({
         title: "Error",
         description: "Failed to update profile. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
@@ -110,8 +142,8 @@ export function EditProfileForm({ initialData, onSuccess }: EditProfileFormProps
         title: "File too large",
         description: "Please select an image smaller than 5MB.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     // Check file type
@@ -120,86 +152,88 @@ export function EditProfileForm({ initialData, onSuccess }: EditProfileFormProps
         title: "Invalid file type",
         description: "Please select an image file.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setIsUploading(true)
+    setIsUploading(true);
     try {
       // Delete old image if it exists and is not a placeholder
       if (avatarUrl && !avatarUrl.includes("placeholder.svg")) {
-        await deleteImage(avatarUrl, "avatars")
+        await deleteImage(avatarUrl, "avatars");
       }
 
       // Upload new image
-      const result = await uploadImage(file, "avatars", "profiles")
+      const result = await uploadImage(file, "avatars", "profiles");
       if (!result.success) {
-        throw new Error(result.error || "Failed to upload image")
+        throw new Error(result.error || "Failed to upload image");
       }
 
-      setAvatarUrl(result.url)
+      setAvatarUrl(result.url);
       toast({
         title: "Image uploaded",
         description: "Your profile picture has been updated.",
-      })
+      });
     } catch (error) {
-      console.error("Error uploading avatar:", error)
+      console.error("Error uploading avatar:", error);
       toast({
         title: "Error",
         description: "Failed to upload image. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsUploading(false)
+      setIsUploading(false);
       // Clear the file input
       if (fileInputRef.current) {
-        fileInputRef.current.value = ""
+        fileInputRef.current.value = "";
       }
     }
-  }
+  };
 
   const handleRemoveAvatar = async () => {
-    if (!avatarUrl || avatarUrl.includes("placeholder.svg")) return
+    if (!avatarUrl || avatarUrl.includes("placeholder.svg")) return;
 
-    setIsUploading(true)
+    setIsUploading(true);
     try {
       // Delete the image
-      await deleteImage(avatarUrl, "avatars")
+      await deleteImage(avatarUrl, "avatars");
 
       // Set to placeholder
-      setAvatarUrl("/placeholder.svg?height=200&width=200")
+      setAvatarUrl("/placeholder.svg?height=200&width=200");
       toast({
         title: "Image removed",
         description: "Your profile picture has been removed.",
-      })
+      });
     } catch (error) {
-      console.error("Error removing avatar:", error)
+      console.error("Error removing avatar:", error);
       toast({
         title: "Error",
         description: "Failed to remove image. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsUploading(false)
+      setIsUploading(false);
     }
-  }
+  };
 
   // Get initials for avatar fallback
   const getInitials = () => {
-    const name = form.getValues("full_name")
-    if (!name) return "U"
+    const name = form.getValues("full_name");
+    if (!name) return "U";
     return name
       .split(" ")
       .map((n) => n[0])
       .join("")
-      .toUpperCase()
-  }
+      .toUpperCase();
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Edit Profile</CardTitle>
-        <CardDescription>Update your personal information and preferences</CardDescription>
+        <CardDescription>
+          Update your personal information and preferences
+        </CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -208,7 +242,10 @@ export function EditProfileForm({ initialData, onSuccess }: EditProfileFormProps
             <div className="flex flex-col items-center space-y-4">
               <div className="relative">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={avatarUrl || "/placeholder.svg?height=96&width=96"} alt="Profile" />
+                  <AvatarImage
+                    src={avatarUrl || "/placeholder.svg?height=96&width=96"}
+                    alt="Profile"
+                  />
                   <AvatarFallback>{getInitials()}</AvatarFallback>
                 </Avatar>
                 {isUploading && (
@@ -310,7 +347,10 @@ export function EditProfileForm({ initialData, onSuccess }: EditProfileFormProps
                   <FormItem>
                     <FormLabel>Experience Level</FormLabel>
                     <FormControl>
-                      <Input placeholder="Beginner, Intermediate, Advanced, etc." {...field} />
+                      <Input
+                        placeholder="Beginner, Intermediate, Advanced, etc."
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -324,7 +364,10 @@ export function EditProfileForm({ initialData, onSuccess }: EditProfileFormProps
                   <FormItem>
                     <FormLabel>Favorite Surf Spot</FormLabel>
                     <FormControl>
-                      <Input placeholder="Your favorite place to catch waves" {...field} />
+                      <Input
+                        placeholder="Your favorite place to catch waves"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -352,16 +395,22 @@ export function EditProfileForm({ initialData, onSuccess }: EditProfileFormProps
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="outline" type="button" onClick={() => router.back()}>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => router.back()}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Save Changes
             </Button>
           </CardFooter>
         </form>
       </Form>
     </Card>
-  )
+  );
 }

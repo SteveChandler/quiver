@@ -23,6 +23,7 @@ export function LocationStep({
       <BeachSelector
         onBeachSelected={(beach) => {
           updateField("selectedBeach", beach.name);
+          updateField("selectedBeachId", beach.id);
         }}
       />
     </div>

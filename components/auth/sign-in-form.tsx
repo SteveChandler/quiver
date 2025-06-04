@@ -73,8 +73,8 @@ export function SignInForm() {
       sessionStorage.removeItem("supabase.auth.token");
 
       // Get the Supabase client
-      const { getClientBrowserClient } = await import("@/lib/supabase");
-      const supabase = getClientBrowserClient();
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
 
       // First try direct Supabase auth - this will set localStorage
       console.log("Sign-in form: Attempting direct Supabase auth...");

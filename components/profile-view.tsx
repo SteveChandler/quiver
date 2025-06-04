@@ -25,6 +25,7 @@ import { UserStats } from "@/components/user-stats";
 import { FavoriteBeaches } from "@/components/favorite-beaches";
 import { UserAvatar } from "@/components/user-avatar";
 import { EditProfileModal } from "@/components/edit-profile-modal";
+import { BoardsManager } from "@/components/profile/boards-manager";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { getUserBoards } from "@/actions/board-actions";
@@ -283,9 +284,17 @@ export function ProfileView() {
                       username="You"
                       beachName={session.beach?.name || "Unknown Beach"}
                       date={
-                        new Date(session.session_date).toLocaleDateString() +
-                        ", " +
-                        session.session_time
+                        session.session_date
+                          ? (() => {
+                              const dateStr = new Date(
+                                session.session_date
+                              ).toLocaleDateString();
+                              if (session.start_time) {
+                                return `${dateStr} at ${session.start_time}`;
+                              }
+                              return dateStr;
+                            })()
+                          : "No date set"
                       }
                       rating={session.rating}
                       description={
@@ -311,71 +320,7 @@ export function ProfileView() {
               </TabsContent>
 
               <TabsContent value="quiver" className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-medium">My Boards</h3>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setEditModalOpen(true);
-                      // Set active tab to boards after a short delay to allow modal to open
-                      setTimeout(() => {
-                        const tabsElement =
-                          document.querySelector('[role="tablist"]');
-                        const boardsTab = tabsElement?.querySelector(
-                          '[data-value="boards"]'
-                        );
-                        if (boardsTab instanceof HTMLElement) {
-                          boardsTab.click();
-                        }
-                      }, 100);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Board
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {boards.length > 0 ? (
-                    boards.map((board) => (
-                      <BoardCard
-                        key={board.id}
-                        name={board.name}
-                        type={board.board_type}
-                        dimensions={board.dimensions}
-                        imageUrl={
-                          board.image_url ||
-                          "/placeholder.svg?height=120&width=300"
-                        }
-                        sessionCount={board.session_count}
-                      />
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground col-span-2">
-                      <p>You don't have any boards in your quiver yet.</p>
-                      <Button
-                        variant="link"
-                        className="mt-2"
-                        onClick={() => {
-                          setEditModalOpen(true);
-                          // Set active tab to boards after a short delay
-                          setTimeout(() => {
-                            const tabsElement =
-                              document.querySelector('[role="tablist"]');
-                            const boardsTab = tabsElement?.querySelector(
-                              '[data-value="boards"]'
-                            );
-                            if (boardsTab instanceof HTMLElement) {
-                              boardsTab.click();
-                            }
-                          }, 100);
-                        }}
-                      >
-                        Add your first board
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                {user && <BoardsManager userId={user.id} boards={boards} />}
               </TabsContent>
 
               <TabsContent value="beaches" className="space-y-4">

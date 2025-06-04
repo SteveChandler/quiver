@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies, headers } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST() {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({
-      cookies: () => cookieStore,
-      headers: headers(),
-    });
+    const supabase = await createSupabaseServerClient();
 
     // First check if we have a session
     const { data: sessionData } = await supabase.auth.getSession();

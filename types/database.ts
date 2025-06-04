@@ -35,13 +35,18 @@ export type Board = {
   id: string;
   user_id: string;
   name: string;
-  type: string;
+  board_type?: string;
+  type?: string;
+  dimensions?: string;
   length?: number;
   width?: number;
   thickness?: number;
   volume?: number;
   brand?: string;
   model?: string;
+  description?: string;
+  image_url?: string | null;
+  session_count?: number;
   created_at: string;
   updated_at: string;
 };
@@ -53,19 +58,30 @@ export type Session = {
   user_id: string;
   beach_id?: string;
   board_id?: string;
-  beach_name?: string;
-  status: SessionStatus;
-  session_date: string;
-  start_time?: string;
-  end_time?: string;
+  arrival_time?: string; // Combined timestamp field
+  end_time?: string; // TIME WITHOUT TIME ZONE
   duration_minutes?: number;
+  goals?: string[]; // text[]
+  notes?: string;
+  invitee_ids?: string[]; // uuid[]
+  created_at: string;
+  status: SessionStatus;
+  beach_name?: string;
+  profile_id?: string;
+  rating?: number; // smallint
+  description?: string;
+  image_url?: string | null;
+  likes_count?: number;
+  comments_count?: number;
+  // Additional fields that might be used
   wave_quality?: number;
+  wave_height?: string;
   water_temp?: string;
   crowd_level?: number;
+  crowd_rating?: number;
   parking_ease?: number;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
+  is_public?: boolean;
+  updated_at?: string;
 };
 
 export type SessionMedia = {

@@ -50,11 +50,10 @@ export function CommunityTab({ sessions, loading }: CommunityTabProps) {
             date={
               session.session_date
                 ? new Date(session.session_date).toLocaleDateString("en-US", {
-                    month: "long",
+                    month: "short",
                     day: "numeric",
-                    year: "numeric",
                   })
-                : "Date not available"
+                : "No date"
             }
             rating={session.wave_quality || 0}
             description={session.notes || "No description provided."}

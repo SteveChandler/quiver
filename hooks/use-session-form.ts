@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUserBoards, getBeaches } from "@/actions/session-actions";
+import { getUserBoards } from "@/actions/board-actions";
+import { getBeaches } from "@/actions/beach-actions";
 import { Board, Beach } from "@/types/database";
 import { toast } from "sonner";
+import { useAuth } from "@/context/auth-context";
 
 export type SessionFormState = {
   selectedBeach: string;
+  selectedBeachId?: string;
   selectedDate: string;
   selectedTime: string;
   selectedBoard: string;
@@ -23,6 +26,7 @@ export type SessionFormState = {
 export type SessionFormMode = "plan" | "log";
 
 export function useSessionForm(initialMode: SessionFormMode = "plan") {
+  const { user } = useAuth();
   const [mode, setMode] = useState<SessionFormMode>(initialMode);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -32,6 +36,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
 
   const [formState, setFormState] = useState<SessionFormState>({
     selectedBeach: "",
+    selectedBeachId: "",
     selectedDate: "",
     selectedTime: "",
     selectedBoard: "",
@@ -50,18 +55,31 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
       try {
         setLoadingData(true);
 
-        const userBoards = await getUserBoards();
-        setBoards(userBoards);
-
-        if (userBoards.length === 0) {
-          toast.info(
-            "You don't have any boards yet. Add a board to get started!"
-          );
-          // Later, we can implement a more interactive prompt here.
+        if (!user) {
+          console.log("No user found, skipping data load");
+          setLoadingData(false);
+          return;
         }
 
-        const beachList = await getBeaches();
-        setBeaches(beachList);
+        console.log("Fetching boards for user:", user.id);
+        const userBoardsResult = await getUserBoards(user.id);
+        console.log("getUserBoards result:", userBoardsResult);
+
+        if (userBoardsResult.success && userBoardsResult.data) {
+          setBoards(userBoardsResult.data);
+
+          if (userBoardsResult.data.length === 0) {
+            toast.info(
+              "You don't have any boards yet. Add a board to get started!"
+            );
+            // Later, we can implement a more interactive prompt here.
+          }
+        }
+
+        const beachResult = await getBeaches();
+        if (beachResult.success && beachResult.data) {
+          setBeaches(beachResult.data);
+        }
       } catch (error) {
         console.error("Error loading data:", error);
         toast.error("Failed to load data. Some features may be limited.");
@@ -71,7 +89,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     };
 
     loadData();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const board = boards.find((b) => b.id === formState.selectedBoard);
@@ -94,6 +112,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     setStep(1);
     setFormState({
       selectedBeach: "",
+      selectedBeachId: "",
       selectedDate: "",
       selectedTime: "",
       selectedBoard: "",
@@ -106,6 +125,23 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
       notes: "",
       photos: [],
     });
+  };
+
+  const refreshBoards = async () => {
+    if (!user) return;
+
+    try {
+      console.log("Refreshing boards for user:", user.id);
+      const userBoardsResult = await getUserBoards(user.id);
+      console.log("refreshBoards result:", userBoardsResult);
+
+      if (userBoardsResult.success && userBoardsResult.data) {
+        setBoards(userBoardsResult.data);
+      }
+    } catch (error) {
+      console.error("Error refreshing boards:", error);
+      toast.error("Failed to refresh boards.");
+    }
   };
 
   return {
@@ -123,6 +159,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     formState,
     updateField,
     resetForm,
+    refreshBoards,
     isPlanning: mode === "plan",
   };
 }

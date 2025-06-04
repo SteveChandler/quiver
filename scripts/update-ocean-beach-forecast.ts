@@ -1,4 +1,4 @@
-import { createServerClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchForecastData, updateForecasts } from "@/lib/forecast-api";
 // import dotenv from "dotenv";
 import type { Beach } from "@/types/database";
@@ -12,7 +12,7 @@ const OCEAN_BEACH_LNG = -117.2534;
 
 async function updateOceanBeachForecast() {
   console.log("Starting Ocean Beach forecast update script...");
-  const supabase = createServerClient();
+  const supabase = await createSupabaseServerClient();
 
   try {
     // 1. First, try to find Ocean Beach in the database

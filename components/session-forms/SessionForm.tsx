@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 import { useSessionForm, SessionFormMode } from "@/hooks/use-session-form";
+import { useAuth } from "@/context/auth-context";
 import { SessionFormHeader } from "./SessionFormHeader";
 import { LocationStep } from "./LocationStep";
 import { DateTimeStep } from "./DateTimeStep";
@@ -32,6 +33,7 @@ interface SessionFormProps {
 }
 
 export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const paramMode =
     (searchParams.get("mode") as SessionFormMode) || initialMode;
@@ -47,6 +49,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     formState,
     updateField,
     resetForm,
+    refreshBoards,
     isPlanning,
   } = useSessionForm(paramMode);
 
@@ -54,10 +57,20 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     setMode(paramMode);
   }, [paramMode, setMode]);
 
-  const isComplete = Boolean(formState.selectedBeach && formState.selectedDate);
+  const isComplete = Boolean(
+    formState.selectedBeach &&
+      formState.selectedBeachId &&
+      formState.selectedDate
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user?.id) {
+      toast.error("Authentication required");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -70,11 +83,34 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         durationMinutes = hours * 60 + minutes;
       }
 
+      // Combine date and time into arrival_time
+      let arrivalTime: string | undefined = undefined;
+
+      if (formState.selectedDate && formState.selectedTime) {
+        // Create a Date object from the selected date and time
+        const dateTimeString = `${formState.selectedDate}T${formState.selectedTime}:00`;
+        const dateTime = new Date(dateTimeString);
+
+        // Format as PostgreSQL timestamp with timezone: 2025-05-24 18:43:00+00
+        arrivalTime = dateTime
+          .toISOString()
+          .replace("T", " ")
+          .replace(/\.\d{3}Z$/, "+00");
+      } else if (formState.selectedDate) {
+        // If only date is provided, use start of day
+        const dateTime = new Date(`${formState.selectedDate}T00:00:00`);
+        arrivalTime = dateTime
+          .toISOString()
+          .replace("T", " ")
+          .replace(/\.\d{3}Z$/, "+00");
+      }
+
       const sessionData = {
         beach_name: formState.selectedBeach,
-        session_date: formState.selectedDate,
-        start_time: formState.selectedTime,
+        beach_id: formState.selectedBeachId,
+        arrival_time: arrivalTime,
         board_id: formState.boardId,
+        profile_id: user.id,
         notes: formState.notes || undefined,
         status: isPlanning
           ? "planned"
@@ -82,31 +118,49 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       };
 
       if (isPlanning) {
-        await createPlannedSession(sessionData);
-        toast.success("Session planned successfully!");
+        const result = await createPlannedSession(sessionData, user.id);
+        if (result.success) {
+          toast.success("Session planned successfully!");
+        } else {
+          throw new Error(result.error);
+        }
       } else {
-        await createLoggedSession({
+        // Create logged session data with additional fields
+        const loggedSessionData = {
           ...sessionData,
-          duration_minutes: durationMinutes,
-          wave_quality: formState.waveQuality
-            ? parseInt(formState.waveQuality)
-            : undefined,
-          water_temp: formState.waterTemp || undefined,
-          crowd_level: formState.crowdLevel
-            ? parseInt(formState.crowdLevel)
-            : undefined,
-          parking_ease: formState.parkingEase
-            ? parseInt(formState.parkingEase)
-            : undefined,
-        });
-        toast.success("Session logged successfully!");
+          ...(durationMinutes !== undefined && {
+            duration_minutes: durationMinutes,
+          }),
+          ...(formState.waveQuality && {
+            wave_quality: parseInt(formState.waveQuality),
+          }),
+          ...(formState.waterTemp && { water_temp: formState.waterTemp }),
+          ...(formState.crowdLevel && {
+            crowd_level: parseInt(formState.crowdLevel),
+          }),
+          ...(formState.parkingEase && {
+            parking_ease: parseInt(formState.parkingEase),
+          }),
+        };
+
+        const result = await createLoggedSession(loggedSessionData, user.id);
+
+        if (result.success) {
+          toast.success("Session logged successfully!");
+        } else {
+          throw new Error(result.error);
+        }
       }
 
       // Handle completion
-      router.push("/dashboard");
+      router.push("/sessions");
     } catch (error) {
       console.error("Error saving session:", error);
-      toast.error("Failed to save session. Please try again.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to save session. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -155,6 +209,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
                 formState={formState}
                 boards={boards}
                 updateField={updateField}
+                onBoardsRefresh={refreshBoards}
               />
             </CardContent>
           </Card>

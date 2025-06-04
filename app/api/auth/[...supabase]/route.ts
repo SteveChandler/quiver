@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies, headers } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // GET = fetch current session
 export async function GET() {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({
-    cookies: () => cookieStore,
-    headers: headers(),
-  });
+  const supabase = await createSupabaseServerClient();
 
   try {
     const {
@@ -26,11 +21,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({
-      cookies: () => cookieStore,
-      headers: headers(),
-    });
+    const supabase = await createSupabaseServerClient();
 
     // First sign out to ensure clean state
     await supabase.auth.signOut();
@@ -48,7 +39,6 @@ export async function POST(request: Request) {
       userId: data?.session?.user?.id,
     });
 
-    // The handler will emit Set-Cookie for you
     return NextResponse.json({ data, error });
   } catch (error) {
     console.error("Exception in sign-in API route:", error);
@@ -64,11 +54,7 @@ export async function POST(request: Request) {
 
 // DELETE = sign out (clears cookies)
 export async function DELETE() {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({
-    cookies: () => cookieStore,
-    headers: headers(),
-  });
+  const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   return new Response(null, { status: 204 });
 }

@@ -54,7 +54,9 @@ export function RecentSessionsList({
                   <div>
                     <h3 className="font-medium">{session.beach.name}</h3>
                     <div className="text-sm text-muted-foreground">
-                      {format(new Date(session.session_date), "MMM d, yyyy")}
+                      {session.session_date
+                        ? format(new Date(session.session_date), "MMM d, yyyy")
+                        : "No date"}
                     </div>
                   </div>
                   <StarRating
