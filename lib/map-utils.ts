@@ -6,6 +6,39 @@
 // For Mapbox: Sign up at https://www.mapbox.com/ and get an access token
 // For Google Maps: Get an API key from https://console.cloud.google.com/
 
+// Generate a simple SVG placeholder for when map services fail
+function generateMapPlaceholder(
+  latitude: number,
+  longitude: number,
+  width: number = 300,
+  height: number = 120
+): string {
+  const svg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#e0f2fe;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#b3e5fc;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#bg)"/>
+      <circle cx="${width / 2}" cy="${height / 2}" r="8" fill="#1976d2"/>
+      <text x="${width / 2}" y="${
+    height / 2 + 25
+  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#424242">
+        Beach Location
+      </text>
+      <text x="${width / 2}" y="${
+    height / 2 + 40
+  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">
+        ${latitude.toFixed(4)}, ${longitude.toFixed(4)}
+      </text>
+    </svg>
+  `;
+
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+
 // Option 1: Mapbox Static Images API
 export function getMapboxStaticImageUrl(
   latitude: number,
@@ -31,13 +64,13 @@ export function getMapboxStaticImageUrl(
 
   if (!accessToken) {
     console.warn("Mapbox access token not found. Using placeholder image.");
-    return `/placeholder.svg?height=${height}&width=${width}`;
+    return generateMapPlaceholder(latitude, longitude, width, height);
   }
 
   // Validate coordinates
   if (!isValidCoordinates(latitude, longitude)) {
     console.warn("Invalid coordinates for Mapbox:", { latitude, longitude });
-    return `/placeholder.svg?height=${height}&width=${width}`;
+    return generateMapPlaceholder(latitude, longitude, width, height);
   }
 
   // Create marker overlay
@@ -74,7 +107,7 @@ export function getGoogleMapsStaticImageUrl(
 
   if (!apiKey) {
     console.warn("Google Maps API key not found. Using placeholder image.");
-    return `/placeholder.svg?height=${height}&width=${width}`;
+    return generateMapPlaceholder(latitude, longitude, width, height);
   }
 
   // Validate coordinates
@@ -83,7 +116,7 @@ export function getGoogleMapsStaticImageUrl(
       latitude,
       longitude,
     });
-    return `/placeholder.svg?height=${height}&width=${width}`;
+    return generateMapPlaceholder(latitude, longitude, width, height);
   }
 
   const center = `${latitude},${longitude}`;
@@ -137,7 +170,7 @@ export function getOpenStreetMapStaticImageUrl(
       latitude,
       longitude,
     });
-    return `/placeholder.svg?height=${height}&width=${width}`;
+    return generateMapPlaceholder(latitude, longitude, width, height);
   }
 
   // StaticMapLite is a free service for OpenStreetMap static images
@@ -175,17 +208,23 @@ export function getStaticMapImageUrl(
   // If no coordinates, return placeholder
   if (!latitude || !longitude) {
     console.warn("No coordinates provided for map image");
-    return `/placeholder.svg?height=${options.height || 120}&width=${
-      options.width || 300
-    }`;
+    return generateMapPlaceholder(
+      0,
+      0,
+      options.width || 300,
+      options.height || 120
+    );
   }
 
   // Validate coordinates
   if (!isValidCoordinates(latitude, longitude)) {
     console.warn("Invalid coordinates provided:", { latitude, longitude });
-    return `/placeholder.svg?height=${options.height || 120}&width=${
-      options.width || 300
-    }`;
+    return generateMapPlaceholder(
+      latitude,
+      longitude,
+      options.width || 300,
+      options.height || 120
+    );
   }
 
   console.log("Generating map image for coordinates:", { latitude, longitude });
@@ -194,6 +233,17 @@ export function getStaticMapImageUrl(
     hasGoogle: !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
     hasGeoapify: !!process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY,
   });
+
+  // For production on Vercel, prefer placeholder to avoid external service issues
+  if (process.env.NODE_ENV === "production" && process.env.VERCEL) {
+    console.log("Using placeholder for Vercel production deployment");
+    return generateMapPlaceholder(
+      latitude,
+      longitude,
+      options.width || 300,
+      options.height || 120
+    );
+  }
 
   // Try Mapbox first (best for outdoor/surf maps)
   if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
@@ -214,9 +264,14 @@ export function getStaticMapImageUrl(
     return geoapifyUrl;
   }
 
-  // Fallback to free OpenStreetMap static service
-  console.log("Using OpenStreetMap fallback for map image");
-  return getOpenStreetMapStaticImageUrl(latitude, longitude, options);
+  // Fallback to placeholder instead of problematic external services
+  console.log("Using placeholder fallback for map image");
+  return generateMapPlaceholder(
+    latitude,
+    longitude,
+    options.width || 300,
+    options.height || 120
+  );
 }
 
 // Helper function to extract coordinates from Beach object

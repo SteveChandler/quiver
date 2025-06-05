@@ -26,6 +26,12 @@ const nextConfig = {
         hostname: "maps.geoapify.com",
       },
     ],
+    // Add image loading configuration for better Vercel compatibility
+    dangerouslyAllowSVG: true,
+    contentDispositionType: "attachment",
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // Allow unoptimized images for map services that have issues with Vercel
+    unoptimized: process.env.NODE_ENV === "production",
   },
   experimental: {
     externalDir: true,
