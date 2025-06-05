@@ -9,9 +9,13 @@ const nextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'staticmap.openstreetmap.de',
-        pathname: '/staticmap.php',
+        protocol: "https",
+        hostname: "staticmap.openstreetmap.de",
+        pathname: "/staticmap.php",
+      },
+      {
+        protocol: "https",
+        hostname: "api.mapbox.com",
       },
     ],
   },
