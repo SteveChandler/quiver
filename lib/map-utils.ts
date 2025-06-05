@@ -34,10 +34,19 @@ export function getMapboxStaticImageUrl(
     return `/placeholder.svg?height=${height}&width=${width}`;
   }
 
+  // Validate coordinates
+  if (!isValidCoordinates(latitude, longitude)) {
+    console.warn("Invalid coordinates for Mapbox:", { latitude, longitude });
+    return `/placeholder.svg?height=${height}&width=${width}`;
+  }
+
   // Create marker overlay
   const marker = `pin-s+${markerColor}(${longitude},${latitude})`;
 
-  return `https://api.mapbox.com/styles/v1/${style}/static/${marker}/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${accessToken}`;
+  const url = `https://api.mapbox.com/styles/v1/${style}/static/${marker}/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${accessToken}`;
+
+  console.log("Generated Mapbox URL:", url);
+  return url;
 }
 
 // Option 2: Google Maps Static API
@@ -68,6 +77,15 @@ export function getGoogleMapsStaticImageUrl(
     return `/placeholder.svg?height=${height}&width=${width}`;
   }
 
+  // Validate coordinates
+  if (!isValidCoordinates(latitude, longitude)) {
+    console.warn("Invalid coordinates for Google Maps:", {
+      latitude,
+      longitude,
+    });
+    return `/placeholder.svg?height=${height}&width=${width}`;
+  }
+
   const center = `${latitude},${longitude}`;
   const marker = `color:${markerColor}|${latitude},${longitude}`;
 
@@ -92,6 +110,12 @@ export function getGeoapifyStaticImageUrl(
     return null;
   }
 
+  // Validate coordinates
+  if (!isValidCoordinates(latitude, longitude)) {
+    console.warn("Invalid coordinates for Geoapify:", { latitude, longitude });
+    return null;
+  }
+
   return `https://maps.geoapify.com/v1/staticmap?style=osm-carto&width=${width}&height=${height}&center=lonlat:${longitude},${latitude}&zoom=${zoom}&marker=lonlat:${longitude},${latitude};color:%233b82f6;size:medium&apiKey=${apiKey}`;
 }
 
@@ -107,17 +131,34 @@ export function getOpenStreetMapStaticImageUrl(
 ) {
   const { width = 300, height = 120, zoom = 14 } = options;
 
-  // Using MapTiler's static map API with OpenStreetMap data (no API key required for basic usage)
-  // This creates a simple map with a marker
-  const bbox = [
-    longitude - 0.005,
-    latitude - 0.005,
-    longitude + 0.005,
-    latitude + 0.005,
-  ].join(",");
+  // Validate coordinates
+  if (!isValidCoordinates(latitude, longitude)) {
+    console.warn("Invalid coordinates for OpenStreetMap:", {
+      latitude,
+      longitude,
+    });
+    return `/placeholder.svg?height=${height}&width=${width}`;
+  }
 
   // StaticMapLite is a free service for OpenStreetMap static images
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik&markers=${latitude},${longitude},lightblue`;
+  const url = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik&markers=${latitude},${longitude},lightblue`;
+
+  console.log("Generated OpenStreetMap URL:", url);
+  return url;
+}
+
+// Helper function to validate coordinates
+function isValidCoordinates(latitude: number, longitude: number): boolean {
+  return (
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    !isNaN(latitude) &&
+    !isNaN(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
 }
 
 // Main function to get static map image URL
@@ -133,28 +174,48 @@ export function getStaticMapImageUrl(
 ): string {
   // If no coordinates, return placeholder
   if (!latitude || !longitude) {
+    console.warn("No coordinates provided for map image");
     return `/placeholder.svg?height=${options.height || 120}&width=${
       options.width || 300
     }`;
   }
 
+  // Validate coordinates
+  if (!isValidCoordinates(latitude, longitude)) {
+    console.warn("Invalid coordinates provided:", { latitude, longitude });
+    return `/placeholder.svg?height=${options.height || 120}&width=${
+      options.width || 300
+    }`;
+  }
+
+  console.log("Generating map image for coordinates:", { latitude, longitude });
+  console.log("Available environment variables:", {
+    hasMapbox: !!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN,
+    hasGoogle: !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    hasGeoapify: !!process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY,
+  });
+
   // Try Mapbox first (best for outdoor/surf maps)
   if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
+    console.log("Using Mapbox for map image");
     return getMapboxStaticImageUrl(latitude, longitude, options);
   }
 
   // Try Google Maps
   if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+    console.log("Using Google Maps for map image");
     return getGoogleMapsStaticImageUrl(latitude, longitude, options);
   }
 
   // Try Geoapify
   const geoapifyUrl = getGeoapifyStaticImageUrl(latitude, longitude, options);
   if (geoapifyUrl) {
+    console.log("Using Geoapify for map image");
     return geoapifyUrl;
   }
 
   // Fallback to free OpenStreetMap static service
+  console.log("Using OpenStreetMap fallback for map image");
   return getOpenStreetMapStaticImageUrl(latitude, longitude, options);
 }
 
@@ -197,16 +258,20 @@ export function resolveBeachCoordinates(
   // If no coordinates found and we have a beach name, try hardcoded list
   if (beach?.name) {
     // Import beachCoordinates at the top if not already imported
-    const { beachCoordinates } = require("@/app/api/surf/beaches");
+    try {
+      const { beachCoordinates } = require("@/app/api/surf/beaches");
 
-    const beachNameLower = beach.name.toLowerCase().trim();
-    const hardcodedCoords = beachCoordinates[beachNameLower];
+      const beachNameLower = beach.name.toLowerCase().trim();
+      const hardcodedCoords = beachCoordinates[beachNameLower];
 
-    if (hardcodedCoords) {
-      return {
-        latitude: hardcodedCoords.lat,
-        longitude: hardcodedCoords.lng,
-      };
+      if (hardcodedCoords) {
+        return {
+          latitude: hardcodedCoords.lat,
+          longitude: hardcodedCoords.lng,
+        };
+      }
+    } catch (error) {
+      console.warn("Could not load hardcoded beach coordinates:", error);
     }
   }
 

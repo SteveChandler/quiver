@@ -17,6 +17,14 @@ const nextConfig = {
         protocol: "https",
         hostname: "api.mapbox.com",
       },
+      {
+        protocol: "https",
+        hostname: "maps.googleapis.com",
+      },
+      {
+        protocol: "https",
+        hostname: "maps.geoapify.com",
+      },
     ],
   },
   experimental: {

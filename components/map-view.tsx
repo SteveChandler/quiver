@@ -8,6 +8,7 @@ import { Search, MapPin, List, MapIcon, Loader2 } from "lucide-react";
 import { BeachCard } from "@/components/beach-card";
 import { getBeaches, getNearbyBeaches } from "@/actions/beach-actions";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
+import { MapImage } from "@/components/map-image";
 import type { Beach } from "@/types/database";
 
 // Default to Ocean Beach, San Diego coordinates
@@ -36,75 +37,65 @@ export function MapView() {
 
   // Filter beaches based on search query
   useEffect(() => {
-    if (searchQuery.trim() === "") {
+    if (!searchQuery.trim()) {
       setFilteredBeaches(beaches);
     } else {
-      const normalizedQuery = searchQuery.toLowerCase().trim();
-
-      const filtered = beaches.filter(
-        (beach) =>
-          beach.name.toLowerCase().includes(normalizedQuery) ||
-          (beach.location &&
-            beach.location.toLowerCase().includes(normalizedQuery))
+      const filtered = beaches.filter((beach) =>
+        beach.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
-
-      if (filtered.length > 0) {
-        // We found matches in the currently loaded beaches
-        setFilteredBeaches(filtered);
-        // Select the first matched beach
-        setSelectedBeach(filtered[0]);
-      } else {
-        // No matches in currently loaded beaches
-        // Show the "no results" message but keep the current beaches visible
-        setFilteredBeaches([]);
-      }
+      setFilteredBeaches(filtered);
     }
   }, [searchQuery, beaches]);
 
-  // Handle search submission - for when user presses Enter
-  const handleSearchSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const getUserLocation = () => {
+    setLocationError(null);
+    setLoading(true);
 
-    if (!searchQuery.trim()) {
+    if (!navigator.geolocation) {
+      setLocationError("Location services not supported by your browser");
+      useDefaultLocation();
       return;
     }
 
-    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        loadNearbyBeaches(latitude, longitude);
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        let errorMessage = "Unable to access your location";
 
-    try {
-      // First try to find any beach by name in the entire database
-      const result = await getBeaches();
-
-      if (result.success && result.data) {
-        const normalizedQuery = searchQuery.toLowerCase().trim();
-
-        // Look for beaches that match the search query
-        const matchingBeaches = result.data.filter(
-          (beach) =>
-            beach.name.toLowerCase().includes(normalizedQuery) ||
-            (beach.location &&
-              beach.location.toLowerCase().includes(normalizedQuery))
-        );
-
-        if (matchingBeaches.length > 0) {
-          // Found beach(es) matching the search
-          setBeaches(matchingBeaches);
-          setFilteredBeaches(matchingBeaches);
-          setSelectedBeach(matchingBeaches[0]);
-          setUsingDefaultLocation(false);
-        } else {
-          // No matches found, show "no results" message
-          setFilteredBeaches([]);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage =
+              "Location access denied. Please enable location services.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out";
+            break;
         }
+
+        setLocationError(errorMessage);
+        useDefaultLocation();
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000, // Cache for 5 minutes
       }
-    } catch (error) {
-      console.error("Error searching beaches:", error);
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
-  // Load all beaches from database
+  const useDefaultLocation = () => {
+    console.log("Using default location: Ocean Beach, San Diego");
+    setUsingDefaultLocation(true);
+    loadNearbyBeaches(OCEAN_BEACH_LAT, OCEAN_BEACH_LNG);
+  };
+
   const loadBeaches = async () => {
     setLoading(true);
     try {
@@ -177,66 +168,14 @@ export function MapView() {
     }
   };
 
-  // Use Ocean Beach, San Diego as default location
-  const useDefaultLocation = () => {
-    setUserLocation({ lat: OCEAN_BEACH_LAT, lng: OCEAN_BEACH_LNG });
-    setUsingDefaultLocation(true);
-    // Load beaches near Ocean Beach with a wider radius to ensure we get results
-    loadOceanBeachFallback();
-  };
-
-  // Load Ocean Beach and nearby beaches as fallback
-  const loadOceanBeachFallback = async () => {
-    setLoading(true);
-    try {
-      const result = await getNearbyBeaches(
-        OCEAN_BEACH_LAT,
-        OCEAN_BEACH_LNG,
-        50
-      );
-      if (result.success && result.data) {
-        setBeaches(result.data);
-        setFilteredBeaches(result.data);
-      } else {
-        // Last resort - load all beaches
-        loadBeaches();
-      }
-    } catch (error) {
-      console.error("Error loading Ocean Beach fallback:", error);
-      loadBeaches();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Get user's current location
-  const getUserLocation = () => {
-    setLocationError(null);
-
-    if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by your browser");
-      // Fall back to Ocean Beach, San Diego
-      useDefaultLocation();
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation({ lat: latitude, lng: longitude });
-        await loadNearbyBeaches(latitude, longitude);
-      },
-      (err) => {
-        console.error("Error getting location:", err);
-        setLocationError("Using default location: Ocean Beach, San Diego");
-        // Fall back to Ocean Beach, San Diego
-        useDefaultLocation();
-      }
-    );
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // The filtering is handled by useEffect
   };
 
   const handleBeachSelect = (beach: Beach) => {
     setSelectedBeach(beach);
+    // In a real implementation, you might want to animate or scroll to show the selected beach
   };
 
   const getDistanceFromUser = (beachLat: number, beachLng: number): string => {
@@ -333,31 +272,33 @@ export function MapView() {
           <Button type="submit" size="sm">
             Search
           </Button>
-          <div className="flex border rounded-md overflow-hidden">
-            <Button
-              variant={viewMode === "map" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-none"
-              onClick={() => setViewMode("map")}
-            >
-              <MapIcon className="h-4 w-4 mr-1" />
-              Map
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-none"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-4 w-4 mr-1" />
-              List
-            </Button>
-          </div>
         </form>
+
+        {/* View Mode Toggle */}
+        <div className="flex mt-3 bg-muted rounded-lg p-1">
+          <Button
+            variant={viewMode === "map" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("map")}
+            className="flex-1"
+          >
+            <MapIcon className="h-4 w-4 mr-1" />
+            Map
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+            className="flex-1"
+          >
+            <List className="h-4 w-4 mr-1" />
+            List
+          </Button>
+        </div>
       </div>
 
-      {/* Map View */}
-      {viewMode === "map" && (
+      {/* Content */}
+      {viewMode === "map" ? (
         <div className="flex-1 relative">
           {loading ? (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -378,7 +319,7 @@ export function MapView() {
             <div className="absolute inset-0 flex flex-col">
               {/* Static map image */}
               <div className="flex-1 relative overflow-hidden">
-                <img
+                <MapImage
                   src={getStaticMapImageUrl(
                     selectedBeach?.latitude ||
                       userLocation?.lat ||
@@ -389,7 +330,18 @@ export function MapView() {
                     { width: 800, height: 600, zoom: 12 }
                   )}
                   alt="Beach locations map"
-                  className="absolute inset-0 w-full h-full object-cover"
+                  latitude={
+                    selectedBeach?.latitude ||
+                    userLocation?.lat ||
+                    OCEAN_BEACH_LAT
+                  }
+                  longitude={
+                    selectedBeach?.longitude ||
+                    userLocation?.lng ||
+                    OCEAN_BEACH_LNG
+                  }
+                  fill
+                  className="object-cover"
                 />
 
                 {/* Map overlay with beach count */}
@@ -470,61 +422,30 @@ export function MapView() {
                         </span>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        (window.location.href = `/beach/${selectedBeach.id}`)
-                      }
-                    >
-                      Details
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
         </div>
-      )}
-
-      {/* List View */}
-      {viewMode === "list" && (
-        <div className="flex-1 p-4 space-y-4 overflow-auto pb-20">
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : filteredBeaches.length > 0 ? (
+      ) : (
+        <div className="flex-1 overflow-auto p-4">
+          {filteredBeaches.length > 0 ? (
             <>
-              {usingDefaultLocation && (
-                <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md">
-                  <p className="text-sm">
-                    Showing beaches near Ocean Beach, San Diego
-                  </p>
-                </div>
-              )}
-              {!usingDefaultLocation &&
-                userLocation &&
-                filteredBeaches.length > 0 && (
-                  <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md">
-                    <p className="text-sm">
-                      {filteredBeaches.length === 1
-                        ? `Found 1 beach within ${MAX_DISTANCE_MILES} miles: ${
-                            filteredBeaches[0].name
-                          } (${calculateDistance(
-                            filteredBeaches[0].latitude,
-                            filteredBeaches[0].longitude
-                          ).toFixed(1)} miles away)`
-                        : `Showing the ${
-                            filteredBeaches.length
-                          } closest beaches within ${MAX_DISTANCE_MILES} miles. Nearest: ${
-                            filteredBeaches[0].name
-                          } (${calculateDistance(
-                            filteredBeaches[0].latitude,
-                            filteredBeaches[0].longitude
-                          ).toFixed(1)} miles away)`}
-                    </p>
-                  </div>
-                )}
+              <div className="text-sm text-muted-foreground mb-4">
+                {searchQuery
+                  ? `${filteredBeaches.length} results for "${searchQuery}"`
+                  : `${filteredBeaches.length} beaches ${
+                      userLocation && !usingDefaultLocation
+                        ? "near your location"
+                        : "near Ocean Beach, San Diego"
+                    }`}
+                {!searchQuery &&
+                  userLocation &&
+                  filteredBeaches.length > 0 &&
+                  ` • Sorted by distance`}
+              </div>
+
               {filteredBeaches.map((beach) => (
                 <div
                   key={beach.id}
@@ -546,6 +467,8 @@ export function MapView() {
                       beach.longitude,
                       { width: 300, height: 120, zoom: 15 }
                     )}
+                    latitude={beach.latitude}
+                    longitude={beach.longitude}
                   />
                 </div>
               ))}

@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Star } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
+import { MapImage } from "@/components/map-image";
 
 interface BeachCardProps {
   id?: string;
@@ -10,6 +10,8 @@ interface BeachCardProps {
   rating: number;
   reviewCount: number;
   imageUrl: string;
+  latitude?: number;
+  longitude?: number;
   onViewDetails?: () => void;
 }
 
@@ -20,14 +22,18 @@ export function BeachCard({
   rating,
   reviewCount,
   imageUrl,
+  latitude,
+  longitude,
   onViewDetails,
 }: BeachCardProps) {
   return (
     <Card className="overflow-hidden">
       <div className="relative h-32">
-        <Image
+        <MapImage
           src={imageUrl || "/placeholder.svg"}
           alt={name}
+          latitude={latitude}
+          longitude={longitude}
           fill
           className="object-cover"
         />

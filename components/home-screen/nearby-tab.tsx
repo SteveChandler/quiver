@@ -84,6 +84,8 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
             rating={4.0}
             reviewCount={Math.floor(Math.random() * 200) + 50}
             imageUrl={mapImageUrl}
+            latitude={coords?.latitude}
+            longitude={coords?.longitude}
           />
         );
       })}
