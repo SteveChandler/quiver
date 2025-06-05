@@ -7,7 +7,13 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'staticmap.openstreetmap.de',
+        pathname: '/staticmap.php',
+      },
+    ],
   },
   experimental: {
     externalDir: true,

@@ -5,6 +5,17 @@ export async function uploadImage(file: File, bucket: string, folder: string) {
   try {
     const supabase = createClient();
 
+    // Add file validation
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error("Invalid file type");
+    }
+    if (file.size > maxSizeInBytes) {
+      throw new Error("File too large");
+    }
+
     // Create a unique file name
     const fileExt = file.name.split(".").pop();
     const fileName = `${uuidv4()}.${fileExt}`;

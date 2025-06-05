@@ -113,7 +113,6 @@ export async function fetchForecastData(beach: Beach, apiKey: string) {
     console.log(
       `Fetching forecast data for ${beach.name} (${beach.latitude}, ${beach.longitude})`
     );
-    console.log(`Using API key: ${apiKey.substring(0, 8)}...`);
 
     // Fetch weather data
     const weatherUrl = `${STORMGLASS_WEATHER_ENDPOINT}?lat=${

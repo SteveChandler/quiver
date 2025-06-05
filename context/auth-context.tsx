@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
@@ -26,388 +26,176 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [setupComplete, setSetupComplete] = useState(false);
+
+  // Use refs to prevent race conditions
+  const initializingRef = useRef(false);
+  const setupCompleteRef = useRef(false);
   const supabase = createClient();
 
-  // Function to refresh session
-  const refreshSession = async () => {
+  // Centralized function to update auth state
+  const updateAuthState = (newSession: Session | null) => {
+    setSession(newSession);
+    setUser(newSession?.user || null);
+    setIsAuthenticated(!!newSession);
+
+    // Setup user account if needed
+    if (newSession?.user && !setupCompleteRef.current) {
+      setupUserAccount(newSession.user.id);
+    }
+  };
+
+  // Simplified session refresh function
+  const refreshSession = async (): Promise<void> => {
+    if (initializingRef.current) {
+      return;
+    }
+
+    initializingRef.current = true;
     setIsLoading(true);
+
     try {
-      // First try direct Supabase getSession to see if we have a session in localStorage
-      console.log(
-        "AuthContext: refreshSession - Checking for client-side session"
-      );
-      const clientSession = await supabase.auth.getSession();
-      const hasClientSession = !!clientSession.data.session;
-
-      console.log(
-        "AuthContext: refreshSession - Client-side session exists:",
-        hasClientSession
-      );
-
-      // Also check with the API endpoint to ensure cookies are refreshed
-      console.log(
-        "AuthContext: refreshSession - Checking for server-side session"
-      );
-      let apiRes;
-      try {
-        apiRes = await fetch("/api/auth/[...supabase]", {
-          method: "GET",
-          credentials: "include",
-        });
-      } catch (e) {
-        console.warn("API session fetch failed:", e);
-      }
-
-      // If the API call failed, try the direct Supabase call
-      if (!apiRes?.ok) {
-        console.warn("API session refresh failed, relying on client session");
-      }
-
-      // Try to get session data from the API response
-      let sessionFromApi = null;
-      try {
-        if (apiRes?.ok) {
-          sessionFromApi = await apiRes.json();
-          console.log("Session from API:", sessionFromApi);
-        }
-      } catch (e) {
-        console.warn("Failed to parse API session response", e);
-      }
-
-      // Check if we have some form of session
-      if (hasClientSession) {
-        console.log("Using client-side session data");
-        setSession(clientSession.data.session);
-        setUser(clientSession.data.session?.user || null);
-        setIsAuthenticated(true);
-        return;
-      } else if (sessionFromApi) {
-        console.log("Using API-provided session data");
-        // If we have a session from the API but not the client, try a direct session sync
-        try {
-          const refreshResult = await supabase.auth.refreshSession();
-          if (refreshResult.data.session) {
-            setSession(refreshResult.data.session);
-            setUser(refreshResult.data.session.user);
-            setIsAuthenticated(true);
-            return;
-          }
-        } catch (refreshError) {
-          console.error("Failed to refresh after API session:", refreshError);
-        }
-      }
-
-      // If we got here, try one more getSession as a final attempt
       const {
-        data: { session: finalAttemptSession },
+        data: { session },
+        error,
       } = await supabase.auth.getSession();
 
-      console.log(
-        "AuthContext: refreshSession - Final session check:",
-        finalAttemptSession
-      );
-
-      if (finalAttemptSession) {
-        setSession(finalAttemptSession);
-        setUser(finalAttemptSession.user);
-        setIsAuthenticated(true);
-      } else {
-        setSession(null);
-        setUser(null);
-        setIsAuthenticated(false);
+      if (error) {
+        console.error("AuthContext: Error getting session:", error);
+        updateAuthState(null);
+        return;
       }
+
+      updateAuthState(session);
     } catch (error) {
-      console.error("Error refreshing session:", error);
-      // On error, clear local state to prevent inconsistencies
-      setSession(null);
-      setUser(null);
-      setIsAuthenticated(false);
+      console.error("AuthContext: Exception during session refresh:", error);
+      updateAuthState(null);
     } finally {
       setIsLoading(false);
+      initializingRef.current = false;
     }
   };
 
-  // Function to handle user setup (profile creation and board template copying)
+  // Simplified user setup function
   const setupUserAccount = async (userId: string) => {
-    if (!userId || setupComplete) return;
+    if (setupCompleteRef.current) return;
 
     try {
-      // Add a significant delay to ensure auth is fully established
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // User account setup is now minimal - just ensuring auth is established
-      console.log("User account setup complete for user:", userId);
-      setSetupComplete(true);
+      // Add any user setup logic here (create profile, etc.)
+      setupCompleteRef.current = true;
     } catch (error) {
-      console.error("Exception in setupUserAccount:", error);
-      // Don't sign out the user if setup fails
+      console.error("AuthContext: User setup failed:", error);
+      // Don't fail auth if setup fails
     }
   };
 
+  // Initialize auth state on mount
   useEffect(() => {
-    // Get initial session
-    const getInitialSession = async () => {
-      setIsLoading(true);
-      console.log(
-        "AuthContext: getInitialSession - Attempting to get session..."
-      );
-      try {
-        // First try to get the session from the server to ensure cookies are in sync
-        try {
-          const serverSessionRes = await fetch("/api/auth/[...supabase]", {
-            method: "GET",
-            credentials: "include",
-          });
+    let mounted = true;
 
-          if (serverSessionRes.ok) {
-            const serverSession = await serverSessionRes.json();
-            console.log(
-              "AuthContext: getInitialSession - Session from server:",
-              serverSession
-            );
-          }
-        } catch (e) {
-          console.warn("Failed to get session from server", e);
-        }
+    const initializeAuth = async () => {
+      if (initializingRef.current) return;
 
-        // Now check client-side
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        console.log(
-          "AuthContext: getInitialSession - Full session object:",
-          session
-        );
-        console.log("AuthContext: getInitialSession - Result:", {
-          hasSession: !!session,
-          userId: session?.user?.id,
-        });
-
-        if (session) {
-          setSession(session);
-          setUser(session.user);
-          setIsAuthenticated(true);
-
-          // If user is already logged in, set up their account
-          setupUserAccount(session.user.id);
-        } else {
-          // If client doesn't have a session, check if we should perform a session recovery
-          try {
-            // Try to refresh the session explicitly
-            const { data: refreshData, error: refreshError } =
-              await supabase.auth.refreshSession();
-
-            if (refreshData.session) {
-              console.log(
-                "AuthContext: getInitialSession - Session recovered through refresh"
-              );
-              setSession(refreshData.session);
-              setUser(refreshData.session.user);
-              setIsAuthenticated(true);
-              return;
-            } else if (refreshError) {
-              console.log(
-                "AuthContext: getInitialSession - Session refresh failed:",
-                refreshError
-              );
-            }
-          } catch (refreshError) {
-            console.error("Error refreshing session:", refreshError);
-          }
-
-          // No session was found or recovered
-          setSession(null);
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error("Error getting session:", error);
-        // Don't reset user state on error to prevent unintended sign-outs
-      } finally {
-        setIsLoading(false);
-      }
+      await refreshSession();
     };
 
-    getInitialSession();
+    initializeAuth();
 
-    // Listen for auth changes
+    // Set up auth state change listener
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(
-        "AuthContext: onAuthStateChange - Event:",
-        event,
-        "Full session received:",
-        session
-      );
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (!mounted) return;
 
-      if (session) {
-        if (event === "SIGNED_IN") {
-          console.log(
-            "AuthContext: onAuthStateChange - SIGNED_IN event. User ID:",
-            session.user?.id,
-            "Session:",
-            session
-          );
-        }
-        setSession(session);
-        setUser(session.user);
-        setIsAuthenticated(true);
-        setIsLoading(false);
-
-        // If this is a new sign-up or sign-in, ensure profile exists and copy board templates
-        if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-          console.log(
-            "AuthContext: onAuthStateChange - SIGNED_IN or USER_UPDATED event for setupUserAccount, current user:",
-            session.user?.id
-          );
-          setupUserAccount(session.user.id);
-        }
-      } else {
-        if (event === "SIGNED_OUT") {
-          console.log("AuthContext: onAuthStateChange - SIGNED_OUT event.");
-        }
-        console.log(
-          "AuthContext: onAuthStateChange - No session from auth state change, event:",
-          event
-        );
-        // Only clear user state on explicit sign out
-        if (event === "SIGNED_OUT") {
-          setSession(null);
-          setUser(null);
-          setIsAuthenticated(false);
-          setSetupComplete(false);
-        }
-        setIsLoading(false);
+      // Handle the auth state change
+      switch (event) {
+        case "SIGNED_IN":
+        case "TOKEN_REFRESHED":
+          updateAuthState(newSession);
+          break;
+        case "SIGNED_OUT":
+          updateAuthState(null);
+          setupCompleteRef.current = false;
+          break;
+        case "USER_UPDATED":
+          if (newSession) {
+            updateAuthState(newSession);
+          }
+          break;
+        default:
+          // For other events, just update if we have a session
+          updateAuthState(newSession);
       }
+
+      setIsLoading(false);
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string): Promise<void> => {
+    setIsLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
         email,
         password,
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
     } catch (error) {
-      console.error("Sign up error:", error);
+      console.error("AuthContext: Sign up error:", error);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<void> => {
+    setIsLoading(true);
+
     try {
-      // First clear any existing sessions to prevent conflicts
-      console.log(
-        "AuthContext: signIn - Attempting to sign out before signing in..."
-      );
+      // Clear any existing session first
       await supabase.auth.signOut();
-      console.log(
-        "AuthContext: signIn - Sign out completed. Resetting redirect attempts."
-      );
 
-      // Reset redirect attempts counter
-      localStorage.setItem("redirectAttempts", "0");
+      // Reset state
+      setupCompleteRef.current = false;
 
-      console.log(
-        "AuthContext: signIn - Attempting to signInWithPassword for email:",
-        email
-      );
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      console.log(
-        "AuthContext: signIn - signInWithPassword response. Data:",
-        data,
-        "Error:",
-        error
-      );
+      if (error) throw error;
 
-      if (error) {
-        console.error(
-          "AuthContext: signIn - Error from signInWithPassword:",
-          error
-        );
-        throw error;
-      }
-
-      // TEMPORARILY COMMENTED OUT FOR DIAGNOSTICS: Rely on onAuthStateChange for state updates
-      // if (data?.session) {
-      //   console.log("AuthContext: signIn - Session data received from signInWithPassword. Manually setting context (temporarily disabled).");
-      //   // setSession(data.session);
-      //   // setUser(data.session.user);
-      //   // setIsAuthenticated(true);
-
-      //   // // Ensure browser has the session before redirecting
-      //   // await new Promise((resolve) => setTimeout(resolve, 800));
-
-      //   // // Force a session refresh to ensure cookies are set
-      //   // console.log("AuthContext: signIn - Calling supabase.auth.getSession() client-side (temporarily disabled).");
-      //   // await supabase.auth.getSession();
-
-      //   // // Also call our API endpoint to ensure cookies are properly set
-      //   // console.log("AuthContext: signIn - Fetching /api/auth/[...supabase] GET (temporarily disabled).");
-      //   // await fetch("/api/auth/[...supabase]", {
-      //   //   method: "GET",
-      //   //   credentials: "include",
-      //   // });
-      // } else {
-      //   console.log("AuthContext: signIn - No session data in response from signInWithPassword.");
-      // }
-      // End of temporarily commented out section
-
-      // If signInWithPassword is successful, onAuthStateChange SHOULD fire with SIGNED_IN.
-      // We are now relying on that for state updates.
+      // The onAuthStateChange listener will handle updating the state
     } catch (error) {
-      console.error(
-        "AuthContext: signIn - Error during sign in process:",
-        error
-      );
-      // Clear any inconsistent state on error
-      setSession(null);
-      setUser(null);
-      setIsAuthenticated(false);
+      console.error("AuthContext: Sign in error:", error);
+      updateAuthState(null);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (): Promise<void> => {
+    setIsLoading(true);
+
     try {
-      setSetupComplete(false);
-      console.log("AuthContext: signOut - Attempting to sign out...");
       const { error } = await supabase.auth.signOut();
 
-      if (error) {
-        console.error(
-          "AuthContext: signOut - Error from supabase.auth.signOut:",
-          error
-        );
-        throw error;
-      }
-      console.log(
-        "AuthContext: signOut - Sign out successful from Supabase. Clearing local context state."
-      );
+      if (error) throw error;
 
-      // Clear session state immediately
-      // This will also be handled by onAuthStateChange if event fires correctly, but good for immediate feedback.
-      setSession(null);
-      setUser(null);
-      setIsAuthenticated(false);
+      // Reset setup state
+      setupCompleteRef.current = false;
+
+      // The onAuthStateChange listener will handle clearing the state
     } catch (error) {
-      console.error("Sign out error:", error);
+      console.error("AuthContext: Sign out error:", error);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
