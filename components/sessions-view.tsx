@@ -9,6 +9,7 @@ import { SessionCard } from "@/components/session-card";
 import { useAuth } from "@/context/auth-context";
 import { getUserSessions } from "@/actions/session-actions";
 import type { SessionWithDetails } from "@/types/database";
+import { getStaticMapImageUrl, resolveBeachCoordinates } from "@/lib/map-utils";
 import Link from "next/link";
 
 export function SessionsView() {
@@ -19,25 +20,16 @@ export function SessionsView() {
   );
   const [loading, setLoading] = useState(true);
 
-  // Debug logging
-  console.log("SessionsView - Current user:", user);
-  console.log("SessionsView - User ID:", user?.id);
-
   useEffect(() => {
     async function loadSessions() {
       if (!user) {
-        console.log("SessionsView - No user found, skipping session load");
         setLoading(false);
         return;
       }
-
-      console.log("SessionsView - Loading sessions for user:", user.id);
       setLoading(true);
       try {
         const result = await getUserSessions(user.id);
-        console.log("SessionsView - Sessions result:", result);
         if (result.success && result.data) {
-          console.log("SessionsView - Found sessions:", result.data.length);
           // Get current date at midnight for comparison
           const today = new Date();
           today.setHours(0, 0, 0, 0);
@@ -47,9 +39,9 @@ export function SessionsView() {
           const future: SessionWithDetails[] = [];
 
           result.data.forEach((session) => {
-            // Handle session_date and start_time instead of arrival_time
-            const sessionDate = session.session_date
-              ? new Date(session.session_date)
+            // Handle arrival_time for session date comparison
+            const sessionDate = session.arrival_time
+              ? new Date(session.arrival_time)
               : null;
 
             if (sessionDate && sessionDate >= today) {
@@ -71,6 +63,99 @@ export function SessionsView() {
 
     loadSessions();
   }, [user]);
+
+  // Helper function to format session description with additional details
+  const formatSessionDescription = (session: SessionWithDetails) => {
+    const parts = [];
+
+    // Add notes if available
+    if (session.notes) {
+      parts.push(session.notes);
+    }
+
+    // Add wave conditions
+    const conditions = [];
+    if (session.wave_height) {
+      conditions.push(`Wave Height: ${session.wave_height}`);
+    }
+    if (session.water_temp) {
+      conditions.push(`Water Temp: ${session.water_temp}`);
+    }
+    if (session.wave_quality) {
+      conditions.push(`Wave Quality: ${session.wave_quality}/5`);
+    }
+    if (session.crowd_rating) {
+      conditions.push(`Crowd Level: ${session.crowd_rating}/5`);
+    }
+
+    if (conditions.length > 0) {
+      parts.push(`Conditions: ${conditions.join(", ")}`);
+    }
+
+    // Add goals if available
+    if (session.goals && session.goals.length > 0) {
+      parts.push(`Goals: ${session.goals.join(", ")}`);
+    }
+
+    // Add duration if available
+    if (session.duration_minutes) {
+      const hours = Math.floor(session.duration_minutes / 60);
+      const minutes = session.duration_minutes % 60;
+      const durationStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+      parts.push(`Duration: ${durationStr}`);
+    }
+
+    return parts.length > 0 ? parts.join(" • ") : "No description provided.";
+  };
+
+  // Helper function to format date consistently
+  const formatSessionDate = (session: SessionWithDetails) => {
+    const date = session.arrival_time ? new Date(session.arrival_time) : null;
+
+    if (!date) return "No date set";
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Helper function to render session cards
+  const renderSessionCard = (
+    session: SessionWithDetails,
+    isPlanned = false
+  ) => {
+    // Get beach coordinates using the unified resolution function
+    const coords = session.beach
+      ? resolveBeachCoordinates(session.beach)
+      : null;
+
+    // Generate the map image URL
+    const mapImageUrl = getStaticMapImageUrl(
+      coords?.latitude,
+      coords?.longitude,
+      { width: 500, height: 350, zoom: 12 }
+    );
+
+    return (
+      <SessionCard
+        key={session.id}
+        id={session.id}
+        username="You"
+        beachName={session.beach?.name || "Unknown Beach"}
+        date={formatSessionDate(session)}
+        rating={session.rating || 0}
+        description={formatSessionDescription(session)}
+        imageUrl={mapImageUrl}
+        likes={session.likes_count || 0}
+        comments={session.comments_count || 0}
+        isOwner={true}
+      />
+    );
+  };
 
   return (
     <div className="flex-1 flex flex-col">
@@ -101,35 +186,9 @@ export function SessionsView() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : sessions.length > 0 ? (
-              sessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  username="You"
-                  beachName={session.beach?.name || "Unknown Beach"}
-                  date={
-                    session.session_date
-                      ? (() => {
-                          const dateStr = new Date(
-                            session.session_date
-                          ).toLocaleDateString();
-                          if (session.start_time) {
-                            return `${dateStr} at ${session.start_time}`;
-                          }
-                          return dateStr;
-                        })()
-                      : "No date set"
-                  }
-                  rating={session.rating || 0}
-                  description={
-                    session.description || "No description provided."
-                  }
-                  imageUrl={
-                    session.image_url || "/placeholder.svg?height=200&width=300"
-                  }
-                  likes={session.likes_count || 0}
-                  comments={session.comments_count || 0}
-                />
-              ))
+              <div className="max-w-2xl mx-auto space-y-4">
+                {sessions.map((session) => renderSessionCard(session))}
+              </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <p>You haven't logged any sessions yet.</p>
@@ -146,48 +205,11 @@ export function SessionsView() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : plannedSessions.length > 0 ? (
-              plannedSessions.map((session) => (
-                <Card key={session.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <CalendarDays className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">
-                          {session.beach?.name || "Unknown Beach"}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {session.session_date
-                            ? (() => {
-                                const dateStr = new Date(
-                                  session.session_date
-                                ).toLocaleDateString();
-                                if (session.start_time) {
-                                  return `${dateStr} at ${session.start_time}`;
-                                }
-                                return dateStr;
-                              })()
-                            : "No date set"}
-                        </p>
-                        <div className="flex items-center mt-1 text-sm">
-                          <Waves className="h-4 w-4 mr-1 text-primary" />
-                          <span>
-                            {session.wave_height
-                              ? `Forecast: ${session.wave_height}`
-                              : "No forecast data"}
-                          </span>
-                        </div>
-                      </div>
-                      <Button size="sm" variant="outline" asChild>
-                        <Link href={`/log-session?edit=${session.id}`}>
-                          Edit
-                        </Link>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+              <div className="max-w-2xl mx-auto space-y-4">
+                {plannedSessions.map((session) =>
+                  renderSessionCard(session, true)
+                )}
+              </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <p>You don't have any planned sessions.</p>

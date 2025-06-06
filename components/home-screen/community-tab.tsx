@@ -48,14 +48,14 @@ export function CommunityTab({ sessions, loading }: CommunityTabProps) {
             username={session.user?.full_name || "Anonymous Surfer"}
             beachName={session.beach?.name || "Unknown Beach"}
             date={
-              session.session_date
-                ? new Date(session.session_date).toLocaleDateString("en-US", {
+              session.arrival_time
+                ? new Date(session.arrival_time).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
                   })
                 : "No date"
             }
-            rating={session.wave_quality || 0}
+            rating={session.rating || 0}
             description={session.notes || "No description provided."}
             imageUrl={mapImageUrl}
             likes={0}

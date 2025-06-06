@@ -20,7 +20,7 @@ export function MapImage({
   latitude,
   longitude,
   width = 300,
-  height = 120,
+  height = 200,
   className,
   fill = false,
 }: MapImageProps) {

@@ -13,6 +13,9 @@ import {
   Timer,
   Target,
   Users,
+  Star,
+  Car,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -20,7 +23,6 @@ import { useSessionForm, SessionFormMode } from "@/hooks/use-session-form";
 import { useAuth } from "@/context/auth-context";
 import { SessionFormHeader } from "./SessionFormHeader";
 import { LocationStep } from "./LocationStep";
-import { DateTimeStep } from "./DateTimeStep";
 import { EquipmentStep } from "./EquipmentStep";
 
 import {
@@ -141,6 +143,9 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
           ...(formState.parkingEase && {
             parking_ease: parseInt(formState.parkingEase),
           }),
+          ...(formState.overallRating && {
+            rating: parseInt(formState.overallRating),
+          }),
         };
 
         const result = await createLoggedSession(loggedSessionData, user.id);
@@ -187,14 +192,71 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
             </CardContent>
           </Card>
 
-          {/* Date/Time Section */}
+          {/* Date/Time & Duration Section */}
           <Card className="mb-4">
             <CardContent className="pt-6">
               <div className="flex items-center mb-4">
                 <CalendarDays className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">When</h2>
+                <h2 className="text-lg font-medium">When & Duration</h2>
               </div>
-              <DateTimeStep formState={formState} updateField={updateField} />
+              <div className="space-y-4">
+                {/* Date and Time in same row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full border rounded p-2"
+                      value={formState.selectedDate}
+                      onChange={(e) =>
+                        updateField("selectedDate", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Time
+                    </label>
+                    <div className="flex items-center">
+                      <Timer className="w-4 h-4 mr-2 text-muted-foreground" />
+                      <input
+                        type="time"
+                        className="flex-1 border rounded p-2"
+                        value={formState.selectedTime}
+                        onChange={(e) =>
+                          updateField("selectedTime", e.target.value)
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Duration underneath */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Duration
+                  </label>
+                  <div className="flex items-center">
+                    <input
+                      type="number"
+                      min={15}
+                      step={15}
+                      className="border rounded p-2 w-24"
+                      value={
+                        formState.duration ? parseInt(formState.duration) : 60
+                      }
+                      onChange={(e) =>
+                        updateField("duration", `${e.target.value}m`)
+                      }
+                    />
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      minutes
+                    </span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -211,29 +273,6 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
                 updateField={updateField}
                 onBoardsRefresh={refreshBoards}
               />
-            </CardContent>
-          </Card>
-
-          {/* Duration Section */}
-          <Card className="mb-4">
-            <CardContent className="pt-6">
-              <div className="flex items-center mb-4">
-                <Timer className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Duration</h2>
-              </div>
-              <div className="space-y-4">
-                <input
-                  type="number"
-                  min={15}
-                  step={15}
-                  className="border rounded p-2 w-24"
-                  value={formState.duration ? parseInt(formState.duration) : 60}
-                  onChange={(e) =>
-                    updateField("duration", `${e.target.value}m`)
-                  }
-                />{" "}
-                minutes
-              </div>
             </CardContent>
           </Card>
 
@@ -274,8 +313,173 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
                   )
                 )}
               </div>
+
+              {/* Overall Rating - Only show for logged sessions */}
+              {!isPlanning && (
+                <div className="mt-6 pt-4 border-t">
+                  <div className="text-center">
+                    <label className="block text-sm font-medium mb-2">
+                      Overall Goal Performance
+                    </label>
+                    <div className="flex justify-center gap-1 mb-1">
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <button
+                          key={rating}
+                          type="button"
+                          onClick={() =>
+                            updateField("overallRating", rating.toString())
+                          }
+                          className={`p-1 rounded transition-colors ${
+                            parseInt(formState.overallRating) >= rating
+                              ? "text-blue-400"
+                              : "text-gray-300 hover:text-gray-400"
+                          }`}
+                        >
+                          <Star
+                            className="w-6 h-6"
+                            fill={
+                              parseInt(formState.overallRating) >= rating
+                                ? "currentColor"
+                                : "none"
+                            }
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formState.overallRating
+                        ? `${formState.overallRating}/5`
+                        : "How did you perform?"}
+                    </span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {/* Session Conditions Section - Only show for logged sessions */}
+          {!isPlanning && (
+            <Card className="mb-4">
+              <CardContent className="pt-6">
+                <div className="flex items-center mb-4">
+                  <Activity className="w-5 h-5 mr-2 text-primary" />
+                  <h2 className="text-lg font-medium">Session Conditions</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Wave Quality */}
+                  <div className="text-center">
+                    <label className="block text-sm font-medium mb-2">
+                      Wave Quality
+                    </label>
+                    <div className="flex justify-center gap-1 mb-1">
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <button
+                          key={rating}
+                          type="button"
+                          onClick={() =>
+                            updateField("waveQuality", rating.toString())
+                          }
+                          className={`p-1 rounded transition-colors ${
+                            parseInt(formState.waveQuality) >= rating
+                              ? "text-yellow-400"
+                              : "text-gray-300 hover:text-gray-400"
+                          }`}
+                        >
+                          <Star
+                            className="w-5 h-5"
+                            fill={
+                              parseInt(formState.waveQuality) >= rating
+                                ? "currentColor"
+                                : "none"
+                            }
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formState.waveQuality
+                        ? `${formState.waveQuality}/5`
+                        : "Rate the waves"}
+                    </span>
+                  </div>
+
+                  {/* Crowd Density */}
+                  <div className="text-center">
+                    <label className="block text-sm font-medium mb-2">
+                      Crowd Density
+                    </label>
+                    <div className="flex justify-center gap-1 mb-1">
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <button
+                          key={rating}
+                          type="button"
+                          onClick={() =>
+                            updateField("crowdLevel", rating.toString())
+                          }
+                          className={`p-1 rounded transition-colors ${
+                            parseInt(formState.crowdLevel) >= rating
+                              ? "text-orange-400"
+                              : "text-gray-300 hover:text-gray-400"
+                          }`}
+                        >
+                          <Users
+                            className="w-5 h-5"
+                            fill={
+                              parseInt(formState.crowdLevel) >= rating
+                                ? "currentColor"
+                                : "none"
+                            }
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formState.crowdLevel
+                        ? `${formState.crowdLevel}/5`
+                        : "How crowded?"}
+                    </span>
+                  </div>
+
+                  {/* Parking */}
+                  <div className="text-center">
+                    <label className="block text-sm font-medium mb-2">
+                      Parking Ease
+                    </label>
+                    <div className="flex justify-center gap-1 mb-1">
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <button
+                          key={rating}
+                          type="button"
+                          onClick={() =>
+                            updateField("parkingEase", rating.toString())
+                          }
+                          className={`p-1 rounded transition-colors ${
+                            parseInt(formState.parkingEase) >= rating
+                              ? "text-green-400"
+                              : "text-gray-300 hover:text-gray-400"
+                          }`}
+                        >
+                          <Car
+                            className="w-5 h-5"
+                            fill={
+                              parseInt(formState.parkingEase) >= rating
+                                ? "currentColor"
+                                : "none"
+                            }
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formState.parkingEase
+                        ? `${formState.parkingEase}/5`
+                        : "How easy?"}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Notes & Invite Section */}
           <Card className="mb-4">
@@ -301,7 +505,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
           </Card>
 
           {/* Save Button */}
-          <div className="flex justify-center mt-6 mb-6">
+          <div className="flex justify-center mt-6 pb-24">
             <Button
               type="submit"
               disabled={loading || !isComplete}

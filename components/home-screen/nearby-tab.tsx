@@ -56,11 +56,11 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
         // Get beach coordinates using the unified resolution function
         const coords = resolveBeachCoordinates(beach);
 
-        // Generate the map image URL
+        // Generate the map image URL with same dimensions as Community tab
         const mapImageUrl = getStaticMapImageUrl(
           coords?.latitude,
           coords?.longitude,
-          { width: 300, height: 120, zoom: 15 }
+          { width: 300, height: 200, zoom: 15 }
         );
 
         // Calculate actual distance if we have user location and beach coordinates

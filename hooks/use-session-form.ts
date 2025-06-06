@@ -19,6 +19,7 @@ export type SessionFormState = {
   waterTemp: string;
   crowdLevel: string;
   parkingEase: string;
+  overallRating: string;
   notes: string;
   photos: string[];
 };
@@ -46,6 +47,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     waterTemp: "",
     crowdLevel: "",
     parkingEase: "",
+    overallRating: "",
     notes: "",
     photos: [],
   });
@@ -56,14 +58,11 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
         setLoadingData(true);
 
         if (!user) {
-          console.log("No user found, skipping data load");
           setLoadingData(false);
           return;
         }
 
-        console.log("Fetching boards for user:", user.id);
         const userBoardsResult = await getUserBoards(user.id);
-        console.log("getUserBoards result:", userBoardsResult);
 
         if (userBoardsResult.success && userBoardsResult.data) {
           setBoards(userBoardsResult.data);
@@ -122,6 +121,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
       waterTemp: "",
       crowdLevel: "",
       parkingEase: "",
+      overallRating: "",
       notes: "",
       photos: [],
     });
@@ -131,9 +131,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     if (!user) return;
 
     try {
-      console.log("Refreshing boards for user:", user.id);
       const userBoardsResult = await getUserBoards(user.id);
-      console.log("refreshBoards result:", userBoardsResult);
 
       if (userBoardsResult.success && userBoardsResult.data) {
         setBoards(userBoardsResult.data);

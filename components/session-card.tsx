@@ -1,20 +1,20 @@
-import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MapPin, Star, ThumbsUp, MessageSquare, Calendar } from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MapPin, Star, ThumbsUp, MessageSquare, Calendar } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
 interface SessionCardProps {
-  id?: string
-  username: string
-  beachName: string
-  date: string
-  rating: number
-  description: string
-  imageUrl: string
-  likes: number
-  comments: number
-  isOwner?: boolean
+  id?: string;
+  username: string;
+  beachName: string;
+  date: string;
+  rating: number;
+  description: string;
+  imageUrl: string;
+  likes: number;
+  comments: number;
+  isOwner?: boolean;
 }
 
 export function SessionCard({
@@ -34,7 +34,10 @@ export function SessionCard({
       {/* User Info */}
       <div className="flex items-center gap-3">
         <Avatar>
-          <AvatarImage src="/placeholder.svg?height=40&width=40" alt={username} />
+          <AvatarImage
+            src="/placeholder.svg?height=40&width=40"
+            alt={username}
+          />
           <AvatarFallback>{username.charAt(0)}</AvatarFallback>
         </Avatar>
         <div>
@@ -54,7 +57,12 @@ export function SessionCard({
         {Array(5)
           .fill(0)
           .map((_, i) => (
-            <Star key={i} className={`h-4 w-4 ${i < rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"}`} />
+            <Star
+              key={i}
+              className={`h-4 w-4 ${
+                i < rating ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
+              }`}
+            />
           ))}
       </div>
 
@@ -63,7 +71,12 @@ export function SessionCard({
 
       {/* Image */}
       <div className="relative h-48 w-full rounded-md overflow-hidden">
-        <Image src={imageUrl || "/placeholder.svg"} alt="Session photo" fill className="object-cover" />
+        <Image
+          src={imageUrl || "/placeholder.svg"}
+          alt="Session photo"
+          fill
+          className="object-cover"
+        />
       </div>
 
       {/* Engagement */}
@@ -78,15 +91,17 @@ export function SessionCard({
         </button>
       </div>
     </CardContent>
-  )
+  );
 
   if (id && isOwner) {
     return (
       <Link href={`/sessions/${id}`}>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">{cardContent}</Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          {cardContent}
+        </Card>
       </Link>
-    )
+    );
   }
 
-  return <Card>{cardContent}</Card>
+  return <Card>{cardContent}</Card>;
 }

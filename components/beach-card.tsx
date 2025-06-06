@@ -28,7 +28,7 @@ export function BeachCard({
 }: BeachCardProps) {
   return (
     <Card className="overflow-hidden">
-      <div className="relative h-32">
+      <div className="relative h-48">
         <MapImage
           src={imageUrl || "/placeholder.svg"}
           alt={name}

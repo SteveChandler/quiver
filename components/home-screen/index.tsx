@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,11 +12,44 @@ import { ForecastTab } from "./forecast-tab";
 import { NearbyTab } from "./nearby-tab";
 import { CommunityTab } from "./community-tab";
 import { useHomeData } from "./use-home-data";
+import { cn } from "@/lib/utils";
 
 export function HomeScreen() {
   const [activeTab, setActiveTab] = useState("forecast");
+  const [isNavVisible, setIsNavVisible] = useState(true);
   const { user, isLoading: authLoading } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
+
+  // Track navigation visibility for FAB positioning
+  useEffect(() => {
+    let hideTimeout: NodeJS.Timeout;
+
+    const handleUserActivity = () => {
+      setIsNavVisible(true);
+      clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        setIsNavVisible(false);
+      }, 3000);
+    };
+
+    // Initial setup
+    handleUserActivity();
+
+    // Add event listeners
+    const options = { passive: true };
+    window.addEventListener("scroll", handleUserActivity, options);
+    window.addEventListener("touchstart", handleUserActivity, options);
+    window.addEventListener("touchmove", handleUserActivity, options);
+    window.addEventListener("mousemove", handleUserActivity, options);
+
+    return () => {
+      clearTimeout(hideTimeout);
+      window.removeEventListener("scroll", handleUserActivity);
+      window.removeEventListener("touchstart", handleUserActivity);
+      window.removeEventListener("touchmove", handleUserActivity);
+      window.removeEventListener("mousemove", handleUserActivity);
+    };
+  }, []);
 
   // Get user initials for avatar fallback
   const getInitials = () => {
@@ -127,7 +160,12 @@ export function HomeScreen() {
 
       {/* Floating Action Button */}
       {user && (
-        <div className="fixed bottom-20 right-4 z-10">
+        <div
+          className={cn(
+            "fixed right-4 z-10 transition-all duration-300 ease-in-out",
+            isNavVisible ? "bottom-20" : "bottom-6"
+          )}
+        >
           <Link href="/log-session">
             <Button size="icon" className="h-14 w-14 rounded-full shadow-lg">
               <Plus className="h-6 w-6" />

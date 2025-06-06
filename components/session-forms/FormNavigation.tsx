@@ -26,7 +26,7 @@ export function FormNavigation({
   const isLastStep = step === totalSteps;
 
   return (
-    <div className="flex justify-between mt-4 pb-6">
+    <div className="flex justify-between mt-4 pb-24">
       <Button
         variant="outline"
         onClick={onBack}
