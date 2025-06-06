@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUserBoards, getBeaches } from "@/actions/session-actions";
+import { getBeaches } from "@/actions/session-actions";
 import { Board, Beach } from "@/types/database";
 import { toast } from "sonner";
 
@@ -50,21 +50,12 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
       try {
         setLoadingData(true);
 
-        const userBoards = await getUserBoards();
-        setBoards(userBoards);
-
-        if (userBoards.length === 0) {
-          toast.info(
-            "You don't have any boards yet. Add a board to get started!"
-          );
-          // Later, we can implement a more interactive prompt here.
-        }
-
+        // Only fetch beaches, boards are fetched in EquipmentStep
         const beachList = await getBeaches();
         setBeaches(beachList);
       } catch (error) {
-        console.error("Error loading data:", error);
-        toast.error("Failed to load data. Some features may be limited.");
+        console.error("Error loading beaches:", error);
+        toast.error("Failed to load beaches. Some features may be limited.");
       } finally {
         setLoadingData(false);
       }
@@ -72,13 +63,6 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
 
     loadData();
   }, []);
-
-  useEffect(() => {
-    const board = boards.find((b) => b.id === formState.selectedBoard);
-    if (board) {
-      setFormState((prev) => ({ ...prev, boardId: board.id }));
-    }
-  }, [formState.selectedBoard, boards]);
 
   const updateField = <K extends keyof SessionFormState>(
     field: K,

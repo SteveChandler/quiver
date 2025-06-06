@@ -1,61 +1,71 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarDays, Plus, Waves, Loader2 } from "lucide-react"
-import { SessionCard } from "@/components/session-card"
-import { useAuth } from "@/context/auth-context"
-import { getUserSessions } from "@/actions/session-actions"
-import type { SessionWithDetails } from "@/types/database"
-import Link from "next/link"
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Loader2, MapPin } from "lucide-react";
+import { SessionCard } from "@/components/session-card";
+import { useAuth } from "@/context/auth-context";
+import { getUserSessions } from "@/actions/session-actions";
+import type { SessionWithDetails } from "@/types/database";
+import Link from "next/link";
 
 export function SessionsView() {
-  const { user } = useAuth()
-  const [sessions, setSessions] = useState<SessionWithDetails[]>([])
-  const [plannedSessions, setPlannedSessions] = useState<SessionWithDetails[]>([])
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth();
+  const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
+  const [plannedSessions, setPlannedSessions] = useState<SessionWithDetails[]>(
+    []
+  );
+  const [loading, setLoading] = useState(true);
+
+  // Helper to derive the JS Date for a session using the new `arrival_time` field (falls back to deprecated fields)
+  const getSessionDate = (session: SessionWithDetails) => {
+    if (session.arrival_time) return new Date(session.arrival_time);
+    if (session.session_date) return new Date(session.session_date);
+    // If we really have no date stored, return epoch (will be pushed into past list)
+    return new Date(0);
+  };
 
   useEffect(() => {
     async function loadSessions() {
-      if (!user) return
+      if (!user) return;
 
-      setLoading(true)
+      setLoading(true);
       try {
-        const result = await getUserSessions(user.id)
+        const result = await getUserSessions(user.id);
         if (result.success && result.data) {
           // Get current date at midnight for comparison
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
 
           // Split sessions into past and future
-          const past: SessionWithDetails[] = []
-          const future: SessionWithDetails[] = []
+          const past: SessionWithDetails[] = [];
+          const future: SessionWithDetails[] = [];
 
           result.data.forEach((session) => {
-            const sessionDate = new Date(session.session_date)
-            sessionDate.setHours(0, 0, 0, 0)
+            const sessionDate = getSessionDate(session);
+            sessionDate.setHours(0, 0, 0, 0);
 
             if (sessionDate >= today) {
-              future.push(session)
+              future.push(session);
             } else {
-              past.push(session)
+              past.push(session);
             }
-          })
+          });
 
-          setSessions(past)
-          setPlannedSessions(future)
+          setSessions(past);
+          setPlannedSessions(future);
         }
       } catch (error) {
-        console.error("Error loading sessions:", error)
+        console.error("Error loading sessions:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    loadSessions()
-  }, [user])
+    loadSessions();
+  }, [user]);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -86,19 +96,40 @@ export function SessionsView() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : sessions.length > 0 ? (
-              sessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  username="You"
-                  beachName={session.beach?.name || "Unknown Beach"}
-                  date={new Date(session.session_date).toLocaleDateString() + ", " + session.session_time}
-                  rating={session.rating}
-                  description={session.description || "No description provided."}
-                  imageUrl={session.image_url || "/placeholder.svg?height=200&width=300"}
-                  likes={session.likes_count}
-                  comments={session.comments_count}
-                />
-              ))
+              sessions.map((session) => {
+                const d = getSessionDate(session);
+                const displayDate =
+                  d.toLocaleDateString() +
+                  ", " +
+                  d.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                return (
+                  <SessionCard
+                    key={session.id}
+                    username="You"
+                    beachName={
+                      session.beach?.name ||
+                      session.beach_name ||
+                      "Unknown Beach"
+                    }
+                    date={displayDate}
+                    rating={session.rating ?? 0}
+                    description={
+                      session.notes ||
+                      session.description ||
+                      "No description provided."
+                    }
+                    imageUrl={
+                      session.image_url ||
+                      "/placeholder.svg?height=200&width=300"
+                    }
+                    likes={session.likes_count ?? 0}
+                    comments={session.comments_count ?? 0}
+                  />
+                );
+              })
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <p>You haven't logged any sessions yet.</p>
@@ -120,20 +151,37 @@ export function SessionsView() {
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
                       <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <CalendarDays className="h-6 w-6 text-primary" />
+                        <MapPin className="h-6 w-6 text-primary" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-medium">{session.beach?.name || "Unknown Beach"}</h3>
+                        <h3 className="font-medium">
+                          {session.beach?.name ||
+                            session.beach_name ||
+                            "Unknown Beach"}
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(session.session_date).toLocaleDateString() + ", " + session.session_time}
+                          {(() => {
+                            const d = getSessionDate(session);
+                            return (
+                              d.toLocaleDateString() +
+                              ", " +
+                              d.toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            );
+                          })()}
                         </p>
-                        <div className="flex items-center mt-1 text-sm">
-                          <Waves className="h-4 w-4 mr-1 text-primary" />
-                          <span>{session.wave_height ? `Forecast: ${session.wave_height}` : "No forecast data"}</span>
-                        </div>
+                        {session.notes && (
+                          <p className="text-sm mt-1 text-muted-foreground">
+                            {session.notes}
+                          </p>
+                        )}
                       </div>
                       <Button size="sm" variant="outline" asChild>
-                        <Link href={`/log-session?edit=${session.id}`}>Edit</Link>
+                        <Link href={`/log-session?edit=${session.id}&mode=log`}>
+                          Complete
+                        </Link>
                       </Button>
                     </div>
                   </CardContent>
@@ -151,5 +199,5 @@ export function SessionsView() {
         </Tabs>
       </main>
     </div>
-  )
+  );
 }

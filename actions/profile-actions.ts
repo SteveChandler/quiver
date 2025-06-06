@@ -166,7 +166,7 @@ export async function getUserStats(userId: string) {
     const { count: sessionCount, error: sessionError } = await supabase
       .from("sessions")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", userId);
+      .eq("profile_id", userId);
 
     if (sessionError) {
       throw sessionError;
@@ -182,20 +182,24 @@ export async function getUserStats(userId: string) {
       throw boardError;
     }
 
-    // Get average session rating
-    const { data: ratingData, error: ratingError } = await supabase
+    // Calculate average wave quality (rating deprecated)
+    const { data: qualityData, error: qualityError } = await supabase
       .from("sessions")
-      .select("rating")
-      .eq("user_id", userId);
+      .select("wave_quality")
+      .eq("profile_id", userId);
 
-    if (ratingError) {
-      throw ratingError;
+    if (qualityError) {
+      throw qualityError;
     }
 
     let averageRating = 0;
-    if (ratingData.length > 0) {
-      const sum = ratingData.reduce((acc, session) => acc + session.rating, 0);
-      averageRating = Math.round((sum / ratingData.length) * 10) / 10; // Round to 1 decimal place
+    if (qualityData.length > 0) {
+      const sum = qualityData.reduce(
+        (acc: number, session: { wave_quality: number | null }) =>
+          acc + (session.wave_quality || 0),
+        0
+      );
+      averageRating = Math.round((sum / qualityData.length) * 10) / 10; // Round to 1 decimal place
     }
 
     // Get most visited beach

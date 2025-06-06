@@ -54,10 +54,23 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     setMode(paramMode);
   }, [paramMode, setMode]);
 
-  const isComplete = Boolean(formState.selectedBeach && formState.selectedDate);
+  // Enhance validation to ensure required fields are present and valid
+  const isComplete = Boolean(
+    formState.selectedBeach &&
+      formState.selectedDate &&
+      formState.selectedBeach.trim() !== "" &&
+      formState.selectedDate.trim() !== ""
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Double-check validation before proceeding
+    if (!isComplete) {
+      toast.error("Please fill in all required fields before saving.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -70,43 +83,141 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         durationMinutes = hours * 60 + minutes;
       }
 
+      // Clean up values to avoid undefined strings
+      const boardId =
+        formState.boardId && formState.boardId !== "$undefined"
+          ? formState.boardId
+          : undefined;
+
+      const notes =
+        formState.notes && formState.notes !== "$undefined"
+          ? formState.notes
+          : undefined;
+
+      // Find the selected beach object to get its id
+      const matchedBeach = beaches.find(
+        (b) => b.name === formState.selectedBeach
+      );
+      const beachId = matchedBeach?.id;
+
+      // Client-side validation to ensure beach_id exists
+      if (!beachId) {
+        toast.error("Please select a beach before planning a session.");
+        setLoading(false);
+        return;
+      }
+
+      // Prepare base session data as a single object, not an array
       const sessionData = {
+        beach_id: beachId,
         beach_name: formState.selectedBeach,
         session_date: formState.selectedDate,
         start_time: formState.selectedTime,
-        board_id: formState.boardId,
-        notes: formState.notes || undefined,
+        board_id: boardId,
+        notes: notes,
         status: isPlanning
           ? "planned"
           : ("completed" as "planned" | "completed"),
       };
 
-      if (isPlanning) {
-        await createPlannedSession(sessionData);
-        toast.success("Session planned successfully!");
-      } else {
-        await createLoggedSession({
-          ...sessionData,
-          duration_minutes: durationMinutes,
-          wave_quality: formState.waveQuality
-            ? parseInt(formState.waveQuality)
-            : undefined,
-          water_temp: formState.waterTemp || undefined,
-          crowd_level: formState.crowdLevel
-            ? parseInt(formState.crowdLevel)
-            : undefined,
-          parking_ease: formState.parkingEase
-            ? parseInt(formState.parkingEase)
-            : undefined,
-        });
-        toast.success("Session logged successfully!");
+      // Log the actual data being sent (for debugging)
+      if (process.env.NODE_ENV === "development") {
+        console.log("Submitting session data:", sessionData);
+      }
+
+      // Retry logic for auth issues
+      const MAX_RETRIES = 2;
+      let retries = 0;
+      let success = false;
+      let lastError: any = null;
+
+      while (retries <= MAX_RETRIES && !success) {
+        try {
+          if (retries > 0) {
+            // Add a small delay between retries
+            await new Promise((resolve) => setTimeout(resolve, 500 * retries));
+            console.log(
+              `Retrying session save, attempt ${retries}/${MAX_RETRIES}`
+            );
+          }
+
+          if (isPlanning) {
+            // Pass the single object directly to the server action
+            await createPlannedSession(sessionData);
+            success = true;
+            toast.success("Session planned successfully!");
+          } else {
+            // For logged sessions, include additional fields
+            await createLoggedSession({
+              ...sessionData,
+              duration_minutes: durationMinutes,
+              wave_quality: formState.waveQuality
+                ? parseInt(formState.waveQuality)
+                : undefined,
+              water_temp: formState.waterTemp || undefined,
+              crowd_level: formState.crowdLevel
+                ? parseInt(formState.crowdLevel)
+                : undefined,
+              parking_ease: formState.parkingEase
+                ? parseInt(formState.parkingEase)
+                : undefined,
+            });
+            success = true;
+            toast.success("Session logged successfully!");
+          }
+        } catch (error) {
+          lastError = error;
+          console.error(
+            `Error saving session (attempt ${retries + 1}/${MAX_RETRIES + 1}):`,
+            error
+          );
+
+          // If error indicates auth issue, we'll retry
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          if (
+            errorMessage.includes("Authentication") &&
+            retries < MAX_RETRIES
+          ) {
+            retries++;
+            // Try to refresh the auth state before retrying
+            try {
+              const response = await fetch("/api/auth/[...supabase]", {
+                method: "GET",
+                credentials: "include",
+              });
+              if (!response.ok) {
+                console.warn("Failed to refresh auth state before retry");
+              }
+            } catch (refreshError) {
+              console.error("Error refreshing auth:", refreshError);
+            }
+          } else {
+            // Other errors or final retry failed
+            break;
+          }
+        }
+      }
+
+      if (!success) {
+        // If all retries failed
+        const errorMessage =
+          lastError instanceof Error ? lastError.message : "Unknown error";
+        if (errorMessage.includes("Authentication")) {
+          toast.error(
+            "Authentication error. Please try logging out and back in."
+          );
+        } else {
+          toast.error("Failed to save session. Please try again.");
+        }
+        throw lastError;
       }
 
       // Handle completion
-      router.push("/dashboard");
+      router.push("/");
     } catch (error) {
       console.error("Error saving session:", error);
-      toast.error("Failed to save session. Please try again.");
+      // Toast is already handled in retry logic
     } finally {
       setLoading(false);
     }
@@ -255,6 +366,15 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
               {loading ? "Saving..." : "Save"}
             </Button>
           </div>
+
+          {/* Debug information to help with troubleshooting */}
+          {process.env.NODE_ENV === "development" && !isComplete && (
+            <div className="text-xs text-red-500 mt-2">
+              Please complete these required fields:
+              {!formState.selectedBeach && " Beach Location,"}
+              {!formState.selectedDate && " Session Date"}
+            </div>
+          )}
         </form>
       </div>
     </div>
