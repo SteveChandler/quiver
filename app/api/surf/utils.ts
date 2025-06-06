@@ -1,5 +1,8 @@
 import { beachCoordinates, beachNames } from "./beaches";
-import { getBeachForecasts } from "@/actions/forecast-actions";
+import {
+  getBeachForecasts,
+  getLatestBeachForecast,
+} from "@/actions/forecast-actions";
 import { getBeaches } from "@/actions/beach-actions";
 
 export interface Coordinates {
@@ -18,10 +21,45 @@ export interface ForecastParams {
   coords?: Coordinates;
 }
 
+export interface ForecastData {
+  wave_height: string;
+  water_temp: string;
+  wind_speed: string;
+  wind_direction?: string;
+  tide?: string;
+  weather_condition?: string;
+  forecast_date: string;
+  forecast_time: string;
+}
+
 export interface ForecastResponse {
   beach: string;
   coords: Coordinates;
-  forecast: any;
+  forecast: ForecastData;
+}
+
+// Cache for beaches to avoid repeated database calls
+let cachedBeaches: any[] | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION = 4 * 60 * 60 * 1000; // 4 hours
+
+/**
+ * Get cached beaches or fetch from database
+ */
+async function getCachedBeaches() {
+  const now = Date.now();
+  if (cachedBeaches && now - cacheTimestamp < CACHE_DURATION) {
+    return cachedBeaches;
+  }
+
+  const allBeachesResult = await getBeaches();
+  if (!allBeachesResult.success || !allBeachesResult.data) {
+    throw new Error("Failed to fetch beaches from database");
+  }
+
+  cachedBeaches = allBeachesResult.data;
+  cacheTimestamp = now;
+  return cachedBeaches;
 }
 
 /**
@@ -112,18 +150,14 @@ export function resolveBeach(input: string | Coordinates): Beach {
  */
 export async function fetchForecast(lat: number, lng: number): Promise<any> {
   try {
-    // First, find the beach in the database that most closely matches these coordinates
-    const allBeachesResult = await getBeaches();
-
-    if (!allBeachesResult.success || !allBeachesResult.data) {
-      throw new Error("Failed to fetch beaches from database");
-    }
+    // Use cached beaches to reduce database calls
+    const allBeaches = await getCachedBeaches();
 
     // Find the nearest beach in the database
     let nearestBeach = null;
     let minDistance = Number.MAX_VALUE;
 
-    for (const beach of allBeachesResult.data) {
+    for (const beach of allBeaches) {
       const distance = getDistanceInKm(
         { lat, lng },
         { lat: beach.latitude, lng: beach.longitude }
@@ -142,11 +176,75 @@ export async function fetchForecast(lat: number, lng: number): Promise<any> {
     // Get forecast for the nearest beach
     const forecastResult = await getBeachForecasts(nearestBeach.id);
 
-    if (!forecastResult.success || !forecastResult.data) {
-      throw new Error("Failed to fetch forecast data");
+    if (
+      !forecastResult.success ||
+      !forecastResult.data ||
+      forecastResult.data.length === 0
+    ) {
+      // Try to get the most recent forecast (including past forecasts)
+      console.log(
+        `No current forecast data for ${nearestBeach.name}, trying latest available forecast`
+      );
+      const latestForecastResult = await getLatestBeachForecast(
+        nearestBeach.id
+      );
+
+      if (
+        latestForecastResult.success &&
+        latestForecastResult.data &&
+        latestForecastResult.data.length > 0
+      ) {
+        console.log(
+          `Using latest available forecast for ${nearestBeach.name} from ${latestForecastResult.data[0].forecast_date}`
+        );
+        return latestForecastResult.data[0];
+      }
+
+      // Try to find a nearby beach with forecast data (optimized search)
+      console.log(
+        `No forecast data for ${nearestBeach.name}, looking for nearby beaches with data`
+      );
+
+      // Sort beaches by distance and check closest ones first
+      const nearbyBeaches = allBeaches
+        .filter((beach) => beach.id !== nearestBeach.id)
+        .map((beach) => ({
+          ...beach,
+          distance: getDistanceInKm(
+            { lat, lng },
+            { lat: beach.latitude, lng: beach.longitude }
+          ),
+        }))
+        .filter((beach) => beach.distance <= 32) // 20 miles
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 5); // Only check 5 closest beaches
+
+      for (const beach of nearbyBeaches) {
+        const nearbyForecastResult = await getLatestBeachForecast(beach.id);
+        if (
+          nearbyForecastResult.success &&
+          nearbyForecastResult.data &&
+          nearbyForecastResult.data.length > 0
+        ) {
+          console.log(
+            `Using forecast from nearby ${beach.name} (${beach.distance.toFixed(
+              1
+            )} km away) from ${nearbyForecastResult.data[0].forecast_date}`
+          );
+          return nearbyForecastResult.data[0];
+        }
+      }
+
+      // No forecast data available
+      console.log(
+        `No forecast data found in database for ${nearestBeach.name} or nearby beaches`
+      );
+      throw new Error(
+        `No forecast data available for ${nearestBeach.name} or nearby beaches`
+      );
     }
 
-    return forecastResult.data;
+    return forecastResult.data[0]; // Use first forecast entry
   } catch (error) {
     console.error("Error in fetchForecast:", error);
     throw error;
@@ -189,6 +287,7 @@ export async function getSurfForecast({
           const resolvedBeach = resolveBeach(beach);
           beachName = resolvedBeach.name;
           coordinates = { lat: resolvedBeach.lat, lng: resolvedBeach.lng };
+
           forecast = await fetchForecast(coordinates.lat, coordinates.lng);
         } catch (staticError) {
           // Provide more helpful error message
@@ -197,12 +296,16 @@ export async function getSurfForecast({
             .slice(0, 10) // Show first 10 beaches
             .join(", ");
 
+          const errorMessage =
+            staticError instanceof Error
+              ? staticError.message
+              : String(staticError);
           throw new Error(
             `Beach "${beach}" not found in database. Available beaches include: ${availableBeaches}${
               allBeachesResult.data.length > 10
                 ? `, and ${allBeachesResult.data.length - 10} more`
                 : ""
-            }. Also tried static beach list but failed: ${staticError.message}`
+            }. Also tried static beach list but failed: ${errorMessage}`
           );
         }
       } else {
@@ -217,17 +320,87 @@ export async function getSurfForecast({
         // Get forecast from database
         const forecastResult = await getBeachForecasts(matchedBeach.id);
 
-        if (!forecastResult.success || !forecastResult.data) {
-          throw new Error("Failed to fetch forecast data");
-        }
+        if (
+          !forecastResult.success ||
+          !forecastResult.data ||
+          forecastResult.data.length === 0
+        ) {
+          // Try to get the most recent forecast (including past forecasts)
+          console.log(
+            `No current forecast data for ${matchedBeach.name}, trying latest available forecast`
+          );
+          const latestForecastResult = await getLatestBeachForecast(
+            matchedBeach.id
+          );
 
-        forecast = forecastResult.data;
+          if (
+            latestForecastResult.success &&
+            latestForecastResult.data &&
+            latestForecastResult.data.length > 0
+          ) {
+            console.log(
+              `Using latest available forecast for ${matchedBeach.name} from ${latestForecastResult.data[0].forecast_date}`
+            );
+            forecast = latestForecastResult.data[0];
+          } else {
+            // Try to find a nearby beach with forecast data
+            console.log(
+              `No forecast data for ${matchedBeach.name}, looking for nearby beaches with data`
+            );
+
+            let foundNearbyForecast = false;
+            for (const beach of allBeachesResult.data) {
+              if (beach.id === matchedBeach.id) continue; // Skip the current beach
+
+              const distance = getDistanceInKm(
+                { lat: matchedBeach.latitude, lng: matchedBeach.longitude },
+                { lat: beach.latitude, lng: beach.longitude }
+              );
+
+              // Look for beaches within 20 miles (32 km)
+              if (distance <= 32) {
+                const nearbyForecastResult = await getLatestBeachForecast(
+                  beach.id
+                );
+                if (
+                  nearbyForecastResult.success &&
+                  nearbyForecastResult.data &&
+                  nearbyForecastResult.data.length > 0
+                ) {
+                  console.log(
+                    `Using forecast from nearby ${
+                      beach.name
+                    } (${distance.toFixed(1)} km away) from ${
+                      nearbyForecastResult.data[0].forecast_date
+                    }`
+                  );
+                  forecast = nearbyForecastResult.data[0];
+                  foundNearbyForecast = true;
+                  break;
+                }
+              }
+            }
+
+            if (!foundNearbyForecast) {
+              // No forecast data available
+              console.log(
+                `No forecast data found in database for ${matchedBeach.name} or nearby beaches`
+              );
+              throw new Error(
+                `No forecast data available for ${matchedBeach.name} or nearby beaches`
+              );
+            }
+          }
+        } else {
+          forecast = forecastResult.data[0]; // Use first forecast entry
+        }
       }
     } else if (coords) {
       // Find nearest beach using coordinates
       const resolvedBeach = resolveBeach(coords);
       beachName = resolvedBeach.name;
       coordinates = { lat: resolvedBeach.lat, lng: resolvedBeach.lng };
+
       forecast = await fetchForecast(coordinates.lat, coordinates.lng);
     } else {
       throw new Error("Invalid input");

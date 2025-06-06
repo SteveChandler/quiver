@@ -32,9 +32,12 @@ export async function GET(request: NextRequest) {
 
     // Normalize the forecast data structure
     if (Array.isArray(forecastData.forecast)) {
-      // If it's an array but empty, use default forecast
+      // If it's an array but empty, return error
       if (forecastData.forecast.length === 0) {
-        forecastData.forecast = createDefaultForecast();
+        return NextResponse.json(
+          { error: "No forecast data available" },
+          { status: 404 }
+        );
       } else {
         // Use the first item in the array
         forecastData.forecast = forecastData.forecast[0];
@@ -43,8 +46,11 @@ export async function GET(request: NextRequest) {
       !forecastData.forecast ||
       typeof forecastData.forecast !== "object"
     ) {
-      // If forecast is missing or not an object, use default
-      forecastData.forecast = createDefaultForecast();
+      // If forecast is missing or not an object, return error
+      return NextResponse.json(
+        { error: "No forecast data available" },
+        { status: 404 }
+      );
     }
 
     console.log(
@@ -56,32 +62,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Surf forecast error:", error);
 
-    // Return a valid response even in case of error
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
 
-    // Create a default response with the error message
-    const fallbackResponse = {
-      beach: "Unknown Beach",
-      coords: { lat: 32.7507, lng: -117.254 }, // Ocean Beach coordinates
-      forecast: createDefaultForecast(),
-      error: errorMessage,
-    };
-
-    return NextResponse.json(fallbackResponse, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
-}
-
-// Helper function to create default forecast data
-function createDefaultForecast() {
-  return {
-    wave_height: "2-3 ft",
-    water_temp: "68°F",
-    wind_speed: "5 mph",
-    wind_direction: "SW",
-    tide: "Mid",
-    weather_condition: "Sunny",
-    forecast_date: new Date().toISOString().split("T")[0],
-    forecast_time: new Date().toTimeString().split(" ")[0].substring(0, 8),
-  };
 }

@@ -41,6 +41,33 @@ export async function getBeachForecasts(beachId: string, date?: string) {
   }
 }
 
+// New function to get the most recent forecast available for a beach (including past forecasts)
+export async function getLatestBeachForecast(beachId: string) {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("forecasts")
+      .select("*")
+      .eq("beach_id", beachId)
+      .order("forecast_date", { ascending: false })
+      .order("forecast_time", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true, data: data as Forecast[] };
+  } catch (error) {
+    console.error("Error fetching latest beach forecast:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 export async function getBeachWithForecasts(beachId: string, date?: string) {
   const supabase = await createSupabaseServerClient();
 

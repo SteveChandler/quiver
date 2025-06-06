@@ -116,7 +116,8 @@ export function BeachSearch() {
                   ? new Date(
                       beachData.forecast.forecast_date +
                         "T" +
-                        beachData.forecast.forecast_time
+                        beachData.forecast.forecast_time +
+                        "Z"
                     ).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",

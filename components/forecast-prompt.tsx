@@ -18,44 +18,13 @@ import {
   OCEAN_BEACH_LNG,
 } from "@/lib/client-fetch";
 import type { Beach, Forecast } from "@/types/database";
+import { formatForecastTimeDetailed } from "@/lib/utils";
 
 // Maximum distance in miles for nearby beaches
 const MAX_DISTANCE_MILES = 30;
 
 // Handling states for the component
 type PromptState = "initial" | "loading" | "input" | "results" | "error";
-
-// Mock forecast data in case API fails
-const DEFAULT_FORECAST: Forecast = {
-  id: "mock-forecast-1",
-  beach_id: "ocean-beach",
-  forecast_date: new Date().toISOString().split("T")[0],
-  forecast_time: new Date().toTimeString().split(" ")[0],
-  wave_height: "3-4 ft",
-  water_temp: "68°F",
-  wind_speed: "5 mph",
-  wind_direction: "Offshore",
-  tide: "Rising",
-  weather_condition: "Sunny",
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
-
-// Default Ocean Beach data if database query fails
-const DEFAULT_BEACH: Beach = {
-  id: "ocean-beach",
-  name: "Ocean Beach",
-  location: "San Diego, CA",
-  latitude: OCEAN_BEACH_LAT,
-  longitude: OCEAN_BEACH_LNG,
-  description: "A popular surf spot in San Diego",
-  wave_quality_rating: 4.2,
-  crowd_density_rating: 3.8,
-  parking_rating: 3.5,
-  accessibility_rating: 4.0,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
 
 export function ForecastPrompt() {
   const [state, setState] = useState<PromptState>("initial");
@@ -220,14 +189,8 @@ export function ForecastPrompt() {
         `Error getting forecast for ${beachData.name}. Showing default data.`
       );
 
-      // Use default forecast data if all else fails
-      if (beachData.id === DEFAULT_BEACH.id) {
-        setForecast(DEFAULT_FORECAST);
-        setState("results");
-      } else {
-        // Try Ocean Beach as fallback
-        await fetchOceanBeachData();
-      }
+      // Show error instead of mock data
+      setState("error");
     }
   };
 
@@ -247,7 +210,7 @@ export function ForecastPrompt() {
           result.data.find(
             (b) =>
               b.name.toLowerCase().includes("ocean") &&
-              b.location.toLowerCase().includes("san diego")
+              (b.location || "").toLowerCase().includes("san diego")
           ) || result.data[0];
 
         setBeach(oceanBeach);
@@ -255,29 +218,17 @@ export function ForecastPrompt() {
         await fetchForecastForBeach(oceanBeach);
       } else {
         setDebugInfo("No beaches found near Ocean Beach coordinates");
-        // If still no results, use hardcoded default data
-        setBeach(DEFAULT_BEACH);
-        setForecast(DEFAULT_FORECAST);
-        setState("results");
-
-        // Try to update forecast data in the background
-        getDirectOceanBeachForecast().catch((e) => {
-          setDebugInfo(
-            `Error in background forecast update: ${
-              e instanceof Error ? e.message : String(e)
-            }`
-          );
-        });
+        setError(
+          "No forecast data available. Please try refreshing or try a different location."
+        );
+        setState("error");
       }
     } catch (err) {
       console.error("Error fetching Ocean Beach data:", err);
       const errorMessage = err instanceof Error ? err.message : String(err);
       setDebugInfo(`Ocean Beach lookup error: ${errorMessage}`);
-
-      // Last resort - use hardcoded default data
-      setBeach(DEFAULT_BEACH);
-      setForecast(DEFAULT_FORECAST);
-      setState("results");
+      setError("Unable to load forecast data. Please try again.");
+      setState("error");
     }
   };
 
@@ -321,12 +272,8 @@ export function ForecastPrompt() {
         setError("Could not get latest forecast. Showing default data.");
       }
 
-      // Use default forecast as a last resort
-      if (beach?.id === DEFAULT_BEACH.id || !beach) {
-        setBeach(DEFAULT_BEACH);
-        setForecast(DEFAULT_FORECAST);
-        setState("results");
-      }
+      // Show error instead of using mock data
+      setState("error");
     } finally {
       setIsRefreshing(false);
     }
@@ -395,7 +342,7 @@ export function ForecastPrompt() {
       // Look for exact or partial matches
       const matchingBeaches = allBeachesResult.data.filter((beach) => {
         const beachName = beach.name.toLowerCase();
-        const beachLocation = beach.location.toLowerCase();
+        const beachLocation = (beach.location || "").toLowerCase();
 
         // Check for matches in name or location
         return (
@@ -571,14 +518,12 @@ export function ForecastPrompt() {
               waterTemp={forecast.water_temp}
               windSpeed={forecast.wind_speed}
               tide={forecast.tide || "Unknown"}
-              time={new Date(
-                forecast.forecast_date + "T" + forecast.forecast_time
-              ).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-              windDirection={forecast.wind_direction}
-              weatherCondition={forecast.weather_condition}
+              time={formatForecastTimeDetailed(
+                forecast.forecast_date,
+                forecast.forecast_time
+              )}
+              windDirection={forecast.wind_direction || undefined}
+              weatherCondition={forecast.weather_condition || undefined}
             />
 
             {/* Debug information for developers */}

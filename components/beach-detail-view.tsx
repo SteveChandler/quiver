@@ -1,73 +1,89 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Star, MapPin, Waves, Users, Car, CalendarDays, Loader2 } from "lucide-react"
-import { ForecastCard } from "@/components/forecast-card"
-import { SessionCard } from "@/components/session-card"
-import Link from "next/link"
-import Image from "next/image"
-import { getBeachById } from "@/actions/beach-actions"
-import { getBeachForecasts } from "@/actions/forecast-actions"
-import type { Beach, Forecast } from "@/types/database"
-import { useAuth } from "@/context/auth-context"
+import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ArrowLeft,
+  Star,
+  MapPin,
+  Waves,
+  Users,
+  Car,
+  CalendarDays,
+  Loader2,
+} from "lucide-react";
+import { ForecastCard } from "@/components/forecast-card";
+import { SessionCard } from "@/components/session-card";
+import Link from "next/link";
+import Image from "next/image";
+import { getBeachById } from "@/actions/beach-actions";
+import { getBeachForecasts } from "@/actions/forecast-actions";
+import type { Beach, Forecast } from "@/types/database";
+import { useAuth } from "@/context/auth-context";
+import { formatForecastTime } from "@/lib/utils";
 
 interface BeachDetailViewProps {
-  id: string
+  id: string;
 }
 
 export function BeachDetailView({ id }: BeachDetailViewProps) {
-  const { user } = useAuth()
-  const [beach, setBeach] = useState<Beach | null>(null)
-  const [forecasts, setForecasts] = useState<Forecast[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]) // Today's date
+  const { user } = useAuth();
+  const [beach, setBeach] = useState<Beach | null>(null);
+  const [forecasts, setForecasts] = useState<Forecast[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  ); // Today's date
 
   useEffect(() => {
     async function loadBeachData() {
-      setLoading(true)
+      setLoading(true);
       try {
         // Fetch beach details
-        const beachResult = await getBeachById(id)
+        const beachResult = await getBeachById(id);
         if (beachResult.success && beachResult.data) {
-          setBeach(beachResult.data)
+          setBeach(beachResult.data);
         }
 
         // Fetch forecasts
-        const forecastsResult = await getBeachForecasts(id)
+        const forecastsResult = await getBeachForecasts(id);
         if (forecastsResult.success && forecastsResult.data) {
-          setForecasts(forecastsResult.data)
+          setForecasts(forecastsResult.data);
         }
       } catch (error) {
-        console.error("Error loading beach data:", error)
+        console.error("Error loading beach data:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    loadBeachData()
-  }, [id])
+    loadBeachData();
+  }, [id]);
 
   // Group forecasts by date
-  const forecastDates = [...new Set(forecasts.map((f) => f.forecast_date))].sort()
+  const forecastDates = [
+    ...new Set(forecasts.map((f) => f.forecast_date)),
+  ].sort();
 
   // Get forecasts for selected date
-  const selectedDateForecasts = forecasts.filter((f) => f.forecast_date === selectedDate)
+  const selectedDateForecasts = forecasts.filter(
+    (f) => f.forecast_date === selectedDate
+  );
 
   // Format date for display
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-  }
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
 
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-    )
+    );
   }
 
   if (!beach) {
@@ -80,7 +96,7 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -97,7 +113,12 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
 
       {/* Hero Image */}
       <div className="relative h-48">
-        <Image src="/placeholder.svg?height=400&width=800" alt={beach.name} fill className="object-cover" />
+        <Image
+          src="/placeholder.svg?height=400&width=800"
+          alt={beach.name}
+          fill
+          className="object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute bottom-0 left-0 p-4 text-white">
           <h2 className="text-2xl font-bold">{beach.name}</h2>
@@ -112,7 +133,9 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                 <Star
                   key={i}
                   className={`h-4 w-4 ${
-                    i < Math.round(beach.wave_quality_rating || 0) ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
+                    i < Math.round(beach.wave_quality_rating || 0)
+                      ? "text-yellow-500 fill-yellow-500"
+                      : "text-gray-300"
                   }`}
                 />
               ))}
@@ -123,13 +146,19 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
 
       {/* Quick Actions */}
       <div className="p-4 flex gap-2">
-        <Link href={user ? `/plan-session?beach=${beach.id}` : "/auth/sign-in"} className="flex-1">
+        <Link
+          href={user ? `/plan-session?beach=${beach.id}` : "/auth/sign-in"}
+          className="flex-1"
+        >
           <Button className="w-full">
             <CalendarDays className="h-4 w-4 mr-1" />
             Plan Session
           </Button>
         </Link>
-        <Link href={user ? `/log-session?beach=${beach.id}` : "/auth/sign-in"} className="flex-1">
+        <Link
+          href={user ? `/log-session?beach=${beach.id}` : "/auth/sign-in"}
+          className="flex-1"
+        >
           <Button variant="outline" className="w-full">
             <Waves className="h-4 w-4 mr-1" />
             Log Session
@@ -154,16 +183,22 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                   {forecastDates.slice(0, 5).map((date) => (
                     <Card
                       key={date}
-                      className={`cursor-pointer ${selectedDate === date ? "border-primary" : ""}`}
+                      className={`cursor-pointer ${
+                        selectedDate === date ? "border-primary" : ""
+                      }`}
                       onClick={() => setSelectedDate(date)}
                     >
                       <CardContent className="p-3">
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">
-                            {date === new Date().toISOString().split("T")[0] ? "Today" : formatDate(date)}
+                            {date === new Date().toISOString().split("T")[0]
+                              ? "Today"
+                              : formatDate(date)}
                           </p>
                           <p className="text-lg font-medium">
-                            {new Date(date).toLocaleDateString("en-US", { day: "numeric" })}
+                            {new Date(date).toLocaleDateString("en-US", {
+                              day: "numeric",
+                            })}
                           </p>
                         </div>
                       </CardContent>
@@ -175,28 +210,32 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                   selectedDateForecasts.map((forecast) => (
                     <ForecastCard
                       key={forecast.id}
-                      beachName={new Date(forecast.forecast_time).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
+                      beachName={formatForecastTime(
+                        forecast.forecast_date,
+                        forecast.forecast_time
+                      )}
                       waveHeight={forecast.wave_height}
                       waterTemp={forecast.water_temp}
                       windSpeed={forecast.wind_speed}
                       tide={forecast.tide || "Unknown"}
-                      time={new Date(forecast.forecast_date + "T" + forecast.forecast_time).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
+                      time={formatForecastTime(
+                        forecast.forecast_date,
+                        forecast.forecast_time
+                      )}
                       windDirection={forecast.wind_direction}
                       weatherCondition={forecast.weather_condition}
                     />
                   ))
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">No forecast data available for this date</div>
+                  <div className="text-center py-8 text-muted-foreground">
+                    No forecast data available for this date
+                  </div>
                 )}
               </>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">No forecast data available</div>
+              <div className="text-center py-8 text-muted-foreground">
+                No forecast data available
+              </div>
             )}
           </TabsContent>
 
@@ -204,7 +243,9 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
             <Card>
               <CardContent className="p-4">
                 <h3 className="font-medium mb-2">Beach Information</h3>
-                <p className="text-sm">{beach.description || "No description available."}</p>
+                <p className="text-sm">
+                  {beach.description || "No description available."}
+                </p>
               </CardContent>
             </Card>
 
@@ -216,7 +257,9 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                   <div className="flex items-center gap-2">
                     <Waves className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Wave Quality</p>
+                      <p className="text-sm text-muted-foreground">
+                        Wave Quality
+                      </p>
                       <div className="flex">
                         {Array(5)
                           .fill(0)
@@ -236,7 +279,9 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                   <div className="flex items-center gap-2">
                     <Users className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Crowd Density</p>
+                      <p className="text-sm text-muted-foreground">
+                        Crowd Density
+                      </p>
                       <div className="flex">
                         {Array(5)
                           .fill(0)
@@ -276,7 +321,9 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                   <div className="flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Accessibility</p>
+                      <p className="text-sm text-muted-foreground">
+                        Accessibility
+                      </p>
                       <div className="flex">
                         {Array(5)
                           .fill(0)
@@ -326,7 +373,10 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
           <TabsContent value="gallery" className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="aspect-square relative rounded-md overflow-hidden bg-muted">
+                <div
+                  key={i}
+                  className="aspect-square relative rounded-md overflow-hidden bg-muted"
+                >
                   <img
                     src={`/placeholder.svg?height=200&width=200`}
                     alt={`Gallery image ${i}`}
@@ -342,5 +392,5 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
         </Tabs>
       </main>
     </div>
-  )
+  );
 }
