@@ -1,9 +1,29 @@
-import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { NextResponse, NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+
+export const runtime = "edge";
 
 // GET = fetch current session
 export async function GET() {
-  const supabase = await createSupabaseServerClient();
+  const cookieStore = cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name, value, options) {
+          cookieStore.set(name, value, options);
+        },
+        remove(name, options) {
+          cookieStore.delete(name);
+        },
+      },
+    }
+  );
 
   try {
     const {
@@ -18,19 +38,48 @@ export async function GET() {
 }
 
 // POST = sign in (and set cookies)
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Get request data
     const { email, password } = await request.json();
-    const supabase = await createSupabaseServerClient();
 
-    // First sign out to ensure clean state
-    await supabase.auth.signOut();
+    // Create a response to modify
+    const response = NextResponse.json({ success: true });
 
-    // Now sign in with provided credentials
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name, value, options) {
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+          },
+          remove(name, options) {
+            response.cookies.delete({
+              name,
+            });
+          },
+        },
+      }
+    );
+
+    // Perform sign in
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
+    if (error) {
+      console.error("Sign-in error:", error);
+      return NextResponse.json({ error }, { status: 400 });
+    }
 
     // Log session info (without sensitive details)
     console.log("API route: Sign-in result:", {
@@ -39,7 +88,8 @@ export async function POST(request: Request) {
       userId: data?.session?.user?.id,
     });
 
-    return NextResponse.json({ data, error });
+    // Return the response with cookies set by the createServerClient
+    return response;
   } catch (error) {
     console.error("Exception in sign-in API route:", error);
     return NextResponse.json(
@@ -54,7 +104,25 @@ export async function POST(request: Request) {
 
 // DELETE = sign out (clears cookies)
 export async function DELETE() {
-  const supabase = await createSupabaseServerClient();
+  const cookieStore = cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name, value, options) {
+          cookieStore.set(name, value, options);
+        },
+        remove(name, options) {
+          cookieStore.delete(name);
+        },
+      },
+    }
+  );
+
   await supabase.auth.signOut();
   return new Response(null, { status: 204 });
 }

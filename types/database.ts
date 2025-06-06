@@ -42,6 +42,7 @@ export type Board = {
   width?: number;
   thickness?: number;
   volume?: number;
+  size?: string;
   brand?: string;
   model?: string;
   description?: string;
@@ -55,24 +56,33 @@ export type SessionStatus = "planned" | "completed" | "cancelled";
 
 export type Session = {
   id: string;
-  user_id: string;
+  /**
+   * The owning userʼs profile id (replaces the old `user_id` column that pointed straight at auth.users).
+   */
+  profile_id: string;
   beach_id?: string;
   board_id?: string;
-  arrival_time?: string; // Combined timestamp field
-  end_time?: string; // TIME WITHOUT TIME ZONE
+  beach_name?: string;
+  status: SessionStatus;
+  /**
+   * Combined timestamp for date and (optional) start time of the surf session.
+   * This replaces the previous `session_date` / `start_time` pair.
+   */
+  arrival_time: string;
+  /**
+   * Deprecated – retained temporarily while UI migrates to `arrival_time`.
+   */
+  session_date?: string;
+  /**
+   * Optional explicit start and finish times retained for UI compatibility. They may not exist in the DB schema but
+   * several parts of the codebase still reference them when preparing `arrival_time`.
+   */
+  start_time?: string;
+  end_time?: string;
   duration_minutes?: number;
   goals?: string[]; // text[]
   notes?: string;
   invitee_ids?: string[]; // uuid[]
-  created_at: string;
-  status: SessionStatus;
-  beach_name?: string;
-  profile_id?: string;
-  rating?: number; // smallint
-  description?: string;
-  image_url?: string | null;
-  likes_count?: number;
-  comments_count?: number;
   // Additional fields that might be used
   wave_quality?: number;
   wave_height?: string;
@@ -81,7 +91,16 @@ export type Session = {
   crowd_rating?: number;
   parking_ease?: number;
   is_public?: boolean;
-  updated_at?: string;
+  /**
+   * Optional UI-centric columns now persisted in the DB
+   */
+  rating?: number;
+  description?: string;
+  image_url?: string | null;
+  likes_count?: number;
+  comments_count?: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type SessionMedia = {
@@ -115,6 +134,12 @@ export type SessionWithDetails = Session & {
   beach: Beach;
   board: Board | null;
   user: Profile;
+  // Optional fields used by the UI but not strictly part of the core Session schema
+  rating?: number;
+  description?: string;
+  image_url?: string;
+  likes_count?: number;
+  comments_count?: number;
 };
 
 // Database schema with tables

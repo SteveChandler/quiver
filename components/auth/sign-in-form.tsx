@@ -19,6 +19,7 @@ import {
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
+import { getClientBrowserClient } from "@/lib/supabase";
 
 export function SignInForm() {
   const [email, setEmail] = useState("");
@@ -52,7 +53,7 @@ export function SignInForm() {
       localStorage.setItem("redirectAttempts", "0");
 
       // Clear any potentially stuck cookies by signing out
-      fetch("/api/auth/[...supabase]", {
+      fetch("/api/auth/supabase", {
         method: "DELETE",
         credentials: "include",
       }).then(() => {
@@ -72,82 +73,93 @@ export function SignInForm() {
       localStorage.removeItem("supabase.auth.token");
       sessionStorage.removeItem("supabase.auth.token");
 
-      // Get the Supabase client
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
+      console.log(`Attempting to sign in with email: ${email}`);
 
-      // First try direct Supabase auth - this will set localStorage
-      console.log("Sign-in form: Attempting direct Supabase auth...");
-      const { data: directAuthData, error: directAuthError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-      if (directAuthError) {
-        console.error("Direct Supabase auth failed:", directAuthError);
-      } else {
-        console.log(
-          "Direct Supabase auth successful:",
-          !!directAuthData.session
-        );
-      }
-
-      // Now use the API endpoint for sign-in to properly set cookies
-      console.log("Sign-in form: Attempting server-side auth...");
-      const res = await fetch("/api/auth/[...supabase]", {
+      // Instead of directly authenticating with the client,
+      // we'll use our custom API route which handles cookies properly
+      const response = await fetch("/api/auth/supabase", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // crucial: include credentials so Set-Cookie will stick
+        headers: {
+          "Content-Type": "application/json",
+        },
         credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
-      const { data, error } = await res.json();
+      const result = await response.json();
 
-      if (error) {
-        if (error.code === "email_not_confirmed") {
+      if (!response.ok || result.error) {
+        console.error("Auth failed:", result.error);
+
+        // Handle "invalid_credentials" specifically
+        if (result.error?.code === "invalid_credentials") {
+          setError(
+            "Invalid email or password. Please check your credentials and try again."
+          );
+        } else if (result.error?.message?.includes("email not confirmed")) {
           setError(
             "Your email address has not been confirmed. Please check your inbox for a confirmation email or click below to request a new one."
           );
           setShowResendConfirmation(true);
         } else {
-          setError(error.message);
+          setError(result.error?.message || "Authentication failed");
         }
         setIsLoading(false);
         return;
       }
 
+      console.log("Auth successful through API route");
+
+      // --- IMPORTANT ---
+      // Although the API route has set the authentication cookies that the
+      // server (middleware, RSC, etc.) relies on, the Supabase client running
+      // in the browser is still unaware of the new session because no tokens
+      // have been persisted to `localStorage`. This means
+      // `supabase.auth.getSession()` will continue to return `null`, causing
+      // our AuthContext to think the user is unauthenticated and triggering
+      // client-side redirect loops.
+      //
+      // To keep the client and server in sync we perform a *second* sign-in
+      // via the browser Supabase client. This stores the access / refresh
+      // tokens locally so subsequent calls to `supabase.auth.getSession()` (or
+      // `refreshSession`) succeed.
+      //
+      // Because the credentials have just been validated by the API route we
+      // can safely repeat the call here. Any error at this stage is treated as
+      // unexpected but non-fatal – we'll still fall back to the server cookie.
+
+      try {
+        const supabaseBrowser = getClientBrowserClient();
+        const { error: clientSignInError } =
+          await supabaseBrowser.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+        if (clientSignInError) {
+          // Log the error but don't abort – server cookies are already set so
+          // protected routes will still work. The client will simply refresh
+          // its session on the next `refreshSession()` call.
+          console.warn(
+            "Secondary client-side sign-in failed (session cookies are still set):",
+            clientSignInError
+          );
+        }
+      } catch (clientSignInException) {
+        console.warn(
+          "Exception during secondary client-side sign-in:",
+          clientSignInException
+        );
+      }
+
       // Indicate we're about to redirect
       setIsRedirecting(true);
 
-      // Add a longer delay to ensure cookies are processed before redirecting
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Add a delay to ensure cookies are properly set
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Explicitly refresh the session to ensure it's recognized in our auth context
       await refreshSession();
-
-      // Check if session is available after refreshing
-      const localStorageSession = localStorage.getItem("supabase.auth.token");
-      const sessionStorageSession = sessionStorage.getItem(
-        "supabase.auth.token"
-      );
-      console.log("Sign-in form: Auth state after sign-in:", {
-        localStorage: !!localStorageSession,
-        sessionStorage: !!sessionStorageSession,
-      });
-
-      // Double-check session on server
-      const checkSession = await fetch("/api/auth/check-session", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      const sessionData = await checkSession.json();
-      console.log("Sign-in form: Server session check result:", sessionData);
-
-      // Skip the refresh-session call since it requires an existing session
-      // and we've already tried to create one through the API and direct Supabase
 
       // Reset redirect attempts counter on successful login
       localStorage.setItem("redirectAttempts", "0");
