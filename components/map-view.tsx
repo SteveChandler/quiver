@@ -9,6 +9,7 @@ import { BeachCard } from "@/components/beach-card";
 import { getBeaches, getNearbyBeaches } from "@/actions/beach-actions";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { MapImage } from "@/components/map-image";
+import { useRouter } from "next/navigation";
 import type { Beach } from "@/types/database";
 
 // Default to Ocean Beach, San Diego coordinates
@@ -17,6 +18,7 @@ const OCEAN_BEACH_LNG = -117.2534;
 const MAX_DISTANCE_MILES = 30; // Maximum distance in miles for nearby beaches
 
 export function MapView() {
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
   const [beaches, setBeaches] = useState<Beach[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,17 +37,54 @@ export function MapView() {
     getUserLocation();
   }, []);
 
-  // Filter beaches based on search query
+  // Update filtered beaches when beaches array changes and no search query
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredBeaches(beaches);
-    } else {
-      const filtered = beaches.filter((beach) =>
-        beach.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredBeaches(filtered);
     }
-  }, [searchQuery, beaches]);
+  }, [beaches, searchQuery]);
+
+  // Filter beaches based on search query with debounce
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      return;
+    }
+
+    // Debounce search to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      searchAllBeaches(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Search through all beaches when user enters a search query
+  const searchAllBeaches = async (query: string) => {
+    setLoading(true);
+    try {
+      const result = await getBeaches();
+      if (result.success && result.data) {
+        const filtered = result.data.filter(
+          (beach) =>
+            beach.name.toLowerCase().includes(query.toLowerCase()) ||
+            (beach.location &&
+              beach.location.toLowerCase().includes(query.toLowerCase()))
+        );
+        setFilteredBeaches(filtered);
+
+        // If we found results, select the first one
+        if (filtered.length > 0) {
+          setSelectedBeach(filtered[0]);
+        } else {
+          setSelectedBeach(null);
+        }
+      }
+    } catch (error) {
+      console.error("Error searching beaches:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getUserLocation = () => {
     setLocationError(null);
@@ -91,8 +130,8 @@ export function MapView() {
   };
 
   const useDefaultLocation = () => {
-    console.log("Using default location: Ocean Beach, San Diego");
     setUsingDefaultLocation(true);
+    setUserLocation({ lat: OCEAN_BEACH_LAT, lng: OCEAN_BEACH_LNG });
     loadNearbyBeaches(OCEAN_BEACH_LAT, OCEAN_BEACH_LNG);
   };
 
@@ -127,22 +166,8 @@ export function MapView() {
         const userLoc = { lat: latitude, lng: longitude };
         setUserLocation(userLoc);
 
-        // Sort beaches by distance from user location
-        const sortedBeaches = [...result.data].sort((a, b) => {
-          const distA = calculateDistanceBetween(
-            userLoc.lat,
-            userLoc.lng,
-            a.latitude,
-            a.longitude
-          );
-          const distB = calculateDistanceBetween(
-            userLoc.lat,
-            userLoc.lng,
-            b.latitude,
-            b.longitude
-          );
-          return distA - distB;
-        });
+        // Sort beaches by distance from user location (they should already be sorted)
+        const sortedBeaches = [...result.data];
 
         setBeaches(sortedBeaches);
         setFilteredBeaches(sortedBeaches);
@@ -153,29 +178,26 @@ export function MapView() {
           setSelectedBeach(sortedBeaches[0]);
         }
       } else {
-        // If no beaches found within 30 miles, fall back to Ocean Beach
-        console.log(
-          "No beaches found within 30 miles, using Ocean Beach as fallback"
-        );
-        useDefaultLocation();
+        // If no beaches found within 30 miles, set empty state with user location
+        setUserLocation({ lat: latitude, lng: longitude });
+        setBeaches([]);
+        setFilteredBeaches([]);
+        setSelectedBeach(null);
+        setUsingDefaultLocation(false);
       }
     } catch (error) {
       console.error("Error loading nearby beaches:", error);
-      // If failed to load nearby beaches, load all beaches as fallback
-      loadBeaches();
+      // If failed to load nearby beaches, fall back to default location
+      useDefaultLocation();
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // The filtering is handled by useEffect
-  };
-
   const handleBeachSelect = (beach: Beach) => {
     setSelectedBeach(beach);
-    // In a real implementation, you might want to animate or scroll to show the selected beach
+    // Smooth scroll to top to show the selected beach on map
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const getDistanceFromUser = (beachLat: number, beachLng: number): string => {
@@ -232,7 +254,7 @@ export function MapView() {
     <div className="flex-1 flex flex-col">
       {/* Search Header */}
       <div className="sticky top-0 z-10 bg-background border-b p-4">
-        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -240,6 +262,12 @@ export function MapView() {
               className="pl-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  // Search is already handled by useEffect, just prevent form submission
+                }
+              }}
             />
             {searchQuery && (
               <Button
@@ -248,8 +276,12 @@ export function MapView() {
                 className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 rounded-full p-0"
                 onClick={() => {
                   setSearchQuery("");
-                  // Reload all beaches when clearing search
-                  getUserLocation();
+                  // Reset to nearby beaches when clearing search
+                  if (userLocation) {
+                    loadNearbyBeaches(userLocation.lat, userLocation.lng);
+                  } else {
+                    getUserLocation();
+                  }
                 }}
               >
                 <span className="sr-only">Clear</span>
@@ -269,10 +301,7 @@ export function MapView() {
               </Button>
             )}
           </div>
-          <Button type="submit" size="sm">
-            Search
-          </Button>
-        </form>
+        </div>
 
         {/* View Mode Toggle */}
         <div className="flex mt-3 bg-muted rounded-lg p-1">
@@ -347,19 +376,41 @@ export function MapView() {
                 {/* Map overlay with beach count */}
                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md">
                   <p className="text-sm font-medium">
-                    {userLocation
+                    {searchQuery
+                      ? filteredBeaches.length > 0
+                        ? `Found ${filteredBeaches.length} ${
+                            filteredBeaches.length === 1 ? "beach" : "beaches"
+                          } for "${searchQuery}"`
+                        : `No beaches found for "${searchQuery}"`
+                      : userLocation
                       ? usingDefaultLocation
                         ? `Showing beaches near Ocean Beach, San Diego`
-                        : `Found ${filteredBeaches.length} beaches near your location`
+                        : filteredBeaches.length > 0
+                        ? `Found ${filteredBeaches.length} beaches near your location`
+                        : `No beaches within ${MAX_DISTANCE_MILES} miles of your location`
                       : "Loading beach locations..."}
                   </p>
                   {filteredBeaches.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
                       {searchQuery
-                        ? "Search results"
+                        ? "Tap a beach card below to see it on the map"
                         : "Tap a beach card below to see it on the map"}
                     </p>
                   )}
+                  {filteredBeaches.length === 0 && searchQuery && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Try a different search term or clear your search
+                    </p>
+                  )}
+                  {filteredBeaches.length === 0 &&
+                    userLocation &&
+                    !usingDefaultLocation &&
+                    !searchQuery && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Try searching for a specific beach or expand your search
+                        area
+                      </p>
+                    )}
                 </div>
 
                 {/* Location controls */}
@@ -384,8 +435,11 @@ export function MapView() {
 
           {/* Beach Quick View */}
           {selectedBeach && (
-            <div className="absolute bottom-4 left-4 right-4">
-              <Card>
+            <div className="absolute bottom-20 left-4 right-4">
+              <Card
+                className="cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => router.push(`/beach/${selectedBeach.id}`)}
+              >
                 <CardContent className="p-3">
                   <div className="flex items-center gap-3">
                     <div className="h-16 w-16 rounded-md bg-gray-200 flex items-center justify-center">
@@ -422,9 +476,79 @@ export function MapView() {
                         </span>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground">
+                        Tap for details
+                      </div>
+                      <div className="text-primary font-medium text-sm">
+                        View Beach →
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {/* Beach Cards Below Map */}
+          {!selectedBeach && filteredBeaches.length > 0 && (
+            <div className="absolute bottom-16 left-0 right-0 bg-background border-t">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-medium text-sm">
+                    {filteredBeaches.length} beaches nearby
+                  </h3>
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className="text-primary text-sm font-medium"
+                  >
+                    View All
+                  </button>
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {filteredBeaches.slice(0, 5).map((beach) => (
+                    <div
+                      key={beach.id}
+                      onClick={() => handleBeachSelect(beach)}
+                      className="cursor-pointer flex-shrink-0 w-48"
+                    >
+                      <Card className="overflow-hidden hover:shadow-md transition-shadow">
+                        <div className="relative h-24">
+                          <MapImage
+                            src={getStaticMapImageUrl(
+                              beach.latitude,
+                              beach.longitude,
+                              { width: 200, height: 96, zoom: 15 }
+                            )}
+                            alt={beach.name}
+                            latitude={beach.latitude}
+                            longitude={beach.longitude}
+                            fill
+                            className="object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                          <div className="absolute bottom-0 left-0 p-2 text-white">
+                            <h4 className="font-medium text-sm truncate">
+                              {beach.name}
+                            </h4>
+                            <div className="flex items-center text-xs">
+                              <MapPin className="h-3 w-3 mr-1" />
+                              <span className="truncate">
+                                {userLocation
+                                  ? getDistanceFromUser(
+                                      beach.latitude,
+                                      beach.longitude
+                                    )
+                                  : beach.location || "San Diego"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -474,19 +598,66 @@ export function MapView() {
               ))}
             </>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              {searchQuery
-                ? `No beaches found matching "${searchQuery}". Try a different search term.`
-                : "No beaches found. Try a different search."}
-              {!searchQuery && (
-                <Button
-                  onClick={getUserLocation}
-                  size="sm"
-                  variant="outline"
-                  className="mt-4"
-                >
-                  Use my location
-                </Button>
+            <div className="text-center py-12">
+              {searchQuery ? (
+                <div>
+                  <p className="text-lg font-medium text-muted-foreground mb-2">
+                    No beaches found matching "{searchQuery}"
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Try a different search term or clear your search.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setSearchQuery("");
+                      // Reset to nearby beaches when clearing search
+                      if (userLocation) {
+                        loadNearbyBeaches(userLocation.lat, userLocation.lng);
+                      } else {
+                        getUserLocation();
+                      }
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    Clear Search
+                  </Button>
+                </div>
+              ) : userLocation && !usingDefaultLocation ? (
+                <div>
+                  <p className="text-lg font-medium text-muted-foreground mb-2">
+                    No beaches found within {MAX_DISTANCE_MILES} miles
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Try searching for a specific beach name or expand your
+                    search area.
+                  </p>
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => loadBeaches()}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Show All Beaches
+                    </Button>
+                    <div className="text-xs text-muted-foreground">
+                      Your location: {userLocation.lat.toFixed(4)},{" "}
+                      {userLocation.lng.toFixed(4)}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-lg font-medium text-muted-foreground mb-2">
+                    No beaches available
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Use the search to find beaches or allow location access.
+                  </p>
+                  <Button onClick={getUserLocation} size="sm" variant="outline">
+                    Use My Location
+                  </Button>
+                </div>
               )}
             </div>
           )}

@@ -14,6 +14,7 @@ const customJestConfig = {
     "<rootDir>/.next/",
     "<rootDir>/test-utils/",
     "<rootDir>/e2e/",
+    "<rootDir>/__tests__/setup/",
   ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",

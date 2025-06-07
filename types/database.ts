@@ -19,7 +19,8 @@ export type Profile = {
 export type Beach = {
   id: string;
   name: string;
-  location?: string; // location as text
+  location?: any; // PostGIS POINT type (legacy)
+  location_text?: string; // Human readable location
   latitude: number;
   longitude: number;
   description?: string;

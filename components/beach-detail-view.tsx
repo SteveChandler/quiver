@@ -4,25 +4,21 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ArrowLeft,
-  Star,
-  MapPin,
-  Waves,
-  Users,
-  Car,
-  CalendarDays,
-  Loader2,
-} from "lucide-react";
+import { Star, MapPin, Waves, Users, Car, Loader2 } from "lucide-react";
 import { ForecastCard } from "@/components/forecast-card";
-import { SessionCard } from "@/components/session-card";
+import { BeachHeader } from "@/components/beach-detail/beach-header";
+import { BeachHero } from "@/components/beach-detail/beach-hero";
+import { BeachQuickActions } from "@/components/beach-detail/beach-quick-actions";
+import { TodaysForecast } from "@/components/beach-detail/todays-forecast";
+import { BeachCommunity } from "@/components/beach-detail/beach-community";
 import Link from "next/link";
-import Image from "next/image";
 import { getBeachById } from "@/actions/beach-actions";
 import { getBeachForecasts } from "@/actions/forecast-actions";
-import type { Beach, Forecast } from "@/types/database";
+import { getSessionsByBeach } from "@/actions/session-actions";
+import type { Beach, Forecast, SessionWithDetails } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { formatForecastTime } from "@/lib/utils";
+import { getStaticMapImageUrl } from "@/lib/map-utils";
 
 interface BeachDetailViewProps {
   id: string;
@@ -32,7 +28,9 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
   const { user } = useAuth();
   const [beach, setBeach] = useState<Beach | null>(null);
   const [forecasts, setForecasts] = useState<Forecast[]>([]);
+  const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   ); // Today's date
@@ -59,7 +57,23 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
       }
     }
 
+    async function loadBeachSessions() {
+      setSessionsLoading(true);
+      try {
+        // Fetch community sessions for this beach
+        const sessionsResult = await getSessionsByBeach(id);
+        if (sessionsResult.success && sessionsResult.data) {
+          setSessions(sessionsResult.data);
+        }
+      } catch (error) {
+        console.error("Error loading beach sessions:", error);
+      } finally {
+        setSessionsLoading(false);
+      }
+    }
+
     loadBeachData();
+    loadBeachSessions();
   }, [id]);
 
   // Group forecasts by date
@@ -70,6 +84,11 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
   // Get forecasts for selected date
   const selectedDateForecasts = forecasts.filter(
     (f) => f.forecast_date === selectedDate
+  );
+
+  // Get today's forecast for prominent display
+  const todaysForecast = forecasts.find(
+    (f) => f.forecast_date === new Date().toISOString().split("T")[0]
   );
 
   // Format date for display
@@ -102,76 +121,42 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b">
-        <div className="container flex items-center h-16 px-4">
-          <Link href="/map" className="mr-2">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="text-xl font-bold">{beach.name}</h1>
-        </div>
-      </header>
+      <BeachHeader beachName={beach.name} />
 
       {/* Hero Image */}
-      <div className="relative h-48">
-        <Image
-          src="/placeholder.svg?height=400&width=800"
-          alt={beach.name}
-          fill
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 p-4 text-white">
-          <h2 className="text-2xl font-bold">{beach.name}</h2>
-          <div className="flex items-center">
-            <MapPin className="h-4 w-4 mr-1" />
-            <span>{beach.location}</span>
-          </div>
-          <div className="flex items-center mt-1">
-            {Array(5)
-              .fill(0)
-              .map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-4 w-4 ${
-                    i < Math.round(beach.wave_quality_rating || 0)
-                      ? "text-yellow-500 fill-yellow-500"
-                      : "text-gray-300"
-                  }`}
-                />
-              ))}
-            <span className="ml-1">(128 reviews)</span>
-          </div>
-        </div>
-      </div>
+      <BeachHero
+        beach={beach}
+        mapImageUrl={getStaticMapImageUrl(
+          typeof beach.latitude === "number" ? beach.latitude : 32.7507,
+          typeof beach.longitude === "number" ? beach.longitude : -117.254,
+          {
+            width: 800,
+            height: 400,
+            zoom: 14,
+          }
+        )}
+      />
 
       {/* Quick Actions */}
-      <div className="p-4 flex gap-2">
-        <Link
-          href={user ? `/plan-session?beach=${beach.id}` : "/auth/sign-in"}
-          className="flex-1"
-        >
-          <Button className="w-full">
-            <CalendarDays className="h-4 w-4 mr-1" />
-            Plan Session
-          </Button>
-        </Link>
-        <Link
-          href={user ? `/log-session?beach=${beach.id}` : "/auth/sign-in"}
-          className="flex-1"
-        >
-          <Button variant="outline" className="w-full">
-            <Waves className="h-4 w-4 mr-1" />
-            Log Session
-          </Button>
-        </Link>
-      </div>
+      <BeachQuickActions beach={beach} isAuthenticated={!!user} />
 
       {/* Main Content */}
       <main className="flex-1 container px-4 py-2 space-y-6 overflow-auto pb-20">
-        {/* Tabs */}
+        {/* Today's Forecast - Prominent Display */}
+        <TodaysForecast forecast={todaysForecast} />
+
+        {/* Community Section */}
+        <BeachCommunity
+          beach={beach}
+          sessions={sessions}
+          isLoading={sessionsLoading}
+          isAuthenticated={!!user}
+        />
+
+        {/* Detailed Tabs */}
         <Tabs defaultValue="forecast" className="space-y-4">
           <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="forecast">Forecast</TabsTrigger>
+            <TabsTrigger value="forecast">More Forecasts</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="gallery">Gallery</TabsTrigger>
           </TabsList>
@@ -222,8 +207,8 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                         forecast.forecast_date,
                         forecast.forecast_time
                       )}
-                      windDirection={forecast.wind_direction}
-                      weatherCondition={forecast.weather_condition}
+                      windDirection={forecast.wind_direction || undefined}
+                      weatherCondition={forecast.weather_condition || undefined}
                     />
                   ))
                 ) : (
@@ -344,27 +329,6 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
 
                 <Button variant="outline" size="sm" className="w-full mt-2">
                   View All Reviews
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="font-medium">Recent Sessions</h3>
-
-                <SessionCard
-                  username="SurfDude92"
-                  beachName={beach.name}
-                  date="Today, 8:30 AM"
-                  rating={5}
-                  description="Perfect morning session! Glassy conditions and consistent sets."
-                  imageUrl="/placeholder.svg?height=200&width=300"
-                  likes={24}
-                  comments={8}
-                />
-
-                <Button variant="outline" size="sm" className="w-full">
-                  View More Sessions
                 </Button>
               </CardContent>
             </Card>

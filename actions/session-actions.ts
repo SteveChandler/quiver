@@ -528,6 +528,42 @@ export async function uploadSessionMedia(
 }
 
 /**
+ * Get sessions for a specific beach
+ */
+export async function getSessionsByBeach(beachId: string, limit = 10) {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("sessions")
+      .select(
+        `
+        *,
+        beach:beaches(*),
+        board:boards(*),
+        user:profiles(*)
+      `
+      )
+      .eq("beach_id", beachId)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true, data: data as SessionWithDetails[] };
+  } catch (error) {
+    console.error("Error fetching beach sessions:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
  * Get all sessions for the community tab
  */
 export async function getAllSessions(limit = 20) {
