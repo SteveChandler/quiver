@@ -37,44 +37,79 @@ export async function getNearbyBeaches(
   const supabase = await createSupabaseServerClient();
 
   try {
-    // Get all beaches first
-    const { data: allBeaches, error } = await supabase
-      .from("beaches")
-      .select("*");
+    // Convert miles to meters for the PostGIS function (round to integer)
+    const radiusMeters = Math.round(radiusMiles * 1609.34);
+
+    // Use the optimized database function instead of client-side filtering
+    const { data: nearbyBeaches, error } = await supabase.rpc(
+      "get_nearby_beaches",
+      {
+        lat: latitude,
+        lng: longitude,
+        max_distance_meters: radiusMeters,
+        limit_count: 50,
+      }
+    );
 
     if (error) {
-      throw error;
-    }
+      console.warn(
+        "Spatial function failed, falling back to client-side filtering:",
+        error
+      );
 
-    if (!allBeaches || allBeaches.length === 0) {
-      return { success: true, data: [] };
-    }
+      // Fallback to original method if spatial function fails
+      const { data: allBeaches, error: fallbackError } = await supabase
+        .from("beaches")
+        .select("*");
 
-    // Calculate distances and filter beaches within radius
-    const nearbyBeaches = allBeaches
-      .map((beach: Beach) => {
-        // Calculate distance using Haversine formula
-        const distance = calculateDistanceInMiles(
-          latitude,
-          longitude,
-          beach.latitude,
-          beach.longitude
+      if (fallbackError) {
+        throw fallbackError;
+      }
+
+      if (!allBeaches || allBeaches.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      // Calculate distances and filter beaches within radius
+      const filteredBeaches = allBeaches
+        .map((beach: Beach) => {
+          const distance = calculateDistanceInMiles(
+            latitude,
+            longitude,
+            beach.latitude,
+            beach.longitude
+          );
+
+          return {
+            ...beach,
+            distance,
+          };
+        })
+        .filter(
+          (beach: Beach & { distance: number }) => beach.distance <= radiusMiles
+        )
+        .sort(
+          (a: Beach & { distance: number }, b: Beach & { distance: number }) =>
+            a.distance - b.distance
         );
 
-        return {
-          ...beach,
-          distance,
-        };
-      })
-      .filter(
-        (beach: Beach & { distance: number }) => beach.distance <= radiusMiles
-      )
-      .sort(
-        (a: Beach & { distance: number }, b: Beach & { distance: number }) =>
-          a.distance - b.distance
-      ); // Sort by distance
+      return { success: true, data: filteredBeaches as Beach[] };
+    }
 
-    return { success: true, data: nearbyBeaches as Beach[] };
+    // Transform the spatial function results to match Beach interface
+    const transformedBeaches = nearbyBeaches.map((beach: any) => ({
+      id: beach.id,
+      name: beach.name,
+      latitude: beach.latitude,
+      longitude: beach.longitude,
+      location: beach.location,
+      distance: beach.distance_meters / 1609.34, // Convert back to miles
+      // Add other Beach properties with defaults if needed
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+
+    return { success: true, data: transformedBeaches as Beach[] };
   } catch (error) {
     console.error("Error fetching nearby beaches:", error);
     return {
