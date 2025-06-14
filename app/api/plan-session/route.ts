@@ -106,7 +106,8 @@ export async function POST(request: NextRequest) {
 
     // Create the final session data object
     const sessionRecord = {
-      profile_id: user.id,
+      user_id: user.id,
+      profile_id: user.id, // Add profile_id to satisfy the constraint
       beach_id: beachId,
       beach_name: cleanData.beach_name,
       arrival_time: arrivalTime.toISOString(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,205 +35,29 @@ export function ForecastPrompt() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
-  // On mount, try to get Ocean Beach forecast if state is initial
-  useEffect(() => {
-    if (state === "initial") {
-      handleManualSubmit(new Event("submit") as any);
-    }
-  }, []);
-
-  // Get user's current location
-  const getCurrentLocation = async () => {
-    setState("loading");
-    setError(null);
-    setDebugInfo(null);
-
-    if (!navigator.geolocation) {
-      setError("Geolocation is not supported by your browser");
-      setState("input");
-      return;
-    }
-
-    try {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          await fetchBeachesNearLocation(latitude, longitude);
-        },
-        (err) => {
-          console.error("Error getting location:", err);
-          setError(
-            "Unable to get your location. Please try entering it manually."
-          );
-          setState("input");
-        }
-      );
-    } catch (err) {
-      console.error("Error:", err);
-      setError(
-        "An error occurred. Please try entering your location manually."
-      );
-      setState("input");
-    }
-  };
-
-  // Get beaches near coordinates
-  const fetchBeachesNearLocation = async (
-    latitude: number,
-    longitude: number
-  ) => {
-    try {
-      // Try to find beaches within 30 miles
-      const result = await getNearbyBeaches(
-        latitude,
-        longitude,
-        MAX_DISTANCE_MILES
-      );
-
-      if (result.success && result.data && result.data.length > 0) {
-        // Sort beaches by distance
-        const sortedBeaches = [...result.data].sort((a, b) => {
-          const distA = calculateDistance(
-            latitude,
-            longitude,
-            a.latitude,
-            a.longitude
-          );
-          const distB = calculateDistance(
-            latitude,
-            longitude,
-            b.latitude,
-            b.longitude
-          );
-          return distA - distB;
-        });
-
-        // Select the nearest beach
-        const nearestBeach = sortedBeaches[0];
-        setBeach(nearestBeach);
-
-        // Display distance in debug info
-        const distance = calculateDistance(
-          latitude,
-          longitude,
-          nearestBeach.latitude,
-          nearestBeach.longitude
-        ).toFixed(1);
-
-        setDebugInfo(
-          `Found nearest beach within ${MAX_DISTANCE_MILES} miles: ${nearestBeach.name} (${distance} miles away)`
-        );
-
-        // Get forecast for nearest beach
-        await fetchForecastForBeach(nearestBeach);
-      } else {
-        // If no beach found within 30 miles, use Ocean Beach as default
-        setError(
-          `No beaches found within ${MAX_DISTANCE_MILES} miles of your location. Showing Ocean Beach, San Diego instead.`
-        );
-        await fetchOceanBeachData();
-      }
-    } catch (err) {
-      console.error("Error fetching nearby beaches:", err);
-      setError(
-        "Failed to find beaches near your location. Showing Ocean Beach, San Diego instead."
-      );
-      await fetchOceanBeachData();
-    }
-  };
+  // Flag to prevent multiple initial loads
+  const hasInitialLoaded = useRef(false);
 
   // Calculate distance between two points using Haversine formula
-  const calculateDistance = (
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number
-  ): number => {
-    const R = 3958.8; // Earth's radius in miles
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
+  const calculateDistance = useCallback(
+    (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+      const R = 3958.8; // Earth's radius in miles
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLng = ((lng2 - lng1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    },
+    []
+  );
 
-  // Fetch forecast data for a beach
-  const fetchForecastForBeach = async (beachData: Beach) => {
-    try {
-      const forecastResult = await getBeachForecasts(beachData.id);
-
-      if (
-        forecastResult.success &&
-        forecastResult.data &&
-        forecastResult.data.length > 0
-      ) {
-        setForecast(forecastResult.data[0]);
-        setState("results");
-      } else {
-        setDebugInfo(
-          "No forecast data found in database. Trying to refresh..."
-        );
-        // No forecast in database, try to update it
-        await refreshForecast(beachData.id);
-      }
-    } catch (err) {
-      console.error("Error fetching forecast:", err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setDebugInfo(`API Error: ${errorMessage}`);
-      setError(
-        `Error getting forecast for ${beachData.name}. Showing default data.`
-      );
-
-      // Show error instead of mock data
-      setState("error");
-    }
-  };
-
-  // Fetch Ocean Beach data (default location)
-  const fetchOceanBeachData = async () => {
-    try {
-      // Find Ocean Beach in nearby beaches with a larger radius to ensure we get results
-      const result = await getNearbyBeaches(
-        OCEAN_BEACH_LAT,
-        OCEAN_BEACH_LNG,
-        50
-      );
-
-      if (result.success && result.data && result.data.length > 0) {
-        // Find the beach that most closely matches Ocean Beach
-        const oceanBeach =
-          result.data.find(
-            (b) =>
-              b.name.toLowerCase().includes("ocean") &&
-              (b.location || "").toLowerCase().includes("san diego")
-          ) || result.data[0];
-
-        setBeach(oceanBeach);
-        setDebugInfo(`Using fallback: ${oceanBeach.name}`);
-        await fetchForecastForBeach(oceanBeach);
-      } else {
-        setDebugInfo("No beaches found near Ocean Beach coordinates");
-        setError(
-          "No forecast data available. Please try refreshing or try a different location."
-        );
-        setState("error");
-      }
-    } catch (err) {
-      console.error("Error fetching Ocean Beach data:", err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setDebugInfo(`Ocean Beach lookup error: ${errorMessage}`);
-      setError("Unable to load forecast data. Please try again.");
-      setState("error");
-    }
-  };
-
-  // Refresh forecast data from API
-  const refreshForecast = async (beachId: string) => {
+  // Separate refresh function with no dependencies
+  const refreshForecastById = useCallback(async (beachId: string) => {
     setIsRefreshing(true);
     try {
       // Use client-side API to update forecast data
@@ -277,104 +101,298 @@ export function ForecastPrompt() {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
-  // Handle manual location input submission
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Fetch forecast data for a beach - stable with minimal dependencies
+  const fetchForecastForBeach = useCallback(
+    async (beachData: Beach) => {
+      try {
+        const forecastResult = await getBeachForecasts(beachData.id);
+
+        if (
+          forecastResult.success &&
+          forecastResult.data &&
+          forecastResult.data.length > 0
+        ) {
+          setForecast(forecastResult.data[0]);
+          setState("results");
+        } else {
+          setDebugInfo(
+            "No forecast data found in database. Trying to refresh..."
+          );
+          // No forecast in database, try to update it
+          await refreshForecastById(beachData.id);
+        }
+      } catch (err) {
+        console.error("Error fetching forecast:", err);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setDebugInfo(`API Error: ${errorMessage}`);
+        setError(
+          `Error getting forecast for ${beachData.name}. Showing default data.`
+        );
+
+        // Show error instead of mock data
+        setState("error");
+      }
+    },
+    [refreshForecastById]
+  );
+
+  // Fetch Ocean Beach data (default location) - stable with minimal dependencies
+  const fetchOceanBeachData = useCallback(async () => {
+    try {
+      // Find Ocean Beach in nearby beaches with a larger radius to ensure we get results
+      const result = await getNearbyBeaches(
+        OCEAN_BEACH_LAT,
+        OCEAN_BEACH_LNG,
+        50
+      );
+
+      if (result.success && result.data && result.data.length > 0) {
+        // Find the beach that most closely matches Ocean Beach
+        const oceanBeach =
+          result.data.find(
+            (b) =>
+              b.name.toLowerCase().includes("ocean") &&
+              (b.location || "").toLowerCase().includes("san diego")
+          ) || result.data[0];
+
+        setBeach(oceanBeach);
+        setDebugInfo(`Using fallback: ${oceanBeach.name}`);
+        await fetchForecastForBeach(oceanBeach);
+      } else {
+        setDebugInfo("No beaches found near Ocean Beach coordinates");
+        setError(
+          "No forecast data available. Please try refreshing or try a different location."
+        );
+        setState("error");
+      }
+    } catch (err) {
+      console.error("Error fetching Ocean Beach data:", err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setDebugInfo(`Ocean Beach lookup error: ${errorMessage}`);
+      setError("Unable to load forecast data. Please try again.");
+      setState("error");
+    }
+  }, [fetchForecastForBeach]);
+
+  // Get beaches near coordinates - stable with minimal dependencies
+  const fetchBeachesNearLocation = useCallback(
+    async (latitude: number, longitude: number) => {
+      try {
+        // Try to find beaches within 30 miles
+        const result = await getNearbyBeaches(
+          latitude,
+          longitude,
+          MAX_DISTANCE_MILES
+        );
+
+        if (result.success && result.data && result.data.length > 0) {
+          // Sort beaches by distance
+          const sortedBeaches = [...result.data].sort((a, b) => {
+            const distA = calculateDistance(
+              latitude,
+              longitude,
+              a.latitude,
+              a.longitude
+            );
+            const distB = calculateDistance(
+              latitude,
+              longitude,
+              b.latitude,
+              b.longitude
+            );
+            return distA - distB;
+          });
+
+          // Select the nearest beach
+          const nearestBeach = sortedBeaches[0];
+          setBeach(nearestBeach);
+
+          // Display distance in debug info
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            nearestBeach.latitude,
+            nearestBeach.longitude
+          ).toFixed(1);
+
+          setDebugInfo(
+            `Found nearest beach within ${MAX_DISTANCE_MILES} miles: ${nearestBeach.name} (${distance} miles away)`
+          );
+
+          // Get forecast for nearest beach
+          await fetchForecastForBeach(nearestBeach);
+        } else {
+          // If no beach found within 30 miles, use Ocean Beach as default
+          setError(
+            `No beaches found within ${MAX_DISTANCE_MILES} miles of your location. Showing Ocean Beach, San Diego instead.`
+          );
+          await fetchOceanBeachData();
+        }
+      } catch (err) {
+        console.error("Error fetching nearby beaches:", err);
+        setError(
+          "Failed to find beaches near your location. Showing Ocean Beach, San Diego instead."
+        );
+        await fetchOceanBeachData();
+      }
+    },
+    [calculateDistance, fetchForecastForBeach, fetchOceanBeachData]
+  );
+
+  // Search for beaches by name - stable with no dependencies
+  const searchBeachesByName = useCallback(
+    async (searchText: string): Promise<Beach | null> => {
+      try {
+        // Get all beaches first
+        const allBeachesResult = await getBeaches();
+
+        if (!allBeachesResult.success || !allBeachesResult.data) {
+          return null;
+        }
+
+        // Normalize the search text (lowercase, trim whitespace)
+        const normalizedSearch = searchText.toLowerCase().trim();
+
+        // Look for exact or partial matches
+        const matchingBeaches = allBeachesResult.data.filter((beach) => {
+          const beachName = beach.name.toLowerCase();
+          const beachLocation = (beach.location || "").toLowerCase();
+
+          // Check for matches in name or location
+          return (
+            beachName.includes(normalizedSearch) ||
+            beachLocation.includes(normalizedSearch)
+          );
+        });
+
+        if (matchingBeaches.length > 0) {
+          // Return the first match
+          return matchingBeaches[0];
+        }
+
+        return null;
+      } catch (error) {
+        console.error("Error searching beaches by name:", error);
+        return null;
+      }
+    },
+    []
+  );
+
+  // Get user's current location - stable dependencies
+  const getCurrentLocation = useCallback(async () => {
     setState("loading");
     setError(null);
     setDebugInfo(null);
 
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser");
+      setState("input");
+      return;
+    }
+
     try {
-      if (!location.trim()) {
-        // Try to get user's location if no input provided
-        await getCurrentLocation();
-        return;
-      }
-
-      setDebugInfo(`Searching for: ${location}`);
-
-      // First, try to find beaches by name match
-      const beachByNameResult = await searchBeachesByName(location);
-
-      if (beachByNameResult) {
-        // We found a beach by name, use it
-        setBeach(beachByNameResult);
-        setDebugInfo(`Found beach by name: ${beachByNameResult.name}`);
-        await fetchForecastForBeach(beachByNameResult);
-      } else {
-        // No beach found by name, treat as location coordinates
-        setDebugInfo(
-          `No beach found by name. Treating "${location}" as location coordinates.`
-        );
-
-        // In a real app, we would use a geocoding service here
-        // For now, use Ocean Beach coordinates but in a real app would use geocoded location
-        await fetchBeachesNearLocation(OCEAN_BEACH_LAT, OCEAN_BEACH_LNG);
-      }
-    } catch (err) {
-      console.error("Error with location search:", err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setDebugInfo(`Location search error: ${errorMessage}`);
-      setError(
-        "Unable to find that location. Showing Ocean Beach, San Diego instead."
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          await fetchBeachesNearLocation(latitude, longitude);
+        },
+        (err) => {
+          console.error("Error getting location:", err);
+          setError(
+            "Unable to get your location. Please try entering it manually."
+          );
+          setState("input");
+        }
       );
-      await fetchOceanBeachData();
+    } catch (err) {
+      console.error("Error:", err);
+      setError(
+        "An error occurred. Please try entering your location manually."
+      );
+      setState("input");
     }
-  };
+  }, [fetchBeachesNearLocation]);
 
-  // Search for beaches by name
-  const searchBeachesByName = async (
-    searchText: string
-  ): Promise<Beach | null> => {
-    try {
-      // Get all beaches first
-      const allBeachesResult = await getBeaches();
+  // Handle manual location input submission - stable dependencies
+  const handleManualSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setState("loading");
+      setError(null);
+      setDebugInfo(null);
 
-      if (!allBeachesResult.success || !allBeachesResult.data) {
-        return null;
-      }
+      try {
+        if (!location.trim()) {
+          // Try to get user's location if no input provided
+          await getCurrentLocation();
+          return;
+        }
 
-      // Normalize the search text (lowercase, trim whitespace)
-      const normalizedSearch = searchText.toLowerCase().trim();
+        setDebugInfo(`Searching for: ${location}`);
 
-      // Look for exact or partial matches
-      const matchingBeaches = allBeachesResult.data.filter((beach) => {
-        const beachName = beach.name.toLowerCase();
-        const beachLocation = (beach.location || "").toLowerCase();
+        // First, try to find beaches by name match
+        const beachByNameResult = await searchBeachesByName(location);
 
-        // Check for matches in name or location
-        return (
-          beachName.includes(normalizedSearch) ||
-          beachLocation.includes(normalizedSearch)
+        if (beachByNameResult) {
+          // We found a beach by name, use it
+          setBeach(beachByNameResult);
+          setDebugInfo(`Found beach by name: ${beachByNameResult.name}`);
+          await fetchForecastForBeach(beachByNameResult);
+        } else {
+          // No beach found by name, treat as location coordinates
+          setDebugInfo(
+            `No beach found by name. Treating "${location}" as location coordinates.`
+          );
+
+          // In a real app, we would use a geocoding service here
+          // For now, use Ocean Beach coordinates but in a real app would use geocoded location
+          await fetchBeachesNearLocation(OCEAN_BEACH_LAT, OCEAN_BEACH_LNG);
+        }
+      } catch (err) {
+        console.error("Error with location search:", err);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setDebugInfo(`Location search error: ${errorMessage}`);
+        setError(
+          "Unable to find that location. Showing Ocean Beach, San Diego instead."
         );
-      });
-
-      if (matchingBeaches.length > 0) {
-        // Return the first match
-        return matchingBeaches[0];
+        await fetchOceanBeachData();
       }
+    },
+    [
+      location,
+      getCurrentLocation,
+      searchBeachesByName,
+      fetchForecastForBeach,
+      fetchBeachesNearLocation,
+      fetchOceanBeachData,
+    ]
+  );
 
-      return null;
-    } catch (error) {
-      console.error("Error searching beaches by name:", error);
-      return null;
-    }
-  };
-
-  // Reset to initial state
-  const reset = () => {
+  // Reset to initial state - stable with no dependencies
+  const reset = useCallback(() => {
     setState("initial");
     setLocation("");
     setError(null);
     setDebugInfo(null);
     setBeach(null);
     setForecast(null);
-  };
+    // Reset the flag to allow initial load again
+    hasInitialLoaded.current = false;
+  }, []);
+
+  // Refresh forecast data from API - stable with no dependencies
+  const refreshForecast = useCallback(
+    async (beachId: string) => {
+      await refreshForecastById(beachId);
+    },
+    [refreshForecastById]
+  );
 
   // For developers: test the API connection directly
-  const testApiConnection = async () => {
+  const testApiConnection = useCallback(async () => {
     setIsRefreshing(true);
     setDebugInfo("Testing API connection...");
 
@@ -400,7 +418,34 @@ export function ForecastPrompt() {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, []);
+
+  // Initial load effect - FIXED: Prevent infinite loops with stable function
+  const handleInitialLoad = useCallback(async () => {
+    if (hasInitialLoaded.current) return;
+    hasInitialLoaded.current = true;
+
+    setState("loading");
+    setError(null);
+    setDebugInfo(null);
+
+    try {
+      // Load Ocean Beach data as default - don't trigger manual submit
+      await fetchOceanBeachData();
+    } catch (error) {
+      console.error("Error in initial load:", error);
+      setError("Unable to load initial forecast data");
+      setState("error");
+    }
+  }, [fetchOceanBeachData]);
+
+  // On mount, try to get Ocean Beach forecast if state is initial
+  // FIXED: Remove dependency on handleManualSubmit to prevent infinite loop
+  useEffect(() => {
+    if (state === "initial") {
+      handleInitialLoad();
+    }
+  }, [state, handleInitialLoad]);
 
   return (
     <Card className="w-full">
@@ -533,49 +578,29 @@ export function ForecastPrompt() {
                 <pre className="whitespace-pre-wrap">{debugInfo}</pre>
               </details>
             )}
-
-            {/* For developers: hidden API test button */}
-            {process.env.NODE_ENV === "development" && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <details>
-                  <summary className="text-xs text-gray-500 cursor-pointer">
-                    Developer Options
-                  </summary>
-                  <div className="mt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={testApiConnection}
-                      disabled={isRefreshing}
-                      className="text-xs"
-                    >
-                      {isRefreshing ? (
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      ) : (
-                        <RefreshCw className="h-3 w-3 mr-1" />
-                      )}
-                      Test API Connection
-                    </Button>
-                  </div>
-                </details>
-              </div>
-            )}
           </div>
         )}
 
         {state === "error" && (
           <div className="space-y-4">
-            <div className="p-4 bg-red-50 text-red-600 rounded-md">
-              <h3 className="font-medium mb-2">Error Loading Forecast</h3>
-              <p>{error}</p>
-              {debugInfo && (
-                <details className="mt-4 text-xs text-gray-500">
-                  <summary>Debug Info</summary>
-                  <pre className="whitespace-pre-wrap">{debugInfo}</pre>
-                </details>
-              )}
-              <Button onClick={reset} className="mt-4">
+            <h3 className="text-lg font-medium">Unable to Load Forecast</h3>
+            {error && (
+              <div className="text-destructive text-sm p-2 bg-red-50 rounded-md">
+                {error}
+              </div>
+            )}
+            {debugInfo && (
+              <details className="text-xs text-gray-500">
+                <summary>Debug Info</summary>
+                <pre className="whitespace-pre-wrap">{debugInfo}</pre>
+              </details>
+            )}
+            <div className="flex gap-2">
+              <Button onClick={reset} variant="outline">
                 Try Again
+              </Button>
+              <Button onClick={testApiConnection} variant="ghost" size="sm">
+                Test API Connection
               </Button>
             </div>
           </div>

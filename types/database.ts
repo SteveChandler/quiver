@@ -19,7 +19,8 @@ export type Profile = {
 export type Beach = {
   id: string;
   name: string;
-  location?: string; // location as text
+  location?: any; // PostGIS POINT type (legacy)
+  location_text?: string; // Human readable location
   latitude: number;
   longitude: number;
   description?: string;
@@ -57,7 +58,11 @@ export type SessionStatus = "planned" | "completed" | "cancelled";
 export type Session = {
   id: string;
   /**
-   * The owning userʼs profile id (replaces the old `user_id` column that pointed straight at auth.users).
+   * The owning user's ID - matches the actual database schema
+   */
+  user_id: string;
+  /**
+   * The profile ID - required by the database schema
    */
   profile_id: string;
   beach_id?: string;
@@ -108,6 +113,22 @@ export type SessionMedia = {
   session_id: string;
   storage_path: string;
   media_type: "image" | "video";
+  created_at: string;
+};
+
+export type Comment = {
+  id: string;
+  session_id: string;
+  parent_comment: string | null;
+  user_id: string;
+  content: string;
+  created_at: string;
+};
+
+export type SessionLike = {
+  id: string;
+  session_id: string;
+  user_id: string;
   created_at: string;
 };
 
@@ -165,6 +186,21 @@ export type Database = {
         Row: SessionMedia;
         Insert: Omit<SessionMedia, "id" | "created_at">;
         Update: Partial<Omit<SessionMedia, "id" | "created_at">>;
+      };
+      comments: {
+        Row: Comment;
+        Insert: Omit<Comment, "id" | "created_at">;
+        Update: Partial<Omit<Comment, "id" | "created_at">>;
+      };
+      session_likes: {
+        Row: SessionLike;
+        Insert: Omit<SessionLike, "id" | "created_at">;
+        Update: Partial<Omit<SessionLike, "id" | "created_at">>;
+      };
+      profiles: {
+        Row: Profile;
+        Insert: Omit<Profile, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>;
       };
     };
     Enums: {

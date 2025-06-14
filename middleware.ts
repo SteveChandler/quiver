@@ -10,8 +10,42 @@ const protectedPaths = [
   "/dashboard",
 ];
 
+// Only enable verbose logging in development
+const isDev = process.env.NODE_ENV === "development";
+const isVerbose = process.env.MIDDLEWARE_VERBOSE === "true";
+
+function log(message: string, data?: any) {
+  if (isDev && isVerbose) {
+    console.log(message, data || "");
+  }
+}
+
+function logError(message: string, error?: any) {
+  // Always log errors, but less verbosely in production
+  if (isDev) {
+    console.error(message, error);
+  } else {
+    console.error(message);
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Skip middleware for API routes, static files, and other non-page requests
+  if (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/favicon.ico") ||
+    pathname.includes(".") // Skip any file with an extension
+  ) {
+    return NextResponse.next();
+  }
+
+  // Only process GET requests to pages - skip POST/PUT/DELETE to API routes
+  if (request.method !== "GET") {
+    return NextResponse.next();
+  }
 
   // Create a response we can modify (needed for supabase cookie helpers)
   let response = NextResponse.next({
@@ -20,15 +54,20 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  log(`[Middleware] Processing request for: ${pathname}`);
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name) {
-          return request.cookies.get(name)?.value;
+          const cookie = request.cookies.get(name);
+          // Remove individual cookie get logging - too noisy
+          return cookie?.value;
         },
         set(name, value, options) {
+          log(`[Middleware] Setting cookie: ${name}`);
           response.cookies.set({
             name,
             value,
@@ -36,6 +75,7 @@ export async function middleware(request: NextRequest) {
           });
         },
         remove(name, options) {
+          log(`[Middleware] Removing cookie: ${name}`);
           response.cookies.delete({
             name,
             ...options,
@@ -47,22 +87,30 @@ export async function middleware(request: NextRequest) {
 
   // Check if the route is protected
   if (protectedPaths.some((path) => pathname.startsWith(path))) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    log(`[Middleware] Checking auth for protected path: ${pathname}`);
 
-    // If there's no session, redirect to sign-in
-    if (!session) {
+    try {
+      // Use getUser() instead of getSession() - this validates with Supabase's auth server
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (!user || userError) {
+        log(`[Middleware] No valid user found, redirecting to sign-in`);
+        const signInUrl = new URL("/auth/sign-in", request.url);
+        signInUrl.searchParams.set("redirectTo", pathname);
+        return NextResponse.redirect(signInUrl);
+      } else {
+        log(`[Middleware] Valid user found for ${pathname}`);
+      }
+    } catch (error) {
+      logError(`[Middleware] Error checking user:`, error);
       const signInUrl = new URL("/auth/sign-in", request.url);
+      signInUrl.searchParams.set("redirectTo", pathname);
       return NextResponse.redirect(signInUrl);
     }
   }
-
-  // This will refresh session if expired - required for Server Components
-  await supabase.auth.getUser();
-
-  // For all other requests, just ensure the session cookies are kept fresh
-  await supabase.auth.getSession();
 
   return response;
 }
@@ -71,12 +119,12 @@ export const config = {
   runtime: "nodejs",
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
+     * Match all page routes but exclude:
+     * - API routes (/api/*)
+     * - Static files (/_next/static, /_next/image)
+     * - Files with extensions (.svg, .png, etc.)
+     * Only apply to actual page navigation
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };

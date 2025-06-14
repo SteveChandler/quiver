@@ -2,17 +2,29 @@ import {
   updateBeachForecasts,
   updateAllBeachForecasts,
 } from "@/actions/forecast-actions";
+import { getBeaches } from "@/actions/beach-actions";
+import {
+  getBeachesToUpdate,
+  shouldSkipBeach,
+  getBeachStrategy,
+} from "@/lib/beach-update-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const beachId = searchParams.get("beachId");
   const debug = searchParams.has("debug");
+  const useSmartStrategy = searchParams.get("smartStrategy") !== "false"; // Default to true
+  const maxUpdates = parseInt(searchParams.get("maxUpdates") || "9");
 
   try {
     console.log(
       `Forecast update request received: ${
-        beachId ? `for beach ID ${beachId}` : "for all beaches"
+        beachId
+          ? `for beach ID ${beachId}`
+          : useSmartStrategy
+          ? "using smart strategy"
+          : "for all beaches"
       }`
     );
 
@@ -44,9 +56,108 @@ export async function GET(request: NextRequest) {
       // Update forecasts for a specific beach
       console.log(`Updating forecasts for beach ID: ${beachId}`);
       result = await updateBeachForecasts(beachId);
+    } else if (useSmartStrategy) {
+      // Use smart strategy by default to avoid quota exhaustion
+      console.log(
+        `🧠 Using smart strategy - updating ${maxUpdates} strategic beaches only`
+      );
+
+      // Get all beaches from database
+      const beachesResult = await getBeaches();
+      if (!beachesResult.success || !beachesResult.data) {
+        throw new Error("Failed to fetch beaches from database");
+      }
+
+      const allBeaches = beachesResult.data;
+      const targetBeachNames = getBeachesToUpdate(maxUpdates);
+
+      console.log("🎯 Strategic beaches to update:", targetBeachNames);
+
+      // Find matching beaches in database
+      const beachesToUpdate = [];
+      for (const targetName of targetBeachNames) {
+        const matchingBeach = allBeaches.find(
+          (beach) =>
+            beach.name.toLowerCase().includes(targetName.toLowerCase()) ||
+            targetName.toLowerCase().includes(beach.name.toLowerCase())
+        );
+
+        if (matchingBeach) {
+          const strategy = getBeachStrategy(targetName);
+          beachesToUpdate.push({
+            beach: matchingBeach,
+            strategy,
+          });
+        }
+      }
+
+      console.log(
+        `✅ Found ${beachesToUpdate.length} strategic beaches to update`
+      );
+
+      // Update forecasts for each strategic beach
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const { beach, strategy } of beachesToUpdate) {
+        try {
+          console.log(`🌊 Updating ${beach.name}...`);
+          if (strategy?.provides_fallback_for) {
+            console.log(
+              `   Provides fallback for: ${strategy.provides_fallback_for.join(
+                ", "
+              )}`
+            );
+          }
+
+          const updateResult = await updateBeachForecasts(beach.id);
+
+          if (updateResult.success) {
+            console.log(`✅ ${beach.name} updated successfully`);
+            successCount++;
+          } else {
+            console.log(`❌ ${beach.name} failed: ${updateResult.error}`);
+            errorCount++;
+          }
+
+          results.push({
+            beach: beach.name,
+            success: updateResult.success,
+            error: updateResult.success ? undefined : updateResult.error,
+          });
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          console.log(
+            `❌ ${beach.name} failed with exception: ${errorMessage}`
+          );
+          errorCount++;
+
+          results.push({
+            beach: beach.name,
+            success: false,
+            error: errorMessage,
+          });
+        }
+      }
+
+      result = {
+        success: true,
+        message: `Smart update completed: ${successCount} successful, ${errorCount} failed`,
+        summary: {
+          beaches_updated: successCount,
+          beaches_failed: errorCount,
+          api_calls_used: beachesToUpdate.length,
+          strategy: "smart",
+        },
+        results,
+      };
     } else {
-      // Update forecasts for all beaches
-      console.log("Updating forecasts for all beaches");
+      // Update forecasts for all beaches (use with caution - can exhaust quota)
+      console.log(
+        "⚠️  Updating forecasts for ALL beaches - this may exhaust API quota!"
+      );
       result = await updateAllBeachForecasts();
     }
 

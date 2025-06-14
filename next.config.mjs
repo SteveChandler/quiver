@@ -1,3 +1,19 @@
+// Extract Supabase project ID from URL for image patterns
+const getSupabaseHostname = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (supabaseUrl) {
+    try {
+      const url = new URL(supabaseUrl);
+      return url.hostname;
+    } catch (error) {
+      console.warn("Invalid NEXT_PUBLIC_SUPABASE_URL:", error);
+    }
+  }
+  return null;
+};
+
+const supabaseHostname = getSupabaseHostname();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -24,6 +40,27 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "maps.geoapify.com",
+      },
+      // Add specific Supabase hostname if available
+      ...(supabaseHostname
+        ? [
+            {
+              protocol: "https",
+              hostname: supabaseHostname,
+              pathname: "/storage/v1/object/public/**",
+            },
+          ]
+        : []),
+      // Fallback patterns for Supabase storage
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/**",
       },
     ],
     // Add image loading configuration for better Vercel compatibility

@@ -30,7 +30,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, X, Camera } from "lucide-react";
 import { updateProfile } from "@/actions/profile-actions";
 import { useAuth } from "@/context/auth-context";
-import { toast } from "@/components/ui/use-toast";
+import { toastUtils } from "@/lib/utils/toast-utils";
 import { uploadImage, deleteImage } from "@/lib/image-upload";
 
 const profileFormSchema = z.object({
@@ -109,24 +109,21 @@ export function EditProfileForm({
         throw new Error(result.error || "Failed to update profile");
       }
 
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
-      });
+      toastUtils.profile.updated();
+
+      console.log("Profile updated successfully, calling onSuccess callback");
 
       if (onSuccess) {
+        console.log("Calling onSuccess callback");
         onSuccess();
       } else {
+        console.log("No onSuccess callback, redirecting to profile");
         router.push("/profile");
         router.refresh();
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update profile. Please try again.",
-        variant: "destructive",
-      });
+      toastUtils.profile.updateFailed();
     } finally {
       setIsSubmitting(false);
     }
@@ -170,6 +167,7 @@ export function EditProfileForm({
       }
 
       setAvatarUrl(result.url);
+      console.log("Avatar uploaded successfully, URL:", result.url);
       toast({
         title: "Image uploaded",
         description: "Your profile picture has been updated.",

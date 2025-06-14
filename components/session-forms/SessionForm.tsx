@@ -112,7 +112,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         beach_id: formState.selectedBeachId,
         arrival_time: arrivalTime,
         board_id: formState.boardId,
-        profile_id: user.id,
+        user_id: user.id,
         notes: formState.notes || undefined,
         status: isPlanning
           ? "planned"

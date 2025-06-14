@@ -1,28 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ArrowLeft,
-  Star,
-  MapPin,
-  Waves,
-  Users,
-  Car,
-  CalendarDays,
-  Loader2,
-} from "lucide-react";
+import { Star, MapPin, Waves, Users, Car, Loader2 } from "lucide-react";
 import { ForecastCard } from "@/components/forecast-card";
-import { SessionCard } from "@/components/session-card";
+import { BeachHeader } from "@/components/beach-detail/beach-header";
+import { BeachHero } from "@/components/beach-detail/beach-hero";
+import { BeachQuickActions } from "@/components/beach-detail/beach-quick-actions";
+import { TodaysForecast } from "@/components/beach-detail/todays-forecast";
+import { BeachCommunity } from "@/components/beach-detail/beach-community";
 import Link from "next/link";
-import Image from "next/image";
 import { getBeachById } from "@/actions/beach-actions";
 import { getBeachForecasts } from "@/actions/forecast-actions";
-import type { Beach, Forecast } from "@/types/database";
+import { getSessionsByBeach } from "@/actions/session-actions";
+import type { Beach, Forecast, SessionWithDetails } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
-import { formatForecastTime } from "@/lib/utils";
+import { getStaticMapImageUrl } from "@/lib/map-utils";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { dateUtils } from "@/lib/utils/date-utils";
 
 interface BeachDetailViewProps {
   id: string;
@@ -30,37 +27,42 @@ interface BeachDetailViewProps {
 
 export function BeachDetailView({ id }: BeachDetailViewProps) {
   const { user } = useAuth();
-  const [beach, setBeach] = useState<Beach | null>(null);
-  const [forecasts, setForecasts] = useState<Forecast[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   ); // Today's date
 
-  useEffect(() => {
-    async function loadBeachData() {
-      setLoading(true);
-      try {
-        // Fetch beach details
-        const beachResult = await getBeachById(id);
-        if (beachResult.success && beachResult.data) {
-          setBeach(beachResult.data);
-        }
+  // Memoize fetch functions to prevent infinite loops
+  const fetchBeachData = useCallback(async () => {
+    const [beachResult, forecastsResult] = await Promise.all([
+      getBeachById(id),
+      getBeachForecasts(id),
+    ]);
 
-        // Fetch forecasts
-        const forecastsResult = await getBeachForecasts(id);
-        if (forecastsResult.success && forecastsResult.data) {
-          setForecasts(forecastsResult.data);
-        }
-      } catch (error) {
-        console.error("Error loading beach data:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadBeachData();
+    return {
+      beach: beachResult.success ? beachResult.data : null,
+      forecasts: forecastsResult.success ? forecastsResult.data || [] : [],
+    };
   }, [id]);
+
+  const fetchSessions = useCallback(async () => {
+    const sessionsResult = await getSessionsByBeach(id);
+    return sessionsResult.success ? sessionsResult.data || [] : [];
+  }, [id]);
+
+  // Use consolidated data fetching hook
+  const {
+    data: beachData,
+    loading: beachLoading,
+    error: beachError,
+  } = useDataFetcher(fetchBeachData, { immediate: true });
+
+  const { data: sessions, loading: sessionsLoading } = useDataFetcher(
+    fetchSessions,
+    { immediate: true }
+  );
+
+  const beach = beachData?.beach;
+  const forecasts = beachData?.forecasts || [];
 
   // Group forecasts by date
   const forecastDates = [
@@ -72,13 +74,12 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
     (f) => f.forecast_date === selectedDate
   );
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
+  // Get today's forecast for prominent display
+  const todaysForecast = forecasts.find(
+    (f) => f.forecast_date === new Date().toISOString().split("T")[0]
+  );
 
-  if (loading) {
+  if (beachLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -86,11 +87,13 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
     );
   }
 
-  if (!beach) {
+  if (beachError || !beach) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-bold mb-2">Beach not found</h2>
+          <h2 className="text-xl font-bold mb-2">
+            {beachError || "Beach not found"}
+          </h2>
           <Link href="/map">
             <Button>Back to Map</Button>
           </Link>
@@ -102,76 +105,42 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b">
-        <div className="container flex items-center h-16 px-4">
-          <Link href="/map" className="mr-2">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="text-xl font-bold">{beach.name}</h1>
-        </div>
-      </header>
+      <BeachHeader beachName={beach.name} />
 
       {/* Hero Image */}
-      <div className="relative h-48">
-        <Image
-          src="/placeholder.svg?height=400&width=800"
-          alt={beach.name}
-          fill
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 p-4 text-white">
-          <h2 className="text-2xl font-bold">{beach.name}</h2>
-          <div className="flex items-center">
-            <MapPin className="h-4 w-4 mr-1" />
-            <span>{beach.location}</span>
-          </div>
-          <div className="flex items-center mt-1">
-            {Array(5)
-              .fill(0)
-              .map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-4 w-4 ${
-                    i < Math.round(beach.wave_quality_rating || 0)
-                      ? "text-yellow-500 fill-yellow-500"
-                      : "text-gray-300"
-                  }`}
-                />
-              ))}
-            <span className="ml-1">(128 reviews)</span>
-          </div>
-        </div>
-      </div>
+      <BeachHero
+        beach={beach}
+        mapImageUrl={getStaticMapImageUrl(
+          typeof beach.latitude === "number" ? beach.latitude : 32.7507,
+          typeof beach.longitude === "number" ? beach.longitude : -117.254,
+          {
+            width: 800,
+            height: 400,
+            zoom: 14,
+          }
+        )}
+      />
 
       {/* Quick Actions */}
-      <div className="p-4 flex gap-2">
-        <Link
-          href={user ? `/plan-session?beach=${beach.id}` : "/auth/sign-in"}
-          className="flex-1"
-        >
-          <Button className="w-full">
-            <CalendarDays className="h-4 w-4 mr-1" />
-            Plan Session
-          </Button>
-        </Link>
-        <Link
-          href={user ? `/log-session?beach=${beach.id}` : "/auth/sign-in"}
-          className="flex-1"
-        >
-          <Button variant="outline" className="w-full">
-            <Waves className="h-4 w-4 mr-1" />
-            Log Session
-          </Button>
-        </Link>
-      </div>
+      <BeachQuickActions beach={beach} isAuthenticated={!!user} />
 
       {/* Main Content */}
       <main className="flex-1 container px-4 py-2 space-y-6 overflow-auto pb-20">
-        {/* Tabs */}
+        {/* Today's Forecast - Prominent Display */}
+        <TodaysForecast forecast={todaysForecast} />
+
+        {/* Community Section */}
+        <BeachCommunity
+          beach={beach}
+          sessions={sessions || []}
+          isLoading={sessionsLoading}
+          isAuthenticated={!!user}
+        />
+
+        {/* Detailed Tabs */}
         <Tabs defaultValue="forecast" className="space-y-4">
           <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="forecast">Forecast</TabsTrigger>
+            <TabsTrigger value="forecast">More Forecasts</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="gallery">Gallery</TabsTrigger>
           </TabsList>
@@ -191,9 +160,7 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                       <CardContent className="p-3">
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">
-                            {date === new Date().toISOString().split("T")[0]
-                              ? "Today"
-                              : formatDate(date)}
+                            {dateUtils.getRelativeDayName(date)}
                           </p>
                           <p className="text-lg font-medium">
                             {new Date(date).toLocaleDateString("en-US", {
@@ -210,7 +177,7 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                   selectedDateForecasts.map((forecast) => (
                     <ForecastCard
                       key={forecast.id}
-                      beachName={formatForecastTime(
+                      beachName={dateUtils.formatForecastTime(
                         forecast.forecast_date,
                         forecast.forecast_time
                       )}
@@ -218,12 +185,12 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                       waterTemp={forecast.water_temp}
                       windSpeed={forecast.wind_speed}
                       tide={forecast.tide || "Unknown"}
-                      time={formatForecastTime(
+                      time={dateUtils.formatForecastTime(
                         forecast.forecast_date,
                         forecast.forecast_time
                       )}
-                      windDirection={forecast.wind_direction}
-                      weatherCondition={forecast.weather_condition}
+                      windDirection={forecast.wind_direction || undefined}
+                      weatherCondition={forecast.weather_condition || undefined}
                     />
                   ))
                 ) : (
@@ -344,27 +311,6 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
 
                 <Button variant="outline" size="sm" className="w-full mt-2">
                   View All Reviews
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="font-medium">Recent Sessions</h3>
-
-                <SessionCard
-                  username="SurfDude92"
-                  beachName={beach.name}
-                  date="Today, 8:30 AM"
-                  rating={5}
-                  description="Perfect morning session! Glassy conditions and consistent sets."
-                  imageUrl="/placeholder.svg?height=200&width=300"
-                  likes={24}
-                  comments={8}
-                />
-
-                <Button variant="outline" size="sm" className="w-full">
-                  View More Sessions
                 </Button>
               </CardContent>
             </Card>

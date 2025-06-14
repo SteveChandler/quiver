@@ -13,13 +13,14 @@ import {
   Loader2,
   MapPin,
   Instagram,
-  Twitter,
   Edit,
   AlertCircle,
   RefreshCw,
   Heart,
+  MessageSquare,
 } from "lucide-react";
-import { SessionCard } from "@/components/session-card";
+import { FullPageLoader, AuthLoader } from "@/components/ui/loading-states";
+import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { BoardCard } from "@/components/board-card";
 import { UserStats } from "@/components/user-stats";
 import { FavoriteBeaches } from "@/components/favorite-beaches";
@@ -35,6 +36,7 @@ import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
+import { UserComments } from "@/components/profile/user-comments";
 
 export function ProfileView() {
   const { user, signOut, isLoading: authLoading, refreshSession } = useAuth();
@@ -72,10 +74,19 @@ export function ProfileView() {
     try {
       // Fetch user profile
       const profileResult = await getProfile(user.id);
-      if (profileResult.success && profileResult.data) {
-        setProfile(profileResult.data as Profile);
+      if (
+        profileResult.success &&
+        "data" in profileResult &&
+        profileResult.data
+      ) {
+        const profileData = profileResult.data as Profile;
+        console.log("Profile loaded with avatar_url:", profileData.avatar_url);
+        setProfile(profileData);
       } else {
-        if (profileResult.isConnectionError) {
+        if (
+          "isConnectionError" in profileResult &&
+          profileResult.isConnectionError
+        ) {
           setError(
             "Connection to the database failed. Please try again later."
           );
@@ -108,6 +119,17 @@ export function ProfileView() {
     }
   };
 
+  const handleProfileUpdated = async () => {
+    console.log(
+      "handleProfileUpdated called - reloading data and closing modal"
+    );
+    // Reload the user data to get the updated profile
+    await loadUserData();
+    // Close the modal
+    setEditModalOpen(false);
+    console.log("Modal should now be closed");
+  };
+
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1);
   };
@@ -122,18 +144,12 @@ export function ProfileView() {
 
   // Show loading state while checking authentication
   if (authLoading || (loading && !error)) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <FullPageLoader text="Loading profile..." />;
   }
 
-  // If not authenticated, show a sign-in prompt instead of redirecting
-  if (!user && !loading) {
-    // Redirect to sign-in page
-    router.push("/auth/sign-in");
-    return null;
+  // If not authenticated, show loading spinner (middleware should handle redirect)
+  if (!user && !authLoading) {
+    return <AuthLoader />;
   }
 
   return (
@@ -218,13 +234,6 @@ export function ProfileView() {
                           <span>{profile.instagram}</span>
                         </div>
                       )}
-
-                      {profile?.twitter && (
-                        <div className="flex items-center">
-                          <Twitter className="h-4 w-4 mr-1" />
-                          <span>{profile.twitter}</span>
-                        </div>
-                      )}
                     </div>
 
                     {/* Favorite Spot */}
@@ -269,46 +278,24 @@ export function ProfileView() {
                   <Heart className="h-4 w-4 mr-1" />
                   Beaches
                 </TabsTrigger>
-                <TabsTrigger value="media">
-                  <ImageIcon className="h-4 w-4 mr-1" />
-                  Media
+                <TabsTrigger value="comments">
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  Comments
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="sessions" className="space-y-4">
                 {sessions.length > 0 ? (
-                  sessions.map((session) => (
-                    <SessionCard
-                      key={session.id}
-                      id={session.id}
-                      username="You"
-                      beachName={session.beach?.name || "Unknown Beach"}
-                      date={
-                        session.session_date
-                          ? (() => {
-                              const dateStr = new Date(
-                                session.session_date
-                              ).toLocaleDateString();
-                              if (session.start_time) {
-                                return `${dateStr} at ${session.start_time}`;
-                              }
-                              return dateStr;
-                            })()
-                          : "No date set"
-                      }
-                      rating={session.rating}
-                      description={
-                        session.description || "No description provided."
-                      }
-                      imageUrl={
-                        session.image_url ||
-                        "/placeholder.svg?height=200&width=300"
-                      }
-                      likes={session.likes_count}
-                      comments={session.comments_count}
-                      isOwner={true}
-                    />
-                  ))
+                  <div className="max-w-2xl mx-auto space-y-4">
+                    {sessions.map((session) => (
+                      <SessionCardWrapper
+                        key={session.id}
+                        session={session}
+                        isOwner={true}
+                        showUserInfo={false}
+                      />
+                    ))}
+                  </div>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>You haven't logged any sessions yet.</p>
@@ -351,37 +338,8 @@ export function ProfileView() {
                 <FavoriteBeaches />
               </TabsContent>
 
-              <TabsContent value="media" className="space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {sessions.filter((session) => session.image_url).length >
-                  0 ? (
-                    sessions
-                      .filter((session) => session.image_url)
-                      .map((session) => (
-                        <Link href={`/sessions/${session.id}`} key={session.id}>
-                          <div className="aspect-square relative rounded-md overflow-hidden bg-muted hover:opacity-90 transition-opacity">
-                            <img
-                              src={
-                                session.image_url ||
-                                "/placeholder.svg?height=120&width=120"
-                              }
-                              alt={`Session at ${session.beach?.name}`}
-                              className="object-cover w-full h-full"
-                            />
-                          </div>
-                        </Link>
-                      ))
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground col-span-full">
-                      <p>You haven't uploaded any photos yet.</p>
-                      <Button variant="link" asChild className="mt-2">
-                        <Link href="/log-session">
-                          Log a session with photos
-                        </Link>
-                      </Button>
-                    </div>
-                  )}
-                </div>
+              <TabsContent value="comments" className="space-y-4">
+                {user && <UserComments userId={user.id} />}
               </TabsContent>
             </Tabs>
           </>
@@ -393,7 +351,7 @@ export function ProfileView() {
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         profile={profile}
-        onProfileUpdated={loadUserData}
+        onProfileUpdated={handleProfileUpdated}
       />
     </div>
   );

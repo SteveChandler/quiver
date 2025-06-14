@@ -22,59 +22,122 @@ async function globalSetup(config: FullConfig) {
         .catch(() => false)) || page.url().includes("/auth/sign-in");
 
     if (needsAuth) {
-      console.log("🔐 Authentication required, navigating to sign-in...");
+      console.log("🔐 Authentication required, creating test session...");
 
-      // Navigate to sign-in page
-      await page.goto("http://localhost:3000/auth/sign-in");
+      try {
+        // Try to create a test session programmatically using Supabase
+        const { createClient } = await import("@supabase/supabase-js");
 
-      // Check if sign-in form is available
-      const emailField = page.getByLabel(/email/i);
-      const passwordField = page.getByLabel(/password/i);
-      const signInButton = page.getByRole("button", { name: /sign in/i });
-
-      const hasSignInForm =
-        (await emailField.isVisible().catch(() => false)) &&
-        (await passwordField.isVisible().catch(() => false)) &&
-        (await signInButton.isVisible().catch(() => false));
-
-      if (hasSignInForm) {
-        console.log("📝 Attempting to sign in with test credentials...");
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
 
         // Use environment variables for test credentials, with fallbacks
-        const testEmail = process.env.TEST_USER_EMAIL || "test@example.com";
+        const testEmail = process.env.TEST_USER_EMAIL || "test@quiver.com";
         const testPassword =
           process.env.TEST_USER_PASSWORD || "testpassword123";
 
-        // Fill in credentials
-        await emailField.fill(testEmail);
-        await passwordField.fill(testPassword);
+        console.log(`📝 Attempting to sign in with email: ${testEmail}`);
 
-        // Submit form
-        await signInButton.click();
+        // Try to sign in first
+        let { data, error } = await supabase.auth.signInWithPassword({
+          email: testEmail,
+          password: testPassword,
+        });
 
-        // Wait for navigation or error
-        await page.waitForTimeout(3000);
+        // If sign in fails, try to sign up
+        if (error && error.message.includes("Invalid login credentials")) {
+          console.log("📝 User doesn't exist, creating test user...");
 
-        // Check if login was successful
-        const isAuthenticated =
-          !page.url().includes("/auth/sign-in") &&
-          !(await page
-            .getByText(/invalid|error|incorrect/i)
-            .isVisible()
-            .catch(() => false));
+          const signUpResult = await supabase.auth.signUp({
+            email: testEmail,
+            password: testPassword,
+          });
 
-        if (isAuthenticated) {
-          console.log("✅ Authentication successful");
-        } else {
-          console.log("⚠️  Authentication failed or test credentials not set");
-          console.log(
-            "   Set TEST_USER_EMAIL and TEST_USER_PASSWORD environment variables for authenticated tests"
-          );
+          if (signUpResult.error) {
+            console.log(
+              "❌ Failed to create test user:",
+              signUpResult.error.message
+            );
+          } else {
+            console.log("✅ Test user created successfully");
+            // Try to sign in again
+            const signInResult = await supabase.auth.signInWithPassword({
+              email: testEmail,
+              password: testPassword,
+            });
+            data = signInResult.data;
+            error = signInResult.error;
+          }
         }
-      } else {
-        console.log(
-          "⚠️  Sign-in form not found - authentication may not be implemented yet"
-        );
+
+        if (error) {
+          console.log("❌ Authentication failed:", error.message);
+          console.log("   Tests will run in unauthenticated mode");
+        } else if (data.session) {
+          console.log("✅ Authentication successful");
+
+          // Set the session cookies in the browser context
+          await page.evaluate(
+            ({ session }) => {
+              // Store session in localStorage (Supabase's default behavior)
+              localStorage.setItem(
+                `sb-${new URL(
+                  process.env.NEXT_PUBLIC_SUPABASE_URL!
+                ).hostname.replace(/\./g, "-")}-auth-token`,
+                JSON.stringify({
+                  access_token: session.access_token,
+                  refresh_token: session.refresh_token,
+                  expires_at: session.expires_at,
+                  token_type: session.token_type,
+                  user: session.user,
+                })
+              );
+            },
+            { session: data.session }
+          );
+
+          // Navigate to home to verify authentication
+          await page.goto("http://localhost:3000");
+          await page.waitForTimeout(2000);
+        }
+      } catch (setupError) {
+        console.log("❌ Error during programmatic auth setup:", setupError);
+        console.log("   Falling back to manual sign-in...");
+
+        // Fallback to manual sign-in
+        await page.goto("http://localhost:3000/auth/sign-in");
+
+        // Check if sign-in form is available
+        const emailField = page.getByLabel(/email/i);
+        const passwordField = page.getByLabel(/password/i);
+        const signInButton = page.getByRole("button", { name: /sign in/i });
+
+        const hasSignInForm =
+          (await emailField.isVisible().catch(() => false)) &&
+          (await passwordField.isVisible().catch(() => false)) &&
+          (await signInButton.isVisible().catch(() => false));
+
+        if (hasSignInForm) {
+          console.log("📝 Attempting manual sign-in...");
+
+          const testEmail = process.env.TEST_USER_EMAIL || "test@quiver.com";
+          const testPassword =
+            process.env.TEST_USER_PASSWORD || "testpassword123";
+
+          await emailField.fill(testEmail);
+          await passwordField.fill(testPassword);
+          await signInButton.click();
+          await page.waitForTimeout(3000);
+
+          const isAuthenticated = !page.url().includes("/auth/sign-in");
+          if (isAuthenticated) {
+            console.log("✅ Manual authentication successful");
+          } else {
+            console.log("⚠️  Manual authentication failed");
+          }
+        }
       }
     } else {
       console.log("✅ Already authenticated or no authentication required");

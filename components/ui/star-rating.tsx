@@ -5,50 +5,48 @@ import { Star } from "lucide-react";
 
 interface StarRatingProps {
   rating: number;
-  max?: number;
-  readonly?: boolean;
+  maxStars?: number;
   size?: "sm" | "md" | "lg";
-  onChange?: (rating: number) => void;
+  color?: string;
+  showNumber?: boolean;
   className?: string;
 }
 
 export function StarRating({
   rating,
-  max = 5,
-  readonly = false,
+  maxStars = 5,
   size = "md",
-  onChange,
-  className,
+  color = "text-yellow-500",
+  showNumber = false,
+  className = "",
 }: StarRatingProps) {
-  // Size classes for different star sizes
   const sizeClasses = {
     sm: "h-3 w-3",
     md: "h-4 w-4",
     lg: "h-5 w-5",
   };
 
-  // Handle star click
-  const handleClick = (index: number) => {
-    if (readonly || !onChange) return;
-    onChange(index + 1);
-  };
+  const starSize = sizeClasses[size];
 
   return (
-    <div className={cn("flex items-center", className)}>
-      {Array.from({ length: max }).map((_, index) => (
-        <Star
-          key={index}
-          className={cn(
-            sizeClasses[size],
-            "transition-all",
-            index < rating
-              ? "text-yellow-500 fill-yellow-500"
-              : "text-muted-foreground",
-            !readonly && "cursor-pointer hover:text-yellow-400"
-          )}
-          onClick={() => handleClick(index)}
-        />
-      ))}
+    <div className={`flex items-center gap-1 ${className}`}>
+      <div className="flex">
+        {Array(maxStars)
+          .fill(0)
+          .map((_, i) => (
+            <Star
+              key={i}
+              className={`${starSize} ${
+                i < rating ? `${color} fill-current` : "text-gray-300"
+              }`}
+            />
+          ))}
+      </div>
+      {showNumber && (
+        <span className="text-sm text-muted-foreground ml-1">
+          {rating}/{maxStars}
+        </span>
+      )}
     </div>
   );
 }

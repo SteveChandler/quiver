@@ -31,13 +31,8 @@ export function MapImage({
     setImageError(true);
   };
 
-  // If image failed or it's an external map URL, show a static placeholder
-  if (
-    imageError ||
-    src.includes("staticmap.openstreetmap.de") ||
-    src.includes("api.mapbox.com") ||
-    src.includes("maps.googleapis.com")
-  ) {
+  // Show placeholder only if image failed to load or it's a data URL placeholder
+  if (imageError || src.startsWith("data:image/svg+xml")) {
     return (
       <div
         className={`bg-gradient-to-br from-blue-100 to-green-100 flex items-center justify-center ${className}`}
@@ -71,6 +66,27 @@ export function MapImage({
           )}
         </div>
       </div>
+    );
+  }
+
+  // For external map images, use a regular img tag to avoid Next.js restrictions
+  if (
+    src.includes("api.mapbox.com") ||
+    src.includes("maps.googleapis.com") ||
+    src.includes("staticmap.openstreetmap.de")
+  ) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        style={
+          fill
+            ? { width: "100%", height: "100%", objectFit: "cover" }
+            : { width, height }
+        }
+        onError={handleImageError}
+      />
     );
   }
 

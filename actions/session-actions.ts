@@ -13,7 +13,7 @@ import { redirect } from "next/navigation";
 
 type SessionInput = Omit<
   Session,
-  "id" | "created_at" | "updated_at" | "user_id"
+  "id" | "created_at" | "updated_at" | "user_id" | "profile_id"
 >;
 type BoardInput = Omit<Board, "id" | "created_at" | "updated_at" | "user_id">;
 
@@ -356,6 +356,7 @@ export async function createLoggedSession(data: SessionInput, userId: string) {
       .insert({
         ...data,
         user_id: user.id,
+        profile_id: user.id, // Add profile_id to satisfy the constraint
         status: "completed",
       })
       .select()
@@ -404,6 +405,7 @@ export async function createPlannedSession(data: SessionInput, userId: string) {
       .insert({
         ...data,
         user_id: user.id,
+        profile_id: user.id, // Add profile_id to satisfy the constraint
         status: "planned",
       })
       .select()
@@ -528,12 +530,48 @@ export async function uploadSessionMedia(
 }
 
 /**
+ * Get sessions for a specific beach
+ */
+export async function getSessionsByBeach(beachId: string, limit = 10) {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("sessions")
+      .select(
+        `
+        *,
+        beach:beaches(*),
+        board:boards(*),
+        user:profiles(*)
+      `
+      )
+      .eq("beach_id", beachId)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true, data: data as SessionWithDetails[] };
+  } catch (error) {
+    console.error("Error fetching beach sessions:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
  * Get all sessions for the community tab
  */
 export async function getAllSessions(limit = 20) {
   const supabase = await createSupabaseServerClient();
 
-  // Get all sessions, ordered by date (newest first)
+  // Get sessions with all related data using the correct schema
   const { data: sessions, error } = await supabase
     .from("sessions")
     .select(
@@ -549,8 +587,27 @@ export async function getAllSessions(limit = 20) {
 
   if (error) {
     console.error("Error fetching community sessions:", error);
-    throw new Error("Failed to fetch community sessions");
+
+    // Fallback: get basic sessions without joins
+    const { data: basicSessions, error: basicError } = await supabase
+      .from("sessions")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (basicError) {
+      console.error("Error with basic query:", basicError);
+      throw new Error("Failed to fetch sessions");
+    }
+
+    // Return basic sessions with minimal data
+    return (basicSessions || []).map((session) => ({
+      ...session,
+      beach: null,
+      board: null,
+      user: { full_name: "Anonymous Surfer", avatar_url: null },
+    }));
   }
 
-  return sessions;
+  return sessions || [];
 }
