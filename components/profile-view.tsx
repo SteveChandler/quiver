@@ -13,11 +13,11 @@ import {
   Loader2,
   MapPin,
   Instagram,
-  Twitter,
   Edit,
   AlertCircle,
   RefreshCw,
   Heart,
+  MessageSquare,
 } from "lucide-react";
 import { SessionCard } from "@/components/session-card";
 import { BoardCard } from "@/components/board-card";
@@ -35,6 +35,7 @@ import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
+import { UserComments } from "@/components/profile/user-comments";
 
 export function ProfileView() {
   const { user, signOut, isLoading: authLoading, refreshSession } = useAuth();
@@ -72,10 +73,17 @@ export function ProfileView() {
     try {
       // Fetch user profile
       const profileResult = await getProfile(user.id);
-      if (profileResult.success && profileResult.data) {
+      if (
+        profileResult.success &&
+        "data" in profileResult &&
+        profileResult.data
+      ) {
         setProfile(profileResult.data as Profile);
       } else {
-        if (profileResult.isConnectionError) {
+        if (
+          "isConnectionError" in profileResult &&
+          profileResult.isConnectionError
+        ) {
           setError(
             "Connection to the database failed. Please try again later."
           );
@@ -129,11 +137,16 @@ export function ProfileView() {
     );
   }
 
-  // If not authenticated, show a sign-in prompt instead of redirecting
-  if (!user && !loading) {
-    // Redirect to sign-in page
-    router.push("/auth/sign-in");
-    return null;
+  // If not authenticated, show loading spinner (middleware should handle redirect)
+  if (!user && !authLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -218,13 +231,6 @@ export function ProfileView() {
                           <span>{profile.instagram}</span>
                         </div>
                       )}
-
-                      {profile?.twitter && (
-                        <div className="flex items-center">
-                          <Twitter className="h-4 w-4 mr-1" />
-                          <span>{profile.twitter}</span>
-                        </div>
-                      )}
                     </div>
 
                     {/* Favorite Spot */}
@@ -269,9 +275,9 @@ export function ProfileView() {
                   <Heart className="h-4 w-4 mr-1" />
                   Beaches
                 </TabsTrigger>
-                <TabsTrigger value="media">
-                  <ImageIcon className="h-4 w-4 mr-1" />
-                  Media
+                <TabsTrigger value="comments">
+                  <MessageSquare className="h-4 w-4 mr-1" />
+                  Comments
                 </TabsTrigger>
               </TabsList>
 
@@ -296,7 +302,7 @@ export function ProfileView() {
                             })()
                           : "No date set"
                       }
-                      rating={session.rating}
+                      rating={session.rating || 0}
                       description={
                         session.description || "No description provided."
                       }
@@ -304,8 +310,8 @@ export function ProfileView() {
                         session.image_url ||
                         "/placeholder.svg?height=200&width=300"
                       }
-                      likes={session.likes_count}
-                      comments={session.comments_count}
+                      likes={session.likes_count || 0}
+                      comments={session.comments_count || 0}
                       isOwner={true}
                     />
                   ))
@@ -351,37 +357,8 @@ export function ProfileView() {
                 <FavoriteBeaches />
               </TabsContent>
 
-              <TabsContent value="media" className="space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {sessions.filter((session) => session.image_url).length >
-                  0 ? (
-                    sessions
-                      .filter((session) => session.image_url)
-                      .map((session) => (
-                        <Link href={`/sessions/${session.id}`} key={session.id}>
-                          <div className="aspect-square relative rounded-md overflow-hidden bg-muted hover:opacity-90 transition-opacity">
-                            <img
-                              src={
-                                session.image_url ||
-                                "/placeholder.svg?height=120&width=120"
-                              }
-                              alt={`Session at ${session.beach?.name}`}
-                              className="object-cover w-full h-full"
-                            />
-                          </div>
-                        </Link>
-                      ))
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground col-span-full">
-                      <p>You haven't uploaded any photos yet.</p>
-                      <Button variant="link" asChild className="mt-2">
-                        <Link href="/log-session">
-                          Log a session with photos
-                        </Link>
-                      </Button>
-                    </div>
-                  )}
-                </div>
+              <TabsContent value="comments" className="space-y-4">
+                {user && <UserComments userId={user.id} />}
               </TabsContent>
             </Tabs>
           </>

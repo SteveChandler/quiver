@@ -12,6 +12,16 @@ export function BottomNavigation() {
   const [isVisible, setIsVisible] = useState(true);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Check if we're in test mode (disable auto-hide for testing)
+  const isTestMode =
+    typeof window !== "undefined" &&
+    (window.location.search.includes("test=true") ||
+      process.env.NODE_ENV === "test" ||
+      // @ts-ignore - Playwright sets this global
+      window.__PLAYWRIGHT__ === true ||
+      // Check for Playwright user agent
+      navigator.userAgent.includes("Playwright"));
+
   const navItems = [
     {
       name: "Home",
@@ -38,6 +48,11 @@ export function BottomNavigation() {
   const showNavigation = useCallback(() => {
     setIsVisible(true);
 
+    // Skip auto-hide in test mode
+    if (isTestMode) {
+      return;
+    }
+
     // Clear existing timer
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
@@ -47,39 +62,45 @@ export function BottomNavigation() {
     hideTimerRef.current = setTimeout(() => {
       setIsVisible(false);
     }, 3000);
-  }, []);
+  }, [isTestMode]);
 
   const handleUserActivity = useCallback(() => {
     showNavigation();
   }, [showNavigation]);
 
   useEffect(() => {
-    // Add event listeners for user activity
-    const options = { passive: true };
-    window.addEventListener("scroll", handleUserActivity, options);
-    window.addEventListener("touchstart", handleUserActivity, options);
-    window.addEventListener("touchmove", handleUserActivity, options);
-    window.addEventListener("mousemove", handleUserActivity, options);
+    // Add event listeners for user activity (but not in test mode)
+    if (!isTestMode) {
+      const options = { passive: true };
+      window.addEventListener("scroll", handleUserActivity, options);
+      window.addEventListener("touchstart", handleUserActivity, options);
+      window.addEventListener("touchmove", handleUserActivity, options);
+      window.addEventListener("mousemove", handleUserActivity, options);
 
-    // Show navigation initially and set timer
-    showNavigation();
+      // Show navigation initially and set timer
+      showNavigation();
 
-    return () => {
-      // Cleanup event listeners
-      window.removeEventListener("scroll", handleUserActivity);
-      window.removeEventListener("touchstart", handleUserActivity);
-      window.removeEventListener("touchmove", handleUserActivity);
-      window.removeEventListener("mousemove", handleUserActivity);
+      return () => {
+        // Cleanup event listeners
+        window.removeEventListener("scroll", handleUserActivity);
+        window.removeEventListener("touchstart", handleUserActivity);
+        window.removeEventListener("touchmove", handleUserActivity);
+        window.removeEventListener("mousemove", handleUserActivity);
 
-      // Clear timer
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-      }
-    };
-  }, [handleUserActivity, showNavigation]);
+        // Clear timer
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+        }
+      };
+    } else {
+      // In test mode, just show navigation and keep it visible
+      setIsVisible(true);
+    }
+  }, [handleUserActivity, showNavigation, isTestMode]);
 
   return (
     <div
+      data-testid="bottom-navigation"
       className={cn(
         "fixed bottom-0 left-0 right-0 z-10 bg-background border-t transition-transform duration-300 ease-in-out",
         isVisible ? "translate-y-0" : "translate-y-full"

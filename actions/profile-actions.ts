@@ -174,7 +174,7 @@ export async function getUserStats(userId: string) {
     const { count: sessionCount, error: sessionError } = await supabase
       .from("sessions")
       .select("*", { count: "exact", head: true })
-      .eq("profile_id", userId);
+      .eq("user_id", userId);
 
     if (sessionError) {
       throw sessionError;
@@ -194,7 +194,7 @@ export async function getUserStats(userId: string) {
     const { data: qualityData, error: qualityError } = await supabase
       .from("sessions")
       .select("wave_quality")
-      .eq("profile_id", userId);
+      .eq("user_id", userId);
 
     if (qualityError) {
       throw qualityError;

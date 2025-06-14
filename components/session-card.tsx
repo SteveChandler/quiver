@@ -3,6 +3,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MapPin, Star, ThumbsUp, MessageSquare, Calendar } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
+import { useCommentCount } from "@/hooks/use-comment-count";
+import { CommentsModal } from "@/components/comments-modal";
 
 interface SessionCardProps {
   id?: string;
@@ -29,6 +32,22 @@ export function SessionCard({
   comments,
   isOwner = false,
 }: SessionCardProps) {
+  const [commentsModalOpen, setCommentsModalOpen] = useState(false);
+
+  // Use dynamic comment count if session ID is available
+  const { commentCount: dynamicCommentCount, isLoading } = useCommentCount(
+    id || ""
+  );
+  const displayCommentCount = id ? dynamicCommentCount : comments;
+
+  const handleCommentsClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (id) {
+      setCommentsModalOpen(true);
+    }
+  };
+
   const cardContent = (
     <CardContent className="p-4 space-y-4">
       {/* User Info */}
@@ -85,11 +104,24 @@ export function SessionCard({
           <ThumbsUp className="h-4 w-4" />
           <span>{likes}</span>
         </button>
-        <button className="flex items-center gap-1 text-sm text-muted-foreground">
+        <button
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
+          onClick={handleCommentsClick}
+        >
           <MessageSquare className="h-4 w-4" />
-          <span>{comments}</span>
+          <span>{isLoading ? "..." : displayCommentCount}</span>
         </button>
       </div>
+
+      {/* Comments Modal */}
+      {id && (
+        <CommentsModal
+          sessionId={id}
+          beachName={beachName}
+          isOpen={commentsModalOpen}
+          onClose={() => setCommentsModalOpen(false)}
+        />
+      )}
     </CardContent>
   );
 

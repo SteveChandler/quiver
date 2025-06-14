@@ -24,7 +24,9 @@
     "update:all": "node scripts/update-all-data.mjs",
     "cleanup:old": "node scripts/cleanup-old-data.mjs",
     "cleanup:week": "node scripts/cleanup-old-data.mjs 7",
-    "cleanup:month": "node scripts/cleanup-old-data.mjs 30"
+    "cleanup:month": "node scripts/cleanup-old-data.mjs 30",
+    "fix:srid": "node scripts/apply-srid-fix.mjs",
+    "db:health": "node scripts/check-database-health.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",

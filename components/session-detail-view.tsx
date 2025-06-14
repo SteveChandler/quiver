@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { SessionComments } from "@/components/session-comments";
 
 interface SessionDetailViewProps {
   id: string;
@@ -307,6 +308,14 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             )}
           </div>
         </div>
+
+        {/* Comments Section */}
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Comments</h3>
+            <SessionComments sessionId={session.id} />
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

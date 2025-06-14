@@ -20,15 +20,27 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  console.log(`[Middleware] Processing request for: ${pathname}`);
+  console.log(`[Middleware] Cookies present:`, {
+    cookieNames: Array.from(request.cookies.getAll().map((c) => c.name)),
+    cookieCount: request.cookies.getAll().length,
+  });
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name) {
-          return request.cookies.get(name)?.value;
+          const cookie = request.cookies.get(name);
+          console.log(
+            `[Middleware] Getting cookie ${name}:`,
+            cookie ? "found" : "not found"
+          );
+          return cookie?.value;
         },
         set(name, value, options) {
+          console.log(`[Middleware] Setting cookie ${name}`);
           response.cookies.set({
             name,
             value,
@@ -36,6 +48,7 @@ export async function middleware(request: NextRequest) {
           });
         },
         remove(name, options) {
+          console.log(`[Middleware] Removing cookie ${name}`);
           response.cookies.delete({
             name,
             ...options,
@@ -47,22 +60,39 @@ export async function middleware(request: NextRequest) {
 
   // Check if the route is protected
   if (protectedPaths.some((path) => pathname.startsWith(path))) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    console.log(`[Middleware] Checking auth for protected path: ${pathname}`);
 
-    // If there's no session, redirect to sign-in
-    if (!session) {
+    try {
+      // Use getUser() instead of getSession() - this validates with Supabase's auth server
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      console.log(`[Middleware] User check result:`, {
+        hasUser: !!user,
+        userError: userError?.message,
+        userId: user?.id,
+      });
+
+      // If there's no user or there's an error, redirect to sign-in
+      if (!user || userError) {
+        console.log(`[Middleware] No valid user found, redirecting to sign-in`);
+        const signInUrl = new URL("/auth/sign-in", request.url);
+        signInUrl.searchParams.set("redirectTo", pathname);
+        return NextResponse.redirect(signInUrl);
+      } else {
+        console.log(
+          `[Middleware] Valid user found, allowing access to ${pathname}`
+        );
+      }
+    } catch (error) {
+      console.error(`[Middleware] Error checking user:`, error);
       const signInUrl = new URL("/auth/sign-in", request.url);
+      signInUrl.searchParams.set("redirectTo", pathname);
       return NextResponse.redirect(signInUrl);
     }
   }
-
-  // This will refresh session if expired - required for Server Components
-  await supabase.auth.getUser();
-
-  // For all other requests, just ensure the session cookies are kept fresh
-  await supabase.auth.getSession();
 
   return response;
 }

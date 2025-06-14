@@ -101,6 +101,7 @@ export function BeachCommunity({
           return (
             <SessionCard
               key={session.id}
+              id={session.id}
               username={session.user?.full_name || "Anonymous Surfer"}
               beachName={session.beach?.name || "Unknown Beach"}
               date={

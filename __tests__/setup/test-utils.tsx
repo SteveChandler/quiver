@@ -164,7 +164,7 @@ export const mockForecasts = [
 
 export const mockSession = {
   id: "test-session-id",
-  profile_id: "test-user-id",
+  user_id: "test-user-id",
   beach_id: "test-beach-id",
   board_id: "test-board-id",
   status: "completed" as const,
