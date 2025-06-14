@@ -19,6 +19,7 @@ import {
   Heart,
   MessageSquare,
 } from "lucide-react";
+import { FullPageLoader, AuthLoader } from "@/components/ui/loading-states";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { BoardCard } from "@/components/board-card";
 import { UserStats } from "@/components/user-stats";
@@ -143,23 +144,12 @@ export function ProfileView() {
 
   // Show loading state while checking authentication
   if (authLoading || (loading && !error)) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <FullPageLoader text="Loading profile..." />;
   }
 
   // If not authenticated, show loading spinner (middleware should handle redirect)
   if (!user && !authLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground">Checking authentication...</p>
-        </div>
-      </div>
-    );
+    return <AuthLoader />;
   }
 
   return (

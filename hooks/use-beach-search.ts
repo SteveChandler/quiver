@@ -1,32 +1,45 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getBeaches, getNearbyBeaches } from "@/actions/beach-actions";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { Beach } from "@/types/database";
 
 const MAX_DISTANCE_MILES = 30;
 
 interface BeachSearchState {
-  beaches: Beach[];
   filteredBeaches: Beach[];
-  loading: boolean;
   searchQuery: string;
   selectedBeach: Beach | null;
 }
 
 export function useBeachSearch() {
   const [state, setState] = useState<BeachSearchState>({
-    beaches: [],
     filteredBeaches: [],
-    loading: true,
     searchQuery: "",
     selectedBeach: null,
   });
 
+  // Memoize fetch function to prevent infinite loops
+  const fetchBeaches = useCallback(async () => {
+    const result = await getBeaches();
+    if (result.success && result.data) {
+      return result.data;
+    }
+    throw new Error(result.error || "Failed to fetch beaches");
+  }, []);
+
+  const {
+    data: beaches = [],
+    loading,
+    error,
+    refetch: loadBeaches,
+  } = useDataFetcher(fetchBeaches, { immediate: false });
+
   // Update filtered beaches when beaches array changes and no search query
   useEffect(() => {
     if (!state.searchQuery.trim()) {
-      setState((prev) => ({ ...prev, filteredBeaches: prev.beaches }));
+      setState((prev) => ({ ...prev, filteredBeaches: beaches || [] }));
     }
-  }, [state.beaches, state.searchQuery]);
+  }, [beaches, state.searchQuery]);
 
   // Filter beaches based on search query with debounce
   useEffect(() => {
@@ -41,51 +54,30 @@ export function useBeachSearch() {
     return () => clearTimeout(timeoutId);
   }, [state.searchQuery]);
 
-  const searchAllBeaches = useCallback(async (query: string) => {
-    setState((prev) => ({ ...prev, loading: true }));
-    try {
-      const result = await getBeaches();
-      if (result.success && result.data) {
-        const filtered = result.data.filter(
-          (beach) =>
-            beach.name.toLowerCase().includes(query.toLowerCase()) ||
-            (beach.location &&
-              beach.location.toLowerCase().includes(query.toLowerCase()))
-        );
-        setState((prev) => ({
-          ...prev,
-          filteredBeaches: filtered,
-          selectedBeach: filtered.length > 0 ? filtered[0] : null,
-          loading: false,
-        }));
+  const searchAllBeaches = useCallback(
+    async (query: string) => {
+      if (!beaches?.length && !loading) {
+        loadBeaches();
+        return;
       }
-    } catch (error) {
-      console.error("Error searching beaches:", error);
-      setState((prev) => ({ ...prev, loading: false }));
-    }
-  }, []);
 
-  const loadBeaches = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true }));
-    try {
-      const result = await getBeaches();
-      if (result.success && result.data) {
-        setState((prev) => ({
-          ...prev,
-          beaches: result.data,
-          filteredBeaches: result.data,
-          loading: false,
-        }));
-      }
-    } catch (error) {
-      console.error("Error loading beaches:", error);
-      setState((prev) => ({ ...prev, loading: false }));
-    }
-  }, []);
+      const filtered = (beaches || []).filter(
+        (beach) =>
+          beach.name.toLowerCase().includes(query.toLowerCase()) ||
+          (beach.location &&
+            beach.location.toLowerCase().includes(query.toLowerCase()))
+      );
+      setState((prev) => ({
+        ...prev,
+        filteredBeaches: filtered,
+        selectedBeach: filtered.length > 0 ? filtered[0] : null,
+      }));
+    },
+    [beaches, loading, loadBeaches]
+  );
 
   const loadNearbyBeaches = useCallback(
     async (latitude: number, longitude: number) => {
-      setState((prev) => ({ ...prev, loading: true }));
       try {
         const result = await getNearbyBeaches(
           latitude,
@@ -97,26 +89,21 @@ export function useBeachSearch() {
           const sortedBeaches = [...result.data];
           setState((prev) => ({
             ...prev,
-            beaches: sortedBeaches,
             filteredBeaches: sortedBeaches,
             selectedBeach:
               sortedBeaches.length > 0 && !prev.selectedBeach
                 ? sortedBeaches[0]
                 : prev.selectedBeach,
-            loading: false,
           }));
         } else {
           setState((prev) => ({
             ...prev,
-            beaches: [],
             filteredBeaches: [],
             selectedBeach: null,
-            loading: false,
           }));
         }
       } catch (error) {
         console.error("Error loading nearby beaches:", error);
-        setState((prev) => ({ ...prev, loading: false }));
       }
     },
     []
@@ -136,7 +123,7 @@ export function useBeachSearch() {
 
   // Get beaches to show in the horizontal scroll (excluding selected beach)
   const nearbyBeachesForScroll = useMemo(() => {
-    if (!state.filteredBeaches.length) return [];
+    if (!state.filteredBeaches?.length) return [];
 
     if (state.selectedBeach) {
       return state.filteredBeaches
@@ -149,6 +136,9 @@ export function useBeachSearch() {
 
   return {
     ...state,
+    beaches,
+    loading,
+    error,
     loadBeaches,
     loadNearbyBeaches,
     setSearchQuery,

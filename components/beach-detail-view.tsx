@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,8 +17,9 @@ import { getBeachForecasts } from "@/actions/forecast-actions";
 import { getSessionsByBeach } from "@/actions/session-actions";
 import type { Beach, Forecast, SessionWithDetails } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
-import { formatForecastTime } from "@/lib/utils";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { dateUtils } from "@/lib/utils/date-utils";
 
 interface BeachDetailViewProps {
   id: string;
@@ -26,55 +27,42 @@ interface BeachDetailViewProps {
 
 export function BeachDetailView({ id }: BeachDetailViewProps) {
   const { user } = useAuth();
-  const [beach, setBeach] = useState<Beach | null>(null);
-  const [forecasts, setForecasts] = useState<Forecast[]>([]);
-  const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sessionsLoading, setSessionsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   ); // Today's date
 
-  useEffect(() => {
-    async function loadBeachData() {
-      setLoading(true);
-      try {
-        // Fetch beach details
-        const beachResult = await getBeachById(id);
-        if (beachResult.success && beachResult.data) {
-          setBeach(beachResult.data);
-        }
+  // Memoize fetch functions to prevent infinite loops
+  const fetchBeachData = useCallback(async () => {
+    const [beachResult, forecastsResult] = await Promise.all([
+      getBeachById(id),
+      getBeachForecasts(id),
+    ]);
 
-        // Fetch forecasts
-        const forecastsResult = await getBeachForecasts(id);
-        if (forecastsResult.success && forecastsResult.data) {
-          setForecasts(forecastsResult.data);
-        }
-      } catch (error) {
-        console.error("Error loading beach data:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    async function loadBeachSessions() {
-      setSessionsLoading(true);
-      try {
-        // Fetch community sessions for this beach
-        const sessionsResult = await getSessionsByBeach(id);
-        if (sessionsResult.success && sessionsResult.data) {
-          setSessions(sessionsResult.data);
-        }
-      } catch (error) {
-        console.error("Error loading beach sessions:", error);
-      } finally {
-        setSessionsLoading(false);
-      }
-    }
-
-    loadBeachData();
-    loadBeachSessions();
+    return {
+      beach: beachResult.success ? beachResult.data : null,
+      forecasts: forecastsResult.success ? forecastsResult.data || [] : [],
+    };
   }, [id]);
+
+  const fetchSessions = useCallback(async () => {
+    const sessionsResult = await getSessionsByBeach(id);
+    return sessionsResult.success ? sessionsResult.data || [] : [];
+  }, [id]);
+
+  // Use consolidated data fetching hook
+  const {
+    data: beachData,
+    loading: beachLoading,
+    error: beachError,
+  } = useDataFetcher(fetchBeachData, { immediate: true });
+
+  const { data: sessions, loading: sessionsLoading } = useDataFetcher(
+    fetchSessions,
+    { immediate: true }
+  );
+
+  const beach = beachData?.beach;
+  const forecasts = beachData?.forecasts || [];
 
   // Group forecasts by date
   const forecastDates = [
@@ -91,13 +79,7 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
     (f) => f.forecast_date === new Date().toISOString().split("T")[0]
   );
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
-
-  if (loading) {
+  if (beachLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -105,11 +87,13 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
     );
   }
 
-  if (!beach) {
+  if (beachError || !beach) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-bold mb-2">Beach not found</h2>
+          <h2 className="text-xl font-bold mb-2">
+            {beachError || "Beach not found"}
+          </h2>
           <Link href="/map">
             <Button>Back to Map</Button>
           </Link>
@@ -148,7 +132,7 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
         {/* Community Section */}
         <BeachCommunity
           beach={beach}
-          sessions={sessions}
+          sessions={sessions || []}
           isLoading={sessionsLoading}
           isAuthenticated={!!user}
         />
@@ -176,9 +160,7 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                       <CardContent className="p-3">
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">
-                            {date === new Date().toISOString().split("T")[0]
-                              ? "Today"
-                              : formatDate(date)}
+                            {dateUtils.getRelativeDayName(date)}
                           </p>
                           <p className="text-lg font-medium">
                             {new Date(date).toLocaleDateString("en-US", {
@@ -195,7 +177,7 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                   selectedDateForecasts.map((forecast) => (
                     <ForecastCard
                       key={forecast.id}
-                      beachName={formatForecastTime(
+                      beachName={dateUtils.formatForecastTime(
                         forecast.forecast_date,
                         forecast.forecast_time
                       )}
@@ -203,7 +185,7 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                       waterTemp={forecast.water_temp}
                       windSpeed={forecast.wind_speed}
                       tide={forecast.tide || "Unknown"}
-                      time={formatForecastTime(
+                      time={dateUtils.formatForecastTime(
                         forecast.forecast_date,
                         forecast.forecast_time
                       )}

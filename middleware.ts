@@ -10,8 +10,42 @@ const protectedPaths = [
   "/dashboard",
 ];
 
+// Only enable verbose logging in development
+const isDev = process.env.NODE_ENV === "development";
+const isVerbose = process.env.MIDDLEWARE_VERBOSE === "true";
+
+function log(message: string, data?: any) {
+  if (isDev && isVerbose) {
+    console.log(message, data || "");
+  }
+}
+
+function logError(message: string, error?: any) {
+  // Always log errors, but less verbosely in production
+  if (isDev) {
+    console.error(message, error);
+  } else {
+    console.error(message);
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Skip middleware for API routes, static files, and other non-page requests
+  if (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/favicon.ico") ||
+    pathname.includes(".") // Skip any file with an extension
+  ) {
+    return NextResponse.next();
+  }
+
+  // Only process GET requests to pages - skip POST/PUT/DELETE to API routes
+  if (request.method !== "GET") {
+    return NextResponse.next();
+  }
 
   // Create a response we can modify (needed for supabase cookie helpers)
   let response = NextResponse.next({
@@ -20,11 +54,7 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  console.log(`[Middleware] Processing request for: ${pathname}`);
-  console.log(`[Middleware] Cookies present:`, {
-    cookieNames: Array.from(request.cookies.getAll().map((c) => c.name)),
-    cookieCount: request.cookies.getAll().length,
-  });
+  log(`[Middleware] Processing request for: ${pathname}`);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,14 +63,11 @@ export async function middleware(request: NextRequest) {
       cookies: {
         get(name) {
           const cookie = request.cookies.get(name);
-          console.log(
-            `[Middleware] Getting cookie ${name}:`,
-            cookie ? "found" : "not found"
-          );
+          // Remove individual cookie get logging - too noisy
           return cookie?.value;
         },
         set(name, value, options) {
-          console.log(`[Middleware] Setting cookie ${name}`);
+          log(`[Middleware] Setting cookie: ${name}`);
           response.cookies.set({
             name,
             value,
@@ -48,7 +75,7 @@ export async function middleware(request: NextRequest) {
           });
         },
         remove(name, options) {
-          console.log(`[Middleware] Removing cookie ${name}`);
+          log(`[Middleware] Removing cookie: ${name}`);
           response.cookies.delete({
             name,
             ...options,
@@ -60,7 +87,7 @@ export async function middleware(request: NextRequest) {
 
   // Check if the route is protected
   if (protectedPaths.some((path) => pathname.startsWith(path))) {
-    console.log(`[Middleware] Checking auth for protected path: ${pathname}`);
+    log(`[Middleware] Checking auth for protected path: ${pathname}`);
 
     try {
       // Use getUser() instead of getSession() - this validates with Supabase's auth server
@@ -69,25 +96,16 @@ export async function middleware(request: NextRequest) {
         error: userError,
       } = await supabase.auth.getUser();
 
-      console.log(`[Middleware] User check result:`, {
-        hasUser: !!user,
-        userError: userError?.message,
-        userId: user?.id,
-      });
-
-      // If there's no user or there's an error, redirect to sign-in
       if (!user || userError) {
-        console.log(`[Middleware] No valid user found, redirecting to sign-in`);
+        log(`[Middleware] No valid user found, redirecting to sign-in`);
         const signInUrl = new URL("/auth/sign-in", request.url);
         signInUrl.searchParams.set("redirectTo", pathname);
         return NextResponse.redirect(signInUrl);
       } else {
-        console.log(
-          `[Middleware] Valid user found, allowing access to ${pathname}`
-        );
+        log(`[Middleware] Valid user found for ${pathname}`);
       }
     } catch (error) {
-      console.error(`[Middleware] Error checking user:`, error);
+      logError(`[Middleware] Error checking user:`, error);
       const signInUrl = new URL("/auth/sign-in", request.url);
       signInUrl.searchParams.set("redirectTo", pathname);
       return NextResponse.redirect(signInUrl);
@@ -101,12 +119,12 @@ export const config = {
   runtime: "nodejs",
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
+     * Match all page routes but exclude:
+     * - API routes (/api/*)
+     * - Static files (/_next/static, /_next/image)
+     * - Files with extensions (.svg, .png, etc.)
+     * Only apply to actual page navigation
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };

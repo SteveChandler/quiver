@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback } from "react";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getBeaches } from "@/actions/beach-actions";
 import { getAllSessions } from "@/actions/session-actions";
 import type { Beach, SessionWithDetails } from "@/types/database";
@@ -10,42 +11,51 @@ interface UseHomeDataReturn {
   sessions: SessionWithDetails[];
   loading: boolean;
   error: string | null;
+  refetch: () => void;
 }
 
 export function useHomeData(): UseHomeDataReturn {
-  const [beaches, setBeaches] = useState<Beach[]>([]);
-  const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Fetch beaches
-        const beachesResult = await getBeaches();
-
-        if (beachesResult.success && beachesResult.data) {
-          setBeaches(beachesResult.data);
-        }
-
-        // Fetch all sessions for community tab
-        const communitySessions = await getAllSessions(10);
-        if (communitySessions) {
-          setSessions(communitySessions);
-        }
-      } catch (err) {
-        console.error("Error loading data:", err);
-        setError(err instanceof Error ? err.message : "Failed to load data");
-      } finally {
-        setLoading(false);
-      }
+  // Memoize fetch functions to prevent infinite loops
+  const fetchBeaches = useCallback(async () => {
+    const result = await getBeaches();
+    if (result.success && result.data) {
+      return result.data;
     }
-
-    loadData();
+    throw new Error(result.error || "Failed to fetch beaches");
   }, []);
 
-  return { beaches, sessions, loading, error };
+  const fetchSessions = useCallback(async () => {
+    const sessions = await getAllSessions(10);
+    if (sessions) {
+      return sessions;
+    }
+    throw new Error("Failed to fetch sessions");
+  }, []);
+
+  const {
+    data: beachesData,
+    loading: beachesLoading,
+    error: beachesError,
+    refetch: refetchBeaches,
+  } = useDataFetcher(fetchBeaches);
+
+  const {
+    data: sessionsData,
+    loading: sessionsLoading,
+    error: sessionsError,
+    refetch: refetchSessions,
+  } = useDataFetcher(fetchSessions);
+
+  const refetch = useCallback(() => {
+    refetchBeaches();
+    refetchSessions();
+  }, [refetchBeaches, refetchSessions]);
+
+  return {
+    beaches: beachesData || [],
+    sessions: sessionsData || [],
+    loading: beachesLoading || sessionsLoading,
+    error: beachesError || sessionsError,
+    refetch,
+  };
 }

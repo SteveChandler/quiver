@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { validateEmail, formErrors } from "@/lib/form-utils";
 import Link from "next/link";
 import { getClientBrowserClient } from "@/lib/supabase";
 
@@ -67,6 +68,14 @@ export function SignInForm() {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
+
+    // Validate email format before submitting
+    const emailValidation = validateEmail(email);
+    if (emailValidation) {
+      setError(emailValidation);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // First clear any existing auth state to prevent conflicts

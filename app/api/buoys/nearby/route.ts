@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  handleApiError,
+  createSuccessResponse,
+  createValidationError,
+} from "@/lib/api-utils";
 
 // Matches Ruby BuoysController functionality
 export async function GET(request: NextRequest) {
@@ -10,10 +15,7 @@ export async function GET(request: NextRequest) {
   const maxDistance = parseInt(searchParams.get("maxDistance") || "100000"); // meters, matches Ruby 100_000
 
   if (!latitude || !longitude) {
-    return NextResponse.json(
-      { error: "Latitude and longitude are required" },
-      { status: 400 }
-    );
+    return createValidationError("Latitude and longitude are required");
   }
 
   try {
@@ -37,10 +39,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Database error:", error);
-      return NextResponse.json(
-        { error: "Failed to fetch buoys" },
-        { status: 500 }
-      );
+      return handleApiError(error, "Failed to fetch buoys");
     }
 
     // Transform to match Ruby controller JSON format
@@ -52,12 +51,8 @@ export async function GET(request: NextRequest) {
       measurements: buoy.conditions || {},
     }));
 
-    return NextResponse.json(buoysJson);
+    return createSuccessResponse(buoysJson);
   } catch (error) {
-    console.error("Error fetching nearby buoys:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Error fetching nearby buoys");
   }
 }

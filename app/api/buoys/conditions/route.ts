@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  handleApiError,
+  createSuccessResponse,
+  createValidationError,
+} from "@/lib/api-utils";
 
 // Matches Ruby BuoysController#conditions functionality
 export async function GET(request: NextRequest) {
@@ -9,10 +14,7 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "50"); // matches Ruby default of 50
 
   if (!latitude || !longitude) {
-    return NextResponse.json(
-      { error: "Latitude and longitude are required" },
-      { status: 400 }
-    );
+    return createValidationError("Latitude and longitude are required");
   }
 
   try {
@@ -37,10 +39,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Database error:", error);
-      return NextResponse.json(
-        { error: "Failed to fetch buoy conditions" },
-        { status: 500 }
-      );
+      return handleApiError(error, "Failed to fetch buoy conditions");
     }
 
     if (!buoy) {
@@ -59,12 +58,8 @@ export async function GET(request: NextRequest) {
       measurements: buoy.conditions || {},
     };
 
-    return NextResponse.json(buoyJson);
+    return createSuccessResponse(buoyJson);
   } catch (error) {
-    console.error("Error fetching buoy conditions:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Error fetching buoy conditions");
   }
 }

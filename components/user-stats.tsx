@@ -1,53 +1,54 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Waves, MapPin, Star, Calendar } from "lucide-react"
-import { getUserStats } from "@/actions/profile-actions"
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, Waves, MapPin, Star, Calendar } from "lucide-react";
+import { CenteredLoadingSpinner } from "@/components/ui/loading-states";
+import { getUserStats } from "@/actions/profile-actions";
 
 interface UserStatsProps {
-  userId: string
+  userId: string;
 }
 
 interface UserStatsData {
-  sessionCount: number
-  boardCount: number
-  averageRating: number
-  mostVisitedBeach: string | null
-  mostVisitedBeachCount: number
+  sessionCount: number;
+  boardCount: number;
+  averageRating: number;
+  mostVisitedBeach: string | null;
+  mostVisitedBeachCount: number;
 }
 
 export function UserStats({ userId }: UserStatsProps) {
-  const [stats, setStats] = useState<UserStatsData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<UserStatsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadStats() {
       try {
-        const result = await getUserStats(userId)
+        const result = await getUserStats(userId);
         if (result.success && result.data) {
-          setStats(result.data)
+          setStats(result.data);
         }
       } catch (error) {
-        console.error("Error loading user stats:", error)
+        console.error("Error loading user stats:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    loadStats()
-  }, [userId])
+    loadStats();
+  }, [userId]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
+    return <CenteredLoadingSpinner text="Loading stats..." />;
   }
 
   if (!stats) {
-    return <div className="text-center py-4 text-muted-foreground">Stats unavailable</div>
+    return (
+      <div className="text-center py-4 text-muted-foreground">
+        Stats unavailable
+      </div>
+    );
   }
 
   return (
@@ -81,7 +82,9 @@ export function UserStats({ userId }: UserStatsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.averageRating || "-"}</div>
-          <p className="text-xs text-muted-foreground">Average session rating</p>
+          <p className="text-xs text-muted-foreground">
+            Average session rating
+          </p>
         </CardContent>
       </Card>
 
@@ -91,12 +94,16 @@ export function UserStats({ userId }: UserStatsProps) {
           <MapPin className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold truncate">{stats.mostVisitedBeach || "-"}</div>
+          <div className="text-2xl font-bold truncate">
+            {stats.mostVisitedBeach || "-"}
+          </div>
           <p className="text-xs text-muted-foreground">
-            {stats.mostVisitedBeachCount ? `${stats.mostVisitedBeachCount} visits` : "No sessions yet"}
+            {stats.mostVisitedBeachCount
+              ? `${stats.mostVisitedBeachCount} visits`
+              : "No sessions yet"}
           </p>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
