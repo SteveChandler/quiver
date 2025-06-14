@@ -5,11 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarDays, Plus, Waves, Loader2 } from "lucide-react";
-import { SessionCard } from "@/components/session-card";
+import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { useAuth } from "@/context/auth-context";
 import { getUserSessions } from "@/actions/session-actions";
 import type { SessionWithDetails } from "@/types/database";
-import { getStaticMapImageUrl, resolveBeachCoordinates } from "@/lib/map-utils";
 import Link from "next/link";
 
 export function SessionsView() {
@@ -64,95 +63,17 @@ export function SessionsView() {
     loadSessions();
   }, [user]);
 
-  // Helper function to format session description with additional details
-  const formatSessionDescription = (session: SessionWithDetails) => {
-    const parts = [];
-
-    // Add notes if available
-    if (session.notes) {
-      parts.push(session.notes);
-    }
-
-    // Add wave conditions
-    const conditions = [];
-    if (session.wave_height) {
-      conditions.push(`Wave Height: ${session.wave_height}`);
-    }
-    if (session.water_temp) {
-      conditions.push(`Water Temp: ${session.water_temp}`);
-    }
-    if (session.wave_quality) {
-      conditions.push(`Wave Quality: ${session.wave_quality}/5`);
-    }
-    if (session.crowd_rating) {
-      conditions.push(`Crowd Level: ${session.crowd_rating}/5`);
-    }
-
-    if (conditions.length > 0) {
-      parts.push(`Conditions: ${conditions.join(", ")}`);
-    }
-
-    // Add goals if available
-    if (session.goals && session.goals.length > 0) {
-      parts.push(`Goals: ${session.goals.join(", ")}`);
-    }
-
-    // Add duration if available
-    if (session.duration_minutes) {
-      const hours = Math.floor(session.duration_minutes / 60);
-      const minutes = session.duration_minutes % 60;
-      const durationStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-      parts.push(`Duration: ${durationStr}`);
-    }
-
-    return parts.length > 0 ? parts.join(" • ") : "No description provided.";
-  };
-
-  // Helper function to format date consistently
-  const formatSessionDate = (session: SessionWithDetails) => {
-    const date = session.arrival_time ? new Date(session.arrival_time) : null;
-
-    if (!date) return "No date set";
-
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   // Helper function to render session cards
   const renderSessionCard = (
     session: SessionWithDetails,
     isPlanned = false
   ) => {
-    // Get beach coordinates using the unified resolution function
-    const coords = session.beach
-      ? resolveBeachCoordinates(session.beach)
-      : null;
-
-    // Generate the map image URL
-    const mapImageUrl = getStaticMapImageUrl(
-      coords?.latitude,
-      coords?.longitude,
-      { width: 500, height: 350, zoom: 12 }
-    );
-
     return (
-      <SessionCard
+      <SessionCardWrapper
         key={session.id}
-        id={session.id}
-        username="You"
-        beachName={session.beach?.name || "Unknown Beach"}
-        date={formatSessionDate(session)}
-        rating={session.rating || 0}
-        description={formatSessionDescription(session)}
-        imageUrl={mapImageUrl}
-        likes={session.likes_count || 0}
-        comments={session.comments_count || 0}
+        session={session}
         isOwner={true}
+        showUserInfo={false}
       />
     );
   };

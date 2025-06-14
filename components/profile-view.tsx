@@ -19,7 +19,7 @@ import {
   Heart,
   MessageSquare,
 } from "lucide-react";
-import { SessionCard } from "@/components/session-card";
+import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { BoardCard } from "@/components/board-card";
 import { UserStats } from "@/components/user-stats";
 import { FavoriteBeaches } from "@/components/favorite-beaches";
@@ -78,7 +78,9 @@ export function ProfileView() {
         "data" in profileResult &&
         profileResult.data
       ) {
-        setProfile(profileResult.data as Profile);
+        const profileData = profileResult.data as Profile;
+        console.log("Profile loaded with avatar_url:", profileData.avatar_url);
+        setProfile(profileData);
       } else {
         if (
           "isConnectionError" in profileResult &&
@@ -114,6 +116,17 @@ export function ProfileView() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleProfileUpdated = async () => {
+    console.log(
+      "handleProfileUpdated called - reloading data and closing modal"
+    );
+    // Reload the user data to get the updated profile
+    await loadUserData();
+    // Close the modal
+    setEditModalOpen(false);
+    console.log("Modal should now be closed");
   };
 
   const handleRetry = () => {
@@ -283,38 +296,16 @@ export function ProfileView() {
 
               <TabsContent value="sessions" className="space-y-4">
                 {sessions.length > 0 ? (
-                  sessions.map((session) => (
-                    <SessionCard
-                      key={session.id}
-                      id={session.id}
-                      username="You"
-                      beachName={session.beach?.name || "Unknown Beach"}
-                      date={
-                        session.session_date
-                          ? (() => {
-                              const dateStr = new Date(
-                                session.session_date
-                              ).toLocaleDateString();
-                              if (session.start_time) {
-                                return `${dateStr} at ${session.start_time}`;
-                              }
-                              return dateStr;
-                            })()
-                          : "No date set"
-                      }
-                      rating={session.rating || 0}
-                      description={
-                        session.description || "No description provided."
-                      }
-                      imageUrl={
-                        session.image_url ||
-                        "/placeholder.svg?height=200&width=300"
-                      }
-                      likes={session.likes_count || 0}
-                      comments={session.comments_count || 0}
-                      isOwner={true}
-                    />
-                  ))
+                  <div className="max-w-2xl mx-auto space-y-4">
+                    {sessions.map((session) => (
+                      <SessionCardWrapper
+                        key={session.id}
+                        session={session}
+                        isOwner={true}
+                        showUserInfo={false}
+                      />
+                    ))}
+                  </div>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>You haven't logged any sessions yet.</p>
@@ -370,7 +361,7 @@ export function ProfileView() {
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         profile={profile}
-        onProfileUpdated={loadUserData}
+        onProfileUpdated={handleProfileUpdated}
       />
     </div>
   );
