@@ -1,4 +1,4 @@
-import { SessionForm } from "@/components/session-forms/SessionForm";
+import { SessionFormWrapper } from "@/components/session-forms/SessionFormWrapper";
 import { BottomNavigation } from "@/components/bottom-navigation";
 
 export default function PlanSessionPage() {
@@ -7,7 +7,7 @@ export default function PlanSessionPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <SessionForm initialMode="plan" />
+      <SessionFormWrapper initialMode="plan" />
       <BottomNavigation />
     </div>
   );

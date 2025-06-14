@@ -1,4 +1,4 @@
-import { SessionForm } from "@/components/session-forms/SessionForm";
+import { SessionFormWrapper } from "@/components/session-forms/SessionFormWrapper";
 import { BottomNavigation } from "@/components/bottom-navigation";
 
 export default function LogSessionPage() {
@@ -7,7 +7,7 @@ export default function LogSessionPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <SessionForm initialMode="log" />
+      <SessionFormWrapper initialMode="log" />
       <BottomNavigation />
     </div>
   );
