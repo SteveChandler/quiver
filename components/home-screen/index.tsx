@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/user-avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { CalendarDays, Waves, Plus, Loader2 } from "lucide-react";
@@ -13,12 +13,33 @@ import { NearbyTab } from "./nearby-tab";
 import { CommunityTab } from "./community-tab";
 import { useHomeData } from "./use-home-data";
 import { cn } from "@/lib/utils";
+import { getProfile } from "@/actions/profile-actions";
+import type { Profile } from "@/types/database";
 
 export function HomeScreen() {
   const [activeTab, setActiveTab] = useState("forecast");
   const [isNavVisible, setIsNavVisible] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const { user, isLoading: authLoading } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
+
+  // Load user profile data
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (user) {
+        try {
+          const result = await getProfile(user.id);
+          if (result.success && result.data) {
+            setProfile(result.data as Profile);
+          }
+        } catch (error) {
+          console.error("Error loading profile:", error);
+        }
+      }
+    };
+
+    loadProfile();
+  }, [user]);
 
   // Track navigation visibility for FAB positioning
   useEffect(() => {
@@ -51,12 +72,6 @@ export function HomeScreen() {
     };
   }, []);
 
-  // Get user initials for avatar fallback
-  const getInitials = () => {
-    if (!user?.email) return "G";
-    return user.email.charAt(0).toUpperCase();
-  };
-
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
@@ -68,13 +83,12 @@ export function HomeScreen() {
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : user ? (
               <Link href="/profile">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage
-                    src="/placeholder.svg?height=32&width=32"
-                    alt="User"
-                  />
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  src={profile?.avatar_url}
+                  name={profile?.full_name}
+                  email={user?.email}
+                  size="sm"
+                />
               </Link>
             ) : (
               <Link href="/auth/sign-in">
@@ -90,7 +104,7 @@ export function HomeScreen() {
         {/* Welcome Section */}
         <section className="space-y-2">
           <h2 className="text-2xl font-bold">
-            Hey, {user ? user.user_metadata?.full_name || "Surfer" : "Guest"}!
+            Hey, {user ? profile?.full_name || "Surfer" : "Guest"}!
           </h2>
           <p className="text-muted-foreground">
             The waves are looking good today. Ready to catch some?

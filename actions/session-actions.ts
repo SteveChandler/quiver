@@ -27,7 +27,8 @@ export async function getUserSessions(userId: string) {
         `
         *,
         beach:beaches(*),
-        board:boards(*)
+        board:boards(*),
+        user:profiles(*)
       `
       )
       .eq("user_id", userId)
@@ -61,7 +62,8 @@ export async function getUserSessionsByDateRange(
         `
         *,
         beach:beaches(*),
-        board:boards(*)
+        board:boards(*),
+        user:profiles(*)
       `
       )
       .eq("user_id", userId)
@@ -93,7 +95,8 @@ export async function getSessionById(id: string, userId: string) {
         `
         *,
         beach:beaches(*),
-        board:boards(*)
+        board:boards(*),
+        user:profiles(*)
       `
       )
       .eq("id", id)

@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/user-avatar";
 import { StarRating } from "@/components/ui/star-rating";
 import {
   MapPin,
@@ -82,13 +82,12 @@ export function SessionCard({
     <CardContent className="p-4 space-y-4">
       {/* User Info */}
       <div className="flex items-center gap-3">
-        <Avatar>
-          <AvatarImage
-            src="/placeholder.svg?height=40&width=40"
-            alt={username}
-          />
-          <AvatarFallback>{username.charAt(0)}</AvatarFallback>
-        </Avatar>
+        <UserAvatar
+          src={session?.user?.avatar_url}
+          name={session?.user?.full_name || username}
+          email={session?.user?.email}
+          size="md"
+        />
         <div>
           <p className="font-medium">{username}</p>
           <div className="flex items-center text-sm text-muted-foreground">

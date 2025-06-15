@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, MessageSquare, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/user-avatar";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ type Comment = Database["public"]["Tables"]["comments"]["Row"] & {
   user: {
     full_name: string;
     avatar_url: string | null;
+    email: string | null;
   };
 };
 
@@ -41,7 +42,7 @@ export function SessionComments({
         .select(
           `
           *,
-          user:profiles(full_name, avatar_url)
+          user:profiles(full_name, avatar_url, email)
         `
         )
         .eq("session_id", sessionId)
@@ -168,15 +169,12 @@ export function SessionComments({
             <Card key={comment.id}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <Avatar>
-                    <AvatarImage
-                      src={comment.user.avatar_url || undefined}
-                      alt={comment.user.full_name}
-                    />
-                    <AvatarFallback>
-                      {comment.user.full_name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar
+                    src={comment.user.avatar_url}
+                    name={comment.user.full_name}
+                    email={comment.user.email}
+                    size="md"
+                  />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">
