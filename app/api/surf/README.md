@@ -1,110 +1,183 @@
-# San Diego Surf Forecast API
+# Enhanced Surf Forecast API
 
-This module provides functionality to get surf forecasts for San Diego beaches using the Stormglass API.
+This module provides comprehensive surf forecasts for San Diego beaches using NOAA data sources including WaveWatch III, CO-OPS tidal predictions, and real-time buoy data.
 
 ## Features
 
-- Database of 27 San Diego beaches with their coordinates
-- Beach resolution by name or nearest location
-- Integration with Stormglass API for surf forecasts
-- TypeScript interfaces for type safety
+- **Comprehensive Wave Data**: NOAA WaveWatch III Global Wave Model
+- **Accurate Tide Predictions**: NOAA CO-OPS (Center for Operational Oceanographic Products and Services)
+- **Real-time Conditions**: NDBC (National Data Buoy Center) buoy network
+- **Weather Integration**: NOAA National Weather Service
+- **Smart Caching**: Optimized data fetching and storage
+- **10-Day Forecasts**: Extended forecast coverage with confidence scoring
 
 ## Setup
 
-1. Create a `.env.local` file in the root of your project and add your Stormglass API key:
+The enhanced forecast system uses free NOAA data sources and requires no API keys for basic functionality. However, for optimal performance, you may want to configure:
 
-   ```
-   STORMGLASS_API_KEY=your_stormglass_api_key
-   ```
+1. Create a `.env.local` file in the root of your project:
 
-2. Import the functions you need:
-   ```typescript
-   import { resolveBeach, getSurfForecast } from "./utils";
-   ```
+```env
+# Optional: Cron job security
+CRON_SECRET=your_cron_secret
 
-## Usage
-
-### API Route
-
-The API is accessible at `/api/surf` and accepts the following query parameters:
-
-- `beach`: Beach name (e.g., "Ocean Beach", "La Jolla Shores")
-- `lat` & `lng`: Coordinates (if beach name is not provided)
-
-Examples:
-
-- `/api/surf?beach=Ocean%20Beach`
-- `/api/surf?lat=32.7507&lng=-117.2540`
-
-### Programmatic Usage
-
-```typescript
-// Get forecast by beach name
-const forecast = await getSurfForecast({
-  beach: "Ocean Beach",
-});
-
-// Get forecast by coordinates
-const forecast = await getSurfForecast({
-  coords: { lat: 32.7507, lng: -117.254 },
-});
-
-// Find nearest beach to a location
-const beach = resolveBeach({ lat: 32.7157, lng: -117.1611 });
+# Optional: Database optimization
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
-## Available Beaches
+## API Endpoints
 
-The API includes data for the following San Diego beaches:
+### Get Surf Forecast
 
-- Oceanside Pier
-- Oceanside Harbor Beach
-- Carlsbad State Beach
-- Carlsbad Reef
-- Carlsbad Point
-- Leucadia State Beach
-- Grandview
-- Stone Steps
-- Encinitas
-- Swami's
-- Cardiff Reef
-- Moonlight State Beach
-- Solana Beach
-- Del Mar Beach
-- Torrey Pines State Beach
-- Blacks Beach
-- Windansea Beach
-- La Jolla Shores
-- Tourmaline Surf Park
-- Crystal Pier
-- Pacific Beach
-- Mission Beach
-- Ocean Beach
-- Sunset Cliffs
-- Coronado Beach
-- Imperial Beach
-- Silver Strand
+```
+GET /api/surf?beach=<beach_name>
+```
 
-## Response Format
+**Parameters:**
 
-```typescript
+- `beach` (required): Name of the beach (e.g., "Ocean Beach")
+
+**Example:**
+
+```bash
+curl "http://localhost:3000/api/surf?beach=Ocean%20Beach"
+```
+
+**Response:**
+
+```json
 {
-  "beach": "ocean beach",
+  "beach": "Ocean Beach",
   "coords": {
     "lat": 32.7507,
-    "lng": -117.2540
+    "lng": -117.254
   },
   "forecast": {
-    // Stormglass API response data
-    "hours": [
-      {
-        "time": "2023-05-01T00:00:00+00:00",
-        "waveHeight": { ... },
-        "wavePeriod": { ... },
-        // Other surf parameters
-      },
-      // More forecast hours
-    ]
+    "wave_height": "3-4 ft",
+    "water_temp": "68°F",
+    "wind_speed": "8 mph",
+    "wind_direction": "SW",
+    "tide": "Rising",
+    "weather_condition": "Partly Cloudy",
+    "confidence_score": 85
   }
 }
 ```
+
+### Enhanced Forecasts
+
+```
+GET /api/forecasts/update-enhanced?beachId=<beach_id>&days=10
+```
+
+**Parameters:**
+
+- `beachId` (required): Beach ID from database
+- `days` (optional): Number of days to forecast (default: 10)
+
+**Features:**
+
+- Detailed swell analysis (primary, secondary, wind waves)
+- Comprehensive tide information with predictions
+- Confidence scoring based on data quality
+- Multiple data points per day (every 3 hours)
+
+## Data Sources
+
+### Wave Data
+
+- **Primary**: NOAA WaveWatch III Global Wave Model
+- **Real-time**: NDBC buoy network for current conditions
+- **Coverage**: Significant wave height, period, direction, swell components
+
+### Tide Data
+
+- **Source**: NOAA CO-OPS stations
+- **Features**: High/low tide predictions, current height, tidal currents
+- **Accuracy**: Official NOAA predictions with local station data
+
+### Weather Data
+
+- **Source**: NOAA National Weather Service
+- **Coverage**: Air temperature, wind conditions, weather conditions
+- **Integration**: Hourly forecasts aligned with wave data
+
+### Real-time Conditions
+
+- **Buoys**: NDBC station network
+- **Data**: Live wave heights, water temperature, wind measurements
+- **Usage**: Current conditions and forecast validation
+
+## Technical Implementation
+
+### Enhanced Forecast Service
+
+```typescript
+import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
+
+const service = new EnhancedForecastService();
+const forecasts = await service.generateComprehensiveForecast(beach);
+```
+
+### Data Processing
+
+1. **Parallel Data Fetching**: Simultaneous requests to all NOAA services
+2. **Time Alignment**: Synchronized forecast periods across data sources
+3. **Quality Scoring**: Confidence metrics based on data availability and freshness
+4. **Smart Caching**: Optimized storage and retrieval for performance
+
+### Caching Strategy
+
+- **Cluster-based**: Shared forecasts for nearby beaches
+- **Time-based**: Automatic cache invalidation
+- **Fallback Logic**: Graceful degradation when data unavailable
+
+## Development
+
+### Local Testing
+
+```bash
+# Update forecasts for specific beach
+curl -X POST "http://localhost:3000/api/forecasts/update?beachId=beach-id"
+
+# Update all beaches
+curl -X POST "http://localhost:3000/api/forecasts/update"
+
+# Get enhanced forecast
+curl "http://localhost:3000/api/forecasts/update-enhanced?beachId=beach-id&days=10"
+```
+
+### Monitoring
+
+The system includes comprehensive logging for:
+
+- Data source availability
+- Forecast generation performance
+- Cache hit/miss ratios
+- Error tracking and recovery
+
+## Migration from Stormglass
+
+This system replaces the previous Stormglass API integration with:
+
+- **Better Accuracy**: Official NOAA data vs. aggregated sources
+- **No API Costs**: Free government data sources
+- **More Features**: Detailed swell analysis, confidence scoring
+- **Better Coverage**: 10-day forecasts vs. limited commercial data
+
+The enhanced system provides superior data quality while eliminating API usage costs and quotas.
+
+## Deployment
+
+### Production Considerations
+
+1. **Database Setup**: Ensure enhanced_forecasts table exists
+2. **Cron Jobs**: Schedule regular forecast updates
+3. **Monitoring**: Set up logging and error alerts
+4. **Performance**: Configure appropriate cache TTLs
+
+### Recommended Update Schedule
+
+- **Frequent**: Every 6 hours for fresh data
+- **Peak Times**: More frequent updates during surf season
+- **Maintenance**: Weekly cleanup of old forecasts

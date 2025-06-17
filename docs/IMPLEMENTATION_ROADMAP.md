@@ -17,38 +17,97 @@
 
 ## 🎯 **WEEK 1-2: MEDIA SYSTEM COMPLETION**
 
-### **Priority 1: Firebase Storage Integration**
+### **Priority 1: Supabase Storage Integration**
 
-#### Firebase Configuration Setup
-
-```typescript
-// lib/firebase/config.ts - NEW FILE
-import { initializeApp } from "firebase/app";
-import { getStorage } from "firebase/storage";
-
-const firebaseConfig = {
-  // Configuration from Firebase Console
-};
-
-const app = initializeApp(firebaseConfig);
-export const storage = getStorage(app);
-```
-
-#### Enhanced Media Upload System
+#### Supabase Storage Configuration
 
 ```typescript
-// lib/firebase/storage.ts - NEW FILE
+// lib/supabase/storage.ts - NEW FILE
+import { supabase } from "@/lib/supabase/client";
+import { compress } from "image-conversion";
+
+const STORAGE_BUCKET = "session-media";
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB per image (free tier consideration)
+const MAX_IMAGES_PER_SESSION = 5; // Limit for free tier
+
 export async function uploadSessionPhoto(
   file: File,
   sessionId: string,
   userId: string
-): Promise<{ success: boolean; url?: string; error?: string }>;
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    // Compress image for free tier storage optimization
+    const compressedFile = await compress(file, {
+      quality: 0.8,
+      maxWidth: 1920,
+      maxHeight: 1080,
+      type: "image/jpeg",
+    });
+
+    if (compressedFile.size > MAX_FILE_SIZE) {
+      throw new Error("File size too large. Please choose a smaller image.");
+    }
+
+    const fileExt = "jpg";
+    const fileName = `${sessionId}/${userId}/${Date.now()}.${fileExt}`;
+
+    const { data, error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(fileName, compressedFile, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabase.storage
+      .from(STORAGE_BUCKET)
+      .getPublicUrl(data.path);
+
+    return { success: true, url: urlData.publicUrl };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Upload failed",
+    };
+  }
+}
 
 export async function uploadMultiplePhotos(
   files: File[],
   sessionId: string,
   userId: string
-): Promise<UploadResult[]>;
+): Promise<UploadResult[]> {
+  if (files.length > MAX_IMAGES_PER_SESSION) {
+    throw new Error(
+      `Maximum ${MAX_IMAGES_PER_SESSION} images allowed per session`
+    );
+  }
+
+  const results = await Promise.all(
+    files.map((file) => uploadSessionPhoto(file, sessionId, userId))
+  );
+
+  return results;
+}
+
+export async function deleteSessionPhoto(
+  path: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .remove([path]);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Delete failed",
+    };
+  }
+}
 ```
 
 #### Database Schema Extensions
@@ -59,22 +118,60 @@ CREATE TABLE session_media (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id),
-  media_type VARCHAR(20) CHECK (media_type IN ('photo', 'video')),
-  storage_url TEXT NOT NULL,
+  media_type VARCHAR(20) CHECK (media_type IN ('photo', 'video')) DEFAULT 'photo',
+  storage_path TEXT NOT NULL,
+  public_url TEXT NOT NULL,
   thumbnail_url TEXT,
   caption TEXT,
-  metadata JSONB, -- dimensions, file size, etc.
+  file_size INTEGER, -- Track for free tier monitoring
+  metadata JSONB, -- dimensions, compression ratio, etc.
   created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add storage usage tracking for free tier management
+CREATE TABLE storage_usage (
+  user_id UUID PRIMARY KEY REFERENCES profiles(id),
+  total_bytes BIGINT DEFAULT 0,
+  image_count INTEGER DEFAULT 0,
+  last_updated TIMESTAMP DEFAULT NOW()
 );
 
 -- Add RLS policies
 ALTER TABLE session_media ENABLE ROW LEVEL SECURITY;
+ALTER TABLE storage_usage ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view all session media"
 ON session_media FOR SELECT USING (true);
 
 CREATE POLICY "Users can insert their own session media"
 ON session_media FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own session media"
+ON session_media FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own storage usage"
+ON storage_usage FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own storage usage"
+ON storage_usage FOR ALL USING (auth.uid() = user_id);
+
+-- Create storage bucket if not exists
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('session-media', 'session-media', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Set up storage policies
+CREATE POLICY "Users can upload their own session media"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'session-media' AND auth.uid()::text = (storage.foldername(name))[2]);
+
+CREATE POLICY "Anyone can view session media"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'session-media');
+
+CREATE POLICY "Users can delete their own session media"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'session-media' AND auth.uid()::text = (storage.foldername(name))[2]);
 ```
 
 #### Components to Build
@@ -94,8 +191,8 @@ interface SessionPhotoGalleryProps {
   canEdit?: boolean;
 }
 
-// components/media/photo-optimization.tsx - NEW
-// Handles compression and optimization before upload
+// components/media/photo-compression.tsx - NEW
+// Handles image compression and optimization for free tier
 ```
 
 ### **Priority 2: Session Logging Integration**
@@ -111,11 +208,12 @@ interface SessionPhotoGalleryProps {
 
 ### **Acceptance Criteria Week 1-2:**
 
-- [ ] Firebase Storage fully configured and tested
+- [ ] Supabase Storage fully configured and tested
 - [ ] Photo upload during session logging works
 - [ ] Session photo galleries display correctly
-- [ ] Image optimization pipeline functional
-- [ ] All photos stored with proper metadata
+- [ ] Image compression ratio > 50%
+- [ ] Storage usage stays within free tier limits
+- [ ] Session media galleries load < 2 seconds
 
 ---
 
@@ -439,29 +537,31 @@ CREATE TABLE session_invitations (
 ### **Environment Setup**
 
 ```bash
-# Required environment variables
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-
-# Push notification keys
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
+# Supabase configuration (already configured)
+NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 ### **Dependencies to Add**
 
 ```json
 {
-  "firebase": "^10.x.x",
-  "firebase-admin": "^11.x.x",
-  "web-push": "^3.x.x",
-  "@types/web-push": "^3.x.x"
+  "image-conversion": "^2.1.1",
+  "@types/file-saver": "^2.0.5",
+  "file-saver": "^2.0.5"
 }
 ```
+
+### **Free Tier Considerations**
+
+- **Storage Limit**: 1GB total storage
+- **Bandwidth**: 2GB egress per month
+- **Image Optimization**: Compress all images to 80% quality
+- **File Size Limits**: 5MB maximum per image
+- **Session Limits**: Maximum 5 images per session
+- **Monitoring**: Track user storage usage
+- **Cleanup**: Implement automated cleanup of old media
 
 ### **Testing Requirements**
 
@@ -478,8 +578,9 @@ VAPID_PRIVATE_KEY=
 ### **Week 1-2 Metrics (Media System)**
 
 - Photo upload success rate > 95%
-- Average upload time < 10 seconds
-- Zero image optimization failures
+- Average upload time < 15 seconds (with compression)
+- Image compression ratio > 50%
+- Storage usage stays within free tier limits
 - Session media galleries load < 2 seconds
 
 ### **Week 2-3 Metrics (Beach Reviews)**
@@ -533,7 +634,7 @@ VAPID_PRIVATE_KEY=
 
 ### **End of Week 2:** Media System Complete
 
-- Firebase integrated and functional
+- Supabase Storage integrated and functional
 - Session photo upload working
 - Photo galleries displaying correctly
 

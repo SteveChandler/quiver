@@ -21,11 +21,10 @@ export const PAGINATION_DEFAULTS = {
 
 // API endpoints
 export const API_ENDPOINTS = {
-  STORMGLASS_WEATHER: "https://api.stormglass.io/v2/weather/point",
-  STORMGLASS_TIDE: "https://api.stormglass.io/v2/tide/extremes/point",
   NDBC_REALTIME_BASE: "https://www.ndbc.noaa.gov/data/realtime2",
   NOAA_API_BASE: "https://api.weather.gov",
   NOAA_TIDES_BASE: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter",
+  NOAA_WAVEWATCH: "https://nomads.ncep.noaa.gov/dods/wave/mww3",
 } as const;
 
 // Beach cluster configuration
@@ -114,3 +113,16 @@ export const SUCCESS_MESSAGES = {
   BOARD_DELETED: "Board deleted successfully",
   AUTH_SUCCESS: "Authentication successful",
 } as const;
+
+export const FORECAST_CONFIG = {
+  // NOAA Data Sources (Free, no API key required)
+  NOAA_WAVEWATCH: "https://nomads.ncep.noaa.gov/dods/wave/mww3",
+  NOAA_COOPS: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter",
+  NOAA_NWS: "https://api.weather.gov",
+  NDBC_BUOYS: "https://www.ndbc.noaa.gov/data/realtime2",
+
+  // Enhanced forecast parameters
+  DEFAULT_FORECAST_DAYS: 10,
+  UPDATE_INTERVAL_HOURS: 6,
+  CACHE_TTL_HOURS: 4,
+};

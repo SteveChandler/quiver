@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Star, MapPin, Waves, Users, Car, Loader2 } from "lucide-react";
 import { ForecastCard } from "@/components/forecast-card";
+import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { BeachHeader } from "@/components/beach-detail/beach-header";
 import { BeachHero } from "@/components/beach-detail/beach-hero";
 import { BeachQuickActions } from "@/components/beach-detail/beach-quick-actions";
@@ -126,8 +127,13 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
 
       {/* Main Content */}
       <main className="flex-1 container px-4 py-2 space-y-6 overflow-auto pb-20">
-        {/* Today's Forecast - Prominent Display */}
-        <TodaysForecast forecast={todaysForecast} />
+        {/* Enhanced Forecast - Primary Display */}
+        <BeachesEnhancedForecast
+          beachId={beach.id}
+          beachName={beach.name}
+          showHeader={true}
+          defaultDays={10}
+        />
 
         {/* Community Section */}
         <BeachCommunity
@@ -137,10 +143,10 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
           isAuthenticated={!!user}
         />
 
-        {/* Detailed Tabs */}
+        {/* Additional Tabs */}
         <Tabs defaultValue="forecast" className="space-y-4">
           <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="forecast">More Forecasts</TabsTrigger>
+            <TabsTrigger value="forecast">Basic Forecast</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="gallery">Gallery</TabsTrigger>
           </TabsList>

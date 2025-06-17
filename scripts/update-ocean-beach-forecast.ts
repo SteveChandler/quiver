@@ -1,59 +1,56 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { fetchForecastData, updateForecasts } from "@/lib/forecast-api";
-// import dotenv from "dotenv";
-import type { Beach } from "@/types/database";
+#!/usr/bin/env tsx
 
-// Load environment variables from .env file
-// dotenv.config();
+/**
+ * Script to update Ocean Beach forecast using enhanced forecast system
+ * Usage: npm run update-ocean-beach
+ */
 
-// Ocean Beach, San Diego coordinates
-const OCEAN_BEACH_LAT = 32.7503;
-const OCEAN_BEACH_LNG = -117.2534;
+import { createSupabaseServiceRoleClient } from "../lib/supabase/server";
+import { EnhancedForecastService } from "../lib/services/enhanced-forecast-service";
+import type { Beach } from "../types/database";
+
+const OCEAN_BEACH_LAT = 32.7507;
+const OCEAN_BEACH_LNG = -117.254;
 
 async function updateOceanBeachForecast() {
-  console.log("Starting Ocean Beach forecast update script...");
-  const supabase = await createSupabaseServerClient();
-
   try {
-    // 1. First, try to find Ocean Beach in the database
-    console.log("Looking for Ocean Beach in database...");
-    let oceanBeach = null;
+    console.log("🚀 Starting Ocean Beach enhanced forecast update...");
 
-    const { data: beaches, error: beachError } = await supabase
+    const supabase = await createSupabaseServiceRoleClient();
+
+    // 1. Look for Ocean Beach in the database
+    console.log("🔍 Looking for Ocean Beach in database...");
+
+    let { data: oceanBeaches, error } = await supabase
       .from("beaches")
       .select("*")
-      .or(`name.ilike.%Ocean Beach%, location.ilike.%San Diego%`);
+      .ilike("name", "%Ocean Beach%");
 
-    if (beachError) {
-      console.error("Error querying beaches:", beachError);
-    } else if (beaches && beaches.length > 0) {
-      oceanBeach = beaches[0];
-      console.log(
-        `Found beach in database: ${oceanBeach.name} (${oceanBeach.id})`
-      );
+    if (error) {
+      console.error("Error searching for Ocean Beach:", error);
+      throw error;
     }
 
-    // 2. If Ocean Beach not found, try to find by coordinates
-    if (!oceanBeach) {
-      console.log("Searching by coordinates...");
-      // Look for beaches near Ocean Beach coordinates
-      const { data: nearbyBeaches, error: nearbyError } = await supabase.rpc(
-        "get_beaches_within_radius",
-        {
-          lat: OCEAN_BEACH_LAT,
-          lng: OCEAN_BEACH_LNG,
-          radius_km: 5,
-        }
-      );
+    let oceanBeach: Beach | null = null;
 
-      if (nearbyError) {
-        console.error("Error finding nearby beaches:", nearbyError);
-      } else if (nearbyBeaches && nearbyBeaches.length > 0) {
-        oceanBeach = nearbyBeaches[0];
-        console.log(
-          `Found nearby beach: ${oceanBeach.name} (${oceanBeach.id})`
+    // 2. If we have multiple matches, find the best one
+    if (oceanBeaches && oceanBeaches.length > 0) {
+      // Find the one closest to our known coordinates
+      oceanBeach = oceanBeaches.reduce((closest, beach) => {
+        const closestDist = Math.sqrt(
+          Math.pow(closest.latitude - OCEAN_BEACH_LAT, 2) +
+            Math.pow(closest.longitude - OCEAN_BEACH_LNG, 2)
         );
-      }
+        const beachDist = Math.sqrt(
+          Math.pow(beach.latitude - OCEAN_BEACH_LAT, 2) +
+            Math.pow(beach.longitude - OCEAN_BEACH_LNG, 2)
+        );
+        return beachDist < closestDist ? beach : closest;
+      });
+
+      console.log(
+        `✅ Found Ocean Beach: ${oceanBeach.name} (ID: ${oceanBeach.id})`
+      );
     }
 
     // 3. If still not found, create it
@@ -84,68 +81,42 @@ async function updateOceanBeachForecast() {
       console.log(`Created new beach record with ID: ${oceanBeach.id}`);
     }
 
-    // 4. Now we have the beach, update its forecast
-    console.log("Updating forecast data for Ocean Beach...");
-    const apiKey = process.env.STORMGLASS_API_KEY;
+    // 4. Now we have the beach, update its enhanced forecast
+    console.log("🌊 Updating enhanced forecast data for Ocean Beach...");
 
-    if (!apiKey) {
-      throw new Error("STORMGLASS_API_KEY not found in environment variables");
-    }
+    const enhancedForecastService = new EnhancedForecastService();
 
-    // Delete existing forecasts
-    const { error: deleteError } = await supabase
-      .from("forecasts")
-      .delete()
-      .eq("beach_id", oceanBeach.id);
-
-    if (deleteError) {
-      console.error("Error deleting existing forecasts:", deleteError);
-    }
-
-    // Fetch fresh forecast data
-    console.log("Fetching fresh forecast data from Stormglass API...");
-    const forecasts = await fetchForecastData(oceanBeach as Beach, apiKey);
-
-    // Insert new forecasts
-    const { data: newForecasts, error: insertError } = await supabase
-      .from("forecasts")
-      .insert(
-        forecasts.map((forecast: any) => ({
-          id: crypto.randomUUID(),
-          ...forecast,
-        }))
+    // Generate comprehensive forecast
+    console.log(
+      "📊 Generating comprehensive forecast from NOAA data sources..."
+    );
+    const forecasts =
+      await enhancedForecastService.generateComprehensiveForecast(
+        oceanBeach as Beach
       );
 
-    if (insertError) {
-      console.error("Error inserting forecasts:", insertError);
-      throw new Error("Failed to insert forecast data");
-    }
-
-    console.log(
-      `Successfully updated ${forecasts.length} forecast records for Ocean Beach`
+    // Store enhanced forecasts
+    console.log("💾 Storing enhanced forecasts...");
+    const result = await enhancedForecastService.storeEnhancedForecasts(
+      oceanBeach as Beach,
+      forecasts
     );
 
-    // 5. Verify we can retrieve the forecasts
-    const { data: verifyForecasts, error: verifyError } = await supabase
-      .from("forecasts")
-      .select("*")
-      .eq("beach_id", oceanBeach.id)
-      .order("forecast_date")
-      .order("forecast_time");
-
-    if (verifyError) {
-      console.error("Error verifying forecasts:", verifyError);
-    } else {
-      console.log(
-        `Verified ${verifyForecasts.length} forecast records in database`
-      );
+    if (!result.success) {
+      throw new Error(result.error || "Failed to store enhanced forecasts");
     }
 
-    console.log("Ocean Beach forecast update completed successfully!");
+    console.log(`✅ Successfully updated Ocean Beach enhanced forecasts!`);
+    console.log(`📈 Generated ${forecasts.length} forecast points`);
+    console.log(`🎯 Stored ${result.stored} enhanced forecasts`);
+    console.log(
+      `📊 Data sources: NOAA WaveWatch III, CO-OPS, Weather Service, NDBC buoys`
+    );
   } catch (error) {
-    console.error("Script failed:", error);
+    console.error("❌ Error updating Ocean Beach forecast:", error);
+    process.exit(1);
   }
 }
 
-// Run the script
+// Run the update
 updateOceanBeachForecast();

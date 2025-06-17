@@ -68,7 +68,7 @@ describe("useBeachSearch", () => {
 
       expect(result.current.beaches).toEqual([]);
       expect(result.current.filteredBeaches).toEqual([]);
-      expect(result.current.loading).toBe(true);
+      expect(result.current.loading).toBe(false); // Changed to false since immediate: false
       expect(result.current.searchQuery).toBe("");
       expect(result.current.selectedBeach).toBe(null);
       expect(result.current.nearbyBeachesForScroll).toEqual([]);

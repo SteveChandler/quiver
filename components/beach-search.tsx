@@ -6,37 +6,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Loader2 } from "lucide-react";
 import { ForecastCard } from "@/components/forecast-card";
+import type { Beach } from "@/types/database";
 
 /**
- * Beach search component that utilizes both the new API and existing components
+ * Beach search component that uses enhanced forecast data
  */
 export function BeachSearch() {
   const [query, setQuery] = useState("Ocean Beach");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [beachData, setBeachData] = useState<{
-    beach: string;
-    coords: { lat: number; lng: number };
-    forecast: any;
-  } | null>(null);
+  const [beach, setBeach] = useState<Beach | null>(null);
+  const [forecast, setForecast] = useState<any>(null);
 
-  // Fetch beach data
+  // Fetch beach data using utility functions
   const fetchBeachData = async (beachName: string) => {
     setLoading(true);
     setError(null);
+    setBeach(null);
+    setForecast(null);
 
     try {
-      const response = await fetch(
-        `/api/surf?beach=${encodeURIComponent(beachName)}`
+      const { searchBeachWithForecast } = await import(
+        "@/lib/utils/beach-search-utils"
       );
+      const { beach: foundBeach, forecast: enhancedForecast } =
+        await searchBeachWithForecast(beachName);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch forecast");
-      }
-
-      setBeachData(data);
+      setBeach(foundBeach);
+      setForecast(enhancedForecast);
     } catch (err) {
       console.error("Error fetching beach forecast:", err);
       setError(err instanceof Error ? err.message : "Unknown error occurred");
@@ -64,7 +61,7 @@ export function BeachSearch() {
   return (
     <Card className="w-full">
       <CardContent className="p-6">
-        <h2 className="text-xl font-bold mb-4">Search Beach Forecast</h2>
+        <h2 className="text-xl font-bold mb-4">Beach Forecast</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-2">
@@ -99,25 +96,23 @@ export function BeachSearch() {
           </div>
         )}
 
-        {!loading && beachData && (
+        {!loading && beach && forecast && (
           <div className="mt-6">
             <div className="text-green-600 text-sm p-2 bg-green-50 rounded mb-4">
-              Showing surf conditions for {beachData.beach}
+              Showing surf conditions for {beach.name}
+              {beach.location && `, ${beach.location}`}
             </div>
 
             <ForecastCard
-              beachName={beachData.beach}
-              waveHeight={beachData.forecast.wave_height}
-              waterTemp={beachData.forecast.water_temp}
-              windSpeed={beachData.forecast.wind_speed}
-              tide={beachData.forecast.tide}
+              beachName={beach.name}
+              waveHeight={forecast.wave_height}
+              waterTemp={forecast.water_temp}
+              windSpeed={forecast.wind_speed}
+              tide={forecast.tide_status || "Unknown"}
               time={
-                beachData.forecast.forecast_time
+                forecast.forecast_time
                   ? new Date(
-                      beachData.forecast.forecast_date +
-                        "T" +
-                        beachData.forecast.forecast_time +
-                        "Z"
+                      forecast.forecast_date + "T" + forecast.forecast_time
                     ).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -127,8 +122,9 @@ export function BeachSearch() {
                       minute: "2-digit",
                     })
               }
-              windDirection={beachData.forecast.wind_direction}
-              weatherCondition={beachData.forecast.weather_condition || "Sunny"}
+              windDirection={forecast.wind_direction}
+              weatherCondition={forecast.weather_condition}
+              beachId={beach.id}
             />
           </div>
         )}
@@ -136,8 +132,8 @@ export function BeachSearch() {
 
       <CardFooter className="bg-muted/20 px-6 py-4">
         <div className="text-xs text-muted-foreground">
-          Data provided for San Diego beaches. Results show the beach that most
-          closely matches your search.
+          Enhanced forecast data from NOAA WaveWatch III, CO-OPS tidal
+          predictions, and real-time buoy conditions.
         </div>
       </CardFooter>
     </Card>
