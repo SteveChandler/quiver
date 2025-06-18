@@ -86,11 +86,11 @@ export function MapContent({
   return (
     <>
       {/* Static map image */}
-      <div className="flex-1 relative overflow-hidden min-h-[400px]">
+      <div className="flex-1 relative overflow-hidden min-h-[250px]">
         <MapImage
           src={getStaticMapImageUrl(mapCenter.lat, mapCenter.lng, {
             width: 800,
-            height: 600,
+            height: 400,
             zoom: 12,
           })}
           alt="Beach locations map"

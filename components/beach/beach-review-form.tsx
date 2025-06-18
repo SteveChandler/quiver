@@ -29,6 +29,7 @@ interface BeachReviewFormProps {
   existingReview?: BeachReviewWithUser;
   onSuccess?: () => void;
   onCancel?: () => void;
+  isInDialog?: boolean;
 }
 
 interface ReviewFormData {
@@ -48,6 +49,7 @@ export function BeachReviewForm({
   existingReview,
   onSuccess,
   onCancel,
+  isInDialog = false,
 }: BeachReviewFormProps) {
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
@@ -189,18 +191,150 @@ export function BeachReviewForm({
   };
 
   if (!user) {
-    return (
+    const signInMessage = (
+      <div className="p-6 text-center">
+        <p className="text-muted-foreground">
+          Please sign in to write a review.
+        </p>
+      </div>
+    );
+
+    return isInDialog ? (
+      signInMessage
+    ) : (
       <Card>
-        <CardContent className="p-6 text-center">
-          <p className="text-muted-foreground">
-            Please sign in to write a review.
-          </p>
-        </CardContent>
+        <CardContent>{signInMessage}</CardContent>
       </Card>
     );
   }
 
-  return (
+  const formContent = (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Star Ratings */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {renderStarRating(
+          "overall_rating",
+          "Overall Experience",
+          <Star className="h-4 w-4" />
+        )}
+        {renderStarRating(
+          "wave_quality_rating",
+          "Wave Quality",
+          <Star className="h-4 w-4" />
+        )}
+        {renderStarRating(
+          "crowd_density_rating",
+          "Crowd Level",
+          <Star className="h-4 w-4" />
+        )}
+        {renderStarRating(
+          "parking_rating",
+          "Parking",
+          <Star className="h-4 w-4" />
+        )}
+        {renderStarRating(
+          "accessibility_rating",
+          "Accessibility",
+          <Star className="h-4 w-4" />
+        )}
+      </div>
+
+      {/* Visit Date */}
+      <div className="space-y-2">
+        <Label htmlFor="visit-date">Visit Date (Optional)</Label>
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start text-left font-normal",
+                !formData.visit_date && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {formData.visit_date ? (
+                format(formData.visit_date, "PPP")
+              ) : (
+                <span>When did you visit?</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={formData.visit_date}
+              onSelect={(date) => {
+                setFormData((prev) => ({ ...prev, visit_date: date }));
+                setCalendarOpen(false);
+              }}
+              disabled={(date) =>
+                date > new Date() || date < new Date("1900-01-01")
+              }
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Title */}
+      <div className="space-y-2">
+        <Label htmlFor="title">Review Title</Label>
+        <Input
+          id="title"
+          placeholder="Summarize your experience..."
+          value={formData.title}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, title: e.target.value }))
+          }
+          maxLength={200}
+        />
+      </div>
+
+      {/* Content */}
+      <div className="space-y-2">
+        <Label htmlFor="content">Your Review</Label>
+        <Textarea
+          id="content"
+          placeholder="Share your detailed experience at this beach..."
+          value={formData.content}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, content: e.target.value }))
+          }
+          className="min-h-[120px]"
+        />
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-2 justify-end">
+        {onCancel && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Cancel
+          </Button>
+        )}
+        <Button type="submit" disabled={submitting}>
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {existingReview ? "Updating..." : "Posting..."}
+            </>
+          ) : existingReview ? (
+            "Update Review"
+          ) : (
+            "Post Review"
+          )}
+        </Button>
+      </div>
+    </form>
+  );
+
+  return isInDialog ? (
+    <div className="space-y-4">{formContent}</div>
+  ) : (
     <Card>
       <CardHeader>
         <CardTitle>
@@ -208,129 +342,7 @@ export function BeachReviewForm({
           {beachName}
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Star Ratings */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {renderStarRating(
-              "overall_rating",
-              "Overall Experience",
-              <Star className="h-4 w-4" />
-            )}
-            {renderStarRating(
-              "wave_quality_rating",
-              "Wave Quality",
-              <Star className="h-4 w-4" />
-            )}
-            {renderStarRating(
-              "crowd_density_rating",
-              "Crowd Level",
-              <Star className="h-4 w-4" />
-            )}
-            {renderStarRating(
-              "parking_rating",
-              "Parking",
-              <Star className="h-4 w-4" />
-            )}
-            {renderStarRating(
-              "accessibility_rating",
-              "Accessibility",
-              <Star className="h-4 w-4" />
-            )}
-          </div>
-
-          {/* Visit Date */}
-          <div className="space-y-2">
-            <Label htmlFor="visit-date">Visit Date (Optional)</Label>
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !formData.visit_date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.visit_date ? (
-                    format(formData.visit_date, "PPP")
-                  ) : (
-                    <span>When did you visit?</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={formData.visit_date}
-                  onSelect={(date) => {
-                    setFormData((prev) => ({ ...prev, visit_date: date }));
-                    setCalendarOpen(false);
-                  }}
-                  disabled={(date) =>
-                    date > new Date() || date < new Date("1900-01-01")
-                  }
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="title">Review Title</Label>
-            <Input
-              id="title"
-              placeholder="Summarize your experience..."
-              value={formData.title}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, title: e.target.value }))
-              }
-              maxLength={200}
-            />
-          </div>
-
-          {/* Content */}
-          <div className="space-y-2">
-            <Label htmlFor="content">Your Review</Label>
-            <Textarea
-              id="content"
-              placeholder="Share your detailed experience at this beach..."
-              value={formData.content}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, content: e.target.value }))
-              }
-              className="min-h-[120px]"
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2 justify-end">
-            {onCancel && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-            )}
-            <Button type="submit" disabled={submitting}>
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {existingReview ? "Updating..." : "Posting..."}
-                </>
-              ) : existingReview ? (
-                "Update Review"
-              ) : (
-                "Post Review"
-              )}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
+      <CardContent>{formContent}</CardContent>
     </Card>
   );
 }

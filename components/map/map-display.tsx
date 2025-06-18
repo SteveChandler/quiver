@@ -60,7 +60,7 @@ export function MapDisplay({
           src={getStaticMapImageUrl(
             selectedBeach?.latitude || userLocation?.lat || OCEAN_BEACH_LAT,
             selectedBeach?.longitude || userLocation?.lng || OCEAN_BEACH_LNG,
-            { width: 800, height: 600, zoom: 12 }
+            { width: 800, height: 400, zoom: 12 }
           )}
           alt="Beach locations map"
           latitude={

@@ -5,24 +5,27 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Star, MapPin, Waves, Users, Car, Loader2 } from "lucide-react";
-import { ForecastCard } from "@/components/forecast-card";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { BeachHeader } from "@/components/beach-detail/beach-header";
 import { BeachHero } from "@/components/beach-detail/beach-hero";
 import { BeachQuickActions } from "@/components/beach-detail/beach-quick-actions";
-import { TodaysForecast } from "@/components/beach-detail/todays-forecast";
-import { BeachCommunity } from "@/components/beach-detail/beach-community";
+
 import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
 import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import Link from "next/link";
 import { useEnhancedBeachData } from "@/hooks/use-enhanced-beach-data";
 import { useBeachReviews } from "@/hooks/use-beach-reviews";
 import type { BeachReviewWithUser } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
-import { dateUtils } from "@/lib/utils/date-utils";
 
 interface BeachDetailViewProps {
   id: string;
@@ -30,9 +33,6 @@ interface BeachDetailViewProps {
 
 export function BeachDetailView({ id }: BeachDetailViewProps) {
   const { user } = useAuth();
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  ); // Today's date
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [editingReview, setEditingReview] =
     useState<BeachReviewWithUser | null>(null);
@@ -53,16 +53,6 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
     userId: user?.id,
     immediate: false, // We'll load reviews when the reviews tab is opened
   });
-
-  // Get forecasts for selected date
-  const selectedDateForecasts = forecasts.filter(
-    (f) => f.forecast_date === selectedDate
-  );
-
-  // Get today's forecast for prominent display
-  const todaysForecast = forecasts.find(
-    (f) => f.forecast_date === new Date().toISOString().split("T")[0]
-  );
 
   // Review handlers
   const handleWriteReview = () => {
@@ -136,83 +126,13 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
           defaultDays={10}
         />
 
-        {/* Community Section */}
-        <BeachCommunity
-          beach={beach}
-          sessions={sessions || []}
-          isLoading={sessionsLoading}
-          isAuthenticated={!!user}
-        />
-
         {/* Additional Tabs */}
-        <Tabs defaultValue="forecast" className="space-y-4">
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="forecast">Forecast</TabsTrigger>
+        <Tabs defaultValue="reviews" className="space-y-4">
+          <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="reviews">Reviews</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="gallery">Gallery</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="forecast" className="space-y-4">
-            {forecastDates.length > 0 ? (
-              <>
-                <div className="grid grid-cols-3 gap-2 overflow-x-auto pb-2">
-                  {forecastDates.slice(0, 5).map((date) => (
-                    <Card
-                      key={date}
-                      className={`cursor-pointer ${
-                        selectedDate === date ? "border-primary" : ""
-                      }`}
-                      onClick={() => setSelectedDate(date)}
-                    >
-                      <CardContent className="p-3">
-                        <div className="text-center">
-                          <p className="text-sm text-muted-foreground">
-                            {dateUtils.getRelativeDayName(date)}
-                          </p>
-                          <p className="text-lg font-medium">
-                            {new Date(date).toLocaleDateString("en-US", {
-                              day: "numeric",
-                            })}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                {selectedDateForecasts.length > 0 ? (
-                  selectedDateForecasts.map((forecast) => (
-                    <ForecastCard
-                      key={forecast.id}
-                      beachName={dateUtils.formatForecastTime(
-                        forecast.forecast_date,
-                        forecast.forecast_time
-                      )}
-                      waveHeight={forecast.wave_height}
-                      waterTemp={forecast.water_temp}
-                      windSpeed={forecast.wind_speed}
-                      tide={forecast.tide || "Unknown"}
-                      time={dateUtils.formatForecastTime(
-                        forecast.forecast_date,
-                        forecast.forecast_time
-                      )}
-                      windDirection={forecast.wind_direction || undefined}
-                      weatherCondition={forecast.weather_condition || undefined}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No forecast data available for this date
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No forecast data available
-              </div>
-            )}
-          </TabsContent>
 
           <TabsContent value="reviews" className="space-y-6">
             <BeachReviewSummary
@@ -371,12 +291,22 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingReview ? "Edit Your Review" : "Write a Review"} for{" "}
+              {beach?.name || "Beach"}
+            </DialogTitle>
+            <DialogDescription>
+              Share your experience and help other surfers discover great spots.
+            </DialogDescription>
+          </DialogHeader>
           <BeachReviewForm
             beachId={beach.id}
             beachName={beach.name}
-            existingReview={editingReview}
+            existingReview={editingReview || undefined}
             onSuccess={handleReviewSuccess}
             onCancel={() => setReviewDialogOpen(false)}
+            isInDialog={true}
           />
         </DialogContent>
       </Dialog>
