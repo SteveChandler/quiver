@@ -163,6 +163,30 @@ export type SessionWithDetails = Session & {
   comments_count?: number;
 };
 
+export type BeachReview = {
+  id: string;
+  beach_id: string;
+  user_id: string;
+  overall_rating: number; // 1-5 stars
+  wave_quality_rating: number; // 1-5 stars
+  crowd_density_rating: number; // 1-5 stars
+  parking_rating: number; // 1-5 stars
+  accessibility_rating: number; // 1-5 stars
+  title: string;
+  content: string;
+  visit_date?: string; // When they visited the beach
+  created_at: string;
+  updated_at: string;
+};
+
+export type BeachReviewWithUser = BeachReview & {
+  user: {
+    full_name: string;
+    avatar_url: string | null;
+    email: string | null;
+  };
+};
+
 // Database schema with tables
 export type Database = {
   public: {
@@ -201,6 +225,11 @@ export type Database = {
         Row: Profile;
         Insert: Omit<Profile, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>;
+      };
+      beach_reviews: {
+        Row: BeachReview;
+        Insert: Omit<BeachReview, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<BeachReview, "id" | "created_at" | "updated_at">>;
       };
     };
     Enums: {

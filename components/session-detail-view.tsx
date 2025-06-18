@@ -78,7 +78,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     try {
       const result = await deleteSession(id, user.id);
       if (result.success) {
-        router.push("/sessions");
+        router.push("/profile");
       } else {
         setError("Failed to delete session");
       }
@@ -103,7 +103,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
       <div className="flex-1 flex flex-col">
         <header className="sticky top-0 z-10 bg-background border-b">
           <div className="container flex items-center h-16 px-4">
-            <Link href="/sessions" className="mr-2">
+            <Link href="/profile" className="mr-2">
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <h1 className="text-xl font-bold">Session Details</h1>
@@ -115,7 +115,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           </Alert>
           <div className="mt-4">
             <Button asChild>
-              <Link href="/sessions">Back to Sessions</Link>
+              <Link href="/profile">Back to Profile</Link>
             </Button>
           </div>
         </main>
@@ -142,7 +142,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
       <header className="sticky top-0 z-10 bg-background border-b">
         <div className="container flex items-center justify-between h-16 px-4">
           <div className="flex items-center">
-            <Link href="/sessions" className="mr-2">
+            <Link href="/profile" className="mr-2">
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <h1 className="text-xl font-bold">Session Details</h1>

@@ -28,13 +28,25 @@ export function HomeScreen() {
     const loadProfile = async () => {
       if (user) {
         try {
-          const result = await getProfile(user.id);
+          // Add a timeout wrapper
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Profile loading timeout")),
+              10000
+            )
+          );
+
+          const profilePromise = getProfile(user.id);
+
+          const result = await Promise.race([profilePromise, timeoutPromise]);
           if (result.success && result.data) {
             setProfile(result.data as Profile);
           }
         } catch (error) {
           console.error("Error loading profile:", error);
         }
+      } else {
+        setProfile(null);
       }
     };
 
@@ -159,7 +171,7 @@ export function HomeScreen() {
           </TabsList>
 
           <TabsContent value="forecast">
-            <ForecastTab />
+            <ForecastTab profile={profile} />
           </TabsContent>
 
           <TabsContent value="nearby">

@@ -88,7 +88,7 @@ export function RecentSessionsList({
         <Button
           variant="ghost"
           className="w-full"
-          onClick={() => router.push("/sessions")}
+          onClick={() => router.push("/profile")}
         >
           View All Sessions
           <ArrowRight className="ml-1 h-4 w-4" />

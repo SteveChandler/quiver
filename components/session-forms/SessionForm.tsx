@@ -158,7 +158,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       }
 
       // Handle completion
-      router.push("/sessions");
+      router.push("/profile");
     } catch (error) {
       console.error("Error saving session:", error);
       toast.error(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,14 +12,16 @@ import { BeachHero } from "@/components/beach-detail/beach-hero";
 import { BeachQuickActions } from "@/components/beach-detail/beach-quick-actions";
 import { TodaysForecast } from "@/components/beach-detail/todays-forecast";
 import { BeachCommunity } from "@/components/beach-detail/beach-community";
+import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
+import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
+import { BeachReviewForm } from "@/components/beach/beach-review-form";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import Link from "next/link";
-import { getBeachById } from "@/actions/beach-actions";
-import { getBeachForecasts } from "@/actions/forecast-actions";
-import { getSessionsByBeach } from "@/actions/session-actions";
-import type { Beach, Forecast, SessionWithDetails } from "@/types/database";
+import { useEnhancedBeachData } from "@/hooks/use-enhanced-beach-data";
+import { useBeachReviews } from "@/hooks/use-beach-reviews";
+import type { BeachReviewWithUser } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { dateUtils } from "@/lib/utils/date-utils";
 
 interface BeachDetailViewProps {
@@ -31,44 +33,26 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   ); // Today's date
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [editingReview, setEditingReview] =
+    useState<BeachReviewWithUser | null>(null);
 
-  // Memoize fetch functions to prevent infinite loops
-  const fetchBeachData = useCallback(async () => {
-    const [beachResult, forecastsResult] = await Promise.all([
-      getBeachById(id),
-      getBeachForecasts(id),
-    ]);
-
-    return {
-      beach: beachResult.success ? beachResult.data : null,
-      forecasts: forecastsResult.success ? forecastsResult.data || [] : [],
-    };
-  }, [id]);
-
-  const fetchSessions = useCallback(async () => {
-    const sessionsResult = await getSessionsByBeach(id);
-    return sessionsResult.success ? sessionsResult.data || [] : [];
-  }, [id]);
-
-  // Use consolidated data fetching hook
+  // Use enhanced beach data hook with caching
   const {
-    data: beachData,
+    beach,
+    forecasts,
+    sessions,
+    forecastDates,
     loading: beachLoading,
     error: beachError,
-  } = useDataFetcher(fetchBeachData, { immediate: true });
+    sessionsLoading,
+  } = useEnhancedBeachData(id);
 
-  const { data: sessions, loading: sessionsLoading } = useDataFetcher(
-    fetchSessions,
-    { immediate: true }
-  );
-
-  const beach = beachData?.beach;
-  const forecasts = beachData?.forecasts || [];
-
-  // Group forecasts by date
-  const forecastDates = [
-    ...new Set(forecasts.map((f) => f.forecast_date)),
-  ].sort();
+  // Use beach reviews hook with operations
+  const { refresh: refreshReviews } = useBeachReviews(id, {
+    userId: user?.id,
+    immediate: false, // We'll load reviews when the reviews tab is opened
+  });
 
   // Get forecasts for selected date
   const selectedDateForecasts = forecasts.filter(
@@ -79,6 +63,23 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
   const todaysForecast = forecasts.find(
     (f) => f.forecast_date === new Date().toISOString().split("T")[0]
   );
+
+  // Review handlers
+  const handleWriteReview = () => {
+    setEditingReview(null);
+    setReviewDialogOpen(true);
+  };
+
+  const handleEditReview = (review: BeachReviewWithUser) => {
+    setEditingReview(review);
+    setReviewDialogOpen(true);
+  };
+
+  const handleReviewSuccess = () => {
+    setReviewDialogOpen(false);
+    setEditingReview(null);
+    refreshReviews();
+  };
 
   if (beachLoading) {
     return (
@@ -145,8 +146,9 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
 
         {/* Additional Tabs */}
         <Tabs defaultValue="forecast" className="space-y-4">
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="forecast">Basic Forecast</TabsTrigger>
+          <TabsList className="grid grid-cols-4 w-full">
+            <TabsTrigger value="forecast">Forecast</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="gallery">Gallery</TabsTrigger>
           </TabsList>
@@ -210,6 +212,17 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                 No forecast data available
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="reviews" className="space-y-6">
+            <BeachReviewSummary
+              beachId={beach.id}
+              onWriteReview={handleWriteReview}
+            />
+            <BeachReviewsList
+              beachId={beach.id}
+              onEditReview={handleEditReview}
+            />
           </TabsContent>
 
           <TabsContent value="info" className="space-y-4">
@@ -315,7 +328,18 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                   </div>
                 </div>
 
-                <Button variant="outline" size="sm" className="w-full mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    // Switch to reviews tab
+                    const reviewsTab = document.querySelector(
+                      '[value="reviews"]'
+                    ) as HTMLButtonElement;
+                    reviewsTab?.click();
+                  }}
+                >
                   View All Reviews
                 </Button>
               </CardContent>
@@ -343,6 +367,19 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <BeachReviewForm
+            beachId={beach.id}
+            beachName={beach.name}
+            existingReview={editingReview}
+            onSuccess={handleReviewSuccess}
+            onCancel={() => setReviewDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

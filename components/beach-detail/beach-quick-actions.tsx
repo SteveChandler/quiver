@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Waves } from "lucide-react";
+import { FavoriteButton } from "@/components/favorite-button";
 import Link from "next/link";
 import type { Beach } from "@/types/database";
 
@@ -36,6 +37,7 @@ export function BeachQuickActions({
           Log Session
         </Button>
       </Link>
+      <FavoriteButton beachId={beach.id} variant="outline" size="default" />
     </div>
   );
 }

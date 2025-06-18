@@ -62,7 +62,7 @@ export async function getBeachCurrentForecast(beachId: string) {
 
     // Get today's forecast (best available for today)
     const today = new Date().toISOString().split("T")[0];
-    const todaysForecasts = data.forecastsByDate[today] || [];
+    const todaysForecasts = data.data?.forecastsByDate?.[today] || [];
 
     if (todaysForecasts.length > 0) {
       // Find the forecast closest to current time
