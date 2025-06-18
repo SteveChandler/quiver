@@ -1,0 +1,83 @@
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { UserPlus, UserMinus } from "lucide-react";
+import { useUserFollow } from "@/hooks/use-user-follow";
+import { useAuth } from "@/context/auth-context";
+
+interface FollowButtonProps {
+  userId: string;
+  initialFollowersCount?: number;
+  initialFollowingCount?: number;
+  variant?: "default" | "outline" | "secondary";
+  size?: "sm" | "md" | "lg";
+  showCounts?: boolean;
+  className?: string;
+}
+
+export function FollowButton({
+  userId,
+  initialFollowersCount = 0,
+  initialFollowingCount = 0,
+  variant = "default",
+  size = "md",
+  showCounts = false,
+  className = "",
+}: FollowButtonProps) {
+  const { user } = useAuth();
+  const {
+    following,
+    followersCount,
+    followingCount,
+    isLoading,
+    toggleFollow,
+    isToggling,
+  } = useUserFollow(userId, initialFollowersCount, initialFollowingCount);
+
+  // Don't show button for self or unauthenticated users
+  if (!user || user.id === userId) {
+    return null;
+  }
+
+  const buttonSize = size === "sm" ? "sm" : size === "lg" ? "lg" : "default";
+
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <Button
+        variant={following ? "outline" : variant}
+        size={buttonSize}
+        onClick={toggleFollow}
+        disabled={isLoading || isToggling}
+        className={`flex items-center gap-2 ${
+          following
+            ? "hover:bg-destructive hover:text-destructive-foreground"
+            : ""
+        }`}
+      >
+        {isToggling ? (
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        ) : following ? (
+          <UserMinus className="h-4 w-4" />
+        ) : (
+          <UserPlus className="h-4 w-4" />
+        )}
+        <span className="hidden sm:inline">
+          {following ? "Unfollow" : "Follow"}
+        </span>
+      </Button>
+
+      {showCounts && (
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="text-center">
+            <div className="font-medium">{followersCount}</div>
+            <div className="text-xs">Followers</div>
+          </div>
+          <div className="text-center">
+            <div className="font-medium">{followingCount}</div>
+            <div className="text-xs">Following</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

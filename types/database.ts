@@ -12,6 +12,8 @@ export type Profile = {
   default_beach_id: string | null;
   notification_session_reminders: boolean;
   notification_community_replies: boolean;
+  followers_count: number;
+  following_count: number;
   created_at: string;
   updated_at: string;
 };
@@ -132,6 +134,28 @@ export type SessionLike = {
   created_at: string;
 };
 
+export type UserFollow = {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  created_at: string;
+};
+
+export type UserActivity = {
+  id: string;
+  user_id: string;
+  activity_type: string;
+  entity_type: string;
+  entity_id: string;
+  metadata: Record<string, any>;
+  created_at: string;
+};
+
+export type ActivityFeedItem = UserActivity & {
+  user_name: string | null;
+  user_avatar: string | null;
+};
+
 export type Forecast = {
   id: string;
   beach_id: string;
@@ -230,6 +254,16 @@ export type Database = {
         Row: BeachReview;
         Insert: Omit<BeachReview, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<BeachReview, "id" | "created_at" | "updated_at">>;
+      };
+      user_follows: {
+        Row: UserFollow;
+        Insert: Omit<UserFollow, "id" | "created_at">;
+        Update: Partial<Omit<UserFollow, "id" | "created_at">>;
+      };
+      user_activities: {
+        Row: UserActivity;
+        Insert: Omit<UserActivity, "id" | "created_at">;
+        Update: Partial<Omit<UserActivity, "id" | "created_at">>;
       };
     };
     Enums: {
