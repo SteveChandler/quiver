@@ -4,8 +4,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BeachSearch } from "@/components/beach-search";
 import { ForecastPrompt } from "@/components/forecast-prompt";
+import type { Profile } from "@/types/database";
 
-export function ForecastTab() {
+interface ForecastTabProps {
+  profile?: Profile | null;
+}
+
+export function ForecastTab({ profile }: ForecastTabProps) {
   const [showForecastPrompt, setShowForecastPrompt] = useState(false);
 
   return (
@@ -33,7 +38,7 @@ export function ForecastTab() {
       {/* Show search interfaces */}
       {!showForecastPrompt ? (
         <div className="max-w-2xl mx-auto">
-          <BeachSearch />
+          <BeachSearch profile={profile} />
         </div>
       ) : (
         <div className="max-w-2xl mx-auto">

@@ -1,26 +1,31 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Star, MapPin, Waves, Users, Car, Loader2 } from "lucide-react";
-import { ForecastCard } from "@/components/forecast-card";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { BeachHeader } from "@/components/beach-detail/beach-header";
 import { BeachHero } from "@/components/beach-detail/beach-hero";
 import { BeachQuickActions } from "@/components/beach-detail/beach-quick-actions";
-import { TodaysForecast } from "@/components/beach-detail/todays-forecast";
-import { BeachCommunity } from "@/components/beach-detail/beach-community";
+
+import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
+import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
+import { BeachReviewForm } from "@/components/beach/beach-review-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import Link from "next/link";
-import { getBeachById } from "@/actions/beach-actions";
-import { getBeachForecasts } from "@/actions/forecast-actions";
-import { getSessionsByBeach } from "@/actions/session-actions";
-import type { Beach, Forecast, SessionWithDetails } from "@/types/database";
+import { useEnhancedBeachData } from "@/hooks/use-enhanced-beach-data";
+import { useBeachReviews } from "@/hooks/use-beach-reviews";
+import type { BeachReviewWithUser } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { dateUtils } from "@/lib/utils/date-utils";
 
 interface BeachDetailViewProps {
   id: string;
@@ -28,57 +33,43 @@ interface BeachDetailViewProps {
 
 export function BeachDetailView({ id }: BeachDetailViewProps) {
   const { user } = useAuth();
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  ); // Today's date
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [editingReview, setEditingReview] =
+    useState<BeachReviewWithUser | null>(null);
 
-  // Memoize fetch functions to prevent infinite loops
-  const fetchBeachData = useCallback(async () => {
-    const [beachResult, forecastsResult] = await Promise.all([
-      getBeachById(id),
-      getBeachForecasts(id),
-    ]);
-
-    return {
-      beach: beachResult.success ? beachResult.data : null,
-      forecasts: forecastsResult.success ? forecastsResult.data || [] : [],
-    };
-  }, [id]);
-
-  const fetchSessions = useCallback(async () => {
-    const sessionsResult = await getSessionsByBeach(id);
-    return sessionsResult.success ? sessionsResult.data || [] : [];
-  }, [id]);
-
-  // Use consolidated data fetching hook
+  // Use enhanced beach data hook with caching
   const {
-    data: beachData,
+    beach,
+    forecasts,
+    sessions,
+    forecastDates,
     loading: beachLoading,
     error: beachError,
-  } = useDataFetcher(fetchBeachData, { immediate: true });
+    sessionsLoading,
+  } = useEnhancedBeachData(id);
 
-  const { data: sessions, loading: sessionsLoading } = useDataFetcher(
-    fetchSessions,
-    { immediate: true }
-  );
+  // Use beach reviews hook with operations
+  const { refresh: refreshReviews } = useBeachReviews(id, {
+    userId: user?.id,
+    immediate: false, // We'll load reviews when the reviews tab is opened
+  });
 
-  const beach = beachData?.beach;
-  const forecasts = beachData?.forecasts || [];
+  // Review handlers
+  const handleWriteReview = () => {
+    setEditingReview(null);
+    setReviewDialogOpen(true);
+  };
 
-  // Group forecasts by date
-  const forecastDates = [
-    ...new Set(forecasts.map((f) => f.forecast_date)),
-  ].sort();
+  const handleEditReview = (review: BeachReviewWithUser) => {
+    setEditingReview(review);
+    setReviewDialogOpen(true);
+  };
 
-  // Get forecasts for selected date
-  const selectedDateForecasts = forecasts.filter(
-    (f) => f.forecast_date === selectedDate
-  );
-
-  // Get today's forecast for prominent display
-  const todaysForecast = forecasts.find(
-    (f) => f.forecast_date === new Date().toISOString().split("T")[0]
-  );
+  const handleReviewSuccess = () => {
+    setReviewDialogOpen(false);
+    setEditingReview(null);
+    refreshReviews();
+  };
 
   if (beachLoading) {
     return (
@@ -135,81 +126,23 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
           defaultDays={10}
         />
 
-        {/* Community Section */}
-        <BeachCommunity
-          beach={beach}
-          sessions={sessions || []}
-          isLoading={sessionsLoading}
-          isAuthenticated={!!user}
-        />
-
         {/* Additional Tabs */}
-        <Tabs defaultValue="forecast" className="space-y-4">
+        <Tabs defaultValue="reviews" className="space-y-4">
           <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="forecast">Basic Forecast</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="gallery">Gallery</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="forecast" className="space-y-4">
-            {forecastDates.length > 0 ? (
-              <>
-                <div className="grid grid-cols-3 gap-2 overflow-x-auto pb-2">
-                  {forecastDates.slice(0, 5).map((date) => (
-                    <Card
-                      key={date}
-                      className={`cursor-pointer ${
-                        selectedDate === date ? "border-primary" : ""
-                      }`}
-                      onClick={() => setSelectedDate(date)}
-                    >
-                      <CardContent className="p-3">
-                        <div className="text-center">
-                          <p className="text-sm text-muted-foreground">
-                            {dateUtils.getRelativeDayName(date)}
-                          </p>
-                          <p className="text-lg font-medium">
-                            {new Date(date).toLocaleDateString("en-US", {
-                              day: "numeric",
-                            })}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                {selectedDateForecasts.length > 0 ? (
-                  selectedDateForecasts.map((forecast) => (
-                    <ForecastCard
-                      key={forecast.id}
-                      beachName={dateUtils.formatForecastTime(
-                        forecast.forecast_date,
-                        forecast.forecast_time
-                      )}
-                      waveHeight={forecast.wave_height}
-                      waterTemp={forecast.water_temp}
-                      windSpeed={forecast.wind_speed}
-                      tide={forecast.tide || "Unknown"}
-                      time={dateUtils.formatForecastTime(
-                        forecast.forecast_date,
-                        forecast.forecast_time
-                      )}
-                      windDirection={forecast.wind_direction || undefined}
-                      weatherCondition={forecast.weather_condition || undefined}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No forecast data available for this date
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No forecast data available
-              </div>
-            )}
+          <TabsContent value="reviews" className="space-y-6">
+            <BeachReviewSummary
+              beachId={beach.id}
+              onWriteReview={handleWriteReview}
+            />
+            <BeachReviewsList
+              beachId={beach.id}
+              onEditReview={handleEditReview}
+            />
           </TabsContent>
 
           <TabsContent value="info" className="space-y-4">
@@ -315,7 +248,18 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
                   </div>
                 </div>
 
-                <Button variant="outline" size="sm" className="w-full mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    // Switch to reviews tab
+                    const reviewsTab = document.querySelector(
+                      '[value="reviews"]'
+                    ) as HTMLButtonElement;
+                    reviewsTab?.click();
+                  }}
+                >
                   View All Reviews
                 </Button>
               </CardContent>
@@ -343,6 +287,29 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingReview ? "Edit Your Review" : "Write a Review"} for{" "}
+              {beach?.name || "Beach"}
+            </DialogTitle>
+            <DialogDescription>
+              Share your experience and help other surfers discover great spots.
+            </DialogDescription>
+          </DialogHeader>
+          <BeachReviewForm
+            beachId={beach.id}
+            beachName={beach.name}
+            existingReview={editingReview || undefined}
+            onSuccess={handleReviewSuccess}
+            onCancel={() => setReviewDialogOpen(false)}
+            isInDialog={true}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

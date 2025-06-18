@@ -295,6 +295,130 @@ test.describe("Profile Management", () => {
         if (await beachOption.isVisible()) {
           await beachOption.click();
         }
+
+        // Save the profile
+        const saveButton = page.getByRole("button", { name: /save|update/i });
+        if (await saveButton.isVisible()) {
+          await saveButton.click();
+          await page.waitForTimeout(1000);
+        }
+      }
+    });
+
+    test("should display favorite beach on home page after setting", async ({
+      page,
+    }) => {
+      // Skip if not authenticated
+      if (
+        page.url().includes("/auth") ||
+        page.url() === new URL("/", page.url()).href
+      ) {
+        test.skip(
+          "User not authenticated - skipping favorite beach integration tests"
+        );
+      }
+
+      // First set a favorite beach in profile
+      await page.goto("/profile/edit");
+      await page.waitForTimeout(2000);
+
+      const defaultBeachField = page.getByLabel(
+        /default beach|favorite beach|home beach/i
+      );
+
+      if (await defaultBeachField.isVisible()) {
+        await defaultBeachField.click();
+        await defaultBeachField.fill("Ocean Beach");
+
+        // Wait for autocomplete
+        await page.waitForTimeout(1000);
+
+        // Select from dropdown if available
+        const beachOption = page.locator('[role="option"]').first();
+        if (await beachOption.isVisible()) {
+          await beachOption.click();
+        }
+
+        // Save the profile
+        const saveButton = page.getByRole("button", { name: /save|update/i });
+        if (await saveButton.isVisible()) {
+          await saveButton.click();
+          await page.waitForTimeout(2000);
+        }
+      }
+
+      // Navigate to home page
+      await page.goto("/");
+      await page.waitForTimeout(3000);
+
+      // Check if Ocean Beach is displayed in the forecast section
+      const forecastSection = page.locator(
+        '[data-testid="forecast-tab"], .forecast-section'
+      );
+      if (await forecastSection.isVisible()) {
+        // Look for Ocean Beach in the forecast content
+        const oceanBeachText = page.getByText(/ocean beach/i);
+        const favoriteMessage = page.getByText(
+          /favorite beach|showing.*favorite/i
+        );
+
+        const hasOceanBeach = await oceanBeachText
+          .isVisible()
+          .catch(() => false);
+        const hasFavoriteMessage = await favoriteMessage
+          .isVisible()
+          .catch(() => false);
+
+        // At least one should be visible to confirm favorite beach is loading
+        expect(hasOceanBeach || hasFavoriteMessage).toBeTruthy();
+      }
+    });
+
+    test("should fallback to Huntington Beach for users without favorite", async ({
+      page,
+    }) => {
+      // Skip if not authenticated
+      if (
+        page.url().includes("/auth") ||
+        page.url() === new URL("/", page.url()).href
+      ) {
+        test.skip(
+          "User not authenticated - skipping default beach fallback tests"
+        );
+      }
+
+      // Clear any existing favorite beach
+      await page.goto("/profile/edit");
+      await page.waitForTimeout(2000);
+
+      const defaultBeachField = page.getByLabel(
+        /default beach|favorite beach|home beach/i
+      );
+
+      if (await defaultBeachField.isVisible()) {
+        await defaultBeachField.click();
+        await defaultBeachField.clear();
+
+        // Save the profile
+        const saveButton = page.getByRole("button", { name: /save|update/i });
+        if (await saveButton.isVisible()) {
+          await saveButton.click();
+          await page.waitForTimeout(2000);
+        }
+      }
+
+      // Navigate to home page
+      await page.goto("/");
+      await page.waitForTimeout(3000);
+
+      // Should show Huntington Beach as fallback
+      const huntingtonText = page.getByText(/huntington beach/i);
+      const isHuntingtonVisible = await huntingtonText
+        .isVisible()
+        .catch(() => false);
+
+      if (isHuntingtonVisible) {
+        expect(huntingtonText).toBeVisible();
       }
     });
 

@@ -3,7 +3,15 @@ import { test, expect } from "@playwright/test";
 test.describe("Sessions View", () => {
   test.describe("Sessions List", () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto("/sessions");
+      // Sessions page now redirects to profile, so test profile sessions tab
+      await page.goto("/profile");
+      await page.waitForTimeout(1000);
+      // Try to click on sessions tab if it exists
+      const sessionsTab = page.getByRole("tab", { name: /sessions/i });
+      if (await sessionsTab.isVisible().catch(() => false)) {
+        await sessionsTab.click();
+        await page.waitForTimeout(1000);
+      }
     });
 
     test.fixme("should display sessions list correctly", async ({ page }) => {
@@ -424,7 +432,7 @@ test.describe("Sessions View", () => {
 
   test.describe("Session Analytics", () => {
     test("should display session analytics and trends", async ({ page }) => {
-      await page.goto("/sessions");
+      await page.goto("/profile");
       await page.waitForTimeout(2000);
 
       // Look for analytics or stats section
@@ -444,7 +452,7 @@ test.describe("Sessions View", () => {
     });
 
     test("should show session frequency over time", async ({ page }) => {
-      await page.goto("/sessions");
+      await page.goto("/profile");
       await page.waitForTimeout(2000);
 
       // Look for time-based analytics
@@ -465,7 +473,7 @@ test.describe("Sessions View", () => {
     });
 
     test("should display favorite beaches and spots", async ({ page }) => {
-      await page.goto("/sessions");
+      await page.goto("/profile");
       await page.waitForTimeout(2000);
 
       // Look for favorite spots analytics

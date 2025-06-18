@@ -15,6 +15,8 @@ import {
   Clock,
 } from "lucide-react";
 import { EnhancedForecastCard } from "./enhanced-forecast-card";
+import { useCachedApi } from "@/hooks/use-cached-api";
+import { forecastCache, RequestCache } from "@/lib/utils/request-cache";
 import { dateUtils } from "@/lib/utils/date-utils";
 import {
   formatForecastDate,
@@ -72,54 +74,66 @@ export function BeachesEnhancedForecast({
   showHeader = true,
   defaultDays = 10,
 }: BeachesEnhancedForecastProps) {
-  const [forecasts, setForecasts] = useState<EnhancedForecast[]>([]);
-  const [forecastsByDate, setForecastsByDate] = useState<
-    Record<string, EnhancedForecast[]>
-  >({});
-  const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [viewMode, setViewMode] = useState<"overview" | "detailed">("overview");
 
-  // Fetch enhanced forecasts
-  const fetchForecasts = async (showLoading = true) => {
+  // Cached API call for enhanced forecasts
+  const fetchForecasts = async () => {
     if (!beachId) {
-      setError("Beach ID is required");
-      setLoading(false);
-      return;
+      throw new Error("Beach ID is required");
     }
 
-    try {
-      if (showLoading) setLoading(true);
-      setError(null);
+    const response = await fetch(
+      `/api/forecasts/update-enhanced?beachId=${beachId}&days=${defaultDays}`
+    );
 
-      const response = await fetch(
-        `/api/forecasts/update-enhanced?beachId=${beachId}&days=${defaultDays}`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch enhanced forecasts");
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Failed to fetch forecasts");
-      }
-
-      setForecasts(data.forecasts || []);
-      setForecastsByDate(data.forecastsByDate || {});
-
-      // Set default selected date to today
-      setSelectedDate(getTodayDateString());
-    } catch (err) {
-      console.error("Error fetching forecasts:", err);
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      throw new Error("Failed to fetch enhanced forecasts");
     }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Failed to fetch forecasts");
+    }
+
+    return {
+      forecasts: data.data?.forecasts || [],
+      forecastsByDate: data.data?.forecastsByDate || {},
+    };
   };
+
+  const cacheKey = RequestCache.createKey(
+    "enhanced-forecasts",
+    beachId,
+    defaultDays
+  );
+
+  const {
+    data: forecastData,
+    loading,
+    error,
+    refetch,
+    invalidateCache,
+  } = useCachedApi(fetchForecasts, cacheKey, {
+    cache: forecastCache,
+    immediate: Boolean(beachId),
+  });
+
+  const forecasts = forecastData?.forecasts || [];
+  const forecastsByDate = forecastData?.forecastsByDate || {};
+
+  // Set default selected date when data loads
+  useEffect(() => {
+    if (
+      forecastsByDate &&
+      Object.keys(forecastsByDate).length > 0 &&
+      !selectedDate
+    ) {
+      setSelectedDate(getTodayDateString());
+    }
+  }, [forecastsByDate, selectedDate]);
 
   // Update forecasts
   const updateForecasts = async () => {
@@ -127,7 +141,6 @@ export function BeachesEnhancedForecast({
 
     try {
       setUpdating(true);
-      setError(null);
 
       const response = await fetch("/api/forecasts/update-enhanced", {
         method: "POST",
@@ -147,22 +160,16 @@ export function BeachesEnhancedForecast({
         throw new Error(data.error || "Failed to update forecasts");
       }
 
-      // Refresh the forecasts after update
-      await fetchForecasts(false);
+      // Invalidate cache and refresh
+      invalidateCache();
+      await refetch();
     } catch (err) {
       console.error("Error updating forecasts:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to update forecasts"
-      );
+      // Error is handled by the useCachedApi hook
     } finally {
       setUpdating(false);
     }
   };
-
-  // Load forecasts on mount
-  useEffect(() => {
-    fetchForecasts();
-  }, [beachId, defaultDays]);
 
   // Get available dates - limit to exactly 10 days from today
   const todayDateString = getTodayDateString();

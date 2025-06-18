@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ModeToggle } from "./mode-toggle";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { UI_TIMING } from "@/lib/constants/ui";
 
 export function BottomNavigation() {
   const pathname = usePathname();
@@ -34,11 +35,6 @@ export function BottomNavigation() {
       icon: Map,
     },
     {
-      name: "Sessions",
-      href: "/sessions",
-      icon: CalendarDays,
-    },
-    {
       name: "Profile",
       href: "/profile",
       icon: User,
@@ -58,10 +54,10 @@ export function BottomNavigation() {
       clearTimeout(hideTimerRef.current);
     }
 
-    // Set new timer to hide after 3 seconds of inactivity
+    // Set new timer to hide after configured delay of inactivity
     hideTimerRef.current = setTimeout(() => {
       setIsVisible(false);
-    }, 3000);
+    }, UI_TIMING.AUTO_HIDE_DELAY);
   }, [isTestMode]);
 
   const handleUserActivity = useCallback(() => {
