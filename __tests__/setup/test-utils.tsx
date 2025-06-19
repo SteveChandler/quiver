@@ -1,5 +1,5 @@
 import React, { ReactElement } from "react";
-import { render, RenderOptions } from "@testing-library/react";
+import { render, RenderOptions, screen } from "@testing-library/react";
 
 // Mock Next.js components commonly used in tests
 export const mockNextRouter = {
@@ -180,6 +180,160 @@ export const mockSession = {
   comments_count: 2,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
+};
+
+// Centralized mock beaches data
+export const createMockBeaches = (count: number = 6) =>
+  [
+    {
+      id: "beach-1",
+      name: "Ocean Beach",
+      latitude: 32.7503,
+      longitude: -117.2534,
+      location_text: "San Diego",
+      wave_quality_rating: 4.2,
+      crowd_density_rating: 3.8,
+      parking_rating: 3.5,
+      accessibility_rating: 4.0,
+    },
+    {
+      id: "beach-2",
+      name: "Mission Beach",
+      latitude: 32.7641,
+      longitude: -117.253,
+      location_text: "San Diego",
+      wave_quality_rating: 3.8,
+      crowd_density_rating: 4.2,
+      parking_rating: 3.0,
+      accessibility_rating: 4.5,
+    },
+    {
+      id: "beach-3",
+      name: "La Jolla Cove",
+      latitude: 32.8509,
+      longitude: -117.2713,
+      location_text: "La Jolla",
+      wave_quality_rating: 4.5,
+      crowd_density_rating: 4.0,
+      parking_rating: 2.5,
+      accessibility_rating: 3.5,
+    },
+    {
+      id: "beach-4",
+      name: "Sunset Cliffs",
+      latitude: 32.7337,
+      longitude: -117.2553,
+      location_text: "Point Loma",
+      wave_quality_rating: 4.8,
+      crowd_density_rating: 3.2,
+      parking_rating: 2.8,
+      accessibility_rating: 3.0,
+    },
+    {
+      id: "beach-5",
+      name: "Windansea Beach",
+      latitude: 32.8276,
+      longitude: -117.2797,
+      location_text: "La Jolla",
+      wave_quality_rating: 4.6,
+      crowd_density_rating: 3.5,
+      parking_rating: 3.2,
+      accessibility_rating: 3.8,
+    },
+    {
+      id: "beach-6",
+      name: "Pacific Beach",
+      latitude: 32.7797,
+      longitude: -117.2531,
+      location_text: "San Diego",
+      wave_quality_rating: 3.9,
+      crowd_density_rating: 4.5,
+      parking_rating: 3.1,
+      accessibility_rating: 4.2,
+    },
+  ].slice(0, count);
+
+// Create mock review stats
+export const createMockReviewStats = (beachIds: string[]) =>
+  beachIds.reduce(
+    (acc, id, index) => ({
+      ...acc,
+      [id]: {
+        total_reviews: (index + 1) * 5,
+        average_overall: Math.round((3.5 + index * 0.3) * 10) / 10,
+        average_wave_quality: Math.round((4.0 + index * 0.2) * 10) / 10,
+        average_crowd_density: Math.round((3.0 + index * 0.4) * 10) / 10,
+        average_parking: Math.round((3.2 + index * 0.3) * 10) / 10,
+        average_accessibility: Math.round((4.0 + index * 0.1) * 10) / 10,
+      },
+    }),
+    {}
+  );
+
+// Reusable mock for useMultipleBeachReviews
+export const createMockUseMultipleBeachReviews = (overrides = {}) => ({
+  reviewStats: {},
+  loading: false,
+  error: null,
+  refresh: jest.fn(),
+  ...overrides,
+});
+
+// Common mock setups
+export const mockMapUtils = () => ({
+  getStaticMapImageUrl: jest.fn(() => "http://example.com/map.jpg"),
+  resolveBeachCoordinates: jest.fn((beach) => ({
+    latitude: beach.latitude,
+    longitude: beach.longitude,
+  })),
+});
+
+// Mock BeachCard component for tests
+export const mockBeachCard = () => ({
+  BeachCard: ({
+    name,
+    rating,
+    reviewCount,
+    distance,
+    onViewDetails,
+  }: {
+    name: string;
+    rating: number;
+    reviewCount: number;
+    distance: string;
+    onViewDetails?: () => void;
+  }) => (
+    <div data-testid={`beach-card-${name}`}>
+      <h3>{name}</h3>
+      <span data-testid="rating">{rating}</span>
+      <span data-testid="review-count">{reviewCount}</span>
+      <span data-testid="distance">{distance}</span>
+      {onViewDetails && <button onClick={onViewDetails}>View Details</button>}
+    </div>
+  ),
+});
+
+// Test assertion helpers
+export const assertBeachCardRendered = (
+  beachName: string,
+  expectedRating: number,
+  expectedReviewCount: number
+) => {
+  const card = screen.getByTestId(`beach-card-${beachName}`);
+  expect(card).toBeInTheDocument();
+  expect(card.querySelector('[data-testid="rating"]')).toHaveTextContent(
+    expectedRating.toString()
+  );
+  expect(card.querySelector('[data-testid="review-count"]')).toHaveTextContent(
+    expectedReviewCount.toString()
+  );
+};
+
+export const assertHookCalledWithBeachIds = (
+  mockHook: jest.Mock,
+  expectedIds: string[]
+) => {
+  expect(mockHook).toHaveBeenCalledWith(expectedIds);
 };
 
 // Utility functions for tests
