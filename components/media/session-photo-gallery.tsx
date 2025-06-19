@@ -240,6 +240,7 @@ export default function SessionPhotoGallery({
                     e.stopPropagation();
                     startEditingCaption(photo);
                   }}
+                  aria-label="Edit"
                 >
                   <Edit2 className="h-3 w-3" />
                 </Button>
@@ -252,6 +253,7 @@ export default function SessionPhotoGallery({
                     handleDeletePhoto(photo.id);
                   }}
                   disabled={deletingPhotoId === photo.id}
+                  aria-label="Delete"
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
@@ -297,6 +299,7 @@ export default function SessionPhotoGallery({
                       size="sm"
                       className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white"
                       onClick={() => navigateLightbox("prev")}
+                      aria-label="Previous"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
@@ -305,6 +308,7 @@ export default function SessionPhotoGallery({
                       size="sm"
                       className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white"
                       onClick={() => navigateLightbox("next")}
+                      aria-label="Next"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
@@ -317,6 +321,7 @@ export default function SessionPhotoGallery({
                   size="sm"
                   className="absolute top-2 right-2 bg-black/20 hover:bg-black/40 text-white"
                   onClick={closeLightbox}
+                  aria-label="Close"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -375,6 +380,7 @@ export default function SessionPhotoGallery({
                           variant="ghost"
                           size="sm"
                           onClick={() => startEditingCaption(currentPhoto)}
+                          aria-label="Edit caption"
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
