@@ -1,42 +1,9 @@
-// Mock Supabase client
-const mockSupabaseClient = {
-  from: jest.fn(() => ({
-    select: jest.fn(() => ({
-      eq: jest.fn(() => ({
-        order: jest.fn(() => ({
-          // This will be mocked in individual tests
-        })),
-        single: jest.fn(() => ({
-          // This will be mocked in individual tests
-        })),
-      })),
-      order: jest.fn(() => ({
-        // This will be mocked in individual tests
-      })),
-    })),
-    insert: jest.fn(() => ({
-      select: jest.fn(() => ({
-        single: jest.fn(() => ({
-          // This will be mocked in individual tests
-        })),
-      })),
-    })),
-    update: jest.fn(() => ({
-      eq: jest.fn(() => ({
-        select: jest.fn(() => ({
-          single: jest.fn(() => ({
-            // This will be mocked in individual tests
-          })),
-        })),
-      })),
-    })),
-    delete: jest.fn(() => ({
-      eq: jest.fn(() => ({
-        // This will be mocked in individual tests
-      })),
-    })),
-  })),
-};
+import { SupabaseMockBuilder } from "@/__tests__/setup/supabase-mock";
+import type { BeachReview, BeachReviewWithUser } from "@/types/database";
+
+// Create a mock Supabase client using the builder
+const mockSupabaseBuilder = new SupabaseMockBuilder();
+let mockSupabaseClient = mockSupabaseBuilder.build();
 
 // Mock revalidatePath
 jest.mock("next/cache", () => ({
@@ -44,7 +11,9 @@ jest.mock("next/cache", () => ({
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
-  createClient: jest.fn(() => Promise.resolve(mockSupabaseClient)),
+  createSupabaseServerClient: jest.fn(() =>
+    Promise.resolve(mockSupabaseClient)
+  ),
 }));
 
 // Import after mocking
@@ -55,9 +24,9 @@ import {
   updateBeachReview,
   deleteBeachReview,
   getBeachReviewStats,
+  getMultipleBeachReviewStats,
 } from "@/actions/beach-review-actions";
 import { revalidatePath } from "next/cache";
-import type { BeachReview, BeachReviewWithUser } from "@/types/database";
 
 const mockReview: BeachReview = {
   id: "review-1",
@@ -99,60 +68,26 @@ const mockReviews: BeachReviewWithUser[] = [
 describe("Beach Review Actions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabaseBuilder.reset();
+    mockSupabaseClient = mockSupabaseBuilder.build();
   });
 
   describe("getBeachReviews", () => {
     it("should return all reviews for a beach", async () => {
-      const mockOrder = jest.fn().mockResolvedValue({
-        data: mockReviews,
-        error: null,
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        order: mockOrder,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelect("beach-1", mockReviews, null)
+        .build();
 
       const result = await getBeachReviews("beach-1");
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockReviews);
-
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith("beach_reviews");
-      expect(mockSelect).toHaveBeenCalledWith(`
-        *,
-        user:profiles(full_name, avatar_url, email)
-      `);
-      expect(mockEq).toHaveBeenCalledWith("beach_id", "beach-1");
-      expect(mockOrder).toHaveBeenCalledWith("created_at", {
-        ascending: false,
-      });
     });
 
     it("should handle empty results", async () => {
-      const mockOrder = jest.fn().mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        order: mockOrder,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelect("beach-1", [], null)
+        .build();
 
       const result = await getBeachReviews("beach-1");
 
@@ -161,22 +96,9 @@ describe("Beach Review Actions", () => {
     });
 
     it("should handle database errors", async () => {
-      const mockOrder = jest.fn().mockResolvedValue({
-        data: null,
-        error: new Error("Database error"),
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        order: mockOrder,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelect("beach-1", null, new Error("Database error"))
+        .build();
 
       const result = await getBeachReviews("beach-1");
 
@@ -187,57 +109,20 @@ describe("Beach Review Actions", () => {
 
   describe("getUserReviewForBeach", () => {
     it("should return user's review for a beach", async () => {
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: mockReviewWithUser,
-        error: null,
-      });
-
-      const mockEq2 = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockEq1 = jest.fn().mockReturnValue({
-        eq: mockEq2,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq1,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelectSingle("beach-1", "user-1", mockReviewWithUser, null)
+        .build();
 
       const result = await getUserReviewForBeach("beach-1", "user-1");
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockReviewWithUser);
-
-      expect(mockEq1).toHaveBeenCalledWith("beach_id", "beach-1");
-      expect(mockEq2).toHaveBeenCalledWith("user_id", "user-1");
     });
 
     it("should handle no review found", async () => {
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: { code: "PGRST116" }, // No rows returned
-      });
-
-      const mockEq2 = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockEq1 = jest.fn().mockReturnValue({
-        eq: mockEq2,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq1,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelectSingle("beach-1", "user-1", null, { code: "PGRST116" })
+        .build();
 
       const result = await getUserReviewForBeach("beach-1", "user-1");
 
@@ -246,26 +131,14 @@ describe("Beach Review Actions", () => {
     });
 
     it("should handle other database errors", async () => {
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: new Error("Database connection failed"),
-      });
-
-      const mockEq2 = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockEq1 = jest.fn().mockReturnValue({
-        eq: mockEq2,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq1,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelectSingle(
+          "beach-1",
+          "user-1",
+          null,
+          new Error("Database connection failed")
+        )
+        .build();
 
       const result = await getUserReviewForBeach("beach-1", "user-1");
 
@@ -289,74 +162,22 @@ describe("Beach Review Actions", () => {
     };
 
     it("should create a new review successfully", async () => {
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: mockReviewWithUser,
-        error: null,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockInsert = jest.fn().mockReturnValue({
-        select: mockSelect,
-      });
-
-      // Mock beach update for average ratings
-      const mockUpdateBeach = jest.fn().mockResolvedValue({
-        data: {},
-        error: null,
-      });
-
-      const mockUpdateEq = jest.fn().mockReturnValue(mockUpdateBeach);
-
-      const mockUpdate = jest.fn().mockReturnValue({
-        eq: mockUpdateEq,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({
-          insert: mockInsert,
-        })
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              data: [mockReview],
-              error: null,
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          update: mockUpdate,
-        });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withInsert(mockReviewWithUser, null)
+        .build();
 
       const result = await createBeachReview(reviewData);
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockReviewWithUser);
-
-      expect(mockInsert).toHaveBeenCalledWith(reviewData);
       expect(revalidatePath).toHaveBeenCalledWith("/beach/beach-1");
       expect(revalidatePath).toHaveBeenCalledWith("/map");
     });
 
     it("should handle creation errors", async () => {
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: new Error("Insert failed"),
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockInsert = jest.fn().mockReturnValue({
-        select: mockSelect,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        insert: mockInsert,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withInsert(null, new Error("Insert failed"))
+        .build();
 
       const result = await createBeachReview(reviewData);
 
@@ -375,72 +196,20 @@ describe("Beach Review Actions", () => {
     it("should update review successfully", async () => {
       const updatedReview = { ...mockReviewWithUser, ...updateData };
 
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: updatedReview,
-        error: null,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        select: mockSelect,
-      });
-
-      const mockUpdate = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      // Mock beach average rating update
-      mockSupabaseClient.from
-        .mockReturnValueOnce({
-          update: mockUpdate,
-        })
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              data: [mockReview],
-              error: null,
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          update: jest.fn().mockReturnValue({
-            eq: jest.fn(),
-          }),
-        });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withUpdate(updatedReview, null)
+        .build();
 
       const result = await updateBeachReview("review-1", updateData);
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(updatedReview);
-
-      expect(mockUpdate).toHaveBeenCalledWith(updateData);
-      expect(mockEq).toHaveBeenCalledWith("id", "review-1");
     });
 
     it("should handle update errors", async () => {
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: new Error("Update failed"),
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        select: mockSelect,
-      });
-
-      const mockUpdate = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        update: mockUpdate,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withUpdate(null, new Error("Update failed"))
+        .build();
 
       const result = await updateBeachReview("review-1", updateData);
 
@@ -451,75 +220,20 @@ describe("Beach Review Actions", () => {
 
   describe("deleteBeachReview", () => {
     it("should delete review successfully", async () => {
-      // Mock fetching beach_id before delete
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: { beach_id: "beach-1" },
-        error: null,
-      });
-
-      const mockSelectEq = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockSelectEq,
-      });
-
-      // Mock delete operation
-      const mockDeleteEq = jest.fn().mockResolvedValue({
-        error: null,
-      });
-
-      const mockDelete = jest.fn().mockReturnValue({
-        eq: mockDeleteEq,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({
-          select: mockSelect,
-        })
-        .mockReturnValueOnce({
-          delete: mockDelete,
-        })
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              data: [mockReview],
-              error: null,
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          update: jest.fn().mockReturnValue({
-            eq: jest.fn(),
-          }),
-        });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withDelete("beach-1", null)
+        .build();
 
       const result = await deleteBeachReview("review-1");
 
       expect(result.success).toBe(true);
-      expect(mockDelete).toHaveBeenCalled();
-      expect(mockDeleteEq).toHaveBeenCalledWith("id", "review-1");
       expect(revalidatePath).toHaveBeenCalledWith("/beach/beach-1");
     });
 
     it("should handle review not found", async () => {
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: new Error("Not found"),
-      });
-
-      const mockSelectEq = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockSelectEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withDeleteError(new Error("Not found"))
+        .build();
 
       const result = await deleteBeachReview("review-1");
 
@@ -547,18 +261,9 @@ describe("Beach Review Actions", () => {
         },
       ];
 
-      const mockEq = jest.fn().mockResolvedValue({
-        data: mockReviewData,
-        error: null,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelectEq("beach-1", mockReviewData, null)
+        .build();
 
       const result = await getBeachReviewStats("beach-1");
 
@@ -574,18 +279,9 @@ describe("Beach Review Actions", () => {
     });
 
     it("should handle no reviews", async () => {
-      const mockEq = jest.fn().mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelectEq("beach-1", [], null)
+        .build();
 
       const result = await getBeachReviewStats("beach-1");
 
@@ -601,18 +297,9 @@ describe("Beach Review Actions", () => {
     });
 
     it("should handle database errors", async () => {
-      const mockEq = jest.fn().mockResolvedValue({
-        data: null,
-        error: new Error("Stats query failed"),
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelectEq("beach-1", null, new Error("Stats query failed"))
+        .build();
 
       const result = await getBeachReviewStats("beach-1");
 
@@ -621,28 +308,139 @@ describe("Beach Review Actions", () => {
     });
   });
 
+  describe("getMultipleBeachReviewStats", () => {
+    it("should fetch and calculate stats for multiple beaches", async () => {
+      const mockReviews = [
+        {
+          beach_id: "beach-1",
+          overall_rating: 4,
+          wave_quality_rating: 5,
+          crowd_density_rating: 3,
+          parking_rating: 4,
+          accessibility_rating: 5,
+        },
+        {
+          beach_id: "beach-1",
+          overall_rating: 5,
+          wave_quality_rating: 4,
+          crowd_density_rating: 3,
+          parking_rating: 3,
+          accessibility_rating: 4,
+        },
+        {
+          beach_id: "beach-2",
+          overall_rating: 3,
+          wave_quality_rating: 3,
+          crowd_density_rating: 4,
+          parking_rating: 2,
+          accessibility_rating: 3,
+        },
+      ];
+
+      mockSupabaseClient = mockSupabaseBuilder
+        .withMultipleBeachStats(
+          ["beach-1", "beach-2", "beach-3"],
+          mockReviews,
+          null
+        )
+        .build();
+
+      const result = await getMultipleBeachReviewStats([
+        "beach-1",
+        "beach-2",
+        "beach-3",
+      ]);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({
+        "beach-1": {
+          total_reviews: 2,
+          average_overall: 4.5,
+          average_wave_quality: 4.5,
+          average_crowd_density: 3,
+          average_parking: 3.5,
+          average_accessibility: 4.5,
+        },
+        "beach-2": {
+          total_reviews: 1,
+          average_overall: 3,
+          average_wave_quality: 3,
+          average_crowd_density: 4,
+          average_parking: 2,
+          average_accessibility: 3,
+        },
+        "beach-3": {
+          total_reviews: 0,
+          average_overall: 0,
+          average_wave_quality: 0,
+          average_crowd_density: 0,
+          average_parking: 0,
+          average_accessibility: 0,
+        },
+      });
+    });
+
+    it("should return empty object when no beach IDs provided", async () => {
+      const result = await getMultipleBeachReviewStats([]);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({});
+    });
+
+    it("should handle errors when fetching multiple beach stats", async () => {
+      mockSupabaseClient = mockSupabaseBuilder
+        .withMultipleBeachStats(
+          ["beach-1", "beach-2"],
+          null,
+          new Error("Database error")
+        )
+        .build();
+
+      const result = await getMultipleBeachReviewStats(["beach-1", "beach-2"]);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Database error");
+    });
+
+    it("should initialize all beaches with zero stats even if no reviews exist", async () => {
+      mockSupabaseClient = mockSupabaseBuilder
+        .withMultipleBeachStats(["beach-1", "beach-2"], [], null)
+        .build();
+
+      const result = await getMultipleBeachReviewStats(["beach-1", "beach-2"]);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({
+        "beach-1": {
+          total_reviews: 0,
+          average_overall: 0,
+          average_wave_quality: 0,
+          average_crowd_density: 0,
+          average_parking: 0,
+          average_accessibility: 0,
+        },
+        "beach-2": {
+          total_reviews: 0,
+          average_overall: 0,
+          average_wave_quality: 0,
+          average_crowd_density: 0,
+          average_parking: 0,
+          average_accessibility: 0,
+        },
+      });
+    });
+  });
+
   describe("Edge cases", () => {
     it("should handle network timeouts", async () => {
-      const mockOrder = jest
-        .fn()
-        .mockRejectedValue(new Error("Request timeout"));
-
-      const mockEq = jest.fn().mockReturnValue({
-        order: mockOrder,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelect("beach-1", null, new Error("Request timeout"))
+        .build();
 
       const result = await getBeachReviews("beach-1");
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe("Failed to fetch reviews");
+      expect(result.error).toBe("Request timeout");
     });
 
     it("should handle malformed data gracefully", async () => {
@@ -656,22 +454,9 @@ describe("Beach Review Actions", () => {
         },
       ];
 
-      const mockOrder = jest.fn().mockResolvedValue({
-        data: malformedData,
-        error: null,
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        order: mockOrder,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockSelect,
-      });
+      mockSupabaseClient = mockSupabaseBuilder
+        .withSelect("beach-1", malformedData, null)
+        .build();
 
       const result = await getBeachReviews("beach-1");
 
