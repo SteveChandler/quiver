@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { useCachedApi } from "@/hooks/use-cached-api";
 import {
   getBeachReviews,
@@ -276,11 +276,25 @@ export function useMultipleBeachReviews(beachIds: string[]) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Use ref to track last fetched beach IDs to prevent unnecessary refetches
+  const lastBeachIdsRef = useRef<string>("");
+
+  // Memoize and stringify the beach IDs to create a stable dependency
+  const beachIdsKey = useMemo(() => {
+    // Sort and stringify to create a stable key
+    return JSON.stringify([...beachIds].sort());
+  }, [beachIds]);
+
   const fetchMultipleStats = useCallback(async () => {
     if (beachIds.length === 0) {
       setReviewStats({});
       setLoading(false);
       return;
+    }
+
+    // Check if we've already fetched for these beach IDs
+    if (lastBeachIdsRef.current === beachIdsKey) {
+      return; // Skip if we've already fetched for these exact beach IDs
     }
 
     setLoading(true);
@@ -291,6 +305,7 @@ export function useMultipleBeachReviews(beachIds: string[]) {
 
       if (result.success) {
         setReviewStats(result.data);
+        lastBeachIdsRef.current = beachIdsKey; // Update the ref after successful fetch
       } else {
         setError(result.error || "Failed to fetch review stats");
       }
@@ -300,15 +315,20 @@ export function useMultipleBeachReviews(beachIds: string[]) {
     } finally {
       setLoading(false);
     }
-  }, [beachIds]);
+  }, [beachIds, beachIdsKey]); // Use beachIdsKey instead of beachIds directly
 
   const refresh = useCallback(() => {
+    // Reset the ref to force a refetch
+    lastBeachIdsRef.current = "";
     fetchMultipleStats();
   }, [fetchMultipleStats]);
 
   useEffect(() => {
-    fetchMultipleStats();
-  }, [fetchMultipleStats]);
+    // Only run if the beach IDs actually changed
+    if (lastBeachIdsRef.current !== beachIdsKey) {
+      fetchMultipleStats();
+    }
+  }, [beachIdsKey, fetchMultipleStats]);
 
   return {
     reviewStats,

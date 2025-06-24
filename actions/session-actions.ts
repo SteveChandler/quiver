@@ -1,6 +1,10 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  withAuthenticatedAction,
+  withServerAction,
+} from "@/lib/server-action-utils";
 import type {
   Session,
   SessionWithDetails,
@@ -17,11 +21,11 @@ type SessionInput = Omit<
 >;
 type BoardInput = Omit<Board, "id" | "created_at" | "updated_at" | "user_id">;
 
-export async function getUserSessions(userId: string) {
-  const supabase = await createSupabaseServerClient();
+export async function getUserSessions(userId: string, limit?: number) {
+  return withServerAction(async () => {
+    const supabase = await createSupabaseServerClient();
 
-  try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("sessions")
       .select(
         `
@@ -34,18 +38,18 @@ export async function getUserSessions(userId: string) {
       .eq("user_id", userId)
       .order("arrival_time", { ascending: false });
 
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
       throw error;
     }
 
-    return { success: true, data: data as SessionWithDetails[] };
-  } catch (error) {
-    console.error("Error fetching user sessions:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+    return data as SessionWithDetails[];
+  });
 }
 
 export async function getUserSessionsByDateRange(
@@ -279,9 +283,9 @@ export async function updateSessionForm(
 }
 
 export async function deleteSession(id: string, userId: string) {
-  const supabase = await createSupabaseServerClient();
+  return withServerAction(async () => {
+    const supabase = await createSupabaseServerClient();
 
-  try {
     // First, get the session to check if it has a board_id
     const { data: session, error: fetchError } = await supabase
       .from("sessions")
@@ -321,33 +325,15 @@ export async function deleteSession(id: string, userId: string) {
 
     revalidatePath("/sessions");
     revalidatePath("/profile");
-    return { success: true };
-  } catch (error) {
-    console.error("Error deleting session:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+    return true;
+  });
 }
 
 /**
  * Create a new logged (completed) surf session
  */
 export async function createLoggedSession(data: SessionInput, userId: string) {
-  const supabase = await createSupabaseServerClient();
-
-  try {
-    // Get the current user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      throw new Error("Authentication required");
-    }
-
+  return withAuthenticatedAction(async (user, supabase) => {
     // Verify the passed userId matches the authenticated user
     if (user.id !== userId) {
       throw new Error("User ID mismatch");
@@ -370,14 +356,8 @@ export async function createLoggedSession(data: SessionInput, userId: string) {
     }
 
     revalidatePath("/sessions");
-    return { success: true, data: session };
-  } catch (error) {
-    console.error("Error creating logged session:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+    return session;
+  });
 }
 
 /**

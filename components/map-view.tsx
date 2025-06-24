@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapHeader } from "@/components/map/map-header";
@@ -13,6 +13,9 @@ import type { Beach } from "@/types/database";
 
 export function MapView() {
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
+
+  // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
+  const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
 
   // Custom hooks for state management
   const {
@@ -37,20 +40,24 @@ export function MapView() {
     setSelectedBeach,
   } = useBeachSearch();
 
-  // Load beaches when location changes
-  const handleLocationUpdate = useCallback(
-    (lat: number, lng: number) => {
-      loadNearbyBeaches(lat, lng);
-    },
-    [loadNearbyBeaches]
-  );
-
-  // Load nearby beaches when user location is available
+  // Load nearby beaches when user location is available - prevent duplicate calls
   useEffect(() => {
-    if (userLocation) {
-      handleLocationUpdate(userLocation.lat, userLocation.lng);
+    if (!userLocation) return;
+
+    // Check if we've already loaded beaches for this location
+    const lastLocation = lastLocationRef.current;
+    if (
+      lastLocation &&
+      Math.abs(lastLocation.lat - userLocation.lat) < 0.001 &&
+      Math.abs(lastLocation.lng - userLocation.lng) < 0.001
+    ) {
+      return; // Same location, don't reload
     }
-  }, [userLocation, handleLocationUpdate]);
+
+    // Update the last location and load nearby beaches
+    lastLocationRef.current = userLocation;
+    loadNearbyBeaches(userLocation.lat, userLocation.lng);
+  }, [userLocation, loadNearbyBeaches]);
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
