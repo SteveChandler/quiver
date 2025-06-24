@@ -7,6 +7,7 @@ import { useBeachCardData } from "@/hooks/use-beach-card-data";
 import { beachNavigation } from "@/lib/navigation-utils";
 import { MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
 import { getStaticMapImageUrl, resolveBeachCoordinates } from "@/lib/map-utils";
+import { calculateDistance } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 
 // Ocean Beach, San Diego coordinates
@@ -55,7 +56,8 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
             OCEAN_BEACH_LAT,
             OCEAN_BEACH_LNG,
             coords.latitude,
-            coords.longitude
+            coords.longitude,
+            "miles"
           );
           distance = `${calculatedDistance.toFixed(1)} miles`;
         }

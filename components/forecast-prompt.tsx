@@ -17,6 +17,7 @@ import {
   OCEAN_BEACH_LAT,
   OCEAN_BEACH_LNG,
 } from "@/lib/client-fetch";
+import { calculateDistance } from "@/lib/utils/distance-utils";
 import type { Beach, Forecast } from "@/types/database";
 import { formatForecastTimeDetailed } from "@/lib/utils";
 
@@ -37,24 +38,6 @@ export function ForecastPrompt() {
 
   // Flag to prevent multiple initial loads
   const hasInitialLoaded = useRef(false);
-
-  // Calculate distance between two points using Haversine formula
-  const calculateDistance = useCallback(
-    (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-      const R = 3958.8; // Earth's radius in miles
-      const dLat = ((lat2 - lat1) * Math.PI) / 180;
-      const dLng = ((lng2 - lng1) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-          Math.cos((lat2 * Math.PI) / 180) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    },
-    []
-  );
 
   // Separate refresh function with no dependencies
   const refreshForecastById = useCallback(async (beachId: string) => {
@@ -188,19 +171,21 @@ export function ForecastPrompt() {
         );
 
         if (result.success && result.data && result.data.length > 0) {
-          // Sort beaches by distance
+          // Sort beaches by distance using centralized utility
           const sortedBeaches = [...result.data].sort((a, b) => {
             const distA = calculateDistance(
               latitude,
               longitude,
               a.latitude,
-              a.longitude
+              a.longitude,
+              "miles"
             );
             const distB = calculateDistance(
               latitude,
               longitude,
               b.latitude,
-              b.longitude
+              b.longitude,
+              "miles"
             );
             return distA - distB;
           });
@@ -214,7 +199,8 @@ export function ForecastPrompt() {
             latitude,
             longitude,
             nearestBeach.latitude,
-            nearestBeach.longitude
+            nearestBeach.longitude,
+            "miles"
           ).toFixed(1);
 
           setDebugInfo(
@@ -238,7 +224,7 @@ export function ForecastPrompt() {
         await fetchOceanBeachData();
       }
     },
-    [calculateDistance, fetchForecastForBeach, fetchOceanBeachData]
+    [fetchForecastForBeach, fetchOceanBeachData]
   );
 
   // Search for beaches by name - stable with no dependencies
@@ -569,6 +555,7 @@ export function ForecastPrompt() {
               )}
               windDirection={forecast.wind_direction || undefined}
               weatherCondition={forecast.weather_condition || undefined}
+              variant="legacy"
             />
 
             {/* Debug information for developers */}
@@ -606,6 +593,13 @@ export function ForecastPrompt() {
           </div>
         )}
       </CardContent>
+
+      <CardFooter className="bg-muted/20 px-6 py-4">
+        <div className="text-xs text-muted-foreground">
+          Enhanced forecast data from NOAA WaveWatch III, CO-OPS tidal
+          predictions, and real-time buoy conditions.
+        </div>
+      </CardFooter>
     </Card>
   );
 }

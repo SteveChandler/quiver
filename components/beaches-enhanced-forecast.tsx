@@ -14,7 +14,7 @@ import {
   MapPin,
   Clock,
 } from "lucide-react";
-import { EnhancedForecastCard } from "./enhanced-forecast-card";
+import { ForecastCard } from "./forecast-card";
 import { useCachedApi } from "@/hooks/use-cached-api";
 import { forecastCache, RequestCache } from "@/lib/utils/request-cache";
 import { dateUtils } from "@/lib/utils/date-utils";
@@ -135,295 +135,318 @@ export function BeachesEnhancedForecast({
     }
   }, [forecastsByDate, selectedDate]);
 
-  // Update forecasts
-  const updateForecasts = async () => {
-    if (!beachId) return;
-
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setUpdating(true);
     try {
-      setUpdating(true);
-
-      const response = await fetch("/api/forecasts/update-enhanced", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ beachId }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update forecasts");
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Failed to update forecasts");
-      }
-
-      // Invalidate cache and refresh
-      invalidateCache();
+      await invalidateCache();
       await refetch();
     } catch (err) {
-      console.error("Error updating forecasts:", err);
-      // Error is handled by the useCachedApi hook
+      console.error("Error refreshing forecasts:", err);
     } finally {
       setUpdating(false);
     }
   };
 
-  // Get available dates - limit to exactly 10 days from today
-  const todayDateString = getTodayDateString();
-  const allDates = Object.keys(forecastsByDate).sort();
-  const todayIndex = allDates.indexOf(todayDateString);
-  const availableDates =
-    todayIndex >= 0
-      ? allDates.slice(todayIndex, todayIndex + 10)
-      : allDates.slice(0, 10);
-  const selectedDateForecasts = forecastsByDate[selectedDate] || [];
+  // Get available dates and selected date forecasts
+  const availableDates = Object.keys(forecastsByDate).sort();
+  const selectedDateForecasts = selectedDate
+    ? forecastsByDate[selectedDate] || []
+    : [];
 
-  // Get today's best forecast summary
-  const todaysBest = (() => {
-    const todaysForecasts = forecastsByDate[todayDateString] || [];
-    return findBestForecastForDate(todaysForecasts, true);
-  })();
+  // Get today's best forecast
+  const todaysBest = isToday(selectedDate)
+    ? findBestForecastForDate(selectedDateForecasts, true)
+    : null;
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner message="Loading enhanced forecasts..." />;
   }
 
   if (error) {
     return (
+      <ErrorDisplay
+        title="Failed to Load Enhanced Forecasts"
+        message={error}
+        onRetry={refetch}
+      />
+    );
+  }
+
+  if (!beachId) {
+    return (
       <Card>
-        <CardContent className="p-6">
-          <ErrorDisplay error={error} onRetry={() => fetchForecasts()} />
+        <CardContent className="p-6 text-center">
+          <p className="text-muted-foreground">
+            Please select a beach to view enhanced forecasts
+          </p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
+    <Card>
       {showHeader && (
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Waves className="h-6 w-6 text-blue-600" />
-              10-Day Enhanced Forecast
-            </h2>
-            <p className="text-muted-foreground flex items-center gap-2 mt-1">
-              <MapPin className="h-4 w-4" />
-              {beachName}
-            </p>
-          </div>
-          <Button
-            onClick={updateForecasts}
-            disabled={updating}
-            size="sm"
-            variant="outline"
-          >
-            {updating ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
-            )}
-            Update Forecasts
-          </Button>
-        </div>
-      )}
-
-      {/* Today's Summary */}
-      {todaysBest && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-800">
-              <TrendingUp className="h-5 w-5" />
-              Today's Conditions
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Waves className="h-5 w-5 text-blue-600" />
+            <CardTitle className="text-lg">
+              Enhanced Forecast - {beachName}
             </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-blue-600">Wave Height</p>
-                <p className="font-bold text-lg">
-                  {todaysBest.wave_height || "No data"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-blue-600">Tide</p>
-                <p className="font-medium">{todaysBest.tide_status}</p>
-                <p className="text-sm text-muted-foreground">
-                  {todaysBest.tide_height}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-blue-600">Wind</p>
-                <p className="font-medium">{todaysBest.wind_speed}</p>
-                <p className="text-sm text-muted-foreground">
-                  {todaysBest.wind_direction}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-blue-600">Confidence</p>
-                <Badge
-                  className={getConfidenceColor(todaysBest.confidence_score)}
-                >
-                  {todaysBest.confidence_score}%
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={updating}
+            >
+              {updating ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
       )}
 
-      {/* View Mode Toggle */}
-      <div className="flex justify-between items-center">
-        <Tabs
-          value={viewMode}
-          onValueChange={(value) =>
-            setViewMode(value as "overview" | "detailed")
-          }
-        >
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="detailed">Detailed</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        <div className="text-sm text-muted-foreground flex items-center gap-2">
-          <Clock className="h-4 w-4" />
-          Last updated:{" "}
-          {forecasts.length > 0 &&
-            new Date(forecasts[0].updated_at).toLocaleString()}
-        </div>
-      </div>
-
-      {/* Date Navigation - 5x2 Grid */}
-      {availableDates.length > 0 && (
-        <div className="grid grid-cols-5 gap-2">
-          {availableDates.map((date) => {
-            const isSelected = date === selectedDate;
-            const dateObj = new Date(date);
-            const isTodayDate = isToday(date);
-
-            return (
-              <Button
-                key={date}
-                variant={isSelected ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDate(date)}
-                className={`h-auto py-2 flex flex-col ${
-                  isTodayDate ? "ring-2 ring-blue-500" : ""
-                }`}
-              >
-                <span className="text-xs">
-                  {isTodayDate
-                    ? "Today"
-                    : dateObj.toLocaleDateString([], { weekday: "short" })}
-                </span>
-                <span className="font-medium">
-                  {dateObj.toLocaleDateString([], { day: "numeric" })}
-                </span>
-                <span className="text-xs">
-                  {dateObj.toLocaleDateString([], { month: "short" })}
-                </span>
-              </Button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Forecast Display */}
-      {selectedDateForecasts.length > 0 ? (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            {isToday(selectedDate)
-              ? "Today's Forecast"
-              : new Date(selectedDate).toLocaleDateString([], {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-          </h3>
-
-          {viewMode === "overview" ? (
-            <div className="grid gap-3">
-              {/* For today, show only the best forecast. For other days, show all */}
-              {isToday(selectedDate) && todaysBest
-                ? [todaysBest].map((forecast) => (
-                    <EnhancedForecastCard
-                      key={forecast.id}
-                      forecast={forecast}
-                      variant="compact"
-                      showDate={false}
-                    />
-                  ))
-                : selectedDateForecasts.map((forecast) => (
-                    <EnhancedForecastCard
-                      key={forecast.id}
-                      forecast={forecast}
-                      variant="compact"
-                      showDate={false}
-                    />
-                  ))}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* For today, show only the best forecast. For other days, show all */}
-              {isToday(selectedDate) && todaysBest
-                ? [todaysBest].map((forecast) => (
-                    <EnhancedForecastCard
-                      key={forecast.id}
-                      forecast={forecast}
-                      variant="detailed"
-                      showDate={false}
-                    />
-                  ))
-                : selectedDateForecasts.map((forecast) => (
-                    <EnhancedForecastCard
-                      key={forecast.id}
-                      forecast={forecast}
-                      variant="detailed"
-                      showDate={false}
-                    />
-                  ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground">
-              No forecast data available for {selectedDate}
+      <CardContent className="space-y-6">
+        {forecasts.length === 0 ? (
+          <div className="text-center py-8">
+            <Waves className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Forecast Data</h3>
+            <p className="text-muted-foreground mb-4">
+              Enhanced forecast data is not available for this beach yet.
             </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Data Sources Info - Collapsible */}
-      <details className="mt-8">
-        <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-          View Data Sources
-        </summary>
-        <Card className="mt-2">
-          <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">
-              <p className="font-medium mb-2">Data Sources:</p>
-              <ul className="space-y-1 text-xs">
-                <li>• Wave forecasts: NOAA WaveWatch III Global Wave Model</li>
-                <li>
-                  • Tide predictions: NOAA Center for Operational Oceanographic
-                  Products and Services (CO-OPS)
-                </li>
-                <li>• Weather data: NOAA National Weather Service</li>
-                <li>• Real-time conditions: NDBC Buoy Network</li>
-              </ul>
+            <Button onClick={handleRefresh} disabled={updating}>
+              {updating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Generating Forecasts...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Generate Forecasts
+                </>
+              )}
+            </Button>
+          </div>
+        ) : (
+          <>
+            {/* Forecast Stats */}
+            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-center space-x-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {availableDates.length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Days</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {forecasts.length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Forecasts</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {Math.round(
+                      forecasts.reduce(
+                        (sum: number, f: EnhancedForecast) =>
+                          sum + (f.confidence_score || 0),
+                        0
+                      ) / forecasts.length
+                    )}
+                    %
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Avg Confidence
+                  </p>
+                </div>
+              </div>
+              <Badge
+                variant="secondary"
+                className="bg-blue-100 text-blue-800 border-blue-200"
+              >
+                Enhanced Data
+              </Badge>
             </div>
-          </CardContent>
-        </Card>
-      </details>
-    </div>
+
+            {/* Controls */}
+            <div className="flex justify-between items-center">
+              <Tabs
+                value={viewMode}
+                onValueChange={(value) =>
+                  setViewMode(value as "overview" | "detailed")
+                }
+              >
+                <TabsList>
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="detailed">Detailed</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Last updated:{" "}
+                {forecasts.length > 0 &&
+                  new Date(forecasts[0].updated_at).toLocaleString()}
+              </div>
+            </div>
+
+            {/* Date Navigation - 5x2 Grid */}
+            {availableDates.length > 0 && (
+              <div className="grid grid-cols-5 gap-2">
+                {availableDates.map((date) => {
+                  const isSelected = date === selectedDate;
+                  const dateObj = new Date(date);
+                  const isTodayDate = isToday(date);
+
+                  return (
+                    <Button
+                      key={date}
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedDate(date)}
+                      className={`h-auto py-2 flex flex-col ${
+                        isTodayDate ? "ring-2 ring-blue-500" : ""
+                      }`}
+                    >
+                      <span className="text-xs">
+                        {isTodayDate
+                          ? "Today"
+                          : dateObj.toLocaleDateString([], {
+                              weekday: "short",
+                            })}
+                      </span>
+                      <span className="font-medium">
+                        {dateObj.toLocaleDateString([], { day: "numeric" })}
+                      </span>
+                      <span className="text-xs">
+                        {dateObj.toLocaleDateString([], { month: "short" })}
+                      </span>
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Forecast Display */}
+            {selectedDateForecasts.length > 0 ? (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  {isToday(selectedDate)
+                    ? "Today's Forecast"
+                    : new Date(selectedDate).toLocaleDateString([], {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                </h3>
+
+                {viewMode === "overview" ? (
+                  <div className="grid gap-3">
+                    {/* For today, show only the best forecast. For other days, show all */}
+                    {isToday(selectedDate) && todaysBest
+                      ? [todaysBest].map((forecast: EnhancedForecast) => (
+                          <ForecastCard
+                            key={forecast.id}
+                            forecast={forecast}
+                            variant="compact"
+                            showDate={false}
+                            showBeachName={false}
+                          />
+                        ))
+                      : selectedDateForecasts.map(
+                          (forecast: EnhancedForecast) => (
+                            <ForecastCard
+                              key={forecast.id}
+                              forecast={forecast}
+                              variant="compact"
+                              showDate={false}
+                              showBeachName={false}
+                            />
+                          )
+                        )}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* For today, show only the best forecast. For other days, show all */}
+                    {isToday(selectedDate) && todaysBest
+                      ? [todaysBest].map((forecast: EnhancedForecast) => (
+                          <ForecastCard
+                            key={forecast.id}
+                            forecast={forecast}
+                            variant="detailed"
+                            showDate={false}
+                            showBeachName={false}
+                          />
+                        ))
+                      : selectedDateForecasts.map(
+                          (forecast: EnhancedForecast) => (
+                            <ForecastCard
+                              key={forecast.id}
+                              forecast={forecast}
+                              variant="detailed"
+                              showDate={false}
+                              showBeachName={false}
+                            />
+                          )
+                        )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <p className="text-muted-foreground">
+                    No forecast data available for {selectedDate}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Data Sources Info - Collapsible */}
+            <details className="group">
+              <summary className="cursor-pointer flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <TrendingUp className="h-4 w-4 transition-transform group-open:rotate-90" />
+                Enhanced Forecast Data Sources
+              </summary>
+              <div className="mt-3 p-4 bg-muted/30 rounded-lg text-sm space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h5 className="font-medium mb-1">Wave Data</h5>
+                    <ul className="text-muted-foreground space-y-1">
+                      <li>• NOAA WaveWatch III Global Model</li>
+                      <li>• Real-time NDBC Buoy Observations</li>
+                      <li>• Swell component analysis</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h5 className="font-medium mb-1">Weather & Tides</h5>
+                    <ul className="text-muted-foreground space-y-1">
+                      <li>• NOAA Weather Service API</li>
+                      <li>• CO-OPS Tidal Predictions</li>
+                      <li>• Real-time tidal observations</li>
+                    </ul>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground pt-2 border-t">
+                  Confidence scores are calculated based on data freshness,
+                  source reliability, and forecast horizon. Enhanced forecasts
+                  combine multiple data sources for improved accuracy.
+                </p>
+              </div>
+            </details>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

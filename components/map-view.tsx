@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapHeader } from "@/components/map/map-header";
@@ -8,6 +8,7 @@ import { MapContent } from "@/components/map/map-content";
 import { BeachList } from "@/components/map/beach-list";
 import { SelectedBeachCard } from "@/components/map/selected-beach-card";
 import { NearbyBeachScroll } from "@/components/map/nearby-beach-scroll";
+import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 
 export function MapView() {
@@ -24,7 +25,6 @@ export function MapView() {
   } = useGeolocation();
 
   const {
-    beaches,
     filteredBeaches,
     loading: beachLoading,
     searchQuery,
@@ -71,25 +71,19 @@ export function MapView() {
     }
   }, [clearSearch, userLocation, loadNearbyBeaches, getUserLocation]);
 
-  // Distance calculation function
+  // Distance calculation function using centralized utility
   const getDistanceFromUser = useCallback(
     (beachLat: number, beachLng: number): string => {
       if (!userLocation) return "Unknown distance";
-
-      // Simple distance calculation using Haversine formula
-      const R = 3958.8; // Earth's radius in miles
-      const dLat = ((beachLat - userLocation.lat) * Math.PI) / 180;
-      const dLng = ((beachLng - userLocation.lng) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((userLocation.lat * Math.PI) / 180) *
-          Math.cos((beachLat * Math.PI) / 180) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distance = R * c;
-
-      return `${distance.toFixed(1)} miles away`;
+      return (
+        calculateDistanceFormatted(
+          userLocation.lat,
+          userLocation.lng,
+          beachLat,
+          beachLng,
+          "miles"
+        ) + " away"
+      );
     },
     [userLocation]
   );

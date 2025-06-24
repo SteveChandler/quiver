@@ -27,6 +27,7 @@ export function TodaysForecast({ forecast }: TodaysForecastProps) {
           )}
           windDirection={forecast.wind_direction || undefined}
           weatherCondition={forecast.weather_condition || undefined}
+          variant="legacy"
         />
       ) : (
         <Card>

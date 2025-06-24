@@ -10,7 +10,7 @@ import type {
   MapImagePreset,
   MapImageOptions,
 } from "@/lib/constants/map-presets";
-import { useMultipleBeachReviews } from "@/hooks/use-beach-reviews";
+import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 
 interface BeachCardData {
@@ -26,138 +26,95 @@ interface BeachCardData {
 }
 
 interface UseBeachCardDataOptions {
-  /** Limit the number of beaches to process */
+  /** Limit the number of beaches processed */
   limit?: number;
   /** User location for distance calculations */
-  userLocation?: { lat: number; lng: number };
-  /** Function to calculate distance from user location */
-  calculateDistance?: (
-    userLat: number,
-    userLng: number,
-    beachLat: number,
-    beachLng: number
-  ) => string;
-  /** Default location text when no user location is available */
+  userLocation?: { latitude: number; longitude: number };
+  /** Custom distance calculation function */
+  calculateDistance?: (beach: Beach) => string;
+  /** Default location text when distance can't be calculated */
   defaultLocationText?: string;
-  /** Map image options - can be a preset name or custom options */
-  mapOptions?: MapImagePreset | MapImageOptions;
+  /** Map image options preset */
+  mapOptions?: MapImagePreset;
+  /** Additional map options */
+  customMapOptions?: Partial<MapImageOptions>;
 }
 
-// Default distance calculation using Haversine formula
-function defaultCalculateDistance(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): string {
-  const R = 3958.8; // Earth's radius in miles
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c;
-  return `${distance.toFixed(1)} miles`;
-}
-
-/**
- * Hook for preparing beach card data with reviews, distances, and map images
- */
 export function useBeachCardData(
   beaches: Beach[],
   options: UseBeachCardDataOptions = {}
-): {
-  beachCardData: BeachCardData[];
-  loading: boolean;
-  error: string | null;
-} {
+) {
   const {
     limit,
     userLocation,
-    calculateDistance = defaultCalculateDistance,
-    defaultLocationText = "San Diego",
-    mapOptions = MAP_PRESET_USAGE.BEACH_CARD_NEARBY,
+    calculateDistance: customCalculateDistance,
+    defaultLocationText = "Unknown location",
+    mapOptions = MAP_PRESET_USAGE.BEACH_CARD_DEFAULT,
+    customMapOptions = {},
   } = options;
 
-  // Apply limit if specified
-  const displayBeaches = useMemo(() => {
-    return limit ? beaches.slice(0, limit) : beaches;
-  }, [beaches, limit]);
-
-  // Get beach IDs for review data
-  const beachIds = useMemo(() => {
-    return displayBeaches.map((beach) => beach.id);
-  }, [displayBeaches]);
-
-  // Fetch review stats
-  const {
-    reviewStats,
-    loading: reviewsLoading,
-    error,
-  } = useMultipleBeachReviews(beachIds);
-
-  // Resolve map options from preset or use provided options
-  const resolvedMapOptions = useMemo(() => {
-    return getMapImageOptions(mapOptions);
-  }, [mapOptions]);
-
-  // Process beach data
   const beachCardData = useMemo(() => {
-    return displayBeaches.map((beach): BeachCardData => {
-      // Resolve coordinates
-      const coords = resolveBeachCoordinates(beach);
+    if (!beaches || beaches.length === 0) {
+      return [];
+    }
 
-      // Get review stats
-      const beachStats = reviewStats[beach.id];
-      const rating = beachStats?.average_overall || 0;
-      const reviewCount = beachStats?.total_reviews || 0;
+    // Apply limit if specified
+    const processBeaches = limit ? beaches.slice(0, limit) : beaches;
 
+    return processBeaches.map((beach): BeachCardData => {
       // Calculate distance
-      let distance = beach.location_text || defaultLocationText;
-      if (userLocation && coords) {
-        distance = calculateDistance(
-          userLocation.lat,
-          userLocation.lng,
-          coords.latitude,
-          coords.longitude
+      let distance = defaultLocationText;
+      if (customCalculateDistance) {
+        distance = customCalculateDistance(beach);
+      } else if (userLocation && beach.latitude && beach.longitude) {
+        distance = calculateDistanceFormatted(
+          userLocation.latitude,
+          userLocation.longitude,
+          beach.latitude,
+          beach.longitude
         );
       }
 
-      // Generate map image URL using resolved options
-      const mapImageUrl = getStaticMapImageUrl(
-        coords?.latitude,
-        coords?.longitude,
-        resolvedMapOptions
-      );
+      // Get coordinates for map generation
+      const coordinates = resolveBeachCoordinates(beach);
+
+      // Generate map image URL
+      const mapImageOptions = {
+        ...getMapImageOptions(mapOptions),
+        ...customMapOptions,
+      };
+
+      const mapImageUrl = getStaticMapImageUrl({
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        ...mapImageOptions,
+      });
 
       return {
         id: beach.id,
         name: beach.name,
-        rating,
-        reviewCount,
+        rating: 0, // Default rating when not available
+        reviewCount: 0, // Default review count when not available
         distance,
         mapImageUrl,
-        latitude: coords?.latitude,
-        longitude: coords?.longitude,
-        coordinates: coords,
+        latitude: beach.latitude,
+        longitude: beach.longitude,
+        coordinates: coordinates,
       };
     });
   }, [
-    displayBeaches,
-    reviewStats,
+    beaches,
+    limit,
     userLocation,
-    calculateDistance,
+    customCalculateDistance,
     defaultLocationText,
-    resolvedMapOptions,
+    mapOptions,
+    customMapOptions,
   ]);
 
   return {
     beachCardData,
-    loading: reviewsLoading,
-    error,
+    loading: false, // Since this is just data transformation
+    error: null,
   };
 }

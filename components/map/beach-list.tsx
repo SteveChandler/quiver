@@ -36,7 +36,7 @@ export function BeachList({
   const { beachCardData, loading: cardDataLoading } = useBeachCardData(
     filteredBeaches,
     {
-      userLocation,
+      userLocation: userLocation || undefined,
       calculateDistance: userLocation ? getDistanceFromUser : undefined,
       defaultLocationText: "San Diego",
       mapOptions: MAP_PRESET_USAGE.BEACH_CARD_LIST,
