@@ -10,40 +10,49 @@ import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 
 export function HeroSection() {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const nextVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    // Set loading state when video changes
-    setIsVideoLoading(true);
-    setVideoError(false);
-
-    const handleLoadStart = () => {
-      setIsVideoLoading(true);
-    };
-
     const handleCanPlay = () => {
-      setIsVideoLoading(false);
+      setIsInitialLoading(false);
       setVideoError(false);
+      setIsTransitioning(false);
+
       // Auto-play the video
       videoElement.play().catch(console.error);
     };
 
     const handleVideoError = () => {
       setVideoError(true);
-      setIsVideoLoading(false);
+      setIsInitialLoading(false);
+      setIsTransitioning(false);
     };
 
     const handleVideoEnd = () => {
-      setCurrentVideoIndex((prevIndex) => (prevIndex + 1) % HERO_VIDEOS.length);
+      // Start transition to next video
+      setIsTransitioning(true);
+
+      // Preload next video
+      const nextIndex = (currentVideoIndex + 1) % HERO_VIDEOS.length;
+      if (nextVideoRef.current) {
+        nextVideoRef.current.src = HERO_VIDEOS[nextIndex];
+        nextVideoRef.current.load();
+      }
+
+      // Short delay to allow preload, then switch
+      setTimeout(() => {
+        setCurrentVideoIndex(nextIndex);
+      }, 100);
     };
 
     // Add event listeners
-    videoElement.addEventListener("loadstart", handleLoadStart);
     videoElement.addEventListener("canplay", handleCanPlay);
     videoElement.addEventListener("error", handleVideoError);
     videoElement.addEventListener("ended", handleVideoEnd);
@@ -53,12 +62,20 @@ export function HeroSection() {
 
     // Cleanup function
     return () => {
-      videoElement.removeEventListener("loadstart", handleLoadStart);
       videoElement.removeEventListener("canplay", handleCanPlay);
       videoElement.removeEventListener("error", handleVideoError);
       videoElement.removeEventListener("ended", handleVideoEnd);
     };
-  }, [currentVideoIndex]); // Re-run when video index changes
+  }, [currentVideoIndex]);
+
+  // Preload next video
+  useEffect(() => {
+    if (nextVideoRef.current && !isInitialLoading) {
+      const nextIndex = (currentVideoIndex + 1) % HERO_VIDEOS.length;
+      nextVideoRef.current.src = HERO_VIDEOS[nextIndex];
+      nextVideoRef.current.load();
+    }
+  }, [currentVideoIndex, isInitialLoading]);
 
   return (
     <section className="relative h-screen flex items-center justify-center overflow-hidden">
@@ -67,30 +84,42 @@ export function HeroSection() {
         {/* Fallback background image */}
         <div
           className="absolute inset-0 w-full h-full bg-cover bg-center bg-[url('/placeholder.jpg')]"
-          style={{ zIndex: videoError || isVideoLoading ? 10 : 1 }}
+          style={{ zIndex: videoError || isInitialLoading ? 10 : 1 }}
         />
 
-        {/* Loading state */}
-        {isVideoLoading && !videoError && (
+        {/* Initial loading state - only show on first load */}
+        {isInitialLoading && !videoError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
           </div>
         )}
 
-        {/* Video element */}
+        {/* Main video element */}
         {!videoError && (
           <video
             ref={videoRef}
             key={currentVideoIndex}
             muted
             playsInline
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-opacity duration-300"
             poster="/placeholder.jpg"
-            style={{ zIndex: isVideoLoading ? 1 : 10 }}
+            style={{
+              zIndex: isInitialLoading || isTransitioning ? 1 : 10,
+              opacity: isTransitioning ? 0.7 : 1,
+            }}
           >
             <source src={HERO_VIDEOS[currentVideoIndex]} type="video/mp4" />
           </video>
         )}
+
+        {/* Hidden preload video for next video */}
+        <video
+          ref={nextVideoRef}
+          muted
+          playsInline
+          className="hidden"
+          preload="auto"
+        />
       </div>
 
       {/* Overlay */}
