@@ -7,6 +7,7 @@ import { useBeachCardData } from "@/hooks/use-beach-card-data";
 import { beachNavigation } from "@/lib/navigation-utils";
 import { MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
 import { getStaticMapImageUrl, resolveBeachCoordinates } from "@/lib/map-utils";
+import { useMultipleBeachReviews } from "@/hooks/use-beach-reviews";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 
@@ -20,6 +21,12 @@ interface NearbyTabProps {
 }
 
 export function NearbyTab({ beaches, loading }: NearbyTabProps) {
+  // Get the beach IDs for the beaches we'll display (first 5)
+  const displayBeaches = beaches.slice(0, 5);
+  const beachIds = displayBeaches.map((beach) => beach.id);
+  const { reviewStats, loading: reviewsLoading } =
+    useMultipleBeachReviews(beachIds);
+
   if (loading) {
     return (
       <div className="flex justify-center py-8">
@@ -38,7 +45,7 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      {beaches.slice(0, 5).map((beach) => {
+      {displayBeaches.map((beach) => {
         // Get beach coordinates using the unified resolution function
         const coords = resolveBeachCoordinates(beach);
 
@@ -62,14 +69,19 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
           distance = `${calculatedDistance.toFixed(1)} miles`;
         }
 
+        // Get real review stats for this beach
+        const beachStats = reviewStats[beach.id];
+        const rating = beachStats?.average_overall || 0;
+        const reviewCount = beachStats?.total_reviews || 0;
+
         return (
           <BeachCard
             key={beach.id}
             id={beach.id}
             name={beach.name}
             distance={distance}
-            rating={4.0}
-            reviewCount={Math.floor(Math.random() * 200) + 50}
+            rating={rating}
+            reviewCount={reviewCount}
             imageUrl={mapImageUrl}
             latitude={coords?.latitude}
             longitude={coords?.longitude}

@@ -3,8 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { BeachCard } from "@/components/beach-card";
 import { BeachCardListSkeleton } from "@/components/skeletons/beach-card-skeleton";
-import { useBeachCardData } from "@/hooks/use-beach-card-data";
-import { MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
+import { useMultipleBeachReviews } from "@/hooks/use-beach-reviews";
 import type { Beach } from "@/types/database";
 
 interface BeachListProps {
@@ -32,18 +31,12 @@ export function BeachList({
   onLoadBeaches,
   getDistanceFromUser,
 }: BeachListProps) {
-  // Use the centralized beach card data hook with standardized presets
-  const { beachCardData, loading: cardDataLoading } = useBeachCardData(
-    filteredBeaches,
-    {
-      userLocation: userLocation || undefined,
-      calculateDistance: userLocation ? getDistanceFromUser : undefined,
-      defaultLocationText: "San Diego",
-      mapOptions: MAP_PRESET_USAGE.BEACH_CARD_LIST,
-    }
-  );
+  // Fetch review stats for all beaches
+  const beachIds = filteredBeaches.map((beach) => beach.id);
+  const { reviewStats, loading: reviewsLoading } =
+    useMultipleBeachReviews(beachIds);
 
-  if (loading || cardDataLoading) {
+  if (loading) {
     return (
       <div className="flex-1 overflow-y-auto">
         <div className="p-4">
@@ -89,26 +82,35 @@ export function BeachList({
             )}
           </div>
         ) : (
-          beachCardData.map((beach) => {
-            // Find the original beach object to pass to onBeachSelect
-            const originalBeach = filteredBeaches.find(
-              (b) => b.id === beach.id
-            );
+          filteredBeaches.map((beach) => {
+            const beachStats = reviewStats[beach.id];
+            const rating = beachStats?.average_overall || 0;
+            const reviewCount = beachStats?.total_reviews || 0;
 
             return (
               <BeachCard
                 key={beach.id}
                 id={beach.id}
                 name={beach.name}
-                distance={beach.distance}
-                rating={beach.rating}
-                reviewCount={beach.reviewCount}
-                imageUrl={beach.mapImageUrl}
+                distance={
+                  userLocation
+                    ? getDistanceFromUser(beach.latitude, beach.longitude)
+                    : beach.location_text || "San Diego"
+                }
+                rating={rating}
+                reviewCount={reviewCount}
+                imageUrl={getStaticMapImageUrl(
+                  beach.latitude,
+                  beach.longitude,
+                  {
+                    width: 300,
+                    height: 200,
+                    zoom: 14,
+                  }
+                )}
                 latitude={beach.latitude}
                 longitude={beach.longitude}
-                onViewDetails={() =>
-                  originalBeach && onBeachSelect(originalBeach)
-                }
+                onViewDetails={() => onBeachSelect(beach)}
               />
             );
           })

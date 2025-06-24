@@ -3,9 +3,16 @@
 import { createSupabaseServerClient as createClient } from "@/lib/supabase/server";
 import type { BeachReview, BeachReviewWithUser } from "@/types/database";
 import { revalidatePath } from "next/cache";
+import { withErrorHandling, handleSupabaseError } from "@/lib/action-utils";
+import {
+  calculateReviewStats,
+  calculateBeachAverageRatings,
+  calculateMultipleBeachStats,
+  type ReviewStats,
+} from "@/lib/review-stats-utils";
 
 export async function getBeachReviews(beachId: string) {
-  try {
+  return withErrorHandling(async () => {
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -20,19 +27,15 @@ export async function getBeachReviews(beachId: string) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching beach reviews:", error);
-      return { success: false, error: error.message };
+      handleSupabaseError(error, "getBeachReviews");
     }
 
-    return { success: true, data: data as BeachReviewWithUser[] };
-  } catch (error) {
-    console.error("Error in getBeachReviews:", error);
-    return { success: false, error: "Failed to fetch reviews" };
-  }
+    return data as BeachReviewWithUser[];
+  }, "fetch reviews");
 }
 
 export async function getUserReviewForBeach(beachId: string, userId: string) {
-  try {
+  return withErrorHandling(async () => {
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -49,15 +52,11 @@ export async function getUserReviewForBeach(beachId: string, userId: string) {
 
     if (error && error.code !== "PGRST116") {
       // PGRST116 = no rows returned
-      console.error("Error fetching user review:", error);
-      return { success: false, error: error.message };
+      handleSupabaseError(error, "getUserReviewForBeach");
     }
 
-    return { success: true, data: data as BeachReviewWithUser | null };
-  } catch (error) {
-    console.error("Error in getUserReviewForBeach:", error);
-    return { success: false, error: "Failed to fetch user review" };
-  }
+    return data as BeachReviewWithUser | null;
+  }, "fetch user review");
 }
 
 export async function createBeachReview(reviewData: {
@@ -72,7 +71,7 @@ export async function createBeachReview(reviewData: {
   content: string;
   visit_date?: string;
 }) {
-  try {
+  return withErrorHandling(async () => {
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -87,8 +86,7 @@ export async function createBeachReview(reviewData: {
       .single();
 
     if (error) {
-      console.error("Error creating beach review:", error);
-      return { success: false, error: error.message };
+      handleSupabaseError(error, "createBeachReview");
     }
 
     // Update beach average ratings
@@ -98,11 +96,8 @@ export async function createBeachReview(reviewData: {
     revalidatePath(`/beach/${reviewData.beach_id}`);
     revalidatePath("/map");
 
-    return { success: true, data: data as BeachReviewWithUser };
-  } catch (error) {
-    console.error("Error in createBeachReview:", error);
-    return { success: false, error: "Failed to create review" };
-  }
+    return data as BeachReviewWithUser;
+  }, "create review");
 }
 
 export async function updateBeachReview(
@@ -118,7 +113,7 @@ export async function updateBeachReview(
     visit_date?: string;
   }>
 ) {
-  try {
+  return withErrorHandling(async () => {
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -134,8 +129,7 @@ export async function updateBeachReview(
       .single();
 
     if (error) {
-      console.error("Error updating beach review:", error);
-      return { success: false, error: error.message };
+      handleSupabaseError(error, "updateBeachReview");
     }
 
     // Update beach average ratings
@@ -147,15 +141,12 @@ export async function updateBeachReview(
       revalidatePath("/map");
     }
 
-    return { success: true, data: data as BeachReviewWithUser };
-  } catch (error) {
-    console.error("Error in updateBeachReview:", error);
-    return { success: false, error: "Failed to update review" };
-  }
+    return data as BeachReviewWithUser;
+  }, "update review");
 }
 
 export async function deleteBeachReview(reviewId: string) {
-  try {
+  return withErrorHandling(async () => {
     const supabase = await createClient();
 
     // First get the beach_id before deleting
@@ -166,7 +157,7 @@ export async function deleteBeachReview(reviewId: string) {
       .single();
 
     if (fetchError || !reviewData) {
-      return { success: false, error: "Review not found" };
+      throw new Error("Review not found");
     }
 
     const { error } = await supabase
@@ -175,8 +166,7 @@ export async function deleteBeachReview(reviewId: string) {
       .eq("id", reviewId);
 
     if (error) {
-      console.error("Error deleting beach review:", error);
-      return { success: false, error: error.message };
+      handleSupabaseError(error, "deleteBeachReview");
     }
 
     // Update beach average ratings
@@ -186,15 +176,12 @@ export async function deleteBeachReview(reviewId: string) {
     revalidatePath(`/beach/${reviewData.beach_id}`);
     revalidatePath("/map");
 
-    return { success: true };
-  } catch (error) {
-    console.error("Error in deleteBeachReview:", error);
-    return { success: false, error: "Failed to delete review" };
-  }
+    return true;
+  }, "delete review");
 }
 
 export async function getBeachReviewStats(beachId: string) {
-  try {
+  return withErrorHandling(async () => {
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -205,43 +192,34 @@ export async function getBeachReviewStats(beachId: string) {
       .eq("beach_id", beachId);
 
     if (error) {
-      console.error("Error fetching beach review stats:", error);
-      return { success: false, error: error.message };
+      handleSupabaseError(error, "getBeachReviewStats");
     }
 
-    if (!data || data.length === 0) {
-      return {
-        success: true,
-        data: {
-          total_reviews: 0,
-          average_overall: 0,
-          average_wave_quality: 0,
-          average_crowd_density: 0,
-          average_parking: 0,
-          average_accessibility: 0,
-        },
-      };
+    return calculateReviewStats(data || []);
+  }, "fetch review stats");
+}
+
+export async function getMultipleBeachReviewStats(beachIds: string[]) {
+  return withErrorHandling(async () => {
+    if (beachIds.length === 0) {
+      return {};
     }
 
-    const stats = {
-      total_reviews: data.length,
-      average_overall:
-        data.reduce((sum, r) => sum + r.overall_rating, 0) / data.length,
-      average_wave_quality:
-        data.reduce((sum, r) => sum + r.wave_quality_rating, 0) / data.length,
-      average_crowd_density:
-        data.reduce((sum, r) => sum + r.crowd_density_rating, 0) / data.length,
-      average_parking:
-        data.reduce((sum, r) => sum + r.parking_rating, 0) / data.length,
-      average_accessibility:
-        data.reduce((sum, r) => sum + r.accessibility_rating, 0) / data.length,
-    };
+    const supabase = await createClient();
 
-    return { success: true, data: stats };
-  } catch (error) {
-    console.error("Error in getBeachReviewStats:", error);
-    return { success: false, error: "Failed to fetch review stats" };
-  }
+    const { data, error } = await supabase
+      .from("beach_reviews")
+      .select(
+        "beach_id, overall_rating, wave_quality_rating, crowd_density_rating, parking_rating, accessibility_rating"
+      )
+      .in("beach_id", beachIds);
+
+    if (error) {
+      handleSupabaseError(error, "getMultipleBeachReviewStats");
+    }
+
+    return calculateMultipleBeachStats(data || [], beachIds);
+  }, "fetch multiple beach review stats");
 }
 
 // Helper function to update beach average ratings
@@ -260,19 +238,7 @@ async function updateBeachAverageRatings(beachId: string) {
       return;
     }
 
-    const averages = {
-      wave_quality_rating:
-        reviews.reduce((sum, r) => sum + r.wave_quality_rating, 0) /
-        reviews.length,
-      crowd_density_rating:
-        reviews.reduce((sum, r) => sum + r.crowd_density_rating, 0) /
-        reviews.length,
-      parking_rating:
-        reviews.reduce((sum, r) => sum + r.parking_rating, 0) / reviews.length,
-      accessibility_rating:
-        reviews.reduce((sum, r) => sum + r.accessibility_rating, 0) /
-        reviews.length,
-    };
+    const averages = calculateBeachAverageRatings(reviews);
 
     await supabase.from("beaches").update(averages).eq("id", beachId);
   } catch (error) {
