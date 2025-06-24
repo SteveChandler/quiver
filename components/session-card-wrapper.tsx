@@ -10,12 +10,14 @@ interface SessionCardWrapperProps {
   session: SessionWithDetails;
   isOwner?: boolean;
   showUserInfo?: boolean;
+  onUserClick?: (userId: string) => void;
 }
 
 export function SessionCardWrapper({
   session,
   isOwner = false,
   showUserInfo = true,
+  onUserClick,
 }: SessionCardWrapperProps) {
   const username = showUserInfo
     ? session.user?.full_name || "Anonymous Surfer"
@@ -35,6 +37,7 @@ export function SessionCardWrapper({
       comments={session.comments_count || 0}
       isOwner={isOwner}
       session={session}
+      onUserClick={onUserClick}
     />
   );
 }

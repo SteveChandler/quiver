@@ -26,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Use refs to prevent race conditions
   const initializingRef = useRef(false);
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
       initializingRef.current = false;
+      setIsInitialized(true);
     }
   };
 
@@ -88,50 +90,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Initialize auth state on mount
+  // Initialize auth state on mount - client-side only
   useEffect(() => {
     let mounted = true;
+    let subscription: any = null;
 
     const initializeAuth = async () => {
       if (initializingRef.current) return;
 
+      // Initial session check
       await refreshSession();
+
+      // Set up auth state change listener only after initial check
+      if (mounted) {
+        const {
+          data: { subscription: authSubscription },
+        } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+          if (!mounted) return;
+
+          console.log("Auth state change:", event);
+
+          // Handle the auth state change
+          switch (event) {
+            case "SIGNED_IN":
+            case "TOKEN_REFRESHED":
+              updateAuthState(newSession);
+              setIsLoading(false);
+              break;
+            case "SIGNED_OUT":
+              updateAuthState(null);
+              setupCompleteRef.current = false;
+              setIsLoading(false);
+              break;
+            case "USER_UPDATED":
+              if (newSession) {
+                updateAuthState(newSession);
+              }
+              setIsLoading(false);
+              break;
+            default:
+              // For other events, just update if we have a session
+              updateAuthState(newSession);
+              setIsLoading(false);
+          }
+        });
+
+        subscription = authSubscription;
+      }
     };
 
-    initializeAuth();
-
-    // Set up auth state change listener
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      if (!mounted) return;
-
-      // Handle the auth state change
-      switch (event) {
-        case "SIGNED_IN":
-        case "TOKEN_REFRESHED":
-          updateAuthState(newSession);
-          break;
-        case "SIGNED_OUT":
-          updateAuthState(null);
-          setupCompleteRef.current = false;
-          break;
-        case "USER_UPDATED":
-          if (newSession) {
-            updateAuthState(newSession);
-          }
-          break;
-        default:
-          // For other events, just update if we have a session
-          updateAuthState(newSession);
-      }
-
-      setIsLoading(false);
-    });
+    // Only run on client-side
+    if (typeof window !== "undefined") {
+      initializeAuth();
+    }
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, []);
 

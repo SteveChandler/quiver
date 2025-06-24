@@ -1,14 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { BeachCard } from "@/components/beach-card";
 import { useBeachCardData } from "@/hooks/use-beach-card-data";
 import { beachNavigation } from "@/lib/navigation-utils";
-import { MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
-import { getStaticMapImageUrl, resolveBeachCoordinates } from "@/lib/map-utils";
 import { useMultipleBeachReviews } from "@/hooks/use-beach-reviews";
-import { calculateDistance } from "@/lib/utils/distance-utils";
+import { prepareMultipleBeachCardData } from "@/lib/utils/beach-card-utils";
 import type { Beach } from "@/types/database";
 
 // Ocean Beach, San Diego coordinates
@@ -21,9 +20,15 @@ interface NearbyTabProps {
 }
 
 export function NearbyTab({ beaches, loading }: NearbyTabProps) {
-  // Get the beach IDs for the beaches we'll display (first 5)
-  const displayBeaches = beaches.slice(0, 5);
-  const beachIds = displayBeaches.map((beach) => beach.id);
+  // Memoize the display beaches to prevent unnecessary recalculations
+  const displayBeaches = useMemo(() => beaches.slice(0, 5), [beaches]);
+
+  // Memoize the beach IDs to ensure stable dependencies
+  const beachIds = useMemo(
+    () => displayBeaches.map((beach) => beach.id),
+    [displayBeaches]
+  );
+
   const { reviewStats, loading: reviewsLoading } =
     useMultipleBeachReviews(beachIds);
 
@@ -43,51 +48,29 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
     );
   }
 
+  const userLocation = { lat: OCEAN_BEACH_LAT, lng: OCEAN_BEACH_LNG };
+  const beachCardData = prepareMultipleBeachCardData(
+    displayBeaches,
+    userLocation,
+    reviewStats,
+    "BEACH_CARD_NEARBY"
+  );
+
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      {displayBeaches.map((beach) => {
-        // Get beach coordinates using the unified resolution function
-        const coords = resolveBeachCoordinates(beach);
-
-        // Generate the map image URL with same dimensions as Community tab
-        const mapImageUrl = getStaticMapImageUrl(
-          coords?.latitude,
-          coords?.longitude,
-          { width: 300, height: 200, zoom: 15 }
-        );
-
-        // Calculate actual distance if we have user location and beach coordinates
-        let distance = `${Math.floor(Math.random() * 20) + 1} miles`;
-        if (coords && OCEAN_BEACH_LAT && OCEAN_BEACH_LNG) {
-          const calculatedDistance = calculateDistance(
-            OCEAN_BEACH_LAT,
-            OCEAN_BEACH_LNG,
-            coords.latitude,
-            coords.longitude,
-            "miles"
-          );
-          distance = `${calculatedDistance.toFixed(1)} miles`;
-        }
-
-        // Get real review stats for this beach
-        const beachStats = reviewStats[beach.id];
-        const rating = beachStats?.average_overall || 0;
-        const reviewCount = beachStats?.total_reviews || 0;
-
-        return (
-          <BeachCard
-            key={beach.id}
-            id={beach.id}
-            name={beach.name}
-            distance={distance}
-            rating={rating}
-            reviewCount={reviewCount}
-            imageUrl={mapImageUrl}
-            latitude={coords?.latitude}
-            longitude={coords?.longitude}
-          />
-        );
-      })}
+      {beachCardData.map((beachData) => (
+        <BeachCard
+          key={beachData.id}
+          id={beachData.id}
+          name={beachData.name}
+          distance={beachData.distance}
+          rating={beachData.rating}
+          reviewCount={beachData.reviewCount}
+          imageUrl={beachData.mapImageUrl}
+          latitude={beachData.latitude}
+          longitude={beachData.longitude}
+        />
+      ))}
     </div>
   );
 }

@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { BeachCard } from "@/components/beach-card";
 import { BeachCardListSkeleton } from "@/components/skeletons/beach-card-skeleton";
 import { useMultipleBeachReviews } from "@/hooks/use-beach-reviews";
+import { prepareMultipleBeachCardData } from "@/lib/utils/beach-card-utils";
 import type { Beach } from "@/types/database";
 
 interface BeachListProps {
@@ -31,8 +33,12 @@ export function BeachList({
   onLoadBeaches,
   getDistanceFromUser,
 }: BeachListProps) {
-  // Fetch review stats for all beaches
-  const beachIds = filteredBeaches.map((beach) => beach.id);
+  // Memoize beach IDs to ensure stable dependencies
+  const beachIds = useMemo(
+    () => filteredBeaches.map((beach) => beach.id),
+    [filteredBeaches]
+  );
+
   const { reviewStats, loading: reviewsLoading } =
     useMultipleBeachReviews(beachIds);
 
@@ -82,38 +88,33 @@ export function BeachList({
             )}
           </div>
         ) : (
-          filteredBeaches.map((beach) => {
-            const beachStats = reviewStats[beach.id];
-            const rating = beachStats?.average_overall || 0;
-            const reviewCount = beachStats?.total_reviews || 0;
-
-            return (
-              <BeachCard
-                key={beach.id}
-                id={beach.id}
-                name={beach.name}
-                distance={
-                  userLocation
-                    ? getDistanceFromUser(beach.latitude, beach.longitude)
-                    : beach.location_text || "San Diego"
-                }
-                rating={rating}
-                reviewCount={reviewCount}
-                imageUrl={getStaticMapImageUrl(
-                  beach.latitude,
-                  beach.longitude,
-                  {
-                    width: 300,
-                    height: 200,
-                    zoom: 14,
-                  }
-                )}
-                latitude={beach.latitude}
-                longitude={beach.longitude}
-                onViewDetails={() => onBeachSelect(beach)}
-              />
+          (() => {
+            const beachCardData = prepareMultipleBeachCardData(
+              filteredBeaches,
+              userLocation,
+              reviewStats,
+              "BEACH_CARD_LIST"
             );
-          })
+
+            return beachCardData.map((beachData) => (
+              <BeachCard
+                key={beachData.id}
+                id={beachData.id}
+                name={beachData.name}
+                distance={beachData.distance}
+                rating={beachData.rating}
+                reviewCount={beachData.reviewCount}
+                imageUrl={beachData.mapImageUrl}
+                latitude={beachData.latitude}
+                longitude={beachData.longitude}
+                onViewDetails={() =>
+                  onBeachSelect(
+                    filteredBeaches.find((b) => b.id === beachData.id)!
+                  )
+                }
+              />
+            ));
+          })()
         )}
       </div>
     </div>

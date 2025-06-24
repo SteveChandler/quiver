@@ -19,6 +19,7 @@ import {
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { validateEmail, formErrors } from "@/lib/form-utils";
+import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import Link from "next/link";
 import { getClientBrowserClient } from "@/lib/supabase";
 
@@ -31,7 +32,8 @@ export function SignInForm() {
   const [showResendConfirmation, setShowResendConfirmation] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirectUrl") || "/";
+  const redirectUrl =
+    searchParams.get("redirectTo") || searchParams.get("redirectUrl") || "/";
   const { refreshSession } = useAuth();
 
   useEffect(() => {
@@ -271,17 +273,11 @@ export function SignInForm() {
             className="w-full"
             disabled={isLoading || isRedirecting}
           >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing In...
-              </>
-            ) : isRedirecting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecting...
-              </>
-            ) : (
-              "Sign In"
-            )}
+            {isLoading
+              ? AuthLoadingStates.signingIn()
+              : isRedirecting
+              ? AuthLoadingStates.redirecting()
+              : "Sign In"}
           </Button>
         </form>
       </CardContent>

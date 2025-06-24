@@ -32,6 +32,7 @@ interface SessionCardProps {
   comments: number;
   isOwner?: boolean;
   session?: SessionWithDetails; // Add optional session data for enhanced display
+  onUserClick?: (userId: string) => void;
 }
 
 export function SessionCard({
@@ -46,6 +47,7 @@ export function SessionCard({
   comments,
   isOwner = false,
   session,
+  onUserClick,
 }: SessionCardProps) {
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
 
@@ -82,22 +84,52 @@ export function SessionCard({
     <CardContent className="p-4 space-y-4">
       {/* User Info */}
       <div className="flex items-center gap-3">
-        <UserAvatar
-          src={session?.user?.avatar_url}
-          name={session?.user?.full_name || username}
-          email={session?.user?.email}
-          size="md"
-        />
-        <div>
-          <p className="font-medium">{username}</p>
-          <div className="flex items-center text-sm text-muted-foreground">
-            <MapPin className="h-3 w-3 mr-1" />
-            <span>{beachName}</span>
-            <span className="mx-1">•</span>
-            <Calendar className="h-3 w-3 mr-1" />
-            <span>{date}</span>
-          </div>
-        </div>
+        {session?.user?.id && onUserClick && !isOwner ? (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onUserClick(session.user.id);
+            }}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          >
+            <UserAvatar
+              src={session?.user?.avatar_url}
+              name={session?.user?.full_name || username}
+              email={session?.user?.email}
+              size="md"
+            />
+            <div>
+              <p className="font-medium hover:underline">{username}</p>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <MapPin className="h-3 w-3 mr-1" />
+                <span>{beachName}</span>
+                <span className="mx-1">•</span>
+                <Calendar className="h-3 w-3 mr-1" />
+                <span>{date}</span>
+              </div>
+            </div>
+          </button>
+        ) : (
+          <>
+            <UserAvatar
+              src={session?.user?.avatar_url}
+              name={session?.user?.full_name || username}
+              email={session?.user?.email}
+              size="md"
+            />
+            <div>
+              <p className="font-medium">{username}</p>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <MapPin className="h-3 w-3 mr-1" />
+                <span>{beachName}</span>
+                <span className="mx-1">•</span>
+                <Calendar className="h-3 w-3 mr-1" />
+                <span>{date}</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Overall Rating */}

@@ -273,14 +273,22 @@ describe("useBeachSearch", () => {
         await result.current.loadBeaches();
       });
 
+      // Wait for beaches to be loaded and filtered
+      await waitFor(() => {
+        expect(result.current.beaches).toEqual(mockBeaches);
+        expect(result.current.filteredBeaches).toEqual(mockBeaches);
+      });
+
       act(() => {
         result.current.setSearchQuery("Pacific");
       });
 
+      // Advance timers to allow the isSearchingRef timeout to complete
       act(() => {
-        jest.advanceTimersByTime(300);
+        jest.advanceTimersByTime(150);
       });
 
+      // Wait for the filtering to happen
       await waitFor(() => {
         expect(result.current.filteredBeaches).toEqual([
           mockBeaches.find((b) => b.name === "Pacific Beach"),
@@ -295,14 +303,22 @@ describe("useBeachSearch", () => {
         await result.current.loadBeaches();
       });
 
+      // Wait for beaches to be loaded and filtered
+      await waitFor(() => {
+        expect(result.current.beaches).toEqual(mockBeaches);
+        expect(result.current.filteredBeaches).toEqual(mockBeaches);
+      });
+
       act(() => {
         result.current.setSearchQuery("Malibu");
       });
 
+      // Advance timers to allow the isSearchingRef timeout to complete
       act(() => {
-        jest.advanceTimersByTime(300);
+        jest.advanceTimersByTime(150);
       });
 
+      // Wait for the filtering to happen
       await waitFor(() => {
         expect(result.current.filteredBeaches).toEqual([
           mockBeaches.find((b) => b.location === "Malibu, CA"),
@@ -317,14 +333,22 @@ describe("useBeachSearch", () => {
         await result.current.loadBeaches();
       });
 
+      // Wait for beaches to be loaded and filtered
+      await waitFor(() => {
+        expect(result.current.beaches).toEqual(mockBeaches);
+        expect(result.current.filteredBeaches).toEqual(mockBeaches);
+      });
+
       act(() => {
         result.current.setSearchQuery("PACIFIC");
       });
 
+      // Advance timers to allow the isSearchingRef timeout to complete
       act(() => {
-        jest.advanceTimersByTime(300);
+        jest.advanceTimersByTime(150);
       });
 
+      // Wait for the filtering to happen
       await waitFor(() => {
         expect(result.current.filteredBeaches).toEqual([
           mockBeaches.find((b) => b.name === "Pacific Beach"),
@@ -406,14 +430,48 @@ describe("useBeachSearch", () => {
       );
     });
 
-    it("should return all beaches when no beach is selected", async () => {
+    it("should return beaches excluding selected beach when beach is auto-selected", async () => {
       const { result } = renderHook(() => useBeachSearch());
 
       await act(async () => {
         await result.current.loadBeaches();
       });
 
-      expect(result.current.nearbyBeachesForScroll).toEqual(mockBeaches);
+      // Wait for beaches to be loaded
+      await waitFor(() => {
+        expect(result.current.beaches).toEqual(mockBeaches);
+      });
+
+      // The hook automatically selects the first beach when beaches are loaded
+      expect(result.current.selectedBeach).toEqual(mockBeaches[0]);
+
+      // So nearbyBeachesForScroll should exclude the first beach
+      expect(result.current.nearbyBeachesForScroll).toEqual(
+        mockBeaches.slice(1)
+      );
+    });
+
+    it("should return all beaches when selected beach is manually cleared", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      // Wait for beaches to be loaded
+      await waitFor(() => {
+        expect(result.current.beaches).toEqual(mockBeaches);
+      });
+
+      // Clear the selected beach
+      act(() => {
+        result.current.setSelectedBeach(null);
+      });
+
+      // Now it should return all beaches (up to limit of 5)
+      expect(result.current.nearbyBeachesForScroll).toEqual(
+        mockBeaches.slice(0, 5)
+      );
     });
 
     it("should return empty array when no beaches", () => {

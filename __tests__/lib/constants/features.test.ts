@@ -34,9 +34,9 @@ describe("Features Constants", () => {
 
     it("has correct titles for feature cards", () => {
       const expectedTitles = [
-        "Plan Sessions",
-        "Rate Conditions",
-        "Connect & Share",
+        "Session Planner Pro",
+        "Surf Journal+",
+        "Local Intel Club",
       ];
       const actualTitles = FEATURE_CARDS.map((card) => card.title);
       expect(actualTitles).toEqual(expectedTitles);
