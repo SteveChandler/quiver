@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -12,19 +12,25 @@ export function HeroSection() {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    const videoElement = document.getElementById(
-      "hero-video"
-    ) as HTMLVideoElement;
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
 
-    const handleVideoEnd = () => {
-      setCurrentVideoIndex((prevIndex) => (prevIndex + 1) % HERO_VIDEOS.length);
+    // Set loading state when video changes
+    setIsVideoLoading(true);
+    setVideoError(false);
+
+    const handleLoadStart = () => {
+      setIsVideoLoading(true);
     };
 
-    const handleVideoLoaded = () => {
+    const handleCanPlay = () => {
       setIsVideoLoading(false);
       setVideoError(false);
+      // Auto-play the video
+      videoElement.play().catch(console.error);
     };
 
     const handleVideoError = () => {
@@ -32,37 +38,27 @@ export function HeroSection() {
       setIsVideoLoading(false);
     };
 
-    if (videoElement) {
-      videoElement.addEventListener("ended", handleVideoEnd);
-      videoElement.addEventListener("loadeddata", handleVideoLoaded);
-      videoElement.addEventListener("error", handleVideoError);
+    const handleVideoEnd = () => {
+      setCurrentVideoIndex((prevIndex) => (prevIndex + 1) % HERO_VIDEOS.length);
+    };
 
-      return () => {
-        videoElement.removeEventListener("ended", handleVideoEnd);
-        videoElement.removeEventListener("loadeddata", handleVideoLoaded);
-        videoElement.removeEventListener("error", handleVideoError);
-      };
-    }
-  }, []);
+    // Add event listeners
+    videoElement.addEventListener("loadstart", handleLoadStart);
+    videoElement.addEventListener("canplay", handleCanPlay);
+    videoElement.addEventListener("error", handleVideoError);
+    videoElement.addEventListener("ended", handleVideoEnd);
 
-  // Ensure video plays when index changes
-  useEffect(() => {
-    const videoElement = document.getElementById(
-      "hero-video"
-    ) as HTMLVideoElement;
+    // Load the video
+    videoElement.load();
 
-    if (videoElement && !videoError) {
-      setIsVideoLoading(true);
-      const handleCanPlay = () => {
-        videoElement.play().catch(console.error);
-        videoElement.removeEventListener("canplay", handleCanPlay);
-      };
-
-      // Wait for video to be ready before playing
-      videoElement.addEventListener("canplay", handleCanPlay);
-      videoElement.load();
-    }
-  }, [currentVideoIndex, videoError]);
+    // Cleanup function
+    return () => {
+      videoElement.removeEventListener("loadstart", handleLoadStart);
+      videoElement.removeEventListener("canplay", handleCanPlay);
+      videoElement.removeEventListener("error", handleVideoError);
+      videoElement.removeEventListener("ended", handleVideoEnd);
+    };
+  }, [currentVideoIndex]); // Re-run when video index changes
 
   return (
     <section className="relative h-screen flex items-center justify-center overflow-hidden">
@@ -75,11 +71,8 @@ export function HeroSection() {
         />
 
         {/* Loading state */}
-        {isVideoLoading && (
-          <div
-            className="absolute inset-0 flex items-center justify-center bg-black/20"
-            style={{ zIndex: 5 }}
-          >
+        {isVideoLoading && !videoError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
           </div>
         )}
@@ -87,9 +80,8 @@ export function HeroSection() {
         {/* Video element */}
         {!videoError && (
           <video
-            id="hero-video"
+            ref={videoRef}
             key={currentVideoIndex}
-            autoPlay
             muted
             playsInline
             className="w-full h-full object-cover"
@@ -102,12 +94,12 @@ export function HeroSection() {
       </div>
 
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-0 bg-black/40 z-5" />
 
       {/* Hero Content */}
       <motion.div
         {...ANIMATION_VARIANTS.heroText(0.1)}
-        className="relative z-10 text-center text-white px-4 max-w-4xl mx-auto"
+        className="relative z-30 text-center text-white px-4 max-w-4xl mx-auto"
       >
         <motion.h1
           {...ANIMATION_VARIANTS.heroText(0.2)}
