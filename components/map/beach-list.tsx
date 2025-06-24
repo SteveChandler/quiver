@@ -2,8 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { BeachCard } from "@/components/beach-card";
-import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { BeachCardListSkeleton } from "@/components/skeletons/beach-card-skeleton";
+import { useBeachCardData } from "@/hooks/use-beach-card-data";
+import { MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
 import type { Beach } from "@/types/database";
 
 interface BeachListProps {
@@ -31,7 +32,18 @@ export function BeachList({
   onLoadBeaches,
   getDistanceFromUser,
 }: BeachListProps) {
-  if (loading) {
+  // Use the centralized beach card data hook with standardized presets
+  const { beachCardData, loading: cardDataLoading } = useBeachCardData(
+    filteredBeaches,
+    {
+      userLocation,
+      calculateDistance: userLocation ? getDistanceFromUser : undefined,
+      defaultLocationText: "San Diego",
+      mapOptions: MAP_PRESET_USAGE.BEACH_CARD_LIST,
+    }
+  );
+
+  if (loading || cardDataLoading) {
     return (
       <div className="flex-1 overflow-y-auto">
         <div className="p-4">
@@ -77,28 +89,29 @@ export function BeachList({
             )}
           </div>
         ) : (
-          filteredBeaches.map((beach) => (
-            <BeachCard
-              key={beach.id}
-              id={beach.id}
-              name={beach.name}
-              distance={
-                userLocation
-                  ? getDistanceFromUser(beach.latitude, beach.longitude)
-                  : beach.location_text || "San Diego"
-              }
-              rating={beach.wave_quality_rating || 4.0}
-              reviewCount={128}
-              imageUrl={getStaticMapImageUrl(beach.latitude, beach.longitude, {
-                width: 300,
-                height: 200,
-                zoom: 14,
-              })}
-              latitude={beach.latitude}
-              longitude={beach.longitude}
-              onViewDetails={() => onBeachSelect(beach)}
-            />
-          ))
+          beachCardData.map((beach) => {
+            // Find the original beach object to pass to onBeachSelect
+            const originalBeach = filteredBeaches.find(
+              (b) => b.id === beach.id
+            );
+
+            return (
+              <BeachCard
+                key={beach.id}
+                id={beach.id}
+                name={beach.name}
+                distance={beach.distance}
+                rating={beach.rating}
+                reviewCount={beach.reviewCount}
+                imageUrl={beach.mapImageUrl}
+                latitude={beach.latitude}
+                longitude={beach.longitude}
+                onViewDetails={() =>
+                  originalBeach && onBeachSelect(originalBeach)
+                }
+              />
+            );
+          })
         )}
       </div>
     </div>

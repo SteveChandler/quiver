@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,6 +27,7 @@ import { useBeachReviews } from "@/hooks/use-beach-reviews";
 import type { BeachReviewWithUser } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
+import { MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
 
 interface BeachDetailViewProps {
   id: string;
@@ -33,9 +35,11 @@ interface BeachDetailViewProps {
 
 export function BeachDetailView({ id }: BeachDetailViewProps) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [editingReview, setEditingReview] =
     useState<BeachReviewWithUser | null>(null);
+  const [activeTab, setActiveTab] = useState("reviews");
 
   // Use enhanced beach data hook with caching
   const {
@@ -53,6 +57,41 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
     userId: user?.id,
     immediate: false, // We'll load reviews when the reviews tab is opened
   });
+
+  // Handle URL parameters for tab navigation
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && ["reviews", "info", "gallery"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  // Handle scrolling to reviews section when reviews tab becomes active
+  useLayoutEffect(() => {
+    if (activeTab === "reviews" && searchParams.get("tab") === "reviews") {
+      // Try to scroll immediately since useLayoutEffect runs before paint
+      const scrollToReviews = () => {
+        const reviewsElement = document.getElementById(
+          "reviews-ratings-section"
+        );
+
+        if (reviewsElement) {
+          // Jump instantly to reviews section
+          reviewsElement.scrollIntoView({
+            behavior: "instant",
+            block: "center",
+            inline: "nearest",
+          });
+        } else {
+          // If element not found, try again after a short delay
+          setTimeout(scrollToReviews, 50);
+        }
+      };
+
+      // Try immediately first
+      scrollToReviews();
+    }
+  }, [activeTab, searchParams]);
 
   // Review handlers
   const handleWriteReview = () => {
@@ -105,11 +144,7 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
         mapImageUrl={getStaticMapImageUrl(
           typeof beach.latitude === "number" ? beach.latitude : 32.7507,
           typeof beach.longitude === "number" ? beach.longitude : -117.254,
-          {
-            width: 800,
-            height: 400,
-            zoom: 14,
-          }
+          MAP_PRESET_USAGE.BEACH_HERO
         )}
       />
 
@@ -117,7 +152,10 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
       <BeachQuickActions beach={beach} isAuthenticated={!!user} />
 
       {/* Main Content */}
-      <main className="flex-1 container px-4 py-2 space-y-6 overflow-auto pb-20">
+      <main
+        id="beach-main-content"
+        className="flex-1 container px-4 py-2 space-y-6 overflow-auto pb-20"
+      >
         {/* Enhanced Forecast - Primary Display */}
         <BeachesEnhancedForecast
           beachId={beach.id}
@@ -127,7 +165,12 @@ export function BeachDetailView({ id }: BeachDetailViewProps) {
         />
 
         {/* Additional Tabs */}
-        <Tabs defaultValue="reviews" className="space-y-4">
+        <Tabs
+          id="beach-tabs"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-4"
+        >
           <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="reviews">Reviews</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>

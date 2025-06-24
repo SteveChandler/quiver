@@ -13,6 +13,8 @@ interface BeachCardProps {
   latitude?: number;
   longitude?: number;
   onViewDetails?: () => void;
+  onMapClick?: () => void;
+  onReviewsClick?: () => void;
 }
 
 export function BeachCard({
@@ -25,10 +27,30 @@ export function BeachCard({
   latitude,
   longitude,
   onViewDetails,
+  onMapClick,
+  onReviewsClick,
 }: BeachCardProps) {
+  const handleMapClick = () => {
+    if (onMapClick) {
+      onMapClick();
+    } else if (id) {
+      // Default behavior - navigate to beach details
+      window.location.href = `/beach/${id}`;
+    }
+  };
+
+  const handleReviewsClick = () => {
+    if (onReviewsClick) {
+      onReviewsClick();
+    } else if (id) {
+      // Default behavior - navigate to beach details reviews tab
+      window.location.href = `/beach/${id}?tab=reviews`;
+    }
+  };
+
   return (
     <Card className="overflow-hidden">
-      <div className="relative h-48">
+      <div className="relative h-48 cursor-pointer" onClick={handleMapClick}>
         <MapImage
           src={imageUrl || "/placeholder.svg"}
           alt={name}
@@ -48,7 +70,10 @@ export function BeachCard({
       </div>
       <CardContent className="p-3">
         <div className="flex justify-between items-center">
-          <div className="flex items-center">
+          <div
+            className="flex items-center cursor-pointer"
+            onClick={handleReviewsClick}
+          >
             <Star className="h-4 w-4 text-yellow-500 mr-1 fill-yellow-500" />
             <span className="font-medium">{rating}</span>
             <span className="text-muted-foreground text-sm ml-1">

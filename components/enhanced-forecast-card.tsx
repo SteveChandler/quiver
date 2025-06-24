@@ -25,18 +25,18 @@ interface EnhancedForecastCardProps {
   forecast: {
     forecast_date: string;
     forecast_time: string;
-    wave_height: string;
-    wave_period: string;
-    wave_direction: string;
-    swell_1_height: string;
-    swell_1_period: string;
-    swell_1_direction: string;
-    swell_2_height: string;
-    swell_2_period: string;
-    swell_2_direction: string;
-    wind_wave_height: string;
-    wind_wave_period: string;
-    wind_wave_direction: string;
+    wave_height: string | null;
+    wave_period: string | null;
+    wave_direction: string | null;
+    swell_1_height: string | null;
+    swell_1_period: string | null;
+    swell_1_direction: string | null;
+    swell_2_height: string | null;
+    swell_2_period: string | null;
+    swell_2_direction: string | null;
+    wind_wave_height: string | null;
+    wind_wave_period: string | null;
+    wind_wave_direction: string | null;
     water_temp: string;
     air_temperature: string;
     wind_speed: string;
@@ -90,7 +90,7 @@ export function EnhancedForecastCard({
           <div className="grid grid-cols-3 gap-3 text-sm">
             <div className="flex items-center gap-2">
               <Waves className="h-4 w-4 text-blue-600" />
-              <span>{forecast.wave_height}</span>
+              <span>{forecast.wave_height || "No data"}</span>
             </div>
             <div className="flex items-center gap-2">
               <Droplets className="h-4 w-4 text-blue-500" />
@@ -147,18 +147,18 @@ export function EnhancedForecastCard({
             <div>
               <p className="text-sm text-muted-foreground">Total Wave Height</p>
               <p className="font-semibold text-lg text-blue-600">
-                {forecast.wave_height}
+                {forecast.wave_height || "No data"}
               </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Period</p>
-              <p className="font-medium">{forecast.wave_period}</p>
+              <p className="font-medium">{forecast.wave_period || "No data"}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Direction</p>
               <p className="font-medium flex items-center gap-1">
                 <Compass className="h-3 w-3" />
-                {forecast.wave_direction}
+                {forecast.wave_direction || "No data"}
               </p>
             </div>
           </div>
@@ -176,10 +176,11 @@ export function EnhancedForecastCard({
                 <div>
                   <p className="text-xs text-muted-foreground">Primary Swell</p>
                   <p className="font-medium text-sm">
-                    {forecast.swell_1_height}
+                    {forecast.swell_1_height || "No data"}
                   </p>
                   <p className="text-xs">
-                    {forecast.swell_1_period} • {forecast.swell_1_direction}
+                    {forecast.swell_1_period || "No data"} •{" "}
+                    {forecast.swell_1_direction || "No data"}
                   </p>
                 </div>
                 <div>
@@ -187,19 +188,21 @@ export function EnhancedForecastCard({
                     Secondary Swell
                   </p>
                   <p className="font-medium text-sm">
-                    {forecast.swell_2_height}
+                    {forecast.swell_2_height || "No data"}
                   </p>
                   <p className="text-xs">
-                    {forecast.swell_2_period} • {forecast.swell_2_direction}
+                    {forecast.swell_2_period || "No data"} •{" "}
+                    {forecast.swell_2_direction || "No data"}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Wind Waves</p>
                   <p className="font-medium text-sm">
-                    {forecast.wind_wave_height}
+                    {forecast.wind_wave_height || "No data"}
                   </p>
                   <p className="text-xs">
-                    {forecast.wind_wave_period} • {forecast.wind_wave_direction}
+                    {forecast.wind_wave_period || "No data"} •{" "}
+                    {forecast.wind_wave_direction || "No data"}
                   </p>
                 </div>
               </div>

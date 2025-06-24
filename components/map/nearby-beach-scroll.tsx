@@ -1,9 +1,10 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
-import { MapPin } from "lucide-react";
-import { MapImage } from "@/components/map-image";
-import { getStaticMapImageUrl } from "@/lib/map-utils";
+import { useRouter } from "next/navigation";
+import { BeachCard } from "@/components/beach-card";
+import { useBeachCardData } from "@/hooks/use-beach-card-data";
+import { beachNavigation } from "@/lib/navigation-utils";
+import { MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
 import type { Beach } from "@/types/database";
 
 interface NearbyBeachScrollProps {
@@ -23,6 +24,16 @@ export function NearbyBeachScroll({
   getDistanceFromUser,
   userLocation,
 }: NearbyBeachScrollProps) {
+  const router = useRouter();
+
+  // Use the centralized beach card data hook with standardized presets
+  const { beachCardData } = useBeachCardData(nearbyBeachesForScroll, {
+    userLocation,
+    calculateDistance: userLocation ? getDistanceFromUser : undefined,
+    defaultLocationText: "San Diego",
+    mapOptions: MAP_PRESET_USAGE.BEACH_CARD_SCROLL,
+  });
+
   if (nearbyBeachesForScroll.length === 0) {
     return null;
   }
@@ -44,44 +55,36 @@ export function NearbyBeachScroll({
           </button>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-2">
-          {nearbyBeachesForScroll.map((beach) => (
-            <div
-              key={beach.id}
-              onClick={() => onBeachSelect(beach)}
-              className="cursor-pointer flex-shrink-0 w-48"
-            >
-              <Card className="overflow-hidden hover:shadow-md transition-shadow">
-                <div className="relative h-24">
-                  <MapImage
-                    src={getStaticMapImageUrl(beach.latitude, beach.longitude, {
-                      width: 200,
-                      height: 96,
-                      zoom: 15,
-                    })}
-                    alt={beach.name}
-                    latitude={beach.latitude}
-                    longitude={beach.longitude}
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-0 left-0 p-2 text-white">
-                    <h4 className="font-medium text-sm truncate">
-                      {beach.name}
-                    </h4>
-                    <div className="flex items-center text-xs">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      <span className="truncate">
-                        {userLocation
-                          ? getDistanceFromUser(beach.latitude, beach.longitude)
-                          : beach.location || "San Diego"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          ))}
+          {beachCardData.map((beach) => {
+            // Find the original beach object to pass to onBeachSelect
+            const originalBeach = nearbyBeachesForScroll.find(
+              (b) => b.id === beach.id
+            );
+
+            return (
+              <div key={beach.id} className="flex-shrink-0 w-48">
+                <BeachCard
+                  id={beach.id}
+                  name={beach.name}
+                  distance={beach.distance}
+                  rating={beach.rating}
+                  reviewCount={beach.reviewCount}
+                  imageUrl={beach.mapImageUrl}
+                  latitude={beach.latitude}
+                  longitude={beach.longitude}
+                  onViewDetails={() =>
+                    originalBeach && onBeachSelect(originalBeach)
+                  }
+                  onMapClick={() =>
+                    beachNavigation.navigateToBeach(router, beach.id)
+                  }
+                  onReviewsClick={() =>
+                    beachNavigation.navigateToBeachReviews(router, beach.id)
+                  }
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

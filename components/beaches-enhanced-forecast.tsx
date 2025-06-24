@@ -32,18 +32,18 @@ interface EnhancedForecast {
   id: string;
   forecast_date: string;
   forecast_time: string;
-  wave_height: string;
-  wave_period: string;
-  wave_direction: string;
-  swell_1_height: string;
-  swell_1_period: string;
-  swell_1_direction: string;
-  swell_2_height: string;
-  swell_2_period: string;
-  swell_2_direction: string;
-  wind_wave_height: string;
-  wind_wave_period: string;
-  wind_wave_direction: string;
+  wave_height: string | null;
+  wave_period: string | null;
+  wave_direction: string | null;
+  swell_1_height: string | null;
+  swell_1_period: string | null;
+  swell_1_direction: string | null;
+  swell_2_height: string | null;
+  swell_2_period: string | null;
+  swell_2_direction: string | null;
+  wind_wave_height: string | null;
+  wind_wave_period: string | null;
+  wind_wave_direction: string | null;
   water_temp: string;
   air_temperature: string;
   wind_speed: string;
@@ -245,7 +245,9 @@ export function BeachesEnhancedForecast({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-blue-600">Wave Height</p>
-                <p className="font-bold text-lg">{todaysBest.wave_height}</p>
+                <p className="font-bold text-lg">
+                  {todaysBest.wave_height || "No data"}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-blue-600">Tide</p>

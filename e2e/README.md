@@ -61,6 +61,15 @@ This directory contains comprehensive end-to-end tests for the Quiver surf appli
 - Filtering and view modes
 - Beach favoriting features
 
+### 🎯 Beach Card Interaction Tests (`beach-card-interactions.spec.ts`)
+
+- **Nearby Tab Interactions**: Review clicks, map clicks, navigation validation
+- **Maps Page Interactions**: List view and nearby scroll review clicks
+- **Beach Detail Navigation**: URL tab parameters, instant positioning at reviews
+- **Review Section Positioning**: Validates page loads positioned at reviews section
+- **Tab State Management**: Tab switching, URL state persistence
+- **Error Handling**: Non-existent beaches, invalid tab parameters
+
 ### 📊 Sessions View Tests (`sessions.spec.ts`)
 
 - Session list display
@@ -168,15 +177,16 @@ The tests are designed to handle both authenticated and unauthenticated states:
 
 ```
 e2e/
-├── auth.spec.ts              # Authentication workflows
-├── navigation.spec.ts        # Page navigation and routing
-├── session-logging.spec.ts   # Surf session logging
-├── session-planning.spec.ts  # Session planning features
-├── profile.spec.ts          # User profile management
-├── map.spec.ts              # Map and beach directory
-├── sessions.spec.ts         # Session viewing and analytics
-├── comprehensive.spec.ts    # Integration and E2E workflows
-└── README.md               # This documentation
+├── auth.spec.ts                      # Authentication workflows
+├── navigation.spec.ts                # Page navigation and routing
+├── session-logging.spec.ts           # Surf session logging
+├── session-planning.spec.ts          # Session planning features
+├── profile.spec.ts                   # User profile management
+├── map.spec.ts                       # Map and beach directory
+├── beach-card-interactions.spec.ts   # Beach card review click navigation
+├── sessions.spec.ts                  # Session viewing and analytics
+├── comprehensive.spec.ts             # Integration and E2E workflows
+└── README.md                         # This documentation
 ```
 
 ### Test Data Strategy

@@ -224,22 +224,34 @@ describe("Activity Actions", () => {
     });
 
     it("should filter by activity types when provided", async () => {
-      const mockRange = jest.fn().mockResolvedValue({
+      const mockIn = jest.fn().mockResolvedValue({
         data: [],
         error: null,
       });
+
+      // Create object that can be awaited AND has .in() method
+      const mockRangeResult = Object.assign(
+        Promise.resolve({
+          data: [],
+          error: null,
+        }),
+        {
+          in: mockIn,
+        }
+      );
+
+      const mockRange = jest.fn().mockReturnValue(mockRangeResult);
 
       const mockOrder = jest.fn().mockReturnValue({
         range: mockRange,
       });
 
-      const mockIn = jest.fn().mockReturnValue({
+      // Create a proper chain: eq() returns an object that has order() method
+      const mockEqResult = {
         order: mockOrder,
-      });
+      };
 
-      const mockEq = jest.fn().mockReturnValue({
-        in: mockIn,
-      });
+      const mockEq = jest.fn().mockReturnValue(mockEqResult);
 
       const mockSelect = jest.fn().mockReturnValue({
         eq: mockEq,

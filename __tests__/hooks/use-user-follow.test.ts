@@ -22,7 +22,7 @@ jest.mock("@/actions/social-actions", () => ({
 // Mock Supabase client
 const mockChannel = {
   on: jest.fn().mockReturnThis(),
-  subscribe: jest.fn(),
+  subscribe: jest.fn().mockReturnThis(),
 };
 
 const mockSupabaseClient = {
@@ -31,6 +31,9 @@ const mockSupabaseClient = {
       eq: jest.fn(() => ({
         single: jest.fn(),
         maybeSingle: jest.fn(),
+        eq: jest.fn(() => ({
+          maybeSingle: jest.fn(),
+        })),
       })),
     })),
   })),
@@ -153,7 +156,9 @@ describe("useUserFollow", () => {
       });
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        "Error fetching profile counts for user user-2 :",
+        "Error fetching profile counts for user",
+        "user-2",
+        ":",
         expect.any(Error)
       );
 

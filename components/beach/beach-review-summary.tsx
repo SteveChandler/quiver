@@ -94,7 +94,7 @@ export function BeachReviewSummary({
   ];
 
   return (
-    <Card>
+    <Card id="reviews-ratings-section">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">

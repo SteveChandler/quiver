@@ -1,7 +1,11 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { BeachCard } from "@/components/beach-card";
+import { useBeachCardData } from "@/hooks/use-beach-card-data";
+import { beachNavigation } from "@/lib/navigation-utils";
+import { MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
 import { getStaticMapImageUrl, resolveBeachCoordinates } from "@/lib/map-utils";
 import type { Beach } from "@/types/database";
 
@@ -12,25 +16,6 @@ const OCEAN_BEACH_LNG = -117.2534;
 interface NearbyTabProps {
   beaches: Beach[];
   loading: boolean;
-}
-
-function calculateDistance(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const R = 3958.8; // Earth's radius in miles
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
 }
 
 export function NearbyTab({ beaches, loading }: NearbyTabProps) {

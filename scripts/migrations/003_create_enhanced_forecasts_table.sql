@@ -7,23 +7,23 @@ CREATE TABLE IF NOT EXISTS enhanced_forecasts (
   forecast_date DATE NOT NULL,
   forecast_time TIME NOT NULL,
   
-  -- Wave data from WaveWatch III
-  wave_height TEXT NOT NULL,
-  wave_period TEXT NOT NULL,
-  wave_direction TEXT NOT NULL,
+  -- Wave data from WaveWatch III (allow null when no data available)
+  wave_height TEXT,
+  wave_period TEXT,
+  wave_direction TEXT,
   
-  -- Detailed swell information
-  swell_1_height TEXT NOT NULL,
-  swell_1_period TEXT NOT NULL,
-  swell_1_direction TEXT NOT NULL,
-  swell_2_height TEXT NOT NULL,
-  swell_2_period TEXT NOT NULL,
-  swell_2_direction TEXT NOT NULL,
+  -- Detailed swell information (allow null when no data available)
+  swell_1_height TEXT,
+  swell_1_period TEXT,
+  swell_1_direction TEXT,
+  swell_2_height TEXT,
+  swell_2_period TEXT,
+  swell_2_direction TEXT,
   
-  -- Wind wave data
-  wind_wave_height TEXT NOT NULL,
-  wind_wave_period TEXT NOT NULL,
-  wind_wave_direction TEXT NOT NULL,
+  -- Wind wave data (allow null when no data available)
+  wind_wave_height TEXT,
+  wind_wave_period TEXT,
+  wind_wave_direction TEXT,
   
   -- Weather data
   water_temp TEXT NOT NULL,
@@ -78,21 +78,38 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create a view for current day forecasts
-CREATE OR REPLACE VIEW current_enhanced_forecasts AS
+-- Create a view for current day forecasts (with SECURITY INVOKER)
+CREATE OR REPLACE VIEW current_enhanced_forecasts
+WITH (security_invoker = true) AS
 SELECT * FROM enhanced_forecasts
 WHERE forecast_date >= CURRENT_DATE
 ORDER BY beach_id, forecast_date, forecast_time;
 
--- Create a view for next 10 days forecasts
-CREATE OR REPLACE VIEW ten_day_enhanced_forecasts AS
+-- Create a view for next 10 days forecasts (with SECURITY INVOKER)
+CREATE OR REPLACE VIEW ten_day_enhanced_forecasts
+WITH (security_invoker = true) AS
 SELECT * FROM enhanced_forecasts
 WHERE forecast_date >= CURRENT_DATE 
 AND forecast_date <= CURRENT_DATE + INTERVAL '10 days'
 ORDER BY beach_id, forecast_date, forecast_time;
 
--- Add RLS (Row Level Security) if needed
--- ALTER TABLE enhanced_forecasts ENABLE ROW LEVEL SECURITY;
+-- Add RLS (Row Level Security)
+ALTER TABLE enhanced_forecasts ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies for enhanced_forecasts (public read access)
+CREATE POLICY "Anyone can view enhanced forecasts" ON enhanced_forecasts
+    FOR SELECT USING (true);
+
+-- Admin/service role can insert/update/delete forecasts
+CREATE POLICY "Service role can manage enhanced forecasts" ON enhanced_forecasts
+    FOR ALL USING (
+        auth.jwt() ->> 'role' = 'service_role' OR
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.uid() = id 
+            AND raw_app_meta_data->>'role' = 'admin'
+        )
+    );
 
 -- Add comment to table
 COMMENT ON TABLE enhanced_forecasts IS 'Comprehensive surf forecasts combining NOAA WaveWatch III, CO-OPS tidal data, and weather forecasts'; 

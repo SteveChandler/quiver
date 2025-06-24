@@ -7,18 +7,18 @@ import type { Beach } from "@/types/database";
 interface EnhancedForecastData {
   forecast_date: string;
   forecast_time: string;
-  wave_height: string;
-  wave_period: string;
-  wave_direction: string;
-  swell_1_height: string;
-  swell_1_period: string;
-  swell_1_direction: string;
-  swell_2_height: string;
-  swell_2_period: string;
-  swell_2_direction: string;
-  wind_wave_height: string;
-  wind_wave_period: string;
-  wind_wave_direction: string;
+  wave_height: string | null;
+  wave_period: string | null;
+  wave_direction: string | null;
+  swell_1_height: string | null;
+  swell_1_period: string | null;
+  swell_1_direction: string | null;
+  swell_2_height: string | null;
+  swell_2_period: string | null;
+  swell_2_direction: string | null;
+  wind_wave_height: string | null;
+  wind_wave_period: string | null;
+  wind_wave_direction: string | null;
   water_temp: string;
   wind_speed: string;
   wind_direction: string;
@@ -271,50 +271,50 @@ export class EnhancedForecastService {
             ? this.metersToFeet(buoyData.wave_height)
             : wavePoint
             ? this.metersToFeet(wavePoint.significant_wave_height)
-            : "2-3 ft",
+            : null,
         wave_period:
           useBuoyData && buoyData.wave_period
             ? `${buoyData.wave_period}s`
             : wavePoint
             ? `${wavePoint.peak_wave_period}s`
-            : "8s",
+            : null,
         wave_direction: wavePoint
           ? this.waveWatchService.getWaveDirectionText(
               wavePoint.peak_wave_direction
             )
-          : "W",
+          : null,
 
         // Detailed swell information
         swell_1_height: wavePoint
           ? this.metersToFeet(wavePoint.swell_1_height)
-          : "1-2 ft",
-        swell_1_period: wavePoint ? `${wavePoint.swell_1_period}s` : "10s",
+          : null,
+        swell_1_period: wavePoint ? `${wavePoint.swell_1_period}s` : null,
         swell_1_direction: wavePoint
           ? this.waveWatchService.getWaveDirectionText(
               wavePoint.swell_1_direction
             )
-          : "SW",
+          : null,
 
         swell_2_height: wavePoint
           ? this.metersToFeet(wavePoint.swell_2_height)
-          : "0.5-1 ft",
-        swell_2_period: wavePoint ? `${wavePoint.swell_2_period}s` : "12s",
+          : null,
+        swell_2_period: wavePoint ? `${wavePoint.swell_2_period}s` : null,
         swell_2_direction: wavePoint
           ? this.waveWatchService.getWaveDirectionText(
               wavePoint.swell_2_direction
             )
-          : "W",
+          : null,
 
         // Wind waves
         wind_wave_height: wavePoint
           ? this.metersToFeet(wavePoint.wind_wave_height)
-          : "0.5 ft",
-        wind_wave_period: wavePoint ? `${wavePoint.wind_wave_period}s` : "4s",
+          : null,
+        wind_wave_period: wavePoint ? `${wavePoint.wind_wave_period}s` : null,
         wind_wave_direction: wavePoint
           ? this.waveWatchService.getWaveDirectionText(
               wavePoint.wind_wave_direction
             )
-          : "SW",
+          : null,
 
         // Water temperature
         water_temp:

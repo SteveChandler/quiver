@@ -559,7 +559,7 @@ export function ForecastPrompt() {
 
             <ForecastCard
               beachName={beach.name}
-              waveHeight={forecast.wave_height}
+              waveHeight={forecast.wave_height || "No data"}
               waterTemp={forecast.water_temp}
               windSpeed={forecast.wind_speed}
               tide={forecast.tide || "Unknown"}
