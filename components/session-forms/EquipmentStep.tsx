@@ -31,6 +31,7 @@ export function EquipmentStep({
   onBoardsRefresh,
 }: EquipmentStepProps) {
   const [isAddBoardDialogOpen, setIsAddBoardDialogOpen] = useState(false);
+  const [selectOpen, setSelectOpen] = useState(false);
 
   // Debug: Log boards data
   console.log("EquipmentStep - boards:", boards);
@@ -47,6 +48,15 @@ export function EquipmentStep({
     setIsAddBoardDialogOpen(false);
   };
 
+  const handleAddNewBoard = () => {
+    // Close the select dropdown first
+    setSelectOpen(false);
+    // Then open the dialog
+    setTimeout(() => {
+      setIsAddBoardDialogOpen(true);
+    }, 100);
+  };
+
   return (
     <div className="space-y-4">
       {boards.length === 0 ? (
@@ -54,58 +64,74 @@ export function EquipmentStep({
           <p className="text-muted-foreground mb-4">
             You haven't added any boards yet
           </p>
-          <AddBoardDialog
-            open={isAddBoardDialogOpen}
-            onOpenChange={setIsAddBoardDialogOpen}
-            onBoardAdded={handleBoardAdded}
-            trigger={
-              <Button type="button" variant="outline" className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Your First Board
-              </Button>
-            }
-          />
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={() => setIsAddBoardDialogOpen(true)}
+          >
+            <Plus className="w-4 h-4" />
+            Add Your First Board
+          </Button>
         </div>
       ) : (
-        <Select
-          value={formState.boardId || formState.selectedBoard}
-          onValueChange={(value) => {
-            updateField("selectedBoard", value);
-            updateField("boardId", value);
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select a board" />
-          </SelectTrigger>
-          <SelectContent>
-            {boards.map((board) => (
-              <SelectItem key={board.id} value={board.id}>
-                {board.name}
-                {board.board_type && ` - ${board.board_type}`}
-                {board.dimensions && ` (${board.dimensions})`}
-              </SelectItem>
-            ))}
-            <div className="border-t px-2 py-2">
-              <AddBoardDialog
-                open={isAddBoardDialogOpen}
-                onOpenChange={setIsAddBoardDialogOpen}
-                onBoardAdded={handleBoardAdded}
-                trigger={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start gap-2"
-                  >
+        <>
+          <Select
+            value={formState.boardId || formState.selectedBoard}
+            onValueChange={(value) => {
+              if (value === "add-new-board") {
+                handleAddNewBoard();
+                return;
+              }
+              updateField("selectedBoard", value);
+              updateField("boardId", value);
+            }}
+            open={selectOpen}
+            onOpenChange={setSelectOpen}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a board" />
+            </SelectTrigger>
+            <SelectContent>
+              {boards.map((board) => (
+                <SelectItem key={board.id} value={board.id}>
+                  {board.name}
+                  {board.board_type && ` - ${board.board_type}`}
+                  {board.dimensions && ` (${board.dimensions})`}
+                </SelectItem>
+              ))}
+              <div className="border-t px-2 py-2">
+                <SelectItem value="add-new-board">
+                  <div className="flex items-center gap-2">
                     <Plus className="w-4 h-4" />
                     Add New Board
-                  </Button>
-                }
-              />
-            </div>
-          </SelectContent>
-        </Select>
+                  </div>
+                </SelectItem>
+              </div>
+            </SelectContent>
+          </Select>
+
+          <div className="text-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground"
+              onClick={() => setIsAddBoardDialogOpen(true)}
+            >
+              <Plus className="w-4 h-4" />
+              Add New Board
+            </Button>
+          </div>
+        </>
       )}
+
+      {/* AddBoardDialog is now outside the Select component */}
+      <AddBoardDialog
+        open={isAddBoardDialogOpen}
+        onOpenChange={setIsAddBoardDialogOpen}
+        onBoardAdded={handleBoardAdded}
+      />
     </div>
   );
 }

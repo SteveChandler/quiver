@@ -139,7 +139,7 @@ export const beachCache = new RequestCache({
 });
 
 // Auto-cleanup expired entries every 10 minutes
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && !(window as any).__PLAYWRIGHT__) {
   setInterval(() => {
     apiCache.clearExpired();
     forecastCache.clearExpired();

@@ -86,7 +86,10 @@ export function MapContent({
   return (
     <>
       {/* Static map image */}
-      <div className="flex-1 relative overflow-hidden min-h-[250px]">
+      <div
+        className="flex-1 relative overflow-hidden min-h-[250px]"
+        data-testid="map-container"
+      >
         <MapImage
           src={getStaticMapImageUrl(mapCenter.lat, mapCenter.lng, {
             width: 800,

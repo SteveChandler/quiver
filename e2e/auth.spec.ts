@@ -1,9 +1,23 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Authentication", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    // Clear any existing authentication state first
+    await context.clearCookies();
+    await context.clearPermissions();
+
     // Start from the sign-in page
     await page.goto("/auth/sign-in");
+
+    // Clear storage after navigation
+    await page.evaluate(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (e) {
+        // Ignore if storage is not accessible
+      }
+    });
   });
 
   test("should display sign-in form correctly", async ({ page }) => {
@@ -168,79 +182,44 @@ test.describe("Authentication", () => {
     }
   });
 
-  test("should handle sign-in attempt with test credentials", async ({
-    page,
-  }) => {
-    // Fill in test credentials (these would fail in real scenario but we test the flow)
-    await page.getByLabel(/email/i).fill("test@example.com");
-    await page.getByLabel(/password/i).fill("testpassword123");
-
-    // Submit form
-    await page.getByRole("button", { name: /sign in/i }).click();
-
-    // Should either redirect to home or show error message
-    // We'll wait for either case
-    await Promise.race([
-      page.waitForURL("/"),
-      page.waitForSelector('[role="alert"]', { timeout: 5000 }),
-    ]).catch(() => {
-      // This is expected to fail with test credentials
-    });
-  });
-
-  test("should handle sign-up attempt with test credentials", async ({
-    page,
-  }) => {
-    await page.goto("/auth/sign-up");
-
-    // Fill in test credentials - handle multiple password fields
-    await page.getByLabel(/email/i).fill("newuser@example.com");
-
-    // Fill first password field (main password)
-    const passwordField = page.getByLabel(/^password$/i);
-    await passwordField.fill("newpassword123");
-
-    // Fill confirm password field if it exists
-    const confirmPasswordField = page.getByLabel(/confirm.*password/i);
-    if (await confirmPasswordField.isVisible().catch(() => false)) {
-      await confirmPasswordField.fill("newpassword123");
-    }
-
-    // Submit form
-    await page.getByRole("button", { name: /sign up/i }).click();
-
-    // Should either redirect or show confirmation/error message
-    await Promise.race([
-      page.waitForURL("/"),
-      page.waitForSelector('[role="alert"]', { timeout: 5000 }),
-    ]).catch(() => {
-      // This is expected with test credentials
-    });
-  });
-
   test("should redirect unauthenticated users from protected pages", async ({
     page,
+    context,
   }) => {
     // Try to access protected pages without authentication
     const protectedPages = ["/log-session", "/plan-session", "/profile/edit"];
 
     for (const pagePath of protectedPages) {
-      await page.goto(pagePath);
+      // Clear state before each protected page test
+      await context.clearCookies();
+      await page.evaluate(() => {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+        } catch (e) {
+          // Ignore if storage is not accessible
+        }
+      });
 
-      // Should either redirect to home or show loading/auth check
-      await page.waitForTimeout(2000); // Give time for auth check
+      try {
+        // Navigate to protected page - expect it to redirect immediately
+        await page.goto(pagePath, { waitUntil: "commit" });
+      } catch (error) {
+        // Navigation might be aborted due to redirect, which is expected
+        if (error instanceof Error && !error.message.includes("ERR_ABORTED")) {
+          throw error;
+        }
+      }
 
-      // Check if we're redirected or if there's an auth requirement
-      const currentUrl = page.url();
-      const isRedirected =
-        currentUrl.includes("/auth/sign-in") ||
-        currentUrl === new URL("/", page.url()).href;
-      const hasAuthCheck = await page
-        .getByTestId("loading-spinner")
-        .isVisible()
-        .catch(() => false);
+      // Wait for redirect to complete
+      await page.waitForURL("**/auth/sign-in**", { timeout: 10000 });
 
-      expect(isRedirected || hasAuthCheck).toBeTruthy();
+      // Should be redirected to sign-in page
+      expect(page.url()).toContain("/auth/sign-in");
+
+      // Should have redirectTo parameter in URL
+      const url = new URL(page.url());
+      expect(url.searchParams.get("redirectTo")).toBe(pagePath);
     }
   });
 });

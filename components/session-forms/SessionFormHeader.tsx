@@ -13,13 +13,22 @@ export function SessionFormHeader({ mode }: SessionFormHeaderProps) {
 
   return (
     <header className="sticky top-0 z-10 bg-background border-b">
-      <div className="container flex items-center h-16 px-4">
-        <Link href="/" className="mr-2">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <h1 className="text-xl font-bold">
-          {isPlanning ? "Plan Session" : "Log Session"}
-        </h1>
+      <div className="container px-4 py-4">
+        <div className="flex items-start">
+          <Link href="/" className="mr-3 mt-1">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="flex-1">
+            <h1 className="text-xl font-bold mb-1">
+              {isPlanning ? "Plan Session" : "Log Session"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isPlanning
+                ? "Plan your upcoming surf session - set your goals, choose your spot, and get ready to charge!"
+                : "Record your completed surf session - share how it went, rate the conditions, and track your progress."}
+            </p>
+          </div>
+        </div>
       </div>
     </header>
   );

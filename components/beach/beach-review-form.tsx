@@ -250,6 +250,7 @@ export function BeachReviewForm({
                 "w-full justify-start text-left font-normal",
                 !formData.visit_date && "text-muted-foreground"
               )}
+              type="button"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               {formData.visit_date ? (
@@ -264,14 +265,34 @@ export function BeachReviewForm({
               mode="single"
               selected={formData.visit_date}
               onSelect={(date) => {
-                setFormData((prev) => ({ ...prev, visit_date: date }));
-                setCalendarOpen(false);
+                console.log("Calendar date selected:", date);
+                setFormData((prev) => ({
+                  ...prev,
+                  visit_date: date || undefined,
+                }));
+                if (date) {
+                  setCalendarOpen(false);
+                }
               }}
               disabled={(date) =>
                 date > new Date() || date < new Date("1900-01-01")
               }
               initialFocus
             />
+            <div className="p-3 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, visit_date: undefined }));
+                  setCalendarOpen(false);
+                }}
+                type="button"
+              >
+                Clear Date
+              </Button>
+            </div>
           </PopoverContent>
         </Popover>
       </div>

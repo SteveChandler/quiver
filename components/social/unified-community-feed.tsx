@@ -55,7 +55,8 @@ export function UnifiedCommunityFeed({
   } = useActivityFeed({
     userId,
     limit: 20,
-    autoRefresh: true,
+    autoRefresh:
+      typeof window !== "undefined" ? !(window as any).__PLAYWRIGHT__ : true,
     refreshInterval: 30000,
   });
 

@@ -13,6 +13,7 @@ import {
   Calendar,
   MapPin,
   Clock,
+  HelpCircle,
 } from "lucide-react";
 import { ForecastCard } from "./forecast-card";
 import { useCachedApi } from "@/hooks/use-cached-api";
@@ -27,6 +28,12 @@ import {
   LoadingSpinner,
   ErrorDisplay,
 } from "@/lib/utils/forecast-ui-utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface EnhancedForecast {
   id: string;
@@ -263,9 +270,23 @@ export function BeachesEnhancedForecast({
                     )}
                     %
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Avg Confidence
-                  </p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1 justify-center cursor-help">
+                          Avg Confidence
+                          <HelpCircle className="h-3 w-3" />
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          How reliable the forecast data is based on data
+                          freshness, source quality, and forecast timeframe.
+                          Higher scores mean more reliable predictions.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
               <Badge

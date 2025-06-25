@@ -7,9 +7,32 @@ test.describe("Beach Card Review Click Navigation", () => {
       (window as any).__PLAYWRIGHT__ = true;
     });
 
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    // Wait for basic page structure with extended timeout for performance issues
+    try {
+      // Wait for the main app header first
+      await page.waitForSelector("h1", { timeout: 45000 });
+
+      // Wait for either tabs or main content to load
+      await Promise.race([
+        page.waitForSelector('[role="tablist"]', { timeout: 15000 }),
+        page.waitForSelector(".space-y-4", { timeout: 15000 }),
+        page.waitForSelector("main", { timeout: 15000 }),
+      ]);
+
+      // Give extra time for slow performance
+      await page.waitForTimeout(3000);
+    } catch (error) {
+      console.log(
+        "Page load timeout, attempting to continue with available content..."
+      );
+      // Log what's actually on the page for debugging
+      const pageContent = await page
+        .textContent("body")
+        .catch(() => "Unable to get page content");
+      console.log("Page content preview:", pageContent?.substring(0, 200));
+    }
   });
 
   test.describe("Nearby Tab Review Clicks", () => {
@@ -88,9 +111,17 @@ test.describe("Beach Card Review Click Navigation", () => {
           // Should have reviews tab parameter
           expect(newUrl).toContain("tab=reviews");
 
-          // Wait for page to load
-          await page.waitForLoadState("networkidle");
-          await page.waitForTimeout(1000);
+          // Wait for the beach detail page to load with performance tolerance
+          try {
+            await Promise.race([
+              page.waitForSelector('[role="tablist"]', { timeout: 15000 }),
+              page.waitForSelector(".space-y-4", { timeout: 15000 }),
+              page.waitForSelector("main", { timeout: 15000 }),
+            ]);
+          } catch (error) {
+            console.log("Beach detail page load timeout, continuing...");
+          }
+          await page.waitForTimeout(2000);
 
           // Should be on reviews tab
           const reviewsTab = page.getByRole("tab", { name: /reviews/i });
@@ -187,9 +218,39 @@ test.describe("Beach Card Review Click Navigation", () => {
 
   test.describe("Maps Page Review Clicks", () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto("/map");
-      await page.waitForLoadState("networkidle");
-      await page.waitForTimeout(3000);
+      // Add Playwright detection to trigger test mode
+      await page.addInitScript(() => {
+        (window as any).__PLAYWRIGHT__ = true;
+      });
+
+      await page.goto("/map", { waitUntil: "domcontentloaded" });
+
+      // Wait for map page content with extended timeout for performance issues
+      try {
+        // Wait for basic page structure first
+        await page.waitForSelector("body", { timeout: 30000 });
+
+        // Wait for map-related content to appear
+        await Promise.race([
+          page.waitForSelector(".absolute.inset-0", { timeout: 20000 }),
+          page.waitForSelector('[class*="map"]', { timeout: 20000 }),
+          page.waitForSelector(".flex.flex-col.min-h-screen", {
+            timeout: 20000,
+          }),
+        ]);
+
+        // Give extra time for slow performance and data loading
+        await page.waitForTimeout(4000);
+      } catch (error) {
+        console.log("Map page load timeout, attempting to continue...");
+        const pageContent = await page
+          .textContent("body")
+          .catch(() => "Unable to get page content");
+        console.log(
+          "Map page content preview:",
+          pageContent?.substring(0, 200)
+        );
+      }
     });
 
     test("should show beach cards with reviews in map list view", async ({

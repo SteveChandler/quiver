@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,7 @@ import {
   Star,
   Car,
   Activity,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,7 @@ import { useAuth } from "@/context/auth-context";
 import { SessionFormHeader } from "./SessionFormHeader";
 import { LocationStep } from "./LocationStep";
 import { EquipmentStep } from "./EquipmentStep";
+import SessionPhotoUpload from "@/components/media/session-photo-upload";
 
 import {
   createPlannedSession,
@@ -40,6 +42,8 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
   const paramMode =
     (searchParams.get("mode") as SessionFormMode) || initialMode;
   const router = useRouter();
+
+  const [plannedSessionId, setPlannedSessionId] = useState<string | null>(null);
 
   const {
     mode,
@@ -64,6 +68,10 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       formState.selectedBeachId &&
       formState.selectedDate
   );
+
+  const handlePhotoUploadComplete = (uploadedCount: number) => {
+    toast.success(`${uploadedCount} photos uploaded successfully!`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +131,10 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         const result = await createPlannedSession(sessionData, user.id);
         if (result.success) {
           toast.success("Session planned successfully!");
+          // Store the session ID for photo uploads
+          if (result.sessionId) {
+            setPlannedSessionId(result.sessionId);
+          }
         } else {
           throw new Error(result.error);
         }
@@ -182,7 +194,9 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
             <CardContent className="pt-6">
               <div className="flex items-center mb-4">
                 <MapPin className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Where</h2>
+                <h2 className="text-lg font-medium">
+                  {isPlanning ? "Where will you surf?" : "Where did you surf?"}
+                </h2>
               </div>
               <LocationStep
                 formState={formState}
@@ -197,7 +211,9 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
             <CardContent className="pt-6">
               <div className="flex items-center mb-4">
                 <CalendarDays className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">When & Duration</h2>
+                <h2 className="text-lg font-medium">
+                  {isPlanning ? "When will you surf?" : "When did you surf?"}
+                </h2>
               </div>
               <div className="space-y-4">
                 {/* Date and Time in same row */}
@@ -265,7 +281,11 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
             <CardContent className="pt-6">
               <div className="flex items-center mb-4">
                 <Surfboard className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Board</h2>
+                <h2 className="text-lg font-medium">
+                  {isPlanning
+                    ? "Which board will you use?"
+                    : "Which board did you use?"}
+                </h2>
               </div>
               <EquipmentStep
                 formState={formState}
@@ -281,7 +301,9 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
             <CardContent className="pt-6">
               <div className="flex items-center mb-4">
                 <Target className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Goal</h2>
+                <h2 className="text-lg font-medium">
+                  {isPlanning ? "What are your goals?" : "How did you perform?"}
+                </h2>
               </div>
               <div className="flex flex-wrap gap-2">
                 {["Pop-ups", "Tube Riding", "Cutbacks", "Duck Dives"].map(
@@ -481,26 +503,82 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
             </Card>
           )}
 
+          {/* Photo Upload Section - Only show for planning sessions */}
+          {isPlanning && (
+            <Card className="mb-4">
+              <CardContent className="pt-6">
+                <div className="flex items-center mb-4">
+                  <Camera className="w-5 h-5 mr-2 text-primary" />
+                  <h2 className="text-lg font-medium">
+                    Add Photos for Your Planned Session
+                  </h2>
+                </div>
+                <div className="space-y-4">
+                  {plannedSessionId ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        Upload photos to share your planned session experience
+                      </p>
+
+                      <div data-testid="session-photo-upload">
+                        <SessionPhotoUpload
+                          sessionId={plannedSessionId}
+                          onUploadComplete={handlePhotoUploadComplete}
+                          maxPhotos={5}
+                          disabled={loading}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Create your session first to upload photos
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Fill out the session details above and save to enable
+                        photo uploads
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Notes & Invite Section */}
           <Card className="mb-4">
             <CardContent className="pt-6">
               <div className="flex items-center mb-4">
                 <ClipboardList className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Notes & Invite</h2>
+                <h2 className="text-lg font-medium">
+                  {isPlanning ? "Notes & Invite Friends" : "Session Notes"}
+                </h2>
               </div>
               <Textarea
-                placeholder="Any notes about this session..."
+                placeholder={
+                  isPlanning
+                    ? "Any notes about your upcoming session..."
+                    : "How was your session? Share your experience..."
+                }
                 className="min-h-24 mb-4"
                 value={formState.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
               />
-              <div>
-                <input
-                  type="text"
-                  className="border rounded p-2 w-full"
-                  placeholder="Invite friends by email (comma-separated)"
-                />
-              </div>
+              {isPlanning && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Invite Friends (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="border rounded p-2 w-full"
+                    placeholder="Invite friends by email (comma-separated)"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Your friends will be notified about your planned session
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -511,7 +589,11 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
               disabled={loading || !isComplete}
               className="w-full"
             >
-              {loading ? "Saving..." : "Save"}
+              {loading
+                ? "Saving..."
+                : isPlanning
+                ? "Plan Session"
+                : "Log Session"}
             </Button>
           </div>
         </form>

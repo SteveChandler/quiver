@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+// Create alias for consistency with existing code
+const withAuth = withAuthenticatedAction;
 import {
   uploadSessionPhoto,
   uploadMultiplePhotos,
@@ -31,6 +34,8 @@ export async function uploadSessionPhotosAction(
 ): Promise<ActionResult> {
   return withAuth(async (userId) => {
     try {
+      const supabase = await createSupabaseServerClient();
+
       // Validate session ownership or participation
       const { data: session, error: sessionError } = await supabase
         .from("sessions")
@@ -129,6 +134,8 @@ export async function deleteSessionPhotoAction(
 ): Promise<ActionResult> {
   return withAuth(async (userId) => {
     try {
+      const supabase = await createSupabaseServerClient();
+
       // Get photo details
       const { data: photo, error: photoError } = await supabase
         .from("session_media")
@@ -174,6 +181,8 @@ export async function updatePhotoCaptionAction(
 ): Promise<ActionResult> {
   return withAuth(async (userId) => {
     try {
+      const supabase = await createSupabaseServerClient();
+
       const result = await updatePhotoCaption(photoId, caption, userId);
 
       if (!result.success) {
@@ -247,6 +256,8 @@ export async function getUserStorageUsageAction(): Promise<ActionResult> {
 export async function getStorageStatsAction(): Promise<ActionResult> {
   return withAuth(async (userId) => {
     try {
+      const supabase = await createSupabaseServerClient();
+
       const { data, error } = await supabase.rpc("get_user_storage_stats", {
         p_user_id: userId,
       });
@@ -275,6 +286,8 @@ export async function getStorageStatsAction(): Promise<ActionResult> {
 export async function cleanupOrphanedMediaAction(): Promise<ActionResult> {
   return withAuth(async (userId) => {
     try {
+      const supabase = await createSupabaseServerClient();
+
       // Only allow admin users (you can implement admin check here)
       const { data, error } = await supabase.rpc(
         "cleanup_orphaned_session_media"

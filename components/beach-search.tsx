@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Info } from "lucide-react";
 import { ForecastCard } from "@/components/forecast-card";
 import { useAuth } from "@/context/auth-context";
-import { getBeachById } from "@/actions/beach-actions";
+import { getBeachById, getBeaches } from "@/actions/beach-actions";
 import type { Beach, Profile } from "@/types/database";
 
 interface BeachSearchProps {
@@ -20,19 +20,83 @@ interface BeachSearchProps {
 export function BeachSearch({ profile }: BeachSearchProps) {
   const { user } = useAuth();
   const [query, setQuery] = useState("");
+  const [originalSearchQuery, setOriginalSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [beach, setBeach] = useState<Beach | null>(null);
   const [forecast, setForecast] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isWaitingForProfile, setIsWaitingForProfile] = useState(true);
+  const [showFallbackMessage, setShowFallbackMessage] = useState(false);
+  const [availableBeaches, setAvailableBeaches] = useState<Beach[]>([]);
+  const [loadingBeaches, setLoadingBeaches] = useState(false);
+
+  // Load available beaches for fallback display
+  const loadAvailableBeaches = async () => {
+    setLoadingBeaches(true);
+    try {
+      const result = await getBeaches();
+      if (result.success && result.data) {
+        // Sort beaches alphabetically and take first 12 for display
+        const sortedBeaches = result.data
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .slice(0, 12);
+        setAvailableBeaches(sortedBeaches);
+      }
+    } catch (err) {
+      console.error("Error loading beaches:", err);
+    } finally {
+      setLoadingBeaches(false);
+    }
+  };
+
+  // Load beaches when fallback message is shown
+  useEffect(() => {
+    if (showFallbackMessage && availableBeaches.length === 0) {
+      loadAvailableBeaches();
+    }
+  }, [showFallbackMessage]);
+
+  // Helper function to check if beach matches the search query
+  const doesBeachMatchSearch = (
+    beachName: string,
+    searchQuery: string
+  ): boolean => {
+    if (!searchQuery.trim()) return true;
+
+    const normalizedBeach = beachName.toLowerCase().trim();
+    const normalizedSearch = searchQuery.toLowerCase().trim();
+
+    // Check if the beach name contains the search query or vice versa
+    return (
+      normalizedBeach.includes(normalizedSearch) ||
+      normalizedSearch.includes(normalizedBeach)
+    );
+  };
+
+  // Handle clicking on a suggested beach
+  const handleBeachSuggestionClick = async (suggestedBeach: Beach) => {
+    setQuery(suggestedBeach.name);
+    setShowFallbackMessage(false);
+    await fetchBeachData(suggestedBeach.name, false); // Don't treat as user search to avoid fallback loop
+  };
 
   // Fetch beach data using utility functions
-  const fetchBeachData = async (beachName: string) => {
+  const fetchBeachData = async (
+    beachName: string,
+    isUserSearch: boolean = false
+  ) => {
     setLoading(true);
     setError(null);
     setBeach(null);
     setForecast(null);
+    setShowFallbackMessage(false);
+
+    // Track the original search query for fallback detection
+    if (isUserSearch) {
+      setOriginalSearchQuery(beachName);
+      console.log("🔍 User searching for:", beachName);
+    }
 
     try {
       const { searchBeachWithForecast } = await import(
@@ -41,11 +105,49 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       const { beach: foundBeach, forecast: enhancedForecast } =
         await searchBeachWithForecast(beachName);
 
+      console.log("🏖️ Found beach:", foundBeach.name);
       setBeach(foundBeach);
       setForecast(enhancedForecast);
+
+      // Check if we need to show a fallback message
+      if (isUserSearch && !doesBeachMatchSearch(foundBeach.name, beachName)) {
+        console.log("⚠️ Beach mismatch detected!");
+        console.log("- Original search:", beachName);
+        console.log("- Found beach:", foundBeach.name);
+        console.log(
+          "- Match result:",
+          doesBeachMatchSearch(foundBeach.name, beachName)
+        );
+        setShowFallbackMessage(true);
+      } else if (isUserSearch) {
+        console.log("✅ Beach matches search");
+      }
     } catch (err) {
       console.error("Error fetching beach forecast:", err);
-      setError(err instanceof Error ? err.message : "Unknown error occurred");
+
+      // If this is a user search that failed, try to show Ocean Beach with fallback message
+      if (isUserSearch) {
+        console.log("🔄 Search failed, attempting Ocean Beach fallback...");
+        try {
+          const { searchBeachWithForecast } = await import(
+            "@/lib/utils/beach-search-utils"
+          );
+          const { beach: fallbackBeach, forecast: fallbackForecast } =
+            await searchBeachWithForecast("Ocean Beach");
+
+          console.log("🏖️ Fallback beach loaded:", fallbackBeach.name);
+          setBeach(fallbackBeach);
+          setForecast(fallbackForecast);
+          setShowFallbackMessage(true);
+        } catch (fallbackErr) {
+          console.error("Fallback also failed:", fallbackErr);
+          setError(
+            err instanceof Error ? err.message : "Unknown error occurred"
+          );
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Unknown error occurred");
+      }
     } finally {
       setLoading(false);
       setIsWaitingForProfile(false);
@@ -58,6 +160,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     setError(null);
     setBeach(null);
     setForecast(null);
+    setShowFallbackMessage(false);
 
     try {
       const result = await getBeachById(beachId);
@@ -86,6 +189,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     setError(null);
     setBeach(null);
     setForecast(null);
+    setShowFallbackMessage(false);
 
     try {
       setQuery(beachName);
@@ -174,7 +278,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       return;
     }
 
-    await fetchBeachData(query);
+    await fetchBeachData(query, true);
   };
 
   return (
@@ -228,37 +332,65 @@ export function BeachSearch({ profile }: BeachSearchProps) {
 
         {!loading && !isWaitingForProfile && beach && forecast && (
           <div className="mt-6">
-            <div className="text-green-600 text-sm p-2 bg-green-50 rounded mb-4">
-              {user &&
-              profile?.default_beach_id &&
-              beach.id === profile.default_beach_id
-                ? `Showing surf conditions for your favorite beach: ${beach.name}`
-                : `Showing surf conditions for ${beach.name}`}
-              {beach.location && `, ${beach.location}`}
-            </div>
+            {/* Fallback message with beach suggestions */}
+            {showFallbackMessage && originalSearchQuery && (
+              <div className="flex items-start gap-2 text-blue-600 text-sm p-4 bg-blue-50 rounded-lg mb-4 border border-blue-200">
+                <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium mb-2">
+                    Beach "{originalSearchQuery}" not found
+                  </p>
+                  <p className="text-blue-600/80 mb-3">
+                    We're showing you {beach.name} instead. Try searching for
+                    one of these available beaches:
+                  </p>
+
+                  {loadingBeaches ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span className="text-xs">Loading beaches...</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                      {availableBeaches.map((availableBeach) => (
+                        <button
+                          key={availableBeach.id}
+                          onClick={() =>
+                            handleBeachSuggestionClick(availableBeach)
+                          }
+                          className="text-left text-xs bg-white hover:bg-blue-100 border border-blue-200 rounded px-2 py-1 transition-colors duration-200"
+                        >
+                          {availableBeach.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Success message */}
+            {!showFallbackMessage && (
+              <div className="text-green-600 text-sm p-2 bg-green-50 rounded mb-4">
+                {user &&
+                profile?.default_beach_id &&
+                beach.id === profile.default_beach_id
+                  ? `Showing surf conditions for your favorite beach: ${beach.name}`
+                  : `Showing surf conditions for ${beach.name}`}
+                {beach.location && `, ${beach.location}`}
+              </div>
+            )}
 
             <ForecastCard
-              beachName={beach.name}
+              day="Today"
+              date={new Date().toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
               waveHeight={forecast.wave_height || "No data"}
-              waterTemp={forecast.water_temp}
               windSpeed={forecast.wind_speed}
-              tide={forecast.tide_status || "Unknown"}
-              time={
-                forecast.forecast_time
-                  ? new Date(
-                      forecast.forecast_date + "T" + forecast.forecast_time
-                    ).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : new Date().toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-              }
-              windDirection={forecast.wind_direction}
-              weatherCondition={forecast.weather_condition}
-              beachId={beach.id}
+              waterTemp={forecast.water_temp}
+              waveDirection={forecast.wave_direction}
             />
           </div>
         )}

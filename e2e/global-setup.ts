@@ -1,5 +1,10 @@
 import { chromium, FullConfig } from "@playwright/test";
 import path from "path";
+import fs from "fs";
+import { config } from "dotenv";
+
+// Load environment variables from .env file
+config();
 
 async function globalSetup(config: FullConfig) {
   console.log("🚀 Starting global setup...");
@@ -8,155 +13,94 @@ async function globalSetup(config: FullConfig) {
   const page = await browser.newPage();
 
   try {
-    // Navigate to the app
-    await page.goto("http://localhost:3000");
+    // Check if we can access the sign-in page (indicates app is running)
+    console.log("🌐 Navigating to sign-in page...");
+    await page.goto("http://localhost:3000/auth/sign-in");
+    await page.waitForLoadState("networkidle");
 
-    // Check if we're already authenticated or if we need to sign in
-    await page.waitForTimeout(2000);
+    // Check if sign-in form is available
+    const emailField = page.getByLabel(/email/i);
+    const passwordField = page.getByLabel(/password/i);
+    const signInButton = page.getByRole("button", { name: /sign in/i });
 
-    // Check if user is already logged in by looking for sign-in elements
-    const needsAuth =
-      (await page
-        .getByText(/sign in|log in|welcome back/i)
-        .isVisible()
-        .catch(() => false)) || page.url().includes("/auth/sign-in");
+    const hasSignInForm =
+      (await emailField.isVisible().catch(() => false)) &&
+      (await passwordField.isVisible().catch(() => false)) &&
+      (await signInButton.isVisible().catch(() => false));
 
-    if (needsAuth) {
-      console.log("🔐 Authentication required, creating test session...");
-
-      try {
-        // Try to create a test session programmatically using Supabase
-        const { createClient } = await import("@supabase/supabase-js");
-
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-
-        // Use environment variables for test credentials, with fallbacks
-        const testEmail = process.env.TEST_USER_EMAIL || "test@quiver.com";
-        const testPassword =
-          process.env.TEST_USER_PASSWORD || "testpassword123";
-
-        console.log(`📝 Attempting to sign in with email: ${testEmail}`);
-
-        // Try to sign in first
-        let { data, error } = await supabase.auth.signInWithPassword({
-          email: testEmail,
-          password: testPassword,
-        });
-
-        // If sign in fails, try to sign up
-        if (error && error.message.includes("Invalid login credentials")) {
-          console.log("📝 User doesn't exist, creating test user...");
-
-          const signUpResult = await supabase.auth.signUp({
-            email: testEmail,
-            password: testPassword,
-          });
-
-          if (signUpResult.error) {
-            console.log(
-              "❌ Failed to create test user:",
-              signUpResult.error.message
-            );
-          } else {
-            console.log("✅ Test user created successfully");
-            // Try to sign in again
-            const signInResult = await supabase.auth.signInWithPassword({
-              email: testEmail,
-              password: testPassword,
-            });
-            data = signInResult.data;
-            error = signInResult.error;
-          }
-        }
-
-        if (error) {
-          console.log("❌ Authentication failed:", error.message);
-          console.log("   Tests will run in unauthenticated mode");
-        } else if (data.session) {
-          console.log("✅ Authentication successful");
-
-          // Set the session cookies in the browser context
-          await page.evaluate(
-            ({ session }) => {
-              // Store session in localStorage (Supabase's default behavior)
-              localStorage.setItem(
-                `sb-${new URL(
-                  process.env.NEXT_PUBLIC_SUPABASE_URL!
-                ).hostname.replace(/\./g, "-")}-auth-token`,
-                JSON.stringify({
-                  access_token: session.access_token,
-                  refresh_token: session.refresh_token,
-                  expires_at: session.expires_at,
-                  token_type: session.token_type,
-                  user: session.user,
-                })
-              );
-            },
-            { session: data.session }
-          );
-
-          // Navigate to home to verify authentication
-          await page.goto("http://localhost:3000");
-          await page.waitForTimeout(2000);
-        }
-      } catch (setupError) {
-        console.log("❌ Error during programmatic auth setup:", setupError);
-        console.log("   Falling back to manual sign-in...");
-
-        // Fallback to manual sign-in
-        await page.goto("http://localhost:3000/auth/sign-in");
-
-        // Check if sign-in form is available
-        const emailField = page.getByLabel(/email/i);
-        const passwordField = page.getByLabel(/password/i);
-        const signInButton = page.getByRole("button", { name: /sign in/i });
-
-        const hasSignInForm =
-          (await emailField.isVisible().catch(() => false)) &&
-          (await passwordField.isVisible().catch(() => false)) &&
-          (await signInButton.isVisible().catch(() => false));
-
-        if (hasSignInForm) {
-          console.log("📝 Attempting manual sign-in...");
-
-          const testEmail = process.env.TEST_USER_EMAIL || "test@quiver.com";
-          const testPassword =
-            process.env.TEST_USER_PASSWORD || "testpassword123";
-
-          await emailField.fill(testEmail);
-          await passwordField.fill(testPassword);
-          await signInButton.click();
-          await page.waitForTimeout(3000);
-
-          const isAuthenticated = !page.url().includes("/auth/sign-in");
-          if (isAuthenticated) {
-            console.log("✅ Manual authentication successful");
-          } else {
-            console.log("⚠️  Manual authentication failed");
-          }
-        }
-      }
-    } else {
-      console.log("✅ Already authenticated or no authentication required");
+    if (!hasSignInForm) {
+      throw new Error(
+        "Sign-in form not found. Is the app running on http://localhost:3000?"
+      );
     }
 
-    // Save authentication state regardless of success
-    // This will work for both authenticated and unauthenticated states
-    const authFile = path.join(__dirname, "..", ".auth", "user.json");
-    await page.context().storageState({ path: authFile });
+    console.log("📝 Attempting to sign in with test credentials...");
 
+    // Use environment variables or fallback credentials
+    const testEmail = process.env.TEST_USER_EMAIL;
+    const testPassword = process.env.TEST_USER_PASSWORD;
+
+    if (!testEmail || !testPassword) {
+      throw new Error(
+        "Missing required environment variables: TEST_USER_EMAIL and TEST_USER_PASSWORD must be set in .env file"
+      );
+    }
+
+    await emailField.fill(testEmail);
+    await passwordField.fill(testPassword);
+    await signInButton.click();
+
+    // Wait for successful authentication by checking for redirect to home page
+    console.log("⏳ Waiting for authentication...");
+    try {
+      // Wait for either successful redirect to home or profile page
+      await page.waitForURL(
+        (url) =>
+          url.pathname === "/" ||
+          url.pathname.startsWith("/profile") ||
+          url.pathname.startsWith("/map"),
+        { timeout: 10000 }
+      );
+      console.log("✅ Authentication successful!");
+    } catch (error) {
+      // Check if we're still on sign-in page (authentication failed)
+      const currentUrl = page.url();
+      if (currentUrl.includes("/auth/sign-in")) {
+        throw new Error(
+          "Authentication failed - still on sign-in page. Check your credentials."
+        );
+      }
+      // If we're somewhere else, assume success but log the location
+      console.log(`⚠️  Authentication completed, current URL: ${currentUrl}`);
+    }
+
+    // Ensure .auth directory exists
+    const authDir = path.join(__dirname, "..", ".auth");
+    if (!fs.existsSync(authDir)) {
+      fs.mkdirSync(authDir, { recursive: true });
+      console.log("📁 Created .auth directory");
+    }
+
+    // Save the current authentication state
+    const authFile = path.join(authDir, "user.json");
+    await page.context().storageState({ path: authFile });
     console.log(`💾 Saved authentication state to ${authFile}`);
+
+    // Verify the file was created and has content
+    if (fs.existsSync(authFile)) {
+      const stats = fs.statSync(authFile);
+      console.log(`📊 Authentication file size: ${stats.size} bytes`);
+    } else {
+      throw new Error("Failed to create authentication state file");
+    }
   } catch (error) {
-    console.log("❌ Error during global setup:", error);
-    // Continue anyway - tests will handle unauthenticated state
+    console.error("❌ Global setup failed:", error);
+    throw error;
   } finally {
     await browser.close();
   }
 
-  console.log("🏁 Global setup completed");
+  console.log("🏁 Global setup completed successfully");
 }
 
 export default globalSetup;
