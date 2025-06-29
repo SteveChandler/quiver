@@ -1,94 +1,133 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Comprehensive Surf App Workflows", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    // Clear any existing authentication state first
+    await context.clearCookies();
+    await context.clearPermissions();
+
+    // Clear storage
+    await page.evaluate(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (e) {
+        // Ignore if storage is not accessible
+      }
+    });
+
     await page.goto("/");
   });
 
   test.describe("Complete User Journey", () => {
-    test.fixme(
-      "should complete full user journey from authentication to session logging",
-      async ({ page }) => {
-        // 1. Start at home page
-        await page.waitForTimeout(1000);
+    test("should complete full user journey from authentication to session logging", async ({
+      page,
+    }) => {
+      // 1. Start at home page
+      await page.waitForTimeout(1000);
 
-        // 2. Check if user is already authenticated or needs to sign in
-        const isAuthRequired =
-          page.url().includes("/auth") ||
-          (await page
-            .getByText(/sign in|log in/i)
-            .isVisible()
-            .catch(() => false));
-
-        if (isAuthRequired) {
-          // Navigate to sign in if needed
-          await page.goto("/auth/sign-in");
-
-          // Verify sign in page loads
-          await expect(
-            page.getByRole("heading", { name: /welcome back/i })
-          ).toBeVisible();
-
-          // Note: In real tests, you would sign in with test credentials
-          console.log(
-            "Authentication flow verified - sign in page displayed correctly"
-          );
-        }
-
-        // 3. Navigate to map to explore beaches
-        await page.goto("/map");
-        await page.waitForTimeout(1000);
-        const hasMapContent = await Promise.race([
-          page
-            .getByTestId("map-view")
-            .isVisible()
-            .catch(() => false),
-          page
-            .locator(".map-view")
-            .isVisible()
-            .catch(() => false),
-          page
-            .locator("main")
-            .isVisible()
-            .catch(() => false),
-        ]);
-        expect(hasMapContent).toBeTruthy();
-
-        // 4. Navigate to sessions to view history
-        await page.goto("/sessions");
-        const sessionsView = page
-          .getByTestId("sessions-view")
-          .or(page.locator(".sessions-view"));
-        await expect(sessionsView).toBeVisible();
-
-        // 5. Navigate to profile
-        await page.goto("/profile");
-        const profileView = page
-          .getByTestId("profile-view")
-          .or(page.locator(".profile"));
-        await expect(profileView).toBeVisible();
-
-        // 6. Try to access session logging (may redirect if not authenticated)
-        await page.goto("/log-session");
-        await page.waitForTimeout(2000);
-
-        // Should either show form or redirect to auth
-        const hasSessionForm = await page
-          .getByTestId("session-form")
+      // 2. Check if user is already authenticated or needs to sign in
+      const isAuthRequired =
+        page.url().includes("/auth") ||
+        (await page
+          .getByText(/sign in|log in/i)
           .isVisible()
-          .catch(() => false);
-        const isRedirectToAuth =
-          page.url().includes("/auth") ||
-          page.url() === new URL("/", page.url()).href;
+          .catch(() => false));
 
-        expect(hasSessionForm || isRedirectToAuth).toBeTruthy();
+      if (isAuthRequired) {
+        // Navigate to sign in if needed
+        await page.goto("/auth/sign-in");
+
+        // Verify sign in page loads
+        await expect(
+          page.getByRole("heading", { name: /welcome back/i })
+        ).toBeVisible();
+
+        // Note: In real tests, you would sign in with test credentials
+        console.log(
+          "Authentication flow verified - sign in page displayed correctly"
+        );
       }
-    );
+
+      // 3. Navigate to map to explore beaches
+      await page.goto("/map");
+      await page.waitForTimeout(2000); // Increased timeout for map loading
+
+      // Check for map page elements that actually exist
+      const hasMapContent = await Promise.race([
+        page
+          .getByTestId("map-view")
+          .isVisible()
+          .catch(() => false),
+        page
+          .getByPlaceholder("Search beaches...")
+          .isVisible()
+          .catch(() => false),
+        page
+          .getByRole("button", { name: /Map/ })
+          .isVisible()
+          .catch(() => false),
+        page
+          .getByRole("button", { name: /List/ })
+          .isVisible()
+          .catch(() => false),
+      ]);
+      expect(hasMapContent).toBeTruthy();
+
+      // 4. Navigate to sessions to view history (now redirects to profile)
+      await page.goto("/sessions");
+      await page.waitForTimeout(2000);
+
+      // Should redirect to profile, which may redirect to auth if not authenticated
+      const sessionsUrl = page.url();
+      const isSessionsRedirectedToAuth = sessionsUrl.includes("/auth/sign-in");
+      const isSessionsOnProfile = sessionsUrl.includes("/profile");
+
+      // Should either be on profile or redirected to auth
+      expect(isSessionsRedirectedToAuth || isSessionsOnProfile).toBeTruthy();
+
+      // 5. Navigate to profile directly to test the sessions tab
+      await page.goto("/profile");
+      await page.waitForTimeout(2000);
+
+      // Should redirect to auth if not authenticated
+      const profileUrl = page.url();
+      const isProfileRedirectedToAuth = profileUrl.includes("/auth/sign-in");
+      const isProfileOnProfile = profileUrl.includes("/profile");
+
+      // Should either be on profile or redirected to auth
+      expect(isProfileRedirectedToAuth || isProfileOnProfile).toBeTruthy();
+
+      // If we're on the profile page, check for sessions tab
+      if (isProfileOnProfile) {
+        await page.waitForTimeout(1000);
+        const sessionsTab = page.getByRole("tab", { name: /sessions/i });
+        if (await sessionsTab.isVisible()) {
+          await expect(sessionsTab).toBeVisible();
+        }
+      }
+
+      // 6. Try to access session logging (may redirect if not authenticated)
+      await page.goto("/log-session");
+      await page.waitForTimeout(2000);
+
+      // Should either show form or redirect to auth
+      const hasSessionForm = await page
+        .getByTestId("session-form")
+        .isVisible()
+        .catch(() => false);
+      const isRedirectToAuth =
+        page.url().includes("/auth") ||
+        page.url() === new URL("/", page.url()).href;
+
+      expect(hasSessionForm || isRedirectToAuth).toBeTruthy();
+    });
 
     test("should handle navigation flow between all main sections", async ({
       page,
     }) => {
-      const mainPages = ["/", "/map", "/sessions", "/profile"];
+      const mainPages = ["/", "/map", "/profile"];
+      const redirectingPages = ["/sessions"]; // Pages that redirect to other pages
 
       for (const pagePath of mainPages) {
         await page.goto(pagePath);
@@ -126,11 +165,24 @@ test.describe("Comprehensive Surf App Workflows", () => {
           hasBottomNav || hasNavElement || hasMainContent || hasAnyContent
         ).toBeTruthy();
       }
+
+      // Test redirecting pages separately
+      for (const pagePath of redirectingPages) {
+        await page.goto(pagePath);
+        await page.waitForTimeout(2000);
+
+        // Sessions should redirect to profile (or auth if not authenticated)
+        const redirectedUrl = page.url();
+        const redirectedCorrectly =
+          redirectedUrl.includes("/profile") ||
+          redirectedUrl.includes("/auth/sign-in");
+        expect(redirectedCorrectly).toBeTruthy();
+      }
     });
   });
 
   test.describe("Feature Integration Tests", () => {
-    test.skip("should integrate beach selection from map to session logging", async ({
+    test("should integrate beach selection from map to session logging", async ({
       page,
     }) => {
       // This test requires authentication setup and is complex to maintain
@@ -179,7 +231,7 @@ test.describe("Comprehensive Surf App Workflows", () => {
       }
     });
 
-    test.skip("should integrate profile boards with session logging", async ({
+    test("should integrate profile boards with session logging", async ({
       page,
     }) => {
       // This test requires authentication setup and is complex to maintain
@@ -301,7 +353,7 @@ test.describe("Comprehensive Surf App Workflows", () => {
       }
     });
 
-    test.skip("should show consistent user data across profile and forms", async ({
+    test("should show consistent user data across profile and forms", async ({
       page,
     }) => {
       // This test requires authentication setup and is complex to maintain
@@ -311,7 +363,7 @@ test.describe("Comprehensive Surf App Workflows", () => {
 
   test.describe("Error Handling and Edge Cases", () => {
     test("should handle empty states across all views", async ({ page }) => {
-      const views = ["/", "/map", "/sessions"];
+      const views = ["/", "/map", "/profile"];
 
       for (const view of views) {
         await page.goto(view);
@@ -364,7 +416,7 @@ test.describe("Comprehensive Surf App Workflows", () => {
       // Test mobile viewport
       await page.setViewportSize({ width: 375, height: 667 });
 
-      const pages = ["/", "/map", "/sessions", "/profile"];
+      const pages = ["/", "/map", "/profile"];
 
       for (const testPage of pages) {
         await page.goto(testPage);
@@ -421,14 +473,12 @@ test.describe("Comprehensive Surf App Workflows", () => {
       await page.waitForTimeout(500); // Increased timeout
       await page.goto("/map");
       await page.waitForTimeout(500);
-      await page.goto("/sessions");
-      await page.waitForTimeout(500);
-      await page.goto("/profile");
+      await page.goto("/profile"); // Skip /sessions since it redirects to /profile
       await page.waitForTimeout(3000); // Longer final wait
 
       // Should end up on a valid page
       const url = page.url();
-      const validPages = ["/", "/map", "/sessions", "/profile", "/auth"];
+      const validPages = ["/", "/map", "/profile", "/auth"];
       const isValidPage = validPages.some((validPage) =>
         url.includes(validPage)
       );

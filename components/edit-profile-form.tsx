@@ -32,6 +32,7 @@ import { updateProfile } from "@/actions/profile-actions";
 import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
 import { uploadImage, deleteImage } from "@/lib/image-upload";
+import { toast } from "@/components/ui/use-toast";
 
 const profileFormSchema = z.object({
   full_name: z
@@ -154,31 +155,56 @@ export function EditProfileForm({
     }
 
     setIsUploading(true);
-    try {
-      // Delete old image if it exists and is not a placeholder
-      if (avatarUrl && !avatarUrl.includes("placeholder.svg")) {
-        await deleteImage(avatarUrl, "avatars");
-      }
+    let uploadSuccess = false;
 
-      // Upload new image
+    try {
+      // First, upload the new image
+      console.log("Starting image upload...");
       const result = await uploadImage(file, "avatars", "profiles");
+
       if (!result.success) {
         throw new Error(result.error || "Failed to upload image");
       }
 
+      console.log("Image upload successful, URL:", result.url);
+      uploadSuccess = true;
+
+      // Only delete old image after successful upload
+      if (avatarUrl && !avatarUrl.includes("placeholder.svg")) {
+        try {
+          await deleteImage(avatarUrl, "avatars");
+          console.log("Old image deleted successfully");
+        } catch (deleteError) {
+          // Don't fail the whole operation if we can't delete the old image
+          console.warn(
+            "Failed to delete old image, but new image uploaded successfully:",
+            deleteError
+          );
+        }
+      }
+
+      // Update the avatar URL
       setAvatarUrl(result.url);
-      console.log("Avatar uploaded successfully, URL:", result.url);
+
+      // Show success message
       toast({
-        title: "Image uploaded",
-        description: "Your profile picture has been updated.",
+        title: "Profile picture updated",
+        description: "Your profile picture has been updated successfully.",
       });
     } catch (error) {
       console.error("Error uploading avatar:", error);
-      toast({
-        title: "Error",
-        description: "Failed to upload image. Please try again.",
-        variant: "destructive",
-      });
+
+      // Only show error if upload actually failed
+      if (!uploadSuccess) {
+        toast({
+          title: "Upload failed",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Failed to upload image. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsUploading(false);
       // Clear the file input

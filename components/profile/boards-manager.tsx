@@ -97,94 +97,8 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
     });
   };
 
-  // Alternative function using API route if server action fails
-  const handleAddBoardViaAPI = async (data: BoardFormValues) => {
-    console.log("🎯 handleAddBoardViaAPI called");
-
-    if (isLoading) {
-      toast({
-        title: "Please wait",
-        description: "Authentication is still loading. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!isAuthenticated || !user?.id) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to add boards.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      console.log("📤 Calling API route...");
-      const response = await fetch("/api/boards", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Important: include cookies
-        body: JSON.stringify({
-          ...data,
-          image_url: data.image_url || null,
-          description: data.description || null,
-        }),
-      });
-
-      const result = await response.json();
-      console.log("📥 API route result:", result);
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to create board");
-      }
-
-      toast({
-        title: "Board added",
-        description: "Your new board has been added to your quiver.",
-      });
-
-      setIsAddDialogOpen(false);
-      resetForm();
-      router.refresh();
-    } catch (error) {
-      console.error("Error adding board via API:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add board. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleAddBoard = async (data: BoardFormValues) => {
-    console.log("🎯 handleAddBoard called");
-    console.log("👤 Auth state:", {
-      hasUser: !!user,
-      userId: user?.id,
-      isAuthenticated,
-      isLoading,
-      passedUserId: userId,
-    });
-
-    // Enhanced authentication checks
-    if (isLoading) {
-      console.log("⏳ Authentication still loading, cannot proceed");
-      toast({
-        title: "Please wait",
-        description: "Authentication is still loading. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!isAuthenticated || !user?.id) {
-      console.log("❌ User not authenticated");
       toast({
         title: "Authentication required",
         description: "Please sign in to add boards.",
@@ -195,22 +109,13 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
 
     setIsSubmitting(true);
     try {
-      console.log("📤 Calling createBoard server action...");
       const result = await createBoard({
         ...data,
         image_url: data.image_url || null,
         description: data.description || null,
       });
 
-      console.log("📥 Server action result:", result);
-
       if (!result.success) {
-        // If server action fails with auth error, try API route as fallback
-        if (result.error === "Authentication required") {
-          console.log("🔄 Server action auth failed, trying API route...");
-          setIsSubmitting(false); // Reset before trying API
-          return await handleAddBoardViaAPI(data);
-        }
         throw new Error(result.error || "Failed to create board");
       }
 
@@ -235,15 +140,6 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
   };
 
   const handleEditBoard = async (data: BoardFormValues) => {
-    if (isLoading) {
-      toast({
-        title: "Please wait",
-        description: "Authentication is still loading. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!isAuthenticated || !user?.id || !selectedBoard) {
       toast({
         title: "Authentication required",
@@ -286,15 +182,6 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
   };
 
   const handleDeleteBoard = async () => {
-    if (isLoading) {
-      toast({
-        title: "Please wait",
-        description: "Authentication is still loading. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!isAuthenticated || !user?.id || !selectedBoard) {
       toast({
         title: "Authentication required",

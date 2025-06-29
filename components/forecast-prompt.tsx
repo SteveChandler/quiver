@@ -544,18 +544,15 @@ export function ForecastPrompt() {
             )}
 
             <ForecastCard
-              beachName={beach.name}
+              day="Today"
+              date={new Date().toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
               waveHeight={forecast.wave_height || "No data"}
-              waterTemp={forecast.water_temp}
               windSpeed={forecast.wind_speed}
-              tide={forecast.tide || "Unknown"}
-              time={formatForecastTimeDetailed(
-                forecast.forecast_date,
-                forecast.forecast_time
-              )}
-              windDirection={forecast.wind_direction || undefined}
-              weatherCondition={forecast.weather_condition || undefined}
-              variant="legacy"
+              waterTemp={forecast.water_temp}
+              waveDirection={forecast.wave_direction}
             />
 
             {/* Debug information for developers */}

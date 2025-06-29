@@ -6,7 +6,8 @@ test.describe("Landing Page", () => {
     await page.context().clearCookies();
     await page.goto("/");
     // Wait for the page to load completely
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(1000);
   });
 
   test.describe("Landing Page Display", () => {
@@ -14,7 +15,8 @@ test.describe("Landing Page", () => {
       page,
     }) => {
       // Wait for the client-side app to determine auth status
-      await page.waitForTimeout(3000);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(2000);
 
       // Should not be redirected to auth pages
       expect(page.url()).not.toContain("/auth");
@@ -52,7 +54,8 @@ test.describe("Landing Page", () => {
     });
 
     test("should display hero section", async ({ page }) => {
-      await page.waitForTimeout(3000);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(1000);
 
       // Look for hero section content - actual content from the landing page
       const hasHeroHeading = await page
@@ -79,7 +82,8 @@ test.describe("Landing Page", () => {
     });
 
     test("should have proper page structure", async ({ page }) => {
-      await page.waitForTimeout(3000);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(1000);
 
       // Check for basic page structure
       const hasPageTitle = await page.title();
@@ -102,7 +106,8 @@ test.describe("Landing Page", () => {
 
   test.describe("Landing Page Sections", () => {
     test("should display multiple sections", async ({ page }) => {
-      await page.waitForTimeout(3000);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(1000);
 
       // Check for actual landing page content by text/elements
       const hasHeroContent = await page
@@ -129,7 +134,8 @@ test.describe("Landing Page", () => {
     });
 
     test("should have call-to-action elements", async ({ page }) => {
-      await page.waitForTimeout(3000);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(1000);
 
       // Look for specific CTA text that we know exists
       const hasJoinTheWaveLink = await page
@@ -161,14 +167,19 @@ test.describe("Landing Page", () => {
 
   test.describe("Navigation from Landing Page", () => {
     test("should navigate to sign up page", async ({ page }) => {
+      // Wait for landing page to fully load
+      await page.waitForLoadState("networkidle");
       await page.waitForTimeout(3000);
 
       // Look for the first sign up link specifically (to avoid multiple element error)
       const joinTheWaveLink = page.getByRole("link", { name: "Join the Wave" });
 
       if (await joinTheWaveLink.isVisible()) {
-        await joinTheWaveLink.click();
-        await page.waitForTimeout(1000);
+        // Click and wait for navigation to complete
+        await Promise.all([
+          page.waitForURL("**/auth/sign-up", { timeout: 10000 }),
+          joinTheWaveLink.click(),
+        ]);
 
         // Should navigate to sign up page
         expect(page.url()).toContain("/auth/sign-up");
@@ -176,34 +187,41 @@ test.describe("Landing Page", () => {
         // Try the second sign up button
         const signUpFreeLink = page.getByRole("link", { name: "Sign Up Free" });
         if (await signUpFreeLink.isVisible()) {
-          await signUpFreeLink.click();
-          await page.waitForTimeout(1000);
+          await Promise.all([
+            page.waitForURL("**/auth/sign-up", { timeout: 10000 }),
+            signUpFreeLink.click(),
+          ]);
           expect(page.url()).toContain("/auth/sign-up");
         } else {
           // If no sign up button found, directly navigate to test the route exists
           await page.goto("/auth/sign-up");
-          await page.waitForTimeout(1000);
+          await page.waitForLoadState("networkidle");
           expect(page.url()).toContain("/auth/sign-up");
         }
       }
     });
 
     test("should navigate to sign in page", async ({ page }) => {
+      // Wait for landing page to fully load
+      await page.waitForLoadState("networkidle");
       await page.waitForTimeout(3000);
 
       // Look for the "Learn More" link which goes to sign-in according to the CTA section
       const learnMoreLink = page.getByRole("link", { name: "Learn More" });
 
       if (await learnMoreLink.isVisible()) {
-        await learnMoreLink.click();
-        await page.waitForTimeout(1000);
+        // Click and wait for navigation to complete
+        await Promise.all([
+          page.waitForURL("**/auth/sign-in", { timeout: 10000 }),
+          learnMoreLink.click(),
+        ]);
 
         // Should navigate to sign in page
         expect(page.url()).toContain("/auth/sign-in");
       } else {
         // If no sign in button found, directly navigate to test the route exists
         await page.goto("/auth/sign-in");
-        await page.waitForTimeout(1000);
+        await page.waitForLoadState("networkidle");
         expect(page.url()).toContain("/auth/sign-in");
       }
     });
@@ -213,7 +231,8 @@ test.describe("Landing Page", () => {
     test("should display properly on mobile", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
       await page.goto("/");
-      await page.waitForTimeout(3000);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(1000);
 
       // Check that content is not cut off
       const mainContent = page.locator("div").first();
@@ -241,7 +260,8 @@ test.describe("Landing Page", () => {
     test("should display properly on tablet", async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
       await page.goto("/");
-      await page.waitForTimeout(3000);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(1000);
 
       // Check that content fits properly
       const mainContent = page.locator("div").first();
@@ -282,7 +302,8 @@ test.describe("Landing Page", () => {
         .catch(() => false);
 
       // Wait for content to load
-      await page.waitForTimeout(4000);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(2000);
 
       // After loading, should have some content
       const hasMainContent = await page
@@ -314,7 +335,8 @@ test.describe("Landing Page", () => {
     }) => {
       await page.context().clearCookies();
       await page.goto("/");
-      await page.waitForTimeout(4000);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(2000);
 
       // Should not show authenticated user content
       const hasHomeScreen = await page

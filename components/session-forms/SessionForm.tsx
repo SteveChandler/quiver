@@ -1,22 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  ClipboardList,
-  MapPin,
-  CalendarDays,
-  WavesIcon as Surfboard,
-  Timer,
-  Target,
-  Users,
-  Star,
-  Car,
-  Activity,
-} from "lucide-react";
+import { MapPin, WavesIcon as Surfboard, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { useSessionForm, SessionFormMode } from "@/hooks/use-session-form";
@@ -24,11 +12,22 @@ import { useAuth } from "@/context/auth-context";
 import { SessionFormHeader } from "./SessionFormHeader";
 import { LocationStep } from "./LocationStep";
 import { EquipmentStep } from "./EquipmentStep";
+import { GoalsSection } from "./GoalsSection";
+import { ConditionsSection } from "./ConditionsSection";
+import { DateTimeSection } from "./DateTimeSection";
+import { NotesSection } from "./NotesSection";
+import { PhotoSelectionSection } from "./PhotoSelectionSection";
+import { SimpleCardLayout } from "@/components/ui/form-layout";
+import {
+  getFormText,
+  getModeStyles,
+} from "@/lib/constants/session-form-constants";
 
 import {
   createPlannedSession,
   createLoggedSession,
 } from "@/actions/session-actions";
+import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 
 interface SessionFormProps {
   initialMode?: SessionFormMode;
@@ -40,6 +39,9 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
   const paramMode =
     (searchParams.get("mode") as SessionFormMode) || initialMode;
   const router = useRouter();
+
+  const [sessionCreated, setSessionCreated] = useState(false);
+  const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
 
   const {
     mode,
@@ -55,15 +57,37 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     isPlanning,
   } = useSessionForm(paramMode);
 
+  const text = getFormText(mode);
+  const styles = getModeStyles(mode);
+
   useEffect(() => {
     setMode(paramMode);
   }, [paramMode, setMode]);
+
+  // Auto-redirect after session is successfully logged
+  useEffect(() => {
+    if (!isPlanning && sessionCreated) {
+      const redirectTimer = setTimeout(() => {
+        router.push("/profile");
+      }, 2500); // 2.5 seconds to show success message
+
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [sessionCreated, isPlanning, router]);
 
   const isComplete = Boolean(
     formState.selectedBeach &&
       formState.selectedBeachId &&
       formState.selectedDate
   );
+
+  const handleFinishSession = () => {
+    router.push("/profile");
+  };
+
+  const handlePhotosChange = (files: File[]) => {
+    setSelectedPhotos(files);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,17 +172,47 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
           }),
         };
 
-        const result = await createLoggedSession(loggedSessionData, user.id);
+        const session = await createLoggedSession(loggedSessionData, user.id);
 
-        if (result.success) {
-          toast.success("Session logged successfully!");
+        // If photos were selected, upload them
+        if (selectedPhotos.length > 0) {
+          try {
+            const formData = new FormData();
+            formData.append("fileCount", selectedPhotos.length.toString());
+
+            selectedPhotos.forEach((file, index) => {
+              formData.append(`file_${index}`, file);
+            });
+
+            const uploadResult = await uploadSessionPhotosAction(
+              session.id,
+              formData
+            );
+
+            if (uploadResult.success) {
+              toast.success(
+                `Session logged with ${uploadResult.data.uploaded} photo(s)!`
+              );
+            } else {
+              toast.success("Session logged successfully!");
+              toast.warning("Some photos failed to upload");
+            }
+          } catch (photoError) {
+            console.error("Photo upload error:", photoError);
+            toast.success("Session logged successfully!");
+            toast.warning("Photos could not be uploaded");
+          }
         } else {
-          throw new Error(result.error);
+          toast.success("Session logged successfully!");
         }
+
+        setSessionCreated(true);
       }
 
-      // Handle completion
-      router.push("/profile");
+      // Handle completion - only redirect for planned sessions
+      if (isPlanning) {
+        router.push("/profile");
+      }
     } catch (error) {
       console.error("Error saving session:", error);
       toast.error(
@@ -176,343 +230,145 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       <SessionFormHeader mode={mode} />
 
       <div className="container flex-1 px-4">
-        <form onSubmit={handleSubmit}>
-          {/* Location Section */}
-          <Card className="mb-4">
+        {/* Success Message */}
+        {!isPlanning && sessionCreated && (
+          <Card className={`mb-4 ${styles.headerBorder} ${styles.headerBg}`}>
             <CardContent className="pt-6">
-              <div className="flex items-center mb-4">
-                <MapPin className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Where</h2>
+              <div className={`flex items-center ${styles.headerText}`}>
+                <CheckCircle2 className="w-5 h-5 mr-2" />
+                <div>
+                  <p className="font-medium">{text.successMessage}</p>
+                  <p className="text-sm opacity-80">{text.finishMessage}</p>
+                </div>
               </div>
-              <LocationStep
-                formState={formState}
-                beaches={beaches}
-                updateField={updateField}
-              />
             </CardContent>
           </Card>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Location Section */}
+          <SimpleCardLayout
+            title={
+              <div className="flex items-center">
+                <MapPin className="w-5 h-5 mr-2 text-primary" />
+                {text.location}
+              </div>
+            }
+            description={
+              isPlanning
+                ? "Choose where you'll be surfing"
+                : "Where did your session take place?"
+            }
+          >
+            <LocationStep
+              formState={formState}
+              beaches={beaches}
+              updateField={updateField}
+            />
+          </SimpleCardLayout>
 
           {/* Date/Time & Duration Section */}
-          <Card className="mb-4">
-            <CardContent className="pt-6">
-              <div className="flex items-center mb-4">
-                <CalendarDays className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">When & Duration</h2>
-              </div>
-              <div className="space-y-4">
-                {/* Date and Time in same row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Date
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full border rounded p-2"
-                      value={formState.selectedDate}
-                      onChange={(e) =>
-                        updateField("selectedDate", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Time
-                    </label>
-                    <div className="flex items-center">
-                      <Timer className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <input
-                        type="time"
-                        className="flex-1 border rounded p-2"
-                        value={formState.selectedTime}
-                        onChange={(e) =>
-                          updateField("selectedTime", e.target.value)
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Duration underneath */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Duration
-                  </label>
-                  <div className="flex items-center">
-                    <input
-                      type="number"
-                      min={15}
-                      step={15}
-                      className="border rounded p-2 w-24"
-                      value={
-                        formState.duration ? parseInt(formState.duration) : 60
-                      }
-                      onChange={(e) =>
-                        updateField("duration", `${e.target.value}m`)
-                      }
-                    />
-                    <span className="ml-2 text-sm text-muted-foreground">
-                      minutes
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <DateTimeSection
+            mode={mode}
+            formState={formState}
+            updateField={updateField}
+            sessionCreated={sessionCreated}
+          />
 
           {/* Equipment Section */}
-          <Card className="mb-4">
-            <CardContent className="pt-6">
-              <div className="flex items-center mb-4">
+          <SimpleCardLayout
+            title={
+              <div className="flex items-center">
                 <Surfboard className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Board</h2>
+                {text.equipment}
               </div>
-              <EquipmentStep
-                formState={formState}
-                boards={boards}
-                updateField={updateField}
-                onBoardsRefresh={refreshBoards}
-              />
-            </CardContent>
-          </Card>
+            }
+            description={
+              isPlanning
+                ? "Select the board you plan to use"
+                : "Which board did you ride?"
+            }
+          >
+            <EquipmentStep
+              formState={formState}
+              boards={boards}
+              updateField={updateField}
+              onBoardsRefresh={refreshBoards}
+            />
+          </SimpleCardLayout>
 
-          {/* Goal Section */}
-          <Card className="mb-4">
-            <CardContent className="pt-6">
-              <div className="flex items-center mb-4">
-                <Target className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Goal</h2>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {["Pop-ups", "Tube Riding", "Cutbacks", "Duck Dives"].map(
-                  (goal) => (
-                    <Button
-                      key={goal}
-                      type="button"
-                      variant={
-                        formState.notes?.includes(goal) ? "default" : "outline"
-                      }
-                      size="sm"
-                      onClick={() => {
-                        const currentNotes = formState.notes || "";
-                        if (currentNotes.includes(goal)) {
-                          updateField(
-                            "notes",
-                            currentNotes.replace(goal, "").trim()
-                          );
-                        } else {
-                          updateField(
-                            "notes",
-                            currentNotes ? `${currentNotes}, ${goal}` : goal
-                          );
-                        }
-                      }}
-                    >
-                      {goal}
-                    </Button>
-                  )
-                )}
-              </div>
+          {/* Goals/Performance Section */}
+          <GoalsSection
+            mode={mode}
+            formState={formState}
+            updateField={updateField}
+          />
 
-              {/* Overall Rating - Only show for logged sessions */}
-              {!isPlanning && (
-                <div className="mt-6 pt-4 border-t">
-                  <div className="text-center">
-                    <label className="block text-sm font-medium mb-2">
-                      Overall Goal Performance
-                    </label>
-                    <div className="flex justify-center gap-1 mb-1">
-                      {[1, 2, 3, 4, 5].map((rating) => (
-                        <button
-                          key={rating}
-                          type="button"
-                          onClick={() =>
-                            updateField("overallRating", rating.toString())
-                          }
-                          className={`p-1 rounded transition-colors ${
-                            parseInt(formState.overallRating) >= rating
-                              ? "text-blue-400"
-                              : "text-gray-300 hover:text-gray-400"
-                          }`}
-                        >
-                          <Star
-                            className="w-6 h-6"
-                            fill={
-                              parseInt(formState.overallRating) >= rating
-                                ? "currentColor"
-                                : "none"
-                            }
-                          />
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formState.overallRating
-                        ? `${formState.overallRating}/5`
-                        : "How did you perform?"}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Session Conditions Section - Only for logged sessions */}
+          <ConditionsSection
+            mode={mode}
+            formState={formState}
+            updateField={updateField}
+          />
 
-          {/* Session Conditions Section - Only show for logged sessions */}
-          {!isPlanning && (
-            <Card className="mb-4">
-              <CardContent className="pt-6">
-                <div className="flex items-center mb-4">
-                  <Activity className="w-5 h-5 mr-2 text-primary" />
-                  <h2 className="text-lg font-medium">Session Conditions</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Wave Quality */}
-                  <div className="text-center">
-                    <label className="block text-sm font-medium mb-2">
-                      Wave Quality
-                    </label>
-                    <div className="flex justify-center gap-1 mb-1">
-                      {[1, 2, 3, 4, 5].map((rating) => (
-                        <button
-                          key={rating}
-                          type="button"
-                          onClick={() =>
-                            updateField("waveQuality", rating.toString())
-                          }
-                          className={`p-1 rounded transition-colors ${
-                            parseInt(formState.waveQuality) >= rating
-                              ? "text-yellow-400"
-                              : "text-gray-300 hover:text-gray-400"
-                          }`}
-                        >
-                          <Star
-                            className="w-5 h-5"
-                            fill={
-                              parseInt(formState.waveQuality) >= rating
-                                ? "currentColor"
-                                : "none"
-                            }
-                          />
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formState.waveQuality
-                        ? `${formState.waveQuality}/5`
-                        : "Rate the waves"}
-                    </span>
-                  </div>
-
-                  {/* Crowd Density */}
-                  <div className="text-center">
-                    <label className="block text-sm font-medium mb-2">
-                      Crowd Density
-                    </label>
-                    <div className="flex justify-center gap-1 mb-1">
-                      {[1, 2, 3, 4, 5].map((rating) => (
-                        <button
-                          key={rating}
-                          type="button"
-                          onClick={() =>
-                            updateField("crowdLevel", rating.toString())
-                          }
-                          className={`p-1 rounded transition-colors ${
-                            parseInt(formState.crowdLevel) >= rating
-                              ? "text-orange-400"
-                              : "text-gray-300 hover:text-gray-400"
-                          }`}
-                        >
-                          <Users
-                            className="w-5 h-5"
-                            fill={
-                              parseInt(formState.crowdLevel) >= rating
-                                ? "currentColor"
-                                : "none"
-                            }
-                          />
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formState.crowdLevel
-                        ? `${formState.crowdLevel}/5`
-                        : "How crowded?"}
-                    </span>
-                  </div>
-
-                  {/* Parking */}
-                  <div className="text-center">
-                    <label className="block text-sm font-medium mb-2">
-                      Parking Ease
-                    </label>
-                    <div className="flex justify-center gap-1 mb-1">
-                      {[1, 2, 3, 4, 5].map((rating) => (
-                        <button
-                          key={rating}
-                          type="button"
-                          onClick={() =>
-                            updateField("parkingEase", rating.toString())
-                          }
-                          className={`p-1 rounded transition-colors ${
-                            parseInt(formState.parkingEase) >= rating
-                              ? "text-green-400"
-                              : "text-gray-300 hover:text-gray-400"
-                          }`}
-                        >
-                          <Car
-                            className="w-5 h-5"
-                            fill={
-                              parseInt(formState.parkingEase) >= rating
-                                ? "currentColor"
-                                : "none"
-                            }
-                          />
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formState.parkingEase
-                        ? `${formState.parkingEase}/5`
-                        : "How easy?"}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Photo Selection Section - Part of main form */}
+          <PhotoSelectionSection
+            mode={mode}
+            selectedFiles={selectedPhotos}
+            onFilesChange={handlePhotosChange}
+            disabled={loading}
+          />
 
           {/* Notes & Invite Section */}
-          <Card className="mb-4">
-            <CardContent className="pt-6">
-              <div className="flex items-center mb-4">
-                <ClipboardList className="w-5 h-5 mr-2 text-primary" />
-                <h2 className="text-lg font-medium">Notes & Invite</h2>
-              </div>
-              <Textarea
-                placeholder="Any notes about this session..."
-                className="min-h-24 mb-4"
-                value={formState.notes}
-                onChange={(e) => updateField("notes", e.target.value)}
-              />
-              <div>
-                <input
-                  type="text"
-                  className="border rounded p-2 w-full"
-                  placeholder="Invite friends by email (comma-separated)"
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <NotesSection
+            mode={mode}
+            formState={formState}
+            updateField={updateField}
+          />
 
-          {/* Save Button */}
+          {/* Submit Button */}
           <div className="flex justify-center mt-6 pb-24">
-            <Button
-              type="submit"
-              disabled={loading || !isComplete}
-              className="w-full"
-            >
-              {loading ? "Saving..." : "Save"}
-            </Button>
+            {!isPlanning && sessionCreated ? (
+              <div className="flex gap-4 w-full">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleFinishSession}
+                  className="flex-1"
+                >
+                  Save
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="submit"
+                disabled={loading || !isComplete}
+                className={`w-full ${
+                  !isComplete
+                    ? "bg-gray-400 hover:bg-gray-400 text-gray-600"
+                    : `${styles.buttonColor} text-white`
+                } ${loading ? "opacity-75" : ""}`}
+              >
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    {selectedPhotos.length > 0
+                      ? `Saving session with ${selectedPhotos.length} photo${
+                          selectedPhotos.length !== 1 ? "s" : ""
+                        }...`
+                      : "Saving..."}
+                  </div>
+                ) : !isComplete ? (
+                  "Complete required fields to save"
+                ) : selectedPhotos.length > 0 ? (
+                  `${text.submitButton} with ${selectedPhotos.length} photo${
+                    selectedPhotos.length !== 1 ? "s" : ""
+                  }`
+                ) : (
+                  text.submitButton
+                )}
+              </Button>
+            )}
           </div>
         </form>
       </div>

@@ -80,14 +80,51 @@ This directory contains comprehensive end-to-end tests for the Quiver surf appli
 - Session editing/deletion
 - Photo gallery features
 
-### 🔄 Comprehensive Integration Tests (`comprehensive.spec.ts`)
+### 🔍 Beach Search Fallback Tests (`beach-search-fallback.spec.ts`)
 
-- Complete user journey workflows
-- Cross-feature integration
+- **Fallback Message Display**: Verification of user-friendly messages when beaches aren't found
+- **Beach Suggestion Lists**: Display of available beaches when search fails
+- **Interactive Suggestions**: Clicking on suggested beaches to load forecast data
+- **Loading States**: Beach suggestions loading indicators and transitions
+- **Success Scenarios**: Proper handling of valid beach searches and partial matches
+- **Edge Cases**: Empty searches, special characters, very long beach names
+- **Responsive Design**: Mobile and desktop layouts for fallback messages
+- **UX Flow**: Complete fallback-to-success user journey testing
+
+### 🔄 End-to-End User Flow Tests (`end-to-end.spec.ts`)
+
+- **Authenticated User Flows**: Complete authenticated user journey from login to session planning
+- **New User Journey**: Sign-up flow and initial app exploration
+- **Beach Discovery to Session Flow**: Beach search, selection, and session creation workflows
+- **Social and Community Flow**: Community interaction, viewing sessions, profile exploration
+- **Complete Session Lifecycle**: Planning, logging, and viewing sessions end-to-end
+- **Mobile User Experience**: Mobile navigation and responsive feature testing
+- **Error Scenarios and Edge Cases**: Network issues, authentication changes, form validation
+
+### 🌟 Realistic User Scenario Tests (`realistic-user-scenarios.spec.ts`)
+
+- **Weekend Warrior Surfer**: Friday planning to weekend session execution
+- **Local Regular Surfer**: Daily condition checks and community interaction
+- **Traveling Surfer**: New location discovery and research workflow
+- **Social Surfer**: Session sharing, community engagement, following users
+- **Equipment Focused Surfer**: Board management and performance tracking
+- **Weather/Forecast Enthusiast**: Deep forecast analysis and conditions logging
+
+### 🎯 Unauthenticated User Flow Tests (`unauthenticated-user-flows.spec.ts`)
+
+- **First-time Visitor Experience**: Landing page value proposition and sign-up paths
+- **Content Discovery**: Public beach and forecast information access
+- **Sign Up Flow**: Account creation process and form validation
+- **Value Demonstration**: Public content that motivates user registration
+- **Mobile Experience**: Mobile-optimized unauthenticated user journey
+- **SEO and Discovery**: Search engine optimization and content accessibility
+
+### 🔄 Additional Integration Tests (`comprehensive.spec.ts`)
+
+- Cross-feature integration testing
 - Data consistency across pages
-- Error handling and edge cases
-- Mobile responsive testing
-- Performance and loading tests
+- Advanced error handling scenarios
+- Performance and loading benchmarks
 
 ## Running the Tests
 
@@ -138,6 +175,7 @@ npm run test:e2e:debug
 npx playwright test auth.spec.ts
 npx playwright test navigation.spec.ts
 npx playwright test session-logging.spec.ts
+npx playwright test beach-search-fallback.spec.ts
 ```
 
 #### Run tests for specific feature
@@ -177,6 +215,9 @@ The tests are designed to handle both authenticated and unauthenticated states:
 
 ```
 e2e/
+├── end-to-end.spec.ts                # Comprehensive user flow tests (main test suite)
+├── realistic-user-scenarios.spec.ts  # Real-world usage scenarios
+├── unauthenticated-user-flows.spec.ts # Guest user experience tests
 ├── auth.spec.ts                      # Authentication workflows
 ├── navigation.spec.ts                # Page navigation and routing
 ├── session-logging.spec.ts           # Surf session logging
@@ -184,8 +225,9 @@ e2e/
 ├── profile.spec.ts                   # User profile management
 ├── map.spec.ts                       # Map and beach directory
 ├── beach-card-interactions.spec.ts   # Beach card review click navigation
+├── beach-search-fallback.spec.ts     # Beach search fallback functionality
 ├── sessions.spec.ts                  # Session viewing and analytics
-├── comprehensive.spec.ts             # Integration and E2E workflows
+├── comprehensive.spec.ts             # Additional integration tests
 └── README.md                         # This documentation
 ```
 

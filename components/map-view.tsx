@@ -98,7 +98,7 @@ export function MapView() {
   const loading = locationLoading || beachLoading;
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col" data-testid="map-view">
       {/* Search Header */}
       <MapHeader
         searchQuery={searchQuery}

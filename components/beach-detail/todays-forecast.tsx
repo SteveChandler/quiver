@@ -13,21 +13,14 @@ export function TodaysForecast({ forecast }: TodaysForecastProps) {
       <h3 className="text-lg font-semibold">Today's Forecast</h3>
       {forecast ? (
         <ForecastCard
-          beachName={formatForecastTime(
-            forecast.forecast_date,
-            forecast.forecast_time
-          )}
+          day="Today"
+          date={new Date(forecast.forecast_date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })}
           waveHeight={forecast.wave_height || "No data"}
-          waterTemp={forecast.water_temp}
           windSpeed={forecast.wind_speed}
-          tide={forecast.tide || "Unknown"}
-          time={formatForecastTime(
-            forecast.forecast_date,
-            forecast.forecast_time
-          )}
-          windDirection={forecast.wind_direction || undefined}
-          weatherCondition={forecast.weather_condition || undefined}
-          variant="legacy"
+          waterTemp={forecast.water_temp}
         />
       ) : (
         <Card>

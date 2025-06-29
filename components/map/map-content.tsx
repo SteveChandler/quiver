@@ -6,6 +6,10 @@ import { MapPin } from "lucide-react";
 import { MapImage } from "@/components/map-image";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { MapSkeleton } from "@/components/skeletons/map-skeleton";
+import {
+  COVERAGE_MESSAGES,
+  isLikelyOutOfAreaSearch,
+} from "@/lib/constants/coverage-areas";
 import type { Beach } from "@/types/database";
 
 interface MapContentProps {
@@ -86,7 +90,10 @@ export function MapContent({
   return (
     <>
       {/* Static map image */}
-      <div className="flex-1 relative overflow-hidden min-h-[250px]">
+      <div
+        className="flex-1 relative overflow-hidden min-h-[250px]"
+        data-testid="map-container"
+      >
         <MapImage
           src={getStaticMapImageUrl(mapCenter.lat, mapCenter.lng, {
             width: 800,
@@ -108,6 +115,8 @@ export function MapContent({
                 ? `Found ${filteredBeaches.length} ${
                     filteredBeaches.length === 1 ? "beach" : "beaches"
                   } for "${searchQuery}"`
+                : isLikelyOutOfAreaSearch(searchQuery)
+                ? `"${searchQuery}" is outside our coverage area`
                 : `No beaches found for "${searchQuery}"`
               : userLocation
               ? usingDefaultLocation
@@ -126,7 +135,9 @@ export function MapContent({
           )}
           {filteredBeaches.length === 0 && searchQuery && (
             <p className="text-xs text-muted-foreground mt-1">
-              Try a different search term or clear your search
+              {isLikelyOutOfAreaSearch(searchQuery)
+                ? COVERAGE_MESSAGES.COVERAGE_AREA_INFO
+                : "Try a different search term or clear your search"}
             </p>
           )}
           {filteredBeaches.length === 0 &&
