@@ -81,12 +81,6 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       formState.selectedDate
   );
 
-  const isComplete = Boolean(
-    formState.selectedBeach &&
-      formState.selectedBeachId &&
-      formState.selectedDate
-  );
-
   const handleFinishSession = () => {
     router.push("/profile");
   };

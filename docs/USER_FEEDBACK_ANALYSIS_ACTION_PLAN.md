@@ -146,14 +146,14 @@ A test user provided the following feedback during blackbox testing:
 
 ### Priority 3: Feature Enhancements
 
-- [ ] Improve out-of-area search messaging
+- [x] Improve out-of-area search messaging
 - [ ] Add forecast data transparency (show when using fallback data)
 
 ### Priority 4: UX Consolidation
 
-- [ ] Consolidate session forms (same form, different language/features)
-- [ ] Better explain session-based photo uploads
-- [ ] Clarify when/where photo uploads are available
+- [x] Consolidate session forms (same form, different language/features)
+- [x] Better explain session-based photo uploads
+- [x] Clarify when/where photo uploads are available
 
 ## **Implementation Notes**
 
