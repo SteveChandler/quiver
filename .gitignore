@@ -60,3 +60,4 @@ Thumbs.db
 scripts/setup-dev-cron.sh
 .github/workflows/forecast-update.yml.template
 .env
+.cursorrules

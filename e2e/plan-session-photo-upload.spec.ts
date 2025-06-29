@@ -1,19 +1,17 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Plan Session Photo Upload", () => {
+test.describe("Session Photo Upload - Architecture Decision", () => {
   test.beforeEach(async ({ page }) => {
-    // Try to bypass auth or handle it
+    // Handle authentication redirect
     await page.goto("/plan-session");
 
-    // If redirected to sign-in, try to skip for now
+    // If redirected to sign-in, we'll test the behavior appropriately
     if (page.url().includes("/auth/sign-in")) {
-      console.log("Auth required - skipping test for now");
-      test.skip();
+      // This is expected behavior for unauthenticated users
     }
   });
 
   test("should redirect to auth when not authenticated", async ({ page }) => {
-    // This test checks that auth is working
     await page.goto("/plan-session");
     await page.waitForLoadState("networkidle");
 
@@ -21,112 +19,75 @@ test.describe("Plan Session Photo Upload", () => {
     expect(page.url()).toContain("/auth/sign-in");
   });
 
-  test("should show photo upload section for planning sessions @authenticated", async ({
+  test("should NOT show photo upload section for planning sessions", async ({
     page,
   }) => {
-    // This test will only run if we can get past auth
     await page.goto("/plan-session");
     await page.waitForLoadState("networkidle");
 
     // Skip if not authenticated
     if (page.url().includes("/auth/sign-in")) {
-      test.skip();
+      test.skip("Authentication required for this test");
     }
 
-    // Check if photo upload section is visible
-    await expect(page.getByTestId("session-photo-upload")).toBeVisible();
+    // Photo upload section should NOT be visible for planning sessions
+    await expect(page.getByText("Session Photos")).not.toBeVisible();
 
-    // Check for the correct heading
+    // Should not have photo upload elements
     await expect(
-      page.getByText("Add Photos for Your Planned Session")
-    ).toBeVisible();
+      page.getByText("Add photos from your surf session")
+    ).not.toBeVisible();
   });
 
-  test("should have photo upload component with correct plan-mode text @authenticated", async ({
+  test("should show photo upload section for logged sessions", async ({
     page,
   }) => {
-    await page.goto("/plan-session");
-    await page.waitForLoadState("networkidle");
-
-    // Skip if not authenticated
-    if (page.url().includes("/auth/sign-in")) {
-      test.skip();
-    }
-
-    // Look for plan-specific text in photo upload area
-    await expect(
-      page.getByText("Upload photos to share your planned session experience")
-    ).toBeVisible();
-  });
-
-  test("should display photo upload area before session creation @authenticated", async ({
-    page,
-  }) => {
-    await page.goto("/plan-session");
-    await page.waitForLoadState("networkidle");
-
-    // Skip if not authenticated
-    if (page.url().includes("/auth/sign-in")) {
-      test.skip();
-    }
-
-    // The photo upload should be visible even before filling out the form
-    await expect(page.getByTestId("session-photo-upload")).toBeVisible();
-
-    // Should show appropriate placeholder text
-    await expect(page.getByText("Add session photos")).toBeVisible();
-  });
-
-  test("should show upload button in photo upload area @authenticated", async ({
-    page,
-  }) => {
-    await page.goto("/plan-session");
-    await page.waitForLoadState("networkidle");
-
-    // Skip if not authenticated
-    if (page.url().includes("/auth/sign-in")) {
-      test.skip();
-    }
-
-    // Check for upload button/area
-    await expect(page.locator("button:has-text('Choose Files')")).toBeVisible();
-  });
-
-  test("should not show photo upload section on log-session page @authenticated", async ({
-    page,
-  }) => {
-    // Navigate to log session page instead
     await page.goto("/log-session");
     await page.waitForLoadState("networkidle");
 
     // Skip if not authenticated
     if (page.url().includes("/auth/sign-in")) {
-      test.skip();
+      test.skip("Authentication required for this test");
     }
 
-    // Photo upload should not be visible on log session page (this is the current behavior)
-    // Once we implement it there too, this test will need to be updated
-    await expect(page.getByTestId("session-photo-upload")).not.toBeVisible();
+    // Photo upload section should be visible for logged sessions
+    await expect(page.getByText("Session Photos")).toBeVisible();
+
+    // Should show the photo upload area
+    await expect(
+      page.getByText("Add photos from your surf session (optional)")
+    ).toBeVisible();
   });
 
-  test("should have different form heading for plan vs log @authenticated", async ({
+  test("should have correct form headers for different modes", async ({
     page,
   }) => {
-    // First check plan session heading
+    // Check plan session
     await page.goto("/plan-session");
     await page.waitForLoadState("networkidle");
 
-    // Skip if not authenticated
     if (page.url().includes("/auth/sign-in")) {
-      test.skip();
+      test.skip("Authentication required for this test");
     }
 
-    await expect(page.getByText("Plan Your Session")).toBeVisible();
+    await expect(page.getByText("Plan Session")).toBeVisible();
 
-    // Then check log session heading
+    // Check log session
     await page.goto("/log-session");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText("Log Your Session")).toBeVisible();
+    await expect(page.getByText("Log Session")).toBeVisible();
+  });
+
+  test("should document photo upload architecture decision", async ({
+    page,
+  }) => {
+    // This test documents our architectural decision:
+    // - Photo uploads are available for LOG mode sessions only
+    // - No standalone photo posting (session-based uploads)
+    // - Photos are part of session logging, not planning
+    // - This prevents confusion and focuses on completed sessions
+
+    expect(true).toBe(true);
   });
 });

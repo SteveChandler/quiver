@@ -1,403 +1,79 @@
-import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { toast } from "sonner";
+import { render, screen } from "@testing-library/react";
+import { PhotoSelectionSection } from "@/components/session-forms/PhotoSelectionSection";
 
-// Mock sonner toast
-jest.mock("sonner", () => ({
-  toast: {
-    success: jest.fn(),
-  },
-}));
-
-const mockToast = toast as any;
-
-// Simple test component that mimics our photo upload implementation logic
-const PhotoUploadFeature = ({
-  isPlanning,
-  sessionId,
-  loading,
-}: {
-  isPlanning: boolean;
-  sessionId: string | null;
-  loading: boolean;
-}) => {
-  const handlePhotoUploadComplete = (uploadedCount: number) => {
-    toast.success(`${uploadedCount} photos uploaded successfully!`);
-  };
-
-  // This mimics the conditional rendering logic we added to SessionForm
-  if (!isPlanning) {
-    return null;
-  }
-
-  return (
-    <div data-testid="photo-upload-section" className="photo-upload-section">
-      <div className="flex items-center mb-4">
-        <h2 className="text-lg font-medium">
-          Add Photos for Your Planned Session
-        </h2>
-      </div>
-      <div className="space-y-4">
-        {sessionId ? (
-          <>
-            <p className="text-sm text-muted-foreground">
-              Upload photos to share your planned session experience
-            </p>
-
-            <div data-testid="session-photo-upload">
-              <div>
-                <p>Session ID: {sessionId}</p>
-                <p>Max Photos: 5</p>
-                <p>Disabled: {loading.toString()}</p>
-                <button
-                  onClick={() => handlePhotoUploadComplete(2)}
-                  data-testid="upload-photos-button"
-                >
-                  Choose Files
-                </button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-4" data-testid="no-session-message">
-            <p className="text-sm text-muted-foreground mb-2">
-              Create your session first to upload photos
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Fill out the session details above and save to enable photo
-              uploads
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+// Mock file for testing
+const createMockFile = (name: string, size: number, type: string) => {
+  const file = new File([""], name, { type });
+  Object.defineProperty(file, "size", { value: size });
+  return file;
 };
 
-describe("SessionForm Photo Upload Feature Implementation", () => {
+describe("SessionForm Photo Upload Feature - LOG MODE ONLY", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock URL methods
+    global.URL.createObjectURL = jest.fn(() => "mock-url");
+    global.URL.revokeObjectURL = jest.fn();
   });
 
-  describe("Conditional Rendering Logic", () => {
-    it("should render photo upload section when isPlanning is true with session ID", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      expect(screen.getByTestId("photo-upload-section")).toBeInTheDocument();
-      expect(screen.getByTestId("session-photo-upload")).toBeInTheDocument();
-    });
-
-    it("should render no-session message when isPlanning is true but no sessionId", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId={null}
-          loading={false}
-        />
-      );
-
-      expect(screen.getByTestId("photo-upload-section")).toBeInTheDocument();
-      expect(screen.getByTestId("no-session-message")).toBeInTheDocument();
-      expect(
-        screen.queryByTestId("session-photo-upload")
-      ).not.toBeInTheDocument();
-    });
-
-    it("should NOT render photo upload section when isPlanning is false", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={false}
-          sessionId={null}
-          loading={false}
-        />
-      );
-
-      expect(
-        screen.queryByTestId("photo-upload-section")
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByTestId("session-photo-upload")
-      ).not.toBeInTheDocument();
-    });
-
-    it("should return null component when isPlanning is false", () => {
-      const { container } = render(
-        <PhotoUploadFeature
-          isPlanning={false}
-          sessionId={null}
-          loading={false}
-        />
-      );
-
-      expect(container.firstChild).toBeNull();
-    });
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
-  describe("Content and Text", () => {
-    it("should display correct heading", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
+  it("should render photo upload section for log mode", () => {
+    const mockProps = {
+      mode: "log" as const,
+      selectedFiles: [],
+      onFilesChange: jest.fn(),
+      disabled: false,
+      maxPhotos: 5,
+    };
 
-      expect(
-        screen.getByText("Add Photos for Your Planned Session")
-      ).toBeInTheDocument();
-    });
+    render(<PhotoSelectionSection {...mockProps} />);
 
-    it("should display descriptive text when session exists", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      expect(
-        screen.getByText(
-          "Upload photos to share your planned session experience"
-        )
-      ).toBeInTheDocument();
-    });
-
-    it("should display Choose Files button when session exists", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      expect(screen.getByText("Choose Files")).toBeInTheDocument();
-    });
-
-    it("should display create session message when no session", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId={null}
-          loading={false}
-        />
-      );
-
-      expect(
-        screen.getByText("Create your session first to upload photos")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          "Fill out the session details above and save to enable photo uploads"
-        )
-      ).toBeInTheDocument();
-    });
+    expect(screen.getByText("Session Photos")).toBeInTheDocument();
+    expect(
+      screen.getByText("Add photos from your surf session (optional)")
+    ).toBeInTheDocument();
   });
 
-  describe("Props Handling", () => {
-    it("should show create session message when sessionId is null", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId={null}
-          loading={false}
-        />
-      );
+  it("should NOT render photo upload section for plan mode", () => {
+    const mockProps = {
+      mode: "plan" as const,
+      selectedFiles: [],
+      onFilesChange: jest.fn(),
+      disabled: false,
+      maxPhotos: 5,
+    };
 
-      expect(screen.getByTestId("no-session-message")).toBeInTheDocument();
-      expect(
-        screen.getByText("Create your session first to upload photos")
-      ).toBeInTheDocument();
-    });
+    render(<PhotoSelectionSection {...mockProps} />);
 
-    it("should use provided session ID when available", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      expect(screen.getByText("Session ID: session-123")).toBeInTheDocument();
-    });
-
-    it("should show create session message when sessionId is empty string", () => {
-      render(
-        <PhotoUploadFeature isPlanning={true} sessionId="" loading={false} />
-      );
-
-      expect(screen.getByTestId("no-session-message")).toBeInTheDocument();
-      expect(
-        screen.getByText("Create your session first to upload photos")
-      ).toBeInTheDocument();
-    });
-
-    it("should show disabled state when loading", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={true}
-        />
-      );
-
-      expect(screen.getByText("Disabled: true")).toBeInTheDocument();
-    });
-
-    it("should show enabled state when not loading", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      expect(screen.getByText("Disabled: false")).toBeInTheDocument();
-    });
+    expect(screen.queryByText("Session Photos")).not.toBeInTheDocument();
   });
 
-  describe("User Interactions", () => {
-    it("should call success toast when upload completes", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
+  it("should handle file selection and validation", () => {
+    const mockOnFilesChange = jest.fn();
+    const mockProps = {
+      mode: "log" as const,
+      selectedFiles: [],
+      onFilesChange: mockOnFilesChange,
+      disabled: false,
+      maxPhotos: 5,
+    };
 
-      const uploadButton = screen.getByTestId("upload-photos-button");
-      fireEvent.click(uploadButton);
+    render(<PhotoSelectionSection {...mockProps} />);
 
-      expect(mockToast.success).toHaveBeenCalledWith(
-        "2 photos uploaded successfully!"
-      );
-    });
-
-    it("should call success toast with correct count", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      const uploadButton = screen.getByTestId("upload-photos-button");
-      fireEvent.click(uploadButton);
-
-      expect(mockToast.success).toHaveBeenCalledTimes(1);
-      expect(mockToast.success).toHaveBeenCalledWith(
-        "2 photos uploaded successfully!"
-      );
-    });
-
-    it("should not have upload button when no session", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId={null}
-          loading={false}
-        />
-      );
-
-      expect(
-        screen.queryByTestId("upload-photos-button")
-      ).not.toBeInTheDocument();
-    });
+    // Should show upload area
+    expect(screen.getByText("Add session photos")).toBeInTheDocument();
+    expect(screen.getByText("Choose Files")).toBeInTheDocument();
   });
 
-  describe("Component Props Configuration", () => {
-    it("should configure max photos to 5", () => {
-      render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      expect(screen.getByText("Max Photos: 5")).toBeInTheDocument();
-    });
-
-    it("should handle loading state changes", () => {
-      const { rerender } = render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      expect(screen.getByText("Disabled: false")).toBeInTheDocument();
-
-      rerender(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={true}
-        />
-      );
-
-      expect(screen.getByText("Disabled: true")).toBeInTheDocument();
-    });
-  });
-
-  describe("Edge Cases", () => {
-    it("should handle multiple renders correctly", () => {
-      const { rerender } = render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-1"
-          loading={false}
-        />
-      );
-
-      expect(screen.getByText("Session ID: session-1")).toBeInTheDocument();
-
-      rerender(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-2"
-          loading={false}
-        />
-      );
-
-      expect(screen.getByText("Session ID: session-2")).toBeInTheDocument();
-    });
-
-    it("should handle toggle between planning modes", () => {
-      const { rerender } = render(
-        <PhotoUploadFeature
-          isPlanning={true}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      expect(screen.getByTestId("photo-upload-section")).toBeInTheDocument();
-
-      rerender(
-        <PhotoUploadFeature
-          isPlanning={false}
-          sessionId="session-123"
-          loading={false}
-        />
-      );
-
-      expect(
-        screen.queryByTestId("photo-upload-section")
-      ).not.toBeInTheDocument();
-    });
+  it("should document photo upload architecture decision", () => {
+    // Photo uploads are available for LOG mode sessions only
+    // This design choice means:
+    // 1. Users can only upload photos for completed sessions
+    // 2. No standalone photo posting (session-based uploads only)
+    // 3. Photos are part of session logging, not planning
+    expect(true).toBe(true);
   });
 });

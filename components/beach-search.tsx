@@ -8,6 +8,7 @@ import { Search, Loader2, Info } from "lucide-react";
 import { ForecastCard } from "@/components/forecast-card";
 import { useAuth } from "@/context/auth-context";
 import { getBeachById, getBeaches } from "@/actions/beach-actions";
+import { COVERAGE_MESSAGES } from "@/lib/constants/coverage-areas";
 import type { Beach, Profile } from "@/types/database";
 
 interface BeachSearchProps {
@@ -28,6 +29,8 @@ export function BeachSearch({ profile }: BeachSearchProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isWaitingForProfile, setIsWaitingForProfile] = useState(true);
   const [showFallbackMessage, setShowFallbackMessage] = useState(false);
+  const [outOfAreaMessage, setOutOfAreaMessage] = useState<string>("");
+  const [isOutOfAreaSearch, setIsOutOfAreaSearch] = useState(false);
   const [availableBeaches, setAvailableBeaches] = useState<Beach[]>([]);
   const [loadingBeaches, setLoadingBeaches] = useState(false);
 
@@ -91,6 +94,8 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     setBeach(null);
     setForecast(null);
     setShowFallbackMessage(false);
+    setOutOfAreaMessage("");
+    setIsOutOfAreaSearch(false);
 
     // Track the original search query for fallback detection
     if (isUserSearch) {
@@ -102,43 +107,64 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       const { searchBeachWithForecast } = await import(
         "@/lib/utils/beach-search-utils"
       );
-      const { beach: foundBeach, forecast: enhancedForecast } =
-        await searchBeachWithForecast(beachName);
+      const result = await searchBeachWithForecast(beachName);
 
-      console.log("🏖️ Found beach:", foundBeach.name);
-      setBeach(foundBeach);
-      setForecast(enhancedForecast);
+      console.log("🏖️ Found beach:", result.beach.name);
+      setBeach(result.beach);
+      setForecast(result.forecast);
 
       // Check if we need to show a fallback message
-      if (isUserSearch && !doesBeachMatchSearch(foundBeach.name, beachName)) {
+      if (isUserSearch && !doesBeachMatchSearch(result.beach.name, beachName)) {
         console.log("⚠️ Beach mismatch detected!");
         console.log("- Original search:", beachName);
-        console.log("- Found beach:", foundBeach.name);
+        console.log("- Found beach:", result.beach.name);
         console.log(
           "- Match result:",
-          doesBeachMatchSearch(foundBeach.name, beachName)
+          doesBeachMatchSearch(result.beach.name, beachName)
         );
         setShowFallbackMessage(true);
+
+        // Check if this was an out-of-area search
+        if (result.searchMetadata?.isOutOfAreaSearch) {
+          setIsOutOfAreaSearch(true);
+          setOutOfAreaMessage(
+            result.searchMetadata.suggestedMessage ||
+              COVERAGE_MESSAGES.getOutOfAreaMessage(beachName)
+          );
+        }
       } else if (isUserSearch) {
         console.log("✅ Beach matches search");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching beach forecast:", err);
+
+      // Check if this error contains search metadata for out-of-area detection
+      const isOutOfArea = err.searchMetadata?.isOutOfAreaSearch || false;
+      const suggestedMessage = err.searchMetadata?.suggestedMessage;
 
       // If this is a user search that failed, try to show Ocean Beach with fallback message
       if (isUserSearch) {
         console.log("🔄 Search failed, attempting Ocean Beach fallback...");
         try {
-          const { searchBeachWithForecast } = await import(
+          const { searchBeachWithForecastLegacy } = await import(
             "@/lib/utils/beach-search-utils"
           );
           const { beach: fallbackBeach, forecast: fallbackForecast } =
-            await searchBeachWithForecast("Ocean Beach");
+            await searchBeachWithForecastLegacy("Ocean Beach");
 
           console.log("🏖️ Fallback beach loaded:", fallbackBeach.name);
           setBeach(fallbackBeach);
           setForecast(fallbackForecast);
           setShowFallbackMessage(true);
+
+          // Set out-of-area messaging if applicable
+          if (isOutOfArea) {
+            setIsOutOfAreaSearch(true);
+            setOutOfAreaMessage(
+              suggestedMessage ||
+                COVERAGE_MESSAGES.getOutOfAreaMessage(beachName)
+            );
+          }
         } catch (fallbackErr) {
           console.error("Fallback also failed:", fallbackErr);
           setError(
@@ -332,18 +358,61 @@ export function BeachSearch({ profile }: BeachSearchProps) {
 
         {!loading && !isWaitingForProfile && beach && forecast && (
           <div className="mt-6">
-            {/* Fallback message with beach suggestions */}
+            {/* Enhanced fallback message for out-of-area and general searches */}
             {showFallbackMessage && originalSearchQuery && (
-              <div className="flex items-start gap-2 text-blue-600 text-sm p-4 bg-blue-50 rounded-lg mb-4 border border-blue-200">
+              <div
+                className={`flex items-start gap-2 text-sm p-4 rounded-lg mb-4 border ${
+                  isOutOfAreaSearch
+                    ? "text-amber-700 bg-amber-50 border-amber-200"
+                    : "text-blue-600 bg-blue-50 border-blue-200"
+                }`}
+              >
                 <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="font-medium mb-2">
-                    Beach "{originalSearchQuery}" not found
-                  </p>
-                  <p className="text-blue-600/80 mb-3">
-                    We're showing you {beach.name} instead. Try searching for
-                    one of these available beaches:
-                  </p>
+                  {isOutOfAreaSearch ? (
+                    <>
+                      <p className="font-medium mb-2">
+                        {COVERAGE_MESSAGES.OUT_OF_AREA_TITLE}
+                      </p>
+                      <p
+                        className={`${
+                          isOutOfAreaSearch
+                            ? "text-amber-700/80"
+                            : "text-blue-600/80"
+                        } mb-2`}
+                      >
+                        {outOfAreaMessage}
+                      </p>
+                      <p
+                        className={`${
+                          isOutOfAreaSearch
+                            ? "text-amber-700/80"
+                            : "text-blue-600/80"
+                        } mb-3 text-xs`}
+                      >
+                        {COVERAGE_MESSAGES.COVERAGE_AREA_INFO}
+                      </p>
+                      <p
+                        className={`${
+                          isOutOfAreaSearch
+                            ? "text-amber-700/80"
+                            : "text-blue-600/80"
+                        } mb-3`}
+                      >
+                        {COVERAGE_MESSAGES.getSuggestionMessage(beach.name)}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium mb-2">
+                        Beach "{originalSearchQuery}" not found
+                      </p>
+                      <p className="text-blue-600/80 mb-3">
+                        We're showing you {beach.name} instead. Try searching
+                        for one of these available beaches:
+                      </p>
+                    </>
+                  )}
 
                   {loadingBeaches ? (
                     <div className="flex items-center gap-2">
@@ -358,11 +427,23 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                           onClick={() =>
                             handleBeachSuggestionClick(availableBeach)
                           }
-                          className="text-left text-xs bg-white hover:bg-blue-100 border border-blue-200 rounded px-2 py-1 transition-colors duration-200"
+                          className={`text-left text-xs bg-white border rounded px-2 py-1 transition-colors duration-200 ${
+                            isOutOfAreaSearch
+                              ? "hover:bg-amber-100 border-amber-200"
+                              : "hover:bg-blue-100 border-blue-200"
+                          }`}
                         >
                           {availableBeach.name}
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {isOutOfAreaSearch && (
+                    <div className="mt-3 pt-3 border-t border-amber-200">
+                      <p className="text-xs text-amber-700/70">
+                        {COVERAGE_MESSAGES.getCoverageExpansionMessage()}
+                      </p>
                     </div>
                   )}
                 </div>

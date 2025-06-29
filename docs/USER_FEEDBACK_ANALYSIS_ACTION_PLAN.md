@@ -146,7 +146,6 @@ A test user provided the following feedback during blackbox testing:
 
 ### Priority 3: Feature Enhancements
 
-- [ ] Add photo uploads to plan-session page
 - [ ] Improve out-of-area search messaging
 - [ ] Add forecast data transparency (show when using fallback data)
 

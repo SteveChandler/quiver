@@ -21,7 +21,24 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { getSessionById, deleteSession } from "@/actions/session-actions";
+import { getSessionPhotosAction } from "@/actions/session-media-actions";
 import type { SessionWithDetails } from "@/types/database";
+
+interface SessionPhoto {
+  id: string;
+  session_id: string;
+  user_id: string;
+  public_url: string;
+  storage_path: string;
+  caption?: string;
+  file_size: number;
+  metadata?: {
+    width?: number;
+    height?: number;
+    compression_ratio?: number;
+  };
+  created_at: string;
+}
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -35,6 +52,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SessionComments } from "@/components/session-comments";
+import dynamic from "next/dynamic";
+
+// Dynamically import SessionPhotoGallery to avoid SSR issues
+const SessionPhotoGallery = dynamic(
+  () => import("@/components/media/session-photo-gallery"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex justify-center items-center h-32">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    ),
+  }
+);
 
 interface SessionDetailViewProps {
   id: string;
@@ -47,6 +78,8 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
 
   useEffect(() => {
     async function loadSession() {
@@ -57,6 +90,19 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
         const result = await getSessionById(id, user.id);
         if (result.success && result.data) {
           setSession(result.data);
+
+          // Load session photos
+          setPhotosLoading(true);
+          try {
+            const photosResult = await getSessionPhotosAction(id);
+            if (photosResult.success) {
+              setSessionPhotos(photosResult.data || []);
+            }
+          } catch (photoError) {
+            console.error("Error loading session photos:", photoError);
+          } finally {
+            setPhotosLoading(false);
+          }
         } else {
           setError("Session not found");
         }
@@ -308,6 +354,22 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             )}
           </div>
         </div>
+
+        {/* Session Photos */}
+        {!photosLoading && sessionPhotos.length > 0 && (
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Session Photos</h3>
+              <SessionPhotoGallery
+                sessionId={session.id}
+                photos={sessionPhotos}
+                canEdit={user?.id === session.user_id}
+                showMetadata={true}
+                onPhotosChange={setSessionPhotos}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Comments Section */}
         <Card>

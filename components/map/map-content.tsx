@@ -6,6 +6,10 @@ import { MapPin } from "lucide-react";
 import { MapImage } from "@/components/map-image";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { MapSkeleton } from "@/components/skeletons/map-skeleton";
+import {
+  COVERAGE_MESSAGES,
+  isLikelyOutOfAreaSearch,
+} from "@/lib/constants/coverage-areas";
 import type { Beach } from "@/types/database";
 
 interface MapContentProps {
@@ -111,6 +115,8 @@ export function MapContent({
                 ? `Found ${filteredBeaches.length} ${
                     filteredBeaches.length === 1 ? "beach" : "beaches"
                   } for "${searchQuery}"`
+                : isLikelyOutOfAreaSearch(searchQuery)
+                ? `"${searchQuery}" is outside our coverage area`
                 : `No beaches found for "${searchQuery}"`
               : userLocation
               ? usingDefaultLocation
@@ -129,7 +135,9 @@ export function MapContent({
           )}
           {filteredBeaches.length === 0 && searchQuery && (
             <p className="text-xs text-muted-foreground mt-1">
-              Try a different search term or clear your search
+              {isLikelyOutOfAreaSearch(searchQuery)
+                ? COVERAGE_MESSAGES.COVERAGE_AREA_INFO
+                : "Try a different search term or clear your search"}
             </p>
           )}
           {filteredBeaches.length === 0 &&
