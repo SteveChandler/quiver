@@ -26,6 +26,8 @@ import {
 import {
   createPlannedSession,
   createLoggedSession,
+  getPlannedSessionForConversion,
+  updatePlannedSessionToCompleted,
 } from "@/actions/session-actions";
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 
@@ -38,10 +40,15 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
   const searchParams = useSearchParams();
   const paramMode =
     (searchParams.get("mode") as SessionFormMode) || initialMode;
+  const convertSessionId = searchParams.get("convert"); // For converting planned sessions
   const router = useRouter();
 
   const [sessionCreated, setSessionCreated] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
+  const [isConverting, setIsConverting] = useState(false);
+  const [convertingFromPlanned, setConvertingFromPlanned] = useState<
+    string | null
+  >(null);
 
   const {
     mode,
@@ -63,6 +70,66 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
   useEffect(() => {
     setMode(paramMode);
   }, [paramMode, setMode]);
+
+  // Set correct mode for conversion
+  useEffect(() => {
+    if (convertSessionId && mode === "plan") {
+      setMode("log");
+    }
+  }, [convertSessionId, mode, setMode]);
+
+  // Load planned session data for conversion
+  useEffect(() => {
+    if (convertSessionId && user && !isConverting) {
+      setIsConverting(true);
+      setConvertingFromPlanned(convertSessionId);
+
+      const loadPlannedSession = async () => {
+        try {
+          const result = await getPlannedSessionForConversion(convertSessionId);
+
+          // Prefill form with planned session data
+          if (result) {
+            // Check if result is wrapped in success/data structure
+            const sessionData = result.data || result;
+
+            updateField(
+              "selectedBeach",
+              sessionData.beach?.name || sessionData.beach_name || ""
+            );
+            updateField("selectedBeachId", sessionData.beach_id || "");
+            updateField("boardId", sessionData.board_id || "");
+            updateField("notes", sessionData.notes || "");
+
+            // Convert arrival_time back to date and time
+            if (sessionData.arrival_time) {
+              const arrivalDate = new Date(sessionData.arrival_time);
+              const dateString = arrivalDate.toISOString().split("T")[0];
+              const timeString = arrivalDate.toTimeString().slice(0, 5);
+
+              updateField("selectedDate", dateString);
+              updateField("selectedTime", timeString);
+            }
+
+            // Set the board selection properly
+            if (sessionData.board_id) {
+              updateField("selectedBoard", sessionData.board_id);
+            }
+          }
+
+          toast.success(
+            "Loaded planned session data. Add conditions and complete your log!"
+          );
+        } catch (error) {
+          console.error("Error loading planned session:", error);
+          toast.error("Failed to load planned session data");
+          router.push("/log-session"); // Fallback to normal log session
+        }
+      };
+
+      loadPlannedSession();
+    }
+  }, [convertSessionId, user, isConverting, updateField, router]);
 
   // Auto-redirect after session is successfully logged
   useEffect(() => {
@@ -107,6 +174,69 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
         const minutes = minuteMatch ? parseInt(minuteMatch[1]) : 0;
         durationMinutes = hours * 60 + minutes;
+      }
+
+      // Handle converting planned session to completed
+      if (convertingFromPlanned && !isPlanning) {
+        const completedData = {
+          ...(durationMinutes !== undefined && {
+            duration_minutes: durationMinutes,
+          }),
+          ...(formState.waveQuality && {
+            wave_quality: parseInt(formState.waveQuality),
+          }),
+          ...(formState.waterTemp && { water_temp: formState.waterTemp }),
+          ...(formState.crowdLevel && {
+            crowd_level: parseInt(formState.crowdLevel),
+          }),
+          ...(formState.parkingEase && {
+            parking_ease: parseInt(formState.parkingEase),
+          }),
+          ...(formState.overallRating && {
+            rating: parseInt(formState.overallRating),
+          }),
+          ...(formState.notes && { notes: formState.notes }),
+        };
+
+        const updatedSession = await updatePlannedSessionToCompleted(
+          convertingFromPlanned,
+          completedData
+        );
+
+        // Handle photo uploads for converted session
+        if (selectedPhotos.length > 0) {
+          try {
+            const formData = new FormData();
+            formData.append("fileCount", selectedPhotos.length.toString());
+
+            selectedPhotos.forEach((file, index) => {
+              formData.append(`file_${index}`, file);
+            });
+
+            const uploadResult = await uploadSessionPhotosAction(
+              convertingFromPlanned,
+              formData
+            );
+
+            if (uploadResult.success) {
+              toast.success(
+                `Session completed with ${uploadResult.data.uploaded} photo(s)!`
+              );
+            } else {
+              toast.success("Session completed successfully!");
+              toast.warning("Some photos failed to upload");
+            }
+          } catch (photoError) {
+            console.error("Photo upload error:", photoError);
+            toast.success("Session completed successfully!");
+            toast.warning("Photos could not be uploaded");
+          }
+        } else {
+          toast.success("Session completed successfully!");
+        }
+
+        setSessionCreated(true);
+        return;
       }
 
       // Combine date and time into arrival_time

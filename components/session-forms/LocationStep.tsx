@@ -21,6 +21,7 @@ export function LocationStep({
   return (
     <div className="space-y-4">
       <BeachSelector
+        initialValue={formState.selectedBeach}
         onBeachSelected={(beach) => {
           updateField("selectedBeach", beach.name);
           updateField("selectedBeachId", beach.id);
