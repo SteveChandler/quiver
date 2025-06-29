@@ -594,3 +594,81 @@ export async function getAllSessions(limit = 20) {
 
   return sessions || [];
 }
+
+/**
+ * Get a planned session for converting to completed (prefill data)
+ */
+export async function getPlannedSessionForConversion(sessionId: string) {
+  return withAuthenticatedAction(async (user, supabase) => {
+    const { data: session, error } = await supabase
+      .from("sessions")
+      .select(
+        `
+        *,
+        beach:beaches(*),
+        board:boards(*)
+      `
+      )
+      .eq("id", sessionId)
+      .eq("user_id", user.id)
+      .eq("status", "planned")
+      .single();
+
+    if (error) {
+      throw new Error("Planned session not found");
+    }
+
+    return session;
+  });
+}
+
+/**
+ * Update a planned session to completed status with additional data
+ */
+export async function updatePlannedSessionToCompleted(
+  sessionId: string,
+  completedData: {
+    duration_minutes?: number;
+    wave_quality?: number;
+    water_temp?: string;
+    crowd_level?: number;
+    parking_ease?: number;
+    rating?: number;
+    notes?: string;
+  }
+) {
+  return withAuthenticatedAction(async (user, supabase) => {
+    // First verify this is a planned session owned by the user
+    const { data: existingSession, error: fetchError } = await supabase
+      .from("sessions")
+      .select("id, status, user_id")
+      .eq("id", sessionId)
+      .eq("user_id", user.id)
+      .eq("status", "planned")
+      .single();
+
+    if (fetchError || !existingSession) {
+      throw new Error("Planned session not found");
+    }
+
+    // Update the session to completed with new data
+    const { data: updatedSession, error: updateError } = await supabase
+      .from("sessions")
+      .update({
+        status: "completed",
+        ...completedData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", sessionId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    revalidatePath("/sessions");
+    revalidatePath("/profile");
+    return updatedSession;
+  });
+}

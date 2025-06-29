@@ -15,6 +15,7 @@ import {
   Edit,
   Trash2,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -23,6 +24,35 @@ import { useAuth } from "@/context/auth-context";
 import { getSessionById, deleteSession } from "@/actions/session-actions";
 import { getSessionPhotosAction } from "@/actions/session-media-actions";
 import type { SessionWithDetails } from "@/types/database";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { SessionComments } from "@/components/session-comments";
+import dynamic from "next/dynamic";
+import { MapImage } from "@/components/map-image";
+import { getSessionMapImageUrl } from "@/lib/utils/session-utils";
+
+// Dynamically import SessionPhotoGallery to avoid SSR issues
+const SessionPhotoGallery = dynamic(
+  () => import("@/components/media/session-photo-gallery"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex justify-center items-center h-32">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    ),
+  }
+);
 
 interface SessionPhoto {
   id: string;
@@ -39,33 +69,6 @@ interface SessionPhoto {
   };
   created_at: string;
 }
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { SessionComments } from "@/components/session-comments";
-import dynamic from "next/dynamic";
-
-// Dynamically import SessionPhotoGallery to avoid SSR issues
-const SessionPhotoGallery = dynamic(
-  () => import("@/components/media/session-photo-gallery"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex justify-center items-center h-32">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    ),
-  }
-);
 
 interface SessionDetailViewProps {
   id: string;
@@ -136,6 +139,13 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     }
   };
 
+  const handleMarkAsCompleted = () => {
+    if (session) {
+      // Route to log-session page with prefill parameter
+      router.push(`/log-session?convert=${session.id}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -169,7 +179,10 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     );
   }
 
-  const arrivalTime = session.session_date
+  // Use arrival_time for both planned and completed sessions
+  const arrivalTime = session.arrival_time
+    ? new Date(session.arrival_time)
+    : session.session_date
     ? new Date(session.session_date)
     : null;
   const formattedDate = arrivalTime?.toLocaleDateString("en-US", {
@@ -183,6 +196,9 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     minute: "2-digit",
   });
 
+  // Check if this is a planned session
+  const isPlannedSession = session?.status === "planned";
+
   return (
     <div className="flex-1 flex flex-col">
       <header className="sticky top-0 z-10 bg-background border-b">
@@ -191,9 +207,31 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             <Link href="/profile" className="mr-2">
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <h1 className="text-xl font-bold">Session Details</h1>
+            <div>
+              <h1 className="text-xl font-bold">Session Details</h1>
+              {isPlannedSession && (
+                <div className="flex items-center gap-1 mt-1">
+                  <Calendar className="h-3 w-3 text-blue-500" />
+                  <span className="text-xs text-blue-600 font-medium">
+                    Planned Session
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Mark as Completed button - only for planned sessions */}
+            {isPlannedSession && (
+              <Button
+                size="sm"
+                onClick={handleMarkAsCompleted}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Mark as Completed
+              </Button>
+            )}
+
             <Button size="icon" variant="ghost" asChild>
               <Link href={`/log-session?edit=${session.id}`}>
                 <Edit className="h-5 w-5" />
@@ -234,12 +272,40 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
       </header>
 
       <main className="flex-1 container px-4 py-6 space-y-6 overflow-auto pb-20">
-        {/* Session Image */}
+        {/* Add planned session notice */}
+        {isPlannedSession && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-blue-600" />
+                <div>
+                  <p className="font-medium text-blue-800">Planned Session</p>
+                  <p className="text-sm text-blue-700">
+                    This session is planned for {formattedDate}. Click "Mark as
+                    Completed" to log the details of your actual session.
+                  </p>
+                  {session.notes && (
+                    <div className="mt-2 p-2 bg-blue-100 rounded text-sm">
+                      <p className="font-medium text-blue-800">
+                        Planned Notes:
+                      </p>
+                      <p className="text-blue-700">{session.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Session Image/Map - Show map for all sessions, photos as additional content */}
         <div className="relative h-48 rounded-lg overflow-hidden">
-          <Image
-            src={session.image_url || "/placeholder.svg?height=400&width=800"}
-            alt="Session"
-            fill
+          <MapImage
+            src={getSessionMapImageUrl(session)}
+            alt={`Map of ${session.beach?.name || "session location"}`}
+            latitude={session.beach?.latitude || session.beach?.location?.y}
+            longitude={session.beach?.longitude || session.beach?.location?.x}
+            fill={true}
             className="object-cover"
           />
         </div>
@@ -290,7 +356,43 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            {session.wave_height && (
+            {/* Always show board for planned sessions, conditions only for completed */}
+            {session.board && (
+              <Card>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="h-6 w-6 text-primary flex items-center justify-center">
+                    🏄
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      {isPlannedSession ? "Planned Board" : "Board"}
+                    </p>
+                    <p className="font-medium">{session.board.name}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Duration for planned sessions */}
+            {isPlannedSession && session.duration_minutes && (
+              <Card>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Clock className="h-6 w-6 text-primary" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Planned Duration
+                    </p>
+                    <p className="font-medium">
+                      {Math.floor(session.duration_minutes / 60)}h{" "}
+                      {session.duration_minutes % 60}m
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Conditions only for completed sessions */}
+            {!isPlannedSession && session.wave_height && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <Waves className="h-6 w-6 text-primary" />
@@ -302,7 +404,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
               </Card>
             )}
 
-            {session.water_temp && (
+            {!isPlannedSession && session.water_temp && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <Thermometer className="h-6 w-6 text-primary" />
@@ -314,7 +416,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
               </Card>
             )}
 
-            {session.crowd_rating && (
+            {!isPlannedSession && session.crowd_rating && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <Users className="h-6 w-6 text-primary" />
@@ -334,20 +436,6 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
                           />
                         ))}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {session.board && (
-              <Card>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="h-6 w-6 text-primary flex items-center justify-center">
-                    🏄
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Board</p>
-                    <p className="font-medium">{session.board.name}</p>
                   </div>
                 </CardContent>
               </Card>

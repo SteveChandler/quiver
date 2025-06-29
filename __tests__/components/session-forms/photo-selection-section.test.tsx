@@ -34,7 +34,9 @@ describe("PhotoSelectionSection", () => {
 
     expect(screen.getByText("Session Photos")).toBeInTheDocument();
     expect(
-      screen.getByText("Add photos from your surf session (optional)")
+      screen.getByText(
+        "Add photos from your surf session (optional - you can skip this)"
+      )
     ).toBeInTheDocument();
     expect(screen.getByText("Add session photos")).toBeInTheDocument();
     expect(

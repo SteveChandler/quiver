@@ -6,14 +6,16 @@ import { Beach } from "@/types/database";
 
 export function BeachSelector({
   onBeachSelected,
+  initialValue,
 }: {
   onBeachSelected: (beach: Beach) => void;
+  initialValue?: string;
 }) {
   const supabase = createClient();
   const [allBeaches, setAllBeaches] = useState<Beach[]>([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialValue || "");
   const [matches, setMatches] = useState<Beach[]>([]);
-  const [selectionMade, setSelectionMade] = useState(false);
+  const [selectionMade, setSelectionMade] = useState(!!initialValue);
 
   // 1. Fetch all beaches once on mount
   useEffect(() => {
@@ -43,6 +45,14 @@ export function BeachSelector({
       setMatches(filtered);
     }
   }, [query, allBeaches]);
+
+  // Set initial value when it changes
+  useEffect(() => {
+    if (initialValue && initialValue !== query) {
+      setQuery(initialValue);
+      setSelectionMade(true);
+    }
+  }, [initialValue, query]);
 
   // 3. When the user picks something (click or select)
   const trySelect = (beachName: string) => {
