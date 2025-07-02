@@ -49,6 +49,7 @@ export default defineConfig({
       testMatch: [
         "**/auth.spec.ts",
         "**/forecast-card-unauthenticated.spec.ts",
+        "**/landing-page.spec.ts",
         "**/comprehensive.spec.ts",
       ],
       use: {
@@ -63,6 +64,7 @@ export default defineConfig({
         "**/auth.spec.ts",
         "**/forecast-card.spec.ts",
         "**/forecast-card-unauthenticated.spec.ts",
+        "**/landing-page.spec.ts",
         "**/comprehensive.spec.ts",
       ],
       use: { ...devices["Desktop Chrome"] },
