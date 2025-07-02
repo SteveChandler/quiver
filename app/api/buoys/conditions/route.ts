@@ -5,6 +5,7 @@ import {
   createSuccessResponse,
   createValidationError,
 } from "@/lib/api-utils";
+import { getWindDirectionName } from "@/lib/utils/wind-direction";
 
 // Matches Ruby BuoysController#conditions functionality
 export async function GET(request: NextRequest) {
@@ -20,46 +21,68 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // TODO: Add admin authentication check
-    // const { data: { session } } = await supabase.auth.getSession();
-    // if (!session || !isAdmin(session.user)) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
-
-    // Consolidate buoy data - find the best/nearest active buoy with conditions
-    // This corresponds to Ruby's Buoy.active.consolidate(point, limit: 50)
-    const { data: buoy, error } = await supabase.rpc(
-      "consolidate_buoy_conditions",
-      {
-        lat: latitude,
-        lng: longitude,
-        limit_count: limit,
-      }
+    // Use fallback query since PostGIS functions have type mismatches
+    console.log(
+      "Using fallback conditions query for lat/lng:",
+      latitude,
+      longitude
     );
+
+    const { data: buoys, error } = await supabase
+      .from("buoys")
+      .select("*")
+      .eq("active", true)
+      .not("coordinates", "is", null)
+      .or(
+        "water_temperature.not.is.null,air_temperature.not.is.null,wave_height.not.is.null"
+      )
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
     if (error) {
       console.error("Database error:", error);
       return handleApiError(error, "Failed to fetch buoy conditions");
     }
 
-    if (!buoy) {
+    if (!buoys || buoys.length === 0) {
       return NextResponse.json(
         { error: "No active buoy found for location" },
         { status: 404 }
       );
     }
 
+    const buoy = buoys[0];
+
     // Transform to match Ruby controller JSON format
     const buoyJson = {
       id: buoy.buoy_uuid,
-      latitude: buoy.latitude,
-      longitude: buoy.longitude,
-      name: buoy.buoy_name,
-      measurements: buoy.conditions || {},
+      latitude: 0, // TODO: Parse PostGIS coordinates when functions are fixed
+      longitude: 0,
+      name: buoy.buoy_name || buoy.buoy_uuid || "Unknown Buoy",
+      measurements: {
+        air_temperature: buoy.air_temperature,
+        water_temperature: buoy.water_temperature,
+        wave_period: buoy.wave_period,
+        wave_height: buoy.wave_height,
+        wind_speed: buoy.wind_speed,
+        wind_gust: buoy.wind_gust,
+        wind_direction: buoy.wind_direction,
+        wind_direction_name: buoy.wind_direction
+          ? getWindDirectionName(buoy.wind_direction)
+          : null,
+        tides: buoy.tides,
+        updated_at: buoy.updated_at
+          ? new Date(buoy.updated_at).getTime() / 1000
+          : null,
+      },
     };
 
+    console.log(`Found buoy conditions for: ${buoy.buoy_uuid}`);
     return createSuccessResponse(buoyJson);
   } catch (error) {
+    console.error("API error:", error);
     return handleApiError(error, "Error fetching buoy conditions");
   }
 }
+
+// Wind direction helper moved to utility function

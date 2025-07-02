@@ -3,37 +3,179 @@ import { NOAAWaveWatchService } from "./noaa-wavewatch-service";
 import { NOAACOOPSService } from "./noaa-coops-service";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
+import {
+  FORECAST_CONSTANTS,
+  TOTAL_FORECASTS,
+  createConfidenceScore,
+  createBeachId,
+  createLatitude,
+  createLongitude,
+  type Location,
+  type TimeRange,
+  type ForecastTimePoint,
+  type WeatherConditions,
+  type WaveConditions,
+  type TideConditions,
+  type SwellComponent,
+  type WaveDataSource,
+  type TideDataSource,
+  type WeatherDataSource,
+  type WaveData,
+  type TideData,
+  type WeatherData,
+  type EnhancedForecastEntity,
+} from "@/types/forecast";
+import {
+  ForecastError,
+  ForecastErrorCode,
+  DataSourceError,
+  ValidationError,
+  ApiError,
+  StorageError,
+  withErrorHandling,
+  withRetry,
+  logError,
+} from "@/lib/errors/forecast-errors";
 
-// Enhanced forecast data structure
-interface EnhancedForecastData {
-  forecast_date: string;
-  forecast_time: string;
-  wave_height: string | null;
-  wave_period: string | null;
-  wave_direction: string | null;
-  swell_1_height: string | null;
-  swell_1_period: string | null;
-  swell_1_direction: string | null;
-  swell_2_height: string | null;
-  swell_2_period: string | null;
-  swell_2_direction: string | null;
-  wind_wave_height: string | null;
-  wind_wave_period: string | null;
-  wind_wave_direction: string | null;
-  water_temp: string;
-  wind_speed: string;
-  wind_direction: string;
-  tide_status: string;
-  tide_height: string;
-  next_tide_time: string;
-  next_tide_type: string;
-  next_tide_height: string;
-  current_speed: string;
-  current_direction: string;
-  weather_condition: string;
-  air_temperature: string;
-  beach_id: string;
-  confidence_score: number; // 0-100, based on data quality and age
+// Data source implementations
+class WaveWatchDataSource implements WaveDataSource {
+  readonly name = "WaveWatch III";
+
+  constructor(private service: NOAAWaveWatchService) {}
+
+  async fetchData(location: Location, timeRange: TimeRange): Promise<any> {
+    const days = Math.ceil(
+      (timeRange.end.getTime() - timeRange.start.getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
+    return this.service.fetchWaveWatchForecast(
+      location.latitude,
+      location.longitude,
+      days
+    );
+  }
+
+  async fetchWaveData(location: Location, days: number): Promise<any> {
+    const result = await this.service.fetchWaveWatchForecast(
+      location.latitude,
+      location.longitude,
+      days
+    );
+    return result || { forecast: [] };
+  }
+
+  isAvailable(): boolean {
+    return true;
+  }
+
+  getReliabilityScore(): any {
+    return createConfidenceScore(85);
+  }
+}
+
+class TidalDataSource implements TideDataSource {
+  readonly name = "NOAA CO-OPS";
+
+  constructor(private service: NOAACOOPSService) {}
+
+  async fetchData(location: Location, timeRange: TimeRange): Promise<any> {
+    const days = Math.ceil(
+      (timeRange.end.getTime() - timeRange.start.getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
+    const stationId = this.service.getStationForLocation(
+      "",
+      location.latitude,
+      location.longitude
+    );
+    return this.service.fetchCOOPSData(stationId, days);
+  }
+
+  async fetchTideData(location: Location, days: number): Promise<any> {
+    const stationId = this.service.getStationForLocation(
+      "",
+      location.latitude,
+      location.longitude
+    );
+    const result = await this.service.fetchCOOPSData(stationId, days);
+    return result || { tides: [], currents: [] };
+  }
+
+  isAvailable(): boolean {
+    return true;
+  }
+
+  getReliabilityScore(): any {
+    return createConfidenceScore(90);
+  }
+}
+
+class NOAAWeatherDataSource implements WeatherDataSource {
+  readonly name = "NOAA Weather Service";
+
+  async fetchData(location: Location, timeRange: TimeRange): Promise<any> {
+    return this.fetchWeatherData(location, 12);
+  }
+
+  async fetchWeatherData(
+    location: Location,
+    days: number
+  ): Promise<WeatherData> {
+    try {
+      const pointsUrl = `https://api.weather.gov/points/${location.latitude},${location.longitude}`;
+      const pointsResponse = await fetch(pointsUrl, {
+        headers: { "User-Agent": "quiver-surf-app (contact@quiver.com)" },
+      });
+
+      if (!pointsResponse.ok) {
+        throw new ApiError(
+          pointsUrl,
+          pointsResponse.status,
+          await pointsResponse.text()
+        );
+      }
+
+      const pointsData = await pointsResponse.json();
+      const forecastUrl = pointsData.properties.forecastHourly;
+
+      if (!forecastUrl) {
+        throw new DataSourceError(
+          "NOAA Weather",
+          new Error("No forecast URL available")
+        );
+      }
+
+      const forecastResponse = await fetch(forecastUrl, {
+        headers: { "User-Agent": "quiver-surf-app (contact@quiver.com)" },
+      });
+
+      if (!forecastResponse.ok) {
+        throw new ApiError(
+          forecastUrl,
+          forecastResponse.status,
+          await forecastResponse.text()
+        );
+      }
+
+      const forecastData = await forecastResponse.json();
+      return { periods: forecastData.properties.periods || [] };
+    } catch (error) {
+      if (error instanceof ForecastError) {
+        throw error;
+      }
+      throw new DataSourceError("NOAA Weather", error as Error, {
+        location: { lat: location.latitude, lng: location.longitude },
+      });
+    }
+  }
+
+  isAvailable(): boolean {
+    return true;
+  }
+
+  getReliabilityScore(): any {
+    return createConfidenceScore(80);
+  }
 }
 
 export class EnhancedForecastService {
@@ -46,46 +188,138 @@ export class EnhancedForecastService {
   }
 
   /**
-   * Generate comprehensive 10-day forecast for a beach
+   * Generate comprehensive 12-day forecast for a beach
    */
   async generateComprehensiveForecast(
     beach: Beach
-  ): Promise<EnhancedForecastData[]> {
-    try {
-      console.log(`Generating comprehensive forecast for ${beach.name}`);
+  ): Promise<EnhancedForecastEntity[]> {
+    return withErrorHandling(
+      async () => {
+        console.log(`Generating comprehensive forecast for ${beach.name}`);
 
-      // Fetch all data sources in parallel
-      const [waveData, tideData, weatherData, buoyData] = await Promise.all([
-        this.waveWatchService.fetchWaveWatchForecast(
+        // Validate input
+        if (!beach.id || !beach.latitude || !beach.longitude) {
+          throw new ValidationError(
+            "beach",
+            beach,
+            "Beach must have valid ID, latitude, and longitude"
+          );
+        }
+
+        // Fetch all data sources in parallel with error handling
+        const [waveData, tideData, weatherData, buoyData] =
+          await Promise.allSettled([
+            this.fetchWaveDataWithRetry(beach),
+            this.fetchTidalDataWithRetry(beach),
+            this.fetchWeatherDataWithRetry(beach),
+            this.fetchNearbyBuoyDataWithRetry(beach),
+          ]);
+
+        // Process results and handle failures gracefully
+        const processedData = {
+          beach,
+          waveData: waveData.status === "fulfilled" ? waveData.value : null,
+          tideData: tideData.status === "fulfilled" ? tideData.value : null,
+          weatherData:
+            weatherData.status === "fulfilled" ? weatherData.value : [],
+          buoyData: buoyData.status === "fulfilled" ? buoyData.value : null,
+        };
+
+        // Log any data source failures
+        if (waveData.status === "rejected")
+          logError(waveData.reason, { beachId: beach.id, dataSource: "wave" });
+        if (tideData.status === "rejected")
+          logError(tideData.reason, { beachId: beach.id, dataSource: "tide" });
+        if (weatherData.status === "rejected")
+          logError(weatherData.reason, {
+            beachId: beach.id,
+            dataSource: "weather",
+          });
+        if (buoyData.status === "rejected")
+          logError(buoyData.reason, { beachId: beach.id, dataSource: "buoy" });
+
+        // Process and combine all data sources
+        const forecasts = this.combineDataSources(processedData);
+
+        console.log(
+          `Generated ${forecasts.length} comprehensive forecast points for ${beach.name}`
+        );
+        return forecasts;
+      },
+      { beachId: beach.id }
+    )();
+  }
+
+  /**
+   * Fetch wave data with retry logic
+   */
+  private async fetchWaveDataWithRetry(beach: Beach) {
+    return withRetry(async () => {
+      const result = await this.waveWatchService.fetchWaveWatchForecast(
+        beach.latitude,
+        beach.longitude,
+        FORECAST_CONSTANTS.DAYS
+      );
+      if (!result) {
+        throw new DataSourceError(
+          "WaveWatch",
+          new Error("No wave data returned")
+        );
+      }
+      return result;
+    });
+  }
+
+  /**
+   * Fetch tidal data with retry logic
+   */
+  private async fetchTidalDataWithRetry(beach: Beach) {
+    return withRetry(async () => {
+      try {
+        const stationId = this.coopsService.getStationForLocation(
+          beach.name,
           beach.latitude,
-          beach.longitude,
-          10
-        ),
-        this.fetchTidalData(beach),
-        this.fetchWeatherData(beach),
-        this.fetchNearbyBuoyData(beach),
-      ]);
+          beach.longitude
+        );
+        const result = await this.coopsService.fetchCOOPSData(
+          stationId,
+          FORECAST_CONSTANTS.DAYS
+        );
+        return result;
+      } catch (error) {
+        throw new DataSourceError("CO-OPS", error as Error, {
+          beachId: beach.id,
+          location: { lat: beach.latitude, lng: beach.longitude },
+        });
+      }
+    });
+  }
 
-      // Process and combine all data sources
-      const forecasts = this.combineDataSources({
-        beach,
-        waveData,
-        tideData,
-        weatherData,
-        buoyData,
-      });
+  /**
+   * Fetch weather data with retry logic
+   */
+  private async fetchWeatherDataWithRetry(beach: Beach) {
+    return withRetry(async () => {
+      const weatherSource = new NOAAWeatherDataSource();
+      const location = {
+        latitude: beach.latitude as any, // Type assertion for now
+        longitude: beach.longitude as any,
+      };
+      const result = await weatherSource.fetchWeatherData(
+        location,
+        FORECAST_CONSTANTS.DAYS
+      );
+      return result.periods;
+    });
+  }
 
-      console.log(
-        `Generated ${forecasts.length} comprehensive forecast points for ${beach.name}`
-      );
-      return forecasts;
-    } catch (error) {
-      console.error(
-        `Error generating comprehensive forecast for ${beach.name}:`,
-        error
-      );
-      throw error;
-    }
+  /**
+   * Fetch buoy data with retry logic
+   */
+  private async fetchNearbyBuoyDataWithRetry(beach: Beach) {
+    return withRetry(async () => {
+      return this.fetchNearbyBuoyData(beach);
+    });
   }
 
   /**
@@ -231,13 +465,15 @@ export class EnhancedForecastService {
     tideData: any;
     weatherData: any[];
     buoyData: any;
-  }): EnhancedForecastData[] {
-    const forecasts: EnhancedForecastData[] = [];
+  }): EnhancedForecastEntity[] {
+    const forecasts: EnhancedForecastEntity[] = [];
     const now = new Date();
 
-    // Generate forecasts for 10 days, every 3 hours
-    for (let i = 0; i < 10 * 8; i++) {
-      const forecastTime = new Date(now.getTime() + i * 3 * 60 * 60 * 1000);
+    // Generate forecasts using constants
+    for (let i = 0; i < TOTAL_FORECASTS; i++) {
+      const forecastTime = new Date(
+        now.getTime() + i * FORECAST_CONSTANTS.INTERVAL_HOURS * 60 * 60 * 1000
+      );
 
       // Get wave data for this time
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
@@ -260,10 +496,11 @@ export class EnhancedForecastService {
         hasTideData: !!tideInfo,
         hasWeatherData: !!weatherPoint,
         hasBuoyData: useBuoyData,
-        forecastHoursAhead: i * 3,
+        forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
       });
 
       forecasts.push({
+        id: `forecast-${beach.id}-${i}`, // Temporary ID for now
         forecast_date: forecastTime.toISOString().split("T")[0],
         forecast_time: forecastTime.toISOString().split("T")[1].substring(0, 8),
 
@@ -349,6 +586,8 @@ export class EnhancedForecastService {
 
         beach_id: beach.id,
         confidence_score: confidenceScore,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
       });
     }
 
@@ -533,7 +772,7 @@ export class EnhancedForecastService {
    */
   async storeEnhancedForecasts(
     beach: Beach,
-    forecasts: EnhancedForecastData[]
+    forecasts: EnhancedForecastEntity[]
   ) {
     const supabase = await createSupabaseServiceRoleClient();
 

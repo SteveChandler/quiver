@@ -1,72 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import {
-  Loader2,
-  RefreshCw,
-  TrendingUp,
-  Waves,
-  Calendar,
-  MapPin,
-  Clock,
-  HelpCircle,
-} from "lucide-react";
-import { ForecastCard } from "./forecast-card";
-import { useCachedApi } from "@/hooks/use-cached-api";
-import { forecastCache, RequestCache } from "@/lib/utils/request-cache";
-import { dateUtils } from "@/lib/utils/date-utils";
-import {
-  formatForecastDate,
-  getConfidenceColor,
-  getTodayDateString,
-  isToday,
-  findBestForecastForDate,
-  LoadingSpinner,
-  ErrorDisplay,
-} from "@/lib/utils/forecast-ui-utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
-interface EnhancedForecast {
-  id: string;
-  forecast_date: string;
-  forecast_time: string;
-  wave_height: string | null;
-  wave_period: string | null;
-  wave_direction: string | null;
-  swell_1_height: string | null;
-  swell_1_period: string | null;
-  swell_1_direction: string | null;
-  swell_2_height: string | null;
-  swell_2_period: string | null;
-  swell_2_direction: string | null;
-  wind_wave_height: string | null;
-  wind_wave_period: string | null;
-  wind_wave_direction: string | null;
-  water_temp: string;
-  air_temperature: string;
-  wind_speed: string;
-  wind_direction: string;
-  tide_status: string;
-  tide_height: string;
-  next_tide_time: string;
-  next_tide_type: string;
-  next_tide_height: string;
-  current_speed: string;
-  current_direction: string;
-  weather_condition: string;
-  confidence_score: number;
-  created_at: string;
-  updated_at: string;
-}
+import { Loader2, RefreshCw, TrendingUp, Waves, Clock } from "lucide-react";
+import { useEnhancedForecast } from "@/hooks/use-enhanced-forecast";
+import { ForecastStats } from "./forecast/forecast-stats";
+import { DateNavigation } from "./forecast/date-navigation";
+import { ForecastDisplay } from "./forecast/forecast-display";
+import { LoadingSpinner, ErrorDisplay } from "@/lib/utils/forecast-ui-utils";
 
 interface BeachesEnhancedForecastProps {
   beachId?: string;
@@ -79,105 +21,31 @@ export function BeachesEnhancedForecast({
   beachId,
   beachName = "Beach",
   showHeader = true,
-  defaultDays = 10,
+  defaultDays = 12,
 }: BeachesEnhancedForecastProps) {
-  const [updating, setUpdating] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [viewMode, setViewMode] = useState<"overview" | "detailed">("overview");
-
-  // Cached API call for enhanced forecasts
-  const fetchForecasts = async () => {
-    if (!beachId) {
-      throw new Error("Beach ID is required");
-    }
-
-    const response = await fetch(
-      `/api/forecasts/update-enhanced?beachId=${beachId}&days=${defaultDays}`
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch enhanced forecasts");
-    }
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || "Failed to fetch forecasts");
-    }
-
-    return {
-      forecasts: data.data?.forecasts || [],
-      forecastsByDate: data.data?.forecastsByDate || {},
-    };
-  };
-
-  const cacheKey = RequestCache.createKey(
-    "enhanced-forecasts",
-    beachId,
-    defaultDays
-  );
-
   const {
-    data: forecastData,
+    forecasts,
+    availableDates,
+    selectedDate,
+    selectedDateForecasts,
     loading,
     error,
+    updating,
+    setSelectedDate,
     refetch,
-    invalidateCache,
-  } = useCachedApi(fetchForecasts, cacheKey, {
-    cache: forecastCache,
+    handleRefresh,
+  } = useEnhancedForecast({
+    beachId,
+    defaultDays,
     immediate: Boolean(beachId),
   });
 
-  const forecasts = forecastData?.forecasts || [];
-  const forecastsByDate = forecastData?.forecastsByDate || {};
-
-  // Set default selected date when data loads
-  useEffect(() => {
-    if (
-      forecastsByDate &&
-      Object.keys(forecastsByDate).length > 0 &&
-      !selectedDate
-    ) {
-      setSelectedDate(getTodayDateString());
-    }
-  }, [forecastsByDate, selectedDate]);
-
-  // Handle manual refresh
-  const handleRefresh = async () => {
-    setUpdating(true);
-    try {
-      await invalidateCache();
-      await refetch();
-    } catch (err) {
-      console.error("Error refreshing forecasts:", err);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  // Get available dates and selected date forecasts
-  const availableDates = Object.keys(forecastsByDate).sort();
-  const selectedDateForecasts = selectedDate
-    ? forecastsByDate[selectedDate] || []
-    : [];
-
-  // Get today's best forecast
-  const todaysBest = isToday(selectedDate)
-    ? findBestForecastForDate(selectedDateForecasts, true)
-    : null;
-
   if (loading) {
-    return <LoadingSpinner message="Loading enhanced forecasts..." />;
+    return <LoadingSpinner />;
   }
 
   if (error) {
-    return (
-      <ErrorDisplay
-        title="Failed to Load Enhanced Forecasts"
-        message={error}
-        onRetry={refetch}
-      />
-    );
+    return <ErrorDisplay error={error} onRetry={refetch} />;
   }
 
   if (!beachId) {
@@ -244,73 +112,14 @@ export function BeachesEnhancedForecast({
           </div>
         ) : (
           <>
-            {/* Forecast Stats */}
-            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center space-x-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-600">
-                    {availableDates.length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Days</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-600">
-                    {forecasts.length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Forecasts</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-600">
-                    {Math.round(
-                      forecasts.reduce(
-                        (sum: number, f: EnhancedForecast) =>
-                          sum + (f.confidence_score || 0),
-                        0
-                      ) / forecasts.length
-                    )}
-                    %
-                  </p>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1 justify-center cursor-help">
-                          Avg Confidence
-                          <HelpCircle className="h-3 w-3" />
-                        </p>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          How reliable the forecast data is based on data
-                          freshness, source quality, and forecast timeframe.
-                          Higher scores mean more reliable predictions.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-              <Badge
-                variant="secondary"
-                className="bg-blue-100 text-blue-800 border-blue-200"
-              >
-                Enhanced Data
-              </Badge>
-            </div>
+            {/* Forecast Stats Component */}
+            <ForecastStats
+              forecasts={forecasts}
+              availableDates={availableDates}
+            />
 
-            {/* Controls */}
-            <div className="flex justify-between items-center">
-              <Tabs
-                value={viewMode}
-                onValueChange={(value) =>
-                  setViewMode(value as "overview" | "detailed")
-                }
-              >
-                <TabsList>
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="detailed">Detailed</TabsTrigger>
-                </TabsList>
-              </Tabs>
-
+            {/* Last Updated Info */}
+            <div className="flex justify-end">
               <div className="text-sm text-muted-foreground flex items-center gap-2">
                 <Clock className="h-4 w-4" />
                 Last updated:{" "}
@@ -319,119 +128,18 @@ export function BeachesEnhancedForecast({
               </div>
             </div>
 
-            {/* Date Navigation - 5x2 Grid */}
-            {availableDates.length > 0 && (
-              <div className="grid grid-cols-5 gap-2">
-                {availableDates.map((date) => {
-                  const isSelected = date === selectedDate;
-                  const dateObj = new Date(date);
-                  const isTodayDate = isToday(date);
+            {/* Date Navigation Component */}
+            <DateNavigation
+              availableDates={availableDates}
+              selectedDate={selectedDate}
+              onDateSelect={setSelectedDate}
+            />
 
-                  return (
-                    <Button
-                      key={date}
-                      variant={isSelected ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedDate(date)}
-                      className={`h-auto py-2 flex flex-col ${
-                        isTodayDate ? "ring-2 ring-blue-500" : ""
-                      }`}
-                    >
-                      <span className="text-xs">
-                        {isTodayDate
-                          ? "Today"
-                          : dateObj.toLocaleDateString([], {
-                              weekday: "short",
-                            })}
-                      </span>
-                      <span className="font-medium">
-                        {dateObj.toLocaleDateString([], { day: "numeric" })}
-                      </span>
-                      <span className="text-xs">
-                        {dateObj.toLocaleDateString([], { month: "short" })}
-                      </span>
-                    </Button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Forecast Display */}
-            {selectedDateForecasts.length > 0 ? (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  {isToday(selectedDate)
-                    ? "Today's Forecast"
-                    : new Date(selectedDate).toLocaleDateString([], {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                </h3>
-
-                {viewMode === "overview" ? (
-                  <div className="grid gap-3">
-                    {/* For today, show only the best forecast. For other days, show all */}
-                    {isToday(selectedDate) && todaysBest
-                      ? [todaysBest].map((forecast: EnhancedForecast) => (
-                          <ForecastCard
-                            key={forecast.id}
-                            forecast={forecast}
-                            variant="compact"
-                            showDate={false}
-                            showBeachName={false}
-                          />
-                        ))
-                      : selectedDateForecasts.map(
-                          (forecast: EnhancedForecast) => (
-                            <ForecastCard
-                              key={forecast.id}
-                              forecast={forecast}
-                              variant="compact"
-                              showDate={false}
-                              showBeachName={false}
-                            />
-                          )
-                        )}
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* For today, show only the best forecast. For other days, show all */}
-                    {isToday(selectedDate) && todaysBest
-                      ? [todaysBest].map((forecast: EnhancedForecast) => (
-                          <ForecastCard
-                            key={forecast.id}
-                            forecast={forecast}
-                            variant="detailed"
-                            showDate={false}
-                            showBeachName={false}
-                          />
-                        ))
-                      : selectedDateForecasts.map(
-                          (forecast: EnhancedForecast) => (
-                            <ForecastCard
-                              key={forecast.id}
-                              forecast={forecast}
-                              variant="detailed"
-                              showDate={false}
-                              showBeachName={false}
-                            />
-                          )
-                        )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="text-muted-foreground">
-                    No forecast data available for {selectedDate}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            {/* Forecast Display Component */}
+            <ForecastDisplay
+              selectedDate={selectedDate}
+              selectedDateForecasts={selectedDateForecasts}
+            />
 
             {/* Data Sources Info - Collapsible */}
             <details className="group">

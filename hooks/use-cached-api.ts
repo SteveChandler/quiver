@@ -169,3 +169,64 @@ export function useCachedForecastData<T>(
     cache: forecastCache,
   });
 }
+
+// Map-specific caching helpers
+export function useCachedMapData<T>(
+  fetchFn: () => Promise<T>,
+  cacheKey: string,
+  options: Omit<CachedApiOptions, "cache" | "cacheKey"> = {}
+) {
+  return useCachedApi(fetchFn, cacheKey, {
+    ...options,
+    cache: apiCache,
+  });
+}
+
+// Helper to create location-based cache keys with reasonable precision
+export function createLocationCacheKey(
+  prefix: string,
+  latitude: number,
+  longitude: number,
+  precision: number = 3 // 3 decimal places ≈ 100m precision
+): string {
+  const lat = latitude.toFixed(precision);
+  const lng = longitude.toFixed(precision);
+  return RequestCache.createKey(prefix, lat, lng);
+}
+
+// Helper to create cached fetch function for map API calls
+export function createCachedMapFetch<T>(apiPath: string, ttl: number) {
+  return (latitude: number, longitude: number): Promise<T> => {
+    // Use aggressive rounding for buoy conditions since it's fallback data
+    const precision = apiPath.includes("buoys/conditions") ? 1 : 3; // 1 decimal = ~10km zones
+    const cacheKey = createLocationCacheKey(
+      apiPath,
+      latitude,
+      longitude,
+      precision
+    );
+
+    // Check cache first
+    const cached = apiCache.get<T>(cacheKey);
+    if (cached) {
+      console.log(`Cache hit for ${apiPath}:`, cacheKey);
+      return Promise.resolve(cached);
+    }
+
+    console.log(`Cache miss for ${apiPath}:`, cacheKey);
+
+    // Fetch and cache
+    return fetch(`${apiPath}?latitude=${latitude}&longitude=${longitude}`, {
+      headers: { Accept: "application/json" },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((data) => {
+        apiCache.set(cacheKey, data, ttl);
+        console.log(`Cached ${apiPath} data:`, cacheKey);
+        return data;
+      });
+  };
+}

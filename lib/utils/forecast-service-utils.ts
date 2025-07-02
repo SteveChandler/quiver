@@ -68,7 +68,7 @@ export async function updateAllBeachForecasts() {
 /**
  * Fetch enhanced forecasts for a beach with standardized error handling
  */
-export async function fetchBeachForecasts(beachId: string, days = 10) {
+export async function fetchBeachForecasts(beachId: string, days = 12) {
   const supabase = await createSupabaseServiceRoleClient();
 
   const { data: forecasts, error } = await supabase

@@ -121,6 +121,7 @@ export function MapView() {
             searchQuery={searchQuery}
             onGetUserLocation={getUserLocation}
             onUseDefaultLocation={useDefaultLocation}
+            onBeachSelect={handleBeachSelect}
           />
 
           {/* Selected Beach Quick View */}

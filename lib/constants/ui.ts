@@ -4,6 +4,10 @@ export const CACHE_TTL = {
   FORECASTS: 15 * 60 * 1000, // 15 minutes
   BEACH_DATA: 30 * 60 * 1000, // 30 minutes
   USER_SESSIONS: 2 * 60 * 1000, // 2 minutes (more dynamic)
+  // Map-specific cache TTLs - aggressive since using fallback data
+  MAP_BUOY_CONDITIONS: 30 * 60 * 1000, // 30 minutes (fallback data doesn't change much)
+  MAP_NEARBY_BUOYS: 30 * 60 * 1000, // 30 minutes (static buoy locations)
+  MAP_NEARBY_BEACHES: 15 * 60 * 1000, // 15 minutes (beach locations are static)
 } as const;
 
 // UI interaction timings
