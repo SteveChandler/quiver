@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600&family=Montserrat:wght@400;600;700&display=swap");
+@import "mapbox-gl/dist/mapbox-gl.css";
 
 @tailwind base;
 @tailwind components;

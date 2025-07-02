@@ -3,8 +3,7 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin } from "lucide-react";
-import { MapImage } from "@/components/map-image";
-import { getStaticMapImageUrl } from "@/lib/map-utils";
+import dynamic from "next/dynamic";
 import { MapSkeleton } from "@/components/skeletons/map-skeleton";
 import {
   COVERAGE_MESSAGES,
@@ -22,9 +21,18 @@ interface MapContentProps {
   searchQuery: string;
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
+  onBeachSelect: (beach: Beach) => void;
 }
 
 const MAX_DISTANCE_MILES = 30;
+
+const InteractiveMap = dynamic(
+  () =>
+    import("@/components/map/interactive-map").then((mod) => ({
+      default: mod.InteractiveMap,
+    })),
+  { ssr: false }
+);
 
 export function MapContent({
   loading,
@@ -36,6 +44,7 @@ export function MapContent({
   searchQuery,
   onGetUserLocation,
   onUseDefaultLocation,
+  onBeachSelect,
 }: MapContentProps) {
   // Memoize the map display coordinates
   const mapCenter = useMemo(() => {
@@ -89,26 +98,22 @@ export function MapContent({
 
   return (
     <>
-      {/* Static map image */}
+      {/* Interactive Map */}
       <div
-        className="flex-1 relative overflow-hidden min-h-[250px]"
+        className="flex-1 relative overflow-hidden min-h-[400px] bg-gray-200"
+        style={{ height: "400px" }}
         data-testid="map-container"
       >
-        <MapImage
-          src={getStaticMapImageUrl(mapCenter.lat, mapCenter.lng, {
-            width: 800,
-            height: 400,
-            zoom: 12,
-          })}
-          alt="Beach locations map"
-          latitude={mapCenter.lat}
-          longitude={mapCenter.lng}
-          fill
-          className="object-cover"
+        <InteractiveMap
+          key={`${mapCenter.lat.toFixed(4)}-${mapCenter.lng.toFixed(4)}`}
+          initialCenter={[mapCenter.lat, mapCenter.lng]}
+          initialZoom={12}
+          onLocationClick={onBeachSelect}
+          className="absolute inset-0 z-0 w-full h-full"
         />
 
         {/* Map overlay with beach count */}
-        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-xs">
+        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-xs z-10">
           <p className="text-sm font-medium">
             {searchQuery
               ? filteredBeaches.length > 0
@@ -152,7 +157,7 @@ export function MapContent({
 
         {/* Location controls */}
         {(usingDefaultLocation || !userLocation) && (
-          <div className="absolute top-4 right-4">
+          <div className="absolute top-4 right-4 z-10">
             <Button
               onClick={onGetUserLocation}
               size="sm"
