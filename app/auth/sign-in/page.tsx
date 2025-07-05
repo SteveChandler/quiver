@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function SignInPage() {
   return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+    <div className="container flex min-h-screen w-screen flex-col items-center justify-center py-16">
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
         <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-primary">
@@ -17,6 +17,12 @@ export default function SignInPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             Enter your email and password to sign in to your account
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Don't have an account?{" "}
+            <a href="/auth/sign-up" className="text-primary hover:underline">
+              Sign up
+            </a>
           </p>
         </div>
         <Suspense fallback={<div>Loading...</div>}>

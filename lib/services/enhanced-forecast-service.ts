@@ -785,12 +785,15 @@ export class EnhancedForecastService {
 
       // Insert new enhanced forecasts
       const { data, error } = await supabase.from("enhanced_forecasts").insert(
-        forecasts.map((forecast) => ({
-          // Let PostgreSQL generate the UUID automatically
-          ...forecast,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }))
+        forecasts.map((forecast) => {
+          // Remove the temporary ID and let PostgreSQL generate proper UUIDs
+          const { id, ...forecastWithoutId } = forecast;
+          return {
+            ...forecastWithoutId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+        })
       );
 
       if (error) {

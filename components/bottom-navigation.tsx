@@ -4,7 +4,6 @@ import { Home, Map, CalendarDays, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ModeToggle } from "./mode-toggle";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { UI_TIMING } from "@/lib/constants/ui";
 
@@ -102,9 +101,6 @@ export function BottomNavigation() {
         isVisible ? "translate-y-0" : "translate-y-full"
       )}
     >
-      <div className="absolute top-0 right-4 -translate-y-12">
-        <ModeToggle />
-      </div>
       <nav className="flex justify-around">
         {navItems.map((item) => {
           const isActive = pathname === item.href;

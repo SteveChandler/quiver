@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
+import { useForecastPreview } from "@/hooks/use-forecast-preview";
+import { ForecastPreview } from "@/components/ui/forecast-preview";
 import type { Beach } from "@/types/database";
 
 interface SelectedBeachCardProps {
@@ -17,6 +19,16 @@ export function SelectedBeachCard({
   userLocation,
 }: SelectedBeachCardProps) {
   const router = useRouter();
+
+  // Use shared forecast preview hook
+  const {
+    forecastPreview,
+    loading: loadingForecast,
+    error: forecastError,
+  } = useForecastPreview({
+    enabled: !!selectedBeach,
+    beachId: selectedBeach?.id,
+  });
 
   if (!selectedBeach) {
     return null;
@@ -62,6 +74,17 @@ export function SelectedBeachCard({
                 <span className="text-xs ml-1 text-muted-foreground">
                   (128)
                 </span>
+              </div>
+
+              {/* Forecast Preview */}
+              <div className="mt-2">
+                <ForecastPreview
+                  forecastPreview={forecastPreview}
+                  loading={loadingForecast}
+                  error={forecastError}
+                  variant="grid"
+                  showConfidenceScore={true}
+                />
               </div>
             </div>
             <div className="text-right">

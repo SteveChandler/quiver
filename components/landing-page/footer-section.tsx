@@ -19,10 +19,10 @@ export function FooterSection() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-dark-grey text-white py-16 px-4">
+    <footer className="bg-dark-grey text-white py-8 md:py-16 px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-          <div className="col-span-1 md:col-span-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+          <div className="col-span-2 md:col-span-2">
             <h3 className="text-2xl font-roboto font-bold mb-4">Quiver</h3>
             <p className="font-open-sans text-gray-300 mb-4 max-w-md">
               The ultimate social platform for surfers. Connect with your

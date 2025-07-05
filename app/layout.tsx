@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/auth-context";
+import { AppHeader } from "@/components/app-header";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,7 +29,10 @@ export default function RootLayout({
           disableTransitionOnChange
           storageKey="quiver-theme"
         >
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <AppHeader />
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

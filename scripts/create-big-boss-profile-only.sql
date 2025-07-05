@@ -15,12 +15,51 @@ DO $$
 DECLARE
     -- REPLACE THIS UUID WITH THE ACTUAL USER ID FROM SUPABASE AUTH DASHBOARD
     big_boss_id UUID := '16b87cb1-34b6-434d-820c-0bc4e0927f5b'::UUID;
-    blacks_beach_id UUID;
-    tourmaline_id UUID;
-    ocean_beach_id UUID;
+    beach_names TEXT[] := ARRAY[
+        'Oceanside Pier', 'Oceanside Harbor Beach', 'Carlsbad State Beach', 'Carlsbad Reef', 'Carlsbad Point',
+        'Leucadia State Beach', 'Grandview', 'Stone Steps', 'Encinitas', 'Swami''s Beach',
+        'Cardiff Reef', 'Moonlight State Beach', 'Solana Beach', 'Del Mar Beach', 'Torrey Pines State Beach',
+        'Blacks Beach', 'Windansea Beach', 'La Jolla Shores', 'Tourmaline Surf Park', 'Crystal Pier',
+        'Pacific Beach', 'Mission Beach', 'Ocean Beach', 'Sunset Cliffs', 'Coronado Beach',
+        'Imperial Beach', 'Silver Strand'
+    ];
+    beach_coordinates JSONB := '{
+        "Oceanside Pier": {"lat": 33.1959, "lng": -117.3795},
+        "Oceanside Harbor Beach": {"lat": 33.188, "lng": -117.38},
+        "Carlsbad State Beach": {"lat": 33.1581, "lng": -117.3478},
+        "Carlsbad Reef": {"lat": 33.1435, "lng": -117.349},
+        "Carlsbad Point": {"lat": 33.1628, "lng": -117.344},
+        "Leucadia State Beach": {"lat": 33.0423, "lng": -117.2867},
+        "Grandview": {"lat": 33.0373, "lng": -117.2891},
+        "Stone Steps": {"lat": 33.0374, "lng": -117.2857},
+        "Encinitas": {"lat": 33.0369, "lng": -117.292},
+        "Swami''s Beach": {"lat": 33.0362, "lng": -117.3032},
+        "Cardiff Reef": {"lat": 33.0265, "lng": -117.2822},
+        "Moonlight State Beach": {"lat": 33.0673, "lng": -117.2927},
+        "Solana Beach": {"lat": 32.993, "lng": -117.271},
+        "Del Mar Beach": {"lat": 32.9573, "lng": -117.2653},
+        "Torrey Pines State Beach": {"lat": 32.9212, "lng": -117.2628},
+        "Blacks Beach": {"lat": 32.9016, "lng": -117.2524},
+        "Windansea Beach": {"lat": 32.8217, "lng": -117.2837},
+        "La Jolla Shores": {"lat": 32.8507, "lng": -117.2726},
+        "Tourmaline Surf Park": {"lat": 32.8563, "lng": -117.256},
+        "Crystal Pier": {"lat": 32.811, "lng": -117.2544},
+        "Pacific Beach": {"lat": 32.803, "lng": -117.2405},
+        "Mission Beach": {"lat": 32.7801, "lng": -117.2549},
+        "Ocean Beach": {"lat": 32.7507, "lng": -117.254},
+        "Sunset Cliffs": {"lat": 32.7351, "lng": -117.2519},
+        "Coronado Beach": {"lat": 32.6859, "lng": -117.1899},
+        "Imperial Beach": {"lat": 32.5743, "lng": -117.1131},
+        "Silver Strand": {"lat": 32.6895, "lng": -117.1332}
+    }'::JSONB;
+    current_beach_name TEXT;
+    current_beach_id UUID;
+    lat_val FLOAT;
+    lng_val FLOAT;
     i INTEGER;
     session_date DATE;
     session_time TIMESTAMP;
+    days_ago INTEGER;
 BEGIN
     -- ================================================
     -- Verify the auth user exists
@@ -84,80 +123,68 @@ BEGIN
         following_count = EXCLUDED.following_count;
 
     -- ================================================
-    -- Ensure beaches exist and get their IDs
+    -- Ensure all beaches exist and create them if needed
     -- ================================================
     
-    -- Blacks Beach
-    SELECT id INTO blacks_beach_id 
-    FROM beaches 
-    WHERE LOWER(name) LIKE '%blacks%beach%' 
-    LIMIT 1;
-    
-    IF blacks_beach_id IS NULL THEN
-        INSERT INTO beaches (
-            name,
-            description,
-            created_at,
-            updated_at
-        ) VALUES (
-            'Blacks Beach',
-            'Legendary surf break in La Jolla known for powerful waves and clothing-optional northern section. Requires hike down steep cliffs.',
-            NOW(),
-            NOW()
-        ) RETURNING id INTO blacks_beach_id;
+    FOR i IN 1..array_length(beach_names, 1) LOOP
+        current_beach_name := beach_names[i];
+        lat_val := (beach_coordinates->current_beach_name->>'lat')::FLOAT;
+        lng_val := (beach_coordinates->current_beach_name->>'lng')::FLOAT;
         
-        RAISE NOTICE 'Created Blacks Beach with ID: %', blacks_beach_id;
-    ELSE
-        RAISE NOTICE 'Found Blacks Beach with ID: %', blacks_beach_id;
-    END IF;
-
-    -- Tourmaline Surfing Park
-    SELECT id INTO tourmaline_id 
-    FROM beaches 
-    WHERE LOWER(name) LIKE '%tourmaline%' 
-    LIMIT 1;
-    
-    IF tourmaline_id IS NULL THEN
-        INSERT INTO beaches (
-            name,
-            description,
-            created_at,
-            updated_at
-        ) VALUES (
-            'Tourmaline Surfing Park',
-            'Pacific Beach surfing spot known for mellow, long rides perfect for longboarding and beginners.',
-            NOW(),
-            NOW()
-        ) RETURNING id INTO tourmaline_id;
+        SELECT id INTO current_beach_id 
+        FROM beaches 
+        WHERE LOWER(name) = LOWER(current_beach_name)
+        LIMIT 1;
         
-        RAISE NOTICE 'Created Tourmaline with ID: %', tourmaline_id;
-    ELSE
-        RAISE NOTICE 'Found Tourmaline with ID: %', tourmaline_id;
-    END IF;
-
-    -- Ocean Beach
-    SELECT id INTO ocean_beach_id 
-    FROM beaches 
-    WHERE LOWER(name) LIKE '%ocean%beach%' 
-    LIMIT 1;
-    
-    IF ocean_beach_id IS NULL THEN
-        INSERT INTO beaches (
-            name,
-            description,
-            created_at,
-            updated_at
-        ) VALUES (
-            'Ocean Beach',
-            'Bohemian beach community with powerful, unpredictable waves and strong local surf culture.',
-            NOW(),
-            NOW()
-        ) RETURNING id INTO ocean_beach_id;
-        
-        RAISE NOTICE 'Created Ocean Beach with ID: %', ocean_beach_id;
-    ELSE
-        RAISE NOTICE 'Found Ocean Beach with ID: %', ocean_beach_id;
-    END IF;
+        IF current_beach_id IS NULL THEN
+                         INSERT INTO beaches (
+                 name,
+                 latitude,
+                 longitude,
+                 location,
+                 description,
+                 created_at,
+                 updated_at
+             ) VALUES (
+                 current_beach_name,
+                 lat_val,
+                 lng_val,
+                 COALESCE(
+                     CASE 
+                         WHEN current_beach_name ILIKE '%Oceanside%' THEN 'Oceanside, CA'
+                         WHEN current_beach_name ILIKE '%Carlsbad%' THEN 'Carlsbad, CA'
+                         WHEN current_beach_name ILIKE '%Leucadia%' OR current_beach_name ILIKE '%Encinitas%' OR current_beach_name = 'Grandview' OR current_beach_name = 'Stone Steps' THEN 'Encinitas, CA'
+                         WHEN current_beach_name ILIKE '%Swami%' THEN 'Encinitas, CA'
+                         WHEN current_beach_name ILIKE '%Cardiff%' OR current_beach_name ILIKE '%Moonlight%' THEN 'Cardiff/Encinitas, CA'
+                         WHEN current_beach_name ILIKE '%Solana%' THEN 'Solana Beach, CA'
+                         WHEN current_beach_name ILIKE '%Del Mar%' THEN 'Del Mar, CA'
+                         WHEN current_beach_name ILIKE '%Torrey Pines%' OR current_beach_name ILIKE '%Blacks%' THEN 'La Jolla, CA'
+                         WHEN current_beach_name ILIKE '%Windansea%' OR current_beach_name ILIKE '%La Jolla%' THEN 'La Jolla, CA'
+                         WHEN current_beach_name ILIKE '%Tourmaline%' OR current_beach_name ILIKE '%Crystal%' OR current_beach_name ILIKE '%Pacific Beach%' THEN 'Pacific Beach, CA'
+                         WHEN current_beach_name ILIKE '%Mission%' THEN 'Mission Beach, CA'
+                         WHEN current_beach_name ILIKE '%Ocean Beach%' OR current_beach_name ILIKE '%Sunset Cliffs%' THEN 'Ocean Beach, CA'
+                         WHEN current_beach_name ILIKE '%Coronado%' THEN 'Coronado, CA'
+                         WHEN current_beach_name ILIKE '%Imperial%' THEN 'Imperial Beach, CA'
+                         WHEN current_beach_name ILIKE '%Silver Strand%' THEN 'Coronado, CA'
+                         ELSE 'San Diego County, CA'
+                     END,
+                     'San Diego County, CA'
+                 ),
+                 CASE current_beach_name
+                     WHEN 'Blacks Beach' THEN 'Legendary surf break in La Jolla known for powerful waves and clothing-optional northern section. Requires hike down steep cliffs.'
+                     WHEN 'Swami''s Beach' THEN 'Sacred surf spot in Encinitas with consistent waves and spiritual energy.'
+                     WHEN 'Windansea Beach' THEN 'Iconic La Jolla break with powerful waves and distinctive rock formations.'
+                     WHEN 'Ocean Beach' THEN 'Bohemian beach community with powerful, unpredictable waves and strong local surf culture.'
+                     WHEN 'Sunset Cliffs' THEN 'Dramatic clifftop surf spot with multiple breaks and stunning sunset views.'
+                     ELSE 'Premium San Diego County surf break with excellent wave conditions.'
+                 END,
+                 NOW(),
+                 NOW()
+             ) RETURNING id INTO current_beach_id;
+            
+            RAISE NOTICE 'Created beach: % with ID: %', current_beach_name, current_beach_id;
+        END IF;
+    END LOOP;
 
     -- ================================================
     -- Create Custom Surfboards for Big Boss
@@ -192,10 +219,10 @@ BEGIN
     END IF;
 
     -- ================================================
-    -- Create Beach Reviews (Great to Bad)
+    -- Create 5 Strategic Beach Reviews
     -- ================================================
     
-    -- Blacks Beach Review (Great - Rating 5)
+    -- 1. Blacks Beach Review (Excellent - Rating 5)
     INSERT INTO beach_reviews (
         beach_id,
         user_id,
@@ -210,15 +237,15 @@ BEGIN
         created_at,
         updated_at
     ) VALUES (
-        blacks_beach_id,
+        (SELECT id FROM beaches WHERE name = 'Blacks Beach'),
         big_boss_id,
         5,
         5,
         5,
         2,
         2,
-        'The battlefield I''ve been searching for',
-        'This break reminds me of the best military operations - demanding, unforgiving, but incredibly rewarding for those who prove themselves worthy. The power of these waves matches the intensity of any conflict I''ve faced. The isolation suits a soldier''s mindset. The hike down is nothing compared to jungle infiltration. This is where legends are made.',
+        'The ultimate battlefield for elite operatives',
+        'This break represents everything I''ve learned about tactical excellence. The power demands absolute precision - one miscalculation and you''re finished. The isolation filters out civilians, leaving only the most dedicated warriors. The cliff descent is nothing compared to rope drops into enemy territory, but it keeps the weak away. Each wave is like facing a new adversary - powerful, unpredictable, demanding your complete tactical awareness. This is where legends prove themselves.',
         CURRENT_DATE - INTERVAL '20 days',
         NOW() - INTERVAL '15 days',
         NOW() - INTERVAL '15 days'
@@ -226,7 +253,7 @@ BEGIN
         title = EXCLUDED.title,
         content = EXCLUDED.content;
 
-    -- Tourmaline Review (Good - Rating 3)
+    -- 2. Swami's Beach Review (Excellent - Rating 5)  
     INSERT INTO beach_reviews (
         beach_id,
         user_id,
@@ -239,19 +266,69 @@ BEGIN
         content,
         visit_date
     ) VALUES (
-        tourmaline_id,
+        (SELECT id FROM beaches WHERE name = 'Swami''s Beach'),
+        big_boss_id,
+        5,
+        5,
+        4,
+        3,
+        4,
+        'Sacred ground for tactical meditation',
+        'The spiritual energy here enhances combat focus like no VR training ever could. Consistent, powerful waves provide perfect conditions for advanced tactical maneuvers. The garden above adds a meditative element - reminds me of the importance of mental discipline in warfare. Local knowledge is essential for optimal positioning. This break teaches patience and precision, qualities every soldier must master.',
+        CURRENT_DATE - INTERVAL '35 days'
+    ) ON CONFLICT (beach_id, user_id) DO NOTHING;
+
+    -- 3. Windansea Beach Review (Good - Rating 4)
+    INSERT INTO beach_reviews (
+        beach_id,
+        user_id,
+        overall_rating,
+        wave_quality_rating,
+        crowd_density_rating,
+        parking_rating,
+        accessibility_rating,
+        title,
+        content,
+        visit_date
+    ) VALUES (
+        (SELECT id FROM beaches WHERE name = 'Windansea Beach'),
+        big_boss_id,
+        4,
+        5,
+        3,
+        3,
+        3,
+        'Iconic battleground with natural fortifications',
+        'The rock formations provide natural strategic positions for observing wave patterns and crowd dynamics. Raw power here rivals any military exercise I''ve encountered. Consistent quality makes it reliable for training, though parking requires tactical patience. The shorebreak demands respect - like approaching a heavily fortified position, timing is everything.',
+        CURRENT_DATE - INTERVAL '50 days'
+    ) ON CONFLICT (beach_id, user_id) DO NOTHING;
+
+    -- 4. Tourmaline Surf Park Review (Average - Rating 3)
+    INSERT INTO beach_reviews (
+        beach_id,
+        user_id,
+        overall_rating,
+        wave_quality_rating,
+        crowd_density_rating,
+        parking_rating,
+        accessibility_rating,
+        title,
+        content,
+        visit_date
+    ) VALUES (
+        (SELECT id FROM beaches WHERE name = 'Tourmaline Surf Park'),
         big_boss_id,
         3,
         3,
         2,
         4,
         5,
-        'Good for tactical longboard training',
-        'While these waves lack the intensity I prefer, they serve as excellent training grounds for precision and style. The mellower conditions allow for practicing advanced maneuvers without the chaos of battle-like conditions. Suitable for reconnaissance and equipment testing. The easy access makes it ideal for quick strategic sessions.',
-        CURRENT_DATE - INTERVAL '35 days'
+        'Adequate for tactical longboard training',
+        'While these waves lack the intensity I prefer for advanced operations, they serve as excellent training grounds for precision maneuvers and strategic positioning. The mellow conditions allow for practicing complex tactical sequences without the chaos of battle-like conditions. Easy access makes it suitable for equipment testing and reconnaissance missions. Good for soldiers developing foundational skills.',
+        CURRENT_DATE - INTERVAL '65 days'
     ) ON CONFLICT (beach_id, user_id) DO NOTHING;
 
-    -- Ocean Beach Review (Bad - Rating 2)
+    -- 5. Imperial Beach Review (Below Average - Rating 2)
     INSERT INTO beach_reviews (
         beach_id,
         user_id,
@@ -264,26 +341,32 @@ BEGIN
         content,
         visit_date
     ) VALUES (
-        ocean_beach_id,
+        (SELECT id FROM beaches WHERE name = 'Imperial Beach'),
         big_boss_id,
         2,
+        2,
         3,
-        1,
-        1,
-        3,
-        'Too chaotic, lacks strategic value',
-        'This break is like fighting a war on too many fronts. The waves show promise but the localism and aggressive crowd dynamics create unnecessary complications. Parking is a greater challenge than any stealth mission. The unpredictable nature works against tactical planning. Better suited for soldiers who thrive on chaos rather than calculated precision.',
-        CURRENT_DATE - INTERVAL '50 days'
+        4,
+        4,
+        'Border territory with limited tactical value',
+        'The proximity to international borders creates interesting dynamics, but wave quality is inconsistent for serious tactical training. Water quality concerns remind me of operating in contaminated zones - environmental hazards affect mission effectiveness. Easy parking and access are positive factors, but the inconsistent conditions make it unreliable for advanced operations. Better suited for reconnaissance rather than combat training.',
+        CURRENT_DATE - INTERVAL '80 days'
     ) ON CONFLICT (beach_id, user_id) DO NOTHING;
 
     -- ================================================
-    -- Create Session Logs for Past 2 Weeks (14 sessions)
+    -- Create Sessions for All 28 Beaches (Starting Today, Working Backwards)
     -- ================================================
     
-    FOR i IN 1..14 LOOP
-        -- Vary the beaches for different sessions
-        session_date := CURRENT_DATE - INTERVAL '1 day' * i;
-        session_time := session_date + INTERVAL '1 hour' * (5 + FLOOR(RANDOM() * 6)); -- 5-10 AM sessions
+    FOR i IN 1..array_length(beach_names, 1) LOOP
+        current_beach_name := beach_names[i];
+        
+        -- Calculate days ago (distribute sessions over ~3 months, with some future plans)
+        days_ago := (i - 1) * 3 - 7; -- Start 7 days in future, work backwards
+        session_date := CURRENT_DATE + INTERVAL '1 day' * days_ago;
+        session_time := session_date + INTERVAL '1 hour' * (5 + FLOOR(RANDOM() * 4)); -- 5-8 AM sessions
+        
+        -- Get beach ID
+        SELECT id INTO current_beach_id FROM beaches WHERE name = current_beach_name;
         
         INSERT INTO sessions (
             user_id,
@@ -302,97 +385,51 @@ BEGIN
         ) VALUES (
             big_boss_id,
             big_boss_id,
-            CASE 
-                WHEN i % 3 = 1 THEN blacks_beach_id
-                WHEN i % 3 = 2 THEN tourmaline_id
-                ELSE ocean_beach_id
-            END,
+            current_beach_id,
             (SELECT id FROM boards WHERE user_id = big_boss_id ORDER BY RANDOM() LIMIT 1),
+            current_beach_name,
             CASE 
-                WHEN i % 3 = 1 THEN 'Blacks Beach'
-                WHEN i % 3 = 2 THEN 'Tourmaline Surfing Park'
-                ELSE 'Ocean Beach'
+                WHEN days_ago > 0 THEN 'planned'
+                ELSE 'completed'
             END,
-            'completed',
             session_time,
-            120 + FLOOR(RANDOM() * 90)::INTEGER, -- 120-210 minutes
-            3 + FLOOR(RANDOM() * 3)::INTEGER,  -- 3-5 rating
+            CASE 
+                WHEN days_ago > 0 THEN 150 -- Planned sessions
+                ELSE 120 + FLOOR(RANDOM() * 90)::INTEGER -- Completed: 120-210 minutes
+            END,
+            CASE 
+                WHEN days_ago > 0 THEN NULL -- Unknown for planned sessions
+                ELSE 3 + FLOOR(RANDOM() * 3)::INTEGER -- 3-5 rating for completed
+            END,
             CASE
+                WHEN days_ago > 0 THEN NULL
                 WHEN RANDOM() < 0.3 THEN 64
                 WHEN RANDOM() < 0.7 THEN 66
                 ELSE 68
             END,
-            1 + FLOOR(RANDOM() * 5)::INTEGER,  -- 1-5 crowd level
-            1 + FLOOR(RANDOM() * 5)::INTEGER,  -- 1-5 parking ease
-            CASE i
-                WHEN 1 THEN 'Dawn patrol at the legendary break. Conditions were perfect for advanced tactical maneuvers. No civilians in sight.'
-                WHEN 2 THEN 'Longboard session focusing on strategic positioning and wave selection. The mellow conditions allowed for tactical analysis.'
-                WHEN 3 THEN 'Challenging session dealing with aggressive locals. Maintained composure despite territorial conflicts.'
-                WHEN 4 THEN 'Solo mission in powerful conditions. Each wave was like facing a new enemy - required full tactical awareness.'
-                WHEN 5 THEN 'Training session on precision and flow. The longer rides allowed for complete tactical sequences.'
-                WHEN 6 THEN 'Crowded conditions forced adaptation of stealth surfing techniques. Successfully avoided most conflicts.'
-                WHEN 7 THEN 'Perfect morning session. Conditions reminded me of the best military operations - precise, powerful, demanding excellence.'
-                WHEN 8 THEN 'Equipment testing session. New board performed admirably under combat-like wave conditions.'
-                WHEN 9 THEN 'Focused on endurance training. Long session building stamina for extended tactical operations.'
-                WHEN 10 THEN 'Early morning reconnaissance. Studied wave patterns and local territorial behaviors.'
-                WHEN 11 THEN 'High-intensity session in challenging conditions. Proved that experience conquers all obstacles.'
-                WHEN 12 THEN 'Tactical longboarding session. Worked on command presence and strategic wave positioning.'
-                WHEN 13 THEN 'Difficult session dealing with overcrowding and territorial disputes. Managed to maintain tactical advantage.'
-                ELSE 'Final reconnaissance before developing new strategic approaches. Intelligence gathered on all three operational zones.'
-            END
-        );
-    END LOOP;
-
-    -- ================================================
-    -- Create Session Plans for Next 4 Days
-    -- ================================================
-    
-    FOR i IN 1..4 LOOP
-        session_date := CURRENT_DATE + INTERVAL '1 day' * i;
-        session_time := session_date + INTERVAL '1 hour' * (6 + FLOOR(RANDOM() * 3)); -- 6-8 AM sessions
-        
-        INSERT INTO sessions (
-            user_id,
-            profile_id,
-            beach_id,
-            board_id,
-            beach_name,
-            status,
-            arrival_time,
-            duration_minutes,
-            wave_quality,
-            water_temp,
-            crowd_level,
-            parking_ease,
-            notes
-        ) VALUES (
-            big_boss_id,
-            big_boss_id,
             CASE 
-                WHEN i = 1 THEN blacks_beach_id
-                WHEN i = 2 THEN tourmaline_id
-                WHEN i = 3 THEN ocean_beach_id
-                ELSE blacks_beach_id  -- Return to favorite for day 4
+                WHEN days_ago > 0 THEN NULL
+                ELSE 1 + FLOOR(RANDOM() * 5)::INTEGER -- 1-5 crowd level
             END,
-            (SELECT id FROM boards WHERE user_id = big_boss_id AND name LIKE '%Gun%' LIMIT 1),
             CASE 
-                WHEN i = 1 THEN 'Blacks Beach'
-                WHEN i = 2 THEN 'Tourmaline Surfing Park'
-                WHEN i = 3 THEN 'Ocean Beach'
-                ELSE 'Blacks Beach'
+                WHEN days_ago > 0 THEN NULL
+                ELSE 1 + FLOOR(RANDOM() * 5)::INTEGER -- 1-5 parking ease
             END,
-            'planned',
-            session_time,
-            150, -- Planned 2.5 hour sessions
-            NULL, -- Unknown until session happens
-            NULL,
-            NULL,
-            NULL,
-            CASE i
-                WHEN 1 THEN 'PLANNED: Dawn assault on the legendary break. Tactical objective: Master the overhead conditions forecasted.'
-                WHEN 2 THEN 'PLANNED: Strategic longboard training mission. Focus on precision and tactical wave selection.'
-                WHEN 3 THEN 'PLANNED: Infiltration mission into hostile territory. Objective: Navigate crowd dynamics while maintaining surf performance.'
-                ELSE 'PLANNED: Final tactical assessment at primary operational zone. Consolidate all intelligence gathered this week.'
+            CASE 
+                WHEN days_ago > 0 THEN 'PLANNED: Strategic reconnaissance mission at ' || current_beach_name || '. Tactical objective: Assess wave conditions and local territorial dynamics.'
+                ELSE 
+                    CASE (i % 10)
+                        WHEN 1 THEN 'Tactical assessment complete at ' || current_beach_name || '. Wave patterns analyzed, strategic positions identified.'
+                        WHEN 2 THEN 'Advanced maneuver training at ' || current_beach_name || '. Each wave like facing a new tactical scenario.'
+                        WHEN 3 THEN 'Stealth session at ' || current_beach_name || '. Dawn operations provided optimal conditions with minimal civilian interference.'
+                        WHEN 4 THEN 'Combat endurance training at ' || current_beach_name || '. Extended session built stamina for prolonged tactical operations.'
+                        WHEN 5 THEN 'Equipment evaluation at ' || current_beach_name || '. Board performance tested under various wave conditions.'
+                        WHEN 6 THEN 'Strategic positioning practice at ' || current_beach_name || '. Worked on command presence and wave selection tactics.'
+                        WHEN 7 THEN 'Psychological operations training at ' || current_beach_name || '. Studied crowd dynamics while maintaining tactical advantage.'
+                        WHEN 8 THEN 'Precision maneuver session at ' || current_beach_name || '. Focused on technical excellence under pressure.'
+                        WHEN 9 THEN 'Reconnaissance complete at ' || current_beach_name || '. Intelligence gathered on local conditions and territorial behaviors.'
+                        ELSE 'Successful tactical operation at ' || current_beach_name || '. Mission objectives achieved with military precision.'
+                    END
             END
         );
     END LOOP;
@@ -453,21 +490,21 @@ BEGIN
             jsonb_build_object(
                 'beach_name', 'Blacks Beach',
                 'rating', 5,
-                'title', 'The battlefield I''ve been searching for'
+                'title', 'The ultimate battlefield for elite operatives'
             ),
             NOW() - INTERVAL '15 days'
         );
     END IF;
 
-    RAISE NOTICE 'Successfully created Big Boss profile and data:';
+    RAISE NOTICE 'Successfully created Big Boss profile and comprehensive data:';
     RAISE NOTICE '- User ID: %', big_boss_id;
     RAISE NOTICE '- Profile with legendary soldier bio';
     RAISE NOTICE '- 2 surfboards (Outer Heaven Gun & Mother Base Longboard)';
-    RAISE NOTICE '- 3 beach reviews (Great to Bad ratings)'; 
-    RAISE NOTICE '- 14 surf sessions from past 2 weeks';
-    RAISE NOTICE '- 4 planned sessions for next 4 days';
+    RAISE NOTICE '- 5 strategic beach reviews (ratings 2-5)'; 
+    RAISE NOTICE '- % surf sessions across all beaches (planned + completed)', array_length(beach_names, 1);
+    RAISE NOTICE '- Sessions start from future dates and work backwards';
     RAISE NOTICE '- 2 user activities';
-    RAISE NOTICE 'Big Boss is ready for tactical surf operations! 🌊⚡';
+    RAISE NOTICE 'Big Boss is ready for comprehensive tactical surf operations! 🌊⚡';
 
 END $$;
 
@@ -541,4 +578,4 @@ JOIN beaches ON s.beach_id = beaches.id
 WHERE p.full_name = 'Big Boss' AND s.status = 'planned'
 ORDER BY s.arrival_time ASC;
 
-SELECT 'Script completed successfully! Big Boss is ready for tactical surf operations.' as final_status; 
+SELECT 'Script completed successfully! Big Boss is ready for comprehensive tactical surf operations.' as final_status; 

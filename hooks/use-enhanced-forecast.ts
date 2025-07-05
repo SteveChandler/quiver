@@ -13,6 +13,7 @@ interface UseEnhancedForecastOptions {
   beachId?: string;
   defaultDays?: number;
   immediate?: boolean;
+  autoGenerate?: boolean;
 }
 
 interface UseEnhancedForecastReturn {
@@ -25,6 +26,7 @@ interface UseEnhancedForecastReturn {
   loading: boolean;
   error: string | null;
   updating: boolean;
+  autoGenerating: boolean;
   setSelectedDate: (date: string) => void;
   refetch: () => Promise<void>;
   invalidateCache: () => void;
@@ -35,9 +37,12 @@ export function useEnhancedForecast({
   beachId,
   defaultDays = 12,
   immediate = true,
+  autoGenerate = true,
 }: UseEnhancedForecastOptions): UseEnhancedForecastReturn {
   const [updating, setUpdating] = useState(false);
+  const [autoGenerating, setAutoGenerating] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [hasTriedAutoGeneration, setHasTriedAutoGeneration] = useState(false);
 
   // Memoized fetch function to prevent recreating on every render
   const fetchForecasts = useCallback(async (): Promise<ForecastData> => {
@@ -65,6 +70,36 @@ export function useEnhancedForecast({
     };
   }, [beachId, defaultDays]);
 
+  // Memoized function to generate forecasts for a beach
+  const generateForecasts = useCallback(async (): Promise<ForecastData> => {
+    if (!beachId) {
+      throw new Error("Beach ID is required");
+    }
+
+    console.log(`Auto-generating forecasts for beach ${beachId}`);
+
+    const response = await fetch("/api/forecasts/update-enhanced", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ beachId }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to generate enhanced forecasts");
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Failed to generate forecasts");
+    }
+
+    // After generation, fetch the new forecasts
+    return await fetchForecasts();
+  }, [beachId, fetchForecasts]);
+
   // Create stable cache key
   const cacheKey = RequestCache.createKey(
     "enhanced-forecasts",
@@ -83,6 +118,53 @@ export function useEnhancedForecast({
     cache: forecastCache,
     immediate: immediate && Boolean(beachId),
   });
+
+  // Auto-generate forecasts when no data exists
+  useEffect(() => {
+    if (
+      autoGenerate &&
+      beachId &&
+      !loading &&
+      !error &&
+      !hasTriedAutoGeneration &&
+      forecastData &&
+      forecastData.forecasts.length === 0
+    ) {
+      setHasTriedAutoGeneration(true);
+      setAutoGenerating(true);
+
+      generateForecasts()
+        .then(() => {
+          // Invalidate cache and refetch to get new data
+          invalidateCache();
+          return refetch();
+        })
+        .catch((err) => {
+          console.error("Auto-generation failed:", err);
+          // Don't set error state for auto-generation failures
+          // Let user manually trigger if needed
+        })
+        .finally(() => {
+          setAutoGenerating(false);
+        });
+    }
+  }, [
+    autoGenerate,
+    beachId,
+    loading,
+    error,
+    hasTriedAutoGeneration,
+    forecastData,
+    generateForecasts,
+    invalidateCache,
+    refetch,
+  ]);
+
+  // Reset auto-generation flag when beach changes
+  useEffect(() => {
+    setHasTriedAutoGeneration(false);
+    setAutoGenerating(false);
+  }, [beachId]);
 
   // Extract data with defaults
   const forecasts = forecastData?.forecasts || [];
@@ -122,6 +204,7 @@ export function useEnhancedForecast({
     loading,
     error,
     updating,
+    autoGenerating,
     setSelectedDate,
     refetch,
     invalidateCache,

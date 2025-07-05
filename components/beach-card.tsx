@@ -1,7 +1,11 @@
+"use client";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Star } from "lucide-react";
 import Link from "next/link";
 import { MapImage } from "@/components/map-image";
+import { useForecastPreview } from "@/hooks/use-forecast-preview";
+import { ForecastPreview } from "@/components/ui/forecast-preview";
 
 interface BeachCardProps {
   id?: string;
@@ -15,6 +19,7 @@ interface BeachCardProps {
   onViewDetails?: () => void;
   onMapClick?: () => void;
   onReviewsClick?: () => void;
+  showForecastPreview?: boolean;
 }
 
 export function BeachCard({
@@ -29,7 +34,18 @@ export function BeachCard({
   onViewDetails,
   onMapClick,
   onReviewsClick,
+  showForecastPreview = false,
 }: BeachCardProps) {
+  // Use shared forecast preview hook
+  const {
+    forecastPreview,
+    loading: loadingForecast,
+    error: forecastError,
+  } = useForecastPreview({
+    enabled: showForecastPreview,
+    beachId: id,
+  });
+
   const handleMapClick = () => {
     if (onMapClick) {
       onMapClick();
@@ -96,6 +112,18 @@ export function BeachCard({
             </button>
           )}
         </div>
+
+        {/* Forecast Preview */}
+        {showForecastPreview && (
+          <div className="mt-3 pt-3 border-t">
+            <ForecastPreview
+              forecastPreview={forecastPreview}
+              loading={loadingForecast}
+              error={forecastError}
+              variant="grid"
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

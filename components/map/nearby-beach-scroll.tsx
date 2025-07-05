@@ -14,6 +14,7 @@ interface NearbyBeachScrollProps {
   onViewModeChange: (mode: "map" | "list") => void;
   getDistanceFromUser: (beachLat: number, beachLng: number) => string;
   userLocation: { lat: number; lng: number } | null;
+  showForecastPreviews?: boolean;
 }
 
 export function NearbyBeachScroll({
@@ -23,6 +24,7 @@ export function NearbyBeachScroll({
   onViewModeChange,
   getDistanceFromUser,
   userLocation,
+  showForecastPreviews = true,
 }: NearbyBeachScrollProps) {
   const router = useRouter();
 
@@ -72,6 +74,7 @@ export function NearbyBeachScroll({
                   imageUrl={beach.mapImageUrl}
                   latitude={beach.latitude}
                   longitude={beach.longitude}
+                  showForecastPreview={showForecastPreviews}
                   onViewDetails={() =>
                     originalBeach && onBeachSelect(originalBeach)
                   }

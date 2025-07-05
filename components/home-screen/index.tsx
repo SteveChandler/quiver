@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { UserAvatar } from "@/components/user-avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/bottom-navigation";
-import { CalendarDays, Waves, Plus, Loader2 } from "lucide-react";
+import { CalendarDays, Waves, Plus } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { ForecastTab } from "./forecast-tab";
@@ -13,45 +12,20 @@ import { NearbyTab } from "./nearby-tab";
 import { CommunityTab } from "./community-tab";
 import { useHomeData } from "./use-home-data";
 import { cn } from "@/lib/utils";
-import { getProfile } from "@/actions/profile-actions";
-import type { Profile } from "@/types/database";
+import { useUserProfile } from "@/hooks/use-user-profile";
 
 export function HomeScreen() {
   const [activeTab, setActiveTab] = useState("forecast");
   const [isNavVisible, setIsNavVisible] = useState(true);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const { user, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
 
-  // Load user profile data
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (user) {
-        try {
-          // Add a timeout wrapper
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Profile loading timeout")),
-              10000
-            )
-          );
-
-          const profilePromise = getProfile(user.id);
-
-          const result = await Promise.race([profilePromise, timeoutPromise]);
-          if (result.success && result.data) {
-            setProfile(result.data as Profile);
-          }
-        } catch (error) {
-          console.error("Error loading profile:", error);
-        }
-      } else {
-        setProfile(null);
-      }
-    };
-
-    loadProfile();
-  }, [user]);
+  // Use shared profile loading hook with built-in timeout
+  const { profile } = useUserProfile({
+    userId: user?.id,
+    enabled: !!user,
+    timeout: 10000, // 10 second timeout
+  });
 
   // Track navigation visibility for FAB positioning
   useEffect(() => {
@@ -86,33 +60,8 @@ export function HomeScreen() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b">
-        <div className="container flex items-center justify-between h-16 px-4">
-          <h1 className="text-2xl font-bold text-primary">Quiver</h1>
-          <div className="flex items-center space-x-2">
-            {authLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : user ? (
-              <Link href="/profile">
-                <UserAvatar
-                  src={profile?.avatar_url}
-                  name={profile?.full_name}
-                  email={user?.email}
-                  size="sm"
-                />
-              </Link>
-            ) : (
-              <Link href="/auth/sign-in">
-                <Button size="sm">Sign In</Button>
-              </Link>
-            )}
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
-      <main className="flex-1 container px-4 py-6 space-y-6 overflow-auto">
+      <main className="flex-1 container px-4 py-6 space-y-6 overflow-auto pt-6">
         {/* Welcome Section */}
         <section className="space-y-2">
           <h2 className="text-2xl font-bold">

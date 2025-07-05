@@ -250,3 +250,12 @@ export type ForecastMapper = {
   toDomain(entity: EnhancedForecastEntity): ForecastTimePoint;
   toEntity(domain: ForecastTimePoint): EnhancedForecastEntity;
 };
+
+export interface ForecastPreview {
+  type: "enhanced" | "basic";
+  wave_height: string;
+  wind_speed: string;
+  wind_direction: string;
+  weather_condition: string;
+  confidence_score?: number;
+}
