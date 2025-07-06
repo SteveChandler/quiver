@@ -22,10 +22,12 @@ const customJestConfig = {
     "^@/lib/supabase/client$": "<rootDir>/__tests__/setup/mock-supabase.ts",
     "^@/lib/supabase/server$": "<rootDir>/__tests__/setup/mock-supabase.ts",
     "^@/lib/supabase$": "<rootDir>/__tests__/setup/mock-supabase.ts",
+    // Mock the realtime module specifically
+    "^@supabase/realtime-js$": "<rootDir>/__tests__/setup/mock-supabase.ts",
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [
-    "node_modules/(?!(@supabase|jose|@supabase/.*|uuid)/)",
+    "node_modules/(?!(@supabase|@supabase/.*|jose|uuid)/)",
   ],
   // Add module file extensions
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],

@@ -6,8 +6,8 @@ test.describe("Sessions View", () => {
       // Sessions page now redirects to profile, so test profile sessions tab
       await page.goto("/profile");
       await page.waitForTimeout(1000);
-      // Try to click on sessions tab if it exists
-      const sessionsTab = page.getByRole("tab", { name: /sessions/i });
+      // Try to click on journal tab if it exists
+      const sessionsTab = page.getByRole("tab", { name: /journal/i });
       if (await sessionsTab.isVisible().catch(() => false)) {
         await sessionsTab.click();
         await page.waitForTimeout(1000);

@@ -55,13 +55,13 @@ test.describe("End-to-End User Flows", () => {
       await page.waitForURL(`${baseURL}/`);
       await expect(page).toHaveURL(`${baseURL}/`);
 
-      // 2. Switch to the Community tab and ensure content loads
+      // 2. Switch to the Local Intel tab and ensure content loads
       const communityTab = page
-        .getByRole("tab", { name: /community/i })
+        .getByRole("tab", { name: /local intel/i })
         .or(
           page
             .locator('[data-value="community"]')
-            .or(page.getByText("Community", { exact: true }))
+            .or(page.getByText("Local Intel", { exact: true }))
         );
 
       await expect(communityTab).toBeVisible();
@@ -309,7 +309,7 @@ test.describe("End-to-End User Flows", () => {
             .isVisible()
             .catch(() => false),
           page
-            .getByText("Log Session")
+            .getByText("Add to Journal")
             .isVisible()
             .catch(() => false),
           page
@@ -374,10 +374,10 @@ test.describe("End-to-End User Flows", () => {
         await beachElement.click();
         await page.waitForTimeout(1000);
 
-        // 3. Look for Log Session action
+        // 3. Look for Add to Journal action
         const logSessionButton = page
-          .getByRole("button", { name: /log session/i })
-          .or(page.getByRole("link", { name: /log session/i }));
+          .getByRole("button", { name: /add to journal|log session/i })
+          .or(page.getByRole("link", { name: /add to journal|log session/i }));
 
         if (await logSessionButton.isVisible()) {
           await logSessionButton.click();
@@ -427,7 +427,7 @@ test.describe("End-to-End User Flows", () => {
 
             // 7. Check if save button is enabled
             const saveButton = page.getByRole("button", {
-              name: /save|log session/i,
+              name: /save|add to journal|log session/i,
             });
             if (await saveButton.isVisible()) {
               const isEnabled = await saveButton.isEnabled();
@@ -448,9 +448,9 @@ test.describe("End-to-End User Flows", () => {
       await page.goto("/");
       await page.waitForTimeout(2000);
 
-      // 2. Switch to Community tab
+      // 2. Switch to Local Intel tab
       const communityTab = page
-        .getByRole("tab", { name: /community/i })
+        .getByRole("tab", { name: /local intel/i })
         .or(page.locator('[data-value="community"]'));
 
       if (await communityTab.isVisible()) {
@@ -525,7 +525,7 @@ test.describe("End-to-End User Flows", () => {
       await page.goto("/");
       await page.waitForTimeout(2000);
 
-      const communityTab = page.getByRole("tab", { name: /community/i });
+      const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
         await communityTab.click();
         await page.waitForTimeout(3000);
@@ -673,7 +673,7 @@ test.describe("End-to-End User Flows", () => {
         await page.waitForTimeout(2000);
 
         if (!page.url().includes("/auth")) {
-          const sessionsTab = page.getByRole("tab", { name: /sessions/i });
+          const sessionsTab = page.getByRole("tab", { name: /journal/i });
           if (await sessionsTab.isVisible()) {
             await sessionsTab.click();
             await page.waitForTimeout(2000);
@@ -769,7 +769,7 @@ test.describe("End-to-End User Flows", () => {
       await page.goto("/");
       await page.waitForTimeout(2000);
 
-      const communityTab = page.getByRole("tab", { name: /community/i });
+      const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
         await communityTab.click();
         await page.waitForTimeout(3000);

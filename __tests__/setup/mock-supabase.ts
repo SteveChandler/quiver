@@ -77,11 +77,17 @@ const mockSupabaseClient = {
   },
   realtime: {
     channel: jest.fn(() => ({
-      on: jest.fn(() => ({ subscribe: jest.fn() })),
+      on: jest.fn().mockReturnThis(),
       subscribe: jest.fn(),
       unsubscribe: jest.fn(),
     })),
   },
+  channel: jest.fn(() => ({
+    on: jest.fn().mockReturnThis(),
+    subscribe: jest.fn(),
+    unsubscribe: jest.fn(),
+  })),
+  removeChannel: jest.fn(),
   functions: {
     invoke: jest.fn(() => Promise.resolve({ data: null, error: null })),
   },

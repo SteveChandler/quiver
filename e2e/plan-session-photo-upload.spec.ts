@@ -76,7 +76,7 @@ test.describe("Session Photo Upload - Architecture Decision", () => {
     await page.goto("/log-session");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText("Log Session")).toBeVisible();
+    await expect(page.getByText("Add to Journal")).toBeVisible();
   });
 
   test("should document photo upload architecture decision", async ({

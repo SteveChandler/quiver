@@ -75,7 +75,7 @@ test.describe("Session Logging", () => {
 
     // Try to submit form without filling required fields
     const submitButton = page.getByRole("button", {
-      name: /log session|save|submit/i,
+      name: /add to journal|log session|save|submit/i,
     });
     if (await submitButton.isVisible()) {
       await submitButton.click();
@@ -309,7 +309,7 @@ test.describe("Session Logging", () => {
 
     // Submit the form
     const submitButton = page.getByRole("button", {
-      name: /log session|save|submit/i,
+      name: /add to journal|log session|save|submit/i,
     });
     if (await submitButton.isVisible()) {
       await submitButton.click();
@@ -376,7 +376,7 @@ test.describe("Session Logging", () => {
 
       // Try to submit and check for validation
       const submitButton = page.getByRole("button", {
-        name: /log session|save|submit/i,
+        name: /add to journal|log session|save|submit/i,
       });
       if (await submitButton.isVisible()) {
         await submitButton.click();

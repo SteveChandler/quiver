@@ -78,7 +78,7 @@ export function HeroSection() {
   }, [currentVideoIndex, isInitialLoading]);
 
   return (
-    <section className="relative h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Video */}
       <div className="absolute inset-0 w-full h-full">
         {/* Fallback background image */}

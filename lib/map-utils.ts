@@ -39,7 +39,57 @@ function generateMapPlaceholder(
   return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
-// Option 1: Mapbox Static Images API
+// Generate enhanced SVG placeholder with wave height data
+function generateEnhancedMapPlaceholder(
+  latitude: number,
+  longitude: number,
+  width: number = 300,
+  height: number = 120,
+  waveHeight?: string
+): string {
+  const displayWaveHeight = waveHeight || "0-1ft";
+
+  const svg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#e0f2fe;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#b3e5fc;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#bg)"/>
+      
+      <!-- Wave height badge -->
+      <rect x="${width / 2 - 30}" y="${height / 2 - 15}" width="60" height="30" 
+            rx="15" fill="url(#waveGradient)" stroke="white" stroke-width="2"/>
+      <text x="${width / 2}" y="${
+    height / 2 + 5
+  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="white">
+        ${displayWaveHeight}
+      </text>
+      
+      <!-- Location label -->
+      <text x="${width / 2}" y="${
+    height / 2 + 35
+  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#424242">
+        Beach Location
+      </text>
+      <text x="${width / 2}" y="${
+    height / 2 + 48
+  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">
+        ${latitude.toFixed(4)}, ${longitude.toFixed(4)}
+      </text>
+    </svg>
+  `;
+
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+
+// Option 1: Mapbox Static Images API with custom marker text
 export function getMapboxStaticImageUrl(
   latitude: number,
   longitude: number,
@@ -49,6 +99,7 @@ export function getMapboxStaticImageUrl(
     zoom?: number;
     style?: string;
     markerColor?: string;
+    markerText?: string;
   } = {}
 ) {
   const {
@@ -57,32 +108,59 @@ export function getMapboxStaticImageUrl(
     zoom = 14,
     style = "mapbox/outdoors-v12",
     markerColor = "3b82f6", // blue-500 color
+    markerText,
   } = options;
 
   // Get the Mapbox access token from environment variable
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
   if (!accessToken) {
-    console.warn("Mapbox access token not found. Using placeholder image.");
-    return generateMapPlaceholder(latitude, longitude, width, height);
+    console.warn(
+      "Mapbox access token not found. Using enhanced placeholder image."
+    );
+    return generateEnhancedMapPlaceholder(
+      latitude,
+      longitude,
+      width,
+      height,
+      markerText
+    );
   }
 
   // Validate coordinates
   if (!isValidCoordinates(latitude, longitude)) {
     console.warn("Invalid coordinates for Mapbox:", { latitude, longitude });
-    return generateMapPlaceholder(latitude, longitude, width, height);
+    return generateEnhancedMapPlaceholder(
+      latitude,
+      longitude,
+      width,
+      height,
+      markerText
+    );
   }
 
-  // Create marker overlay
-  const marker = `pin-s+${markerColor}(${longitude},${latitude})`;
+  // Create marker overlay - if we have text, we'll use a simpler approach
+  // Note: Mapbox Static API doesn't support custom text on markers easily
+  // So we'll fall back to enhanced placeholder when text is provided
+  if (markerText) {
+    console.log("Using enhanced placeholder for Mapbox with text:", markerText);
+    return generateEnhancedMapPlaceholder(
+      latitude,
+      longitude,
+      width,
+      height,
+      markerText
+    );
+  }
 
+  const marker = `pin-s+${markerColor}(${longitude},${latitude})`;
   const url = `https://api.mapbox.com/styles/v1/${style}/static/${marker}/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${accessToken}`;
 
   console.log("Generated Mapbox URL:", url);
   return url;
 }
 
-// Option 2: Google Maps Static API
+// Option 2: Google Maps Static API with custom marker labels
 export function getGoogleMapsStaticImageUrl(
   latitude: number,
   longitude: number,
@@ -92,6 +170,7 @@ export function getGoogleMapsStaticImageUrl(
     zoom?: number;
     mapType?: string;
     markerColor?: string;
+    markerText?: string;
   } = {}
 ) {
   const {
@@ -100,14 +179,23 @@ export function getGoogleMapsStaticImageUrl(
     zoom = 14,
     mapType = "roadmap",
     markerColor = "blue",
+    markerText,
   } = options;
 
   // Get the Google Maps API key from environment variable
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
-    console.warn("Google Maps API key not found. Using placeholder image.");
-    return generateMapPlaceholder(latitude, longitude, width, height);
+    console.warn(
+      "Google Maps API key not found. Using enhanced placeholder image."
+    );
+    return generateEnhancedMapPlaceholder(
+      latitude,
+      longitude,
+      width,
+      height,
+      markerText
+    );
   }
 
   // Validate coordinates
@@ -116,13 +204,32 @@ export function getGoogleMapsStaticImageUrl(
       latitude,
       longitude,
     });
-    return generateMapPlaceholder(latitude, longitude, width, height);
+    return generateEnhancedMapPlaceholder(
+      latitude,
+      longitude,
+      width,
+      height,
+      markerText
+    );
   }
 
   const center = `${latitude},${longitude}`;
-  const marker = `color:${markerColor}|${latitude},${longitude}`;
 
-  return `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${width}x${height}&maptype=${mapType}&markers=${marker}&key=${apiKey}&scale=2`;
+  // Google Maps supports custom labels on markers
+  let marker;
+  if (markerText) {
+    // Create a custom marker with text label
+    marker = `color:${markerColor}|label:${encodeURIComponent(
+      markerText
+    )}|${latitude},${longitude}`;
+  } else {
+    marker = `color:${markerColor}|${latitude},${longitude}`;
+  }
+
+  const url = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${width}x${height}&maptype=${mapType}&markers=${marker}&key=${apiKey}&scale=2`;
+
+  console.log("Generated Google Maps URL with marker text:", markerText);
+  return url;
 }
 
 // Option 3: OpenStreetMap via Geoapify (with API key)
@@ -203,6 +310,7 @@ export function getStaticMapImageUrl(
     width?: number;
     height?: number;
     zoom?: number;
+    markerText?: string;
   } = {}
 ): string {
   // If no coordinates, return placeholder
@@ -219,11 +327,12 @@ export function getStaticMapImageUrl(
   // Validate coordinates
   if (!isValidCoordinates(latitude, longitude)) {
     console.warn("Invalid coordinates provided:", { latitude, longitude });
-    return generateMapPlaceholder(
+    return generateEnhancedMapPlaceholder(
       latitude,
       longitude,
       options.width || 300,
-      options.height || 120
+      options.height || 120,
+      options.markerText
     );
   }
 
@@ -234,15 +343,25 @@ export function getStaticMapImageUrl(
     hasGeoapify: !!process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY,
   });
 
-  // For production on Vercel, prefer placeholder to avoid external service issues
+  // For production on Vercel, prefer enhanced placeholder to avoid external service issues
   if (process.env.NODE_ENV === "production" && process.env.VERCEL) {
-    console.log("Using placeholder for Vercel production deployment");
-    return generateMapPlaceholder(
+    console.log("Using enhanced placeholder for Vercel production deployment");
+    return generateEnhancedMapPlaceholder(
       latitude,
       longitude,
       options.width || 300,
-      options.height || 120
+      options.height || 120,
+      options.markerText
     );
+  }
+
+  // Try Google Maps first if we have marker text (better text support)
+  if (options.markerText && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+    console.log(
+      "Using Google Maps for map image with text:",
+      options.markerText
+    );
+    return getGoogleMapsStaticImageUrl(latitude, longitude, options);
   }
 
   // Try Mapbox first (best for outdoor/surf maps)
@@ -264,20 +383,54 @@ export function getStaticMapImageUrl(
     return geoapifyUrl;
   }
 
-  // Fallback to placeholder instead of problematic external services
-  console.log("Using placeholder fallback for map image");
-  return generateMapPlaceholder(
+  // Fallback to enhanced placeholder
+  console.log("Using enhanced placeholder fallback for map image");
+  return generateEnhancedMapPlaceholder(
     latitude,
     longitude,
     options.width || 300,
-    options.height || 120
+    options.height || 120,
+    options.markerText
   );
+}
+
+/**
+ * Generate a static map image URL with wave height data displayed on the pin
+ * @param latitude Beach latitude
+ * @param longitude Beach longitude
+ * @param waveHeight Wave height in feet (will be formatted)
+ * @param options Map display options
+ * @returns Static map image URL with wave height pin
+ */
+export function getStaticMapImageUrlWithWaveHeight(
+  latitude: number | undefined,
+  longitude: number | undefined,
+  waveHeight: number | undefined,
+  options: {
+    width?: number;
+    height?: number;
+    zoom?: number;
+  } = {}
+): string {
+  // Import wave height formatter
+  const { formatWaveHeight } = require("@/lib/utils/wave-height-formatter");
+
+  // Format wave height for display
+  const waveHeightText = formatWaveHeight(waveHeight);
+
+  // Use the main function with marker text
+  return getStaticMapImageUrl(latitude, longitude, {
+    ...options,
+    markerText: waveHeightText,
+  });
 }
 
 // Helper function to extract coordinates from Beach object
 export function getBeachCoordinates(
   beach: any
 ): { latitude: number; longitude: number } | null {
+  if (!beach) return null;
+
   // Check if beach has direct latitude/longitude properties
   if (beach.latitude && beach.longitude) {
     return { latitude: beach.latitude, longitude: beach.longitude };

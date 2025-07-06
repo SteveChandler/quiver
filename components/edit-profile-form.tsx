@@ -112,13 +112,9 @@ export function EditProfileForm({
 
       toastUtils.profile.updated();
 
-      console.log("Profile updated successfully, calling onSuccess callback");
-
       if (onSuccess) {
-        console.log("Calling onSuccess callback");
         onSuccess();
       } else {
-        console.log("No onSuccess callback, redirecting to profile");
         router.push("/profile");
         router.refresh();
       }
@@ -159,21 +155,17 @@ export function EditProfileForm({
 
     try {
       // First, upload the new image
-      console.log("Starting image upload...");
       const result = await uploadImage(file, "avatars", "profiles");
 
       if (!result.success) {
         throw new Error(result.error || "Failed to upload image");
       }
-
-      console.log("Image upload successful, URL:", result.url);
       uploadSuccess = true;
 
       // Only delete old image after successful upload
       if (avatarUrl && !avatarUrl.includes("placeholder.svg")) {
         try {
           await deleteImage(avatarUrl, "avatars");
-          console.log("Old image deleted successfully");
         } catch (deleteError) {
           // Don't fail the whole operation if we can't delete the old image
           console.warn(

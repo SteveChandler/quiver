@@ -178,7 +178,7 @@ test.describe("Unauthenticated User Flows", () => {
       await page.waitForTimeout(2000);
 
       // Try to access community content
-      const communityTab = page.getByRole("tab", { name: /community/i });
+      const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
         await communityTab.click();
         await page.waitForTimeout(3000);
@@ -382,7 +382,7 @@ test.describe("Unauthenticated User Flows", () => {
       await page.waitForTimeout(2000);
 
       // Try to access community preview
-      const communityTab = page.getByRole("tab", { name: /community/i });
+      const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
         await communityTab.click();
         await page.waitForTimeout(3000);

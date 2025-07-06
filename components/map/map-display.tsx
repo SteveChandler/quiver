@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { MapPin, Loader2 } from "lucide-react";
 import { MapImage } from "@/components/map-image";
-import { getStaticMapImageUrl } from "@/lib/map-utils";
+import { getStaticMapImageUrlWithWaveHeight } from "@/lib/map-utils";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useCallback, useEffect, useState } from "react";
 import type { Beach } from "@/types/database";
 
 interface MapDisplayProps {
@@ -13,6 +15,16 @@ interface MapDisplayProps {
   filteredBeaches: Beach[];
   searchQuery: string;
   onRetryLocation: () => void;
+}
+
+interface BuoyConditions {
+  measurements?: {
+    wave_height?: number;
+    water_temperature?: number;
+    air_temperature?: number;
+    wind_speed?: number;
+    wind_direction?: number;
+  };
 }
 
 const OCEAN_BEACH_LAT = 32.7503;
@@ -29,6 +41,67 @@ export function MapDisplay({
   searchQuery,
   onRetryLocation,
 }: MapDisplayProps) {
+  const [waveHeight, setWaveHeight] = useState<number | undefined>(undefined);
+
+  // Calculate map coordinates - prioritize search results when searching
+  const mapCoordinates = {
+    lat:
+      selectedBeach?.latitude ||
+      (searchQuery && filteredBeaches.length > 0
+        ? filteredBeaches[0].latitude
+        : null) ||
+      userLocation?.lat ||
+      OCEAN_BEACH_LAT,
+    lng:
+      selectedBeach?.longitude ||
+      (searchQuery && filteredBeaches.length > 0
+        ? filteredBeaches[0].longitude
+        : null) ||
+      userLocation?.lng ||
+      OCEAN_BEACH_LNG,
+  };
+
+  // Fetch wave height data for the current location
+  const fetchWaveHeight = useCallback(async () => {
+    const { lat, lng } = mapCoordinates;
+
+    try {
+      const response = await fetch(
+        `/api/buoys/conditions?latitude=${lat}&longitude=${lng}`
+      );
+
+      if (response.ok) {
+        const data: BuoyConditions = await response.json();
+        return data.measurements?.wave_height;
+      }
+    } catch (error) {
+      console.warn("Failed to fetch wave height data:", error);
+    }
+
+    return undefined;
+  }, [mapCoordinates.lat, mapCoordinates.lng]);
+
+  const {
+    data: fetchedWaveHeight,
+    loading: waveHeightLoading,
+    error: waveHeightError,
+  } = useDataFetcher(fetchWaveHeight);
+
+  // Update wave height when data is fetched
+  useEffect(() => {
+    if (fetchedWaveHeight !== undefined) {
+      setWaveHeight(fetchedWaveHeight || undefined);
+    }
+  }, [fetchedWaveHeight]);
+
+  // Generate map image URL with wave height data
+  const mapImageUrl = getStaticMapImageUrlWithWaveHeight(
+    mapCoordinates.lat,
+    mapCoordinates.lng,
+    waveHeight,
+    { width: 800, height: 400, zoom: 12 }
+  );
+
   if (isLoading) {
     return (
       <div className="absolute inset-0 flex items-center justify-center">
@@ -54,26 +127,18 @@ export function MapDisplay({
 
   return (
     <div className="absolute inset-0 flex flex-col">
-      {/* Static map image */}
+      {/* Static map image with wave height data */}
       <div className="flex-1 relative overflow-hidden">
         <MapImage
-          src={getStaticMapImageUrl(
-            selectedBeach?.latitude || userLocation?.lat || OCEAN_BEACH_LAT,
-            selectedBeach?.longitude || userLocation?.lng || OCEAN_BEACH_LNG,
-            { width: 800, height: 400, zoom: 12 }
-          )}
-          alt="Beach locations map"
-          latitude={
-            selectedBeach?.latitude || userLocation?.lat || OCEAN_BEACH_LAT
-          }
-          longitude={
-            selectedBeach?.longitude || userLocation?.lng || OCEAN_BEACH_LNG
-          }
+          src={mapImageUrl}
+          alt="Beach locations map with wave heights"
+          latitude={mapCoordinates.lat}
+          longitude={mapCoordinates.lng}
           fill
           className="object-cover"
         />
 
-        {/* Map overlay with beach count */}
+        {/* Map overlay with beach count and wave height info */}
         <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md">
           <p className="text-sm font-medium">
             {searchQuery
@@ -90,10 +155,24 @@ export function MapDisplay({
                 : `No beaches within ${MAX_DISTANCE_MILES} miles of your location`
               : "Loading beach locations..."}
           </p>
+          {waveHeight && (
+            <p className="text-xs text-blue-600 mt-1 font-medium">
+              📊 Current wave height: {waveHeight}ft
+            </p>
+          )}
+          {waveHeightLoading && (
+            <p className="text-xs text-gray-500 mt-1">
+              🌊 Loading wave conditions...
+            </p>
+          )}
           {filteredBeaches.length > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
-              {searchQuery
-                ? "Tap a beach card below to see it on the map"
+              {searchQuery && filteredBeaches.length === 1
+                ? `Showing ${filteredBeaches[0].name} on the map`
+                : searchQuery && filteredBeaches.length > 1
+                ? `Showing ${filteredBeaches[0].name} - tap other beach cards below to see them on the map`
+                : selectedBeach
+                ? `Showing ${selectedBeach.name} on the map`
                 : "Tap a beach card below to see it on the map"}
             </p>
           )}

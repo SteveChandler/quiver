@@ -80,7 +80,7 @@ export function ProfileView() {
         profileResult.data
       ) {
         const profileData = profileResult.data as Profile;
-        console.log("Profile loaded with avatar_url:", profileData.avatar_url);
+
         setProfile(profileData);
       } else {
         if (
@@ -268,7 +268,7 @@ export function ProfileView() {
               <TabsList className="grid grid-cols-4 w-full">
                 <TabsTrigger value="sessions">
                   <CalendarDays className="h-4 w-4 mr-1" />
-                  Sessions
+                  Journal
                 </TabsTrigger>
                 <TabsTrigger value="quiver">
                   <Surfboard className="h-4 w-4 mr-1" />

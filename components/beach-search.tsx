@@ -100,7 +100,6 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     // Track the original search query for fallback detection
     if (isUserSearch) {
       setOriginalSearchQuery(beachName);
-      console.log("🔍 User searching for:", beachName);
     }
 
     try {
@@ -109,19 +108,11 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       );
       const result = await searchBeachWithForecast(beachName);
 
-      console.log("🏖️ Found beach:", result.beach.name);
       setBeach(result.beach);
       setForecast(result.forecast);
 
       // Check if we need to show a fallback message
       if (isUserSearch && !doesBeachMatchSearch(result.beach.name, beachName)) {
-        console.log("⚠️ Beach mismatch detected!");
-        console.log("- Original search:", beachName);
-        console.log("- Found beach:", result.beach.name);
-        console.log(
-          "- Match result:",
-          doesBeachMatchSearch(result.beach.name, beachName)
-        );
         setShowFallbackMessage(true);
 
         // Check if this was an out-of-area search
@@ -133,7 +124,6 @@ export function BeachSearch({ profile }: BeachSearchProps) {
           );
         }
       } else if (isUserSearch) {
-        console.log("✅ Beach matches search");
       }
     } catch (err: any) {
       console.error("Error fetching beach forecast:", err);
@@ -144,15 +134,12 @@ export function BeachSearch({ profile }: BeachSearchProps) {
 
       // If this is a user search that failed, try to show Ocean Beach with fallback message
       if (isUserSearch) {
-        console.log("🔄 Search failed, attempting Ocean Beach fallback...");
         try {
           const { searchBeachWithForecastLegacy } = await import(
             "@/lib/utils/beach-search-utils"
           );
           const { beach: fallbackBeach, forecast: fallbackForecast } =
             await searchBeachWithForecastLegacy("Ocean Beach");
-
-          console.log("🏖️ Fallback beach loaded:", fallbackBeach.name);
           setBeach(fallbackBeach);
           setForecast(fallbackForecast);
           setShowFallbackMessage(true);

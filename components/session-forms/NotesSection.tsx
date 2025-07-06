@@ -8,6 +8,7 @@ import {
   SessionFormMode,
 } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
+import { GroupInvitationsSection } from "./GroupInvitationsSection";
 
 interface NotesSectionProps {
   mode: SessionFormMode;
@@ -62,42 +63,10 @@ export function NotesSection({
 
         {/* Invite Friends - Only show for planning */}
         {isPlanning && (
-          <div className="pt-4 border-t">
-            <div className="flex items-center mb-3">
-              <Users className="w-4 h-4 mr-2 text-primary" />
-              <label className="block text-sm font-medium">
-                Invite Friends (Optional)
-              </label>
-            </div>
-
-            <div className="space-y-3">
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  className="w-full border rounded-lg p-3 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter email addresses (separated by commas)"
-                />
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <div className="flex items-start">
-                  <Users className="w-4 h-4 mt-0.5 mr-2 text-blue-600 flex-shrink-0" />
-                  <div className="text-sm">
-                    <p className="font-medium text-blue-800 mb-1">
-                      How friend invites work:
-                    </p>
-                    <ul className="text-blue-700 space-y-1 text-xs">
-                      <li>• Friends will receive an email notification</li>
-                      <li>• They can see your planned session details</li>
-                      <li>• They can join or decline your invitation</li>
-                      <li>• You'll see who's coming in your session</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <GroupInvitationsSection
+            formState={formState}
+            updateField={updateField}
+          />
         )}
 
         {/* Session Summary for Logged Sessions */}

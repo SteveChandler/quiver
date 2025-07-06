@@ -3,7 +3,14 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, TrendingUp, Waves, Clock } from "lucide-react";
+import {
+  Loader2,
+  RefreshCw,
+  TrendingUp,
+  Waves,
+  Clock,
+  Zap,
+} from "lucide-react";
 import { useEnhancedForecast } from "@/hooks/use-enhanced-forecast";
 import { ForecastStats } from "./forecast/forecast-stats";
 import { DateNavigation } from "./forecast/date-navigation";
@@ -15,6 +22,7 @@ interface BeachesEnhancedForecastProps {
   beachName?: string;
   showHeader?: boolean;
   defaultDays?: number;
+  autoGenerate?: boolean;
 }
 
 export function BeachesEnhancedForecast({
@@ -22,6 +30,7 @@ export function BeachesEnhancedForecast({
   beachName = "Beach",
   showHeader = true,
   defaultDays = 12,
+  autoGenerate = true,
 }: BeachesEnhancedForecastProps) {
   const {
     forecasts,
@@ -31,6 +40,7 @@ export function BeachesEnhancedForecast({
     loading,
     error,
     updating,
+    autoGenerating,
     setSelectedDate,
     refetch,
     handleRefresh,
@@ -38,6 +48,7 @@ export function BeachesEnhancedForecast({
     beachId,
     defaultDays,
     immediate: Boolean(beachId),
+    autoGenerate,
   });
 
   if (loading) {
@@ -75,7 +86,7 @@ export function BeachesEnhancedForecast({
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              disabled={updating}
+              disabled={updating || autoGenerating}
             >
               {updating ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -89,12 +100,33 @@ export function BeachesEnhancedForecast({
       )}
 
       <CardContent className="space-y-6">
-        {forecasts.length === 0 ? (
+        {autoGenerating ? (
+          <div className="text-center py-8">
+            <div className="relative">
+              <Waves className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-pulse" />
+              <Zap className="h-6 w-6 text-yellow-500 absolute top-0 right-1/2 transform translate-x-1/2 animate-bounce" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">Generating Forecasts</h3>
+            <p className="text-muted-foreground mb-4">
+              Creating enhanced forecast data for {beachName}. This may take a
+              few moments...
+            </p>
+            <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Fetching wave data from NOAA WaveWatch III</span>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              Combining multiple data sources for accurate surf forecasting
+            </div>
+          </div>
+        ) : forecasts.length === 0 ? (
           <div className="text-center py-8">
             <Waves className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No Forecast Data</h3>
             <p className="text-muted-foreground mb-4">
-              Enhanced forecast data is not available for this beach yet.
+              {autoGenerate
+                ? "We're having trouble generating forecast data for this beach. Please try again."
+                : "Enhanced forecast data is not available for this beach yet."}
             </p>
             <Button onClick={handleRefresh} disabled={updating}>
               {updating ? (

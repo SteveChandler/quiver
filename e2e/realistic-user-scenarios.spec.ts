@@ -151,7 +151,7 @@ test.describe("Realistic User Scenarios", () => {
       }
 
       // 2. Check what the community is up to
-      const communityTab = page.getByRole("tab", { name: /community/i });
+      const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
         await communityTab.click();
         await page.waitForTimeout(3000);
@@ -188,7 +188,7 @@ test.describe("Realistic User Scenarios", () => {
       await page.waitForTimeout(2000);
 
       if (!page.url().includes("/auth")) {
-        const sessionsTab = page.getByRole("tab", { name: /sessions/i });
+        const sessionsTab = page.getByRole("tab", { name: /journal/i });
         if (await sessionsTab.isVisible()) {
           await sessionsTab.click();
           await page.waitForTimeout(2000);
@@ -355,7 +355,7 @@ test.describe("Realistic User Scenarios", () => {
       await page.goto("/");
       await page.waitForTimeout(2000);
 
-      const communityTab = page.getByRole("tab", { name: /community/i });
+      const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
         await communityTab.click();
         await page.waitForTimeout(3000);
@@ -544,7 +544,7 @@ test.describe("Realistic User Scenarios", () => {
         await page.goto("/profile");
         await page.waitForTimeout(2000);
 
-        const sessionsTab = page.getByRole("tab", { name: /sessions/i });
+        const sessionsTab = page.getByRole("tab", { name: /journal/i });
         if (await sessionsTab.isVisible()) {
           await sessionsTab.click();
           await page.waitForTimeout(2000);

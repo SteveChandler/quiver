@@ -209,11 +209,8 @@ export function createCachedMapFetch<T>(apiPath: string, ttl: number) {
     // Check cache first
     const cached = apiCache.get<T>(cacheKey);
     if (cached) {
-      console.log(`Cache hit for ${apiPath}:`, cacheKey);
       return Promise.resolve(cached);
     }
-
-    console.log(`Cache miss for ${apiPath}:`, cacheKey);
 
     // Fetch and cache
     return fetch(`${apiPath}?latitude=${latitude}&longitude=${longitude}`, {
@@ -225,7 +222,7 @@ export function createCachedMapFetch<T>(apiPath: string, ttl: number) {
       })
       .then((data) => {
         apiCache.set(cacheKey, data, ttl);
-        console.log(`Cached ${apiPath} data:`, cacheKey);
+
         return data;
       });
   };
