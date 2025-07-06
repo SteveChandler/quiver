@@ -22,6 +22,33 @@ export type SessionFormState = {
   overallRating: string;
   notes: string;
   photos: string[];
+  // New Session Planner Pro fields
+  optimalTimes?: Array<{
+    time: string;
+    score: number;
+    rating: "poor" | "fair" | "good" | "excellent";
+    conditions: {
+      waveHeight: number;
+      waveQuality: string;
+      windSpeed: number;
+      windDirection: string;
+      confidence: number;
+    };
+    reasons: string[];
+  }>;
+  selectedOptimalTime?: string;
+  boardSuggestions?: Array<{
+    boardId: string;
+    score: number;
+    confidence: number;
+    reasons: string[];
+  }>;
+  invitees?: Array<{
+    userId?: string;
+    email?: string;
+    name?: string;
+  }>;
+  invitationMessage?: string;
 };
 
 export type SessionFormMode = "plan" | "log";
@@ -50,6 +77,12 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     overallRating: "",
     notes: "",
     photos: [],
+    // Initialize new Session Planner Pro fields
+    optimalTimes: undefined,
+    selectedOptimalTime: undefined,
+    boardSuggestions: undefined,
+    invitees: [],
+    invitationMessage: "",
   });
 
   useEffect(() => {
@@ -124,6 +157,12 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
       overallRating: "",
       notes: "",
       photos: [],
+      // Reset new Session Planner Pro fields
+      optimalTimes: undefined,
+      selectedOptimalTime: undefined,
+      boardSuggestions: undefined,
+      invitees: [],
+      invitationMessage: "",
     });
   };
 

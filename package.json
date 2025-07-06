@@ -26,7 +26,10 @@
     "cleanup:week": "node scripts/cleanup-old-data.mjs 7",
     "cleanup:month": "node scripts/cleanup-old-data.mjs 30",
     "fix:srid": "node scripts/apply-srid-fix.mjs",
-    "db:health": "node scripts/check-database-health.mjs"
+    "db:health": "node scripts/check-database-health.mjs",
+    "install:requirements": "npm install",
+    "setup": "bash install.sh",
+    "fresh-install": "rm -rf node_modules package-lock.json && npm install"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",

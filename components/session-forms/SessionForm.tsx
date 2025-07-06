@@ -17,6 +17,8 @@ import { ConditionsSection } from "./ConditionsSection";
 import { DateTimeSection } from "./DateTimeSection";
 import { NotesSection } from "./NotesSection";
 import { PhotoSelectionSection } from "./PhotoSelectionSection";
+import { OptimalTimesSection } from "./OptimalTimesSection";
+import { GearSuggestionsSection } from "./GearSuggestionsSection";
 import { SimpleCardLayout } from "@/components/ui/form-layout";
 import {
   getFormText,
@@ -276,7 +278,61 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       if (isPlanning) {
         const result = await createPlannedSession(sessionData, user.id);
         if (result.success) {
-          toast.success("Session planned successfully!");
+          // Handle invitations if any were set
+          if (formState.invitees && formState.invitees.length > 0) {
+            try {
+              const invitationResponse = await fetch(
+                "/api/session-planner/invitations",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    sessionId: result.data.id,
+                    invitees: formState.invitees,
+                    message: formState.invitationMessage,
+                  }),
+                }
+              );
+
+              const invitationResult = await invitationResponse.json();
+
+              if (invitationResult.success) {
+                const { invitationsSent, errors } = invitationResult.data;
+                if (invitationsSent > 0) {
+                  toast.success(
+                    `Session planned and ${invitationsSent} invitation(s) sent!`
+                  );
+                  if (errors.length > 0) {
+                    toast.warning(
+                      `Some invitations failed: ${errors
+                        .slice(0, 2)
+                        .join(", ")}`
+                    );
+                  }
+                } else {
+                  toast.success("Session planned successfully!");
+                  if (errors.length > 0) {
+                    toast.error(`Failed to send invitations: ${errors[0]}`);
+                  }
+                }
+              } else {
+                toast.success("Session planned successfully!");
+                toast.warning(
+                  "Failed to send invitations - you can invite friends later"
+                );
+              }
+            } catch (invitationError) {
+              console.error("Error sending invitations:", invitationError);
+              toast.success("Session planned successfully!");
+              toast.warning(
+                "Invitations couldn't be sent - you can try again later"
+              );
+            }
+          } else {
+            toast.success("Session planned successfully!");
+          }
         } else {
           throw new Error(result.error);
         }
@@ -405,27 +461,46 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
             sessionCreated={sessionCreated}
           />
 
-          {/* Equipment Section */}
-          <SimpleCardLayout
-            title={
-              <div className="flex items-center">
-                <Surfboard className="w-5 h-5 mr-2 text-primary" />
-                {text.equipment}
-              </div>
-            }
-            description={
-              isPlanning
-                ? "Select the board you plan to use"
-                : "Which board did you ride?"
-            }
-          >
-            <EquipmentStep
-              formState={formState}
-              boards={boards}
-              updateField={updateField}
-              onBoardsRefresh={refreshBoards}
-            />
-          </SimpleCardLayout>
+          {/* Enhanced Planning Sections - Only for planning mode */}
+          {isPlanning && (
+            <>
+              {/* Optimal Times Section */}
+              <OptimalTimesSection
+                formState={formState}
+                updateField={updateField}
+              />
+
+              {/* Smart Gear Suggestions Section */}
+              <GearSuggestionsSection
+                formState={formState}
+                updateField={updateField}
+              />
+            </>
+          )}
+
+          {/* Equipment Section - Fallback for logging mode or manual selection */}
+          {!isPlanning && (
+            <SimpleCardLayout
+              title={
+                <div className="flex items-center">
+                  <Surfboard className="w-5 h-5 mr-2 text-primary" />
+                  {text.equipment}
+                </div>
+              }
+              description={
+                isPlanning
+                  ? "Select the board you plan to use"
+                  : "Which board did you ride?"
+              }
+            >
+              <EquipmentStep
+                formState={formState}
+                boards={boards}
+                updateField={updateField}
+                onBoardsRefresh={refreshBoards}
+              />
+            </SimpleCardLayout>
+          )}
 
           {/* Goals/Performance Section */}
           <GoalsSection

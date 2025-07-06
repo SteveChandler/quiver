@@ -91,7 +91,7 @@ export function HomeScreen() {
                   variant="outline"
                 >
                   <Waves className="h-6 w-6" />
-                  <span>Log Session</span>
+                  <span>Add to Journal</span>
                 </Button>
               </Link>
             </>
@@ -116,7 +116,7 @@ export function HomeScreen() {
           <TabsList className="grid grid-cols-3 w-full max-w-2xl mx-auto">
             <TabsTrigger value="forecast">Forecast</TabsTrigger>
             <TabsTrigger value="nearby">Nearby</TabsTrigger>
-            <TabsTrigger value="community">Community</TabsTrigger>
+            <TabsTrigger value="community">Local Intel</TabsTrigger>
           </TabsList>
 
           <TabsContent value="forecast">
