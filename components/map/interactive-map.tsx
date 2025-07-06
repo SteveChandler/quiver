@@ -10,7 +10,10 @@ import {
   createCachedMapFetch,
   createLocationCacheKey,
 } from "@/hooks/use-cached-api";
-import { formatWaveHeight } from "@/lib/utils/wave-height-formatter";
+import {
+  formatWaveHeight,
+  getWaveHeightValue,
+} from "@/lib/utils/wave-height-formatter";
 import {
   getOffshorePosition,
   hasViewportChanged as checkViewportChanged,
@@ -19,43 +22,12 @@ import { CACHE_TTL } from "@/lib/constants/ui";
 
 // Mapbox CSS is imported globally in app/globals.css
 
-// Interface definitions replicated from the original Leaflet version
-interface BuoyData {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  measurements?: {
-    water_temperature?: number;
-    air_temperature?: number;
-    wind_speed?: number;
-    wind_direction?: string;
-  };
-}
-
-interface BuoyConditions {
-  water_temperature?: number;
-  air_temperature?: number;
-  wind_speed?: number;
-  wind_direction?: number;
-  wind_direction_name?: string;
-  wind_gust?: number;
-  wave_height?: number;
-  wave_period?: number;
-  tides?: Array<{
-    time: number;
-    height: number;
-    name: string;
-  }>;
-}
-
 interface InteractiveMapProps {
   initialCenter?: [number, number]; // [lat, lng]
   initialZoom?: number;
   onLocationClick?: (beach: Beach) => void;
   onMapClick?: (latlng: mapboxgl.LngLat) => void;
   onLocationMove?: (latlng: mapboxgl.LngLat, beach: Beach) => void;
-  onBuoyConditions?: (conditions: BuoyConditions) => void;
   className?: string;
 }
 
@@ -67,7 +39,6 @@ export function InteractiveMap({
   onLocationClick,
   onMapClick,
   onLocationMove,
-  onBuoyConditions,
   className = "h-full w-full",
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -84,7 +55,7 @@ export function InteractiveMap({
     new Set()
   );
   const [beachConditions, setBeachConditions] = useState<
-    Record<string, { wave_height?: number }>
+    Record<string, { wave_height?: number | string }>
   >({});
 
   const { user } = useAuth();
@@ -95,18 +66,6 @@ export function InteractiveMap({
     createCachedMapFetch<Beach[]>(
       "/api/beaches/nearby",
       CACHE_TTL.MAP_NEARBY_BEACHES
-    )
-  );
-  const fetchNearbyBuoys = useRef(
-    createCachedMapFetch<BuoyData[]>(
-      "/api/buoys/nearby",
-      CACHE_TTL.MAP_NEARBY_BUOYS
-    )
-  );
-  const fetchBuoyConditionsApi = useRef(
-    createCachedMapFetch<any>(
-      "/api/buoys/conditions",
-      CACHE_TTL.MAP_BUOY_CONDITIONS
     )
   );
 
@@ -149,30 +108,6 @@ export function InteractiveMap({
     []
   );
 
-  // Fetch buoy conditions using cached API
-  const fetchBuoyConditions = useCallback(
-    async (latitude: number, longitude: number) => {
-      try {
-        const buoy = await fetchBuoyConditionsApi.current(latitude, longitude);
-        const conditions: BuoyConditions = {
-          water_temperature: buoy.measurements?.water_temperature,
-          air_temperature: buoy.measurements?.air_temperature,
-          wind_speed: buoy.measurements?.wind_speed,
-          wind_direction: buoy.measurements?.wind_direction,
-          wind_direction_name: buoy.measurements?.wind_direction_name,
-          wind_gust: buoy.measurements?.wind_gust,
-          wave_height: buoy.measurements?.wave_height,
-          wave_period: buoy.measurements?.wave_period,
-          tides: buoy.measurements?.tides || [],
-        };
-        if (onBuoyConditions) onBuoyConditions(conditions);
-      } catch (e) {
-        console.error("Error fetching buoy conditions", e);
-      }
-    },
-    [onBuoyConditions]
-  );
-
   // Load user's favorite beaches
   const loadFavoriteBeaches = async () => {
     try {
@@ -195,7 +130,7 @@ export function InteractiveMap({
   // Create wave height badge element with wrapper for Mapbox positioning
   const createWaveHeightBadge = (
     location: Beach,
-    waveHeight?: number
+    waveHeight?: number | string
   ): HTMLElement => {
     try {
       const isFavorite = favoriteBeachIds.has(location.id);
@@ -279,7 +214,7 @@ export function InteractiveMap({
 
   // Offshore position calculation moved to utility function
 
-  /** Populate beach markers with single viewport condition call */
+  /** Populate beach markers with enhanced forecast data */
   const populateLocations = useCallback(
     async (latitude: number, longitude: number) => {
       if (!mapRef.current || !isMapReady) return;
@@ -295,62 +230,74 @@ export function InteractiveMap({
         // Limit to 20 beaches max
         locations = locations.slice(0, 20);
 
-        // Make ONE call for the viewport area conditions (cached)
-        let viewportConditions: any = null;
-        try {
-          viewportConditions = await fetchBuoyConditionsApi.current(
-            latitude,
-            longitude
-          );
-          console.log(
-            "Fetched viewport conditions:",
-            viewportConditions?.measurements?.wave_height
-          );
-        } catch (e) {
-          console.error("Error fetching viewport conditions", e);
-        }
+        // Fetch enhanced forecast data for each beach
+        const beachForecastPromises = locations.map(async (beach) => {
+          try {
+            const response = await fetch(
+              `/api/forecasts/update-enhanced?beachId=${beach.id}&days=1`
+            );
 
-        // Apply the same conditions to all beaches in this viewport
-        if (viewportConditions?.measurements) {
-          const waveHeight = viewportConditions.measurements.wave_height;
-          const updatedConditions: Record<string, { wave_height?: number }> =
-            {};
-
-          locations.forEach((location) => {
-            updatedConditions[location.id] = { wave_height: waveHeight };
-          });
-
-          setBeachConditions((prev) => ({ ...prev, ...updatedConditions }));
-
-          // Call onBuoyConditions callback once for the viewport
-          if (onBuoyConditions) {
-            const conditions: BuoyConditions = {
-              water_temperature:
-                viewportConditions.measurements.water_temperature,
-              air_temperature: viewportConditions.measurements.air_temperature,
-              wind_speed: viewportConditions.measurements.wind_speed,
-              wind_direction: viewportConditions.measurements.wind_direction,
-              wind_direction_name:
-                viewportConditions.measurements.wind_direction_name,
-              wind_gust: viewportConditions.measurements.wind_gust,
-              wave_height: viewportConditions.measurements.wave_height,
-              wave_period: viewportConditions.measurements.wave_period,
-              tides: viewportConditions.measurements.tides || [],
-            };
-            onBuoyConditions(conditions);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.data?.forecasts?.length > 0) {
+                // Get today's first forecast entry
+                const todaysForecast = data.data.forecasts[0];
+                console.log(
+                  `Raw wave height for ${beach.name}:`,
+                  todaysForecast.wave_height
+                );
+                return {
+                  beachId: beach.id,
+                  waveHeight: todaysForecast.wave_height, // Keep as string/number, formatter will handle it
+                };
+              }
+            }
+          } catch (error) {
+            console.warn(
+              `Failed to fetch forecast for beach ${beach.id}:`,
+              error
+            );
           }
-        }
+          return {
+            beachId: beach.id,
+            waveHeight: undefined,
+          };
+        });
 
+        // Wait for all forecast requests to complete
+        const beachForecasts = await Promise.all(beachForecastPromises);
+
+        // Create a map of beach ID to wave height
+        const waveHeightMap = new Map<string, number | string | undefined>();
+        beachForecasts.forEach(({ beachId, waveHeight }) => {
+          waveHeightMap.set(beachId, waveHeight);
+        });
+
+        // Update beach conditions state for consistency
+        const updatedConditions: Record<
+          string,
+          { wave_height?: number | string }
+        > = {};
+        beachForecasts.forEach(({ beachId, waveHeight }) => {
+          updatedConditions[beachId] = { wave_height: waveHeight };
+        });
+        setBeachConditions((prev) => ({ ...prev, ...updatedConditions }));
+
+        // Create markers for each beach
         locations.forEach((location) => {
           console.log("Adding marker for:", location.name);
           const markerId = `location-${location.id}`;
           // Remove existing
           markersRef.current[markerId]?.remove();
 
-          // Get wave conditions for this beach (now from viewport conditions)
-          const conditions = beachConditions[location.id];
-          const waveHeight = conditions?.wave_height;
-          console.log("Wave height for", location.name, ":", waveHeight);
+          // Use the enhanced forecast wave height
+          const waveHeight = waveHeightMap.get(location.id);
+          console.log(
+            "Enhanced forecast wave height for",
+            location.name,
+            ":",
+            waveHeight
+          );
 
           // Create custom wave height badge
           const badgeElement = createWaveHeightBadge(location, waveHeight);
@@ -369,7 +316,11 @@ export function InteractiveMap({
             .setLngLat([offsetLng, offsetLat])
             .setPopup(
               new mapboxgl.Popup().setHTML(
-                `<b>${location.name}</b><br/>${location.location || ""}`
+                `<b>${location.name}</b><br/>${
+                  location.location || ""
+                }<br/>Wave Height: ${
+                  waveHeight ? formatWaveHeight(waveHeight) : "No forecast data"
+                }`
               )
             )
             .addTo(mapRef.current!);
@@ -378,6 +329,7 @@ export function InteractiveMap({
 
           markersRef.current[markerId] = marker;
         });
+
         console.log(
           "Total markers added:",
           Object.keys(markersRef.current).length
@@ -386,65 +338,7 @@ export function InteractiveMap({
         console.error("Error populating locations", e);
       }
     },
-    [isMapReady, beachConditions, favoriteBeachIds, router, onBuoyConditions]
-  );
-
-  /** Populate buoy markers with caching */
-  const populateBuoys = useCallback(
-    async (latitude: number, longitude: number) => {
-      if (!mapRef.current || !isMapReady) return;
-      try {
-        // Use cached fetch
-        const buoys: BuoyData[] = await fetchNearbyBuoys.current(
-          latitude,
-          longitude
-        );
-
-        buoys.forEach((buoy) => {
-          const markerId = `buoy-${buoy.id}`;
-          markersRef.current[markerId]?.remove();
-
-          // Create a fresh buoy icon for each marker
-          const buoyIcon = document.createElement("img");
-          buoyIcon.src = "/images/buoy.png";
-          buoyIcon.style.width = "24px";
-          buoyIcon.style.height = "32px";
-
-          const marker = new mapboxgl.Marker({
-            element: buoyIcon,
-          })
-            .setLngLat([buoy.longitude, buoy.latitude])
-            .setPopup(
-              new mapboxgl.Popup().setHTML(`
-              <b>${buoy.name}</b><br/>
-              Buoy ${buoy.id}<br/>
-              ${
-                buoy.measurements?.water_temperature
-                  ? `Water: ${buoy.measurements.water_temperature}°<br/>`
-                  : ""
-              }
-              ${
-                buoy.measurements?.air_temperature
-                  ? `Air: ${buoy.measurements.air_temperature}°<br/>`
-                  : ""
-              }
-              ${
-                buoy.measurements?.wind_speed
-                  ? `Wind: ${buoy.measurements.wind_speed} ${
-                      buoy.measurements.wind_direction || ""
-                    }`
-                  : ""
-              }`)
-            )
-            .addTo(mapRef.current!);
-
-          markersRef.current[markerId] = marker;
-        });
-      } catch (e) {
-        console.error("Error populating buoys", e);
-      }
-    },
-    [isMapReady]
+    [isMapReady, favoriteBeachIds, router]
   );
 
   // Optimized and debounced map move handler with viewport change detection
@@ -465,12 +359,10 @@ export function InteractiveMap({
       console.log("Viewport changed significantly, fetching new data");
       lastViewportRef.current = { lat: center.lat, lng: center.lng, zoom };
 
-      await Promise.all([
-        populateLocations(center.lat, center.lng),
-        populateBuoys(center.lat, center.lng),
-      ]);
+      // Only populate locations with enhanced forecast data
+      await populateLocations(center.lat, center.lng);
     }, 1500), // Increased debounce time since we're caching aggressively
-    [populateLocations, populateBuoys, hasViewportChanged]
+    [populateLocations, hasViewportChanged]
   );
 
   // Initialize map
@@ -506,7 +398,6 @@ export function InteractiveMap({
     // Map click
     map.on("click", async (e) => {
       onMapClick?.(e.lngLat);
-      await fetchBuoyConditions(e.lngLat.lat, e.lngLat.lng);
       if (!popupRef.current) {
         popupRef.current = new mapboxgl.Popup();
       }
@@ -529,12 +420,29 @@ export function InteractiveMap({
     if (isMapReady && mapRef.current) {
       const center = mapRef.current.getCenter();
       console.log("Map ready - initial population at:", center.lat, center.lng);
-      Promise.all([
-        populateLocations(center.lat, center.lng),
-        populateBuoys(center.lat, center.lng),
-      ]);
+      populateLocations(center.lat, center.lng);
     }
-  }, [isMapReady, populateLocations, populateBuoys]);
+  }, [isMapReady, populateLocations]);
+
+  // Update map center when initialCenter prop changes
+  useEffect(() => {
+    if (isMapReady && mapRef.current && initialCenter) {
+      const currentCenter = mapRef.current.getCenter();
+      const [newLat, newLng] = initialCenter;
+
+      // Only update if the center has actually changed significantly (avoid unnecessary updates)
+      const threshold = 0.001; // ~100 meters
+      const latDiff = Math.abs(currentCenter.lat - newLat);
+      const lngDiff = Math.abs(currentCenter.lng - newLng);
+
+      if (latDiff > threshold || lngDiff > threshold) {
+        mapRef.current.setCenter([newLng, newLat]);
+
+        // Also populate locations for the new center
+        populateLocations(newLat, newLng);
+      }
+    }
+  }, [isMapReady, initialCenter, populateLocations]);
 
   return (
     <div

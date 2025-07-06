@@ -204,6 +204,12 @@ export async function getBeachForecastPreview(beachId: string) {
     }
 
     if (enhancedForecasts && enhancedForecasts.length > 0) {
+      console.log(`Using enhanced forecast for beach ${beachId}:`, {
+        wave_height: enhancedForecasts[0].wave_height,
+        confidence_score: enhancedForecasts[0].confidence_score,
+        wind_speed: enhancedForecasts[0].wind_speed,
+        source: "enhanced_forecasts",
+      });
       return {
         success: true,
         data: {
@@ -212,6 +218,10 @@ export async function getBeachForecastPreview(beachId: string) {
         },
       };
     }
+
+    console.log(
+      `No enhanced forecast found for beach ${beachId}, trying fallback`
+    );
 
     // Fallback to basic forecasts table
     const { data: basicForecasts, error: basicError } = await supabase
@@ -227,6 +237,12 @@ export async function getBeachForecastPreview(beachId: string) {
     }
 
     if (basicForecasts && basicForecasts.length > 0) {
+      console.log(`Using basic forecast fallback for beach ${beachId}:`, {
+        wave_height: basicForecasts[0].wave_height,
+        confidence_score: null,
+        wind_speed: basicForecasts[0].wind_speed,
+        source: "forecasts",
+      });
       return {
         success: true,
         data: {
@@ -237,6 +253,7 @@ export async function getBeachForecastPreview(beachId: string) {
       };
     }
 
+    console.log(`No forecast data available for beach ${beachId}`);
     return {
       success: true,
       data: null, // No forecast data available

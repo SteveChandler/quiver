@@ -73,12 +73,17 @@ export function useBeachSearch() {
   // Update filtered beaches when beaches array or search query changes
   useEffect(() => {
     const filtered = performSearch(state.searchQuery, beaches || []);
+
     setState((prev) => ({
       ...prev,
       filteredBeaches: filtered,
-      // Only update selectedBeach if we don't have one or if search results changed significantly
-      selectedBeach:
-        prev.selectedBeach || (filtered.length > 0 ? filtered[0] : null),
+      // Clear selectedBeach when searching to prioritize search results
+      // Only keep selectedBeach if there's no search query
+      selectedBeach: state.searchQuery
+        ? filtered.length > 0
+          ? filtered[0]
+          : null
+        : prev.selectedBeach || (filtered.length > 0 ? filtered[0] : null),
     }));
   }, [beaches, performSearch, state.searchQuery]);
 

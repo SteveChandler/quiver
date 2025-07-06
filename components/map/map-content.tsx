@@ -51,11 +51,18 @@ export function MapContent({
     if (selectedBeach) {
       return { lat: selectedBeach.latitude, lng: selectedBeach.longitude };
     }
+    // If searching and have results, center on first result
+    if (searchQuery && filteredBeaches.length > 0) {
+      return {
+        lat: filteredBeaches[0].latitude,
+        lng: filteredBeaches[0].longitude,
+      };
+    }
     if (userLocation) {
       return userLocation;
     }
     return { lat: 32.7503, lng: -117.2534 }; // Ocean Beach default
-  }, [selectedBeach, userLocation]);
+  }, [selectedBeach, searchQuery, filteredBeaches, userLocation]);
 
   if (loading) {
     return <MapSkeleton />;
@@ -135,6 +142,10 @@ export function MapContent({
             <p className="text-xs text-muted-foreground mt-1">
               {selectedBeach
                 ? `Showing ${selectedBeach.name}`
+                : searchQuery && filteredBeaches.length === 1
+                ? `Showing ${filteredBeaches[0].name} on the map`
+                : searchQuery && filteredBeaches.length > 1
+                ? `Showing ${filteredBeaches[0].name} - tap other beach cards below to see them on the map`
                 : "Tap a beach card below to see it on the map"}
             </p>
           )}
