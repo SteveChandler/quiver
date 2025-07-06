@@ -69,6 +69,39 @@ global.fetch = jest.fn(() =>
   })
 );
 
+// Polyfill Request and Response for Node.js environment
+if (typeof Request === "undefined") {
+  global.Request = class Request {
+    constructor(url, options = {}) {
+      this.url = url;
+      this.method = options.method || 'GET';
+      this.headers = new Map(Object.entries(options.headers || {}));
+      this.body = options.body || null;
+    }
+    
+    async json() {
+      return JSON.parse(this.body);
+    }
+  };
+}
+
+if (typeof Response === "undefined") {
+  global.Response = class Response {
+    constructor(body, options = {}) {
+      this.body = body;
+      this.status = options.status || 200;
+      this.ok = this.status >= 200 && this.status < 300;
+      this.headers = new Map(Object.entries(options.headers || {}));
+    }
+    
+    async json() {
+      return JSON.parse(this.body);
+    }
+  };
+}
+
+
+
 // Suppress console errors during tests
 global.console = {
   ...console,
