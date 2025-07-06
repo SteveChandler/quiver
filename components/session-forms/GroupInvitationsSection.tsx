@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useAuth } from "@/context/auth-context";
 import { SessionFormState } from "@/hooks/use-session-form";
+import { getUserFollowing } from "@/actions/social-actions";
 import {
   Users,
   Mail,
@@ -57,9 +58,8 @@ export function GroupInvitationsSection({
     );
     if (!response.ok) {
       // Fallback to social actions if endpoint doesn't exist yet
-      const { getUserFollowing } = await import("@/actions/social-actions");
       const result = await getUserFollowing(user.id, 50);
-      if (result.success) {
+      if (result.success && result.data) {
         return result.data
           .map((follow: any) => follow.following)
           .filter(Boolean);
@@ -74,7 +74,7 @@ export function GroupInvitationsSection({
   const { data: friendsData, loading: loadingFriends } = useDataFetcher(
     fetchFriends,
     {
-      enabled: !!user?.id,
+      immediate: !!user?.id,
     }
   );
 
@@ -86,8 +86,8 @@ export function GroupInvitationsSection({
     const invitees = [
       ...selectedFriends.map((friend) => ({
         userId: friend.id,
-        email: friend.email,
-        name: friend.full_name,
+        email: friend.email || undefined,
+        name: friend.full_name || undefined,
       })),
       ...emailInput
         .split(",")
@@ -97,8 +97,12 @@ export function GroupInvitationsSection({
     ];
 
     updateField("invitees", invitees);
+  }, [selectedFriends, emailInput, updateField]);
+
+  // Update invitation message in form state
+  useEffect(() => {
     updateField("invitationMessage", invitationMessage);
-  }, [selectedFriends, emailInput, invitationMessage, updateField]);
+  }, [invitationMessage, updateField]);
 
   // Handle friend selection
   const handleFriendSelect = (friend: Friend) => {
@@ -115,6 +119,12 @@ export function GroupInvitationsSection({
     setSelectedFriends((prev) => prev.filter((f) => f.id !== friendId));
   };
 
+  // Handle template button clicks
+  const handleTemplateClick = (template: string) => {
+    setInvitationMessage(template);
+    updateField("invitationMessage", template);
+  };
+
   // Parse and validate email input
   const emailList = emailInput
     .split(",")
@@ -125,6 +135,9 @@ export function GroupInvitationsSection({
   const invalidEmails = emailList.filter(
     (email) => email && !email.includes("@")
   );
+
+  // Calculate total invitees
+  const totalInvitees = selectedFriends.length + validEmails.length;
 
   return (
     <div className="pt-4 border-t space-y-4">
@@ -151,6 +164,8 @@ export function GroupInvitationsSection({
                   size="sm"
                   className="justify-start h-auto p-2"
                   onClick={() => handleFriendSelect(friend)}
+                  aria-pressed={isSelected}
+                  role="button"
                 >
                   <Avatar className="w-6 h-6 mr-2">
                     <AvatarImage src={friend.avatar_url || undefined} />
@@ -163,7 +178,12 @@ export function GroupInvitationsSection({
                   <span className="flex-1 text-left truncate">
                     {friend.full_name || friend.email}
                   </span>
-                  {isSelected && <CheckCircle2 className="w-4 h-4 ml-2" />}
+                  {isSelected && (
+                    <CheckCircle2
+                      className="w-4 h-4 ml-2"
+                      data-testid="check-circle-icon"
+                    />
+                  )}
                 </Button>
               );
             })}
@@ -173,10 +193,13 @@ export function GroupInvitationsSection({
 
       {/* Email Input */}
       <div>
-        <h4 className="text-sm font-medium mb-2">Invite by Email</h4>
+        <h4 className="text-sm font-medium mb-2">
+          <label htmlFor="email-input">Invite by Email</label>
+        </h4>
         <div className="relative">
           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
+            id="email-input"
             type="text"
             className="pl-10"
             placeholder="Enter email addresses (separated by commas)"
@@ -220,6 +243,9 @@ export function GroupInvitationsSection({
                   variant="ghost"
                   className="h-4 w-4 p-0 hover:bg-primary-foreground"
                   onClick={() => handleRemoveFriend(friend.id)}
+                  aria-label={`Remove friend ${
+                    friend.full_name || friend.email
+                  }`}
                 >
                   <X className="w-3 h-3" />
                 </Button>
@@ -233,11 +259,14 @@ export function GroupInvitationsSection({
       {(selectedFriends.length > 0 || validEmails.length > 0) && (
         <div>
           <h4 className="text-sm font-medium mb-2">
-            Invitation Message (Optional)
+            <label htmlFor="invitation-message">
+              Invitation Message (Optional)
+            </label>
           </h4>
           <div className="relative">
             <MessageCircle className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Textarea
+              id="invitation-message"
               placeholder="Add a personal message to your invitation..."
               className="pl-10 min-h-20"
               value={invitationMessage}
@@ -262,26 +291,16 @@ export function GroupInvitationsSection({
                   Invitation Preview
                 </p>
                 <div className="text-blue-700 space-y-1 text-xs">
-                  <p>
-                    <strong>Who:</strong>{" "}
-                    {selectedFriends.length + validEmails.length} people
-                  </p>
+                  <p>Who: {totalInvitees} people</p>
                   {formState.selectedBeach && (
-                    <p>
-                      <strong>Where:</strong> {formState.selectedBeach}
-                    </p>
+                    <p>Where: {formState.selectedBeach}</p>
                   )}
                   {formState.selectedDate && formState.selectedTime && (
                     <p>
-                      <strong>When:</strong> {formState.selectedDate} at{" "}
-                      {formState.selectedTime}
+                      When: {formState.selectedDate} at {formState.selectedTime}
                     </p>
                   )}
-                  {invitationMessage && (
-                    <p>
-                      <strong>Message:</strong> "{invitationMessage}"
-                    </p>
-                  )}
+                  {invitationMessage && <p>Message: "{invitationMessage}"</p>}
                 </div>
               </div>
             </div>
@@ -315,7 +334,7 @@ export function GroupInvitationsSection({
             variant="outline"
             size="sm"
             onClick={() =>
-              setInvitationMessage("Dawn patrol tomorrow! Who's in? 🌅🏄‍♂️")
+              handleTemplateClick("Dawn patrol tomorrow! Who's in? 🌅🏄‍♂️")
             }
             className="text-xs"
           >
@@ -325,7 +344,7 @@ export function GroupInvitationsSection({
             variant="outline"
             size="sm"
             onClick={() =>
-              setInvitationMessage(
+              handleTemplateClick(
                 "Conditions looking epic! Let's get some waves 🤙"
               )
             }

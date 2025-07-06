@@ -1,0 +1,306 @@
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { withAuthenticatedAction } from "@/lib/server-action-utils";
+import type { SessionAnalytics, CalendarHeatmapData } from "@/types/database";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  subMonths,
+} from "date-fns";
+
+/**
+ * Get comprehensive session analytics for a user
+ */
+export async function getSessionAnalytics(userId: string) {
+  return withAuthenticatedAction(async (user, supabase) => {
+    // Verify user can access this data
+    if (user.id !== userId) {
+      throw new Error("Unauthorized access to analytics data");
+    }
+
+    // Get all completed sessions for the user
+    const { data: sessions, error: sessionsError } = await supabase
+      .from("sessions")
+      .select(
+        `
+        *,
+        beach:beaches(name),
+        board:boards(name)
+      `
+      )
+      .eq("user_id", userId)
+      .eq("status", "completed")
+      .order("arrival_time", { ascending: false });
+
+    if (sessionsError) {
+      throw sessionsError;
+    }
+
+    const completedSessions = sessions || [];
+
+    // Calculate basic statistics
+    const totalSessions = completedSessions.length;
+    const totalHours =
+      completedSessions.reduce((sum, session) => {
+        return sum + (session.duration_minutes || 0);
+      }, 0) / 60;
+
+    const averageRating =
+      completedSessions.length > 0
+        ? completedSessions.reduce(
+            (sum, session) => sum + (session.rating || 0),
+            0
+          ) / completedSessions.length
+        : 0;
+
+    const averageWaveHeight =
+      completedSessions.length > 0
+        ? completedSessions.reduce(
+            (sum, session) => sum + (session.wave_quality || 0),
+            0
+          ) / completedSessions.length
+        : 0;
+
+    // Find favorite beach
+    const beachCounts = completedSessions.reduce((acc, session) => {
+      const beachName =
+        session.beach?.name || session.beach_name || "Unknown Beach";
+      acc[beachName] = (acc[beachName] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const favoriteBeach =
+      Object.keys(beachCounts).length > 0
+        ? Object.entries(beachCounts).reduce((a, b) => (a[1] > b[1] ? a : b))[0]
+        : null;
+
+    // Calculate frequent boards
+    const boardCounts = completedSessions.reduce((acc, session) => {
+      if (session.board?.name && session.board_id) {
+        const key = session.board_id;
+        acc[key] = {
+          boardId: session.board_id,
+          boardName: session.board.name,
+          usageCount: (acc[key]?.usageCount || 0) + 1,
+        };
+      }
+      return acc;
+    }, {} as Record<string, { boardId: string; boardName: string; usageCount: number }>);
+
+    const frequentBoards = Object.values(boardCounts)
+      .sort((a, b) => b.usageCount - a.usageCount)
+      .slice(0, 5);
+
+    // Calculate monthly statistics (last 12 months)
+    const monthlyStats = [];
+    const now = new Date();
+
+    for (let i = 11; i >= 0; i--) {
+      const monthStart = startOfMonth(subMonths(now, i));
+      const monthEnd = endOfMonth(subMonths(now, i));
+
+      const monthSessions = completedSessions.filter((session) => {
+        const sessionDate = new Date(session.arrival_time);
+        return sessionDate >= monthStart && sessionDate <= monthEnd;
+      });
+
+      const monthHours =
+        monthSessions.reduce((sum, session) => {
+          return sum + (session.duration_minutes || 0);
+        }, 0) / 60;
+
+      const monthRating =
+        monthSessions.length > 0
+          ? monthSessions.reduce(
+              (sum, session) => sum + (session.rating || 0),
+              0
+            ) / monthSessions.length
+          : 0;
+
+      monthlyStats.push({
+        month: format(monthStart, "MMM yyyy"),
+        sessionCount: monthSessions.length,
+        averageRating: Math.round(monthRating * 10) / 10,
+        totalHours: Math.round(monthHours * 10) / 10,
+      });
+    }
+
+    // Calculate wave height trend (last 30 sessions)
+    const recentSessions = completedSessions.slice(0, 30);
+    const waveHeightTrend = recentSessions.reverse().map((session) => ({
+      date: format(new Date(session.arrival_time), "MMM dd"),
+      averageWaveHeight: session.wave_quality || 0,
+      sessionCount: 1,
+    }));
+
+    // Calculate condition ratings
+    const conditionRatings = {
+      waterTemp:
+        completedSessions.length > 0
+          ? completedSessions.reduce((sum, session) => {
+              const temp = session.water_temp
+                ? parseFloat(session.water_temp)
+                : 0;
+              return sum + (temp > 0 ? temp : 65); // Default to 65°F if no temp
+            }, 0) / completedSessions.length
+          : 0,
+      crowdLevel:
+        completedSessions.length > 0
+          ? completedSessions.reduce(
+              (sum, session) => sum + (session.crowd_level || 0),
+              0
+            ) / completedSessions.length
+          : 0,
+      windConditions: 3.5, // Placeholder - would need wind data
+      waveQuality: averageWaveHeight,
+      parkingEase:
+        completedSessions.length > 0
+          ? completedSessions.reduce(
+              (sum, session) => sum + (session.parking_ease || 0),
+              0
+            ) / completedSessions.length
+          : 0,
+    };
+
+    const analytics: SessionAnalytics = {
+      userId,
+      totalSessions: completedSessions.length,
+      completedSessions: completedSessions.length,
+      totalHours: Math.round(totalHours * 10) / 10,
+      averageRating: Math.round(averageRating * 10) / 10,
+      averageWaveHeight: Math.round(averageWaveHeight * 10) / 10,
+      favoriteBeach,
+      frequentBoards,
+      monthlyStats,
+      waveHeightTrend,
+      conditionRatings: {
+        waterTemp: Math.round(conditionRatings.waterTemp * 10) / 10,
+        crowdLevel: Math.round(conditionRatings.crowdLevel * 10) / 10,
+        windConditions: Math.round(conditionRatings.windConditions * 10) / 10,
+        waveQuality: Math.round(conditionRatings.waveQuality * 10) / 10,
+        parkingEase: Math.round(conditionRatings.parkingEase * 10) / 10,
+      },
+      generatedAt: new Date().toISOString(),
+    };
+
+    return analytics;
+  });
+}
+
+/**
+ * Get calendar heatmap data for a specific month
+ */
+export async function getCalendarHeatmapData(
+  userId: string,
+  year: number,
+  month: number
+) {
+  return withAuthenticatedAction(async (user, supabase) => {
+    // Verify user can access this data
+    if (user.id !== userId) {
+      throw new Error("Unauthorized access to calendar data");
+    }
+
+    const monthStart = startOfMonth(new Date(year, month - 1));
+    const monthEnd = endOfMonth(new Date(year, month - 1));
+
+    // Get all sessions for the month
+    const { data: sessions, error } = await supabase
+      .from("sessions")
+      .select(
+        `
+        *,
+        beach:beaches(name)
+      `
+      )
+      .eq("user_id", userId)
+      .eq("status", "completed")
+      .gte("arrival_time", monthStart.toISOString())
+      .lte("arrival_time", monthEnd.toISOString())
+      .order("arrival_time", { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    // Group sessions by date
+    const sessionsByDate = (sessions || []).reduce((acc, session) => {
+      const date = format(new Date(session.arrival_time), "yyyy-MM-dd");
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(session);
+      return acc;
+    }, {} as Record<string, typeof sessions>);
+
+    // Generate calendar data for each day of the month
+    const calendarData: CalendarHeatmapData[] = [];
+    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+    daysInMonth.forEach((day) => {
+      const dateStr = format(day, "yyyy-MM-dd");
+      const daySessions = sessionsByDate[dateStr] || [];
+
+      const averageWaveHeight =
+        daySessions.length > 0
+          ? daySessions.reduce(
+              (sum, session) => sum + (session.wave_quality || 0),
+              0
+            ) / daySessions.length
+          : 0;
+
+      const averageRating =
+        daySessions.length > 0
+          ? daySessions.reduce(
+              (sum, session) => sum + (session.rating || 0),
+              0
+            ) / daySessions.length
+          : 0;
+
+      calendarData.push({
+        date: dateStr,
+        sessionCount: daySessions.length,
+        averageWaveHeight: Math.round(averageWaveHeight * 10) / 10,
+        averageRating: Math.round(averageRating * 10) / 10,
+        sessions: daySessions.map((session) => ({
+          id: session.id,
+          beachName:
+            session.beach?.name || session.beach_name || "Unknown Beach",
+          rating: session.rating || 0,
+          waveHeight: session.wave_quality || 0,
+        })),
+      });
+    });
+
+    return calendarData;
+  });
+}
+
+/**
+ * Update session privacy flag
+ */
+export async function updateSessionPrivacy(
+  sessionId: string,
+  isPrivate: boolean
+) {
+  return withAuthenticatedAction(async (user, supabase) => {
+    // Update session privacy
+    const { data, error } = await supabase
+      .from("sessions")
+      .update({
+        is_public: !isPrivate,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", sessionId)
+      .eq("user_id", user.id) // Ensure user owns this session
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  });
+}

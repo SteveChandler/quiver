@@ -82,8 +82,9 @@ describe("GroupInvitationsSection", () => {
     it("should show friend avatars", () => {
       render(<GroupInvitationsSection {...defaultProps} />);
 
-      const avatars = screen.getAllByRole("img");
-      expect(avatars.length).toBeGreaterThan(0);
+      // Check for avatar fallback text content since no actual images are loaded in tests
+      expect(screen.getByText("J")).toBeInTheDocument(); // John's avatar
+      expect(screen.getByText("S")).toBeInTheDocument(); // Sarah's avatar
     });
 
     it("should allow selecting friends", async () => {
@@ -103,9 +104,9 @@ describe("GroupInvitationsSection", () => {
       const johnButton = screen.getByRole("button", { name: /John Surfer/ });
       await user.click(johnButton);
 
-      expect(screen.getByText("John Surfer")).toBeInTheDocument();
+      expect(screen.getByText("Selected Friends (1)")).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: /remove John Surfer/i })
+        screen.getByRole("button", { name: /remove friend John Surfer/i })
       ).toBeInTheDocument();
     });
 
@@ -278,7 +279,14 @@ describe("GroupInvitationsSection", () => {
 
     it("should show character count for invitation message", async () => {
       const user = userEvent.setup();
-      render(<GroupInvitationsSection {...defaultProps} />);
+      const propsWithEmptyMessage = {
+        ...defaultProps,
+        formState: {
+          ...defaultProps.formState,
+          invitationMessage: "", // Start with empty message
+        },
+      };
+      render(<GroupInvitationsSection {...propsWithEmptyMessage} />);
 
       // Select a friend first
       const johnButton = screen.getByRole("button", { name: /John Surfer/ });
@@ -328,7 +336,14 @@ describe("GroupInvitationsSection", () => {
 
     it("should show invitation message in preview", async () => {
       const user = userEvent.setup();
-      render(<GroupInvitationsSection {...defaultProps} />);
+      const propsWithEmptyMessage = {
+        ...defaultProps,
+        formState: {
+          ...defaultProps.formState,
+          invitationMessage: "", // Start with empty message
+        },
+      };
+      render(<GroupInvitationsSection {...propsWithEmptyMessage} />);
 
       // Select a friend
       const johnButton = screen.getByRole("button", { name: /John Surfer/ });
@@ -463,7 +478,14 @@ describe("GroupInvitationsSection", () => {
 
     it("should update invitation message", async () => {
       const user = userEvent.setup();
-      render(<GroupInvitationsSection {...defaultProps} />);
+      const propsWithEmptyMessage = {
+        ...defaultProps,
+        formState: {
+          ...defaultProps.formState,
+          invitationMessage: "", // Start with empty message
+        },
+      };
+      render(<GroupInvitationsSection {...propsWithEmptyMessage} />);
 
       // Select a friend first to show message input
       const johnButton = screen.getByRole("button", { name: /John Surfer/ });
@@ -472,6 +494,7 @@ describe("GroupInvitationsSection", () => {
       const messageInput = screen.getByPlaceholderText(
         "Add a personal message to your invitation..."
       );
+      await user.clear(messageInput); // Clear any existing content
       await user.type(messageInput, "Hey there!");
 
       await waitFor(() => {
@@ -568,9 +591,8 @@ describe("GroupInvitationsSection", () => {
     it("should have proper labels for form inputs", () => {
       render(<GroupInvitationsSection {...defaultProps} />);
 
-      expect(
-        screen.getByLabelText("Invite Friends (Optional)")
-      ).toBeInTheDocument();
+      // Check that email input has proper labeling
+      expect(screen.getByLabelText("Invite by Email")).toBeInTheDocument();
     });
 
     it("should have proper button roles", async () => {

@@ -60,7 +60,7 @@ export function UserStats({ userId }: UserStatsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.sessionCount}</div>
-          <p className="text-xs text-muted-foreground">Total surf sessions</p>
+          <p className="text-xs text-muted-foreground">Total sessions (all)</p>
         </CardContent>
       </Card>
 
