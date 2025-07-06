@@ -37,6 +37,7 @@ import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { UserComments } from "@/components/profile/user-comments";
+import { JournalView } from "@/components/journal/journal-view";
 
 export function ProfileView() {
   const { user, signOut, isLoading: authLoading, refreshSession } = useAuth();
@@ -268,7 +269,7 @@ export function ProfileView() {
               <TabsList className="grid grid-cols-4 w-full">
                 <TabsTrigger value="sessions">
                   <CalendarDays className="h-4 w-4 mr-1" />
-                  Journal
+                  Journal+
                 </TabsTrigger>
                 <TabsTrigger value="quiver">
                   <Surfboard className="h-4 w-4 mr-1" />
@@ -285,25 +286,7 @@ export function ProfileView() {
               </TabsList>
 
               <TabsContent value="sessions" className="space-y-4">
-                {sessions.length > 0 ? (
-                  <div className="max-w-2xl mx-auto space-y-4">
-                    {sessions.map((session) => (
-                      <SessionCardWrapper
-                        key={session.id}
-                        session={session}
-                        isOwner={true}
-                        showUserInfo={false}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>You haven't logged any sessions yet.</p>
-                    <Button variant="link" asChild>
-                      <Link href="/log-session">Log your first session</Link>
-                    </Button>
-                  </div>
-                )}
+                <JournalView />
               </TabsContent>
 
               <TabsContent value="quiver" className="space-y-4">

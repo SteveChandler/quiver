@@ -211,6 +211,95 @@ export type BeachReviewWithUser = BeachReview & {
   };
 };
 
+// Analytics types for Surf Journal+
+export type SessionAnalytics = {
+  userId: string;
+  totalSessions: number;
+  completedSessions: number;
+  totalHours: number;
+  averageRating: number;
+  averageWaveHeight: number;
+  favoriteBeach: string | null;
+  frequentBoards: Array<{
+    boardId: string;
+    boardName: string;
+    usageCount: number;
+  }>;
+  monthlyStats: Array<{
+    month: string;
+    sessionCount: number;
+    averageRating: number;
+    totalHours: number;
+  }>;
+  waveHeightTrend: Array<{
+    date: string;
+    averageWaveHeight: number;
+    sessionCount: number;
+  }>;
+  conditionRatings: {
+    waterTemp: number;
+    crowdLevel: number;
+    windConditions: number;
+    waveQuality: number;
+    parkingEase: number;
+  };
+  generatedAt: string;
+};
+
+export type CalendarHeatmapData = {
+  date: string;
+  sessionCount: number;
+  averageWaveHeight: number;
+  averageRating: number;
+  sessions: Array<{
+    id: string;
+    beachName: string;
+    rating: number;
+    waveHeight: number;
+  }>;
+};
+
+export type JournalViewMode = "list" | "calendar";
+
+export type JournalDisplayOptions = {
+  viewMode: JournalViewMode;
+  showPrivate: boolean;
+  filterByBeach?: string;
+  filterByBoard?: string;
+  dateRange?: {
+    start: string;
+    end: string;
+  };
+};
+
+export type SessionAnnotation = {
+  id: string;
+  sessionId: string;
+  userId: string;
+  notes: string;
+  isPrivate: boolean;
+  photos: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportOptions = {
+  type: "single" | "monthly" | "yearly";
+  sessionIds?: string[];
+  month?: string;
+  year?: string;
+  includePhotos: boolean;
+  includeAnalytics: boolean;
+  format: "pdf";
+};
+
+export type ExportResult = {
+  filename: string;
+  downloadUrl: string;
+  generatedAt: string;
+  expiresAt: string;
+};
+
 // Database schema with tables
 export type Database = {
   public: {

@@ -9,6 +9,10 @@ import { ForecastCard } from "@/components/forecast-card";
 import { useAuth } from "@/context/auth-context";
 import { getBeachById, getBeaches } from "@/actions/beach-actions";
 import { COVERAGE_MESSAGES } from "@/lib/constants/coverage-areas";
+import {
+  searchBeachWithForecast,
+  searchBeachWithForecastLegacy,
+} from "@/lib/utils/beach-search-utils";
 import type { Beach, Profile } from "@/types/database";
 
 interface BeachSearchProps {
@@ -103,9 +107,6 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     }
 
     try {
-      const { searchBeachWithForecast } = await import(
-        "@/lib/utils/beach-search-utils"
-      );
       const result = await searchBeachWithForecast(beachName);
 
       setBeach(result.beach);
@@ -135,9 +136,6 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       // If this is a user search that failed, try to show Ocean Beach with fallback message
       if (isUserSearch) {
         try {
-          const { searchBeachWithForecastLegacy } = await import(
-            "@/lib/utils/beach-search-utils"
-          );
           const { beach: fallbackBeach, forecast: fallbackForecast } =
             await searchBeachWithForecastLegacy("Ocean Beach");
           setBeach(fallbackBeach);
