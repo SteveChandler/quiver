@@ -33,14 +33,6 @@ export function EquipmentStep({
   const [isAddBoardDialogOpen, setIsAddBoardDialogOpen] = useState(false);
   const [selectOpen, setSelectOpen] = useState(false);
 
-  // Debug: Log boards data
-  console.log("EquipmentStep - boards:", boards);
-  console.log("EquipmentStep - formState.boardId:", formState.boardId);
-  console.log(
-    "EquipmentStep - formState.selectedBoard:",
-    formState.selectedBoard
-  );
-
   const handleBoardAdded = () => {
     if (onBoardsRefresh) {
       onBoardsRefresh();

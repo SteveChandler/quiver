@@ -51,9 +51,7 @@ export function useGeolocation() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        console.log(
-          `✅ Location found: ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`
-        );
+
         setState((prev) => ({
           ...prev,
           userLocation: { lat: latitude, lng: longitude },
@@ -63,7 +61,6 @@ export function useGeolocation() {
         }));
       },
       (error) => {
-        console.log("📍 Location unavailable, using San Diego default");
         let errorMessage = "Location access denied";
 
         if (error.code === error.PERMISSION_DENIED) {

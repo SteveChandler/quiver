@@ -58,13 +58,6 @@ export async function uploadImage(
       .from(bucket)
       .getPublicUrl(filePath);
 
-    console.log("Image uploaded successfully:", {
-      bucket,
-      filePath,
-      publicUrl: urlData.publicUrl,
-      urlDomain: new URL(urlData.publicUrl).hostname,
-    });
-
     return { success: true, url: urlData.publicUrl };
   } catch (error) {
     console.error("Error uploading image:", error);

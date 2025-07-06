@@ -195,8 +195,6 @@ export class EnhancedForecastService {
   ): Promise<EnhancedForecastEntity[]> {
     return withErrorHandling(
       async () => {
-        console.log(`Generating comprehensive forecast for ${beach.name}`);
-
         // Validate input
         if (!beach.id || !beach.latitude || !beach.longitude) {
           throw new ValidationError(
@@ -241,9 +239,6 @@ export class EnhancedForecastService {
         // Process and combine all data sources
         const forecasts = this.combineDataSources(processedData);
 
-        console.log(
-          `Generated ${forecasts.length} comprehensive forecast points for ${beach.name}`
-        );
         return forecasts;
       },
       { beachId: beach.id }
@@ -345,10 +340,6 @@ export class EnhancedForecastService {
    */
   private async fetchWeatherData(beach: Beach) {
     try {
-      console.log(
-        `Fetching NOAA weather data for ${beach.latitude}, ${beach.longitude}`
-      );
-
       // Get grid coordinates
       const pointsUrl = `https://api.weather.gov/points/${beach.latitude},${beach.longitude}`;
       const pointsResponse = await fetch(pointsUrl, {
@@ -399,7 +390,6 @@ export class EnhancedForecastService {
         .not("water_temperature", "is", null);
 
       if (error || !buoys) {
-        console.log("No buoys with live data found");
         return null;
       }
 
@@ -800,9 +790,6 @@ export class EnhancedForecastService {
         throw error;
       }
 
-      console.log(
-        `Stored ${forecasts.length} enhanced forecasts for ${beach.name}`
-      );
       return { success: true, data };
     } catch (error) {
       console.error("Error storing enhanced forecasts:", error);
@@ -829,8 +816,6 @@ export class EnhancedForecastService {
         throw error;
       }
 
-      console.log(`Updating enhanced forecasts for ${beaches.length} beaches`);
-
       // Update forecasts for each beach
       const results = await Promise.allSettled(
         beaches.map(async (beach) => {
@@ -849,10 +834,6 @@ export class EnhancedForecastService {
         (r) => r.status === "fulfilled" && r.value.success
       ).length;
       const failed = results.length - successful;
-
-      console.log(
-        `Enhanced forecast update complete: ${successful} successful, ${failed} failed`
-      );
 
       return {
         success: true,

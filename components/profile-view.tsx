@@ -80,7 +80,7 @@ export function ProfileView() {
         profileResult.data
       ) {
         const profileData = profileResult.data as Profile;
-        console.log("Profile loaded with avatar_url:", profileData.avatar_url);
+
         setProfile(profileData);
       } else {
         if (

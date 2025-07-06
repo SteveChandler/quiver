@@ -60,9 +60,6 @@ export async function createBoard(
   }
 
   return withAuthenticatedAction<Board>(async (user, supabase) => {
-    console.log("🏄‍♂️ Creating board for user:", user.id);
-    console.log("📋 Board data:", boardData);
-
     // Prepare the data to insert
     const insertData = {
       user_id: user.id,
@@ -81,7 +78,6 @@ export async function createBoard(
       throw error;
     }
 
-    console.log("✅ Board created successfully:", data);
     revalidatePath("/profile");
     return data as Board;
   });

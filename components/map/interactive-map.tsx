@@ -218,14 +218,12 @@ export function InteractiveMap({
   const populateLocations = useCallback(
     async (latitude: number, longitude: number) => {
       if (!mapRef.current || !isMapReady) return;
-      console.log("Populating locations for:", latitude, longitude);
       try {
         // Use cached fetch for beaches
         let locations: Beach[] = await fetchNearbyBeaches.current(
           latitude,
           longitude
         );
-        console.log("Found locations:", locations.length);
 
         // Limit to 20 beaches max
         locations = locations.slice(0, 20);
@@ -242,10 +240,6 @@ export function InteractiveMap({
               if (data.success && data.data?.forecasts?.length > 0) {
                 // Get today's first forecast entry
                 const todaysForecast = data.data.forecasts[0];
-                console.log(
-                  `Raw wave height for ${beach.name}:`,
-                  todaysForecast.wave_height
-                );
                 return {
                   beachId: beach.id,
                   waveHeight: todaysForecast.wave_height, // Keep as string/number, formatter will handle it
@@ -285,19 +279,12 @@ export function InteractiveMap({
 
         // Create markers for each beach
         locations.forEach((location) => {
-          console.log("Adding marker for:", location.name);
           const markerId = `location-${location.id}`;
           // Remove existing
           markersRef.current[markerId]?.remove();
 
           // Use the enhanced forecast wave height
           const waveHeight = waveHeightMap.get(location.id);
-          console.log(
-            "Enhanced forecast wave height for",
-            location.name,
-            ":",
-            waveHeight
-          );
 
           // Create custom wave height badge
           const badgeElement = createWaveHeightBadge(location, waveHeight);
@@ -307,7 +294,6 @@ export function InteractiveMap({
             location.latitude,
             location.longitude
           );
-          console.log("Positioning marker at:", offsetLat, offsetLng);
 
           const marker = new mapboxgl.Marker({
             element: badgeElement,
@@ -325,15 +311,8 @@ export function InteractiveMap({
             )
             .addTo(mapRef.current!);
 
-          console.log("Added marker for:", location.name);
-
           markersRef.current[markerId] = marker;
         });
-
-        console.log(
-          "Total markers added:",
-          Object.keys(markersRef.current).length
-        );
       } catch (e) {
         console.error("Error populating locations", e);
       }
@@ -350,13 +329,8 @@ export function InteractiveMap({
 
       // Only fetch if viewport has significantly changed
       if (!hasViewportChanged(center.lat, center.lng, zoom)) {
-        console.log(
-          "Viewport hasn't changed significantly, skipping API calls"
-        );
         return;
       }
-
-      console.log("Viewport changed significantly, fetching new data");
       lastViewportRef.current = { lat: center.lat, lng: center.lng, zoom };
 
       // Only populate locations with enhanced forecast data
@@ -369,8 +343,6 @@ export function InteractiveMap({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    console.log("Initializing Mapbox map...");
-
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/streets-v11",
@@ -381,16 +353,11 @@ export function InteractiveMap({
     mapRef.current = map;
 
     map.on("load", async () => {
-      console.log("Map loaded successfully");
       setIsMapReady(true);
     });
 
     map.on("error", (e) => {
       console.error("Map error:", e);
-    });
-
-    map.on("styledata", () => {
-      console.log("Map style loaded");
     });
 
     map.on("moveend", handleMoveEnd);
@@ -408,7 +375,6 @@ export function InteractiveMap({
     });
 
     return () => {
-      console.log("Cleaning up map...");
       map.off("moveend", handleMoveEnd);
       cleanupMap();
     };
@@ -419,7 +385,6 @@ export function InteractiveMap({
   useEffect(() => {
     if (isMapReady && mapRef.current) {
       const center = mapRef.current.getCenter();
-      console.log("Map ready - initial population at:", center.lat, center.lng);
       populateLocations(center.lat, center.lng);
     }
   }, [isMapReady, populateLocations]);

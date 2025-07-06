@@ -76,8 +76,6 @@ export function useEnhancedForecast({
       throw new Error("Beach ID is required");
     }
 
-    console.log(`Auto-generating forecasts for beach ${beachId}`);
-
     const response = await fetch("/api/forecasts/update-enhanced", {
       method: "POST",
       headers: {

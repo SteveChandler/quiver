@@ -25,7 +25,6 @@ export async function updateBeachForecastData(
     const url = `/api/forecasts/update${
       params.toString() ? `?${params.toString()}` : ""
     }`;
-    console.log(`Calling forecast update API: ${url}`);
 
     const response = await fetch(url, {
       method: "GET",
@@ -43,7 +42,6 @@ export async function updateBeachForecastData(
       throw new Error(error);
     }
 
-    console.log("Forecast update successful:", responseData);
     return responseData;
   } catch (error) {
     console.error("Error updating forecast data:", error);
@@ -71,13 +69,10 @@ export function delay(ms: number): Promise<void> {
  */
 export async function getDirectOceanBeachForecast(debug: boolean = false) {
   try {
-    console.log("Attempting to get direct Ocean Beach forecast data");
-
     // First try the API route with debug information if requested
     const updateResult = await updateBeachForecastData(undefined, debug);
 
     if (updateResult.success) {
-      console.log("Successfully updated forecast data");
       // If successful, we should now have updated forecasts in the database
       return { success: true };
     } else {

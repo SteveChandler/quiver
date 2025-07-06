@@ -6,8 +6,6 @@ import { revalidatePath } from "next/cache";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log("🏄‍♂️ API Route: Creating board with data:", body);
-
     const supabase = await createSupabaseServerClient();
 
     // Get the current user from the authenticated session
@@ -15,13 +13,6 @@ export async function POST(request: NextRequest) {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
-
-    console.log("👤 API Route: Auth user check:", {
-      hasUser: !!user,
-      authUserId: user?.id,
-      userEmail: user?.email,
-      error: userError,
-    });
 
     if (userError || !user) {
       console.error("❌ API Route: Authentication error:", userError);
@@ -38,8 +29,6 @@ export async function POST(request: NextRequest) {
       session_count: 0,
     };
 
-    console.log("📝 API Route: Data to insert:", insertData);
-
     const { data, error } = await supabase
       .from("boards")
       .insert(insertData)
@@ -53,8 +42,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    console.log("✅ API Route: Board created successfully:", data);
 
     // Revalidate the profile page
     revalidatePath("/profile");

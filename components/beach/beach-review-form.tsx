@@ -265,7 +265,6 @@ export function BeachReviewForm({
               mode="single"
               selected={formData.visit_date}
               onSelect={(date) => {
-                console.log("Calendar date selected:", date);
                 setFormData((prev) => ({
                   ...prev,
                   visit_date: date || undefined,

@@ -52,7 +52,6 @@ export function SignInForm() {
 
     // If too many redirect attempts, clear auth state and redirect to home
     if (redirectAttempts > 2) {
-      console.log("Too many redirect attempts detected, clearing state");
       localStorage.setItem("redirectAttempts", "0");
 
       // Clear any potentially stuck cookies by signing out
@@ -83,8 +82,6 @@ export function SignInForm() {
       // First clear any existing auth state to prevent conflicts
       localStorage.removeItem("supabase.auth.token");
       sessionStorage.removeItem("supabase.auth.token");
-
-      console.log(`Attempting to sign in with email: ${email}`);
 
       // Instead of directly authenticating with the client,
       // we'll use our custom API route which handles cookies properly
@@ -118,8 +115,6 @@ export function SignInForm() {
         setIsLoading(false);
         return;
       }
-
-      console.log("Auth successful through API route");
 
       // --- IMPORTANT ---
       // Although the API route has set the authentication cookies that the
@@ -176,7 +171,7 @@ export function SignInForm() {
       localStorage.setItem("redirectAttempts", "0");
 
       // Redirect with router instead of location change for smoother experience
-      console.log("Sign-in form: Redirecting to:", redirectUrl);
+
       router.push(redirectUrl);
     } catch (error) {
       console.error("Sign in error:", error);

@@ -144,8 +144,6 @@ export async function getEnhancedBeachForecasts(
 // Generate enhanced forecast for a beach (server action)
 export async function generateBeachForecast(beachId: string) {
   try {
-    console.log(`Generating enhanced forecast for beach ${beachId}`);
-
     // First, verify the beach exists
     const supabase = await createSupabaseServiceRoleClient();
     const { data: beach, error: beachError } = await supabase
@@ -161,8 +159,6 @@ export async function generateBeachForecast(beachId: string) {
         error: `Beach not found: ${beachId}. Please verify the beach exists in the database.`,
       };
     }
-
-    console.log(`Found beach: ${beach.name}`);
 
     const result = await updateBeachForecast(beachId);
 
@@ -204,12 +200,6 @@ export async function getBeachForecastPreview(beachId: string) {
     }
 
     if (enhancedForecasts && enhancedForecasts.length > 0) {
-      console.log(`Using enhanced forecast for beach ${beachId}:`, {
-        wave_height: enhancedForecasts[0].wave_height,
-        confidence_score: enhancedForecasts[0].confidence_score,
-        wind_speed: enhancedForecasts[0].wind_speed,
-        source: "enhanced_forecasts",
-      });
       return {
         success: true,
         data: {
@@ -218,10 +208,6 @@ export async function getBeachForecastPreview(beachId: string) {
         },
       };
     }
-
-    console.log(
-      `No enhanced forecast found for beach ${beachId}, trying fallback`
-    );
 
     // Fallback to basic forecasts table
     const { data: basicForecasts, error: basicError } = await supabase
@@ -237,12 +223,6 @@ export async function getBeachForecastPreview(beachId: string) {
     }
 
     if (basicForecasts && basicForecasts.length > 0) {
-      console.log(`Using basic forecast fallback for beach ${beachId}:`, {
-        wave_height: basicForecasts[0].wave_height,
-        confidence_score: null,
-        wind_speed: basicForecasts[0].wind_speed,
-        source: "forecasts",
-      });
       return {
         success: true,
         data: {
@@ -253,7 +233,6 @@ export async function getBeachForecastPreview(beachId: string) {
       };
     }
 
-    console.log(`No forecast data available for beach ${beachId}`);
     return {
       success: true,
       data: null, // No forecast data available
@@ -270,16 +249,10 @@ export async function getBeachForecastPreview(beachId: string) {
 // Update forecasts for a specific beach using enhanced forecast system
 export async function updateBeachForecasts(beachId: string) {
   try {
-    console.log(`Updating enhanced forecasts for beach: ${beachId}`);
-
     const { updateBeachForecast } = await import(
       "@/lib/utils/forecast-service-utils"
     );
     const data = await updateBeachForecast(beachId);
-
-    console.log(
-      `Successfully updated enhanced forecasts for ${data.beach}: ${data.forecastsGenerated} forecasts`
-    );
 
     return {
       success: true,
@@ -297,8 +270,6 @@ export async function updateBeachForecasts(beachId: string) {
 // Update forecasts for all beaches using enhanced forecast system
 export async function updateAllBeachForecasts() {
   try {
-    console.log("Starting enhanced forecast update for all beaches");
-
     const { updateAllBeachForecasts: updateAll } = await import(
       "@/lib/utils/forecast-service-utils"
     );
@@ -306,10 +277,6 @@ export async function updateAllBeachForecasts() {
 
     const successful = result.results?.filter((r) => r.success).length || 0;
     const failed = (result.results?.length || 0) - successful;
-
-    console.log(
-      `Enhanced forecast update complete: ${successful} successful, ${failed} failed`
-    );
 
     return {
       success: true,
