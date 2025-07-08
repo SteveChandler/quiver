@@ -113,7 +113,7 @@ test.describe("Authentication", () => {
 
   test("should navigate to sign-up page", async ({ page }) => {
     // Look for sign up link - be more specific to avoid multiple matches
-    const signUpLink = page.getByRole("link", { name: /sign up/i });
+    const signUpLink = page.getByRole("link", { name: /sign up/i }).first();
 
     if (await signUpLink.isVisible()) {
       await signUpLink.click();
@@ -137,7 +137,9 @@ test.describe("Authentication", () => {
     // Check form elements - be more specific for password fields
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/^password$/i).first()).toBeVisible(); // First password field
-    await expect(page.getByRole("button", { name: /sign up/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /sign up/i }).first()
+    ).toBeVisible();
 
     // Check description text
     await expect(
@@ -148,8 +150,11 @@ test.describe("Authentication", () => {
   test("should show validation errors on sign-up form", async ({ page }) => {
     await page.goto("/auth/sign-up");
 
-    // Try to submit empty form
-    await page.getByRole("button", { name: /sign up/i }).click();
+    // Try to submit empty form - use first() to avoid strict mode violation
+    await page
+      .getByRole("button", { name: /sign up/i })
+      .first()
+      .click();
 
     // Wait for potential validation
     await page.waitForTimeout(1000);

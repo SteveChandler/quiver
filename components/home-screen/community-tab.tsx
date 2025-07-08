@@ -1,24 +1,19 @@
 "use client";
 
-import { UnifiedCommunityFeed } from "@/components/social/unified-community-feed";
-import { useAuth } from "@/context/auth-context";
-import type { SessionWithDetails } from "@/types/database";
+import { IntelDashboard } from "@/components/intel/intel-dashboard";
 
 interface CommunityTabProps {
-  sessions: SessionWithDetails[];
-  loading: boolean;
+  // Legacy props that are no longer needed but kept for compatibility
+  sessions?: any[];
+  loading?: boolean;
 }
 
 export function CommunityTab({ sessions, loading }: CommunityTabProps) {
-  const { user } = useAuth();
-
+  // The Local Intel Club has replaced the community feed
+  // All the functionality is now handled by the IntelDashboard component
   return (
-    <div className="max-w-2xl mx-auto">
-      <UnifiedCommunityFeed
-        sessions={sessions}
-        userId={user?.id}
-        loading={loading}
-      />
+    <div className="h-[calc(100vh-200px)] max-w-full mx-auto">
+      <IntelDashboard />
     </div>
   );
 }
