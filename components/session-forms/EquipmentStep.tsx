@@ -33,10 +33,12 @@ export function EquipmentStep({
   const [isAddBoardDialogOpen, setIsAddBoardDialogOpen] = useState(false);
   const [selectOpen, setSelectOpen] = useState(false);
 
-  const handleBoardAdded = () => {
+  const handleBoardAdded = (board: Board) => {
     if (onBoardsRefresh) {
       onBoardsRefresh();
     }
+    updateField("selectedBoard", board.id);
+    updateField("boardId", board.id);
     setIsAddBoardDialogOpen(false);
   };
 

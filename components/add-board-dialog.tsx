@@ -30,6 +30,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { createBoard } from "@/actions/board-actions";
 import { useAuth } from "@/context/auth-context";
+import type { Board } from "@/types/database";
 
 const boardFormSchema = z.object({
   name: z
@@ -56,7 +57,7 @@ type BoardFormValues = z.infer<typeof boardFormSchema>;
 interface AddBoardDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onBoardAdded?: () => void;
+  onBoardAdded?: (board: Board) => void;
   trigger?: React.ReactNode;
   children?: React.ReactNode;
 }
@@ -127,8 +128,8 @@ export function AddBoardDialog({
       router.refresh();
 
       // Call the callback to refresh data
-      if (onBoardAdded) {
-        onBoardAdded();
+      if (onBoardAdded && result.data) {
+        onBoardAdded(result.data);
       }
     } catch (error) {
       console.error("Error adding board:", error);
