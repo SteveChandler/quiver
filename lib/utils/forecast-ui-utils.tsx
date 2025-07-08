@@ -16,20 +16,70 @@ export function formatForecastTime(timeString: string): string {
 }
 
 /**
+ * Helper function to get normalized date string (YYYY-MM-DD) in user's timezone
+ */
+function getNormalizedDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Helper function to get current date in user's timezone
+ */
+function getCurrentDate(): string {
+  return getNormalizedDateString(new Date());
+}
+
+/**
+ * Helper function to get tomorrow's date in user's timezone
+ */
+function getTomorrowDate(): string {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return getNormalizedDateString(tomorrow);
+}
+
+/**
+ * Helper function to check if a date string is today
+ */
+function isDateToday(dateString: string): boolean {
+  return dateString === getCurrentDate();
+}
+
+/**
+ * Helper function to check if a date string is tomorrow
+ */
+function isDateTomorrow(dateString: string): boolean {
+  return dateString === getTomorrowDate();
+}
+
+/**
+ * Helper function to format date string into proper Date object
+ */
+function createDateFromString(dateString: string): Date {
+  // Handle both YYYY-MM-DD and ISO date formats
+  if (dateString.includes("T")) {
+    return new Date(dateString);
+  }
+
+  // For YYYY-MM-DD format, create date at local midnight
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/**
  * Format date string for display with relative labels
  */
 export function formatForecastDate(dateString: string): string {
   try {
-    const date = new Date(dateString);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    if (date.toDateString() === today.toDateString()) {
+    if (isDateToday(dateString)) {
       return "Today";
-    } else if (date.toDateString() === tomorrow.toDateString()) {
+    } else if (isDateTomorrow(dateString)) {
       return "Tomorrow";
     } else {
+      const date = createDateFromString(dateString);
       return date.toLocaleDateString([], {
         weekday: "short",
         month: "short",
@@ -89,23 +139,21 @@ export function formatForecastDateTime(
  * Get today's date in YYYY-MM-DD format
  */
 export function getTodayDateString(): string {
-  return new Date().toISOString().split("T")[0];
+  return getCurrentDate();
 }
 
 /**
  * Check if a date string is today
  */
 export function isToday(dateString: string): boolean {
-  return dateString === getTodayDateString();
+  return isDateToday(dateString);
 }
 
 /**
  * Check if a date string is tomorrow
  */
 export function isTomorrow(dateString: string): boolean {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return dateString === tomorrow.toISOString().split("T")[0];
+  return isDateTomorrow(dateString);
 }
 
 /**
@@ -323,84 +371,18 @@ export function groupForecastsBySwellDirection<
 }> {
   if (forecasts.length === 0) return [];
 
-  // Helper function to get all possible swell directions for a forecast
-  const getSwellDirections = (forecast: any) => {
-    const directions = [];
+  // Simple grouping by primary wave direction
+  const groups = forecasts.reduce((acc, forecast) => {
+    // Use primary swell direction, fallback to wave direction
+    let direction =
+      forecast.swell_1_direction || forecast.wave_direction || "Variable";
 
-    const swell1Height = parseFloat(
-      forecast.swell_1_height?.replace(/[^0-9.]/g, "") || "0"
-    );
-    const swell2Height = parseFloat(
-      forecast.swell_2_height?.replace(/[^0-9.]/g, "") || "0"
-    );
-
-    if (forecast.swell_1_direction && swell1Height > 0) {
-      directions.push({
-        direction: forecast.swell_1_direction,
-        height: swell1Height,
-        type: "primary",
-        period: forecast.swell_1_period,
-      });
+    if (!acc[direction]) {
+      acc[direction] = [];
     }
-
-    if (forecast.swell_2_direction && swell2Height > 0) {
-      directions.push({
-        direction: forecast.swell_2_direction,
-        height: swell2Height,
-        type: "secondary",
-        period: forecast.swell_2_period,
-      });
-    }
-
-    // Fallback to wave direction if no swell data
-    if (directions.length === 0 && forecast.wave_direction) {
-      const waveHeight = parseFloat(
-        forecast.wave_height?.replace(/[^0-9.]/g, "") || "0"
-      );
-      directions.push({
-        direction: forecast.wave_direction,
-        height: waveHeight,
-        type: "mixed",
-        period: forecast.wave_period,
-      });
-    }
-
-    // Return dominant direction (highest wave)
-    if (directions.length === 0) {
-      return { direction: "Variable", height: 0, type: "mixed", period: null };
-    }
-
-    return directions.reduce((prev, current) =>
-      current.height > prev.height ? current : prev
-    );
-  };
-
-  // Group by dominant swell direction
-  const groups = forecasts.reduce(
-    (acc, forecast) => {
-      const dominant = getSwellDirections(forecast);
-      const direction = dominant.direction;
-
-      if (!acc[direction]) {
-        acc[direction] = [];
-      }
-      acc[direction].push({
-        ...forecast,
-        dominantSwellType: dominant.type,
-        dominantHeight: dominant.height,
-        dominantPeriod: dominant.period,
-      });
-      return acc;
-    },
-    {} as Record<
-      string,
-      (T & {
-        dominantSwellType: "primary" | "secondary" | "mixed";
-        dominantHeight: number;
-        dominantPeriod: string | null;
-      })[]
-    >
-  );
+    acc[direction].push(forecast);
+    return acc;
+  }, {} as Record<string, T[]>);
 
   // Convert to array with representative data
   return Object.entries(groups)
@@ -461,15 +443,13 @@ export function groupForecastsBySwellDirection<
       const representativeIndex = Math.floor(sortedForecasts.length / 2);
       const representative = sortedForecasts[representativeIndex];
 
-      // Determine the most common swell type in this group
-      const swellTypeCounts = sortedForecasts.reduce((acc, f) => {
-        acc[f.dominantSwellType] = (acc[f.dominantSwellType] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const dominantSwellType = Object.entries(swellTypeCounts).reduce((a, b) =>
-        swellTypeCounts[a[0]] > swellTypeCounts[b[0]] ? a : b
-      )[0] as "primary" | "secondary" | "mixed";
+      // Determine swell type based on what data is available
+      let swellType: "primary" | "secondary" | "mixed" = "mixed";
+      if (representative.swell_1_height) {
+        swellType = "primary";
+      } else if (representative.swell_2_height) {
+        swellType = "secondary";
+      }
 
       return {
         direction,
@@ -477,7 +457,7 @@ export function groupForecastsBySwellDirection<
         representative,
         timeRange,
         count: sortedForecasts.length,
-        swellType: dominantSwellType,
+        swellType,
       };
     })
     .sort((a, b) => {

@@ -148,14 +148,14 @@ export function InteractiveMap({
       // Create the actual badge element as a child
       const badge = document.createElement("div");
       badge.style.cssText = `
-        padding: 4px 12px;
+        padding: 6px 14px;
         border-radius: 9999px;
         color: white;
-        font-size: 14px;
+        font-size: 16px;
         font-weight: 600;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         cursor: pointer;
-        min-width: 60px;
+        min-width: 70px;
         text-align: center;
         border: 2px solid white;
         user-select: none;

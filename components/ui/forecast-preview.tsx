@@ -23,9 +23,9 @@ export function ForecastPreview({
   if (loading) {
     return (
       <div
-        className={`flex items-center text-xs text-muted-foreground ${className}`}
+        className={`flex items-center text-sm text-muted-foreground ${className}`}
       >
-        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
         Loading forecast...
       </div>
     );
@@ -33,7 +33,7 @@ export function ForecastPreview({
 
   if (error) {
     return (
-      <div className={`text-xs text-muted-foreground ${className}`}>
+      <div className={`text-sm text-muted-foreground ${className}`}>
         {error}
       </div>
     );
@@ -41,7 +41,7 @@ export function ForecastPreview({
 
   if (!forecastPreview) {
     return (
-      <div className={`text-xs text-muted-foreground ${className}`}>
+      <div className={`text-sm text-muted-foreground ${className}`}>
         No forecast data available
       </div>
     );
@@ -49,21 +49,21 @@ export function ForecastPreview({
 
   if (variant === "inline") {
     return (
-      <div className={`flex items-center space-x-4 text-xs ${className}`}>
+      <div className={`flex items-center justify-between text-sm ${className}`}>
         <div className="flex items-center text-blue-600">
-          <Waves className="h-3 w-3 mr-1" />
+          <Waves className="h-4 w-4 mr-1" />
           <span>{forecastPreview.wave_height}</span>
         </div>
         <div className="flex items-center text-gray-600">
-          <Wind className="h-3 w-3 mr-1" />
+          <Wind className="h-4 w-4 mr-1" />
           <span>{forecastPreview.wind_speed}</span>
         </div>
         <div className="flex items-center text-orange-600">
-          <Thermometer className="h-3 w-3 mr-1" />
+          <Thermometer className="h-4 w-4 mr-1" />
           <span>{forecastPreview.weather_condition.split(" ")[0]}</span>
         </div>
         {showConfidenceScore && forecastPreview.confidence_score && (
-          <div className="text-xs text-muted-foreground">
+          <div className="text-sm text-muted-foreground">
             Confidence: {forecastPreview.confidence_score}%
           </div>
         )}
@@ -73,22 +73,22 @@ export function ForecastPreview({
 
   return (
     <div className={`space-y-2 ${className}`}>
-      <div className="grid grid-cols-3 gap-2 text-xs">
+      <div className="flex items-center justify-between text-sm">
         <div className="flex items-center text-blue-600">
-          <Waves className="h-3 w-3 mr-1" />
+          <Waves className="h-4 w-4 mr-1" />
           <span>{forecastPreview.wave_height}</span>
         </div>
         <div className="flex items-center text-gray-600">
-          <Wind className="h-3 w-3 mr-1" />
+          <Wind className="h-4 w-4 mr-1" />
           <span>{forecastPreview.wind_speed}</span>
         </div>
         <div className="flex items-center text-orange-600">
-          <Thermometer className="h-3 w-3 mr-1" />
+          <Thermometer className="h-4 w-4 mr-1" />
           <span>{forecastPreview.weather_condition.split(" ")[0]}</span>
         </div>
       </div>
       {showConfidenceScore && forecastPreview.confidence_score && (
-        <div className="text-xs text-muted-foreground">
+        <div className="text-sm text-muted-foreground">
           Confidence: {forecastPreview.confidence_score}%
         </div>
       )}

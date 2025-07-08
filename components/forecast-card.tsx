@@ -2,6 +2,9 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Waves, Wind, Thermometer, Navigation } from "lucide-react";
+import { TideDirection } from "@/components/ui/tide-direction";
+import { TideTiming } from "@/components/ui/tide-timing";
+import { WavePeriodDisplay } from "@/components/ui/wave-period-display";
 
 // Enhanced forecast interface matching the database structure
 interface EnhancedForecast {
@@ -79,6 +82,7 @@ export function ForecastCard(props: ForecastCardProps) {
   let windSpeed: string;
   let waterTemp: string | undefined;
   let waveDirection: string | undefined;
+  let enhancedForecast: EnhancedForecast | undefined;
 
   if (isEnhanced) {
     const {
@@ -87,6 +91,9 @@ export function ForecastCard(props: ForecastCardProps) {
       showDate = true,
       showBeachName = false,
     } = props;
+
+    // Store the forecast for later use
+    enhancedForecast = forecast;
 
     // Extract data from enhanced forecast
     const forecastDate = new Date(forecast.forecast_date);
@@ -148,51 +155,104 @@ export function ForecastCard(props: ForecastCardProps) {
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-300 bg-white/90 backdrop-blur-sm">
-      <CardContent className="p-4 text-center">
-        <div className="flex flex-col items-center space-y-4">
-          {/* Day and Date Section */}
-          <div className="text-center">
-            <p className="font-roboto font-semibold text-dark-grey">{day}</p>
+      <CardContent className="p-4">
+        <div className="space-y-3">
+          {/* Day and Date Header */}
+          <div className="text-center pb-2 border-b border-gray-100">
+            <p className="font-roboto font-semibold text-dark-grey text-lg">
+              {day}
+            </p>
             <p className="text-sm text-gray-600 font-open-sans">{date}</p>
           </div>
 
-          {/* Conditions Row */}
-          <div className="flex items-center justify-center gap-4 md:gap-6">
-            <div className="flex flex-col items-center text-center">
-              <Waves className="h-6 w-6 text-ocean-blue mb-1" />
-              <p className="text-lg font-bold text-ocean-blue font-montserrat">
-                {waveHeight}
-              </p>
-              <p className="text-sm text-gray-600 font-open-sans">High</p>
+          {/* Wave Information - Primary */}
+          <div className="flex justify-center">
+            <WavePeriodDisplay
+              waveHeight={waveHeight}
+              wavePeriod={
+                isEnhanced ? enhancedForecast?.wave_period : undefined
+              }
+              waveDirection={waveDirection}
+              variant="compact"
+            />
+          </div>
+
+          {/* Tide Information Grid - Enhanced Layout */}
+          {isEnhanced && enhancedForecast && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-2">
+              <div className="flex justify-center">
+                <TideDirection
+                  status={enhancedForecast.tide_status}
+                  currentHeight={enhancedForecast.tide_height}
+                  variant="compact"
+                />
+              </div>
+              <div className="flex justify-center">
+                <TideTiming
+                  nextTideTime={enhancedForecast.next_tide_time}
+                  nextTideType={enhancedForecast.next_tide_type}
+                  nextTideHeight={enhancedForecast.next_tide_height}
+                  variant="compact"
+                />
+              </div>
             </div>
+          )}
+
+          {/* Weather & Conditions Row */}
+          <div className="grid grid-cols-2 gap-4 px-2">
             <div className="flex flex-col items-center text-center">
-              <Wind className="h-6 w-6 text-gray-600 mb-1" />
-              <p className="text-md font-semibold text-dark-grey font-montserrat">
+              <Wind className="h-5 w-5 text-gray-600 mb-1" />
+              <p className="text-sm font-semibold text-dark-grey font-montserrat">
                 {windSpeed}
               </p>
-              <p className="text-sm text-gray-600 font-open-sans">Wind</p>
+              <p className="text-xs text-gray-600 font-open-sans">Wind</p>
             </div>
-            {waveDirection && (
+
+            {waterTemp ? (
               <div className="flex flex-col items-center text-center">
-                <Navigation className="h-6 w-6 text-blue-500 mb-1" />
-                <p className="text-md font-semibold text-dark-grey font-montserrat">
-                  {waveDirection}
-                </p>
-                <p className="text-sm text-gray-600 font-open-sans">
-                  Direction
-                </p>
-              </div>
-            )}
-            {waterTemp && (
-              <div className="flex flex-col items-center text-center">
-                <Thermometer className="h-6 w-6 text-green-600 mb-1" />
-                <p className="text-md font-semibold text-dark-grey font-montserrat">
+                <Thermometer className="h-5 w-5 text-green-600 mb-1" />
+                <p className="text-sm font-semibold text-dark-grey font-montserrat">
                   {waterTemp}
                 </p>
-                <p className="text-sm text-gray-600 font-open-sans">Water</p>
+                <p className="text-xs text-gray-600 font-open-sans">Water</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center text-center">
+                <div className="h-5 w-5 mb-1 flex items-center justify-center">
+                  <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                </div>
+                <p className="text-sm font-semibold text-gray-400 font-montserrat">
+                  N/A
+                </p>
+                <p className="text-xs text-gray-600 font-open-sans">Water</p>
               </div>
             )}
           </div>
+
+          {/* Confidence Score Row - Enhanced forecast only */}
+          {isEnhanced && enhancedForecast?.confidence_score && (
+            <div className="flex justify-center px-2">
+              <div className="flex flex-col items-center text-center">
+                <div className="h-5 w-5 mb-1 flex items-center justify-center">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      enhancedForecast.confidence_score >= 80
+                        ? "bg-green-500"
+                        : enhancedForecast.confidence_score >= 60
+                        ? "bg-yellow-500"
+                        : "bg-red-500"
+                    }`}
+                  />
+                </div>
+                <p className="text-sm font-semibold text-dark-grey font-montserrat">
+                  {enhancedForecast.confidence_score}%
+                </p>
+                <p className="text-xs text-gray-600 font-open-sans">
+                  Confidence
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -224,10 +284,10 @@ export function GroupedForecastCard({
 
   return (
     <Card className="hover:shadow-lg transition-shadow duration-300 bg-white/90 backdrop-blur-sm">
-      <CardContent className="p-4 text-center">
-        <div className="flex flex-col items-center space-y-3">
-          {/* Wind Direction Header */}
-          <div className="text-center">
+      <CardContent className="p-4">
+        <div className="space-y-3">
+          {/* Direction Header */}
+          <div className="text-center pb-2 border-b border-gray-100">
             <p className="font-roboto font-bold text-lg text-blue-600">
               {direction}
             </p>
@@ -242,15 +302,15 @@ export function GroupedForecastCard({
           </div>
 
           {/* Conditions Row */}
-          <div className="flex items-center justify-center gap-3 md:gap-4">
-            <div className="flex flex-col items-center text-center">
+          <div className="flex items-center justify-between px-2">
+            <div className="flex flex-col items-center text-center min-w-[60px]">
               <Waves className="h-5 w-5 text-ocean-blue mb-1" />
               <p className="text-md font-bold text-ocean-blue font-montserrat">
                 {waveHeight}
               </p>
               <p className="text-xs text-gray-600 font-open-sans">Waves</p>
             </div>
-            <div className="flex flex-col items-center text-center">
+            <div className="flex flex-col items-center text-center min-w-[60px]">
               <Wind className="h-5 w-5 text-gray-600 mb-1" />
               <p className="text-md font-semibold text-dark-grey font-montserrat">
                 {windSpeed}
@@ -258,7 +318,7 @@ export function GroupedForecastCard({
               <p className="text-xs text-gray-600 font-open-sans">Wind</p>
             </div>
             {waveDirection && (
-              <div className="flex flex-col items-center text-center">
+              <div className="flex flex-col items-center text-center min-w-[60px]">
                 <Navigation className="h-5 w-5 text-blue-500 mb-1" />
                 <p className="text-sm font-semibold text-dark-grey font-montserrat">
                   {waveDirection}
@@ -267,7 +327,7 @@ export function GroupedForecastCard({
               </div>
             )}
             {waterTemp && (
-              <div className="flex flex-col items-center text-center">
+              <div className="flex flex-col items-center text-center min-w-[60px]">
                 <Thermometer className="h-5 w-5 text-green-600 mb-1" />
                 <p className="text-sm font-semibold text-dark-grey font-montserrat">
                   {waterTemp}
@@ -370,7 +430,7 @@ export function GroupedSwellForecastCard({
           </div>
 
           {/* Conditions Row */}
-          <div className="flex items-center justify-center gap-3 md:gap-4">
+          <div className="flex items-center justify-between px-2">
             <div className="flex flex-col items-center text-center">
               <Waves className="h-5 w-5 text-ocean-blue mb-1" />
               <p className="text-md font-bold text-ocean-blue font-montserrat">

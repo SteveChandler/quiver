@@ -441,6 +441,26 @@ export class EnhancedForecastService {
   }
 
   /**
+   * Helper function to get normalized date string (YYYY-MM-DD) in local timezone
+   */
+  private getNormalizedDateString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * Helper function to get normalized time string (HH:MM:SS) in local timezone
+   */
+  private getNormalizedTimeString(date: Date): string {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  /**
    * Combine all data sources into comprehensive forecast
    */
   private combineDataSources({
@@ -491,8 +511,8 @@ export class EnhancedForecastService {
 
       forecasts.push({
         id: `forecast-${beach.id}-${i}`, // Temporary ID for now
-        forecast_date: forecastTime.toISOString().split("T")[0],
-        forecast_time: forecastTime.toISOString().split("T")[1].substring(0, 8),
+        forecast_date: this.getNormalizedDateString(forecastTime),
+        forecast_time: this.getNormalizedTimeString(forecastTime),
 
         // Wave data from WaveWatch III or buoy
         wave_height:
@@ -628,10 +648,14 @@ export class EnhancedForecastService {
       tideData.tides,
       targetTime
     );
-    const currentHeight = this.coopsService.getCurrentTideHeight(
-      tideData.tides
+    const currentHeight = this.coopsService.getTideHeightAtTime(
+      tideData.tides,
+      targetTime
     );
-    const nextTide = this.coopsService.getNextTide(tideData.tides);
+    const nextTide = this.coopsService.getNextTideFromTime(
+      tideData.tides,
+      targetTime
+    );
 
     // Find current data for this time
     const targetTimestamp = targetTime.getTime() / 1000;

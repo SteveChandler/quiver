@@ -13,9 +13,12 @@ import {
 } from "lucide-react";
 import { useEnhancedForecast } from "@/hooks/use-enhanced-forecast";
 import { ForecastStats } from "./forecast/forecast-stats";
-import { DateNavigation } from "./forecast/date-navigation";
-import { ForecastDisplay } from "./forecast/forecast-display";
 import { LoadingSpinner, ErrorDisplay } from "@/lib/utils/forecast-ui-utils";
+import {
+  ForecastDataTransparency,
+  createMockDataSources,
+} from "@/components/ui/forecast-data-transparency";
+import { MultiDayForecastTable } from "./forecast/multi-day-forecast-table";
 
 interface BeachesEnhancedForecastProps {
   beachId?: string;
@@ -72,9 +75,9 @@ export function BeachesEnhancedForecast({
   }
 
   return (
-    <Card>
+    <Card className="w-full">
       {showHeader && (
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between pb-4">
           <div className="flex items-center space-x-2">
             <Waves className="h-5 w-5 text-blue-600" />
             <CardTitle className="text-lg">
@@ -99,9 +102,9 @@ export function BeachesEnhancedForecast({
         </CardHeader>
       )}
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         {autoGenerating ? (
-          <div className="text-center py-8">
+          <div className="text-center py-6">
             <div className="relative">
               <Waves className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-pulse" />
               <Zap className="h-6 w-6 text-yellow-500 absolute top-0 right-1/2 transform translate-x-1/2 animate-bounce" />
@@ -120,7 +123,7 @@ export function BeachesEnhancedForecast({
             </div>
           </div>
         ) : forecasts.length === 0 ? (
-          <div className="text-center py-8">
+          <div className="text-center py-6">
             <Waves className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No Forecast Data</h3>
             <p className="text-muted-foreground mb-4">
@@ -143,8 +146,8 @@ export function BeachesEnhancedForecast({
             </Button>
           </div>
         ) : (
-          <>
-            {/* Forecast Stats Component */}
+          <div className="space-y-4">
+            {/* Enhanced Forecast Stats and Overview */}
             <ForecastStats
               forecasts={forecasts}
               availableDates={availableDates}
@@ -160,29 +163,19 @@ export function BeachesEnhancedForecast({
               </div>
             </div>
 
-            {/* Date Navigation Component */}
-            <DateNavigation
-              availableDates={availableDates}
-              selectedDate={selectedDate}
-              onDateSelect={setSelectedDate}
-            />
-
-            {/* Forecast Display Component */}
-            <ForecastDisplay
-              selectedDate={selectedDate}
-              selectedDateForecasts={selectedDateForecasts}
-            />
+            {/* Multi-Day Table Forecast Display */}
+            <MultiDayForecastTable forecasts={forecasts} />
 
             {/* Data Sources Info - Collapsible */}
-            <details className="group">
+            <details className="group mt-4">
               <summary className="cursor-pointer flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                 <TrendingUp className="h-4 w-4 transition-transform group-open:rotate-90" />
                 Enhanced Forecast Data Sources
               </summary>
-              <div className="mt-3 p-4 bg-muted/30 rounded-lg text-sm space-y-2">
+              <div className="mt-3 p-4 bg-muted/30 rounded-lg text-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <h5 className="font-medium mb-1">Wave Data</h5>
+                    <h5 className="font-medium mb-2">Wave Data</h5>
                     <ul className="text-muted-foreground space-y-1">
                       <li>• NOAA WaveWatch III Global Model</li>
                       <li>• Real-time NDBC Buoy Observations</li>
@@ -190,7 +183,7 @@ export function BeachesEnhancedForecast({
                     </ul>
                   </div>
                   <div>
-                    <h5 className="font-medium mb-1">Weather & Tides</h5>
+                    <h5 className="font-medium mb-2">Weather & Tides</h5>
                     <ul className="text-muted-foreground space-y-1">
                       <li>• NOAA Weather Service API</li>
                       <li>• CO-OPS Tidal Predictions</li>
@@ -198,14 +191,14 @@ export function BeachesEnhancedForecast({
                     </ul>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground pt-2 border-t">
+                <p className="text-xs text-muted-foreground pt-3 mt-3 border-t">
                   Confidence scores are calculated based on data freshness,
                   source reliability, and forecast horizon. Enhanced forecasts
                   combine multiple data sources for improved accuracy.
                 </p>
               </div>
             </details>
-          </>
+          </div>
         )}
       </CardContent>
     </Card>
