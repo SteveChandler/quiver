@@ -33,11 +33,29 @@ export function EquipmentStep({
   const [isAddBoardDialogOpen, setIsAddBoardDialogOpen] = useState(false);
   const [selectOpen, setSelectOpen] = useState(false);
 
-  const handleBoardAdded = () => {
-    if (onBoardsRefresh) {
-      onBoardsRefresh();
+  const handleBoardAdded = async (newBoard?: Board) => {
+    // Auto-select the newly created board immediately
+    if (newBoard) {
+      updateField("selectedBoard", newBoard.id);
+      updateField("boardId", newBoard.id);
     }
+    
     setIsAddBoardDialogOpen(false);
+    
+    // Refresh boards list after everything else is done
+    if (onBoardsRefresh) {
+      try {
+        await onBoardsRefresh();
+        
+        // Ensure the board stays selected after refresh
+        if (newBoard) {
+          updateField("selectedBoard", newBoard.id);
+          updateField("boardId", newBoard.id);
+        }
+      } catch (error) {
+        console.error("Error refreshing boards:", error);
+      }
+    }
   };
 
   const handleAddNewBoard = () => {
