@@ -30,6 +30,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { createBoard } from "@/actions/board-actions";
 import { useAuth } from "@/context/auth-context";
+import type { Board } from "@/types/database";
 
 const boardFormSchema = z.object({
   name: z
@@ -56,7 +57,7 @@ type BoardFormValues = z.infer<typeof boardFormSchema>;
 interface AddBoardDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onBoardAdded?: () => void;
+  onBoardAdded?: (board?: Board) => void;
   trigger?: React.ReactNode;
   children?: React.ReactNode;
 }
@@ -94,7 +95,13 @@ export function AddBoardDialog({
     });
   };
 
-  const handleAddBoard = async (data: BoardFormValues) => {
+  const handleAddBoard = async (data: BoardFormValues, event?: React.FormEvent) => {
+    // Prevent the form submit from bubbling up to any parent forms
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     if (!user?.id) return;
 
     setIsSubmitting(true);
@@ -126,9 +133,9 @@ export function AddBoardDialog({
       resetForm();
       router.refresh();
 
-      // Call the callback to refresh data
+      // Call the callback to refresh data and pass the created board
       if (onBoardAdded) {
-        onBoardAdded();
+        onBoardAdded(result.data);
       }
     } catch (error) {
       console.error("Error adding board:", error);
@@ -167,7 +174,11 @@ export function AddBoardDialog({
       </DialogHeader>
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit(handleAddBoard)}
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit((data) => handleAddBoard(data, e))(e);
+          }}
           className="space-y-4"
         >
           <FormField
