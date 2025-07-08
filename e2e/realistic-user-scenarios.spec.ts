@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForPageLoad, handleAuthRedirect } from "./test-helpers";
 
 test.describe("Realistic User Scenarios", () => {
   test.describe("Weekend Warrior Surfer", () => {
@@ -7,13 +8,14 @@ test.describe("Realistic User Scenarios", () => {
     }) => {
       // Scenario: User checks app on Friday evening to plan weekend surf
       await page.goto("/");
-      await page.waitForTimeout(2000);
+      await waitForPageLoad(page);
 
       // 1. Check current conditions on Forecast tab (default)
       const forecastContent = page
         .getByTestId("forecast-content")
         .or(page.locator(".forecast-card"))
-        .or(page.getByText("Forecast", { exact: false }));
+        .or(page.getByText("Forecast", { exact: false }))
+        .first();
 
       if (await forecastContent.isVisible()) {
         console.log("Forecast tab accessible for planning");

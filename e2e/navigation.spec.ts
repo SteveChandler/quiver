@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForPageLoad, handleAuthRedirect, waitForNavigation } from "./test-helpers";
 
 test.describe("Navigation", () => {
   test.beforeEach(async ({ page }) => {
@@ -10,9 +11,8 @@ test.describe("Navigation", () => {
     // Start from the home page
     await page.goto("/");
 
-    // Wait for page to load
-    await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(1000);
+    // Wait for page to load reliably
+    await waitForPageLoad(page);
   });
 
   test("should navigate to all main pages via bottom navigation", async ({

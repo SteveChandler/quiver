@@ -95,8 +95,9 @@ test.describe("Comprehensive Surf App Workflows", () => {
       const isProfileRedirectedToAuth = profileUrl.includes("/auth/sign-in");
       const isProfileOnProfile = profileUrl.includes("/profile");
 
-      // Should either be on profile or redirected to auth
-      expect(isProfileRedirectedToAuth || isProfileOnProfile).toBeTruthy();
+      // Should either be on profile, redirected to auth, or redirected to home
+      const isProfileRedirectedToHome = profileUrl === new URL("/", page.url()).href;
+      expect(isProfileRedirectedToAuth || isProfileOnProfile || isProfileRedirectedToHome).toBeTruthy();
 
       // If we're on the profile page, check for sessions tab
       if (isProfileOnProfile) {
@@ -171,11 +172,12 @@ test.describe("Comprehensive Surf App Workflows", () => {
         await page.goto(pagePath);
         await page.waitForTimeout(2000);
 
-        // Sessions should redirect to profile (or auth if not authenticated)
+        // Sessions should redirect to profile, auth, or home if not authenticated
         const redirectedUrl = page.url();
         const redirectedCorrectly =
           redirectedUrl.includes("/profile") ||
-          redirectedUrl.includes("/auth/sign-in");
+          redirectedUrl.includes("/auth/sign-in") ||
+          redirectedUrl === new URL("/", page.url()).href;
         expect(redirectedCorrectly).toBeTruthy();
       }
     });

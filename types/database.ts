@@ -300,6 +300,47 @@ export type ExportResult = {
   expiresAt: string;
 };
 
+// Intel post types for Local Intel Club feature
+export type IntelPostTag =
+  | "parking"
+  | "hazard"
+  | "crowd"
+  | "conditions"
+  | "access"
+  | "other";
+
+export type IntelPost = {
+  id: string;
+  user_id: string;
+  latitude: number;
+  longitude: number;
+  tag: IntelPostTag;
+  title: string;
+  description: string;
+  photo_url?: string | null;
+  photo_storage_path?: string | null;
+  confirmations_count: number;
+  is_active: boolean;
+  expires_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type IntelPostConfirmation = {
+  id: string;
+  intel_post_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+export type IntelPostWithUser = IntelPost & {
+  user: {
+    full_name: string;
+    avatar_url: string | null;
+  };
+  user_confirmed?: boolean; // Whether the current user has confirmed this post
+};
+
 // Database schema with tables
 export type Database = {
   public: {
@@ -354,9 +395,20 @@ export type Database = {
         Insert: Omit<UserActivity, "id" | "created_at">;
         Update: Partial<Omit<UserActivity, "id" | "created_at">>;
       };
+      intel_posts: {
+        Row: IntelPost;
+        Insert: Omit<IntelPost, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<IntelPost, "id" | "created_at" | "updated_at">>;
+      };
+      intel_post_confirmations: {
+        Row: IntelPostConfirmation;
+        Insert: Omit<IntelPostConfirmation, "id" | "created_at">;
+        Update: Partial<Omit<IntelPostConfirmation, "id" | "created_at">>;
+      };
     };
     Enums: {
       session_status: SessionStatus;
+      intel_post_tag: IntelPostTag;
     };
   };
 };

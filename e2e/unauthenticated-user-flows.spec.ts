@@ -32,10 +32,11 @@ test.describe("Unauthenticated User Flows", () => {
           console.log("Landing page hero section visible");
         }
 
-        // Look for sign up CTA
+        // Look for sign up CTA - use first() to avoid strict mode violations
         const signUpCTA = page
           .getByRole("link", { name: /sign up|get started|join/i })
-          .or(page.getByRole("button", { name: /sign up|get started|join/i }));
+          .or(page.getByRole("button", { name: /sign up|get started|join/i }))
+          .first();
 
         if (await signUpCTA.isVisible()) {
           console.log("Sign up CTA visible on landing page");
@@ -227,16 +228,20 @@ test.describe("Unauthenticated User Flows", () => {
       // Check if sign up form is visible
       const signUpForm = page.locator("form");
       if (await signUpForm.isVisible()) {
-        // Look for required fields
+        // Look for required fields - use first() to avoid strict mode violations
         const emailField = page
           .getByLabel(/email/i)
-          .or(page.locator("input[type='email']"));
+          .or(page.locator("input[type='email']"))
+          .first();
         const passwordField = page
           .getByLabel(/password/i)
-          .or(page.locator("input[type='password']"));
-        const submitButton = page.getByRole("button", {
-          name: /sign up|create account/i,
-        });
+          .or(page.locator("input[type='password']"))
+          .first();
+        const submitButton = page
+          .getByRole("button", {
+            name: /sign up|create account/i,
+          })
+          .first();
 
         const hasRequiredFields =
           (await emailField.isVisible()) &&
@@ -289,9 +294,11 @@ test.describe("Unauthenticated User Flows", () => {
         }
 
         // Check for link to sign in
-        const signInLink = page.getByRole("link", {
-          name: /sign in|already have account/i,
-        });
+        const signInLink = page
+          .getByRole("link", {
+            name: /sign in|already have account/i,
+          })
+          .first();
         if (await signInLink.isVisible()) {
           console.log("Sign in link available for existing users");
         }
@@ -303,10 +310,12 @@ test.describe("Unauthenticated User Flows", () => {
       await page.goto("/auth/sign-up");
       await page.waitForTimeout(2000);
 
-      // Look for sign in link
-      const signInLink = page.getByRole("link", {
-        name: /sign in|already.*account/i,
-      });
+      // Look for sign in link - use first() to avoid strict mode violations
+      const signInLink = page
+        .getByRole("link", {
+          name: /sign in|already.*account/i,
+        })
+        .first();
       if (await signInLink.isVisible()) {
         await signInLink.click();
         await page.waitForTimeout(1000);
@@ -315,9 +324,11 @@ test.describe("Unauthenticated User Flows", () => {
         expect(page.url().includes("/auth/sign-in")).toBeTruthy();
 
         // Look for sign up link
-        const signUpLink = page.getByRole("link", {
-          name: /sign up|create.*account/i,
-        });
+        const signUpLink = page
+          .getByRole("link", {
+            name: /sign up|create.*account/i,
+          })
+          .first();
         if (await signUpLink.isVisible()) {
           await signUpLink.click();
           await page.waitForTimeout(1000);
