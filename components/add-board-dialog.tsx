@@ -167,7 +167,10 @@ export function AddBoardDialog({
       </DialogHeader>
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit(handleAddBoard)}
+          onSubmit={(e) => {
+            e.stopPropagation();
+            form.handleSubmit(handleAddBoard)(e);
+          }}
           className="space-y-4"
         >
           <FormField
