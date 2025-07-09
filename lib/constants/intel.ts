@@ -92,10 +92,10 @@ export const INTEL_UI_TEXT = {
   },
   VALIDATION: {
     TITLE_REQUIRED: "Title is required",
-    TITLE_TOO_LONG: `Title must be ${INTEL_CONFIG.MAX_TITLE_LENGTH} characters or less`,
+    TITLE_TOO_LONG: "Title must be 100 characters or less",
     DESCRIPTION_REQUIRED: "Description is required",
-    DESCRIPTION_TOO_LONG: `Description must be ${INTEL_CONFIG.MAX_DESCRIPTION_LENGTH} characters or less`,
-    TAG_REQUIRED: "Intel type is required",
+    DESCRIPTION_TOO_LONG: "Description must be 500 characters or less",
+    INVALID_TAG: "Invalid tag selected",
     LOCATION_REQUIRED: "Location is required",
     PHOTO_TOO_LARGE: "Photo must be smaller than 5MB",
     PHOTO_INVALID_TYPE: "Photo must be JPEG, PNG, or WebP",
