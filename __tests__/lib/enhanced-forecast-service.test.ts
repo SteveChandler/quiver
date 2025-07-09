@@ -38,7 +38,13 @@ jest.mock("@/lib/services/noaa-coops-service", () => ({
     fetchCOOPSData: jest.fn(() => Promise.resolve({ tides: [], currents: [] })),
     getTideStatusAtTime: jest.fn(() => "Rising"),
     getCurrentTideHeight: jest.fn(() => 2.5),
+    getTideHeightAtTime: jest.fn(() => 2.5),
     getNextTide: jest.fn(() => ({
+      time: Date.now() / 1000,
+      name: "High",
+      height: 4.2,
+    })),
+    getNextTideFromTime: jest.fn(() => ({
       time: Date.now() / 1000,
       name: "High",
       height: 4.2,

@@ -13,7 +13,12 @@ import {
   searchBeachWithForecast,
   searchBeachWithForecastLegacy,
 } from "@/lib/utils/beach-search-utils";
+import { TideDirection } from "@/components/ui/tide-direction";
+import { TideTiming } from "@/components/ui/tide-timing";
+import { WavePeriodDisplay } from "@/components/ui/wave-period-display";
+import { ForecastDataTransparency } from "@/components/ui/forecast-data-transparency";
 import type { Beach, Profile } from "@/types/database";
+import type { EnhancedForecast } from "@/types/database";
 
 interface BeachSearchProps {
   profile?: Profile | null;
@@ -29,7 +34,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [beach, setBeach] = useState<Beach | null>(null);
-  const [forecast, setForecast] = useState<any>(null);
+  const [forecast, setForecast] = useState<EnhancedForecast | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isWaitingForProfile, setIsWaitingForProfile] = useState(true);
   const [showFallbackMessage, setShowFallbackMessage] = useState(false);
@@ -37,6 +42,30 @@ export function BeachSearch({ profile }: BeachSearchProps) {
   const [isOutOfAreaSearch, setIsOutOfAreaSearch] = useState(false);
   const [availableBeaches, setAvailableBeaches] = useState<Beach[]>([]);
   const [loadingBeaches, setLoadingBeaches] = useState(false);
+
+  // Fetch enhanced forecast data for a beach
+  const fetchEnhancedForecast = async (
+    beachId: string
+  ): Promise<EnhancedForecast | null> => {
+    try {
+      const response = await fetch(
+        `/api/forecasts/update-enhanced?beachId=${beachId}&days=1`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data?.forecasts?.length > 0) {
+          // Get today's forecast (first available)
+          return data.data.forecasts[0];
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error fetching enhanced forecast:", error);
+      return null;
+    }
+  };
 
   // Load available beaches for fallback display
   const loadAvailableBeaches = async () => {
@@ -107,10 +136,20 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     }
 
     try {
+      // First, search for the beach using the existing function
       const result = await searchBeachWithForecast(beachName);
 
       setBeach(result.beach);
-      setForecast(result.forecast);
+
+      // Then fetch enhanced forecast data
+      const enhancedForecast = await fetchEnhancedForecast(result.beach.id);
+
+      if (enhancedForecast) {
+        setForecast(enhancedForecast);
+      } else {
+        // Fallback to basic forecast if enhanced forecast fails
+        setForecast(result.forecast);
+      }
 
       // Check if we need to show a fallback message
       if (isUserSearch && !doesBeachMatchSearch(result.beach.name, beachName)) {
@@ -124,7 +163,6 @@ export function BeachSearch({ profile }: BeachSearchProps) {
               COVERAGE_MESSAGES.getOutOfAreaMessage(beachName)
           );
         }
-      } else if (isUserSearch) {
       }
     } catch (err: any) {
       console.error("Error fetching beach forecast:", err);
@@ -136,10 +174,19 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       // If this is a user search that failed, try to show Ocean Beach with fallback message
       if (isUserSearch) {
         try {
-          const { beach: fallbackBeach, forecast: fallbackForecast } =
-            await searchBeachWithForecastLegacy("Ocean Beach");
+          const { beach: fallbackBeach } = await searchBeachWithForecastLegacy(
+            "Ocean Beach"
+          );
           setBeach(fallbackBeach);
-          setForecast(fallbackForecast);
+
+          // Try to get enhanced forecast for fallback beach
+          const enhancedForecast = await fetchEnhancedForecast(
+            fallbackBeach.id
+          );
+          if (enhancedForecast) {
+            setForecast(enhancedForecast);
+          }
+
           setShowFallbackMessage(true);
 
           // Set out-of-area messaging if applicable
@@ -178,8 +225,15 @@ export function BeachSearch({ profile }: BeachSearchProps) {
 
       if (result.success && result.data) {
         const favoriteBeach = result.data;
+        setBeach(favoriteBeach);
         setQuery(favoriteBeach.name);
-        await fetchBeachData(favoriteBeach.name);
+
+        // Fetch enhanced forecast data
+        const enhancedForecast = await fetchEnhancedForecast(favoriteBeach.id);
+        if (enhancedForecast) {
+          setForecast(enhancedForecast);
+        }
+
         return;
       }
 
@@ -191,6 +245,9 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       // Fall back to Huntington Beach
       setQuery("Huntington Beach");
       await fetchBeachData("Huntington Beach");
+    } finally {
+      setLoading(false);
+      setIsWaitingForProfile(false);
     }
   };
 
@@ -447,25 +504,181 @@ export function BeachSearch({ profile }: BeachSearchProps) {
               </div>
             )}
 
-            <ForecastCard
-              day="Today"
-              date={new Date().toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })}
-              waveHeight={forecast.wave_height || "No data"}
-              windSpeed={forecast.wind_speed}
-              waterTemp={forecast.water_temp}
-              waveDirection={forecast.wave_direction}
-            />
+            {/* Enhanced Forecast Display */}
+            {forecast && "forecast_date" in forecast ? (
+              <div className="space-y-4">
+                {/* Today's Date Header */}
+                <div className="text-center pb-3 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    Today's Forecast
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {new Date(forecast.forecast_date).toLocaleDateString(
+                      "en-US",
+                      {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                      }
+                    )}
+                  </p>
+                </div>
+
+                {/* Wave Information */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <WavePeriodDisplay
+                    waveHeight={forecast.wave_height}
+                    wavePeriod={forecast.wave_period}
+                    waveDirection={forecast.wave_direction}
+                    variant="detailed"
+                  />
+                </div>
+
+                {/* Tide Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <TideDirection
+                    status={forecast.tide_status}
+                    currentHeight={forecast.tide_height}
+                    variant="detailed"
+                  />
+                  <TideTiming
+                    nextTideTime={forecast.next_tide_time}
+                    nextTideType={forecast.next_tide_type}
+                    nextTideHeight={forecast.next_tide_height}
+                    variant="detailed"
+                  />
+                </div>
+
+                {/* Weather & Conditions */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-800">
+                      {forecast.wind_speed}
+                    </div>
+                    <div className="text-sm text-gray-600">Wind</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-800">
+                      {forecast.wind_direction}
+                    </div>
+                    <div className="text-sm text-gray-600">Direction</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-800">
+                      {forecast.water_temp}
+                    </div>
+                    <div className="text-sm text-gray-600">Water</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-800">
+                      {forecast.air_temperature}
+                    </div>
+                    <div className="text-sm text-gray-600">Air</div>
+                  </div>
+                </div>
+
+                {/* Confidence Score */}
+                <div className="flex items-center justify-center gap-2 p-3 bg-white border rounded-lg">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      forecast.confidence_score >= 80
+                        ? "bg-green-500"
+                        : forecast.confidence_score >= 60
+                        ? "bg-yellow-500"
+                        : "bg-red-500"
+                    }`}
+                  />
+                  <span className="text-sm font-medium">
+                    Forecast Confidence: {forecast.confidence_score}%
+                  </span>
+                </div>
+
+                {/* Swell Components */}
+                {(forecast.swell_1_height ||
+                  forecast.swell_2_height ||
+                  forecast.wind_wave_height) && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-gray-800">
+                      Swell Components
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2">
+                      {forecast.swell_1_height && (
+                        <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                          <span className="text-sm font-medium">
+                            Primary Swell
+                          </span>
+                          <span className="text-sm">
+                            {forecast.swell_1_height} @{" "}
+                            {forecast.swell_1_period || "N/A"}
+                            {forecast.swell_1_direction &&
+                              ` ${forecast.swell_1_direction}`}
+                          </span>
+                        </div>
+                      )}
+                      {forecast.swell_2_height && (
+                        <div className="flex items-center justify-between p-2 bg-green-50 rounded">
+                          <span className="text-sm font-medium">
+                            Secondary Swell
+                          </span>
+                          <span className="text-sm">
+                            {forecast.swell_2_height} @{" "}
+                            {forecast.swell_2_period || "N/A"}
+                            {forecast.swell_2_direction &&
+                              ` ${forecast.swell_2_direction}`}
+                          </span>
+                        </div>
+                      )}
+                      {forecast.wind_wave_height && (
+                        <div className="flex items-center justify-between p-2 bg-orange-50 rounded">
+                          <span className="text-sm font-medium">
+                            Wind Waves
+                          </span>
+                          <span className="text-sm">
+                            {forecast.wind_wave_height} @{" "}
+                            {forecast.wind_wave_period || "N/A"}
+                            {forecast.wind_wave_direction &&
+                              ` ${forecast.wind_wave_direction}`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Fallback to basic forecast card if enhanced forecast is not available
+              <ForecastCard
+                day="Today"
+                date={new Date().toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })}
+                waveHeight={forecast?.wave_height || "No data"}
+                windSpeed={forecast?.wind_speed || "No data"}
+                waterTemp={forecast?.water_temp}
+                waveDirection={forecast?.wave_direction}
+              />
+            )}
           </div>
         )}
       </CardContent>
 
       <CardFooter className="bg-muted/20 px-6 py-4">
         <div className="text-xs text-muted-foreground">
-          Enhanced forecast data from NOAA WaveWatch III, CO-OPS tidal
-          predictions, and real-time buoy conditions.
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="font-medium">Enhanced Forecast Data Sources:</span>
+          </div>
+          <div className="ml-4 space-y-1">
+            <div>• NOAA WaveWatch III Global Wave Model</div>
+            <div>• NOAA CO-OPS Tidal Predictions & Observations</div>
+            <div>• NOAA Weather Service API</div>
+            <div>• NDBC Buoy Network (Real-time Conditions)</div>
+          </div>
+          <div className="mt-2 text-xs opacity-80">
+            Forecasts updated every 6 hours with confidence scoring based on
+            data quality and freshness.
+          </div>
         </div>
       </CardFooter>
     </Card>

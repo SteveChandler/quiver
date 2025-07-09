@@ -48,7 +48,7 @@ export function SelectedBeachCard({
             <div className="flex-1">
               <h3 className="font-medium text-primary">{selectedBeach.name}</h3>
               <div className="flex items-center text-sm text-muted-foreground">
-                <MapPin className="h-3 w-3 mr-1" />
+                <MapPin className="h-4 w-4 mr-1" />
                 <span>
                   {userLocation
                     ? getDistanceFromUser(
@@ -64,14 +64,14 @@ export function SelectedBeachCard({
                   .map((_, i) => (
                     <MapPin
                       key={i}
-                      className={`h-3 w-3 ${
+                      className={`h-4 w-4 ${
                         i < (selectedBeach.wave_quality_rating || 4)
                           ? "text-yellow-500 fill-yellow-500"
                           : "text-gray-300"
                       }`}
                     />
                   ))}
-                <span className="text-xs ml-1 text-muted-foreground">
+                <span className="text-sm ml-1 text-muted-foreground">
                   (128)
                 </span>
               </div>
@@ -88,7 +88,7 @@ export function SelectedBeachCard({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 Selected Beach
               </div>
               <div className="text-primary font-medium text-sm">

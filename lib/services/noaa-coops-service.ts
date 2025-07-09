@@ -156,6 +156,8 @@ export class NOAACOOPSService {
       url.searchParams.set("interval", "hilo"); // High and low tides only
       url.searchParams.set("format", "json");
 
+      console.log(`Fetching NOAA CO-OPS tide data from: ${url.toString()}`);
+
       const response = await fetch(url.toString(), {
         headers: {
           "User-Agent": "quiver-surf-app (contact@quiver.com)",
@@ -163,24 +165,36 @@ export class NOAACOOPSService {
       });
 
       if (!response.ok) {
+        console.error(
+          `CO-OPS tide API error: ${response.status} - ${response.statusText}`
+        );
+        const errorText = await response.text();
+        console.error(`Error response: ${errorText}`);
         throw new Error(`CO-OPS tide API error: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log(`Received tide data for station ${stationId}:`, data);
 
       if (!data.predictions) {
-        console.warn("No tide predictions data returned");
-        return [];
+        console.warn("No tide predictions data returned, using fallback");
+        return this.generateFallbackTideData();
       }
 
-      return data.predictions.map((prediction: TideExtreme) => ({
+      const tideData = data.predictions.map((prediction: TideExtreme) => ({
         time: new Date(prediction.t).getTime() / 1000,
         height: parseFloat(prediction.v),
         name: prediction.type === "H" ? "High Tide" : "Low Tide",
         type: prediction.type === "H" ? "high" : "low",
       }));
+
+      console.log(
+        `Parsed ${tideData.length} tide predictions for station ${stationId}`
+      );
+      return tideData;
     } catch (error) {
       console.error("Error fetching tide predictions:", error);
+      console.log("Using fallback tide data for development");
       // Return fallback simulated data for development
       return this.generateFallbackTideData();
     }
@@ -334,40 +348,67 @@ export class NOAACOOPSService {
 
   /**
    * Generate fallback tide data for development/testing
+   * Creates a realistic tide schedule with proper high/low patterns
    */
   private generateFallbackTideData(): TideData[] {
     const tides: TideData[] = [];
-    const now = new Date();
 
-    // Generate realistic tide cycle (approximately 12.4 hours between high tides)
-    const tideInterval = 12.4 * 60 * 60 * 1000; // 12.4 hours in milliseconds
-    const lowTideOffset = 6.2 * 60 * 60 * 1000; // ~6.2 hours between high and low
+    // Start from beginning of today
+    const startTime = new Date();
+    startTime.setHours(0, 0, 0, 0);
 
-    for (let i = 0; i < 20; i++) {
-      // 10 days worth of tides
-      const highTideTime = now.getTime() + i * tideInterval;
-      const lowTideTime = highTideTime + lowTideOffset;
-
-      // Vary tide heights realistically (San Diego typical range: 0-7 feet)
-      const highTideHeight =
-        4.5 + Math.sin(i * 0.3) * 1.5 + Math.random() * 0.5;
-      const lowTideHeight = Math.max(
-        0,
-        1.5 - Math.sin(i * 0.3) * 1.2 + (Math.random() - 0.5) * 0.3
+    // Generate tides for 15 days
+    for (let day = 0; day < 15; day++) {
+      const dayStart = new Date(
+        startTime.getTime() + day * 24 * 60 * 60 * 1000
       );
 
+      // San Diego typically has 2 high tides and 2 low tides per day
+      // Semi-diurnal tide pattern with about 6.2 hour intervals
+
+      // First low tide (around 1:30 AM)
+      const lowTide1 = new Date(
+        dayStart.getTime() + (1.5 + Math.sin(day * 0.1) * 0.5) * 60 * 60 * 1000
+      );
+
+      // First high tide (around 7:45 AM)
+      const highTide1 = new Date(lowTide1.getTime() + 6.25 * 60 * 60 * 1000);
+
+      // Second low tide (around 2:00 PM)
+      const lowTide2 = new Date(highTide1.getTime() + 6.25 * 60 * 60 * 1000);
+
+      // Second high tide (around 8:15 PM)
+      const highTide2 = new Date(lowTide2.getTime() + 6.25 * 60 * 60 * 1000);
+
+      // Add some variation to tide heights
+      const heightVariation = Math.sin(day * 0.2) * 0.5;
+
       tides.push({
-        time: Math.floor(highTideTime / 1000),
-        height: Math.round(highTideHeight * 10) / 10,
+        time: Math.floor(lowTide1.getTime() / 1000),
+        height: Math.round((0.8 + heightVariation) * 10) / 10,
+        name: "Low Tide",
+        type: "low",
+      });
+
+      tides.push({
+        time: Math.floor(highTide1.getTime() / 1000),
+        height: Math.round((5.2 + heightVariation) * 10) / 10,
         name: "High Tide",
         type: "high",
       });
 
       tides.push({
-        time: Math.floor(lowTideTime / 1000),
-        height: Math.round(lowTideHeight * 10) / 10,
+        time: Math.floor(lowTide2.getTime() / 1000),
+        height: Math.round((1.2 + heightVariation) * 10) / 10,
         name: "Low Tide",
         type: "low",
+      });
+
+      tides.push({
+        time: Math.floor(highTide2.getTime() / 1000),
+        height: Math.round((4.8 + heightVariation) * 10) / 10,
+        name: "High Tide",
+        type: "high",
       });
     }
 
@@ -417,22 +458,22 @@ export class NOAACOOPSService {
   }
 
   /**
-   * Get the next tide event
-   */
-  getNextTide(tides: TideData[]): TideData | null {
-    if (!tides || tides.length === 0) return null;
-
-    const now = Date.now() / 1000;
-    return tides.find((tide) => tide.time > now) || null;
-  }
-
-  /**
    * Get current tide height estimate
    */
   getCurrentTideHeight(tides: TideData[]): number | null {
     if (!tides || tides.length < 2) return null;
 
     const now = Date.now() / 1000;
+    return this.getTideHeightAtTime(tides, new Date(now * 1000));
+  }
+
+  /**
+   * Get tide height estimate for a specific time
+   */
+  getTideHeightAtTime(tides: TideData[], targetTime: Date): number | null {
+    if (!tides || tides.length < 2) return null;
+
+    const targetTimestamp = targetTime.getTime() / 1000;
     const sortedTides = [...tides].sort((a, b) => a.time - b.time);
 
     // Find surrounding tides
@@ -440,7 +481,7 @@ export class NOAACOOPSService {
     let nextTide = null;
 
     for (let i = 0; i < sortedTides.length; i++) {
-      if (sortedTides[i].time <= now) {
+      if (sortedTides[i].time <= targetTimestamp) {
         prevTide = sortedTides[i];
       } else {
         nextTide = sortedTides[i];
@@ -452,12 +493,41 @@ export class NOAACOOPSService {
 
     // Linear interpolation between tides
     const timeDiff = nextTide.time - prevTide.time;
-    const timeElapsed = now - prevTide.time;
+    const timeElapsed = targetTimestamp - prevTide.time;
     const progress = timeElapsed / timeDiff;
 
     const heightDiff = nextTide.height - prevTide.height;
     const currentHeight = prevTide.height + heightDiff * progress;
 
     return Math.round(currentHeight * 10) / 10;
+  }
+
+  /**
+   * Get next tide from current time
+   */
+  getNextTide(tides: TideData[]): TideData | null {
+    if (!tides || tides.length === 0) return null;
+
+    const now = Date.now() / 1000;
+    return this.getNextTideFromTime(tides, new Date(now * 1000));
+  }
+
+  /**
+   * Get next tide from a specific time
+   */
+  getNextTideFromTime(tides: TideData[], targetTime: Date): TideData | null {
+    if (!tides || tides.length === 0) return null;
+
+    const targetTimestamp = targetTime.getTime() / 1000;
+    const sortedTides = [...tides].sort((a, b) => a.time - b.time);
+
+    // Find the next tide after the target time
+    for (const tide of sortedTides) {
+      if (tide.time > targetTimestamp) {
+        return tide;
+      }
+    }
+
+    return null;
   }
 }
