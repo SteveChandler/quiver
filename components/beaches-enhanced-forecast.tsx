@@ -19,7 +19,7 @@ import {
   createMockDataSources,
 } from "@/components/ui/forecast-data-transparency";
 import { MultiDayForecastTable } from "./forecast/multi-day-forecast-table";
-import { ForecastLineChart } from "./forecast/forecast-line-chart";
+import { TideChart } from "./forecast/tide-chart";
 import { SimplifiedForecastTable } from "./forecast/simplified-forecast-table";
 
 interface BeachesEnhancedForecastProps {
@@ -165,8 +165,8 @@ export function BeachesEnhancedForecast({
               </div>
             </div>
 
-            {/* Multi-Day Line Chart Forecast Display */}
-            <ForecastLineChart forecasts={forecasts} />
+            {/* Multi-Day Tide Chart Display */}
+            <TideChart forecasts={forecasts} />
             
             {/* Simplified Forecast Table */}
             <SimplifiedForecastTable forecasts={forecasts} />
