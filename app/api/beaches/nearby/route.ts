@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNearbyBeaches } from "@/actions/beach-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSuccessResponse,
+  createValidationError,
+  handleApiError,
+} from "@/lib/api-utils";
 
 // Matches Ruby LocationsController functionality
 export async function GET(request: NextRequest) {
@@ -11,10 +16,7 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "20"); // matches Ruby default of 20
 
   if (!latitude || !longitude) {
-    return NextResponse.json(
-      { error: "Latitude and longitude are required" },
-      { status: 400 }
-    );
+    return createValidationError("Latitude and longitude are required");
   }
 
   try {
@@ -36,18 +38,14 @@ export async function GET(request: NextRequest) {
         name: beach.name,
       }));
 
-      return NextResponse.json(locationsJson);
+      return createSuccessResponse(locationsJson);
     } else {
-      return NextResponse.json(
-        { error: result.error || "Failed to fetch nearby beaches" },
-        { status: 500 }
+      return handleApiError(
+        new Error(result.error || "Failed to fetch nearby beaches")
       );
     }
   } catch (error) {
     console.error("Error fetching nearby beaches:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Error fetching nearby beaches");
   }
 }

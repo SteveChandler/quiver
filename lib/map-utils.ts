@@ -465,9 +465,9 @@ export function resolveBeachCoordinates(
 
   // If no coordinates found and we have a beach name, try hardcoded list
   if (beach?.name) {
-    // Import beachCoordinates at the top if not already imported
+    // Import beachCoordinates from constants
     try {
-      const { beachCoordinates } = require("@/app/api/surf/beaches");
+      const { beachCoordinates } = require("@/lib/constants/beach-coordinates");
 
       const beachNameLower = beach.name.toLowerCase().trim();
       const hardcodedCoords = beachCoordinates[beachNameLower];

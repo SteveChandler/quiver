@@ -3,10 +3,10 @@
 import React from "react";
 import { MultiDayForecastTable } from "@/components/forecast/multi-day-forecast-table";
 import { ForecastDataTransparency } from "@/components/ui/forecast-data-transparency";
-import type { EnhancedForecast } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 interface ForecastDisplayProps {
-  forecasts: EnhancedForecast[];
+  forecasts: EnhancedForecastEntity[];
   beach: {
     id: string;
     name: string;
@@ -69,6 +69,9 @@ export function ForecastDisplay({
     );
   }
 
+  // Get the data source from the first forecast (all forecasts from the same generation will have the same data source)
+  const dataSource = forecasts[0]?.data_source || "FALLBACK";
+
   return (
     <div className="max-w-6xl mx-auto px-4 space-y-6">
       <div className="text-center">
@@ -76,9 +79,9 @@ export function ForecastDisplay({
         <h3 className="text-lg text-gray-600">10-Day Surf Forecast</h3>
       </div>
 
-      <MultiDayForecastTable forecasts={forecasts} />
+      <ForecastDataTransparency dataSource={dataSource} />
 
-      <ForecastDataTransparency forecasts={forecasts} />
+      <MultiDayForecastTable forecasts={forecasts} />
     </div>
   );
 }

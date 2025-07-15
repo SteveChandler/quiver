@@ -39,7 +39,10 @@ export function handleApiError(
       details: includeDetails ? { originalError: errorMessage } : undefined,
       timestamp: new Date().toISOString(),
     },
-    { status: 500 }
+    {
+      status: 500,
+      headers: DEFAULT_SECURITY_HEADERS,
+    }
   );
 }
 
@@ -54,7 +57,10 @@ export function createSuccessResponse<T>(
       data,
       timestamp: new Date().toISOString(),
     },
-    { status }
+    {
+      status,
+      headers: DEFAULT_SECURITY_HEADERS,
+    }
   );
 }
 
@@ -70,7 +76,10 @@ export function createValidationError(
       details,
       timestamp: new Date().toISOString(),
     },
-    { status: 400 }
+    {
+      status: 400,
+      headers: DEFAULT_SECURITY_HEADERS,
+    }
   );
 }
 
@@ -84,7 +93,10 @@ export function createAuthError(
       error: message,
       timestamp: new Date().toISOString(),
     },
-    { status: 401 }
+    {
+      status: 401,
+      headers: DEFAULT_SECURITY_HEADERS,
+    }
   );
 }
 
@@ -150,4 +162,22 @@ export function checkRequiredEnvVars(vars: string[]): string | null {
     }
   }
   return null;
+}
+
+// Security headers for API responses
+export const DEFAULT_SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "X-XSS-Protection": "1; mode=block",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+};
+
+// Apply security headers to any NextResponse
+export function withSecurityHeaders(response: NextResponse) {
+  Object.entries(DEFAULT_SECURITY_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
 }

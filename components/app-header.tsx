@@ -17,7 +17,7 @@ export function AppHeader() {
   const pathname = usePathname();
 
   // Use shared profile loading hook
-  const { profile } = useUserProfile({
+  const { profile, loading: profileLoading } = useUserProfile({
     userId: user?.id,
     enabled: !!user,
   });
@@ -90,6 +90,7 @@ export function AppHeader() {
                 name={profile?.full_name}
                 email={user?.email}
                 size="sm"
+                isLoading={profileLoading}
               />
             </Link>
           ) : (

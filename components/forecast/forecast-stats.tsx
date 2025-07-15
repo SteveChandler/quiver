@@ -43,6 +43,12 @@ export function ForecastStats({
     ) / forecasts.length
   );
 
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 80) return "bg-green-500";
+    if (confidence >= 60) return "bg-yellow-500";
+    return "bg-red-500";
+  };
+
   return (
     <div className="p-4 bg-blue-50 rounded-lg space-y-4">
       {/* Main Stats Row */}
@@ -100,14 +106,9 @@ export function ForecastStats({
           </span>
           <div className="flex items-center gap-1">
             <div
-              className={cn(
-                "h-3 w-3 rounded-full",
-                averageConfidence >= 80
-                  ? "bg-green-500"
-                  : averageConfidence >= 60
-                  ? "bg-yellow-500"
-                  : "bg-red-500"
-              )}
+              className={`h-3 w-3 rounded-full ${getConfidenceColor(
+                averageConfidence
+              )}`}
             />
             <span className="text-sm font-medium text-blue-900">
               {averageConfidence}%

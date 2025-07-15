@@ -8,6 +8,7 @@ interface UserAvatarProps {
   email?: string | null;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
+  isLoading?: boolean;
 }
 
 export function UserAvatar({
@@ -16,20 +17,23 @@ export function UserAvatar({
   email,
   size = "md",
   className,
+  isLoading = false,
 }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false);
 
   // Get initials for avatar fallback
   const getInitials = () => {
-    if (name) {
+    if (name && name.trim()) {
       return name
+        .trim()
         .split(" ")
         .map((n) => n[0])
         .join("")
-        .toUpperCase();
+        .toUpperCase()
+        .slice(0, 2); // Max 2 characters
     }
-    if (email) {
-      return email.charAt(0).toUpperCase();
+    if (email && email.trim()) {
+      return email.trim().charAt(0).toUpperCase();
     }
     return "U";
   };
@@ -50,9 +54,9 @@ export function UserAvatar({
     return src;
   })();
 
-  // Debug logging for avatar URL
-  if (process.env.NODE_ENV === "development") {
-    console.log("UserAvatar rendering:", {
+  // Only log errors in development, not every render
+  if (process.env.NODE_ENV === "development" && imageError) {
+    console.log("UserAvatar image error:", {
       originalSrc: src,
       cleanSrc,
       imageError,
@@ -81,7 +85,7 @@ export function UserAvatar({
         />
       )}
       <AvatarFallback className="bg-blue-500 text-white">
-        {getInitials()}
+        {isLoading ? "..." : getInitials()}
       </AvatarFallback>
     </Avatar>
   );

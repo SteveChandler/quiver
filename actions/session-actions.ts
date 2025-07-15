@@ -252,34 +252,24 @@ export async function updateSessionForm(
   id: string,
   data: Partial<SessionInput>
 ) {
-  const supabase = await createSupabaseServerClient();
+  return withAuthenticatedAction(async (user, supabase) => {
+    // Update the session
+    const { data: session, error } = await supabase
+      .from("sessions")
+      .update(data)
+      .eq("id", id)
+      .eq("user_id", user.id) // Make sure user owns this session
+      .select()
+      .single();
 
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    if (error) {
+      console.error("Error updating session:", error);
+      throw new Error("Failed to update session");
+    }
 
-  if (userError || !user) {
-    throw new Error("Authentication required");
-  }
-
-  // Update the session
-  const { data: session, error } = await supabase
-    .from("sessions")
-    .update(data)
-    .eq("id", id)
-    .eq("user_id", user.id) // Make sure user owns this session
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error updating session:", error);
-    throw new Error("Failed to update session");
-  }
-
-  revalidatePath("/sessions");
-  return session;
+    revalidatePath("/sessions");
+    return session;
+  });
 }
 
 export async function deleteSession(id: string, userId: string) {
@@ -364,19 +354,7 @@ export async function createLoggedSession(data: SessionInput, userId: string) {
  * Create a new planned surf session
  */
 export async function createPlannedSession(data: SessionInput, userId: string) {
-  const supabase = await createSupabaseServerClient();
-
-  try {
-    // Get the current user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      throw new Error("Authentication required");
-    }
-
+  return withAuthenticatedAction(async (user, supabase) => {
     // Verify the passed userId matches the authenticated user
     if (user.id !== userId) {
       throw new Error("User ID mismatch");
@@ -399,49 +377,33 @@ export async function createPlannedSession(data: SessionInput, userId: string) {
     }
 
     revalidatePath("/sessions");
-    return { success: true, data: session };
-  } catch (error) {
-    console.error("Error creating planned session:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+    return session;
+  });
 }
 
 /**
  * Add a new board to user's quiver
  */
 export async function addBoard(data: BoardInput) {
-  const supabase = await createSupabaseServerClient();
+  return withAuthenticatedAction(async (user, supabase) => {
+    // Add the board
+    const { data: board, error } = await supabase
+      .from("boards")
+      .insert({
+        ...data,
+        user_id: user.id,
+      })
+      .select()
+      .single();
 
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    if (error) {
+      console.error("Error adding board:", error);
+      throw new Error("Failed to add board");
+    }
 
-  if (userError || !user) {
-    throw new Error("Authentication required");
-  }
-
-  // Add the board
-  const { data: board, error } = await supabase
-    .from("boards")
-    .insert({
-      ...data,
-      user_id: user.id,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error adding board:", error);
-    throw new Error("Failed to add board");
-  }
-
-  revalidatePath("/quiver");
-  return board;
+    revalidatePath("/quiver");
+    return board;
+  });
 }
 
 /**

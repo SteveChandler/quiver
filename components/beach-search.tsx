@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, Info } from "lucide-react";
-import { ForecastCard } from "@/components/forecast-card";
+import { Search, Loader2, Info, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { getBeachById, getBeaches } from "@/actions/beach-actions";
 import { COVERAGE_MESSAGES } from "@/lib/constants/coverage-areas";
@@ -18,10 +17,72 @@ import { TideTiming } from "@/components/ui/tide-timing";
 import { WavePeriodDisplay } from "@/components/ui/wave-period-display";
 import { ForecastDataTransparency } from "@/components/ui/forecast-data-transparency";
 import type { Beach, Profile } from "@/types/database";
-import type { EnhancedForecast } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import { updateProfile } from "@/actions/profile-actions";
 
 interface BeachSearchProps {
   profile?: Profile | null;
+}
+
+// Modern fallback forecast display component
+function FallbackForecastDisplay({ forecast }: { forecast: any }) {
+  return (
+    <div className="space-y-4">
+      {/* Today's Date Header */}
+      <div className="text-center pb-3 border-b border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-800">
+          Today's Forecast
+        </h3>
+        <p className="text-sm text-gray-600">
+          {new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
+      </div>
+
+      {/* Basic Wave Information */}
+      <div className="bg-blue-50 p-4 rounded-lg">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-blue-600 mb-2">
+            {forecast?.wave_height || "No data"}
+          </div>
+          <div className="text-sm text-gray-600">Wave Height</div>
+        </div>
+      </div>
+
+      {/* Weather & Conditions */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+        <div className="text-center">
+          <div className="text-lg font-semibold text-gray-800">
+            {forecast?.wind_speed || "No data"}
+          </div>
+          <div className="text-sm text-gray-600">Wind</div>
+        </div>
+        <div className="text-center">
+          <div className="text-lg font-semibold text-gray-800">
+            {forecast?.wind_direction || "N/A"}
+          </div>
+          <div className="text-sm text-gray-600">Direction</div>
+        </div>
+        <div className="text-center">
+          <div className="text-lg font-semibold text-gray-800">
+            {forecast?.water_temp || "No data"}
+          </div>
+          <div className="text-sm text-gray-600">Water Temp</div>
+        </div>
+      </div>
+
+      {/* Basic forecast notice */}
+      <div className="flex items-center justify-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <Info className="h-4 w-4 text-yellow-600" />
+        <span className="text-sm text-yellow-800">
+          Basic forecast data - Enhanced forecast loading...
+        </span>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -34,7 +95,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [beach, setBeach] = useState<Beach | null>(null);
-  const [forecast, setForecast] = useState<EnhancedForecast | null>(null);
+  const [forecast, setForecast] = useState<EnhancedForecastEntity | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isWaitingForProfile, setIsWaitingForProfile] = useState(true);
   const [showFallbackMessage, setShowFallbackMessage] = useState(false);
@@ -42,27 +103,62 @@ export function BeachSearch({ profile }: BeachSearchProps) {
   const [isOutOfAreaSearch, setIsOutOfAreaSearch] = useState(false);
   const [availableBeaches, setAvailableBeaches] = useState<Beach[]>([]);
   const [loadingBeaches, setLoadingBeaches] = useState(false);
+  const [refreshingForecast, setRefreshingForecast] = useState(false);
 
   // Fetch enhanced forecast data for a beach
   const fetchEnhancedForecast = async (
     beachId: string
-  ): Promise<EnhancedForecast | null> => {
+  ): Promise<EnhancedForecastEntity | null> => {
     try {
-      const response = await fetch(
-        `/api/forecasts/update-enhanced?beachId=${beachId}&days=1`
+      // Simple URL without cache-busting since NOAA data is predictable
+      const url = `/api/forecasts/update-enhanced?beachId=${beachId}&days=1`;
+      console.log(`🌊 Fetching enhanced forecast from: ${url}`);
+
+      const response = await fetch(url);
+
+      console.log(
+        `📡 Fetch response status: ${response.status}, ok: ${response.ok}`
       );
 
       if (response.ok) {
-        const data = await response.json();
+        const data: {
+          success: boolean;
+          data?: { forecasts: EnhancedForecastEntity[] };
+        } = await response.json();
+        console.log(`📊 API Response data:`, {
+          success: data.success,
+          forecastCount: data.data?.forecasts?.length || 0,
+          firstForecast: data.data?.forecasts?.[0]
+            ? {
+                wave_height: data.data.forecasts[0].wave_height,
+                wave_period: data.data.forecasts[0].wave_period,
+                data_source: data.data.forecasts[0].data_source,
+                forecast_date: data.data.forecasts[0].forecast_date,
+              }
+            : "No forecast data",
+        });
+
         if (data.success && data.data?.forecasts?.length > 0) {
           // Get today's forecast (first available)
-          return data.data.forecasts[0];
+          const forecast = data.data.forecasts[0];
+          console.log(`✅ Enhanced forecast retrieved successfully:`, forecast);
+          return forecast;
+        } else {
+          console.warn(
+            `⚠️ Enhanced forecast API returned success=${data.success}, but no forecast data`
+          );
         }
+      } else {
+        console.error(
+          `❌ Enhanced forecast API failed with status ${response.status}`
+        );
+        const errorText = await response.text();
+        console.error(`Error details:`, errorText);
       }
 
       return null;
     } catch (error) {
-      console.error("Error fetching enhanced forecast:", error);
+      console.error("💥 Error fetching enhanced forecast:", error);
       return null;
     }
   };
@@ -86,6 +182,30 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     }
   };
 
+  // Refresh forecast data for current beach
+  const refreshForecast = async () => {
+    if (!beach) return;
+
+    setRefreshingForecast(true);
+    try {
+      const enhancedForecast = await fetchEnhancedForecast(beach.id);
+      if (enhancedForecast) {
+        setForecast(enhancedForecast);
+      } else {
+        // Try legacy forecast if enhanced forecast fails
+        console.log("Enhanced forecast not available, trying legacy...");
+        const legacyResult = await searchBeachWithForecastLegacy(beach.name);
+        if (legacyResult.success && legacyResult.data) {
+          setForecast(legacyResult.data);
+        }
+      }
+    } catch (err) {
+      console.error("Error refreshing forecast:", err);
+    } finally {
+      setRefreshingForecast(false);
+    }
+  };
+
   // Load beaches when fallback message is shown
   useEffect(() => {
     if (showFallbackMessage && availableBeaches.length === 0) {
@@ -98,429 +218,510 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     beachName: string,
     searchQuery: string
   ): boolean => {
-    if (!searchQuery.trim()) return true;
-
-    const normalizedBeach = beachName.toLowerCase().trim();
-    const normalizedSearch = searchQuery.toLowerCase().trim();
-
-    // Check if the beach name contains the search query or vice versa
-    return (
-      normalizedBeach.includes(normalizedSearch) ||
-      normalizedSearch.includes(normalizedBeach)
-    );
+    const normalizedBeachName = beachName.toLowerCase();
+    const normalizedSearchQuery = searchQuery.toLowerCase();
+    return normalizedBeachName.includes(normalizedSearchQuery);
   };
 
-  // Handle clicking on a suggested beach
-  const handleBeachSuggestionClick = async (suggestedBeach: Beach) => {
-    setQuery(suggestedBeach.name);
-    setShowFallbackMessage(false);
-    await fetchBeachData(suggestedBeach.name, false); // Don't treat as user search to avoid fallback loop
+  // Helper function to get default beach (Pacific Beach) for users without a default beach
+  const getDefaultBeachForForecast = async (): Promise<Beach | null> => {
+    try {
+      const result = await getBeaches();
+      if (result.success && result.data) {
+        // Find Pacific Beach as the default (exact match to avoid Crystal Pier conflicts)
+        const pacificBeach = result.data.find(
+          (beach) =>
+            beach.name.toLowerCase() === "pacific beach" ||
+            beach.name.toLowerCase().startsWith("pacific beach")
+        );
+        if (pacificBeach) {
+          return pacificBeach;
+        }
+
+        // Fallback to Ocean Beach if Pacific Beach not found
+        const oceanBeach = result.data.find((beach) =>
+          beach.name.toLowerCase().includes("ocean beach")
+        );
+        if (oceanBeach) {
+          return oceanBeach;
+        }
+
+        // Last resort: first beach in the list
+        return result.data[0] || null;
+      }
+    } catch (error) {
+      console.error("Error getting default beach:", error);
+    }
+    return null;
   };
 
-  // Fetch beach data using utility functions
-  const fetchBeachData = async (
-    beachName: string,
-    isUserSearch: boolean = false
-  ) => {
+  // Helper function to migrate favorite_spot to default_beach_id
+  const migrateFavoriteSpotToDefaultBeach = async (
+    profile: any
+  ): Promise<string | null> => {
+    if (profile?.default_beach_id || !profile?.favorite_spot) {
+      return profile?.default_beach_id || null;
+    }
+
+    try {
+      // Try to find a beach that matches the favorite_spot text
+      const result = await getBeaches();
+      if (result.success && result.data) {
+        const favoriteSpotText = profile.favorite_spot.toLowerCase().trim();
+        const matchingBeach = result.data.find(
+          (beach) =>
+            beach.name.toLowerCase().includes(favoriteSpotText) ||
+            favoriteSpotText.includes(beach.name.toLowerCase())
+        );
+
+        if (matchingBeach) {
+          console.log(
+            `Auto-migrating favorite spot "${profile.favorite_spot}" to beach ID:`,
+            matchingBeach.id
+          );
+          // Update the profile with the matched beach ID
+          try {
+            await updateProfile({ default_beach_id: matchingBeach.id });
+            return matchingBeach.id;
+          } catch (updateError) {
+            console.error("Failed to auto-update default beach:", updateError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error during favorite spot migration:", error);
+    }
+
+    return null;
+  };
+
+  // Initialize component based on profile
+  useEffect(() => {
+    if (isInitialized) return;
+
+    const initializeComponent = async () => {
+      try {
+        // Check if we have a profile with a default beach (or can migrate one)
+        let defaultBeachId = profile?.default_beach_id;
+
+        // Auto-migrate from favorite_spot if needed
+        if (!defaultBeachId && profile?.favorite_spot) {
+          defaultBeachId = await migrateFavoriteSpotToDefaultBeach(profile);
+        }
+
+        if (defaultBeachId) {
+          setIsWaitingForProfile(false);
+
+          const beachResult = await getBeachById(defaultBeachId);
+
+          if (beachResult.success && beachResult.data) {
+            setBeach(beachResult.data);
+            setQuery(beachResult.data.name);
+            setOriginalSearchQuery(beachResult.data.name);
+
+            // Fetch enhanced forecast for the default beach
+            const enhancedForecast = await fetchEnhancedForecast(
+              defaultBeachId
+            );
+
+            if (enhancedForecast) {
+              console.log(
+                `✅ Using enhanced forecast for ${beachResult.data.name}`
+              );
+              setForecast(enhancedForecast);
+            } else {
+              // Try legacy forecast if enhanced forecast fails
+              console.log(
+                `⚠️ Enhanced forecast failed for ${beachResult.data.name}, trying legacy...`
+              );
+              const legacyResult = await searchBeachWithForecastLegacy(
+                beachResult.data.name
+              );
+              if (legacyResult.success && legacyResult.data) {
+                console.log(
+                  `📜 Using legacy forecast for ${beachResult.data.name}:`,
+                  {
+                    wave_height: legacyResult.data.wave_height,
+                    wave_period: legacyResult.data.wave_period,
+                    data_source: legacyResult.data.data_source || "LEGACY",
+                  }
+                );
+                setForecast(legacyResult.data);
+              } else {
+                console.error(
+                  `❌ Both enhanced and legacy forecasts failed for ${beachResult.data.name}`
+                );
+              }
+            }
+          }
+        } else {
+          // No profile or default beach, show Pacific Beach forecast by default
+          setIsWaitingForProfile(false);
+
+          const defaultBeach = await getDefaultBeachForForecast();
+          if (defaultBeach) {
+            setBeach(defaultBeach);
+            setQuery(defaultBeach.name);
+            setOriginalSearchQuery(defaultBeach.name);
+
+            // Fetch enhanced forecast for Pacific Beach
+            const enhancedForecast = await fetchEnhancedForecast(
+              defaultBeach.id
+            );
+
+            if (enhancedForecast) {
+              console.log(
+                `✅ Using enhanced forecast for ${defaultBeach.name}`
+              );
+              setForecast(enhancedForecast);
+            } else {
+              // Try legacy forecast if enhanced forecast fails
+              console.log(
+                `⚠️ Enhanced forecast failed for ${defaultBeach.name}, trying legacy...`
+              );
+              const legacyResult = await searchBeachWithForecastLegacy(
+                defaultBeach.name
+              );
+              if (legacyResult.success && legacyResult.data) {
+                console.log(
+                  `📜 Using legacy forecast for ${defaultBeach.name}:`,
+                  {
+                    wave_height: legacyResult.data.wave_height,
+                    wave_period: legacyResult.data.wave_period,
+                    data_source: legacyResult.data.data_source || "LEGACY",
+                  }
+                );
+                setForecast(legacyResult.data);
+              } else {
+                console.error(
+                  `❌ Both enhanced and legacy forecasts failed for ${defaultBeach.name}`
+                );
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error initializing component:", err);
+        setError("Failed to initialize beach search");
+        setIsWaitingForProfile(false);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+
+    // Add a small delay to prevent flash of loading state
+    const timeoutId = setTimeout(initializeComponent, 100);
+    return () => clearTimeout(timeoutId);
+  }, [profile]);
+
+  // Reset when profile's default beach changes (but not when isInitialized changes)
+  useEffect(() => {
+    if (isInitialized) {
+      setIsInitialized(false);
+      setBeach(null);
+      setForecast(null);
+      setQuery("");
+      setOriginalSearchQuery("");
+      setError(null);
+      setShowFallbackMessage(false);
+      setOutOfAreaMessage("");
+      setIsOutOfAreaSearch(false);
+    }
+  }, [profile?.default_beach_id]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+
     setLoading(true);
     setError(null);
-    setBeach(null);
-    setForecast(null);
     setShowFallbackMessage(false);
     setOutOfAreaMessage("");
     setIsOutOfAreaSearch(false);
 
-    // Track the original search query for fallback detection
-    if (isUserSearch) {
-      setOriginalSearchQuery(beachName);
-    }
-
     try {
-      // First, search for the beach using the existing function
-      const result = await searchBeachWithForecast(beachName);
+      // Try enhanced forecast search first
+      const enhancedResult = await searchBeachWithForecast(query);
 
-      setBeach(result.beach);
-
-      // Then fetch enhanced forecast data
-      const enhancedForecast = await fetchEnhancedForecast(result.beach.id);
-
-      if (enhancedForecast) {
-        setForecast(enhancedForecast);
+      if (enhancedResult.success && enhancedResult.data) {
+        setBeach(enhancedResult.data.beach);
+        setForecast(enhancedResult.data.forecast);
+        setOriginalSearchQuery(query);
       } else {
-        // Fallback to basic forecast if enhanced forecast fails
-        setForecast(result.forecast);
-      }
+        // Try legacy forecast if enhanced fails
+        const legacyResult = await searchBeachWithForecastLegacy(query);
 
-      // Check if we need to show a fallback message
-      if (isUserSearch && !doesBeachMatchSearch(result.beach.name, beachName)) {
-        setShowFallbackMessage(true);
-
-        // Check if this was an out-of-area search
-        if (result.searchMetadata?.isOutOfAreaSearch) {
-          setIsOutOfAreaSearch(true);
-          setOutOfAreaMessage(
-            result.searchMetadata.suggestedMessage ||
-              COVERAGE_MESSAGES.getOutOfAreaMessage(beachName)
+        if (legacyResult.success && legacyResult.data) {
+          setBeach(legacyResult.data.beach);
+          setForecast(legacyResult.data.forecast);
+          setOriginalSearchQuery(query);
+        } else {
+          // Check if this is an out-of-area search
+          const outOfAreaResult = COVERAGE_MESSAGES.find((area) =>
+            query.toLowerCase().includes(area.location.toLowerCase())
           );
-        }
-      }
-    } catch (err: any) {
-      console.error("Error fetching beach forecast:", err);
 
-      // Check if this error contains search metadata for out-of-area detection
-      const isOutOfArea = err.searchMetadata?.isOutOfAreaSearch || false;
-      const suggestedMessage = err.searchMetadata?.suggestedMessage;
-
-      // If this is a user search that failed, try to show Ocean Beach with fallback message
-      if (isUserSearch) {
-        try {
-          const { beach: fallbackBeach } = await searchBeachWithForecastLegacy(
-            "Ocean Beach"
-          );
-          setBeach(fallbackBeach);
-
-          // Try to get enhanced forecast for fallback beach
-          const enhancedForecast = await fetchEnhancedForecast(
-            fallbackBeach.id
-          );
-          if (enhancedForecast) {
-            setForecast(enhancedForecast);
-          }
-
-          setShowFallbackMessage(true);
-
-          // Set out-of-area messaging if applicable
-          if (isOutOfArea) {
+          if (outOfAreaResult) {
+            setOutOfAreaMessage(outOfAreaResult.message);
             setIsOutOfAreaSearch(true);
-            setOutOfAreaMessage(
-              suggestedMessage ||
-                COVERAGE_MESSAGES.getOutOfAreaMessage(beachName)
+            setBeach(null);
+            setForecast(null);
+          } else {
+            // Search didn't match our coverage area
+            setError(
+              legacyResult.error ||
+                "Beach not found. Please try another search."
             );
+            setBeach(null);
+            setForecast(null);
+            setShowFallbackMessage(true);
           }
-        } catch (fallbackErr) {
-          console.error("Fallback also failed:", fallbackErr);
-          setError(
-            err instanceof Error ? err.message : "Unknown error occurred"
-          );
         }
-      } else {
-        setError(err instanceof Error ? err.message : "Unknown error occurred");
       }
+    } catch (err) {
+      console.error("Search error:", err);
+      setError("Search failed. Please try again.");
+      setBeach(null);
+      setForecast(null);
+      setShowFallbackMessage(true);
     } finally {
       setLoading(false);
-      setIsWaitingForProfile(false);
     }
   };
 
-  // Fetch beach by ID and then get its forecast
-  const fetchBeachById = async (beachId: string) => {
-    setLoading(true);
-    setError(null);
-    setBeach(null);
-    setForecast(null);
-    setShowFallbackMessage(false);
+  // Don't show loading state on initial render
+  if (isWaitingForProfile) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent className="p-6">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">
+              Loading your forecast...
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-    try {
-      const result = await getBeachById(beachId);
+  // Available beaches display when showing fallback
+  if (showFallbackMessage && availableBeaches.length > 0) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent className="p-6">
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              Available Beaches
+            </h3>
+            <p className="text-sm text-gray-600">
+              Try searching for one of these beaches instead:
+            </p>
+          </div>
 
-      if (result.success && result.data) {
-        const favoriteBeach = result.data;
-        setBeach(favoriteBeach);
-        setQuery(favoriteBeach.name);
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+            {availableBeaches.map((availableBeach) => (
+              <Button
+                key={availableBeach.id}
+                variant="outline"
+                className="text-sm"
+                onClick={() => {
+                  setQuery(availableBeach.name);
+                  setShowFallbackMessage(false);
+                  handleSearch({ preventDefault: () => {} } as React.FormEvent);
+                }}
+              >
+                {availableBeach.name}
+              </Button>
+            ))}
+          </div>
 
-        // Fetch enhanced forecast data
-        const enhancedForecast = await fetchEnhancedForecast(favoriteBeach.id);
-        if (enhancedForecast) {
-          setForecast(enhancedForecast);
-        }
-
-        return;
-      }
-
-      // Favorite beach not found, use fallback
-      setQuery("Huntington Beach");
-      await fetchBeachData("Huntington Beach");
-    } catch (err) {
-      console.error("Error fetching beach by ID:", err);
-      // Fall back to Huntington Beach
-      setQuery("Huntington Beach");
-      await fetchBeachData("Huntington Beach");
-    } finally {
-      setLoading(false);
-      setIsWaitingForProfile(false);
-    }
-  };
-
-  // Fetch beach by name when we have favorite_spot but no default_beach_id
-  const fetchBeachByName = async (beachName: string) => {
-    setLoading(true);
-    setError(null);
-    setBeach(null);
-    setForecast(null);
-    setShowFallbackMessage(false);
-
-    try {
-      setQuery(beachName);
-      await fetchBeachData(beachName);
-    } catch (err) {
-      console.error("Error fetching beach by name:", err);
-      // Fall back to Huntington Beach
-      setQuery("Huntington Beach");
-      await fetchBeachData("Huntington Beach");
-    }
-  };
-
-  // Initialize with user's favorite beach or default
-  useEffect(() => {
-    if (!isInitialized) {
-      // Don't initialize until we have a definitive auth state
-      // If user is still loading (undefined), wait
-      if (user === undefined) {
-        return;
-      }
-
-      setIsInitialized(true);
-
-      if (user && profile) {
-        // Check for default_beach_id first
-        if (profile.default_beach_id) {
-          fetchBeachById(profile.default_beach_id);
-        }
-        // Fallback to favorite_spot name
-        else if (profile.favorite_spot && profile.favorite_spot.trim() !== "") {
-          fetchBeachByName(profile.favorite_spot.trim());
-        }
-        // No favorite beach set
-        else {
-          setQuery("Huntington Beach");
-          fetchBeachData("Huntington Beach");
-        }
-        setIsWaitingForProfile(false);
-      } else if (user && !profile) {
-        // User logged in, waiting for profile to load
-        setIsWaitingForProfile(true);
-      } else if (user === false) {
-        // Confirmed guest user - use Huntington Beach
-        setQuery("Huntington Beach");
-        fetchBeachData("Huntington Beach");
-        setIsWaitingForProfile(false);
-      }
-      // If user === undefined, we're still loading auth, so don't initialize yet
-      // If user === true but profile === null, we're still loading profile, so don't initialize yet
-    }
-  }, [user, profile, isInitialized]);
-
-  // Re-initialize if user logs in or profile updates after initial load
-  useEffect(() => {
-    // If initialized but no content loaded yet, and profile just loaded, initialize now
-    if (isInitialized && user && profile && !beach && !loading) {
-      // Check for default_beach_id first
-      if (profile.default_beach_id) {
-        fetchBeachById(profile.default_beach_id);
-      }
-      // Fallback to favorite_spot name
-      else if (profile.favorite_spot && profile.favorite_spot.trim() !== "") {
-        fetchBeachByName(profile.favorite_spot.trim());
-      }
-      // No favorite beach set
-      else {
-        setQuery("Huntington Beach");
-        fetchBeachData("Huntington Beach");
-      }
-      setIsWaitingForProfile(false);
-    }
-  }, [
-    user,
-    profile?.default_beach_id,
-    profile?.favorite_spot,
-    isInitialized,
-    beach,
-    loading,
-  ]);
-
-  // Handle search submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!query.trim()) {
-      return;
-    }
-
-    await fetchBeachData(query, true);
-  };
-
-  return (
-    <Card className="w-full">
-      <CardContent className="p-6">
-        <h2 className="text-xl font-bold mb-4">Beach Forecast</h2>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <form onSubmit={handleSearch} className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Enter beach name..."
+                type="text"
+                placeholder="Search for a beach..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-9"
+                disabled={loading}
               />
             </div>
-            <Button type="submit" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || !query.trim()}
+            >
               {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Searching...
+                </>
               ) : (
                 "Search"
               )}
             </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Out of area search message
+  if (isOutOfAreaSearch) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent className="p-6">
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              Search Results
+            </h3>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-blue-800">{outOfAreaMessage}</p>
+            </div>
           </div>
 
-          {error && (
-            <div className="text-red-500 text-sm p-2 bg-red-50 rounded">
-              {error}
+          <form onSubmit={handleSearch} className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search for a beach..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="pl-9"
+                disabled={loading}
+              />
             </div>
-          )}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || !query.trim()}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Searching...
+                </>
+              ) : (
+                "Search"
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardContent className="p-6">
+        <form onSubmit={handleSearch} className="space-y-4 mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search for a beach..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-9"
+              disabled={loading}
+            />
+          </div>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading || !query.trim()}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Searching...
+              </>
+            ) : (
+              "Search"
+            )}
+          </Button>
         </form>
 
-        {loading && (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
 
-        {isWaitingForProfile && !loading && (
-          <div className="flex justify-center py-8">
+        {beach && (
+          <div className="space-y-4">
             <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Loading your favorite beach...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!loading && !isWaitingForProfile && beach && forecast && (
-          <div className="mt-6">
-            {/* Enhanced fallback message for out-of-area and general searches */}
-            {showFallbackMessage && originalSearchQuery && (
-              <div
-                className={`flex items-start gap-2 text-sm p-4 rounded-lg mb-4 border ${
-                  isOutOfAreaSearch
-                    ? "text-amber-700 bg-amber-50 border-amber-200"
-                    : "text-blue-600 bg-blue-50 border-blue-200"
-                }`}
-              >
-                <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  {isOutOfAreaSearch ? (
-                    <>
-                      <p className="font-medium mb-2">
-                        {COVERAGE_MESSAGES.OUT_OF_AREA_TITLE}
-                      </p>
-                      <p
-                        className={`${
-                          isOutOfAreaSearch
-                            ? "text-amber-700/80"
-                            : "text-blue-600/80"
-                        } mb-2`}
-                      >
-                        {outOfAreaMessage}
-                      </p>
-                      <p
-                        className={`${
-                          isOutOfAreaSearch
-                            ? "text-amber-700/80"
-                            : "text-blue-600/80"
-                        } mb-3 text-xs`}
-                      >
-                        {COVERAGE_MESSAGES.COVERAGE_AREA_INFO}
-                      </p>
-                      <p
-                        className={`${
-                          isOutOfAreaSearch
-                            ? "text-amber-700/80"
-                            : "text-blue-600/80"
-                        } mb-3`}
-                      >
-                        {COVERAGE_MESSAGES.getSuggestionMessage(beach.name)}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-medium mb-2">
-                        Beach "{originalSearchQuery}" not found
-                      </p>
-                      <p className="text-blue-600/80 mb-3">
-                        We're showing you {beach.name} instead. Try searching
-                        for one of these available beaches:
-                      </p>
-                    </>
-                  )}
-
-                  {loadingBeaches ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      <span className="text-xs">Loading beaches...</span>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                      {availableBeaches.map((availableBeach) => (
+              <h2 className="text-xl font-semibold text-gray-800">
+                {beach.name}
+              </h2>
+              <div className="text-sm text-gray-600 mt-1">
+                {profile?.default_beach_id === beach.id ? (
+                  `Showing surf conditions for your favorite beach: ${beach.name}`
+                ) : profile?.default_beach_id ? (
+                  `Showing surf conditions for ${beach.name}`
+                ) : (
+                  <div className="space-y-2">
+                    <p>Showing surf conditions for {beach.name}</p>
+                    <div className="flex items-center justify-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                      <span className="text-sm text-blue-800">
+                        💡 Want to see your favorite beach here?
                         <button
-                          key={availableBeach.id}
-                          onClick={() =>
-                            handleBeachSuggestionClick(availableBeach)
-                          }
-                          className={`text-left text-xs bg-white border rounded px-2 py-1 transition-colors duration-200 ${
-                            isOutOfAreaSearch
-                              ? "hover:bg-amber-100 border-amber-200"
-                              : "hover:bg-blue-100 border-blue-200"
-                          }`}
+                          onClick={() => {
+                            // Navigate to profile edit page
+                            window.location.href = "/profile/edit";
+                          }}
+                          className="ml-1 text-blue-600 hover:text-blue-800 font-medium underline"
                         >
-                          {availableBeach.name}
+                          Set your default beach
                         </button>
-                      ))}
+                      </span>
                     </div>
-                  )}
-
-                  {isOutOfAreaSearch && (
-                    <div className="mt-3 pt-3 border-t border-amber-200">
-                      <p className="text-xs text-amber-700/70">
-                        {COVERAGE_MESSAGES.getCoverageExpansionMessage()}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Success message */}
-            {!showFallbackMessage && (
-              <div className="text-green-600 text-sm p-2 bg-green-50 rounded mb-4">
-                {user &&
-                profile?.default_beach_id &&
-                beach.id === profile.default_beach_id
-                  ? `Showing surf conditions for your favorite beach: ${beach.name}`
-                  : `Showing surf conditions for ${beach.name}`}
+                  </div>
+                )}
                 {beach.location && `, ${beach.location}`}
               </div>
-            )}
+            </div>
 
             {/* Enhanced Forecast Display */}
             {forecast && "forecast_date" in forecast ? (
               <div className="space-y-4">
                 {/* Today's Date Header */}
                 <div className="text-center pb-3 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    Today's Forecast
-                  </h3>
+                  <div className="flex items-center justify-center gap-2">
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      Today's Forecast
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={refreshForecast}
+                      disabled={refreshingForecast}
+                      className="h-8 w-8 p-0"
+                      title="Refresh forecast"
+                    >
+                      <RefreshCw
+                        className={`h-4 w-4 ${
+                          refreshingForecast ? "animate-spin" : ""
+                        }`}
+                      />
+                    </Button>
+                  </div>
                   <p className="text-sm text-gray-600">
-                    {new Date(forecast.forecast_date).toLocaleDateString(
-                      "en-US",
-                      {
+                    {(() => {
+                      // Parse the date string correctly to avoid timezone issues
+                      const [year, month, day] = forecast.forecast_date
+                        .split("-")
+                        .map(Number);
+                      const localDate = new Date(year, month - 1, day); // month is 0-indexed
+                      return localDate.toLocaleDateString("en-US", {
                         weekday: "long",
                         month: "long",
                         day: "numeric",
-                      }
-                    )}
+                      });
+                    })()}
                   </p>
                 </div>
 
@@ -644,43 +845,24 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                     </div>
                   </div>
                 )}
+
+                {/* Data Source Transparency */}
+                <div className="mt-4">
+                  <ForecastDataTransparency
+                    dataSource={forecast.data_source || "FALLBACK"}
+                    className="text-xs"
+                  />
+                </div>
               </div>
             ) : (
-              // Fallback to basic forecast card if enhanced forecast is not available
-              <ForecastCard
-                day="Today"
-                date={new Date().toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })}
-                waveHeight={forecast?.wave_height || "No data"}
-                windSpeed={forecast?.wind_speed || "No data"}
-                waterTemp={forecast?.water_temp}
-                waveDirection={forecast?.wave_direction}
-              />
+              // Modern fallback display instead of legacy ForecastCard
+              <FallbackForecastDisplay forecast={forecast} />
             )}
           </div>
         )}
       </CardContent>
 
-      <CardFooter className="bg-muted/20 px-6 py-4">
-        <div className="text-xs text-muted-foreground">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="font-medium">Enhanced Forecast Data Sources:</span>
-          </div>
-          <div className="ml-4 space-y-1">
-            <div>• NOAA WaveWatch III Global Wave Model</div>
-            <div>• NOAA CO-OPS Tidal Predictions & Observations</div>
-            <div>• NOAA Weather Service API</div>
-            <div>• NDBC Buoy Network (Real-time Conditions)</div>
-          </div>
-          <div className="mt-2 text-xs opacity-80">
-            Forecasts updated every 6 hours with confidence scoring based on
-            data quality and freshness.
-          </div>
-        </div>
-      </CardFooter>
+
     </Card>
   );
 }

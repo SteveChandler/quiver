@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSuccessResponse,
+  createValidationError,
+  handleApiError,
+} from "@/lib/api-utils";
 
 // Matches Ruby LocationsController#create functionality
 export async function POST(request: NextRequest) {
@@ -16,10 +21,7 @@ export async function POST(request: NextRequest) {
     const { id, name, latitude, longitude } = body;
 
     if (!name || !latitude || !longitude) {
-      return NextResponse.json(
-        { error: "Name, latitude, and longitude are required" },
-        { status: 400 }
-      );
+      return createValidationError("Name, latitude, and longitude are required");
     }
 
     let result;
@@ -54,13 +56,10 @@ export async function POST(request: NextRequest) {
 
     if (result.error) {
       console.error("Database error:", result.error);
-      return NextResponse.json(
-        { error: "Failed to save location" },
-        { status: 500 }
-      );
+      return handleApiError(result.error, "Failed to save location");
     }
 
-    return NextResponse.json({
+    return createSuccessResponse({
       success: true,
       data: {
         id: result.data.id,
@@ -71,9 +70,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error saving location:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to save location");
   }
 }

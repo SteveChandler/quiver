@@ -55,13 +55,50 @@ class WaveWatchDataSource implements WaveDataSource {
     );
   }
 
-  async fetchWaveData(location: Location, days: number): Promise<any> {
+  async fetchWaveData(location: Location, days: number): Promise<WaveData> {
     const result = await this.service.fetchWaveWatchForecast(
       location.latitude,
       location.longitude,
       days
     );
-    return result || { forecast: [] };
+
+    if (!result || !result.forecast) {
+      return {
+        forecast: [],
+        data_source: "FALLBACK",
+        location: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        },
+      };
+    }
+
+    // Transform the service response to match the WaveData interface
+    const forecast = result.forecast.map((point) => ({
+      timestamp: new Date(point.timestamp),
+      significantWaveHeight: point.significant_wave_height,
+      peakWavePeriod: point.peak_wave_period,
+      peakWaveDirection: point.peak_wave_direction,
+      swell1Height: point.swell_1_height,
+      swell1Period: point.swell_1_period,
+      swell1Direction: point.swell_1_direction,
+      swell2Height: point.swell_2_height,
+      swell2Period: point.swell_2_period,
+      swell2Direction: point.swell_2_direction,
+      windWaveHeight: point.wind_wave_height,
+      windWavePeriod: point.wind_wave_period,
+      windWaveDirection: point.wind_wave_direction,
+      data_source: point.data_source,
+    }));
+
+    return {
+      forecast,
+      data_source: result.data_source,
+      location: {
+        latitude: result.lat,
+        longitude: result.lng,
+      },
+    };
   }
 
   isAvailable(): boolean {
@@ -445,8 +482,8 @@ export class EnhancedForecastService {
    */
   private getNormalizedDateString(date: Date): string {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
@@ -454,9 +491,9 @@ export class EnhancedForecastService {
    * Helper function to get normalized time string (HH:MM:SS) in local timezone
    */
   private getNormalizedTimeString(date: Date): string {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
     return `${hours}:${minutes}:${seconds}`;
   }
 
@@ -478,6 +515,9 @@ export class EnhancedForecastService {
   }): EnhancedForecastEntity[] {
     const forecasts: EnhancedForecastEntity[] = [];
     const now = new Date();
+
+    // Determine the primary data source based on wave data availability
+    const primaryDataSource = waveData?.data_source || "FALLBACK";
 
     // Generate forecasts using constants
     for (let i = 0; i < TOTAL_FORECASTS; i++) {
@@ -509,7 +549,7 @@ export class EnhancedForecastService {
         forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
       });
 
-      forecasts.push({
+      const forecast = {
         id: `forecast-${beach.id}-${i}`, // Temporary ID for now
         forecast_date: this.getNormalizedDateString(forecastTime),
         forecast_time: this.getNormalizedTimeString(forecastTime),
@@ -596,9 +636,15 @@ export class EnhancedForecastService {
 
         beach_id: beach.id,
         confidence_score: confidenceScore,
+        data_source: primaryDataSource,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-      });
+      };
+
+      // Validate forecast values for San Diego area and flag unrealistic conditions
+      this.validateForecastValues(forecast, beach.name);
+
+      forecasts.push(forecast);
     }
 
     return forecasts;
@@ -779,6 +825,71 @@ export class EnhancedForecastService {
     const estimatedTemp = Math.round(baseTemp + seasonalAdjustment);
 
     return `${estimatedTemp}°F`;
+  }
+
+  /**
+   * Validate forecast values for San Diego area and flag unrealistic conditions
+   */
+  private validateForecastValues(
+    forecast: EnhancedForecastEntity,
+    beachName?: string
+  ): boolean {
+    const waveHeight = parseFloat(forecast.wave_height || "0");
+    const wavePeriod = parseFloat(
+      forecast.wave_period?.replace("s", "") || "0"
+    );
+    const swell1Period = parseFloat(
+      forecast.swell_1_period?.replace("s", "") || "0"
+    );
+
+    let isValid = true;
+    const warnings: string[] = [];
+
+    // San Diego typical conditions validation
+    if (waveHeight > 8) {
+      warnings.push(
+        `Unusually large waves: ${forecast.wave_height} (typical max: 8ft)`
+      );
+      isValid = false;
+    }
+
+    if (waveHeight < 0.5) {
+      warnings.push(
+        `Unusually small waves: ${forecast.wave_height} (typical min: 1ft)`
+      );
+    }
+
+    if (wavePeriod > 0 && wavePeriod < 6) {
+      warnings.push(
+        `Very short wave period: ${forecast.wave_period} (Pacific swells typically 10-18s)`
+      );
+    }
+
+    if (swell1Period > 0 && swell1Period < 8) {
+      warnings.push(
+        `Short swell period: ${forecast.swell_1_period} (Pacific swells typically 12-18s)`
+      );
+    }
+
+    if (warnings.length > 0) {
+      console.warn(
+        `🌊 Forecast validation warnings for ${beachName || "unknown beach"}:`,
+        {
+          date: forecast.forecast_date,
+          time: forecast.forecast_time,
+          dataSource: forecast.data_source,
+          warnings,
+          values: {
+            waveHeight: forecast.wave_height,
+            wavePeriod: forecast.wave_period,
+            swell1Height: forecast.swell_1_height,
+            swell1Period: forecast.swell_1_period,
+          },
+        }
+      );
+    }
+
+    return isValid;
   }
 
   /**

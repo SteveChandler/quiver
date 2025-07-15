@@ -2,14 +2,14 @@
 
 import React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { EnhancedForecast } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
-interface MultiDayForecastTableProps {
-  forecasts: EnhancedForecast[];
+interface SimplifiedForecastTableProps {
+  forecasts: EnhancedForecastEntity[];
 }
 
 interface ForecastTableProps {
-  forecasts: EnhancedForecast[];
+  forecasts: EnhancedForecastEntity[];
   date: string;
   isExpanded: boolean;
   onToggle: () => void;
@@ -132,6 +132,36 @@ function ForecastTable({
     return directionMap[direction] || "→";
   };
 
+  const formatHeight = (height: string | null) => {
+    if (!height) return "-";
+    return height;
+  };
+
+  const formatPeriod = (period: string | null) => {
+    if (!period) return "-";
+    return period.replace("s", "s");
+  };
+
+  const formatDayLabel = () => {
+    if (isDateToday(date)) return "Today";
+    if (isDateTomorrow(date)) return "Tomorrow";
+
+    // For other dates, show full format
+    return dateObj.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "numeric",
+      day: "numeric",
+    });
+  };
+
+  const getConsistencyRating = (confidence: number) => {
+    if (confidence >= 90) return "Excellent";
+    if (confidence >= 80) return "Good";
+    if (confidence >= 70) return "Fair";
+    if (confidence >= 60) return "Poor";
+    return "Very Poor";
+  };
+
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 80) return "bg-green-500";
     if (confidence >= 60) return "bg-yellow-500";
@@ -144,27 +174,20 @@ function ForecastTable({
     return "text-red-700";
   };
 
-  const formatHeight = (height: string | null) => {
-    if (!height) return "-";
-    return height; // Keep the original formatting with space
+  const getConfidenceBarColor = (confidence: number) => {
+    if (confidence >= 80) return "bg-green-600";
+    if (confidence >= 60) return "bg-yellow-600";
+    return "bg-red-600";
   };
 
-  const formatPeriod = (period: string | null) => {
-    if (!period) return "-";
-    return period.replace("s", "s");
-  };
-
-  const formatDayLabel = () => {
-    // Use our improved date checking functions
-    if (isDateToday(date)) return "Today";
-    if (isDateTomorrow(date)) return "Tomorrow";
-
-    // For other dates, show full format
-    return dateObj.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "numeric",
-      day: "numeric",
-    });
+  const getWeatherIcon = (condition: string) => {
+    const lowerCondition = condition.toLowerCase();
+    if (lowerCondition.includes("sunny") || lowerCondition.includes("clear"))
+      return "☀️";
+    if (lowerCondition.includes("cloud")) return "☁️";
+    if (lowerCondition.includes("rain")) return "🌧️";
+    if (lowerCondition.includes("storm")) return "⛈️";
+    return "🌤️";
   };
 
   return (
@@ -209,13 +232,13 @@ function ForecastTable({
                   Wind
                 </th>
                 <th className="text-left p-3 text-sm font-medium text-gray-600">
-                  Tide
+                  Consistency
                 </th>
                 <th className="text-left p-3 text-sm font-medium text-gray-600">
                   Weather
                 </th>
                 <th className="text-left p-3 text-sm font-medium text-gray-600">
-                  Confidence
+                  Probability
                 </th>
               </tr>
             </thead>
@@ -286,12 +309,18 @@ function ForecastTable({
                     </div>
                   </td>
 
-                  {/* Tide */}
+                  {/* Consistency */}
                   <td className="p-3">
-                    <div className="text-xs">
-                      <div className="font-medium">{forecast.tide_height}</div>
-                      <div className="text-gray-600">
-                        {forecast.tide_status}
+                    <div className="text-sm">
+                      <div
+                        className={`font-medium ${getConfidenceTextColor(
+                          forecast.confidence_score
+                        )}`}
+                      >
+                        {getConsistencyRating(forecast.confidence_score)}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {forecast.confidence_score}%
                       </div>
                     </div>
                   </td>
@@ -299,33 +328,38 @@ function ForecastTable({
                   {/* Weather */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm">🌤️</span>
+                      <span className="text-sm">
+                        {getWeatherIcon(forecast.weather_condition)}
+                      </span>
                       <div className="text-xs">
                         <div className="font-medium">
                           {forecast.air_temperature}
                         </div>
                         <div className="text-gray-600">
-                          {forecast.water_temp}
+                          {forecast.weather_condition}
                         </div>
                       </div>
                     </div>
                   </td>
 
-                  {/* Confidence */}
+                  {/* Probability */}
                   <td className="p-3">
-                    <div className="flex items-center gap-2">
+                    <div className="text-sm">
                       <div
-                        className={`w-3 h-3 rounded-full ${getConfidenceColor(
-                          forecast.confidence_score
-                        )}`}
-                      />
-                      <span
-                        className={`text-xs font-medium ${getConfidenceTextColor(
+                        className={`font-medium text-center ${getConfidenceTextColor(
                           forecast.confidence_score
                         )}`}
                       >
                         {forecast.confidence_score}%
-                      </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-300 ${getConfidenceBarColor(
+                            forecast.confidence_score
+                          )}`}
+                          style={{ width: `${forecast.confidence_score}%` }}
+                        ></div>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -338,89 +372,58 @@ function ForecastTable({
   );
 }
 
-export function MultiDayForecastTable({
+export function SimplifiedForecastTable({
   forecasts,
-}: MultiDayForecastTableProps) {
-  // Compute available dates from forecasts
-  const availableDates = React.useMemo(() => {
-    const dates = Array.from(
-      new Set(forecasts.map((f) => f.forecast_date))
-    ).sort((a, b) => {
-      const dateA = createDateFromString(a);
-      const dateB = createDateFromString(b);
-      return dateA.getTime() - dateB.getTime();
-    });
-    return dates;
-  }, [forecasts]);
-
-  const [expandedDays, setExpandedDays] = React.useState<Set<string>>(() => {
-    // Initialize with first date if available
-    return new Set(availableDates.length > 0 ? [availableDates[0]] : []);
-  });
-
-  // Update expanded days when available dates change
-  React.useEffect(() => {
-    if (availableDates.length > 0 && expandedDays.size === 0) {
-      setExpandedDays(new Set([availableDates[0]]));
-    }
-  }, [availableDates, expandedDays.size]);
+}: SimplifiedForecastTableProps) {
+  const [expandedDates, setExpandedDates] = React.useState<Set<string>>(
+    new Set()
+  );
 
   // Group forecasts by date
-  const forecastsByDate = React.useMemo(() => {
-    return forecasts.reduce((acc, forecast) => {
+  const groupedForecasts = React.useMemo(() => {
+    const grouped: Record<string, EnhancedForecastEntity[]> = {};
+
+    forecasts.forEach((forecast) => {
       const date = forecast.forecast_date;
-      if (!acc[date]) {
-        acc[date] = [];
+      if (!grouped[date]) {
+        grouped[date] = [];
       }
-      acc[date].push(forecast);
-      return acc;
-    }, {} as Record<string, EnhancedForecast[]>);
+      grouped[date].push(forecast);
+    });
+
+    // Sort dates and ensure today is expanded by default
+    const sortedDates = Object.keys(grouped).sort();
+    const today = getCurrentDate();
+    if (sortedDates.includes(today)) {
+      setExpandedDates(new Set([today]));
+    }
+
+    return grouped;
   }, [forecasts]);
 
-  const toggleDay = (date: string) => {
-    const newExpanded = new Set(expandedDays);
-    if (newExpanded.has(date)) {
-      newExpanded.delete(date);
-    } else {
-      newExpanded.add(date);
-    }
-    setExpandedDays(newExpanded);
+  const handleToggle = (date: string) => {
+    setExpandedDates((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(date)) {
+        newSet.delete(date);
+      } else {
+        newSet.add(date);
+      }
+      return newSet;
+    });
   };
 
-  // Use our improved date checking functions
-  const todayDate = getCurrentDate();
-  const otherDates = availableDates.filter((date) => !isDateToday(date));
-  const hasTodayData = availableDates.some((date) => isDateToday(date));
-
-  if (forecasts.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-gray-500">No forecast data available</p>
-      </div>
-    );
-  }
+  const sortedDates = Object.keys(groupedForecasts).sort();
 
   return (
-    <div className="space-y-3">
-      {/* Today's forecasts */}
-      {hasTodayData && (
-        <ForecastTable
-          forecasts={forecastsByDate[todayDate] || []}
-          date={todayDate}
-          isExpanded={expandedDays.has(todayDate)}
-          onToggle={() => toggleDay(todayDate)}
-          isToday={true}
-        />
-      )}
-
-      {/* Other dates */}
-      {otherDates.map((date) => (
+    <div className="space-y-4">
+      {sortedDates.map((date) => (
         <ForecastTable
           key={date}
-          forecasts={forecastsByDate[date] || []}
+          forecasts={groupedForecasts[date]}
           date={date}
-          isExpanded={expandedDays.has(date)}
-          onToggle={() => toggleDay(date)}
+          isExpanded={expandedDates.has(date)}
+          onToggle={() => handleToggle(date)}
           isToday={isDateToday(date)}
         />
       ))}

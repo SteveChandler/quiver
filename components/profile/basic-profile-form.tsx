@@ -50,7 +50,7 @@ const profileFormSchema = z.object({
     .optional(),
   favorite_spot: z
     .string()
-    .max(100, "Favorite spot must be less than 100 characters")
+    .max(100, "Default spot must be less than 100 characters")
     .optional(),
   instagram: z
     .string()
@@ -109,7 +109,7 @@ export function BasicProfileForm({
       }
 
       // Update the profile in the database
-      const result = await updateProfile(userId, {
+      const result = await updateProfile({
         full_name: data.full_name,
         phone_number: data.phone_number,
         bio: data.bio,
@@ -132,7 +132,8 @@ export function BasicProfileForm({
             : "Your profile has been updated successfully.",
       });
 
-      router.refresh();
+      // Navigate to profile page with fresh data
+      window.location.href = "/profile";
     } catch (error) {
       console.error("Error updating profile:", error);
       toast({
@@ -406,10 +407,10 @@ export function BasicProfileForm({
                 name="favorite_spot"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Favorite Surf Spot</FormLabel>
+                    <FormLabel>Default Surf Spot</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Your favorite place to catch waves"
+                        placeholder="Your default surf spot"
                         {...field}
                       />
                     </FormControl>

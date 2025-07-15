@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import type { Profile } from "@/types/database";
 
 export async function getProfile(userId: string) {
@@ -107,7 +108,10 @@ export async function createProfile(userId: string) {
       throw error;
     }
 
+    // Clear profile cache on both paths that use profiles
     revalidatePath("/profile");
+    revalidatePath("/"); // Home page uses profile data
+
     return { success: true, data };
   } catch (error) {
     console.error("Error creating profile:", error);
@@ -121,22 +125,7 @@ export async function createProfile(userId: string) {
 export async function updateProfile(
   profileData: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>
 ) {
-  const supabase = await createSupabaseServerClient();
-
-  // Get the current user from the authenticated session
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return {
-      success: false,
-      error: "Authentication required",
-    };
-  }
-
-  try {
+  return withAuthenticatedAction(async (user, supabase) => {
     const { data, error } = await supabase
       .from("profiles")
       .update({
@@ -151,15 +140,12 @@ export async function updateProfile(
       throw error;
     }
 
+    // Clear profile cache on both paths that use profiles
     revalidatePath("/profile");
-    return { success: true, data };
-  } catch (error) {
-    console.error("Error updating profile:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+    revalidatePath("/"); // Home page uses profile data
+    
+    return data;
+  });
 }
 
 export async function getUserStats(userId: string) {

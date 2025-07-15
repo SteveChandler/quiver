@@ -1,11 +1,54 @@
 import { test, expect } from "@playwright/test";
 
-// Session planning feature is not yet implemented (Phase 2)
-// Skipping entire test suite until the feature is ready
-test.describe.skip("Session Planning", () => {
+// Re-enabled session planning tests with comprehensive error detection
+test.describe("Session Planning", () => {
+  // Track React errors and infinite loops
   test.beforeEach(async ({ page }) => {
+    // Set up error tracking
+    const errors: string[] = [];
+
+    page.on("pageerror", (error) => {
+      errors.push(error.message);
+      console.error("Page error:", error.message);
+    });
+
+    page.on("console", (msg) => {
+      if (msg.type() === "error") {
+        const errorText = msg.text();
+        errors.push(errorText);
+        console.error("Console error:", errorText);
+      }
+    });
+
+    // Store errors array on page for test access
+    await page.addInitScript(() => {
+      (window as any).__testErrors = [];
+      const originalError = console.error;
+      console.error = (...args) => {
+        (window as any).__testErrors.push(args.join(" "));
+        originalError.apply(console, args);
+      };
+    });
+
     await page.goto("/plan-session");
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000); // Give time for any issues to manifest
+
+    // Check for infinite loops or critical React errors
+    const pageErrors = await page.evaluate(
+      () => (window as any).__testErrors || []
+    );
+    const hasInfiniteLoop = pageErrors.some(
+      (error: string) =>
+        error.includes("Maximum update depth exceeded") ||
+        error.includes("Too many re-renders") ||
+        error.includes("Rendered more hooks than during the previous render")
+    );
+
+    if (hasInfiniteLoop) {
+      throw new Error(
+        `Infinite loop detected in Plan Session page: ${pageErrors.join(", ")}`
+      );
+    }
 
     // Skip if not authenticated
     if (
@@ -16,9 +59,22 @@ test.describe.skip("Session Planning", () => {
     }
   });
 
-  test("should display session planning form when authenticated", async ({
+  test("should display session planning form without React errors", async ({
     page,
   }) => {
+    // Verify no critical React errors occurred during load
+    const jsErrors = await page.evaluate(
+      () => (window as any).__testErrors || []
+    );
+    const criticalErrors = jsErrors.filter(
+      (error: string) =>
+        error.includes("Error:") ||
+        error.includes("TypeError:") ||
+        error.includes("ReferenceError:")
+    );
+
+    expect(criticalErrors.length).toBe(0);
+
     // Check for basic form elements
     const form = page.getByTestId("session-planning-form");
     const beachField = page.getByLabel(/beach/i);
@@ -30,6 +86,76 @@ test.describe.skip("Session Planning", () => {
     const hasDateField = await dateField.isVisible().catch(() => false);
 
     expect(hasForm || hasBeachField || hasDateField).toBeTruthy();
+  });
+
+  test("should handle friend invitations section without infinite loops", async ({
+    page,
+  }) => {
+    // Test the specific component that was causing infinite loops
+    await page.waitForTimeout(2000);
+
+    // Look for the group invitations section
+    const inviteSection = page
+      .locator('[data-testid="group-invitations"]')
+      .or(page.getByText(/invite.*friends/i))
+      .or(page.getByText(/group.*invitations/i));
+
+    if (await inviteSection.isVisible()) {
+      // Wait and verify no infinite re-renders
+      await page.waitForTimeout(3000);
+
+      const renderErrors = await page.evaluate(
+        () => (window as any).__testErrors || []
+      );
+      const hasRenderLoop = renderErrors.some(
+        (error: string) =>
+          error.includes("Maximum update depth") ||
+          error.includes("re-render") ||
+          error.includes("useEffect")
+      );
+
+      expect(hasRenderLoop).toBeFalsy();
+    }
+  });
+
+  test("should handle API failures gracefully", async ({ page }) => {
+    // Mock the problematic API endpoint to return 500
+    await page.route("/api/session-planner/invitations*", (route) => {
+      if (route.request().url().includes("type=friends")) {
+        route.fulfill({
+          status: 500,
+          body: JSON.stringify({ error: "Internal server error" }),
+        });
+      } else {
+        route.continue();
+      }
+    });
+
+    // Reload page with mocked failing API
+    await page.reload();
+    await page.waitForTimeout(3000);
+
+    // Page should still load without crashing
+    const hasMainContent = await page
+      .locator("main")
+      .isVisible()
+      .catch(() => false);
+    const hasBody = await page
+      .locator("body")
+      .isVisible()
+      .catch(() => false);
+
+    expect(hasMainContent || hasBody).toBeTruthy();
+
+    // Should not have infinite loop errors even with API failure
+    const apiErrors = await page.evaluate(
+      () => (window as any).__testErrors || []
+    );
+    const hasInfiniteLoop = apiErrors.some((error: string) =>
+      error.includes("Maximum update depth exceeded")
+    );
+
+    expect(hasInfiniteLoop).toBeFalsy();
   });
 
   test("should allow planning future sessions", async ({ page }) => {

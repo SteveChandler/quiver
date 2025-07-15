@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import {
+  createSuccessResponse,
+  createAuthError,
+  createValidationError,
+  handleApiError,
+} from "@/lib/api-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,26 +46,17 @@ export async function POST(request: NextRequest) {
 
     if (userError) {
       console.error("Auth error in plan-session API:", userError);
-      return NextResponse.json(
-        { success: false, error: "Authentication error" },
-        { status: 401 }
-      );
+      return createAuthError("Authentication error");
     }
 
     if (!user) {
       console.error("No user found in plan-session API");
-      return NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      );
+      return createAuthError("Authentication required");
     }
 
     // Validate required fields
     if (!dataToUse.beach_name || !dataToUse.session_date) {
-      return NextResponse.json(
-        { success: false, error: "Beach name and session date are required" },
-        { status: 400 }
-      );
+      return createValidationError("Beach name and session date are required");
     }
 
     // Clean up data by removing undefined values
@@ -125,22 +122,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Error creating planned session:", error);
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+      return handleApiError(error, "Failed to create planned session");
     }
 
     // Return the created session
-    return NextResponse.json({ success: true, data: session }, { status: 201 });
+    return createSuccessResponse({ success: true, data: session }, 201);
   } catch (error) {
     console.error("Error in plan-session API:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to create planned session");
   }
 }
