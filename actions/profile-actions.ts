@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
+import { invalidateProfileCache } from "@/hooks/use-user-profile";
 import type { Profile } from "@/types/database";
 
 export async function getProfile(userId: string) {
@@ -143,7 +144,10 @@ export async function updateProfile(
     // Clear profile cache on both paths that use profiles
     revalidatePath("/profile");
     revalidatePath("/"); // Home page uses profile data
-    
+
+    // Clear the in-memory profile cache used by useUserProfile hook
+    invalidateProfileCache(user.id);
+
     return data;
   });
 }

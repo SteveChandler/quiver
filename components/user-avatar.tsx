@@ -49,21 +49,13 @@ export function UserAvatar({
   // Clean up the src URL and validate
   const cleanSrc = (() => {
     if (!src || imageError) return null;
-    // Skip placeholder URLs
-    if (src.includes("placeholder.svg")) return null;
+
+    // Only skip local placeholder URLs (like "/placeholder.svg?height=200&width=200")
+    // Don't filter out Supabase storage URLs or other valid image URLs
+    if (src.startsWith("/placeholder.svg")) return null;
+
     return src;
   })();
-
-  // Only log errors in development, not every render
-  if (process.env.NODE_ENV === "development" && imageError) {
-    console.log("UserAvatar image error:", {
-      originalSrc: src,
-      cleanSrc,
-      imageError,
-      name,
-      email,
-    });
-  }
 
   const handleImageError = () => {
     console.log("Avatar image failed to load:", src);
