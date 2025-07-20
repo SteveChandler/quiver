@@ -2,17 +2,11 @@ import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-servic
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { Beach } from "@/types/database";
 
-// Singleton pattern for service instance
-let serviceInstance: EnhancedForecastService | null = null;
-
 /**
  * Get singleton instance of EnhancedForecastService
  */
 export function getEnhancedForecastService(): EnhancedForecastService {
-  if (!serviceInstance) {
-    serviceInstance = new EnhancedForecastService();
-  }
-  return serviceInstance;
+  return new EnhancedForecastService();
 }
 
 /**

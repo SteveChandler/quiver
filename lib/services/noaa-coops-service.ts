@@ -47,18 +47,10 @@ interface TideData {
   type: "high" | "low";
 }
 
-interface CurrentData {
-  time: number; // Unix timestamp
-  speed: number; // Current speed in knots
-  direction: number; // Current direction in degrees
-  type: "flood" | "ebb" | "slack"; // Current type
-}
-
 interface COOPSForecast {
   station_id: string;
   station_name: string;
   tides: TideData[];
-  currents: CurrentData[];
   water_level: number | null; // Current water level in feet
 }
 
@@ -111,19 +103,16 @@ export class NOAACOOPSService {
       const endDateStr = formatDate(endDate);
 
       // Fetch multiple data types in parallel
-      const [tideData, currentData, waterLevelData, stationInfo] =
-        await Promise.all([
-          this.fetchTidePredictions(stationId, beginDate, endDateStr),
-          this.fetchCurrentPredictions(stationId, beginDate, endDateStr),
-          this.fetchCurrentWaterLevel(stationId),
-          this.fetchStationInfo(stationId),
-        ]);
+      const [tideData, waterLevelData, stationInfo] = await Promise.all([
+        this.fetchTidePredictions(stationId, beginDate, endDateStr),
+        this.fetchCurrentWaterLevel(stationId),
+        this.fetchStationInfo(stationId),
+      ]);
 
       return {
         station_id: stationId,
         station_name: stationInfo?.name || `Station ${stationId}`,
         tides: tideData,
-        currents: currentData,
         water_level: waterLevelData,
       };
     } catch (error) {
@@ -197,57 +186,6 @@ export class NOAACOOPSService {
       console.log("Using fallback tide data for development");
       // Return fallback simulated data for development
       return this.generateFallbackTideData();
-    }
-  }
-
-  /**
-   * Fetch tidal current predictions
-   */
-  private async fetchCurrentPredictions(
-    stationId: string,
-    beginDate: string,
-    endDate: string
-  ): Promise<CurrentData[]> {
-    try {
-      const url = new URL(COOPS_BASE_URL);
-      url.searchParams.set("application", "quiver-surf-app");
-      url.searchParams.set("station", stationId);
-      url.searchParams.set("begin_date", beginDate);
-      url.searchParams.set("end_date", endDate);
-      url.searchParams.set("product", "currents_predictions");
-      url.searchParams.set("units", "english");
-      url.searchParams.set("time_zone", "lst_ldt");
-      url.searchParams.set("format", "json");
-
-      const response = await fetch(url.toString(), {
-        headers: {
-          "User-Agent": "quiver-surf-app (contact@quiver.com)",
-        },
-      });
-
-      if (!response.ok) {
-        // Current predictions may not be available for all stations
-        console.warn(
-          `Current predictions not available for station ${stationId}`
-        );
-        return [];
-      }
-
-      const data = await response.json();
-
-      if (!data.current_predictions) {
-        return [];
-      }
-
-      return data.current_predictions.map((current: any) => ({
-        time: new Date(current.t).getTime() / 1000,
-        speed: parseFloat(current.s || "0"),
-        direction: parseFloat(current.d || "0"),
-        type: this.determineCurrentType(parseFloat(current.s || "0")),
-      }));
-    } catch (error) {
-      console.error("Error fetching current predictions:", error);
-      return [];
     }
   }
 
@@ -336,14 +274,6 @@ export class NOAACOOPSService {
       console.error("Error fetching station info:", error);
       return null;
     }
-  }
-
-  /**
-   * Determine current type based on speed
-   */
-  private determineCurrentType(speed: number): "flood" | "ebb" | "slack" {
-    if (speed < 0.2) return "slack";
-    return speed > 0 ? "flood" : "ebb";
   }
 
   /**

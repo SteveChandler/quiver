@@ -355,24 +355,6 @@ export class EnhancedForecastService {
   }
 
   /**
-   * Fetch tidal data using CO-OPS service
-   */
-  private async fetchTidalData(beach: Beach) {
-    try {
-      const stationId = this.coopsService.getStationForLocation(
-        beach.name,
-        beach.latitude,
-        beach.longitude
-      );
-
-      return await this.coopsService.fetchCOOPSData(stationId, 10);
-    } catch (error) {
-      console.error("Error fetching tidal data:", error);
-      return null;
-    }
-  }
-
-  /**
    * Fetch weather data from NOAA
    */
   private async fetchWeatherData(beach: Beach) {
@@ -624,10 +606,6 @@ export class EnhancedForecastService {
         next_tide_type: tideInfo.nextTideType,
         next_tide_height: tideInfo.nextTideHeight,
 
-        // Current information
-        current_speed: tideInfo.currentSpeed,
-        current_direction: tideInfo.currentDirection,
-
         // Weather conditions
         weather_condition: weatherPoint?.shortForecast || "Partly Cloudy",
         air_temperature: weatherPoint
@@ -684,8 +662,6 @@ export class EnhancedForecastService {
       nextTideTime: "Unknown",
       nextTideType: "Unknown",
       nextTideHeight: "Unknown",
-      currentSpeed: "0 knots",
-      currentDirection: "Unknown",
     };
 
     if (!tideData?.tides) return defaultTideInfo;
@@ -703,16 +679,6 @@ export class EnhancedForecastService {
       targetTime
     );
 
-    // Find current data for this time
-    const targetTimestamp = targetTime.getTime() / 1000;
-    let currentInfo = null;
-
-    if (tideData.currents && tideData.currents.length > 0) {
-      currentInfo = tideData.currents.find(
-        (current: any) => Math.abs(current.time - targetTimestamp) < 3600 // Within 1 hour
-      );
-    }
-
     return {
       status,
       currentHeight: currentHeight ? `${currentHeight} ft` : "2.5 ft",
@@ -724,10 +690,6 @@ export class EnhancedForecastService {
         : "Unknown",
       nextTideType: nextTide?.name || "Unknown",
       nextTideHeight: nextTide ? `${nextTide.height} ft` : "Unknown",
-      currentSpeed: currentInfo ? `${currentInfo.speed} knots` : "0 knots",
-      currentDirection: currentInfo
-        ? this.waveWatchService.getWaveDirectionText(currentInfo.direction)
-        : "Unknown",
     };
   }
 
@@ -902,23 +864,17 @@ export class EnhancedForecastService {
     const supabase = await createSupabaseServiceRoleClient();
 
     try {
-      // Delete existing forecasts for this beach
-      await supabase
-        .from("enhanced_forecasts")
-        .delete()
-        .eq("beach_id", beach.id);
-
-      // Insert new enhanced forecasts
-      const { data, error } = await supabase.from("enhanced_forecasts").insert(
+      // Use upsert to prevent race conditions and duplicate data
+      const { data, error } = await supabase.from("enhanced_forecasts").upsert(
         forecasts.map((forecast) => {
           // Remove the temporary ID and let PostgreSQL generate proper UUIDs
           const { id, ...forecastWithoutId } = forecast;
           return {
             ...forecastWithoutId,
-            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
-        })
+        }),
+        { onConflict: "beach_id,forecast_date,forecast_time" }
       );
 
       if (error) {

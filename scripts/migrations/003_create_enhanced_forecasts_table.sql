@@ -52,7 +52,11 @@ CREATE TABLE IF NOT EXISTS enhanced_forecasts (
   CONSTRAINT fk_enhanced_forecasts_beach
     FOREIGN KEY (beach_id) 
     REFERENCES beaches (id) 
-    ON DELETE CASCADE
+    ON DELETE CASCADE,
+  
+  -- Ensure each forecast is unique for a given beach, date, and time
+  CONSTRAINT unique_beach_forecast_time
+    UNIQUE (beach_id, forecast_date, forecast_time)
 );
 
 -- Create indexes for efficient querying
@@ -97,10 +101,12 @@ ORDER BY beach_id, forecast_date, forecast_time;
 ALTER TABLE enhanced_forecasts ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies for enhanced_forecasts (public read access)
+DROP POLICY IF EXISTS "Anyone can view enhanced forecasts" ON enhanced_forecasts;
 CREATE POLICY "Anyone can view enhanced forecasts" ON enhanced_forecasts
     FOR SELECT USING (true);
 
 -- Admin/service role can insert/update/delete forecasts
+DROP POLICY IF EXISTS "Service role can manage enhanced forecasts" ON enhanced_forecasts;
 CREATE POLICY "Service role can manage enhanced forecasts" ON enhanced_forecasts
     FOR ALL USING (
         auth.jwt() ->> 'role' = 'service_role' OR
