@@ -187,6 +187,18 @@ export function BasicProfileForm({
       }
 
       setAvatarUrl(result.url);
+
+      // Immediately update the profile with the new avatar URL
+      const updateResult = await updateProfile({ avatar_url: result.url });
+      if (!updateResult.success) {
+        // If the profile update fails, try to delete the just-uploaded image
+        await deleteImage(result.url, "avatars");
+        setAvatarUrl(avatarUrl); // Revert to the old URL
+        throw new Error(
+          updateResult.error || "Failed to update profile picture."
+        );
+      }
+
       toast({
         title: "Image uploaded",
         description: "Your profile picture has been updated.",
@@ -215,8 +227,18 @@ export function BasicProfileForm({
       // Delete the image
       await deleteImage(avatarUrl, "avatars");
 
-      // Set to placeholder
-      setAvatarUrl("/placeholder.svg?height=200&width=200");
+      const placeholderUrl = "/placeholder.svg?height=200&width=200";
+      setAvatarUrl(placeholderUrl);
+
+      // Immediately update the profile
+      const updateResult = await updateProfile({ avatar_url: placeholderUrl });
+      if (!updateResult.success) {
+        setAvatarUrl(avatarUrl); // Revert UI on failure
+        throw new Error(
+          updateResult.error || "Failed to remove profile picture."
+        );
+      }
+
       toast({
         title: "Image removed",
         description: "Your profile picture has been removed.",
@@ -409,10 +431,7 @@ export function BasicProfileForm({
                   <FormItem>
                     <FormLabel>Default Surf Spot</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Your default surf spot"
-                        {...field}
-                      />
+                      <Input placeholder="Your default surf spot" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

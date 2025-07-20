@@ -73,17 +73,20 @@ export async function createProfile(userId: string) {
 
     // If profile already exists, return it
     if (existingProfile) {
-      const { data: fullProfile, error: fetchError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
+      return getProfile(userId);
+    }
 
-      if (fetchError) {
-        throw fetchError;
-      }
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.admin.getUserById(userId);
 
-      return { success: true, data: fullProfile };
+    if (userError) {
+      throw new Error(`Could not get user data: ${userError.message}`);
+    }
+
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found in auth.users`);
     }
 
     // Create new profile
@@ -91,10 +94,12 @@ export async function createProfile(userId: string) {
       .from("profiles")
       .insert({
         id: userId,
-        full_name: "",
-        email: "",
-        phone_number: "",
-        avatar_url: "/placeholder.svg?height=200&width=200",
+        full_name: user.user_metadata?.full_name || "",
+        email: user.email || "",
+        phone_number: user.phone || "",
+        avatar_url:
+          user.user_metadata?.avatar_url ||
+          "/placeholder.svg?height=200&width=200",
         bio: "",
         location: "",
         experience_level: "",

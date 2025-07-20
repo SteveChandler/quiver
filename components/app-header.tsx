@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useUserProfile } from "@/hooks/use-user-profile";
+import { ThemeToggle } from "./ui/theme-toggle";
 
 export function AppHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -66,6 +67,7 @@ export function AppHeader() {
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-2">
+          <ThemeToggle />
           {/* Mobile Menu Button */}
           <Button
             variant="ghost"
