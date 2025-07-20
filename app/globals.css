@@ -60,3 +60,64 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Default container behavior - responsive and fills screen appropriately */
+  .home-container {
+    @apply w-full px-4 sm:px-6 lg:px-8;
+    margin: 0 auto;
+    max-width: 1280px;
+  }
+
+  /* Fullscreen mode - allow content to use more space */
+  @media all and (display-mode: fullscreen) {
+    .home-container {
+      max-width: 1400px;
+      padding-left: max(2rem, 8vw);
+      padding-right: max(2rem, 8vw);
+    }
+  }
+
+  /* Large screens - use more space but stay centered */
+  @media screen and (min-width: 1200px) {
+    .home-container {
+      max-width: 1200px;
+      padding-left: max(2rem, 6vw);
+      padding-right: max(2rem, 6vw);
+    }
+  }
+
+  /* Very wide screens (like Mac fullscreen) - expand further */
+  @media screen and (min-width: 1400px) {
+    .home-container {
+      max-width: 1400px;
+      padding-left: max(3rem, 10vw);
+      padding-right: max(3rem, 10vw);
+    }
+  }
+
+  /* Section containers - responsive widths */
+  .centered-container {
+    @apply w-full mx-auto px-0;
+    max-width: 100%;
+  }
+
+  /* Allow sections to expand on larger screens */
+  @media screen and (min-width: 768px) {
+    .centered-container {
+      max-width: 900px;
+    }
+  }
+
+  @media screen and (min-width: 1024px) {
+    .centered-container {
+      max-width: 1000px;
+    }
+  }
+
+  @media screen and (min-width: 1200px) {
+    .centered-container {
+      max-width: 1100px;
+    }
+  }
+}

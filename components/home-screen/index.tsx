@@ -61,76 +61,80 @@ export function HomeScreen() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Main Content */}
-      <main className="flex-1 container px-4 py-6 space-y-6 overflow-auto pt-6">
+      <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pt-6">
         {/* Welcome Section */}
-        <section className="space-y-2">
-          <h2 className="text-2xl font-bold">
+        <section className="centered-container space-y-3">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
             Hey, {user ? profile?.full_name || "Surfer" : "Guest"}!
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">
             The waves are looking good today. Ready to catch some?
           </p>
         </section>
 
         {/* Quick Actions */}
-        <section className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
-          {user ? (
-            <>
-              <Link href="/plan-session">
-                <Button
-                  className="h-auto py-4 flex flex-col items-center gap-2 w-full"
-                  variant="default"
-                >
-                  <CalendarDays className="h-6 w-6" />
-                  <span>Plan Session</span>
-                </Button>
-              </Link>
-              <Link href="/log-session">
-                <Button
-                  className="h-auto py-4 flex flex-col items-center gap-2 w-full"
-                  variant="outline"
-                >
-                  <Waves className="h-6 w-6" />
-                  <span>Add to Journal</span>
-                </Button>
-              </Link>
-            </>
-          ) : (
-            <div className="col-span-2 text-center p-8 bg-muted/50 rounded-lg">
-              <p className="text-muted-foreground mb-4">
-                Sign in to plan and log your surf sessions
-              </p>
-              <Link href="/auth/sign-in">
-                <Button>Sign In to Get Started</Button>
-              </Link>
-            </div>
-          )}
+        <section className="centered-container">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto">
+            {user ? (
+              <>
+                <Link href="/plan-session">
+                  <Button
+                    className="h-auto py-6 sm:py-8 flex flex-col items-center gap-3 w-full text-base sm:text-lg"
+                    variant="default"
+                  >
+                    <CalendarDays className="h-7 w-7 sm:h-8 sm:w-8" />
+                    <span>Plan Session</span>
+                  </Button>
+                </Link>
+                <Link href="/log-session">
+                  <Button
+                    className="h-auto py-6 sm:py-8 flex flex-col items-center gap-3 w-full text-base sm:text-lg"
+                    variant="outline"
+                  >
+                    <Waves className="h-7 w-7 sm:h-8 sm:w-8" />
+                    <span>Add to Journal</span>
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <div className="col-span-2 text-center p-8 sm:p-10 bg-muted/50 rounded-lg">
+                <p className="text-muted-foreground mb-4 text-base sm:text-lg">
+                  Sign in to plan and log your surf sessions
+                </p>
+                <Link href="/auth/sign-in">
+                  <Button size="lg">Sign In to Get Started</Button>
+                </Link>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Tabs Section */}
-        <Tabs
-          defaultValue="forecast"
-          className="space-y-4"
-          onValueChange={(value) => setActiveTab(value)}
-        >
-          <TabsList className="grid grid-cols-3 w-full max-w-2xl mx-auto">
-            <TabsTrigger value="forecast">Forecast</TabsTrigger>
-            <TabsTrigger value="nearby">Nearby</TabsTrigger>
-            <TabsTrigger value="community">Local Intel</TabsTrigger>
-          </TabsList>
+        <section className="centered-container">
+          <Tabs
+            defaultValue="forecast"
+            className="space-y-6"
+            onValueChange={(value) => setActiveTab(value)}
+          >
+            <TabsList className="grid grid-cols-3 w-full max-w-3xl mx-auto h-12 sm:h-14">
+              <TabsTrigger value="forecast" className="text-sm sm:text-base">Forecast</TabsTrigger>
+              <TabsTrigger value="nearby" className="text-sm sm:text-base">Nearby</TabsTrigger>
+              <TabsTrigger value="community" className="text-sm sm:text-base">Local Intel</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="forecast">
-            <ForecastTab profile={profile} />
-          </TabsContent>
+            <TabsContent value="forecast">
+              <ForecastTab profile={profile} />
+            </TabsContent>
 
-          <TabsContent value="nearby">
-            <NearbyTab beaches={beaches} loading={loading} />
-          </TabsContent>
+            <TabsContent value="nearby">
+              <NearbyTab beaches={beaches} loading={loading} />
+            </TabsContent>
 
-          <TabsContent value="community">
-            <CommunityTab sessions={sessions} loading={loading} />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="community">
+              <CommunityTab sessions={sessions} loading={loading} />
+            </TabsContent>
+          </Tabs>
+        </section>
       </main>
 
       {/* Floating Action Button */}
