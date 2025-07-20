@@ -175,7 +175,7 @@ export function ProfileView() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 container px-4 py-6 space-y-6 overflow-auto pb-20">
+      <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pb-20">
         {error ? (
           <div className="space-y-4">
             <Alert variant="destructive">
@@ -193,28 +193,29 @@ export function ProfileView() {
         ) : (
           <>
             {/* Profile Info */}
-            <Card className="overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <UserAvatar
-                    src={profile?.avatar_url}
-                    name={profile?.full_name}
-                    email={user?.email}
-                    size="xl"
-                  />
-                  <div className="flex-1 text-center sm:text-left">
-                    <h2 className="text-2xl font-bold">
-                      {profile?.full_name || "Surfer"}
-                    </h2>
-                    <p className="text-muted-foreground">{user?.email}</p>
+            <section className="centered-container">
+              <Card className="overflow-hidden">
+                <CardContent className="p-6 sm:p-8 lg:p-10">
+                  <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 lg:gap-10">
+                    <UserAvatar
+                      src={profile?.avatar_url}
+                      name={profile?.full_name}
+                      email={user?.email}
+                      size="xl"
+                    />
+                    <div className="flex-1 text-center sm:text-left">
+                      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+                        {profile?.full_name || "Surfer"}
+                      </h2>
+                      <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">{user?.email}</p>
 
                     {/* Bio */}
                     {profile?.bio && (
-                      <p className="text-sm mt-2 max-w-md">{profile.bio}</p>
+                      <p className="text-sm sm:text-base lg:text-lg mt-3 sm:mt-4 max-w-md sm:max-w-lg lg:max-w-xl">{profile.bio}</p>
                     )}
 
                     {/* Additional Profile Info */}
-                    <div className="flex flex-wrap justify-center sm:justify-start gap-4 mt-3 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-4 sm:gap-6 mt-4 sm:mt-5 text-sm sm:text-base text-muted-foreground">
                       {profile?.location && (
                         <div className="flex items-center">
                           <MapPin className="h-4 w-4 mr-1" />
@@ -251,39 +252,45 @@ export function ProfileView() {
                   <div className="mt-4 sm:mt-0">
                     <Button
                       variant="outline"
+                      size="lg"
                       onClick={() => setEditModalOpen(true)}
+                      className="text-base sm:text-lg px-6 py-3"
                     >
-                      <Edit className="h-4 w-4 mr-2" />
+                      <Edit className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                       Edit Profile
                     </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
+            </section>
 
             {/* User Stats */}
-            {user && <UserStats userId={user.id} />}
+            <section className="centered-container">
+              {user && <UserStats userId={user.id} />}
+            </section>
 
             {/* Tabs */}
-            <Tabs defaultValue="sessions" className="space-y-4">
-              <TabsList className="grid grid-cols-4 w-full">
-                <TabsTrigger value="sessions">
-                  <CalendarDays className="h-4 w-4 mr-1" />
-                  Journal+
-                </TabsTrigger>
-                <TabsTrigger value="quiver">
-                  <Surfboard className="h-4 w-4 mr-1" />
-                  Quiver
-                </TabsTrigger>
-                <TabsTrigger value="beaches">
-                  <Heart className="h-4 w-4 mr-1" />
-                  Beaches
-                </TabsTrigger>
-                <TabsTrigger value="comments">
-                  <MessageSquare className="h-4 w-4 mr-1" />
-                  Comments
-                </TabsTrigger>
-              </TabsList>
+            <section className="centered-container">
+              <Tabs defaultValue="sessions" className="space-y-6">
+                <TabsList className="grid grid-cols-4 w-full max-w-4xl mx-auto h-12 sm:h-14 lg:h-16">
+                  <TabsTrigger value="sessions" className="text-xs sm:text-sm lg:text-base">
+                    <CalendarDays className="h-4 w-4 lg:h-5 lg:w-5 mr-1" />
+                    Journal+
+                  </TabsTrigger>
+                  <TabsTrigger value="quiver" className="text-xs sm:text-sm lg:text-base">
+                    <Surfboard className="h-4 w-4 lg:h-5 lg:w-5 mr-1" />
+                    Quiver
+                  </TabsTrigger>
+                  <TabsTrigger value="beaches" className="text-xs sm:text-sm lg:text-base">
+                    <Heart className="h-4 w-4 lg:h-5 lg:w-5 mr-1" />
+                    Beaches
+                  </TabsTrigger>
+                  <TabsTrigger value="comments" className="text-xs sm:text-sm lg:text-base">
+                    <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5 mr-1" />
+                    Comments
+                  </TabsTrigger>
+                </TabsList>
 
               <TabsContent value="sessions" className="space-y-4">
                 <JournalView />
@@ -325,6 +332,7 @@ export function ProfileView() {
                 {user && <UserComments userId={user.id} />}
               </TabsContent>
             </Tabs>
+            </section>
           </>
         )}
       </main>
