@@ -232,18 +232,22 @@ export function InteractiveMap({
         const beachForecastPromises = locations.map(async (beach) => {
           try {
             const response = await fetch(
-              `/api/forecasts/update-enhanced?beachId=${beach.id}&days=1`
+              `/api/forecasts/update-enhanced?beachId=${beach.id}&days=2`
             );
 
             if (response.ok) {
               const data = await response.json();
               if (data.success && data.data?.forecasts?.length > 0) {
-                // Get today's first forecast entry
-                const todaysForecast = data.data.forecasts[0];
-                return {
-                  beachId: beach.id,
-                  waveHeight: todaysForecast.wave_height, // Keep as string/number, formatter will handle it
-                };
+                // Use time-aware selection to get the most appropriate forecast
+                const { getCurrentForecast } = await import("@/lib/utils/current-forecast-utils");
+                const currentForecast = getCurrentForecast(data.data.forecasts);
+                
+                if (currentForecast) {
+                  return {
+                    beachId: beach.id,
+                    waveHeight: currentForecast.wave_height, // Keep as string/number, formatter will handle it
+                  };
+                }
               }
             }
           } catch (error) {

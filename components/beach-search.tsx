@@ -139,10 +139,15 @@ export function BeachSearch({ profile }: BeachSearchProps) {
         });
 
         if (data.success && data.data?.forecasts?.length > 0) {
-          // Get today's forecast (first available)
-          const forecast = data.data.forecasts[0];
-          console.log(`✅ Enhanced forecast retrieved successfully:`, forecast);
-          return forecast;
+          // Use time-aware selection to get the most appropriate forecast
+          const { getCurrentForecast } = await import("@/lib/utils/current-forecast-utils");
+          const bestForecast = getCurrentForecast(data.data.forecasts);
+          
+          if (bestForecast) {
+            const { formatCurrentTime } = await import("@/lib/utils/current-forecast-utils");
+            console.log(`✅ Enhanced forecast retrieved successfully - Current time: ${formatCurrentTime()}, selected forecast: ${bestForecast.forecast_date} ${bestForecast.forecast_time}:`, bestForecast);
+            return bestForecast;
+          }
         } else {
           console.warn(
             `⚠️ Enhanced forecast API returned success=${data.success}, but no forecast data`

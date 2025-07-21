@@ -157,9 +157,10 @@ export function isTomorrow(dateString: string): boolean {
 }
 
 /**
- * Find the best forecast for a given date (closest to current time for today)
+ * Find the best forecast for a given date (forward-looking logic for today)
+ * @deprecated Use getCurrentForecast or getBestForecastForDate from current-forecast-utils instead
  */
-export function findBestForecastForDate<T extends { forecast_time: string }>(
+export function findBestForecastForDate<T extends { forecast_time: string; forecast_date: string }>(
   forecasts: T[],
   isToday: boolean = false
 ): T | null {
@@ -171,22 +172,27 @@ export function findBestForecastForDate<T extends { forecast_time: string }>(
     return forecasts[0];
   }
 
-  // For today, find forecast closest to current time
+  // For today, use forward-looking logic instead of closest time
   const now = new Date();
   const currentTime = now.getHours() * 60 + now.getMinutes();
 
-  return forecasts.reduce((best, current) => {
-    const [hours, minutes] = current.forecast_time.split(":").map(Number);
+  // Sort forecasts by time
+  const sortedForecasts = [...forecasts].sort((a, b) => {
+    return a.forecast_time.localeCompare(b.forecast_time);
+  });
+
+  // Find the next forecast at or after current time (forward-looking)
+  for (const forecast of sortedForecasts) {
+    const [hours, minutes] = forecast.forecast_time.split(":").map(Number);
     const forecastTime = hours * 60 + minutes;
 
-    const [bestHours, bestMinutes] = best.forecast_time.split(":").map(Number);
-    const bestTime = bestHours * 60 + bestMinutes;
+    if (forecastTime >= currentTime) {
+      return forecast;
+    }
+  }
 
-    const currentDiff = Math.abs(forecastTime - currentTime);
-    const bestDiff = Math.abs(bestTime - currentTime);
-
-    return currentDiff < bestDiff ? current : best;
-  });
+  // If no future forecasts, return the last (most recent) forecast
+  return sortedForecasts[sortedForecasts.length - 1];
 }
 
 /**
