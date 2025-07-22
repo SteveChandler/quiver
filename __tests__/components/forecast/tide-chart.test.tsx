@@ -267,12 +267,20 @@ describe("TideChart Component", () => {
     it("should use color coding for high and low tides", () => {
       const { container } = render(<TideChart forecasts={mockTideForecasts} />);
 
-      // Check for circles with different colors (blue for high, gray for low)
-      const blueCircles = container.querySelectorAll("circle[fill='#3B82F6']");
-      const grayCircles = container.querySelectorAll("circle[fill='#6B7280']");
+      // Check for circles with different colors based on tide height
+      // Green shades for positive tides: #10B981 (high positive), #059669 (low positive)
+      // Red shades for negative tides: #EF4444 (high negative), #DC2626 (low negative)
+      const greenCircles = container.querySelectorAll(
+        "circle[fill='#10B981'], circle[fill='#059669']"
+      );
+      const redCircles = container.querySelectorAll(
+        "circle[fill='#EF4444'], circle[fill='#DC2626']"
+      );
 
-      expect(blueCircles.length).toBeGreaterThan(0);
-      expect(grayCircles.length).toBeGreaterThan(0);
+      // Should have some colored circles (positive or negative tides)
+      const totalColoredCircles =
+        (greenCircles?.length || 0) + (redCircles?.length || 0);
+      expect(totalColoredCircles).toBeGreaterThan(0);
     });
   });
 

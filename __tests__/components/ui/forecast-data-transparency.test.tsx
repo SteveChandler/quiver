@@ -6,11 +6,9 @@ describe("ForecastDataTransparency", () => {
     it("should render real data indicator", () => {
       render(<ForecastDataTransparency dataSource="NOAA_NWS" />);
 
-      expect(screen.getByText("Real NOAA Data")).toBeInTheDocument();
-      expect(
-        screen.getByText(/real-time NOAA weather data/i)
-      ).toBeInTheDocument();
-      expect(screen.getByText(/National Weather Service/i)).toBeInTheDocument();
+      expect(screen.getByText("Real Wave Data")).toBeInTheDocument();
+      expect(screen.getByText(/real oceanographic data/i)).toBeInTheDocument();
+      expect(screen.getByText(/NOAA WaveWatch III/i)).toBeInTheDocument();
     });
 
     it("should have green styling for real data", () => {
@@ -34,14 +32,16 @@ describe("ForecastDataTransparency", () => {
       expect(checkIcon).toBeInTheDocument();
 
       // Also verify the component content
-      expect(screen.getByText("Real NOAA Data")).toBeInTheDocument();
+      expect(screen.getByText("Real Wave Data")).toBeInTheDocument();
     });
 
-    it("should show wifi icon for real data", () => {
+    it("should show waves icon for real data", () => {
       render(<ForecastDataTransparency dataSource="NOAA_NWS" />);
 
-      // Check for the presence of the wifi icon
-      expect(screen.getByText("Real NOAA Data")).toBeInTheDocument();
+      // Check for the presence of the waves icon and text
+      expect(screen.getByText("Real Wave Data")).toBeInTheDocument();
+      const wavesIcon = document.querySelector('svg[class*="lucide-waves"]');
+      expect(wavesIcon).toBeInTheDocument();
     });
   });
 
@@ -49,9 +49,9 @@ describe("ForecastDataTransparency", () => {
     it("should render fallback data indicator", () => {
       render(<ForecastDataTransparency dataSource="FALLBACK" />);
 
-      expect(screen.getByText("Estimated Data")).toBeInTheDocument();
+      expect(screen.getByText("Estimated Conditions")).toBeInTheDocument();
       expect(
-        screen.getByText(/NOAA data temporarily unavailable/i)
+        screen.getByText(/Using estimated wave conditions/i)
       ).toBeInTheDocument();
       expect(screen.getByText(/estimated conditions/i)).toBeInTheDocument();
     });
@@ -71,14 +71,22 @@ describe("ForecastDataTransparency", () => {
       render(<ForecastDataTransparency dataSource="FALLBACK" />);
 
       // Check for the presence of the alert icon
-      expect(screen.getByText("Estimated Data")).toBeInTheDocument();
+      expect(screen.getByText("Estimated Conditions")).toBeInTheDocument();
+      const alertIcon = document.querySelector(
+        'svg[class*="lucide-circle-alert"]'
+      );
+      expect(alertIcon).toBeInTheDocument();
     });
 
     it("should show wifi-off icon for fallback data", () => {
       render(<ForecastDataTransparency dataSource="FALLBACK" />);
 
       // Check for the presence of the wifi-off icon
-      expect(screen.getByText("Estimated Data")).toBeInTheDocument();
+      expect(screen.getByText("Estimated Conditions")).toBeInTheDocument();
+      const wifiOffIcon = document.querySelector(
+        'svg[class*="lucide-wifi-off"]'
+      );
+      expect(wifiOffIcon).toBeInTheDocument();
     });
   });
 
@@ -106,14 +114,14 @@ describe("ForecastDataTransparency", () => {
     it("should have proper badge styling for real data", () => {
       render(<ForecastDataTransparency dataSource="NOAA_NWS" />);
 
-      const badge = screen.getByText("Real NOAA Data");
+      const badge = screen.getByText("Real Wave Data");
       expect(badge).toBeInTheDocument();
     });
 
     it("should have proper badge styling for fallback data", () => {
       render(<ForecastDataTransparency dataSource="FALLBACK" />);
 
-      const badge = screen.getByText("Estimated Data");
+      const badge = screen.getByText("Estimated Conditions");
       expect(badge).toBeInTheDocument();
     });
   });
@@ -122,20 +130,20 @@ describe("ForecastDataTransparency", () => {
     it("should display correct message for real data", () => {
       render(<ForecastDataTransparency dataSource="NOAA_NWS" />);
 
-      expect(
-        screen.getByText(/real-time NOAA weather data/i)
-      ).toBeInTheDocument();
-      expect(screen.getByText(/National Weather Service/i)).toBeInTheDocument();
+      expect(screen.getByText(/real oceanographic data/i)).toBeInTheDocument();
+      expect(screen.getByText(/NOAA WaveWatch III/i)).toBeInTheDocument();
     });
 
     it("should display correct message for fallback data", () => {
       render(<ForecastDataTransparency dataSource="FALLBACK" />);
 
       expect(
-        screen.getByText(/NOAA data temporarily unavailable/i)
+        screen.getByText(/Using estimated wave conditions/i)
       ).toBeInTheDocument();
       expect(screen.getByText(/estimated conditions/i)).toBeInTheDocument();
-      expect(screen.getByText(/location and season/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/location and seasonal patterns/i)
+      ).toBeInTheDocument();
     });
   });
 });

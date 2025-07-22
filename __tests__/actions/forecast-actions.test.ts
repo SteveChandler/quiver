@@ -17,6 +17,7 @@ const mockSupabaseClient = {
   eq: jest.fn(),
   gte: jest.fn(),
   lte: jest.fn(),
+  in: jest.fn(),
   order: jest.fn(),
   limit: jest.fn(),
   single: jest.fn(),
@@ -171,9 +172,9 @@ describe("Forecast Actions", () => {
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
+            in: jest.fn().mockReturnValue({
               order: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue({
+                order: jest.fn().mockResolvedValue({
                   data: mockEnhancedForecast,
                   error: null,
                 }),
@@ -206,9 +207,9 @@ describe("Forecast Actions", () => {
         .mockReturnValueOnce({
           select: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
+              in: jest.fn().mockReturnValue({
                 order: jest.fn().mockReturnValue({
-                  limit: jest.fn().mockResolvedValue({
+                  order: jest.fn().mockResolvedValue({
                     data: [],
                     error: null,
                   }),
@@ -221,9 +222,9 @@ describe("Forecast Actions", () => {
         .mockReturnValueOnce({
           select: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
+              in: jest.fn().mockReturnValue({
                 order: jest.fn().mockReturnValue({
-                  limit: jest.fn().mockResolvedValue({
+                  order: jest.fn().mockResolvedValue({
                     data: mockBasicForecast,
                     error: null,
                   }),
@@ -242,20 +243,36 @@ describe("Forecast Actions", () => {
     });
 
     it("should return null when no forecast data is available", async () => {
-      mockSupabaseClient.from.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
+      // Mock both enhanced and basic forecast calls returning empty
+      mockSupabaseClient.from
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              order: jest.fn().mockReturnValue({
-                limit: jest.fn().mockResolvedValue({
-                  data: [],
-                  error: null,
+              in: jest.fn().mockReturnValue({
+                order: jest.fn().mockReturnValue({
+                  order: jest.fn().mockResolvedValue({
+                    data: [],
+                    error: null,
+                  }),
                 }),
               }),
             }),
           }),
-        }),
-      });
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              in: jest.fn().mockReturnValue({
+                order: jest.fn().mockReturnValue({
+                  order: jest.fn().mockResolvedValue({
+                    data: [],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        });
 
       const result = await getBeachForecastPreview("beach-1");
 
@@ -383,14 +400,10 @@ describe("Forecast Actions", () => {
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
-            gte: jest.fn().mockReturnValue({
-              lte: jest.fn().mockReturnValue({
-                order: jest.fn().mockReturnValue({
-                  order: jest.fn().mockResolvedValue({
-                    data: mockEnhancedForecasts,
-                    error: null,
-                  }),
-                }),
+            order: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: mockEnhancedForecasts,
+                error: null,
               }),
             }),
           }),
@@ -402,7 +415,7 @@ describe("Forecast Actions", () => {
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockEnhancedForecasts);
       expect(mockSupabaseClient.from).toHaveBeenCalledWith(
-        "enhanced_forecasts"
+        "ten_day_enhanced_forecasts"
       );
     });
 
@@ -410,14 +423,10 @@ describe("Forecast Actions", () => {
       mockSupabaseClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
-            gte: jest.fn().mockReturnValue({
-              lte: jest.fn().mockReturnValue({
-                order: jest.fn().mockReturnValue({
-                  order: jest.fn().mockResolvedValue({
-                    data: [],
-                    error: null,
-                  }),
-                }),
+            order: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: [],
+                error: null,
               }),
             }),
           }),
