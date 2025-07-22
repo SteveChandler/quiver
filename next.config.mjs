@@ -22,6 +22,19 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "geolocation=(self)",
+          },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

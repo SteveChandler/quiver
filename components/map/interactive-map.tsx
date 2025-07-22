@@ -220,10 +220,10 @@ export function InteractiveMap({
       if (!mapRef.current || !isMapReady) return;
       try {
         // Use cached fetch for beaches
-        let locations: Beach[] = await fetchNearbyBeaches.current(
-          latitude,
-          longitude
-        );
+        const response = await fetchNearbyBeaches.current(latitude, longitude);
+
+        // Extract the data array from the API response
+        let locations: Beach[] = response?.data || [];
 
         // Limit to 20 beaches max
         locations = locations.slice(0, 20);
@@ -239,9 +239,11 @@ export function InteractiveMap({
               const data = await response.json();
               if (data.success && data.data?.forecasts?.length > 0) {
                 // Use time-aware selection to get the most appropriate forecast
-                const { getCurrentForecast } = await import("@/lib/utils/current-forecast-utils");
+                const { getCurrentForecast } = await import(
+                  "@/lib/utils/current-forecast-utils"
+                );
                 const currentForecast = getCurrentForecast(data.data.forecasts);
-                
+
                 if (currentForecast) {
                   return {
                     beachId: beach.id,

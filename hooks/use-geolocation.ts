@@ -65,9 +65,14 @@ export function useGeolocation() {
 
         if (error.code === error.PERMISSION_DENIED) {
           errorMessage =
-            "Location access is blocked. Please click the lock icon in your browser's address bar and allow location access.";
+            "Location access is blocked. Please enable location permissions in your browser settings or click the location icon in the address bar.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMessage = "Location information is unavailable.";
+        } else if (error.code === error.TIMEOUT) {
+          errorMessage = "Location request timed out.";
         }
 
+        console.warn("Geolocation error:", error.message);
         setState((prev) => ({
           ...prev,
           locationError: errorMessage,
@@ -81,8 +86,33 @@ export function useGeolocation() {
 
   // Get location on mount
   useEffect(() => {
-    getUserLocation();
-  }, [getUserLocation]);
+    // Check if geolocation is blocked by permissions policy
+    if (!navigator.geolocation) {
+      console.warn("Geolocation not available");
+      useDefaultLocation();
+      return;
+    }
+
+    // Try to check permissions first (if supported)
+    if ("permissions" in navigator) {
+      navigator.permissions
+        .query({ name: "geolocation" })
+        .then((result) => {
+          if (result.state === "denied") {
+            console.warn("Geolocation permission denied");
+            useDefaultLocation();
+            return;
+          }
+          getUserLocation();
+        })
+        .catch(() => {
+          // Permissions API not supported, try geolocation anyway
+          getUserLocation();
+        });
+    } else {
+      getUserLocation();
+    }
+  }, [getUserLocation, useDefaultLocation]);
 
   return {
     ...state,
