@@ -3,15 +3,6 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from "recharts";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,20 +11,13 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+import { TideChart } from "@/components/forecast/tide-chart";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 interface BeachDetailProps {
   id: string;
-}
-
-interface ChartDataPoint {
-  date: string;
-  displayDate: string;
-  tide_height: number;
-  next_tide_type: string;
-  forecast: EnhancedForecastEntity;
 }
 
 export function BeachDetail({ id }: BeachDetailProps) {
@@ -72,8 +56,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
     immediate: true,
   });
 
-  // Process data for chart
-  const chartData: ChartDataPoint[] = [];
+  // Process data for display
   const forecastsByDate: Record<string, EnhancedForecastEntity[]> = {};
 
   if (forecasts) {
@@ -101,64 +84,16 @@ export function BeachDetail({ id }: BeachDetailProps) {
         })
       ),
     });
-
-    // Create chart data points (one per day) - take first forecast for each date
-    Object.keys(forecastsByDate)
-      .sort()
-      .forEach((date, dayIndex) => {
-        const dayForecasts = forecastsByDate[date];
-
-        if (dayForecasts.length > 0) {
-          // Just take the first forecast for this date
-          const representative = dayForecasts[0];
-
-          console.log(
-            `📊 Day ${dayIndex} (${date}): Using first forecast of ${dayForecasts.length} available`,
-            {
-              forecast_time: representative.forecast_time,
-              wave_height: representative.wave_height,
-              tide_height: representative.tide_height,
-              weather_condition: representative.weather_condition,
-            }
-          );
-
-          // Fix date formatting - use simple format to avoid timezone issues
-          const dateParts = date.split("-"); // "2025-07-20" -> ["2025", "07", "20"]
-          const month = parseInt(dateParts[1]);
-          const day = parseInt(dateParts[2]);
-
-          // Get day of week
-          const dateObj = new Date(date + "T12:00:00"); // Add time to avoid timezone issues
-          const dayName = dateObj.toLocaleDateString("en-US", {
-            weekday: "short",
-          });
-
-          const displayDate = `${dayName} ${month}/${day}`;
-
-          chartData.push({
-            date,
-            displayDate,
-            tide_height: parseFloat(representative.tide_height) || 0,
-            next_tide_type: representative.next_tide_type,
-            forecast: representative,
-          });
-        }
-      });
-
-    console.log("📈 Chart data created:", {
-      chartPoints: chartData.length,
-      dates: chartData.map((c) => c.displayDate),
-      tideHeights: chartData.map((c) => c.tide_height),
-      waveHeights: chartData.map((c) => c.forecast.wave_height),
-    });
   }
 
+  // Get the first day's forecast for overview
+  const sortedDates = Object.keys(forecastsByDate).sort();
   const selectedDayData = selectedDay ? forecastsByDate[selectedDay] : null;
   const selectedDayForecast = selectedDayData?.[0];
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -166,7 +101,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
   if (error || !forecasts) {
     return (
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-bold mb-2">
             {error || "Beach forecast not found"}
@@ -178,10 +113,10 @@ export function BeachDetail({ id }: BeachDetailProps) {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background border-b">
-        <div className="container flex items-center h-16 px-4">
+        <div className="container flex items-center h-16 px-4 max-w-7xl mx-auto">
           <Button
             variant="ghost"
             size="sm"
@@ -194,18 +129,17 @@ export function BeachDetail({ id }: BeachDetailProps) {
         </div>
       </header>
 
-      <div className="flex-1 p-6 max-w-5xl mx-auto w-full">
-        <h1 className="text-3xl font-extrabold mb-6 text-center">
-          Beach Details
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <h1 className="text-2xl md:text-3xl font-extrabold mb-6 text-center">
+          Multi-Day Tide Flow
         </h1>
 
         {/* Debug Info */}
-        <div className="mb-4 p-3 bg-blue-100 rounded text-sm">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 p-3 bg-blue-100 rounded text-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <strong>Debug Info:</strong> Found {forecasts?.length || 0}{" "}
-              forecasts,
-              {chartData.length} days, Today:{" "}
+              forecasts across multiple days, Today:{" "}
               {new Date().toISOString().split("T")[0]}
             </div>
             <Button
@@ -221,112 +155,47 @@ export function BeachDetail({ id }: BeachDetailProps) {
           </div>
         </div>
 
-        {/* Tide Chart for 10 days */}
-        <div className="w-full h-72 mb-8 bg-white rounded-2xl shadow-lg p-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={chartData}
-              margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-              onClick={(data) => {
-                if (data && data.activeLabel) {
-                  const clickedPoint = chartData.find(
-                    (p) => p.displayDate === data.activeLabel
-                  );
-                  if (clickedPoint) {
-                    setSelectedDay(
-                      selectedDay === clickedPoint.date
-                        ? null
-                        : clickedPoint.date
-                    );
-                  }
-                }
-              }}
-            >
-              <XAxis dataKey="displayDate" tick={{ fontSize: 12 }} />
-              <YAxis
-                tick={{ fontSize: 12 }}
-                label={{
-                  value: "Tide Height (ft)",
-                  angle: -90,
-                  position: "insideLeft",
-                }}
-              />
-              <Tooltip
-                formatter={(value, name) => [`${value} ft`, "Tide Height"]}
-                labelFormatter={(label) => `Date: ${label}`}
-              />
-              <Line
-                type="monotone"
-                dataKey="tide_height"
-                stroke="#4A5568"
-                strokeWidth={2}
-                dot={(props) => {
-                  const { cx, cy, payload } = props;
-                  if (!payload) return null;
-
-                  const color =
-                    payload.next_tide_type === "H" ? "#0077B6" : "#FF7F11";
-                  const isSelected = selectedDay === payload.date;
-
-                  return (
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={isSelected ? 8 : 5}
-                      fill={color}
-                      stroke={isSelected ? "#000" : "none"}
-                      strokeWidth={isSelected ? 2 : 0}
-                      style={{ cursor: "pointer" }}
-                    />
-                  );
-                }}
-                activeDot={{ r: 8, stroke: "#000", strokeWidth: 2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        {/* Enhanced Tide Chart - Shows complete multi-day tide flow */}
+        <div className="mb-8">
+          <TideChart forecasts={forecasts} className="rounded-2xl shadow-lg" />
         </div>
 
         {/* Today's Overview (First Day) */}
-        {chartData.length > 0 && (
+        {forecasts && forecasts.length > 0 && (
           <Card className="rounded-2xl shadow-lg mb-8 bg-white">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold">
-                {chartData[0].displayDate} Overview
+              <CardTitle className="text-lg md:text-xl font-semibold">
+                Today's Overview
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <div>
                   <strong>Wave Height:</strong>{" "}
-                  {chartData[0].forecast.wave_height || "N/A"}
+                  {forecasts[0].wave_height || "N/A"}
                 </div>
                 <div>
                   <strong>Wave Period:</strong>{" "}
-                  {chartData[0].forecast.wave_period || "N/A"}
+                  {forecasts[0].wave_period || "N/A"}
                 </div>
                 <div>
-                  <strong>Water Temp:</strong>{" "}
-                  {chartData[0].forecast.water_temp}°F
+                  <strong>Water Temp:</strong> {forecasts[0].water_temp}°F
                 </div>
                 <div>
-                  <strong>Wind Speed:</strong>{" "}
-                  {chartData[0].forecast.wind_speed}
+                  <strong>Wind Speed:</strong> {forecasts[0].wind_speed}
                 </div>
                 <div>
-                  <strong>Wind Dir:</strong>{" "}
-                  {chartData[0].forecast.wind_direction}
+                  <strong>Wind Dir:</strong> {forecasts[0].wind_direction}
                 </div>
                 <div>
-                  <strong>Condition:</strong>{" "}
-                  {chartData[0].forecast.weather_condition}
+                  <strong>Condition:</strong> {forecasts[0].weather_condition}
                 </div>
                 <div>
-                  <strong>Tide Status:</strong>{" "}
-                  {chartData[0].forecast.tide_status}
+                  <strong>Tide Status:</strong> {forecasts[0].tide_status}
                 </div>
                 <div>
                   <strong>Confidence:</strong>{" "}
-                  {Math.round(chartData[0].forecast.confidence_score)}%
+                  {Math.round(forecasts[0].confidence_score)}%
                 </div>
               </div>
             </CardContent>
@@ -337,9 +206,15 @@ export function BeachDetail({ id }: BeachDetailProps) {
         {selectedDay && selectedDayForecast && (
           <Card className="rounded-2xl shadow-lg mb-8 bg-blue-50 border-2 border-blue-200">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold flex items-center justify-between">
-                {chartData.find((d) => d.date === selectedDay)?.displayDate} -
-                Detailed Forecast
+              <CardTitle className="text-lg md:text-xl font-semibold flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <span>
+                  Detailed Forecast -{" "}
+                  {new Date(selectedDay).toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -350,7 +225,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-4">
                 <div>
                   <strong>Wave Height:</strong>{" "}
                   {selectedDayForecast.wave_height || "N/A"}
@@ -388,7 +263,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 <AccordionItem value="swells">
                   <AccordionTrigger>Swell & Wind Wave Details</AccordionTrigger>
                   <AccordionContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <strong>Swell 1:</strong>
                         <br />
@@ -424,59 +299,80 @@ export function BeachDetail({ id }: BeachDetailProps) {
           </Card>
         )}
 
-        {/* Remaining Days - Static Cards */}
+        {/* Daily Forecast Cards */}
         <div className="space-y-6">
-          {chartData.slice(1).map((day) => (
-            <Card
-              key={day.date}
-              className={`rounded-2xl shadow-md bg-white cursor-pointer transition-all hover:shadow-lg ${
-                selectedDay === day.date ? "ring-2 ring-blue-500" : ""
-              }`}
-              onClick={() =>
-                setSelectedDay(selectedDay === day.date ? null : day.date)
-              }
-            >
-              <CardHeader>
-                <CardTitle className="text-lg font-medium">
-                  {day.displayDate}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <strong>Wave Height:</strong>{" "}
-                    {day.forecast.wave_height || "N/A"}
-                  </div>
-                  <div>
-                    <strong>Wave Period:</strong>{" "}
-                    {day.forecast.wave_period || "N/A"}
-                  </div>
-                  <div>
-                    <strong>Water Temp:</strong> {day.forecast.water_temp}°F
-                  </div>
-                  <div>
-                    <strong>Wind Speed:</strong> {day.forecast.wind_speed}
-                  </div>
-                  <div>
-                    <strong>Wind Dir:</strong> {day.forecast.wind_direction}
-                  </div>
-                  <div>
-                    <strong>Condition:</strong> {day.forecast.weather_condition}
-                  </div>
-                  <div>
-                    <strong>Tide Status:</strong> {day.forecast.tide_status}
-                  </div>
-                  <div>
-                    <strong>Confidence:</strong>{" "}
-                    {Math.round(day.forecast.confidence_score)}%
-                  </div>
-                </div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  Click to see detailed swell information
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <h2 className="text-xl md:text-2xl font-bold">Daily Forecasts</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {sortedDates.map((date) => {
+              const dayForecasts = forecastsByDate[date];
+              const representative = dayForecasts[0];
+
+              if (!representative) return null;
+
+              const dateObj = new Date(date + "T12:00:00");
+              const dayName = dateObj.toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
+
+              return (
+                <Card
+                  key={date}
+                  className={`rounded-2xl shadow-md bg-white cursor-pointer transition-all hover:shadow-lg ${
+                    selectedDay === date ? "ring-2 ring-blue-500" : ""
+                  }`}
+                  onClick={() =>
+                    setSelectedDay(selectedDay === date ? null : date)
+                  }
+                >
+                  <CardHeader>
+                    <CardTitle className="text-base md:text-lg font-medium">
+                      {dayName} ({dayForecasts.length} forecasts)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="text-sm">
+                        <strong>Wave Height:</strong>{" "}
+                        {representative.wave_height || "N/A"}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Wave Period:</strong>{" "}
+                        {representative.wave_period || "N/A"}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Water Temp:</strong> {representative.water_temp}
+                        °F
+                      </div>
+                      <div className="text-sm">
+                        <strong>Wind Speed:</strong> {representative.wind_speed}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Wind Dir:</strong>{" "}
+                        {representative.wind_direction}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Condition:</strong>{" "}
+                        {representative.weather_condition}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Tide Status:</strong>{" "}
+                        {representative.tide_status}
+                      </div>
+                      <div className="text-sm">
+                        <strong>Confidence:</strong>{" "}
+                        {Math.round(representative.confidence_score)}%
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      Click to see detailed swell information
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
