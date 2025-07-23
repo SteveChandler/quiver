@@ -317,7 +317,7 @@ export function TideChart({
           aria-label="10-day tide chart showing high and low tide heights over time"
           className="w-full"
         >
-          <ChartContainer config={chartConfig} className="aspect-[4/3] w-full">
+          <ChartContainer config={chartConfig} className="aspect-[8/3] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
                 data={areaData}

@@ -138,16 +138,8 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         <h1 className="text-3xl md:text-4xl font-roboto font-extrabold mb-8 text-center bg-gradient-to-r from-ocean-blue to-blue-600 bg-clip-text text-transparent">
-          Multi-Day Tide Flow
+          Beach Details
         </h1>
-
-        {/* Enhanced Tide Chart - Shows complete multi-day tide flow */}
-        <div className="mb-8">
-          <TideChart
-            forecasts={forecasts}
-            className="rounded-2xl shadow-xl border-0 overflow-hidden bg-white/90 backdrop-blur-sm"
-          />
-        </div>
 
         {/* Today's Overview (First Day) */}
         {forecasts && forecasts.length > 0 && (
@@ -180,7 +172,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                     Water Temp:
                   </strong>{" "}
                   <span className="font-open-sans text-blue-600">
-                    {forecasts[0].water_temp}°F
+                    {forecasts[0].water_temp}
                   </span>
                 </div>
                 <div className="bg-blue-50/70 p-3 rounded-lg border border-blue-200">
@@ -274,7 +266,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                     Water Temp:
                   </strong>{" "}
                   <span className="font-open-sans text-blue-600">
-                    {selectedDayForecast.water_temp}°F
+                    {selectedDayForecast.water_temp}
                   </span>
                 </div>
                 <div className="bg-blue-50/70 p-3 rounded-lg border border-blue-200">
@@ -442,7 +434,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                           Water Temp:
                         </strong>{" "}
                         <span className="text-blue-600">
-                          {representative.water_temp}°F
+                          {representative.water_temp}
                         </span>
                       </div>
                       <div className="text-sm font-open-sans">
