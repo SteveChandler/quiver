@@ -65,7 +65,7 @@ export function BeachCard({
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden" data-testid="beach-card">
       <div className="relative h-48 cursor-pointer" onClick={handleMapClick}>
         <MapImage
           src={imageUrl || "/placeholder.svg"}

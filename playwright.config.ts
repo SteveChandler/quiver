@@ -72,10 +72,21 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
 
-    //{
-    //  name: "Mobile Safari",
-    //  use: { ...devices["iPhone 12"] },
-    //},
+    {
+      name: "Mobile Safari",
+      testIgnore: [
+        "**/auth.spec.ts",
+        "**/landing-page.spec.ts",
+        "**/comprehensive.spec.ts",
+      ],
+      use: {
+        ...devices["iPhone 12"],
+        // Mobile-specific settings
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
 
     /* Test against branded browsers. */
     // {

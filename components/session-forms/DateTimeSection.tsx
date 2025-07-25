@@ -85,6 +85,7 @@ export function DateTimeSection({
               min={
                 isPlanning ? new Date().toISOString().split("T")[0] : undefined
               }
+              data-testid="session-date-input"
             />
             {isPlanning && (
               <p className="text-xs text-muted-foreground mt-1">
@@ -105,6 +106,7 @@ export function DateTimeSection({
                 value={formState.selectedTime || ""}
                 onChange={(e) => updateField("selectedTime", e.target.value)}
                 disabled={isDisabled}
+                data-testid="session-time-input"
               />
             </div>
             <p className="text-xs text-muted-foreground mt-1">

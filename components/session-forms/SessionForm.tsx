@@ -431,7 +431,11 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
           </Card>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4"
+          data-testid="session-planning-form"
+        >
           {/* Location Section */}
           <SimpleCardLayout
             title={

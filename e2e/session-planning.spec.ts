@@ -97,8 +97,7 @@ test.describe("Session Planning", () => {
     // Look for the group invitations section
     const inviteSection = page
       .locator('[data-testid="group-invitations"]')
-      .or(page.getByText(/invite.*friends/i))
-      .or(page.getByText(/group.*invitations/i));
+      .first();
 
     if (await inviteSection.isVisible()) {
       // Wait and verify no infinite re-renders
@@ -170,12 +169,13 @@ test.describe("Session Planning", () => {
     }
 
     // Fill out future session
-    const beachField = page.getByLabel(/beach/i);
+    const beachField = page.locator('[data-testid="beach-search-input"]');
     if (await beachField.isVisible()) {
       await beachField.fill("Malibu");
+      await page.waitForTimeout(1000);
     }
 
-    const dateField = page.getByLabel(/date/i);
+    const dateField = page.locator('[data-testid="session-date-input"]');
     if (await dateField.isVisible()) {
       // Set date to tomorrow
       const tomorrow = new Date();
@@ -184,12 +184,14 @@ test.describe("Session Planning", () => {
       await dateField.fill(dateString);
     }
 
-    const timeField = page.getByLabel(/time/i);
+    const timeField = page.locator('[data-testid="session-time-input"]');
     if (await timeField.isVisible()) {
       await timeField.fill("08:00");
     }
 
-    // Check if form accepts future dates
+    // Wait for form validation
+    await page.waitForTimeout(1000);
+
     const saveButton = page.getByRole("button", { name: /save|plan/i });
     if (await saveButton.isVisible()) {
       expect(await saveButton.isEnabled()).toBeTruthy();
