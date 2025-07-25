@@ -34,39 +34,43 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between pl-4 pr-2">
-        {/* Logo */}
-        <Link href="/" className="flex items-center space-x-2">
-          <Image
-            src="/logo-word (2).png"
-            alt="Quiver"
-            width={120}
-            height={32}
-            className="h-8 w-auto"
-            priority
-          />
-        </Link>
+      <div className="flex h-16 items-center w-full">
+        {/* Left side with logo - uses container padding */}
+        <div className="container flex items-center pl-4">
+          <Link href="/" className="flex items-center space-x-2">
+            <Image
+              src="/logo-word (2).png"
+              alt="Quiver"
+              width={120}
+              height={32}
+              className="h-8 w-auto"
+              priority
+            />
+          </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8">
-          {navItems.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                "text-sm font-medium transition-colors hover:text-primary",
-                isActiveRoute(item.href)
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              )}
-            >
-              {item.name}
-            </Link>
-          ))}
-        </nav>
+          {/* Desktop Navigation - Only show if navItems exist */}
+          {navItems.length > 0 && (
+            <nav className="hidden md:flex items-center space-x-8 ml-8">
+              {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "text-sm font-medium transition-colors hover:text-primary",
+                    isActiveRoute(item.href)
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
+          )}
+        </div>
 
-        {/* Right Side Actions */}
-        <div className="flex items-center space-x-2">
+        {/* Right Side Actions - Positioned at screen edge with small padding */}
+        <div className="flex items-center space-x-2 ml-auto pr-3">
           <ThemeToggle />
           {/* Mobile Menu Button */}
           <Button
