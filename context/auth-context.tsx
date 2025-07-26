@@ -94,78 +94,106 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
     let subscription: any = null;
+    let timeoutId: NodeJS.Timeout;
 
     const initializeAuth = async () => {
-      if (initializingRef.current) return;
+      if (initializingRef.current || !mounted) return;
+      
+      initializingRef.current = true;
+      setIsLoading(true);
 
-      // Add timeout to prevent hanging
-      const timeoutId = setTimeout(() => {
-        if (mounted && isLoading) {
-          console.warn("AuthContext: Session check timed out, setting loading to false");
+      // Set a reasonable timeout - much longer to handle slow connections
+      timeoutId = setTimeout(() => {
+        if (mounted && initializingRef.current) {
+          console.warn("AuthContext: Auth initialization timed out after 15s, proceeding as unauthenticated");
+          updateAuthState(null);
           setIsLoading(false);
           setIsInitialized(true);
-          updateAuthState(null);
+          initializingRef.current = false;
         }
-      }, 10000); // 10 second timeout
+      }, 15000); // 15 second timeout - much more reasonable
 
-      // Initial session check
-      await refreshSession();
-      
-      // Clear timeout if we completed successfully
-      clearTimeout(timeoutId);
+      try {
+        console.log("AuthContext: Starting initialization...");
+        
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-      // Set up auth state change listener only after initial check
-      if (mounted) {
+        if (!mounted) return;
+
+        console.log("AuthContext: Got session response", { 
+          hasSession: !!session, 
+          userId: session?.user?.id || 'none',
+          error: error?.message || 'none' 
+        });
+
+        // Clear timeout since we got a response
+        clearTimeout(timeoutId);
+
+        if (error) {
+          console.error("AuthContext: Error during initialization:", error);
+          // Don't immediately clear auth state on error - session might still be valid
+          console.log("AuthContext: Continuing with session despite error");
+          updateAuthState(session);
+        } else {
+          updateAuthState(session);
+        }
+
+        // Set up auth state listener
         const {
           data: { subscription: authSubscription },
-        } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+        } = supabase.auth.onAuthStateChange((event, session) => {
           if (!mounted) return;
-
-          console.log("Auth state change:", event);
-
-          // Handle the auth state change
-          switch (event) {
-            case "SIGNED_IN":
-            case "TOKEN_REFRESHED":
-              updateAuthState(newSession);
-              setIsLoading(false);
-              break;
-            case "SIGNED_OUT":
-              updateAuthState(null);
-              setupCompleteRef.current = false;
-              setIsLoading(false);
-              break;
-            case "USER_UPDATED":
-              if (newSession) {
-                updateAuthState(newSession);
-              }
-              setIsLoading(false);
-              break;
-            default:
-              // For other events, just update if we have a session
-              updateAuthState(newSession);
-              setIsLoading(false);
-          }
+          
+          console.log("AuthContext: Auth state changed:", { 
+            event, 
+            hasSession: !!session,
+            userId: session?.user?.id || 'none'
+          });
+          updateAuthState(session);
         });
 
         subscription = authSubscription;
+      } catch (error) {
+        if (mounted) {
+          console.error("AuthContext: Exception during initialization:", error);
+          clearTimeout(timeoutId);
+          // Only clear auth state on critical exceptions
+          updateAuthState(null);
+        }
+      } finally {
+        if (mounted) {
+          console.log("AuthContext: Initialization complete");
+          setIsLoading(false);
+          setIsInitialized(true);
+          initializingRef.current = false;
+        }
       }
     };
 
-    // Only run on client-side and not during build
-    if (typeof window !== "undefined" && process.env.NODE_ENV !== "test") {
+    // Only initialize on client side
+    if (typeof window !== "undefined") {
+      console.log("AuthContext: Browser detected, initializing...");
       initializeAuth();
     } else {
-      // Set default state for SSR/build
+      // Server side - set defaults immediately
+      console.log("AuthContext: Server side, setting defaults");
       setIsLoading(false);
       setIsInitialized(true);
     }
 
     return () => {
       mounted = false;
+      console.log("AuthContext: Cleanup");
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (subscription) {
         subscription.unsubscribe();
       }
+      initializingRef.current = false;
     };
   }, []);
 
