@@ -420,11 +420,11 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
 
       {/* Floating Action Button */}
       {canPost && (
-        <div className="fixed bottom-20 right-4 z-10 lg:bottom-6">
+        <div className="fixed bottom-20 right-4 z-30 lg:bottom-6">
           <Button
             onClick={() => setShowPostForm(true)}
             size="lg"
-            className="h-14 w-14 rounded-full shadow-lg"
+            className="h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700"
           >
             <Plus className="h-6 w-6" />
           </Button>

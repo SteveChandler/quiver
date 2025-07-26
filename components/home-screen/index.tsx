@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect, Suspense, lazy } from "react";
+import { useState, Suspense, lazy } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/bottom-navigation";
-import { CalendarDays, Waves, Plus } from "lucide-react";
+import { CalendarDays, Waves } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { useHomeData } from "./use-home-data";
-import { cn } from "@/lib/utils";
 import { useUserProfile } from "@/hooks/use-user-profile";
 
 // Lazy load heavy tab components
@@ -35,7 +34,6 @@ function TabSkeleton() {
 
 export function HomeScreen() {
   const [activeTab, setActiveTab] = useState("forecast");
-  const [isNavVisible, setIsNavVisible] = useState(true);
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
 
@@ -46,36 +44,8 @@ export function HomeScreen() {
     timeout: 10000, // 10 second timeout
   });
 
-  // Track navigation visibility for FAB positioning
-  useEffect(() => {
-    let hideTimeout: NodeJS.Timeout;
-
-    const handleUserActivity = () => {
-      setIsNavVisible(true);
-      clearTimeout(hideTimeout);
-      hideTimeout = setTimeout(() => {
-        setIsNavVisible(false);
-      }, 3000);
-    };
-
-    // Initial setup
-    handleUserActivity();
-
-    // Add event listeners
-    const options = { passive: true };
-    window.addEventListener("scroll", handleUserActivity, options);
-    window.addEventListener("touchstart", handleUserActivity, options);
-    window.addEventListener("touchmove", handleUserActivity, options);
-    window.addEventListener("mousemove", handleUserActivity, options);
-
-    return () => {
-      clearTimeout(hideTimeout);
-      window.removeEventListener("scroll", handleUserActivity);
-      window.removeEventListener("touchstart", handleUserActivity);
-      window.removeEventListener("touchmove", handleUserActivity);
-      window.removeEventListener("mousemove", handleUserActivity);
-    };
-  }, []);
+  // Debug active tab
+  console.log("HomeScreen activeTab:", activeTab, "user:", !!user);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -131,9 +101,9 @@ export function HomeScreen() {
         {/* Tabs Section */}
         <section className="centered-container">
           <Tabs
-            defaultValue="forecast"
-            className="space-y-6"
+            value={activeTab}
             onValueChange={(value) => setActiveTab(value)}
+            className="space-y-6"
           >
             <TabsList className="grid grid-cols-3 w-full max-w-3xl mx-auto h-12 sm:h-14">
               <TabsTrigger value="forecast" className="text-sm sm:text-base">
@@ -167,22 +137,6 @@ export function HomeScreen() {
           </Tabs>
         </section>
       </main>
-
-      {/* Floating Action Button */}
-      {user && (
-        <div
-          className={cn(
-            "fixed right-4 z-10 transition-all duration-300 ease-in-out",
-            isNavVisible ? "bottom-20" : "bottom-6"
-          )}
-        >
-          <Link href="/log-session">
-            <Button size="icon" className="h-14 w-14 rounded-full shadow-lg">
-              <Plus className="h-6 w-6" />
-            </Button>
-          </Link>
-        </div>
-      )}
 
       {/* Bottom Navigation */}
       <BottomNavigation />
