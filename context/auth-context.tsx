@@ -98,14 +98,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       if (initializingRef.current || !mounted) return;
-      
+
       initializingRef.current = true;
       setIsLoading(true);
 
       // Set a reasonable timeout - much longer to handle slow connections
       timeoutId = setTimeout(() => {
         if (mounted && initializingRef.current) {
-          console.warn("AuthContext: Auth initialization timed out after 15s, proceeding as unauthenticated");
+          console.warn(
+            "AuthContext: Auth initialization timed out after 15s, proceeding as unauthenticated"
+          );
           updateAuthState(null);
           setIsLoading(false);
           setIsInitialized(true);
@@ -115,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         console.log("AuthContext: Starting initialization...");
-        
+
         const {
           data: { session },
           error,
@@ -123,10 +125,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!mounted) return;
 
-        console.log("AuthContext: Got session response", { 
-          hasSession: !!session, 
-          userId: session?.user?.id || 'none',
-          error: error?.message || 'none' 
+        console.log("AuthContext: Got session response", {
+          hasSession: !!session,
+          userId: session?.user?.id || "none",
+          error: error?.message || "none",
         });
 
         // Clear timeout since we got a response
@@ -146,11 +148,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: { subscription: authSubscription },
         } = supabase.auth.onAuthStateChange((event, session) => {
           if (!mounted) return;
-          
-          console.log("AuthContext: Auth state changed:", { 
-            event, 
+
+          console.log("AuthContext: Auth state changed:", {
+            event,
             hasSession: !!session,
-            userId: session?.user?.id || 'none'
+            userId: session?.user?.id || "none",
           });
           updateAuthState(session);
         });
