@@ -152,8 +152,7 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   experimental: {
-    // Enable performance optimizations
-    optimizeCss: true,
+    // Enable performance optimizations (removed optimizeCss due to critters dependency)
     optimizePackageImports: ["@radix-ui/react-icons", "lucide-react"],
 
     // Enable server components optimizations

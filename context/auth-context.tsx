@@ -152,9 +152,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Only run on client-side
-    if (typeof window !== "undefined") {
+    // Only run on client-side and not during build
+    if (typeof window !== "undefined" && process.env.NODE_ENV !== "test") {
       initializeAuth();
+    } else {
+      // Set default state for SSR/build
+      setIsLoading(false);
+      setIsInitialized(true);
     }
 
     return () => {

@@ -5,6 +5,10 @@ import {
   createErrorResponse,
 } from "@/lib/api-response-utils";
 
+// Mark this route as dynamic to prevent static generation
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 interface BoardSuggestion {
   board: {
     id: string;
