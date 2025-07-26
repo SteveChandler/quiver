@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 
 // Define paths that require authentication
 const protectedPaths = [
@@ -52,6 +53,11 @@ export async function middleware(request: NextRequest) {
     request: {
       headers: request.headers,
     },
+  });
+
+  // Add security headers to all responses
+  Object.entries(DEFAULT_SECURITY_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value as string);
   });
 
   log(`[Middleware] Processing request for: ${pathname}`);

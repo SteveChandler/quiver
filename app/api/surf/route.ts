@@ -2,6 +2,11 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSurfForecast } from "./utils";
+import {
+  createSuccessResponse,
+  createValidationError,
+  handleApiError,
+} from "@/lib/api-utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,10 +19,7 @@ export async function GET(request: NextRequest) {
 
     // Validate input
     if (!beach && (!lat || !lng)) {
-      return NextResponse.json(
-        { error: "Either beach name or lat/lng coordinates required" },
-        { status: 400 }
-      );
+      return createValidationError("Either beach name or lat/lng coordinates required");
     }
 
     // Prepare parameters for getSurfForecast
@@ -34,9 +36,9 @@ export async function GET(request: NextRequest) {
     if (Array.isArray(forecastData.forecast)) {
       // If it's an array but empty, return error
       if (forecastData.forecast.length === 0) {
-        return NextResponse.json(
-          { error: "No forecast data available" },
-          { status: 404 }
+        return handleApiError(
+          new Error("No forecast data available"),
+          "No forecast data available"
         );
       } else {
         // Use the first item in the array
@@ -47,9 +49,9 @@ export async function GET(request: NextRequest) {
       typeof forecastData.forecast !== "object"
     ) {
       // If forecast is missing or not an object, return error
-      return NextResponse.json(
-        { error: "No forecast data available" },
-        { status: 404 }
+      return handleApiError(
+        new Error("No forecast data available"),
+        "No forecast data available"
       );
     }
 
@@ -58,13 +60,9 @@ export async function GET(request: NextRequest) {
       JSON.stringify(forecastData, null, 2)
     );
 
-    return NextResponse.json(forecastData);
+    return createSuccessResponse(forecastData);
   } catch (error) {
     console.error("Surf forecast error:", error);
-
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return handleApiError(error, "Failed to fetch surf forecast");
   }
 }

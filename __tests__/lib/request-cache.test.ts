@@ -136,18 +136,18 @@ describe("Global cache instances", () => {
   it("should have properly configured API cache", () => {
     const stats = apiCache.getStats();
     expect(stats.maxSize).toBe(50);
-    expect(stats.defaultTTL).toBe(5 * 60 * 1000); // 5 minutes
+    expect(stats.defaultTTL).toBe(30 * 60 * 1000); // 30 minutes
   });
 
   it("should have properly configured forecast cache", () => {
     const stats = forecastCache.getStats();
     expect(stats.maxSize).toBe(30);
-    expect(stats.defaultTTL).toBe(15 * 60 * 1000); // 15 minutes
+    expect(stats.defaultTTL).toBe(3 * 60 * 60 * 1000); // 3 hours
   });
 
   it("should have properly configured beach cache", () => {
     const stats = beachCache.getStats();
     expect(stats.maxSize).toBe(100);
-    expect(stats.defaultTTL).toBe(30 * 60 * 1000); // 30 minutes
+    expect(stats.defaultTTL).toBe(12 * 60 * 60 * 1000); // 12 hours
   });
 });

@@ -50,7 +50,7 @@ const profileFormSchema = z.object({
     .optional(),
   favorite_spot: z
     .string()
-    .max(100, "Favorite spot must be less than 100 characters")
+    .max(100, "Default spot must be less than 100 characters")
     .optional(),
   instagram: z
     .string()
@@ -109,7 +109,7 @@ export function BasicProfileForm({
       }
 
       // Update the profile in the database
-      const result = await updateProfile(userId, {
+      const result = await updateProfile({
         full_name: data.full_name,
         phone_number: data.phone_number,
         bio: data.bio,
@@ -132,7 +132,8 @@ export function BasicProfileForm({
             : "Your profile has been updated successfully.",
       });
 
-      router.refresh();
+      // Navigate to profile page with fresh data
+      window.location.href = "/profile";
     } catch (error) {
       console.error("Error updating profile:", error);
       toast({
@@ -186,6 +187,18 @@ export function BasicProfileForm({
       }
 
       setAvatarUrl(result.url);
+
+      // Immediately update the profile with the new avatar URL
+      const updateResult = await updateProfile({ avatar_url: result.url });
+      if (!updateResult.success) {
+        // If the profile update fails, try to delete the just-uploaded image
+        await deleteImage(result.url, "avatars");
+        setAvatarUrl(avatarUrl); // Revert to the old URL
+        throw new Error(
+          updateResult.error || "Failed to update profile picture."
+        );
+      }
+
       toast({
         title: "Image uploaded",
         description: "Your profile picture has been updated.",
@@ -214,8 +227,18 @@ export function BasicProfileForm({
       // Delete the image
       await deleteImage(avatarUrl, "avatars");
 
-      // Set to placeholder
-      setAvatarUrl("/placeholder.svg?height=200&width=200");
+      const placeholderUrl = "/placeholder.svg?height=200&width=200";
+      setAvatarUrl(placeholderUrl);
+
+      // Immediately update the profile
+      const updateResult = await updateProfile({ avatar_url: placeholderUrl });
+      if (!updateResult.success) {
+        setAvatarUrl(avatarUrl); // Revert UI on failure
+        throw new Error(
+          updateResult.error || "Failed to remove profile picture."
+        );
+      }
+
       toast({
         title: "Image removed",
         description: "Your profile picture has been removed.",
@@ -406,12 +429,9 @@ export function BasicProfileForm({
                 name="favorite_spot"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Favorite Surf Spot</FormLabel>
+                    <FormLabel>Default Surf Spot</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Your favorite place to catch waves"
-                        {...field}
-                      />
+                      <Input placeholder="Your default surf spot" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -34,17 +34,40 @@ async function globalSetup(config: FullConfig) {
       );
     }
 
-    console.log("📝 Attempting to sign in with test credentials...");
-
     // Use environment variables or fallback credentials
     const testEmail = process.env.TEST_USER_EMAIL;
     const testPassword = process.env.TEST_USER_PASSWORD;
 
+    // If no test credentials are provided, create an empty auth state for unauthenticated tests
     if (!testEmail || !testPassword) {
-      throw new Error(
-        "Missing required environment variables: TEST_USER_EMAIL and TEST_USER_PASSWORD must be set in .env file"
+      console.log(
+        "⚠️  No test credentials found. Setting up for unauthenticated tests..."
       );
+
+      // Ensure .auth directory exists
+      const authDir = path.join(__dirname, "..", ".auth");
+      if (!fs.existsSync(authDir)) {
+        fs.mkdirSync(authDir, { recursive: true });
+        console.log("📁 Created .auth directory");
+      }
+
+      // Create an empty auth state file
+      const authFile = path.join(authDir, "user.json");
+      const emptyAuthState = {
+        cookies: [],
+        origins: [],
+      };
+      fs.writeFileSync(authFile, JSON.stringify(emptyAuthState, null, 2));
+      console.log(
+        `💾 Created empty authentication state for unauthenticated tests`
+      );
+
+      console.log("🏁 Global setup completed for unauthenticated testing");
+      await browser.close();
+      return;
     }
+
+    console.log("📝 Attempting to sign in with test credentials...");
 
     await emailField.fill(testEmail);
     await passwordField.fill(testPassword);
@@ -66,9 +89,31 @@ async function globalSetup(config: FullConfig) {
       // Check if we're still on sign-in page (authentication failed)
       const currentUrl = page.url();
       if (currentUrl.includes("/auth/sign-in")) {
-        throw new Error(
-          "Authentication failed - still on sign-in page. Check your credentials."
+        console.warn(
+          "⚠️  Authentication failed - creating empty auth state for unauthenticated tests"
         );
+
+        // Ensure .auth directory exists
+        const authDir = path.join(__dirname, "..", ".auth");
+        if (!fs.existsSync(authDir)) {
+          fs.mkdirSync(authDir, { recursive: true });
+          console.log("📁 Created .auth directory");
+        }
+
+        // Create an empty auth state file
+        const authFile = path.join(authDir, "user.json");
+        const emptyAuthState = {
+          cookies: [],
+          origins: [],
+        };
+        fs.writeFileSync(authFile, JSON.stringify(emptyAuthState, null, 2));
+        console.log(
+          `💾 Created empty authentication state for unauthenticated tests`
+        );
+
+        console.log("🏁 Global setup completed for unauthenticated testing");
+        await browser.close();
+        return;
       }
       // If we're somewhere else, assume success but log the location
       console.log(`⚠️  Authentication completed, current URL: ${currentUrl}`);

@@ -17,7 +17,7 @@ export const MAP_IMAGE_PRESETS = {
   CARD_LARGE_WIDE: {
     width: 300,
     height: 200,
-    zoom: 14,
+    zoom: 10,
   },
 
   /**
@@ -26,7 +26,7 @@ export const MAP_IMAGE_PRESETS = {
   CARD_SMALL: {
     width: 200,
     height: 96,
-    zoom: 15,
+    zoom: 11,
   },
 
   /**

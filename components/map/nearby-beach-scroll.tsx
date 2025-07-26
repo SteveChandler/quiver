@@ -56,7 +56,7 @@ export function NearbyBeachScroll({
             View All
           </button>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-1 justify-items-center">
           {beachCardData.map((beach) => {
             // Find the original beach object to pass to onBeachSelect
             const originalBeach = nearbyBeachesForScroll.find(
@@ -64,7 +64,7 @@ export function NearbyBeachScroll({
             );
 
             return (
-              <div key={beach.id} className="flex-shrink-0 w-48">
+              <div key={beach.id} className="w-full">
                 <BeachCard
                   id={beach.id}
                   name={beach.name}

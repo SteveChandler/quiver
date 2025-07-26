@@ -179,18 +179,17 @@ export function useEnhancedForecast({
     }
   }, [availableDates, selectedDate]);
 
-  // Memoized refresh handler
+  // Simplified refresh handler - just refetch, let cache TTL handle staleness
   const handleRefresh = useCallback(async () => {
     setUpdating(true);
     try {
-      await invalidateCache();
       await refetch();
     } catch (err) {
       console.error("Error refreshing forecasts:", err);
     } finally {
       setUpdating(false);
     }
-  }, [invalidateCache, refetch]);
+  }, [refetch]);
 
   return {
     data: forecastData,

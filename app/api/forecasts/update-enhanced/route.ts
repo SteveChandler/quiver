@@ -59,10 +59,52 @@ export async function GET(request: NextRequest) {
       return createErrorResponse("Beach ID is required", null, 400);
     }
 
-    const { fetchBeachForecasts } = await import(
+    const { fetchBeachForecasts, updateBeachForecast } = await import(
       "@/lib/utils/forecast-service-utils"
     );
-    const data = await fetchBeachForecasts(beachId, days);
+
+    // First, try to get existing forecasts
+    let data = await fetchBeachForecasts(beachId, days);
+
+    // Check if data is stale or missing
+    const hasData = data.forecasts && data.forecasts.length > 0;
+    let isStale = false;
+
+    if (hasData) {
+      // Check if the most recent forecast is older than 6 hours (NOAA update cycle)
+      const mostRecent = data.forecasts[0];
+      const lastUpdated = new Date(mostRecent.updated_at);
+      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+      isStale = lastUpdated < sixHoursAgo;
+    }
+
+    // If no data or stale data, generate fresh forecasts
+    if (!hasData || isStale) {
+      console.log(
+        `🔄 ${
+          !hasData ? "No data found" : "Data is stale"
+        } for beach ${beachId}, generating fresh forecasts from NOAA...`
+      );
+
+      // Generate fresh forecasts - fail if this doesn't work
+      await updateBeachForecast(beachId);
+
+      // Fetch the newly generated data
+      data = await fetchBeachForecasts(beachId, days);
+
+      // Verify we actually got fresh data
+      if (!data.forecasts || data.forecasts.length === 0) {
+        throw new Error("Failed to generate fresh forecast data");
+      }
+
+      console.log(
+        `✅ Generated ${data.forecasts.length} fresh forecasts for beach ${beachId}`
+      );
+    } else {
+      console.log(
+        `✅ Using fresh cached data for beach ${beachId} (${data.forecasts.length} forecasts)`
+      );
+    }
 
     return createSuccessResponse({
       beachId,

@@ -532,7 +532,7 @@ export function SessionAnalytics({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              Favorite Spots
+                              Default Spots
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -1,4 +1,7 @@
-import { beachCoordinates, beachNames } from "./beaches";
+import {
+  beachCoordinates,
+  beachNames,
+} from "@/lib/constants/beach-coordinates";
 import {
   getBeachForecasts,
   getLatestBeachForecast,

@@ -50,7 +50,7 @@ const profileFormSchema = z.object({
     .optional(),
   favorite_spot: z
     .string()
-    .max(100, "Favorite spot must be less than 100 characters")
+    .max(100, "Default spot must be less than 100 characters")
     .optional(),
   instagram: z
     .string()
@@ -115,8 +115,8 @@ export function EditProfileForm({
       if (onSuccess) {
         onSuccess();
       } else {
-        router.push("/profile");
-        router.refresh();
+        // Force a page refresh to clear all caches and ensure updated data is shown
+        window.location.href = "/profile";
       }
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -378,10 +378,10 @@ export function EditProfileForm({
                 name="favorite_spot"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Favorite Surf Spot</FormLabel>
+                    <FormLabel>Default Surf Spot</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Your favorite place to catch waves"
+                        placeholder="Your default surf spot"
                         {...field}
                       />
                     </FormControl>

@@ -1,16 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
 import type { ForecastPreview as ForecastPreviewType } from "@/types/forecast";
+import { createMockForecastPreview } from "../../setup/forecast-test-utils";
 
 describe("ForecastPreview", () => {
-  const mockForecastData: ForecastPreviewType = {
-    type: "enhanced",
-    wave_height: "4-6 ft",
-    wind_speed: "10 mph",
-    wind_direction: "W",
-    weather_condition: "Sunny and clear",
-    confidence_score: 85,
-  };
+  const mockForecastData = createMockForecastPreview();
 
   describe("loading state", () => {
     it("should render loading spinner and text", () => {

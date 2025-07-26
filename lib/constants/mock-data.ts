@@ -40,27 +40,3 @@ export const FALLBACK_POSTS: MockPost[] = [
     avatar: "/placeholder-user.jpg",
   },
 ];
-
-export const FORECAST_DATA = [
-  {
-    day: "Today",
-    date: "Dec 15",
-    waveHeight: "3.17",
-    windSpeed: "4 mph",
-    waterTemp: "65°F",
-  },
-  {
-    day: "Tomorrow",
-    date: "Dec 16",
-    waveHeight: "5.27",
-    windSpeed: "18 mph",
-    waterTemp: "64°F",
-  },
-  {
-    day: "Thu",
-    date: "Dec 17",
-    waveHeight: "2.05",
-    windSpeed: "12 mph",
-    waterTemp: "65°F",
-  },
-];

@@ -5,6 +5,10 @@ import {
   createErrorResponse,
 } from "@/lib/api-response-utils";
 
+// Mark this route as dynamic to prevent static generation
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 interface SessionInvitation {
   id: string;
   sessionId: string;
@@ -225,6 +229,38 @@ export async function GET(request: NextRequest) {
       return createErrorResponse("Authentication required", null, 401);
     }
 
+    // Handle friends type - return user's following list
+    if (type === "friends") {
+      const { data: following, error: followingError } = await supabase
+        .from("follows")
+        .select(
+          `
+          following:profiles!follows_following_id_fkey(
+            id,
+            full_name,
+            avatar_url,
+            email
+          )
+        `
+        )
+        .eq("follower_id", user.id)
+        .limit(50);
+
+      if (followingError) {
+        console.error("Error fetching friends:", followingError);
+        return createErrorResponse(
+          "Failed to fetch friends",
+          followingError.message
+        );
+      }
+
+      const friends = (following || [])
+        .map((f: any) => f.following)
+        .filter(Boolean);
+
+      return createSuccessResponse(friends);
+    }
+
     let query = supabase.from("session_invitations").select(`
         *,
         session:sessions(
@@ -279,9 +315,9 @@ export async function GET(request: NextRequest) {
       invitations: invitations || [],
     });
   } catch (error) {
-    console.error("Error fetching invitations:", error);
+    console.error("Error in GET /api/session-planner/invitations:", error);
     return createErrorResponse(
-      "Failed to fetch invitations",
+      "Internal server error",
       error instanceof Error ? error.message : "Unknown error"
     );
   }

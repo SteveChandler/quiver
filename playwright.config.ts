@@ -40,6 +40,11 @@ export default defineConfig({
     extraHTTPHeaders: {
       "X-Test-Mode": "true",
     },
+
+    // Enable API testing
+    extraHTTPHeaders: {
+      // Add any default headers for API testing
+    },
   },
 
   /* Configure projects for major browsers */
@@ -48,7 +53,6 @@ export default defineConfig({
       name: "auth-tests",
       testMatch: [
         "**/auth.spec.ts",
-        "**/forecast-card-unauthenticated.spec.ts",
         "**/landing-page.spec.ts",
         "**/comprehensive.spec.ts",
       ],
@@ -62,18 +66,27 @@ export default defineConfig({
       name: "chromium",
       testIgnore: [
         "**/auth.spec.ts",
-        "**/forecast-card.spec.ts",
-        "**/forecast-card-unauthenticated.spec.ts",
         "**/landing-page.spec.ts",
         "**/comprehensive.spec.ts",
       ],
       use: { ...devices["Desktop Chrome"] },
     },
 
-    //{
-    //  name: "Mobile Safari",
-    //  use: { ...devices["iPhone 12"] },
-    //},
+    {
+      name: "Mobile Safari",
+      testIgnore: [
+        "**/auth.spec.ts",
+        "**/landing-page.spec.ts",
+        "**/comprehensive.spec.ts",
+      ],
+      use: {
+        ...devices["iPhone 12"],
+        // Mobile-specific settings
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
 
     /* Test against branded browsers. */
     // {
@@ -84,6 +97,16 @@ export default defineConfig({
     //   name: 'Google Chrome',
     //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     // },
+
+    // Add API testing project
+    {
+      name: "api-tests",
+      testMatch: "**/api-*.spec.ts",
+      use: {
+        // API tests don't need a browser
+        headless: true,
+      },
+    },
   ],
 
   /* Run your local dev server before starting the tests */

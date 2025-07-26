@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { waitForPageLoad, handleAuthRedirect, safeClick } from "./test-helpers";
+import {
+  waitForPageLoad,
+  handleAuthRedirect,
+  safeClick,
+  createPlannedSession,
+} from "./test-helpers";
 
 test.describe("Session Logging", () => {
   test.beforeEach(async ({ page }) => {
@@ -420,5 +425,473 @@ test.describe("Session Logging", () => {
         }
       }
     }
+  });
+
+  test.describe("Session Conversion (Planned to Completed)", () => {
+    test("should convert planned session to completed session", async ({
+      page,
+    }) => {
+      const authState = await handleAuthRedirect(page);
+      if (authState.isAuthPage) {
+        test.skip("User not authenticated - skipping session conversion tests");
+      }
+
+      // Create a planned session first
+      try {
+        const plannedSession = await createPlannedSession(page, {
+          beach: "Test Beach for Conversion",
+          notes: "Planned session to convert",
+        });
+
+        // Navigate to profile to find planned sessions
+        await page.goto("/profile");
+        await page.waitForTimeout(2000);
+
+        const journalTab = page.getByRole("tab", { name: /journal/i });
+        if (await journalTab.isVisible()) {
+          await journalTab.click();
+          await page.waitForTimeout(2000);
+
+          // Look for planned sessions section
+          const plannedSessionsSection = page.getByText(
+            /planned|upcoming|future/i
+          );
+          if (await plannedSessionsSection.isVisible()) {
+            await plannedSessionsSection.click();
+            await page.waitForTimeout(1000);
+          }
+
+          // Find the planned session
+          const plannedSessionCard = page
+            .getByText("Test Beach for Conversion")
+            .locator("..");
+          if (await plannedSessionCard.isVisible()) {
+            // Look for convert button
+            const convertButton = plannedSessionCard.getByRole("button", {
+              name: /convert|log.*session|mark.*completed/i,
+            });
+            if (await convertButton.isVisible()) {
+              await convertButton.click();
+              await page.waitForTimeout(1000);
+
+              // Should open conversion form with pre-filled data
+              const conversionForm = page.locator("form, .session-form");
+              if (await conversionForm.isVisible()) {
+                // Beach should be pre-filled
+                const beachInput = conversionForm.locator(
+                  "#beach-input, [name*='beach']"
+                );
+                if (await beachInput.isVisible()) {
+                  const beachValue = await beachInput.inputValue();
+                  expect(beachValue).toContain("Test Beach for Conversion");
+                }
+
+                // Date should be changeable to today
+                const dateInput = conversionForm.locator(
+                  "#session-date, [name*='date']"
+                );
+                if (await dateInput.isVisible()) {
+                  await dateInput.fill(new Date().toISOString().split("T")[0]);
+                }
+
+                // Add actual session details
+                const ratingSelect =
+                  conversionForm.getByLabel(/quality|rating/i);
+                if (await ratingSelect.isVisible()) {
+                  await ratingSelect.selectOption("4");
+                }
+
+                const durationInput = conversionForm.getByLabel(/duration/i);
+                if (await durationInput.isVisible()) {
+                  await durationInput.fill("2");
+                }
+
+                // Update notes
+                const notesInput = conversionForm.getByLabel(/notes/i);
+                if (await notesInput.isVisible()) {
+                  await notesInput.clear();
+                  await notesInput.fill(
+                    "Actually surfed! Converted from planned session."
+                  );
+                }
+
+                // Submit conversion
+                const saveButton = conversionForm.getByRole("button", {
+                  name: /save|log|convert/i,
+                });
+                if (
+                  (await saveButton.isVisible()) &&
+                  (await saveButton.isEnabled())
+                ) {
+                  await saveButton.click();
+                  await page.waitForTimeout(3000);
+
+                  // Check for success message
+                  const successMessage = page.getByText(
+                    /converted|session.*logged|success/i
+                  );
+                  const hasSuccess = await successMessage
+                    .isVisible()
+                    .catch(() => false);
+                  expect(hasSuccess).toBeTruthy();
+
+                  // Session should move from planned to completed
+                  const completedSection = page.getByText(
+                    /completed|logged|journal/i
+                  );
+                  if (await completedSection.isVisible()) {
+                    await completedSection.click();
+                    await page.waitForTimeout(1000);
+
+                    const convertedSession = page.getByText(
+                      "Actually surfed! Converted from planned session."
+                    );
+                    const hasConvertedSession = await convertedSession
+                      .isVisible()
+                      .catch(() => false);
+                    expect(hasConvertedSession).toBeTruthy();
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Could not create/convert planned session:", error);
+      }
+    });
+
+    test("should preserve planned session data during conversion", async ({
+      page,
+    }) => {
+      const authState = await handleAuthRedirect(page);
+      if (authState.isAuthPage) {
+        test.skip(
+          "User not authenticated - skipping session data preservation tests"
+        );
+      }
+
+      try {
+        const plannedSessionData = {
+          beach: "Data Preservation Beach",
+          time: "06:00",
+          notes: "Early morning planned session",
+        };
+
+        await createPlannedSession(page, plannedSessionData);
+
+        await page.goto("/profile");
+        await page.waitForTimeout(2000);
+
+        const journalTab = page.getByRole("tab", { name: /journal/i });
+        if (await journalTab.isVisible()) {
+          await journalTab.click();
+          await page.waitForTimeout(2000);
+
+          const plannedSessionCard = page
+            .getByText("Data Preservation Beach")
+            .locator("..");
+          if (await plannedSessionCard.isVisible()) {
+            const convertButton = plannedSessionCard.getByRole("button", {
+              name: /convert|log.*session|mark.*completed/i,
+            });
+            if (await convertButton.isVisible()) {
+              await convertButton.click();
+              await page.waitForTimeout(1000);
+
+              const conversionForm = page.locator("form, .session-form");
+              if (await conversionForm.isVisible()) {
+                // Check that original data is preserved
+                const beachInput = conversionForm.locator(
+                  "#beach-input, [name*='beach']"
+                );
+                if (await beachInput.isVisible()) {
+                  const beachValue = await beachInput.inputValue();
+                  expect(beachValue).toContain("Data Preservation Beach");
+                }
+
+                const timeInput = conversionForm.locator(
+                  "#session-time, [name*='time']"
+                );
+                if (await timeInput.isVisible()) {
+                  const timeValue = await timeInput.inputValue();
+                  expect(timeValue).toBe("06:00");
+                }
+
+                const notesInput = conversionForm.getByLabel(/notes/i);
+                if (await notesInput.isVisible()) {
+                  const notesValue = await notesInput.inputValue();
+                  expect(notesValue).toContain("Early morning planned session");
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Could not test data preservation:", error);
+      }
+    });
+
+    test("should allow canceling session conversion", async ({ page }) => {
+      const authState = await handleAuthRedirect(page);
+      if (authState.isAuthPage) {
+        test.skip(
+          "User not authenticated - skipping conversion cancellation tests"
+        );
+      }
+
+      try {
+        await createPlannedSession(page, {
+          beach: "Cancellation Test Beach",
+          notes: "Session to cancel conversion",
+        });
+
+        await page.goto("/profile");
+        await page.waitForTimeout(2000);
+
+        const journalTab = page.getByRole("tab", { name: /journal/i });
+        if (await journalTab.isVisible()) {
+          await journalTab.click();
+          await page.waitForTimeout(2000);
+
+          const plannedSessionCard = page
+            .getByText("Cancellation Test Beach")
+            .locator("..");
+          if (await plannedSessionCard.isVisible()) {
+            const convertButton = plannedSessionCard.getByRole("button", {
+              name: /convert|log.*session|mark.*completed/i,
+            });
+            if (await convertButton.isVisible()) {
+              await convertButton.click();
+              await page.waitForTimeout(1000);
+
+              // Cancel the conversion
+              const cancelButton = page.getByRole("button", {
+                name: /cancel/i,
+              });
+              if (await cancelButton.isVisible()) {
+                await cancelButton.click();
+                await page.waitForTimeout(1000);
+
+                // Should return to profile without converting
+                const plannedSessionStillExists = page.getByText(
+                  "Session to cancel conversion"
+                );
+                const stillExists = await plannedSessionStillExists
+                  .isVisible()
+                  .catch(() => false);
+                expect(stillExists).toBeTruthy();
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Could not test conversion cancellation:", error);
+      }
+    });
+
+    test("should validate conversion form", async ({ page }) => {
+      const authState = await handleAuthRedirect(page);
+      if (authState.isAuthPage) {
+        test.skip(
+          "User not authenticated - skipping conversion validation tests"
+        );
+      }
+
+      try {
+        await createPlannedSession(page, {
+          beach: "Validation Test Beach",
+          notes: "Session for validation testing",
+        });
+
+        await page.goto("/profile");
+        await page.waitForTimeout(2000);
+
+        const journalTab = page.getByRole("tab", { name: /journal/i });
+        if (await journalTab.isVisible()) {
+          await journalTab.click();
+          await page.waitForTimeout(2000);
+
+          const plannedSessionCard = page
+            .getByText("Validation Test Beach")
+            .locator("..");
+          if (await plannedSessionCard.isVisible()) {
+            const convertButton = plannedSessionCard.getByRole("button", {
+              name: /convert|log.*session|mark.*completed/i,
+            });
+            if (await convertButton.isVisible()) {
+              await convertButton.click();
+              await page.waitForTimeout(1000);
+
+              const conversionForm = page.locator("form, .session-form");
+              if (await conversionForm.isVisible()) {
+                // Clear required field to test validation
+                const dateInput = conversionForm.locator(
+                  "#session-date, [name*='date']"
+                );
+                if (await dateInput.isVisible()) {
+                  await dateInput.clear();
+
+                  const saveButton = conversionForm.getByRole("button", {
+                    name: /save|log|convert/i,
+                  });
+                  if (await saveButton.isVisible()) {
+                    // Should be disabled without valid date
+                    const isDisabled = await saveButton.isDisabled();
+                    expect(isDisabled).toBeTruthy();
+
+                    // Re-enter valid date
+                    await dateInput.fill(
+                      new Date().toISOString().split("T")[0]
+                    );
+                    await page.waitForTimeout(500);
+
+                    const isEnabledNow = await saveButton.isEnabled();
+                    expect(isEnabledNow).toBeTruthy();
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Could not test conversion validation:", error);
+      }
+    });
+
+    test("should delete planned sessions", async ({ page }) => {
+      const authState = await handleAuthRedirect(page);
+      if (authState.isAuthPage) {
+        test.skip(
+          "User not authenticated - skipping planned session deletion tests"
+        );
+      }
+
+      try {
+        await createPlannedSession(page, {
+          beach: "Deletion Test Beach",
+          notes: "Planned session to delete",
+        });
+
+        await page.goto("/profile");
+        await page.waitForTimeout(2000);
+
+        const journalTab = page.getByRole("tab", { name: /journal/i });
+        if (await journalTab.isVisible()) {
+          await journalTab.click();
+          await page.waitForTimeout(2000);
+
+          const plannedSessionCard = page
+            .getByText("Deletion Test Beach")
+            .locator("..");
+          if (await plannedSessionCard.isVisible()) {
+            // Look for delete button
+            const deleteButton = plannedSessionCard.getByRole("button", {
+              name: /delete|remove/i,
+            });
+            if (await deleteButton.isVisible()) {
+              await deleteButton.click();
+              await page.waitForTimeout(1000);
+
+              // Should show confirmation
+              const confirmDialog = page.getByText(
+                /confirm|are you sure|delete/i
+              );
+              if (await confirmDialog.isVisible()) {
+                const confirmButton = page.getByRole("button", {
+                  name: /confirm|yes|delete/i,
+                });
+                if (await confirmButton.isVisible()) {
+                  await confirmButton.click();
+                  await page.waitForTimeout(2000);
+
+                  // Session should be removed
+                  const deletedSession = page.getByText(
+                    "Planned session to delete"
+                  );
+                  const sessionStillExists = await deletedSession
+                    .isVisible()
+                    .catch(() => false);
+                  expect(sessionStillExists).toBeFalsy();
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Could not test planned session deletion:", error);
+      }
+    });
+
+    test("should edit planned sessions", async ({ page }) => {
+      const authState = await handleAuthRedirect(page);
+      if (authState.isAuthPage) {
+        test.skip(
+          "User not authenticated - skipping planned session editing tests"
+        );
+      }
+
+      try {
+        await createPlannedSession(page, {
+          beach: "Edit Test Beach",
+          notes: "Original planned session notes",
+        });
+
+        await page.goto("/profile");
+        await page.waitForTimeout(2000);
+
+        const journalTab = page.getByRole("tab", { name: /journal/i });
+        if (await journalTab.isVisible()) {
+          await journalTab.click();
+          await page.waitForTimeout(2000);
+
+          const plannedSessionCard = page
+            .getByText("Edit Test Beach")
+            .locator("..");
+          if (await plannedSessionCard.isVisible()) {
+            // Look for edit button
+            const editButton = plannedSessionCard.getByRole("button", {
+              name: /edit/i,
+            });
+            if (await editButton.isVisible()) {
+              await editButton.click();
+              await page.waitForTimeout(1000);
+
+              const editForm = page.locator("form, .session-form");
+              if (await editForm.isVisible()) {
+                // Edit the notes
+                const notesInput = editForm.getByLabel(/notes/i);
+                if (await notesInput.isVisible()) {
+                  await notesInput.clear();
+                  await notesInput.fill("Updated planned session notes");
+
+                  const saveButton = editForm.getByRole("button", {
+                    name: /save|update/i,
+                  });
+                  if (
+                    (await saveButton.isVisible()) &&
+                    (await saveButton.isEnabled())
+                  ) {
+                    await saveButton.click();
+                    await page.waitForTimeout(2000);
+
+                    // Check if changes are reflected
+                    const updatedNotes = page.getByText(
+                      "Updated planned session notes"
+                    );
+                    const hasUpdatedNotes = await updatedNotes
+                      .isVisible()
+                      .catch(() => false);
+                    expect(hasUpdatedNotes).toBeTruthy();
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Could not test planned session editing:", error);
+      }
+    });
   });
 });

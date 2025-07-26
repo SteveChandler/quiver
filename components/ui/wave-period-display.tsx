@@ -103,7 +103,7 @@ export function WavePeriodDisplay({
             "flex flex-col items-center p-3 rounded-lg border",
             periodQuality.color === "text-green-600"
               ? "bg-green-50 border-green-200"
-              : periodQuality.color === "text-blue-600"
+              : periodQuality.color.includes("text-blue-600")
               ? "bg-blue-50 border-blue-200"
               : periodQuality.color === "text-yellow-600"
               ? "bg-yellow-50 border-yellow-200"
@@ -200,13 +200,15 @@ export function SwellComponent({
         className
       )}
     >
-      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white border border-gray-200">
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-card border border-border">
         <Icon className={cn("h-4 w-4", swellInfo.color)} />
       </div>
 
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm">{swellInfo.label}</span>
+          <span className="font-medium text-sm text-foreground">
+            {swellInfo.label}
+          </span>
           {swellHeight && (
             <span className={cn("text-sm font-bold", swellInfo.color)}>
               {swellHeight}

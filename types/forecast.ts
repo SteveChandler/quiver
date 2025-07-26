@@ -76,8 +76,6 @@ export interface TideConditions {
   readonly status: TideStatus;
   readonly currentHeight: string;
   readonly nextTide: NextTideInfo;
-  readonly currentSpeed: string;
-  readonly currentDirection: string;
 }
 
 export type TideStatus =
@@ -136,10 +134,9 @@ export interface EnhancedForecastEntity {
   next_tide_time: string;
   next_tide_type: string;
   next_tide_height: string;
-  current_speed: string;
-  current_direction: string;
   weather_condition: string;
   confidence_score: number;
+  data_source: "NOAA_NWS" | "FALLBACK";
   created_at: string;
   updated_at: string;
 }
@@ -167,6 +164,11 @@ export interface WeatherDataSource extends ForecastDataSource {
 // Data source response types
 export interface WaveData {
   readonly forecast: WavePoint[];
+  readonly data_source: "NOAA_NWS" | "FALLBACK";
+  readonly location: {
+    readonly latitude: number;
+    readonly longitude: number;
+  };
 }
 
 export interface WavePoint {
@@ -183,23 +185,17 @@ export interface WavePoint {
   readonly windWaveHeight: number;
   readonly windWavePeriod: number;
   readonly windWaveDirection: number;
+  readonly data_source: "NOAA_NWS" | "FALLBACK";
 }
 
 export interface TideData {
   readonly tides: TidePoint[];
-  readonly currents: CurrentPoint[];
 }
 
 export interface TidePoint {
   readonly time: number;
   readonly height: number;
   readonly type: "H" | "L";
-}
-
-export interface CurrentPoint {
-  readonly time: number;
-  readonly speed: number;
-  readonly direction: number;
 }
 
 export interface WeatherData {

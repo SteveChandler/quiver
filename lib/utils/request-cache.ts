@@ -138,13 +138,13 @@ export const beachCache = new RequestCache({
   maxSize: 100,
 });
 
-// Auto-cleanup expired entries every 10 minutes
+export { RequestCache };
+
+// Simplified auto-cleanup for NOAA data - run less frequently since data is long-lived
 if (typeof window !== "undefined" && !(window as any).__PLAYWRIGHT__) {
   setInterval(() => {
     apiCache.clearExpired();
     forecastCache.clearExpired();
     beachCache.clearExpired();
-  }, 10 * 60 * 1000);
+  }, 60 * 60 * 1000); // Clean every hour instead of every 10 minutes
 }
-
-export { RequestCache };

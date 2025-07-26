@@ -4,7 +4,7 @@ import { TideTiming, TideSchedule } from "@/components/ui/tide-timing";
 describe("TideTiming", () => {
   describe("compact variant (default)", () => {
     it("should render high tide timing", () => {
-      render(
+      const { container } = render(
         <TideTiming
           nextTideTime="2:30 PM"
           nextTideType="High Tide"
@@ -16,15 +16,14 @@ describe("TideTiming", () => {
       expect(screen.getByText("2:30 PM")).toBeInTheDocument();
       expect(screen.getByText("(4.2 ft)")).toBeInTheDocument();
 
-      // Check for high tide icon (ArrowUp)
-      const container = screen.getByText("High").parentElement;
-      const icon = container?.querySelector("svg");
+      // Check for high tide icon (ArrowUp) - it's a sibling in the main container
+      const icon = container.querySelector("svg");
       expect(icon).toBeTruthy();
       expect(icon).toHaveClass("text-blue-600");
     });
 
     it("should render low tide timing", () => {
-      render(
+      const { container } = render(
         <TideTiming
           nextTideTime="8:45 AM"
           nextTideType="Low Tide"
@@ -36,8 +35,8 @@ describe("TideTiming", () => {
       expect(screen.getByText("8:45 AM")).toBeInTheDocument();
       expect(screen.getByText("(0.8 ft)")).toBeInTheDocument();
 
-      const container = screen.getByText("Low").parentElement;
-      const icon = container?.querySelector("svg");
+      // Check for low tide icon (ArrowDown) - it's a sibling in the main container
+      const icon = container.querySelector("svg");
       expect(icon).toBeTruthy();
       expect(icon).toHaveClass("text-gray-600");
     });
@@ -60,7 +59,7 @@ describe("TideTiming", () => {
 
   describe("detailed variant", () => {
     it("should render high tide in detailed format", () => {
-      render(
+      const { container } = render(
         <TideTiming
           nextTideTime="2:30 PM"
           nextTideType="High Tide"
@@ -73,13 +72,13 @@ describe("TideTiming", () => {
       expect(screen.getByText("2:30 PM")).toBeInTheDocument();
       expect(screen.getByText("Height: 4.2 ft")).toBeInTheDocument();
 
-      // Check for detailed layout styling
-      const container = screen.getByText("Next High Tide").closest("div");
-      expect(container).toHaveClass("bg-blue-50");
+      // Check for detailed layout styling on the outermost container
+      const mainContainer = container.firstElementChild;
+      expect(mainContainer).toHaveClass("bg-blue-50");
     });
 
     it("should render low tide in detailed format", () => {
-      render(
+      const { container } = render(
         <TideTiming
           nextTideTime="8:45 AM"
           nextTideType="Low Tide"
@@ -92,8 +91,9 @@ describe("TideTiming", () => {
       expect(screen.getByText("8:45 AM")).toBeInTheDocument();
       expect(screen.getByText("Height: 0.8 ft")).toBeInTheDocument();
 
-      const container = screen.getByText("Next Low Tide").closest("div");
-      expect(container).toHaveClass("bg-gray-50");
+      // Check for detailed layout styling on the outermost container
+      const mainContainer = container.firstElementChild;
+      expect(mainContainer).toHaveClass("bg-gray-50");
     });
 
     it("should render detailed format without height", () => {
@@ -233,8 +233,8 @@ describe("TideSchedule", () => {
       render(<TideSchedule tides={mockTides} />);
 
       expect(screen.getByText("Today's Tides")).toBeInTheDocument();
-      expect(screen.getByText("High")).toBeInTheDocument();
-      expect(screen.getByText("Low")).toBeInTheDocument();
+      expect(screen.getAllByText("High")).toHaveLength(2); // Multiple high tides expected
+      expect(screen.getAllByText("Low")).toHaveLength(2); // Multiple low tides expected
       expect(screen.getByText("4.2ft")).toBeInTheDocument();
       expect(screen.getByText("0.8ft")).toBeInTheDocument();
     });
@@ -242,8 +242,9 @@ describe("TideSchedule", () => {
     it("should show time until upcoming tides", () => {
       render(<TideSchedule tides={mockTides} />);
 
-      // Should show countdown for future tides
-      expect(screen.getByText(/in \d+h \d+m/)).toBeInTheDocument();
+      // Should show countdown for future tides - use getAllByText since multiple tides may show countdown
+      const countdownElements = screen.getAllByText(/in \d+h \d+m/);
+      expect(countdownElements.length).toBeGreaterThan(0);
     });
 
     it("should mark past tides with reduced opacity", () => {
@@ -255,17 +256,15 @@ describe("TideSchedule", () => {
     });
 
     it("should distinguish between high and low tides visually", () => {
-      render(<TideSchedule tides={mockTides} />);
-
-      const container = screen.getByText("Today's Tides").parentElement;
+      const { container } = render(<TideSchedule tides={mockTides} />);
 
       // High tides should have blue styling
-      const highTideElements = container?.querySelectorAll(".bg-blue-50");
-      expect(highTideElements?.length).toBeGreaterThan(0);
+      const highTideElements = container.querySelectorAll(".bg-blue-50");
+      expect(highTideElements.length).toBeGreaterThan(0);
 
       // Low tides should have gray styling
-      const lowTideElements = container?.querySelectorAll(".bg-gray-50");
-      expect(lowTideElements?.length).toBeGreaterThan(0);
+      const lowTideElements = container.querySelectorAll(".bg-gray-50");
+      expect(lowTideElements.length).toBeGreaterThan(0);
     });
 
     it("should limit display to 4 tides", () => {
@@ -337,9 +336,9 @@ describe("TideSchedule", () => {
     it("should have readable text for all tide information", () => {
       render(<TideSchedule tides={mockTides} />);
 
-      // All tide information should be visible
-      expect(screen.getByText("High")).toBeVisible();
-      expect(screen.getByText("Low")).toBeVisible();
+      // All tide information should be visible - use getAllByText for multiple elements
+      expect(screen.getAllByText("High")[0]).toBeVisible();
+      expect(screen.getAllByText("Low")[0]).toBeVisible();
       expect(screen.getByText("4.2ft")).toBeVisible();
       expect(screen.getByText("0.8ft")).toBeVisible();
     });
@@ -403,10 +402,11 @@ describe("TideSchedule", () => {
     });
 
     it("should maintain consistent spacing", () => {
-      render(<TideSchedule tides={mockTides} />);
+      const { container } = render(<TideSchedule tides={mockTides} />);
 
-      const container = screen.getByText("Today's Tides").parentElement;
-      expect(container).toHaveClass("space-y-2");
+      // The outermost container should have space-y-2 class
+      const scheduleContainer = container.firstElementChild;
+      expect(scheduleContainer).toHaveClass("space-y-2");
     });
   });
 });

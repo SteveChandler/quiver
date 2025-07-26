@@ -55,13 +55,50 @@ class WaveWatchDataSource implements WaveDataSource {
     );
   }
 
-  async fetchWaveData(location: Location, days: number): Promise<any> {
+  async fetchWaveData(location: Location, days: number): Promise<WaveData> {
     const result = await this.service.fetchWaveWatchForecast(
       location.latitude,
       location.longitude,
       days
     );
-    return result || { forecast: [] };
+
+    if (!result || !result.forecast) {
+      return {
+        forecast: [],
+        data_source: "FALLBACK",
+        location: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        },
+      };
+    }
+
+    // Transform the service response to match the WaveData interface
+    const forecast = result.forecast.map((point) => ({
+      timestamp: new Date(point.timestamp),
+      significantWaveHeight: point.significant_wave_height,
+      peakWavePeriod: point.peak_wave_period,
+      peakWaveDirection: point.peak_wave_direction,
+      swell1Height: point.swell_1_height,
+      swell1Period: point.swell_1_period,
+      swell1Direction: point.swell_1_direction,
+      swell2Height: point.swell_2_height,
+      swell2Period: point.swell_2_period,
+      swell2Direction: point.swell_2_direction,
+      windWaveHeight: point.wind_wave_height,
+      windWavePeriod: point.wind_wave_period,
+      windWaveDirection: point.wind_wave_direction,
+      data_source: point.data_source,
+    }));
+
+    return {
+      forecast,
+      data_source: result.data_source,
+      location: {
+        latitude: result.lat,
+        longitude: result.lng,
+      },
+    };
   }
 
   isAvailable(): boolean {
@@ -318,24 +355,6 @@ export class EnhancedForecastService {
   }
 
   /**
-   * Fetch tidal data using CO-OPS service
-   */
-  private async fetchTidalData(beach: Beach) {
-    try {
-      const stationId = this.coopsService.getStationForLocation(
-        beach.name,
-        beach.latitude,
-        beach.longitude
-      );
-
-      return await this.coopsService.fetchCOOPSData(stationId, 10);
-    } catch (error) {
-      console.error("Error fetching tidal data:", error);
-      return null;
-    }
-  }
-
-  /**
    * Fetch weather data from NOAA
    */
   private async fetchWeatherData(beach: Beach) {
@@ -445,8 +464,8 @@ export class EnhancedForecastService {
    */
   private getNormalizedDateString(date: Date): string {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
@@ -454,9 +473,9 @@ export class EnhancedForecastService {
    * Helper function to get normalized time string (HH:MM:SS) in local timezone
    */
   private getNormalizedTimeString(date: Date): string {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
     return `${hours}:${minutes}:${seconds}`;
   }
 
@@ -478,6 +497,9 @@ export class EnhancedForecastService {
   }): EnhancedForecastEntity[] {
     const forecasts: EnhancedForecastEntity[] = [];
     const now = new Date();
+
+    // Determine the primary data source based on wave data availability
+    const primaryDataSource = waveData?.data_source || "FALLBACK";
 
     // Generate forecasts using constants
     for (let i = 0; i < TOTAL_FORECASTS; i++) {
@@ -509,7 +531,7 @@ export class EnhancedForecastService {
         forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
       });
 
-      forecasts.push({
+      const forecast = {
         id: `forecast-${beach.id}-${i}`, // Temporary ID for now
         forecast_date: this.getNormalizedDateString(forecastTime),
         forecast_time: this.getNormalizedTimeString(forecastTime),
@@ -584,10 +606,6 @@ export class EnhancedForecastService {
         next_tide_type: tideInfo.nextTideType,
         next_tide_height: tideInfo.nextTideHeight,
 
-        // Current information
-        current_speed: tideInfo.currentSpeed,
-        current_direction: tideInfo.currentDirection,
-
         // Weather conditions
         weather_condition: weatherPoint?.shortForecast || "Partly Cloudy",
         air_temperature: weatherPoint
@@ -596,9 +614,15 @@ export class EnhancedForecastService {
 
         beach_id: beach.id,
         confidence_score: confidenceScore,
+        data_source: primaryDataSource,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-      });
+      };
+
+      // Validate forecast values for San Diego area and flag unrealistic conditions
+      this.validateForecastValues(forecast, beach.name);
+
+      forecasts.push(forecast);
     }
 
     return forecasts;
@@ -638,8 +662,6 @@ export class EnhancedForecastService {
       nextTideTime: "Unknown",
       nextTideType: "Unknown",
       nextTideHeight: "Unknown",
-      currentSpeed: "0 knots",
-      currentDirection: "Unknown",
     };
 
     if (!tideData?.tides) return defaultTideInfo;
@@ -657,16 +679,6 @@ export class EnhancedForecastService {
       targetTime
     );
 
-    // Find current data for this time
-    const targetTimestamp = targetTime.getTime() / 1000;
-    let currentInfo = null;
-
-    if (tideData.currents && tideData.currents.length > 0) {
-      currentInfo = tideData.currents.find(
-        (current: any) => Math.abs(current.time - targetTimestamp) < 3600 // Within 1 hour
-      );
-    }
-
     return {
       status,
       currentHeight: currentHeight ? `${currentHeight} ft` : "2.5 ft",
@@ -678,10 +690,6 @@ export class EnhancedForecastService {
         : "Unknown",
       nextTideType: nextTide?.name || "Unknown",
       nextTideHeight: nextTide ? `${nextTide.height} ft` : "Unknown",
-      currentSpeed: currentInfo ? `${currentInfo.speed} knots` : "0 knots",
-      currentDirection: currentInfo
-        ? this.waveWatchService.getWaveDirectionText(currentInfo.direction)
-        : "Unknown",
     };
   }
 
@@ -782,6 +790,71 @@ export class EnhancedForecastService {
   }
 
   /**
+   * Validate forecast values for San Diego area and flag unrealistic conditions
+   */
+  private validateForecastValues(
+    forecast: EnhancedForecastEntity,
+    beachName?: string
+  ): boolean {
+    const waveHeight = parseFloat(forecast.wave_height || "0");
+    const wavePeriod = parseFloat(
+      forecast.wave_period?.replace("s", "") || "0"
+    );
+    const swell1Period = parseFloat(
+      forecast.swell_1_period?.replace("s", "") || "0"
+    );
+
+    let isValid = true;
+    const warnings: string[] = [];
+
+    // San Diego typical conditions validation
+    if (waveHeight > 8) {
+      warnings.push(
+        `Unusually large waves: ${forecast.wave_height} (typical max: 8ft)`
+      );
+      isValid = false;
+    }
+
+    if (waveHeight < 0.5) {
+      warnings.push(
+        `Unusually small waves: ${forecast.wave_height} (typical min: 1ft)`
+      );
+    }
+
+    if (wavePeriod > 0 && wavePeriod < 6) {
+      warnings.push(
+        `Very short wave period: ${forecast.wave_period} (Pacific swells typically 10-18s)`
+      );
+    }
+
+    if (swell1Period > 0 && swell1Period < 8) {
+      warnings.push(
+        `Short swell period: ${forecast.swell_1_period} (Pacific swells typically 12-18s)`
+      );
+    }
+
+    if (warnings.length > 0) {
+      console.warn(
+        `🌊 Forecast validation warnings for ${beachName || "unknown beach"}:`,
+        {
+          date: forecast.forecast_date,
+          time: forecast.forecast_time,
+          dataSource: forecast.data_source,
+          warnings,
+          values: {
+            waveHeight: forecast.wave_height,
+            wavePeriod: forecast.wave_period,
+            swell1Height: forecast.swell_1_height,
+            swell1Period: forecast.swell_1_period,
+          },
+        }
+      );
+    }
+
+    return isValid;
+  }
+
+  /**
    * Store enhanced forecasts in database
    */
   async storeEnhancedForecasts(
@@ -791,23 +864,17 @@ export class EnhancedForecastService {
     const supabase = await createSupabaseServiceRoleClient();
 
     try {
-      // Delete existing forecasts for this beach
-      await supabase
-        .from("enhanced_forecasts")
-        .delete()
-        .eq("beach_id", beach.id);
-
-      // Insert new enhanced forecasts
-      const { data, error } = await supabase.from("enhanced_forecasts").insert(
+      // Use upsert to prevent race conditions and duplicate data
+      const { data, error } = await supabase.from("enhanced_forecasts").upsert(
         forecasts.map((forecast) => {
           // Remove the temporary ID and let PostgreSQL generate proper UUIDs
           const { id, ...forecastWithoutId } = forecast;
           return {
             ...forecastWithoutId,
-            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
-        })
+        }),
+        { onConflict: "beach_id,forecast_date,forecast_time" }
       );
 
       if (error) {

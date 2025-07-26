@@ -73,7 +73,7 @@ export function ProfilePreferences({
 
     setIsSubmitting(true);
     try {
-      const result = await updateProfile(userId, {
+      const result = await updateProfile({
         default_beach_id: data.default_beach_id,
         notification_session_reminders: data.notification_session_reminders,
         notification_community_replies: data.notification_community_replies,
@@ -88,7 +88,8 @@ export function ProfilePreferences({
         description: "Your profile preferences have been updated.",
       });
 
-      router.refresh();
+      // Navigate to profile page with fresh data
+      window.location.href = "/profile";
     } catch (error) {
       console.error("Error updating preferences:", error);
       toast({

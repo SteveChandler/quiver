@@ -97,7 +97,17 @@ export async function GET(request: NextRequest) {
     }
 
     if (!intelPosts || intelPosts.length === 0) {
-      return createSuccessResponse([]);
+      return createSuccessResponse({
+        posts: [],
+        total: 0,
+        filters: {
+          latitude,
+          longitude,
+          radius,
+          tag: tag || "all",
+          limit,
+        },
+      });
     }
 
     // Get user details for posts

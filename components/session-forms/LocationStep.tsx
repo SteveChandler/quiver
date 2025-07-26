@@ -20,13 +20,19 @@ export function LocationStep({
 }: LocationStepProps) {
   return (
     <div className="space-y-4">
-      <BeachSelector
-        initialValue={formState.selectedBeach}
-        onBeachSelected={(beach) => {
-          updateField("selectedBeach", beach.name);
-          updateField("selectedBeachId", beach.id);
-        }}
-      />
+      <div className="space-y-2">
+        <label className="block text-sm font-medium">
+          Where are you surfing?
+        </label>
+        <BeachSelector
+          data-testid="beach-selector"
+          initialValue={formState.selectedBeach}
+          onBeachSelected={(beach) => {
+            updateField("selectedBeach", beach.name);
+            updateField("selectedBeachId", beach.id);
+          }}
+        />
+      </div>
     </div>
   );
 }

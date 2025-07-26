@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Board } from "@/types/database";
 import { revalidatePath } from "next/cache";
+import {
+  createSuccessResponse,
+  createAuthError,
+  handleApiError,
+} from "@/lib/api-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,10 +21,7 @@ export async function POST(request: NextRequest) {
 
     if (userError || !user) {
       console.error("❌ API Route: Authentication error:", userError);
-      return NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      );
+      return createAuthError("Authentication required");
     }
 
     // Prepare the data to insert
@@ -37,27 +39,15 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("💥 API Route: Database error:", error);
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 400 }
-      );
+      return handleApiError(error, "Database error creating board");
     }
 
     // Revalidate the profile page
     revalidatePath("/profile");
 
-    return NextResponse.json({
-      success: true,
-      data: data as Board,
-    });
+    return createSuccessResponse(data as Board, 201);
   } catch (error) {
     console.error("API Route: Error creating board:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, "Error creating board");
   }
 }

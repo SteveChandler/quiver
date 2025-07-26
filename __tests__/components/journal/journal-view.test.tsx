@@ -227,8 +227,8 @@ describe("JournalView", () => {
     expect(screen.getByText("2")).toBeInTheDocument(); // Total sessions
     expect(screen.getByText("4")).toBeInTheDocument(); // Total hours (displayed as just "4")
     expect(screen.getByText("3.5")).toBeInTheDocument(); // Average rating
-    // Check that favorite spot section exists (Test Beach appears in both stats and session cards)
-    expect(screen.getByText("Favorite Spot")).toBeInTheDocument();
+    // Check that default spot section exists (Test Beach appears in both stats and session cards)
+    expect(screen.getByText("Default Spot")).toBeInTheDocument();
   });
 
   it("displays loading state", () => {

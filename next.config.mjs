@@ -22,7 +22,90 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+
+  // Enable compression for better performance
+  compress: true,
+
+  // Performance optimizations
+  swcMinify: true,
+
+  // Power pack optimizations
+  poweredByHeader: false, // Remove X-Powered-By header
+  reactStrictMode: true, // Better development experience
+
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "geolocation=(self)",
+          },
+          // Performance headers
+          {
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          // Security headers that don't impact performance
+          {
+            key: "Referrer-Policy",
+            value: "origin-when-cross-origin",
+          },
+        ],
+      },
+      // Aggressive caching for static assets
+      {
+        source: "/_next/static/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+          {
+            key: "Vary",
+            value: "Accept-Encoding",
+          },
+        ],
+      },
+      // Cache optimization for images
+      {
+        source: "/images/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=3600",
+          },
+          {
+            key: "Vary",
+            value: "Accept, Accept-Encoding",
+          },
+        ],
+      },
+      // API route caching
+      {
+        source: "/api/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=60, stale-while-revalidate=120",
+          },
+        ],
+      },
+    ];
+  },
   images: {
+    // CRITICAL FIX: Enable image optimization in production
+    unoptimized: false,
+
+    // Performance optimizations for images
+    formats: ["image/webp", "image/avif"],
+    minimumCacheTTL: 86400, // 24 hours
+
     remotePatterns: [
       {
         protocol: "https",
@@ -63,15 +146,55 @@ const nextConfig = {
         pathname: "/storage/v1/object/**",
       },
     ],
-    // Add image loading configuration for better Vercel compatibility
+    // Security for SVGs
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    // Allow unoptimized images for map services that have issues with Vercel
-    unoptimized: process.env.NODE_ENV === "production",
   },
   experimental: {
+    // Enable performance optimizations (removed optimizeCss due to critters dependency)
+    optimizePackageImports: ["@radix-ui/react-icons", "lucide-react"],
+
+    // Enable server components optimizations
+    serverComponentsExternalPackages: ["@supabase/supabase-js"],
+
+    // Enable external directory support
     externalDir: true,
+  },
+
+  // Enable bundle analyzer in development
+  ...(process.env.ANALYZE === "true" && {
+    webpack: (config) => {
+      // Import bundle analyzer
+      const BundleAnalyzerPlugin = require("@next/bundle-analyzer")({
+        enabled: process.env.ANALYZE === "true",
+      });
+
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        // Optimize bundle size
+        "react/jsx-runtime.js": "react/jsx-runtime",
+      };
+
+      // Add bundle analyzer
+      if (process.env.ANALYZE === "true") {
+        config.plugins.push(
+          new (require("webpack-bundle-analyzer").BundleAnalyzerPlugin)({
+            analyzerMode: "static",
+            openAnalyzer: false,
+            reportFilename: "bundle-analyzer-report.html",
+          })
+        );
+      }
+
+      return config;
+    },
+  }),
+
+  // Add performance budgets
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
   },
 };
 

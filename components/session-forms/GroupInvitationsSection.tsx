@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -50,26 +50,42 @@ export function GroupInvitationsSection({
   );
 
   // Fetch user's following list (friends)
-  const fetchFriends = async () => {
+  const fetchFriends = useCallback(async () => {
     if (!user?.id) return [];
 
-    const response = await fetch(
-      `/api/session-planner/invitations?type=friends`
-    );
-    if (!response.ok) {
-      // Fallback to social actions if endpoint doesn't exist yet
-      const result = await getUserFollowing(user.id, 50);
-      if (result.success && result.data) {
-        return result.data
-          .map((follow: any) => follow.following)
-          .filter(Boolean);
+    try {
+      const response = await fetch(
+        `/api/session-planner/invitations?type=friends`
+      );
+      if (!response.ok) {
+        // Fallback to social actions if endpoint fails
+        const result = await getUserFollowing(user.id, 50);
+        if (result.success && result.data) {
+          return result.data
+            .map((follow: any) => follow.following)
+            .filter(Boolean);
+        }
+        return [];
+      }
+
+      const data = await response.json();
+      return data.success ? data.data : [];
+    } catch (error) {
+      console.error("Error fetching friends:", error);
+      // Fallback to social actions
+      try {
+        const result = await getUserFollowing(user.id, 50);
+        if (result.success && result.data) {
+          return result.data
+            .map((follow: any) => follow.following)
+            .filter(Boolean);
+        }
+      } catch (fallbackError) {
+        console.error("Fallback error:", fallbackError);
       }
       return [];
     }
-
-    const data = await response.json();
-    return data.success ? data.data : [];
-  };
+  }, [user?.id]);
 
   const { data: friendsData, loading: loadingFriends } = useDataFetcher(
     fetchFriends,
@@ -81,7 +97,7 @@ export function GroupInvitationsSection({
   // Ensure friends is always an array, even if data is null
   const friends = Array.isArray(friendsData) ? friendsData : [];
 
-  // Update form state when invitees change
+  // Update form state when invitees change - memoize the values to prevent infinite loops
   useEffect(() => {
     const invitees = [
       ...selectedFriends.map((friend) => ({
@@ -97,12 +113,12 @@ export function GroupInvitationsSection({
     ];
 
     updateField("invitees", invitees);
-  }, [selectedFriends, emailInput, updateField]);
+  }, [selectedFriends, emailInput]); // Removed updateField from dependencies
 
   // Update invitation message in form state
   useEffect(() => {
     updateField("invitationMessage", invitationMessage);
-  }, [invitationMessage, updateField]);
+  }, [invitationMessage]); // Removed updateField from dependencies
 
   // Handle friend selection
   const handleFriendSelect = (friend: Friend) => {
@@ -140,7 +156,7 @@ export function GroupInvitationsSection({
   const totalInvitees = selectedFriends.length + validEmails.length;
 
   return (
-    <div className="pt-4 border-t space-y-4">
+    <div className="pt-4 border-t space-y-4" data-testid="group-invitations">
       <div className="flex items-center mb-3">
         <Users className="w-4 h-4 mr-2 text-primary" />
         <label className="block text-sm font-medium">

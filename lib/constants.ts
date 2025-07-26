@@ -121,8 +121,8 @@ export const FORECAST_CONFIG = {
   NOAA_NWS: "https://api.weather.gov",
   NDBC_BUOYS: "https://www.ndbc.noaa.gov/data/realtime2",
 
-  // Enhanced forecast parameters
+  // Enhanced forecast parameters - aligned with NOAA update schedule
   DEFAULT_FORECAST_DAYS: 10,
-  UPDATE_INTERVAL_HOURS: 6,
-  CACHE_TTL_HOURS: 4,
-};
+  UPDATE_INTERVAL_HOURS: 6, // NOAA updates every 6 hours
+  CACHE_TTL_HOURS: 3, // Cache for half of NOAA's update cycle
+} as const;

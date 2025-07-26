@@ -1,5 +1,6 @@
 import { createServerClient } from "@/lib/supabase";
 import { NextResponse } from "next/server";
+import { handleApiError } from "@/lib/api-utils";
 
 export async function GET() {
   try {
@@ -73,9 +74,6 @@ export async function GET() {
     return NextResponse.json({ posts });
   } catch (error) {
     console.error("Error in recent-posts API:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return handleApiError(error, "Failed to fetch recent posts");
   }
 }

@@ -98,8 +98,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initializeAuth = async () => {
       if (initializingRef.current) return;
 
+      // Add timeout to prevent hanging
+      const timeoutId = setTimeout(() => {
+        if (mounted && isLoading) {
+          console.warn("AuthContext: Session check timed out, setting loading to false");
+          setIsLoading(false);
+          setIsInitialized(true);
+          updateAuthState(null);
+        }
+      }, 10000); // 10 second timeout
+
       // Initial session check
       await refreshSession();
+      
+      // Clear timeout if we completed successfully
+      clearTimeout(timeoutId);
 
       // Set up auth state change listener only after initial check
       if (mounted) {
@@ -139,9 +152,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Only run on client-side
-    if (typeof window !== "undefined") {
+    // Only run on client-side and not during build
+    if (typeof window !== "undefined" && process.env.NODE_ENV !== "test") {
       initializeAuth();
+    } else {
+      // Set default state for SSR/build
+      setIsLoading(false);
+      setIsInitialized(true);
     }
 
     return () => {

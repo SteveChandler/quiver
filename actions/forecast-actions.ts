@@ -112,24 +112,25 @@ export async function getEnhancedBeachForecasts(
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
+    // Use the ten_day_enhanced_forecasts view which automatically filters to next 10 days
     const { data, error } = await supabase
-      .from("enhanced_forecasts")
+      .from("ten_day_enhanced_forecasts")
       .select("*")
       .eq("beach_id", beachId)
-      .gte("forecast_date", new Date().toISOString().split("T")[0])
-      .lte(
-        "forecast_date",
-        new Date(Date.now() + days * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0]
-      )
       .order("forecast_date", { ascending: true })
       .order("forecast_time", { ascending: true });
 
     if (error) {
-      console.error("Error fetching enhanced beach forecasts:", error);
+      console.error("Error fetching ten day enhanced forecasts:", error);
       return { success: false, error: error.message };
     }
+
+    console.log("✅ Fetched from ten_day_enhanced_forecasts view:", {
+      beachId,
+      totalRows: data?.length || 0,
+      firstRowDate: data?.[0]?.forecast_date,
+      lastRowDate: data?.[data.length - 1]?.forecast_date,
+    });
 
     return { success: true, data };
   } catch (error) {
@@ -181,56 +182,80 @@ export async function generateBeachForecast(beachId: string) {
 export async function getBeachForecastPreview(beachId: string) {
   try {
     const supabase = await createSupabaseServiceRoleClient();
+    const { getCurrentForecast } = await import(
+      "@/lib/utils/current-forecast-utils"
+    );
 
     const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
 
-    // Get today's forecast from enhanced_forecasts table
+    // Get today's and tomorrow's forecasts from enhanced_forecasts table (to handle forward-looking logic)
     const { data: enhancedForecasts, error: enhancedError } = await supabase
       .from("enhanced_forecasts")
       .select(
-        "wave_height, wind_speed, wind_direction, weather_condition, confidence_score"
+        "forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition, confidence_score"
       )
       .eq("beach_id", beachId)
-      .eq("forecast_date", today)
-      .order("forecast_time", { ascending: true })
-      .limit(1);
+      .in("forecast_date", [today, tomorrow])
+      .order("forecast_date", { ascending: true })
+      .order("forecast_time", { ascending: true });
 
     if (enhancedError) {
       console.error("Error fetching enhanced forecast preview:", enhancedError);
     }
 
     if (enhancedForecasts && enhancedForecasts.length > 0) {
-      return {
-        success: true,
-        data: {
-          type: "enhanced",
-          ...enhancedForecasts[0],
-        },
-      };
+      // Use time-aware selection to get the most appropriate forecast
+      const currentForecast = getCurrentForecast(enhancedForecasts);
+
+      if (currentForecast) {
+        return {
+          success: true,
+          data: {
+            type: "enhanced",
+            wave_height: currentForecast.wave_height,
+            wind_speed: currentForecast.wind_speed,
+            wind_direction: currentForecast.wind_direction,
+            weather_condition: currentForecast.weather_condition,
+            confidence_score: currentForecast.confidence_score,
+          },
+        };
+      }
     }
 
-    // Fallback to basic forecasts table
+    // Fallback to basic forecasts table with time-aware selection
     const { data: basicForecasts, error: basicError } = await supabase
       .from("forecasts")
-      .select("wave_height, wind_speed, wind_direction, weather_condition")
+      .select(
+        "forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition"
+      )
       .eq("beach_id", beachId)
-      .eq("forecast_date", today)
-      .order("forecast_time", { ascending: true })
-      .limit(1);
+      .in("forecast_date", [today, tomorrow])
+      .order("forecast_date", { ascending: true })
+      .order("forecast_time", { ascending: true });
 
     if (basicError) {
       console.error("Error fetching basic forecast preview:", basicError);
     }
 
     if (basicForecasts && basicForecasts.length > 0) {
-      return {
-        success: true,
-        data: {
-          type: "basic",
-          ...basicForecasts[0],
-          confidence_score: null,
-        },
-      };
+      const currentForecast = getCurrentForecast(basicForecasts);
+
+      if (currentForecast) {
+        return {
+          success: true,
+          data: {
+            type: "basic",
+            wave_height: currentForecast.wave_height,
+            wind_speed: currentForecast.wind_speed,
+            wind_direction: currentForecast.wind_direction,
+            weather_condition: currentForecast.weather_condition,
+            confidence_score: null,
+          },
+        };
+      }
     }
 
     return {

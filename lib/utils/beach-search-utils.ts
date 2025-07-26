@@ -111,12 +111,13 @@ export async function searchBeachesWithAreaDetection(
 }
 
 /**
- * Get the best current forecast for a beach
+ * Get the best current forecast for a beach using forward-looking time logic
  */
 export async function getBeachCurrentForecast(beachId: string) {
   try {
+    // Fetch forecasts for today and tomorrow to handle forward-looking logic
     const response = await fetch(
-      `/api/forecasts/update-enhanced?beachId=${beachId}&days=1`
+      `/api/forecasts/update-enhanced?beachId=${beachId}&days=2`
     );
 
     if (!response.ok) {
@@ -129,31 +130,18 @@ export async function getBeachCurrentForecast(beachId: string) {
       throw new Error(data.error || "Failed to fetch forecast");
     }
 
-    // Get today's forecast (best available for today)
-    const today = new Date().toISOString().split("T")[0];
-    const todaysForecasts = data.data?.forecastsByDate?.[today] || [];
+    // Use the new time-aware logic to get the most appropriate forecast
+    const { getCurrentForecast } = await import("@/lib/utils/current-forecast-utils");
+    const allForecasts = data.data?.forecasts || [];
 
-    if (todaysForecasts.length > 0) {
-      // Find the forecast closest to current time
-      const now = new Date();
-      const currentTime = now.getHours() * 60 + now.getMinutes();
-
-      const bestForecast = todaysForecasts.reduce((best: any, current: any) => {
-        const [hours, minutes] = current.forecast_time.split(":").map(Number);
-        const forecastTime = hours * 60 + minutes;
-
-        const [bestHours, bestMinutes] = best.forecast_time
-          .split(":")
-          .map(Number);
-        const bestTime = bestHours * 60 + bestMinutes;
-
-        const currentDiff = Math.abs(forecastTime - currentTime);
-        const bestDiff = Math.abs(bestTime - currentTime);
-
-        return currentDiff < bestDiff ? current : best;
-      });
-
-      return bestForecast;
+    if (allForecasts.length > 0) {
+      const bestForecast = getCurrentForecast(allForecasts);
+      
+      if (bestForecast) {
+        const { formatCurrentTime } = await import("@/lib/utils/current-forecast-utils");
+        console.log(`🕐 Current time: ${formatCurrentTime()}, selected forecast: ${bestForecast.forecast_date} ${bestForecast.forecast_time}`);
+        return bestForecast;
+      }
     }
 
     return null;

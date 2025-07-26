@@ -84,6 +84,7 @@ export function BeachSelector({
         onChange={handleInputChange}
         onBlur={() => trySelect(query)}
         onFocus={() => setSelectionMade(false)} // Show options when focusing back on input
+        data-testid="beach-search-input"
       />
 
       {!selectionMade && (

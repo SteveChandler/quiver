@@ -8,6 +8,7 @@ interface UserAvatarProps {
   email?: string | null;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
+  isLoading?: boolean;
 }
 
 export function UserAvatar({
@@ -16,20 +17,23 @@ export function UserAvatar({
   email,
   size = "md",
   className,
+  isLoading = false,
 }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false);
 
   // Get initials for avatar fallback
   const getInitials = () => {
-    if (name) {
+    if (name && name.trim()) {
       return name
+        .trim()
         .split(" ")
         .map((n) => n[0])
         .join("")
-        .toUpperCase();
+        .toUpperCase()
+        .slice(0, 2); // Max 2 characters
     }
-    if (email) {
-      return email.charAt(0).toUpperCase();
+    if (email && email.trim()) {
+      return email.trim().charAt(0).toUpperCase();
     }
     return "U";
   };
@@ -45,21 +49,13 @@ export function UserAvatar({
   // Clean up the src URL and validate
   const cleanSrc = (() => {
     if (!src || imageError) return null;
-    // Skip placeholder URLs
-    if (src.includes("placeholder.svg")) return null;
+
+    // Only skip local placeholder URLs (like "/placeholder.svg?height=200&width=200")
+    // Don't filter out Supabase storage URLs or other valid image URLs
+    if (src.startsWith("/placeholder.svg")) return null;
+
     return src;
   })();
-
-  // Debug logging for avatar URL
-  if (process.env.NODE_ENV === "development") {
-    console.log("UserAvatar rendering:", {
-      originalSrc: src,
-      cleanSrc,
-      imageError,
-      name,
-      email,
-    });
-  }
 
   const handleImageError = () => {
     console.log("Avatar image failed to load:", src);
@@ -81,7 +77,7 @@ export function UserAvatar({
         />
       )}
       <AvatarFallback className="bg-blue-500 text-white">
-        {getInitials()}
+        {isLoading ? "..." : getInitials()}
       </AvatarFallback>
     </Avatar>
   );

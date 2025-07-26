@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -26,7 +27,6 @@ import { UserStats } from "@/components/user-stats";
 import { FavoriteBeaches } from "@/components/favorite-beaches";
 import { UserAvatar } from "@/components/user-avatar";
 import { EditProfileModal } from "@/components/edit-profile-modal";
-import { BoardsManager } from "@/components/profile/boards-manager";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { getUserBoards } from "@/actions/board-actions";
@@ -36,8 +36,56 @@ import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
-import { UserComments } from "@/components/profile/user-comments";
-import { JournalView } from "@/components/journal/journal-view";
+import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+
+// Lazy load heavy tab components for better performance
+const BoardsManager = lazy(() =>
+  import("@/components/profile/boards-manager").then((m) => ({
+    default: m.BoardsManager,
+  }))
+);
+const UserComments = lazy(() =>
+  import("@/components/profile/user-comments").then((m) => ({
+    default: m.UserComments,
+  }))
+);
+const JournalView = lazy(() =>
+  import("@/components/journal/journal-view").then((m) => ({
+    default: m.JournalView,
+  }))
+);
+
+// Loading skeletons for tabs
+function SessionsLoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="h-32 bg-gray-100 rounded-lg animate-pulse"
+        ></div>
+      ))}
+    </div>
+  );
+}
+
+function TabLoadingSkeleton({ type }: { type: string }) {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center space-y-2">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm text-gray-600">Loading {type}...</p>
+        </div>
+      </div>
+      <div className="grid gap-4">
+        {[1, 2].map((i) => (
+          <div key={i} className="h-24 bg-gray-100 rounded-lg"></div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function ProfileView() {
   const { user, signOut, isLoading: authLoading, refreshSession } = useAuth();
@@ -154,185 +202,269 @@ export function ProfileView() {
   }
 
   return (
-    <div className="flex-1 flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b">
+    <div className="flex-1 flex flex-col bg-gradient-to-br from-background via-background to-ocean-blue/5">
+      {/* Modern Header */}
+      <motion.header
+        {...ANIMATION_VARIANTS.fadeInView}
+        className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-white/20 shadow-sm"
+      >
         <div className="container flex items-center justify-between h-16 px-4">
-          <h1 className="text-xl font-bold">Profile</h1>
+          <h1 className="text-xl font-roboto font-bold text-dark-grey">
+            Profile
+          </h1>
           <div className="flex items-center gap-2">
             <Button
               size="icon"
               variant="ghost"
               onClick={() => setEditModalOpen(true)}
+              className="hover:bg-ocean-blue/10 transition-colors duration-300"
             >
               <Settings className="h-5 w-5" />
             </Button>
-            <Button size="icon" variant="ghost" onClick={handleSignOut}>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleSignOut}
+              className="hover:bg-red-500/10 hover:text-red-600 transition-colors duration-300"
+            >
               <LogOut className="h-5 w-5" />
             </Button>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Main Content */}
-      <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pb-20">
+      <main className="flex-1 py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pb-20">
         {error ? (
-          <div className="space-y-4">
-            <Alert variant="destructive">
+          <motion.div
+            {...ANIMATION_VARIANTS.fadeInView}
+            className="max-w-4xl mx-auto px-4 space-y-4"
+          >
+            <Alert
+              variant="destructive"
+              className="bg-red-50/80 backdrop-blur-sm border-red-200"
+            >
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
             <div className="flex justify-center">
-              <Button onClick={handleRetry} variant="outline">
+              <Button
+                onClick={handleRetry}
+                variant="outline"
+                className="hover:bg-ocean-blue hover:text-white transition-colors duration-300"
+              >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Retry
               </Button>
             </div>
-          </div>
+          </motion.div>
         ) : (
           <>
-            {/* Profile Info */}
-            <section className="centered-container">
-              <Card className="overflow-hidden">
-                <CardContent className="p-6 sm:p-8 lg:p-10">
-                  <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 lg:gap-10">
-                    <UserAvatar
-                      src={profile?.avatar_url}
-                      name={profile?.full_name}
-                      email={user?.email}
-                      size="xl"
-                    />
-                    <div className="flex-1 text-center sm:text-left">
-                      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
-                        {profile?.full_name || "Surfer"}
-                      </h2>
-                      <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">{user?.email}</p>
+            {/* Hero Profile Section */}
+            <motion.section
+              {...ANIMATION_VARIANTS.fadeUpWithDelay(0.1)}
+              className="relative py-3 sm:py-4 lg:py-5"
+            >
+              {/* Gradient Background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-ocean-blue/10 via-transparent to-sunset-orange/10" />
 
-                    {/* Bio */}
-                    {profile?.bio && (
-                      <p className="text-sm sm:text-base lg:text-lg mt-3 sm:mt-4 max-w-md sm:max-w-lg lg:max-w-xl">{profile.bio}</p>
-                    )}
+              <div className="relative max-w-3xl mx-auto px-4">
+                <Card className="overflow-hidden bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow duration-300 border-white/50">
+                  <CardContent className="p-3 sm:p-4 lg:p-5">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+                      <motion.div
+                        {...ANIMATION_VARIANTS.staggerItem(0)}
+                        className="flex-shrink-0"
+                      >
+                        <UserAvatar
+                          src={profile?.avatar_url}
+                          name={profile?.full_name}
+                          email={user?.email}
+                          size="md"
+                          className="ring-1 ring-ocean-blue/20 shadow"
+                        />
+                      </motion.div>
 
-                    {/* Additional Profile Info */}
-                    <div className="flex flex-wrap justify-center sm:justify-start gap-4 sm:gap-6 mt-4 sm:mt-5 text-sm sm:text-base text-muted-foreground">
-                      {profile?.location && (
-                        <div className="flex items-center">
-                          <MapPin className="h-4 w-4 mr-1" />
-                          <span>{profile.location}</span>
+                      <motion.div
+                        {...ANIMATION_VARIANTS.staggerItem(1)}
+                        className="flex-1 text-center sm:text-left space-y-1"
+                      >
+                        <h2 className="text-lg sm:text-xl font-roboto font-bold text-dark-grey">
+                          {profile?.full_name || "Surfer"}
+                        </h2>
+                        <p className="text-sm text-muted-foreground font-open-sans">
+                          {user?.email}
+                        </p>
+
+                        {/* Bio */}
+                        {profile?.bio && (
+                          <p className="text-xs sm:text-sm font-open-sans text-gray-600 max-w-md">
+                            {profile.bio}
+                          </p>
+                        )}
+
+                        {/* Profile Details */}
+                        <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-1 text-xs font-open-sans text-muted-foreground">
+                          {profile?.location && (
+                            <div className="flex items-center bg-ocean-blue/10 px-2 py-0.5 rounded-full">
+                              <MapPin className="h-3 w-3 mr-1 text-ocean-blue" />
+                              <span>{profile.location}</span>
+                            </div>
+                          )}
+
+                          {profile?.experience_level && (
+                            <div className="flex items-center bg-sunset-orange/10 px-2 py-0.5 rounded-full">
+                              <Surfboard className="h-3 w-3 mr-1 text-sunset-orange" />
+                              <span>{profile.experience_level}</span>
+                            </div>
+                          )}
+
+                          {profile?.instagram && (
+                            <div className="flex items-center bg-gradient-to-r from-purple-500/10 to-pink-500/10 px-2 py-0.5 rounded-full">
+                              <Instagram className="h-3 w-3 mr-1 text-purple-600" />
+                              <span>{profile.instagram}</span>
+                            </div>
+                          )}
                         </div>
-                      )}
 
-                      {profile?.experience_level && (
-                        <div className="flex items-center">
-                          <Surfboard className="h-4 w-4 mr-1" />
-                          <span>{profile.experience_level}</span>
-                        </div>
-                      )}
+                        {/* Default Spot */}
+                        {profile?.favorite_spot && (
+                          <div className="text-xs font-open-sans pt-0.5">
+                            <span className="text-muted-foreground">
+                              Default spot:{" "}
+                            </span>
+                            <span className="font-medium text-ocean-blue">
+                              {profile.favorite_spot}
+                            </span>
+                          </div>
+                        )}
+                      </motion.div>
 
-                      {profile?.instagram && (
-                        <div className="flex items-center">
-                          <Instagram className="h-4 w-4 mr-1" />
-                          <span>{profile.instagram}</span>
-                        </div>
-                      )}
+                      <motion.div
+                        {...ANIMATION_VARIANTS.staggerItem(2)}
+                        className="flex-shrink-0"
+                      >
+                        <Button
+                          size="sm"
+                          onClick={() => setEditModalOpen(true)}
+                          className="bg-gradient-to-r from-ocean-blue to-blue-600 hover:from-blue-600 hover:to-ocean-blue text-white px-3 py-1.5 text-xs font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                      </motion.div>
                     </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </motion.section>
 
-                    {/* Favorite Spot */}
-                    {profile?.favorite_spot && (
-                      <div className="text-sm mt-2">
-                        <span className="text-muted-foreground">
-                          Favorite spot:{" "}
-                        </span>
-                        <span>{profile.favorite_spot}</span>
-                      </div>
-                    )}
-                  </div>
+            {/* Enhanced User Stats */}
+            <motion.section
+              {...ANIMATION_VARIANTS.fadeUpWithDelay(0.2)}
+              className="max-w-6xl mx-auto px-4"
+            >
+              <div className="bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/50">
+                {user && <UserStats userId={user.id} />}
+              </div>
+            </motion.section>
 
-                  <div className="mt-4 sm:mt-0">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={() => setEditModalOpen(true)}
-                      className="text-base sm:text-lg px-6 py-3"
-                    >
-                      <Edit className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      Edit Profile
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            </section>
-
-            {/* User Stats */}
-            <section className="centered-container">
-              {user && <UserStats userId={user.id} />}
-            </section>
-
-            {/* Tabs */}
-            <section className="centered-container">
-              <Tabs defaultValue="sessions" className="space-y-6">
-                <TabsList className="grid grid-cols-4 w-full max-w-4xl mx-auto h-12 sm:h-14 lg:h-16">
-                  <TabsTrigger value="sessions" className="text-xs sm:text-sm lg:text-base">
-                    <CalendarDays className="h-4 w-4 lg:h-5 lg:w-5 mr-1" />
+            {/* Modern Tabs Section */}
+            <motion.section
+              {...ANIMATION_VARIANTS.fadeUpWithDelay(0.3)}
+              className="max-w-6xl mx-auto px-4"
+            >
+              <Tabs defaultValue="sessions" className="space-y-8">
+                <TabsList className="grid grid-cols-4 w-full h-14 lg:h-16 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg">
+                  <TabsTrigger
+                    value="sessions"
+                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-ocean-blue data-[state=active]:to-blue-600 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                  >
+                    <CalendarDays className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Journal+
                   </TabsTrigger>
-                  <TabsTrigger value="quiver" className="text-xs sm:text-sm lg:text-base">
-                    <Surfboard className="h-4 w-4 lg:h-5 lg:w-5 mr-1" />
+                  <TabsTrigger
+                    value="quiver"
+                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-sunset-orange data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                  >
+                    <Surfboard className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Quiver
                   </TabsTrigger>
-                  <TabsTrigger value="beaches" className="text-xs sm:text-sm lg:text-base">
-                    <Heart className="h-4 w-4 lg:h-5 lg:w-5 mr-1" />
+                  <TabsTrigger
+                    value="beaches"
+                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                  >
+                    <Heart className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Beaches
                   </TabsTrigger>
-                  <TabsTrigger value="comments" className="text-xs sm:text-sm lg:text-base">
-                    <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5 mr-1" />
+                  <TabsTrigger
+                    value="comments"
+                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                  >
+                    <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Comments
                   </TabsTrigger>
                 </TabsList>
 
-              <TabsContent value="sessions" className="space-y-4">
-                <JournalView />
-              </TabsContent>
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg overflow-hidden">
+                  <TabsContent value="sessions" className="p-6 space-y-4 m-0">
+                    <Suspense fallback={<TabLoadingSkeleton type="Journal" />}>
+                      <JournalView />
+                    </Suspense>
+                  </TabsContent>
 
-              <TabsContent value="quiver" className="space-y-4">
-                {user && <BoardsManager userId={user.id} boards={boards} />}
-              </TabsContent>
+                  <TabsContent value="quiver" className="p-6 space-y-4 m-0">
+                    {user && (
+                      <Suspense fallback={<TabLoadingSkeleton type="Boards" />}>
+                        <BoardsManager userId={user.id} boards={boards} />
+                      </Suspense>
+                    )}
+                  </TabsContent>
 
-              <TabsContent value="beaches" className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-medium">Favorite Beaches</h3>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setEditModalOpen(true);
-                      // Set active tab to beaches after a short delay
-                      setTimeout(() => {
-                        const tabsElement =
-                          document.querySelector('[role="tablist"]');
-                        const beachesTab = tabsElement?.querySelector(
-                          '[data-value="beaches"]'
-                        );
-                        if (beachesTab instanceof HTMLElement) {
-                          beachesTab.click();
-                        }
-                      }, 100);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Beach
-                  </Button>
+                  <TabsContent value="beaches" className="p-6 space-y-4 m-0">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-roboto font-semibold text-dark-grey">
+                        Favorite Beaches
+                      </h3>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setEditModalOpen(true);
+                          // Set active tab to beaches after a short delay
+                          setTimeout(() => {
+                            const tabsElement =
+                              document.querySelector('[role="tablist"]');
+                            const beachesTab = tabsElement?.querySelector(
+                              '[data-value="beaches"]'
+                            );
+                            if (beachesTab instanceof HTMLElement) {
+                              beachesTab.click();
+                            }
+                          }, 100);
+                        }}
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-emerald-500 hover:to-green-600 text-white font-roboto font-medium rounded-full transition-all duration-300"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Beach
+                      </Button>
+                    </div>
+
+                    <FavoriteBeaches />
+                  </TabsContent>
+
+                  <TabsContent value="comments" className="p-6 space-y-4 m-0">
+                    {user && (
+                      <Suspense
+                        fallback={<TabLoadingSkeleton type="Comments" />}
+                      >
+                        <UserComments userId={user.id} />
+                      </Suspense>
+                    )}
+                  </TabsContent>
                 </div>
-
-                <FavoriteBeaches />
-              </TabsContent>
-
-              <TabsContent value="comments" className="space-y-4">
-                {user && <UserComments userId={user.id} />}
-              </TabsContent>
-            </Tabs>
-            </section>
+              </Tabs>
+            </motion.section>
           </>
         )}
       </main>

@@ -2,6 +2,8 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { withAuthenticatedAction } from "@/lib/server-action-utils";
+import { invalidateProfileCache } from "@/hooks/use-user-profile";
 import type { Profile } from "@/types/database";
 
 export async function getProfile(userId: string) {
@@ -71,17 +73,20 @@ export async function createProfile(userId: string) {
 
     // If profile already exists, return it
     if (existingProfile) {
-      const { data: fullProfile, error: fetchError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
+      return getProfile(userId);
+    }
 
-      if (fetchError) {
-        throw fetchError;
-      }
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.admin.getUserById(userId);
 
-      return { success: true, data: fullProfile };
+    if (userError) {
+      throw new Error(`Could not get user data: ${userError.message}`);
+    }
+
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found in auth.users`);
     }
 
     // Create new profile
@@ -89,10 +94,12 @@ export async function createProfile(userId: string) {
       .from("profiles")
       .insert({
         id: userId,
-        full_name: "",
-        email: "",
-        phone_number: "",
-        avatar_url: "/placeholder.svg?height=200&width=200",
+        full_name: user.user_metadata?.full_name || "",
+        email: user.email || "",
+        phone_number: user.phone || "",
+        avatar_url:
+          user.user_metadata?.avatar_url ||
+          "/placeholder.svg?height=200&width=200",
         bio: "",
         location: "",
         experience_level: "",
@@ -107,7 +114,10 @@ export async function createProfile(userId: string) {
       throw error;
     }
 
+    // Clear profile cache on both paths that use profiles
     revalidatePath("/profile");
+    revalidatePath("/"); // Home page uses profile data
+
     return { success: true, data };
   } catch (error) {
     console.error("Error creating profile:", error);
@@ -121,22 +131,7 @@ export async function createProfile(userId: string) {
 export async function updateProfile(
   profileData: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>
 ) {
-  const supabase = await createSupabaseServerClient();
-
-  // Get the current user from the authenticated session
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return {
-      success: false,
-      error: "Authentication required",
-    };
-  }
-
-  try {
+  return withAuthenticatedAction(async (user, supabase) => {
     const { data, error } = await supabase
       .from("profiles")
       .update({
@@ -151,15 +146,15 @@ export async function updateProfile(
       throw error;
     }
 
+    // Clear profile cache on both paths that use profiles
     revalidatePath("/profile");
-    return { success: true, data };
-  } catch (error) {
-    console.error("Error updating profile:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+    revalidatePath("/"); // Home page uses profile data
+
+    // Clear the in-memory profile cache used by useUserProfile hook
+    invalidateProfileCache(user.id);
+
+    return data;
+  });
 }
 
 export async function getUserStats(userId: string) {

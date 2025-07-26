@@ -16,6 +16,7 @@ import {
   SessionFormMode,
 } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
+import { useCallback, useMemo } from "react";
 
 interface DateTimeSectionProps {
   mode: SessionFormMode;
@@ -37,14 +38,19 @@ export function DateTimeSection({
   const isPlanning = mode === "plan";
   const isDisabled = !isPlanning && sessionCreated;
 
-  const handleDurationChange = (value: string) => {
-    updateField("duration", `${value}m`);
-  };
+  const handleDurationChange = useCallback(
+    (value: string) => {
+      updateField("duration", `${value}m`);
+    },
+    [updateField]
+  );
 
-  // Get current duration value as number for the select
-  const currentDurationValue = formState.duration
-    ? parseInt(formState.duration)
-    : 60;
+  // Get current duration value as number for the select - stabilize the value
+  const currentDurationValue = useMemo(() => {
+    if (!formState.duration) return "60";
+    const parsed = parseInt(formState.duration);
+    return isNaN(parsed) ? "60" : parsed.toString();
+  }, [formState.duration]);
 
   return (
     <SimpleCardLayout
@@ -70,7 +76,7 @@ export function DateTimeSection({
             <input
               type="date"
               className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={formState.selectedDate}
+              value={formState.selectedDate || ""}
               onChange={(e) => updateField("selectedDate", e.target.value)}
               disabled={isDisabled}
               max={
@@ -79,6 +85,7 @@ export function DateTimeSection({
               min={
                 isPlanning ? new Date().toISOString().split("T")[0] : undefined
               }
+              data-testid="session-date-input"
             />
             {isPlanning && (
               <p className="text-xs text-muted-foreground mt-1">
@@ -96,9 +103,10 @@ export function DateTimeSection({
               <input
                 type="time"
                 className="w-full border rounded-lg p-3 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={formState.selectedTime}
+                value={formState.selectedTime || ""}
                 onChange={(e) => updateField("selectedTime", e.target.value)}
                 disabled={isDisabled}
+                data-testid="session-time-input"
               />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -115,7 +123,7 @@ export function DateTimeSection({
             {text.durationLabel}
           </label>
           <Select
-            value={currentDurationValue.toString()}
+            value={currentDurationValue}
             onValueChange={handleDurationChange}
             disabled={isDisabled}
           >
