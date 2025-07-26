@@ -418,19 +418,6 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
         )}
       </div>
 
-      {/* Floating Action Button */}
-      {canPost && (
-        <div className="fixed bottom-20 right-4 z-30 lg:bottom-6">
-          <Button
-            onClick={() => setShowPostForm(true)}
-            size="lg"
-            className="h-14 w-14 rounded-full shadow-lg bg-green-600 hover:bg-green-700"
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
-        </div>
-      )}
-
       {/* Sign In Prompt for Unauthenticated Users */}
       {!canPost && (
         <div className="bg-muted/50 border-t p-4">

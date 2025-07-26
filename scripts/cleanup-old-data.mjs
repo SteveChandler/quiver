@@ -32,19 +32,47 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Get days to keep from command line argument or default to 7
 const DAYS_TO_KEEP = parseInt(process.argv[2]) || 7;
 
-if (DAYS_TO_KEEP < 1) {
-  console.error("❌ Days must be a positive number");
+// Safety: Enforce minimum 7 days to prevent accidental deletion of current data
+if (DAYS_TO_KEEP < 7) {
+  console.error(
+    "❌ SAFETY ERROR: Minimum 7 days required to prevent accidental deletion of current data"
+  );
+  console.error("   Current/active forecast data should never be deleted");
+  console.error("   Usage: node scripts/cleanup-old-data.mjs [days >= 7]");
   process.exit(1);
 }
 
 async function checkSafetyWarning() {
-  if (DAYS_TO_KEEP < 3) {
+  if (DAYS_TO_KEEP < 14) {
     console.log(
-      "⚠️  WARNING: You're about to delete data less than 3 days old!"
+      "⚠️  SAFETY WARNING: You're about to delete data less than 2 weeks old"
     );
-    console.log("   This might remove current/useful data.");
-    console.log("   Press Ctrl+C to cancel, or wait 5 seconds to continue...");
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    console.log(
+      "   This includes potentially useful forecast and session data"
+    );
+    console.log("   Recommended: Use 30+ days for production environments");
+    console.log("");
+    console.log("   Type 'yes' to continue or press Ctrl+C to cancel...");
+
+    // Require explicit confirmation for < 14 days
+    const readline = await import("readline");
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    const answer = await new Promise((resolve) => {
+      rl.question("Confirm deletion (type 'yes'): ", resolve);
+    });
+
+    rl.close();
+
+    if (answer.toLowerCase() !== "yes") {
+      console.log("❌ Operation cancelled by user");
+      process.exit(0);
+    }
+
+    console.log("✅ User confirmed - proceeding with cleanup...");
   }
 }
 

@@ -7,10 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Search, Loader2, Info, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { getBeachById, getBeaches } from "@/actions/beach-actions";
-import { COVERAGE_MESSAGES } from "@/lib/constants/coverage-areas";
+import {
+  COVERAGE_MESSAGES,
+  OUT_OF_AREA_EXAMPLES,
+} from "@/lib/constants/coverage-areas";
 import {
   searchBeachWithForecast,
-  searchBeachWithForecastLegacy,
+  searchBeachesByName,
 } from "@/lib/utils/beach-search-utils";
 import { TideDirection } from "@/components/ui/tide-direction";
 import { TideTiming } from "@/components/ui/tide-timing";
@@ -138,7 +141,11 @@ export function BeachSearch({ profile }: BeachSearchProps) {
             : "No forecast data",
         });
 
-        if (data.success && data.data?.forecasts?.length > 0) {
+        if (
+          data.success &&
+          data.data?.forecasts &&
+          data.data.forecasts.length > 0
+        ) {
           // Use time-aware selection to get the most appropriate forecast
           const { getCurrentForecast } = await import(
             "@/lib/utils/current-forecast-utils"
@@ -177,20 +184,62 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     }
   };
 
+  // Find beach by name in beaches table - REMOVED, using existing function instead
+  // const findBeachByName = async (
+  //   searchQuery: string
+  // ): Promise<Beach | null> => {
+  //   try {
+  //     const result = await getBeaches();
+  //     if (result.success && result.data) {
+  //       const normalizedQuery = searchQuery.toLowerCase().trim();
+
+  //       // First try exact match
+  //       let matchedBeach = result.data.find(
+  //         (beach) => beach.name.toLowerCase() === normalizedQuery
+  //       );
+
+  //       // If no exact match, try partial match
+  //       if (!matchedBeach) {
+  //         matchedBeach = result.data.find(
+  //           (beach) =>
+  //             beach.name.toLowerCase().includes(normalizedQuery) ||
+  //             normalizedQuery.includes(beach.name.toLowerCase())
+  //         );
+  //       }
+
+  //       return matchedBeach || null;
+  //     }
+  //   } catch (error) {
+  //     console.error("Error searching beaches:", error);
+  //   }
+  //   return null;
+  // };
+
   // Load available beaches for fallback display
   const loadAvailableBeaches = async () => {
     setLoadingBeaches(true);
     try {
+      console.log(`📚 Loading available beaches from database...`);
       const result = await getBeaches();
       if (result.success && result.data) {
+        console.log(
+          `📊 Found ${result.data.length} beaches in database:`,
+          result.data.map((b) => b.name)
+        );
         // Sort beaches alphabetically and take first 12 for display
         const sortedBeaches = result.data
           .sort((a, b) => a.name.localeCompare(b.name))
           .slice(0, 12);
         setAvailableBeaches(sortedBeaches);
+        console.log(
+          `📋 Showing ${sortedBeaches.length} beaches in fallback list:`,
+          sortedBeaches.map((b) => b.name)
+        );
+      } else {
+        console.error(`❌ Failed to load beaches:`, result.error);
       }
     } catch (err) {
-      console.error("Error loading beaches:", err);
+      console.error("💥 Error loading beaches:", err);
     } finally {
       setLoadingBeaches(false);
     }
@@ -205,13 +254,6 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       const enhancedForecast = await fetchEnhancedForecast(beach.id);
       if (enhancedForecast) {
         setForecast(enhancedForecast);
-      } else {
-        // Try legacy forecast if enhanced forecast fails
-        console.log("Enhanced forecast not available, trying legacy...");
-        const legacyResult = await searchBeachWithForecastLegacy(beach.name);
-        if (legacyResult.success && legacyResult.data) {
-          setForecast(legacyResult.data);
-        }
       }
     } catch (err) {
       console.error("Error refreshing forecast:", err);
@@ -344,28 +386,9 @@ export function BeachSearch({ profile }: BeachSearchProps) {
               );
               setForecast(enhancedForecast);
             } else {
-              // Try legacy forecast if enhanced forecast fails
-              console.log(
-                `⚠️ Enhanced forecast failed for ${beachResult.data.name}, trying legacy...`
+              console.error(
+                `❌ Enhanced forecast failed for ${beachResult.data.name}`
               );
-              const legacyResult = await searchBeachWithForecastLegacy(
-                beachResult.data.name
-              );
-              if (legacyResult.success && legacyResult.data) {
-                console.log(
-                  `📜 Using legacy forecast for ${beachResult.data.name}:`,
-                  {
-                    wave_height: legacyResult.data.wave_height,
-                    wave_period: legacyResult.data.wave_period,
-                    data_source: legacyResult.data.data_source || "LEGACY",
-                  }
-                );
-                setForecast(legacyResult.data);
-              } else {
-                console.error(
-                  `❌ Both enhanced and legacy forecasts failed for ${beachResult.data.name}`
-                );
-              }
             }
           }
         } else {
@@ -389,28 +412,9 @@ export function BeachSearch({ profile }: BeachSearchProps) {
               );
               setForecast(enhancedForecast);
             } else {
-              // Try legacy forecast if enhanced forecast fails
-              console.log(
-                `⚠️ Enhanced forecast failed for ${defaultBeach.name}, trying legacy...`
+              console.error(
+                `❌ Enhanced forecast failed for ${defaultBeach.name}`
               );
-              const legacyResult = await searchBeachWithForecastLegacy(
-                defaultBeach.name
-              );
-              if (legacyResult.success && legacyResult.data) {
-                console.log(
-                  `📜 Using legacy forecast for ${defaultBeach.name}:`,
-                  {
-                    wave_height: legacyResult.data.wave_height,
-                    wave_period: legacyResult.data.wave_period,
-                    data_source: legacyResult.data.data_source || "LEGACY",
-                  }
-                );
-                setForecast(legacyResult.data);
-              } else {
-                console.error(
-                  `❌ Both enhanced and legacy forecasts failed for ${defaultBeach.name}`
-                );
-              }
             }
           }
         }
@@ -447,6 +451,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     e.preventDefault();
     if (!query.trim()) return;
 
+    console.log(`🔍 Starting search for: "${query}"`);
     setLoading(true);
     setError(null);
     setShowFallbackMessage(false);
@@ -454,46 +459,61 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     setIsOutOfAreaSearch(false);
 
     try {
-      // Try enhanced forecast search first
-      const enhancedResult = await searchBeachWithForecast(query);
+      // Search for beach by name in beaches table
+      console.log(`📋 Calling searchBeachesByName with query: "${query}"`);
+      const foundBeach = await searchBeachesByName(query);
+      console.log(`🏖️ Search result:`, foundBeach);
 
-      if (enhancedResult.success && enhancedResult.data) {
-        setBeach(enhancedResult.data.beach);
-        setForecast(enhancedResult.data.forecast);
+      if (foundBeach) {
+        console.log(
+          `✅ Found beach: ${foundBeach.name} (ID: ${foundBeach.id})`
+        );
+        // Found a beach, now get enhanced forecast
+        setBeach(foundBeach);
         setOriginalSearchQuery(query);
-      } else {
-        // Try legacy forecast if enhanced fails
-        const legacyResult = await searchBeachWithForecastLegacy(query);
 
-        if (legacyResult.success && legacyResult.data) {
-          setBeach(legacyResult.data.beach);
-          setForecast(legacyResult.data.forecast);
-          setOriginalSearchQuery(query);
+        console.log(
+          `🌊 Fetching enhanced forecast for beach ID: ${foundBeach.id}`
+        );
+        const enhancedForecast = await fetchEnhancedForecast(foundBeach.id);
+        if (enhancedForecast) {
+          console.log(`✅ Enhanced forecast found for ${foundBeach.name}`);
+          setForecast(enhancedForecast);
         } else {
-          // Check if this is an out-of-area search
-          const outOfAreaResult = COVERAGE_MESSAGES.find((area) =>
-            query.toLowerCase().includes(area.location.toLowerCase())
+          console.log(
+            `⚠️ No enhanced forecast available for ${foundBeach.name}`
           );
+          setForecast(null);
+        }
+      } else {
+        console.log(`❌ No beach found for query: "${query}"`);
+        // No beach found, check if it's an out-of-area search
+        const isOutOfAreaSearch = Object.entries(OUT_OF_AREA_EXAMPLES).some(
+          ([key, value]) =>
+            query.toLowerCase().includes(key.toLowerCase()) ||
+            query.toLowerCase().includes(value.location.toLowerCase())
+        );
 
-          if (outOfAreaResult) {
-            setOutOfAreaMessage(outOfAreaResult.message);
-            setIsOutOfAreaSearch(true);
-            setBeach(null);
-            setForecast(null);
-          } else {
-            // Search didn't match our coverage area
-            setError(
-              legacyResult.error ||
-                "Beach not found. Please try another search."
-            );
-            setBeach(null);
-            setForecast(null);
-            setShowFallbackMessage(true);
-          }
+        if (isOutOfAreaSearch) {
+          console.log(`🌍 Detected out-of-area search: "${query}"`);
+          const outOfAreaMessage = COVERAGE_MESSAGES.getOutOfAreaMessage(query);
+          setOutOfAreaMessage(outOfAreaMessage);
+          setIsOutOfAreaSearch(true);
+          setBeach(null);
+          setForecast(null);
+        } else {
+          console.log(`❓ Beach not found and not out of area: "${query}"`);
+          // Beach not found and not out of area
+          setError(
+            `No beach found matching "${query}". Try searching for a specific beach name like "La Jolla Shores" or "Ocean Beach".`
+          );
+          setBeach(null);
+          setForecast(null);
+          setShowFallbackMessage(true);
         }
       }
     } catch (err) {
-      console.error("Search error:", err);
+      console.error("💥 Search error:", err);
       setError("Search failed. Please try again.");
       setBeach(null);
       setForecast(null);
@@ -540,9 +560,8 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 variant="outline"
                 className="text-sm"
                 onClick={() => {
-                  setQuery(availableBeach.name);
-                  setShowFallbackMessage(false);
-                  handleSearch({ preventDefault: () => {} } as React.FormEvent);
+                  // Navigate directly to beach detail page instead of searching
+                  window.location.href = `/beach/${availableBeach.id}`;
                 }}
               >
                 {availableBeach.name}
@@ -867,10 +886,24 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                     className="text-xs"
                   />
                 </div>
+
+                {/* Navigation to Beach Details */}
+                <div className="flex justify-center pt-4 border-t border-gray-200">
+                  <Button
+                    onClick={() => {
+                      // Navigate to full beach detail page
+                      window.location.href = `/beach/${beach.id}`;
+                    }}
+                    className="w-full sm:w-auto"
+                    variant="default"
+                  >
+                    View Beach Details
+                  </Button>
+                </div>
               </div>
             ) : (
-              // Modern fallback display instead of legacy ForecastCard
-              <FallbackForecastDisplay forecast={forecast} />
+              // Legacy forecast display fallback
+              forecast && <FallbackForecastDisplay forecast={forecast} />
             )}
           </div>
         )}

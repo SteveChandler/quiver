@@ -6,6 +6,7 @@ import {
   createValidationError,
   handleApiError,
 } from "@/lib/api-utils";
+import { isAdmin } from "@/lib/auth/admin";
 
 // Matches Ruby LocationsController functionality
 export async function GET(request: NextRequest) {
@@ -20,12 +21,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // TODO: Add admin authentication check like Ruby controller
-    // const supabase = await createSupabaseServerClient();
-    // const { data: { session } } = await supabase.auth.getSession();
-    // if (!session || !isAdmin(session.user)) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
+    // Admin authentication check - only admins can access internal beach data APIs
+    const supabase = await createSupabaseServerClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !isAdmin(session.user)) {
+      return NextResponse.json({ 
+        error: "Unauthorized - Admin access required for internal APIs" 
+      }, { status: 401 });
+    }
 
     const result = await getNearbyBeaches(latitude, longitude, maxDistance);
 

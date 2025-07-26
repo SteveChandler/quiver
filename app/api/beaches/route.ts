@@ -5,23 +5,53 @@ import {
   createValidationError,
   handleApiError,
 } from "@/lib/api-utils";
+import { isAdmin } from "@/lib/auth/admin";
+
+// GET method to retrieve all beaches
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const { data, error } = await supabase
+      .from("beaches")
+      .select("*")
+      .order("name");
+
+    if (error) {
+      console.error("Database error:", error);
+      return handleApiError(error, "Failed to fetch beaches");
+    }
+
+    return createSuccessResponse({
+      beaches: data || [],
+      count: data?.length || 0,
+    });
+  } catch (error) {
+    console.error("Error fetching beaches:", error);
+    return handleApiError(error, "Failed to fetch beaches");
+  }
+}
 
 // Matches Ruby LocationsController#create functionality
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // TODO: Add admin authentication check
-    // const { data: { session } } = await supabase.auth.getSession();
-    // if (!session || !isAdmin(session.user)) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
+    // Admin authentication check - only admins can create/update beaches
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !isAdmin(session.user)) {
+      return NextResponse.json({ 
+        error: "Unauthorized - Admin access required" 
+      }, { status: 401 });
+    }
 
     const body = await request.json();
     const { id, name, latitude, longitude } = body;
 
     if (!name || !latitude || !longitude) {
-      return createValidationError("Name, latitude, and longitude are required");
+      return createValidationError(
+        "Name, latitude, and longitude are required"
+      );
     }
 
     let result;

@@ -20,35 +20,135 @@ export async function searchBeachesByName(
   searchText: string
 ): Promise<Beach | null> {
   try {
+    console.log(`🔍 searchBeachesByName called with: "${searchText}"`);
     const allBeachesResult = await getBeaches();
 
     if (!allBeachesResult.success || !allBeachesResult.data) {
+      console.log(`❌ Failed to get beaches:`, allBeachesResult.error);
       return null;
     }
 
-    // Normalize the search text (lowercase, trim whitespace)
-    const normalizedSearch = searchText.toLowerCase().trim();
+    console.log(`📊 Found ${allBeachesResult.data.length} beaches in database`);
 
-    // Look for exact or partial matches
+    // Normalize the search text (lowercase, trim whitespace, remove extra spaces)
+    const normalizedSearch = searchText
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ");
+
+    console.log(`🔧 Normalized search: "${normalizedSearch}"`);
+
+    // Look for exact or partial matches with improved fuzzy matching
     const matchingBeaches = allBeachesResult.data.filter((beach) => {
-      const beachName = beach.name.toLowerCase();
-      const beachLocation = (beach.location || "").toLowerCase();
+      const beachName = beach.name.toLowerCase().replace(/\s+/g, " ");
+      const beachLocation = (beach.location || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ");
 
-      // Check for matches in name or location
-      return (
+      // Check for matches in name or location with multiple strategies:
+
+      // 1. Exact match (highest priority)
+      if (
+        beachName === normalizedSearch ||
+        beachLocation === normalizedSearch
+      ) {
+        return true;
+      }
+
+      // 2. Direct substring match in name or location
+      if (
         beachName.includes(normalizedSearch) ||
         beachLocation.includes(normalizedSearch)
+      ) {
+        return true;
+      }
+
+      // 3. Reverse substring match (search term contains beach name)
+      if (normalizedSearch.includes(beachName)) {
+        return true;
+      }
+
+      // 4. Word-by-word matching for multi-word searches
+      const searchWords = normalizedSearch
+        .split(" ")
+        .filter((word) => word.length > 0);
+      const nameWords = beachName.split(" ").filter((word) => word.length > 0);
+      const locationWords = beachLocation
+        .split(" ")
+        .filter((word) => word.length > 0);
+
+      // Check if all search words are found in the beach name or location
+      const allWordsInName = searchWords.every((searchWord) =>
+        nameWords.some(
+          (nameWord) =>
+            nameWord.includes(searchWord) || searchWord.includes(nameWord)
+        )
       );
+      const allWordsInLocation = searchWords.every((searchWord) =>
+        locationWords.some(
+          (locationWord) =>
+            locationWord.includes(searchWord) ||
+            searchWord.includes(locationWord)
+        )
+      );
+
+      if (allWordsInName || allWordsInLocation) {
+        return true;
+      }
+
+      // 5. Common abbreviations and variations
+      const commonVariations = {
+        jolla: "la jolla",
+        ob: "ocean beach",
+        pb: "pacific beach",
+        mb: "mission beach",
+        tourmaline: "tourmaline surf park",
+        windansea: "windansea beach",
+        blacks: "blacks beach",
+        sunset: "sunset cliffs",
+        crystal: "crystal pier",
+      };
+
+      // Check if search matches any common abbreviations
+      for (const [abbrev, fullName] of Object.entries(commonVariations)) {
+        if (normalizedSearch === abbrev && beachName.includes(fullName)) {
+          return true;
+        }
+        if (normalizedSearch.includes(abbrev) && beachName.includes(fullName)) {
+          return true;
+        }
+      }
+
+      return false;
     });
 
+    console.log(
+      `🎯 Found ${matchingBeaches.length} matching beaches:`,
+      matchingBeaches.map((b) => b.name)
+    );
+
     if (matchingBeaches.length > 0) {
-      // Return the first match
+      // Sort matches by relevance (exact matches first, then by name length)
+      matchingBeaches.sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+
+        // Exact matches first
+        if (aName === normalizedSearch && bName !== normalizedSearch) return -1;
+        if (bName === normalizedSearch && aName !== normalizedSearch) return 1;
+
+        // Then by how well the search term matches (shorter names are better matches)
+        return aName.length - bName.length;
+      });
+
+      console.log(`🏆 Returning best match: "${matchingBeaches[0].name}"`);
       return matchingBeaches[0];
     }
 
+    console.log(`❌ No matches found for: "${searchText}"`);
     return null;
   } catch (error) {
-    console.error("Error searching beaches by name:", error);
+    console.error("💥 Error searching beaches by name:", error);
     return null;
   }
 }
@@ -131,15 +231,23 @@ export async function getBeachCurrentForecast(beachId: string) {
     }
 
     // Use the new time-aware logic to get the most appropriate forecast
-    const { getCurrentForecast } = await import("@/lib/utils/current-forecast-utils");
+    const { getCurrentForecast } = await import(
+      "@/lib/utils/current-forecast-utils"
+    );
     const allForecasts = data.data?.forecasts || [];
 
     if (allForecasts.length > 0) {
       const bestForecast = getCurrentForecast(allForecasts);
-      
+
       if (bestForecast) {
-        const { formatCurrentTime } = await import("@/lib/utils/current-forecast-utils");
-        console.log(`🕐 Current time: ${formatCurrentTime()}, selected forecast: ${bestForecast.forecast_date} ${bestForecast.forecast_time}`);
+        const { formatCurrentTime } = await import(
+          "@/lib/utils/current-forecast-utils"
+        );
+        console.log(
+          `🕐 Current time: ${formatCurrentTime()}, selected forecast: ${
+            bestForecast.forecast_date
+          } ${bestForecast.forecast_time}`
+        );
         return bestForecast;
       }
     }
@@ -155,51 +263,105 @@ export async function getBeachCurrentForecast(beachId: string) {
  * Combined beach search and forecast fetch with enhanced area detection
  */
 export async function searchBeachWithForecast(beachName: string) {
-  const searchResult = await searchBeachesWithAreaDetection(beachName);
+  try {
+    const searchResult = await searchBeachesWithAreaDetection(beachName);
 
-  if (!searchResult.beach) {
-    const error = new Error(`No beach found matching "${beachName}"`);
-    // Attach search metadata for better error handling
-    (error as any).searchMetadata = {
-      isOutOfAreaSearch: searchResult.isOutOfAreaSearch,
-      detectedLocation: searchResult.detectedLocation,
-      suggestedMessage: searchResult.suggestedMessage,
+    if (!searchResult.beach) {
+      // Return structured response for no beach found
+      return {
+        success: false,
+        error: `No beach found matching "${beachName}"`,
+        data: null,
+        searchMetadata: {
+          isOutOfAreaSearch: searchResult.isOutOfAreaSearch,
+          detectedLocation: searchResult.detectedLocation,
+          suggestedMessage: searchResult.suggestedMessage,
+        },
+      };
+    }
+
+    const forecast = await getBeachCurrentForecast(searchResult.beach.id);
+
+    if (!forecast) {
+      return {
+        success: false,
+        error: "No forecast data available for this beach",
+        data: null,
+        searchMetadata: {
+          isOutOfAreaSearch: searchResult.isOutOfAreaSearch,
+          detectedLocation: searchResult.detectedLocation,
+          suggestedMessage: searchResult.suggestedMessage,
+        },
+      };
+    }
+
+    return {
+      success: true,
+      error: null,
+      data: {
+        beach: searchResult.beach,
+        forecast,
+      },
+      searchMetadata: {
+        isOutOfAreaSearch: searchResult.isOutOfAreaSearch,
+        detectedLocation: searchResult.detectedLocation,
+        suggestedMessage: searchResult.suggestedMessage,
+      },
     };
-    throw error;
+  } catch (error) {
+    console.error("Error in searchBeachWithForecast:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Search failed",
+      data: null,
+      searchMetadata: {
+        isOutOfAreaSearch: false,
+        detectedLocation: undefined,
+        suggestedMessage: undefined,
+      },
+    };
   }
-
-  const forecast = await getBeachCurrentForecast(searchResult.beach.id);
-
-  if (!forecast) {
-    throw new Error("No forecast data available for this beach");
-  }
-
-  return {
-    beach: searchResult.beach,
-    forecast,
-    searchMetadata: {
-      isOutOfAreaSearch: searchResult.isOutOfAreaSearch,
-      detectedLocation: searchResult.detectedLocation,
-      suggestedMessage: searchResult.suggestedMessage,
-    },
-  };
 }
 
 /**
  * Legacy function for backward compatibility
  */
 export async function searchBeachWithForecastLegacy(beachName: string) {
-  const beach = await searchBeachesByName(beachName);
+  try {
+    const beach = await searchBeachesByName(beachName);
 
-  if (!beach) {
-    throw new Error(`No beach found matching "${beachName}"`);
+    if (!beach) {
+      return {
+        success: false,
+        error: `No beach found matching "${beachName}"`,
+        data: null,
+      };
+    }
+
+    const forecast = await getBeachCurrentForecast(beach.id);
+
+    if (!forecast) {
+      return {
+        success: false,
+        error: "No forecast data available for this beach",
+        data: null,
+      };
+    }
+
+    return {
+      success: true,
+      error: null,
+      data: {
+        beach,
+        forecast,
+      },
+    };
+  } catch (error) {
+    console.error("Error in searchBeachWithForecastLegacy:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Search failed",
+      data: null,
+    };
   }
-
-  const forecast = await getBeachCurrentForecast(beach.id);
-
-  if (!forecast) {
-    throw new Error("No forecast data available for this beach");
-  }
-
-  return { beach, forecast };
 }
