@@ -58,13 +58,13 @@ export function ForecastStats({
             <p className="text-2xl font-bold text-blue-600">
               {availableDates.length}
             </p>
-            <p className="text-sm text-muted-foreground">Days</p>
+            <p className="text-sm text-gray-600">Days</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-blue-600">
               {forecasts.length}
             </p>
-            <p className="text-sm text-muted-foreground">Forecasts</p>
+            <p className="text-sm text-gray-600">Forecasts</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-blue-600">
@@ -73,7 +73,7 @@ export function ForecastStats({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1 justify-center cursor-help">
+                  <p className="text-sm text-gray-600 flex items-center gap-1 justify-center cursor-help">
                     Avg Confidence
                     <HelpCircle className="h-3 w-3" />
                   </p>

@@ -20,8 +20,8 @@ export function ForecastDataTransparency({
     <Alert
       className={`${className} ${
         isRealData
-          ? "border-green-200 bg-green-50"
-          : "border-orange-200 bg-orange-50"
+          ? "border-green-500/20 bg-green-500/10"
+          : "border-orange-500/20 bg-orange-500/10"
       }`}
     >
       <div className="flex items-center gap-2">
@@ -52,7 +52,7 @@ export function ForecastDataTransparency({
           )}
         </Badge>
 
-        <AlertDescription className="text-sm">
+        <AlertDescription className="text-sm text-foreground">
           {isRealData ? (
             <>
               This forecast uses <strong>real oceanographic data</strong> from

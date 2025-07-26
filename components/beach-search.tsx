@@ -140,12 +140,21 @@ export function BeachSearch({ profile }: BeachSearchProps) {
 
         if (data.success && data.data?.forecasts?.length > 0) {
           // Use time-aware selection to get the most appropriate forecast
-          const { getCurrentForecast } = await import("@/lib/utils/current-forecast-utils");
+          const { getCurrentForecast } = await import(
+            "@/lib/utils/current-forecast-utils"
+          );
           const bestForecast = getCurrentForecast(data.data.forecasts);
-          
+
           if (bestForecast) {
-            const { formatCurrentTime } = await import("@/lib/utils/current-forecast-utils");
-            console.log(`✅ Enhanced forecast retrieved successfully - Current time: ${formatCurrentTime()}, selected forecast: ${bestForecast.forecast_date} ${bestForecast.forecast_time}:`, bestForecast);
+            const { formatCurrentTime } = await import(
+              "@/lib/utils/current-forecast-utils"
+            );
+            console.log(
+              `✅ Enhanced forecast retrieved successfully - Current time: ${formatCurrentTime()}, selected forecast: ${
+                bestForecast.forecast_date
+              } ${bestForecast.forecast_time}:`,
+              bestForecast
+            );
             return bestForecast;
           }
         } else {
@@ -809,11 +818,11 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                     </h4>
                     <div className="grid grid-cols-1 gap-2">
                       {forecast.swell_1_height && (
-                        <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                          <span className="text-sm font-medium">
+                        <div className="flex items-center justify-between p-2 bg-blue-500/10 border border-blue-500/20 rounded">
+                          <span className="text-sm font-medium text-foreground">
                             Primary Swell
                           </span>
-                          <span className="text-sm">
+                          <span className="text-sm text-foreground">
                             {forecast.swell_1_height} @{" "}
                             {forecast.swell_1_period || "N/A"}
                             {forecast.swell_1_direction &&
@@ -822,11 +831,11 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                         </div>
                       )}
                       {forecast.swell_2_height && (
-                        <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                          <span className="text-sm font-medium">
+                        <div className="flex items-center justify-between p-2 bg-green-500/10 border border-green-500/20 rounded">
+                          <span className="text-sm font-medium text-foreground">
                             Secondary Swell
                           </span>
-                          <span className="text-sm">
+                          <span className="text-sm text-foreground">
                             {forecast.swell_2_height} @{" "}
                             {forecast.swell_2_period || "N/A"}
                             {forecast.swell_2_direction &&
@@ -866,8 +875,6 @@ export function BeachSearch({ profile }: BeachSearchProps) {
           </div>
         )}
       </CardContent>
-
-
     </Card>
   );
 }

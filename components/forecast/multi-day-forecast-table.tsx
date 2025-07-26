@@ -171,7 +171,7 @@ function ForecastTable({
     <div className="space-y-2">
       {/* Day Header */}
       <div
-        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
         onClick={onToggle}
       >
         <div className="flex items-center gap-2">
@@ -182,7 +182,7 @@ function ForecastTable({
           )}
           <span className="font-semibold">{formatDayLabel()}</span>
         </div>
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-muted-foreground">
           {forecasts.length} forecasts
         </span>
       </div>
@@ -190,31 +190,31 @@ function ForecastTable({
       {/* Table */}
       {(isExpanded || isToday) && (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse bg-white rounded-lg border">
+          <table className="w-full border-collapse bg-card rounded-lg border border-border">
             <thead>
-              <tr className="border-b bg-gray-50">
-                <th className="text-left p-3 text-sm font-medium text-gray-600">
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Time
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-gray-600">
+                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Surf (ft)
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-gray-600">
+                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Primary Swell
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-gray-600">
+                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Secondary Swell
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-gray-600">
+                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Wind
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-gray-600">
+                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Tide
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-gray-600">
+                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Weather
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-gray-600">
+                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Confidence
                 </th>
               </tr>
@@ -223,15 +223,15 @@ function ForecastTable({
               {displayForecasts.map((forecast, index) => (
                 <tr
                   key={forecast.id}
-                  className={`border-b hover:bg-gray-50/50 ${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                  className={`border-b border-border hover:bg-muted/50 ${
+                    index % 2 === 0 ? "bg-card" : "bg-muted/30"
                   }`}
                 >
                   {/* Time */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-sm text-foreground">
                         {formatTime(forecast.forecast_time)}
                       </span>
                     </div>
@@ -247,10 +247,10 @@ function ForecastTable({
                   {/* Primary Swell */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-sm text-foreground">
                         {formatHeight(forecast.swell_1_height)}
                       </span>
-                      <span className="text-xs text-gray-600">
+                      <span className="text-xs text-muted-foreground">
                         {formatPeriod(forecast.swell_1_period)}
                       </span>
                       <span className="text-lg">
@@ -262,10 +262,10 @@ function ForecastTable({
                   {/* Secondary Swell */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-sm text-foreground">
                         {formatHeight(forecast.swell_2_height)}
                       </span>
-                      <span className="text-xs text-gray-600">
+                      <span className="text-xs text-muted-foreground">
                         {formatPeriod(forecast.swell_2_period)}
                       </span>
                       <span className="text-lg">
@@ -277,7 +277,7 @@ function ForecastTable({
                   {/* Wind */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-sm text-foreground">
                         {forecast.wind_speed}
                       </span>
                       <span className="text-lg">
@@ -289,8 +289,10 @@ function ForecastTable({
                   {/* Tide */}
                   <td className="p-3">
                     <div className="text-xs">
-                      <div className="font-medium">{forecast.tide_height}</div>
-                      <div className="text-gray-600">
+                      <div className="font-medium text-foreground">
+                        {forecast.tide_height}
+                      </div>
+                      <div className="text-muted-foreground">
                         {forecast.tide_status}
                       </div>
                     </div>
@@ -301,10 +303,10 @@ function ForecastTable({
                     <div className="flex items-center gap-2">
                       <span className="text-sm">🌤️</span>
                       <div className="text-xs">
-                        <div className="font-medium">
+                        <div className="font-medium text-foreground">
                           {forecast.air_temperature}
                         </div>
-                        <div className="text-gray-600">
+                        <div className="text-muted-foreground">
                           {forecast.water_temp}
                         </div>
                       </div>

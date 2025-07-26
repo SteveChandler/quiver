@@ -3,6 +3,7 @@
 import React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { Badge } from "@/components/ui/badge";
 
 interface SimplifiedForecastTableProps {
   forecasts: EnhancedForecastEntity[];
@@ -191,36 +192,102 @@ function ForecastTable({
   };
 
   return (
-    <div className="space-y-2">
-      {/* Day Header */}
+    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
       <div
-        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+        className="flex items-center justify-between cursor-pointer group"
         onClick={onToggle}
       >
-        <div className="flex items-center gap-2">
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-base font-semibold text-gray-900">
+              {formatDayLabel()}
+            </span>
+            {isToday && (
+              <Badge
+                variant="secondary"
+                className="text-xs px-2 py-0.5 bg-primary/10 text-primary border-primary/20"
+              >
+                Today
+              </Badge>
+            )}
+          </div>
+          {isToday && (
+            <div className="text-xs text-gray-600">({formatDate(date)})</div>
           )}
-          <span className="font-semibold">{formatDayLabel()}</span>
         </div>
-        <span className="text-sm text-gray-600">
-          {forecasts.length} forecasts
-        </span>
+
+        <div className="flex items-center gap-4">
+          {/* Wave Height Summary */}
+          {forecasts.length > 0 && (
+            <div className="text-sm text-gray-600 hidden sm:block">
+              {(() => {
+                const heights = forecasts
+                  .map((f) => parseFloat(f.wave_height || "0"))
+                  .filter((h) => h > 0);
+                if (heights.length === 0) return "No data";
+                const min = Math.min(...heights);
+                const max = Math.max(...heights);
+                return min === max ? `${min} ft` : `${min}-${max} ft`;
+              })()}
+            </div>
+          )}
+
+          {/* Avg Confidence */}
+          {forecasts.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600 hidden md:inline">
+                Avg Confidence:
+              </span>
+              <div className="flex items-center gap-1">
+                <span
+                  className={`text-xs font-medium ${getConfidenceTextColor(
+                    Math.round(
+                      forecasts.reduce(
+                        (sum, f) => sum + f.confidence_score,
+                        0
+                      ) / forecasts.length
+                    )
+                  )}`}
+                >
+                  {getConsistencyRating(
+                    Math.round(
+                      forecasts.reduce(
+                        (sum, f) => sum + f.confidence_score,
+                        0
+                      ) / forecasts.length
+                    )
+                  )}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  (
+                  {Math.round(
+                    forecasts.reduce((sum, f) => sum + f.confidence_score, 0) /
+                      forecasts.length
+                  )}
+                  %)
+                </span>
+              </div>
+            </div>
+          )}
+
+          <ChevronDown
+            className={`h-4 w-4 text-gray-600 transition-transform duration-200 ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
+        </div>
       </div>
 
-      {/* Table */}
-      {(isExpanded || isToday) && (
+      {isExpanded && (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse bg-white rounded-lg border">
+          <table className="w-full">
             <thead>
-              <tr className="border-b bg-gray-50">
+              <tr className="border-b border-gray-200">
                 <th className="text-left p-3 text-sm font-medium text-gray-600">
                   Time
                 </th>
                 <th className="text-left p-3 text-sm font-medium text-gray-600">
-                  Surf (ft)
+                  Height
                 </th>
                 <th className="text-left p-3 text-sm font-medium text-gray-600">
                   Primary Swell
@@ -230,9 +297,6 @@ function ForecastTable({
                 </th>
                 <th className="text-left p-3 text-sm font-medium text-gray-600">
                   Wind
-                </th>
-                <th className="text-left p-3 text-sm font-medium text-gray-600">
-                  Consistency
                 </th>
                 <th className="text-left p-3 text-sm font-medium text-gray-600">
                   Weather
@@ -246,15 +310,15 @@ function ForecastTable({
               {displayForecasts.map((forecast, index) => (
                 <tr
                   key={forecast.id}
-                  className={`border-b hover:bg-gray-50/50 ${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                  className={`border-b border-gray-200 hover:bg-gray-50 ${
+                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
                   }`}
                 >
                   {/* Time */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-sm text-gray-900">
                         {formatTime(forecast.forecast_time)}
                       </span>
                     </div>
@@ -270,7 +334,7 @@ function ForecastTable({
                   {/* Primary Swell */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-sm text-gray-900">
                         {formatHeight(forecast.swell_1_height)}
                       </span>
                       <span className="text-xs text-gray-600">
@@ -285,7 +349,7 @@ function ForecastTable({
                   {/* Secondary Swell */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-sm text-gray-900">
                         {formatHeight(forecast.swell_2_height)}
                       </span>
                       <span className="text-xs text-gray-600">
@@ -300,28 +364,12 @@ function ForecastTable({
                   {/* Wind */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-sm text-gray-900">
                         {forecast.wind_speed}
                       </span>
                       <span className="text-lg">
                         {getDirectionArrow(forecast.wind_direction)}
                       </span>
-                    </div>
-                  </td>
-
-                  {/* Consistency */}
-                  <td className="p-3">
-                    <div className="text-sm">
-                      <div
-                        className={`font-medium ${getConfidenceTextColor(
-                          forecast.confidence_score
-                        )}`}
-                      >
-                        {getConsistencyRating(forecast.confidence_score)}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {forecast.confidence_score}%
-                      </div>
                     </div>
                   </td>
 
@@ -332,7 +380,7 @@ function ForecastTable({
                         {getWeatherIcon(forecast.weather_condition)}
                       </span>
                       <div className="text-xs">
-                        <div className="font-medium">
+                        <div className="font-medium text-gray-900">
                           {forecast.air_temperature}
                         </div>
                         <div className="text-gray-600">

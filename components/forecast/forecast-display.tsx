@@ -30,11 +30,13 @@ export function ForecastDisplay({
     return (
       <div className="max-w-6xl mx-auto px-4 space-y-6">
         <div className="text-center">
-          <h2 className="text-2xl font-bold">{beach?.name}</h2>
-          <h3 className="text-lg text-gray-600">10-Day Surf Forecast</h3>
+          <h2 className="text-2xl font-bold text-foreground">{beach?.name}</h2>
+          <h3 className="text-lg text-muted-foreground">
+            10-Day Surf Forecast
+          </h3>
         </div>
         <div className="text-center py-8">
-          <p className="text-gray-500">Loading forecasts...</p>
+          <p className="text-gray-600">Loading forecasts...</p>
         </div>
       </div>
     );
@@ -44,12 +46,14 @@ export function ForecastDisplay({
     return (
       <div className="max-w-6xl mx-auto px-4 space-y-6">
         <div className="text-center">
-          <h2 className="text-2xl font-bold">{beach?.name}</h2>
-          <h3 className="text-lg text-gray-600">10-Day Surf Forecast</h3>
+          <h2 className="text-2xl font-bold text-foreground">{beach?.name}</h2>
+          <h3 className="text-lg text-muted-foreground">
+            10-Day Surf Forecast
+          </h3>
         </div>
         <div className="text-center py-8">
           <p className="text-red-500 font-semibold">Error loading forecasts</p>
-          <p className="text-gray-500">{error}</p>
+          <p className="text-gray-600">{error}</p>
         </div>
       </div>
     );
@@ -59,11 +63,13 @@ export function ForecastDisplay({
     return (
       <div className="max-w-6xl mx-auto px-4 space-y-6">
         <div className="text-center">
-          <h2 className="text-2xl font-bold">{beach?.name}</h2>
-          <h3 className="text-lg text-gray-600">10-Day Surf Forecast</h3>
+          <h2 className="text-2xl font-bold text-foreground">{beach?.name}</h2>
+          <h3 className="text-lg text-muted-foreground">
+            10-Day Surf Forecast
+          </h3>
         </div>
         <div className="text-center py-8">
-          <p className="text-gray-500">No forecast data available</p>
+          <p className="text-gray-600">No forecast data available</p>
         </div>
       </div>
     );
@@ -75,7 +81,7 @@ export function ForecastDisplay({
   return (
     <div className="max-w-6xl mx-auto px-4 space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold">{beach?.name}</h2>
+        <h2 className="text-2xl font-bold text-gray-900">{beach?.name}</h2>
         <h3 className="text-lg text-gray-600">10-Day Surf Forecast</h3>
       </div>
 

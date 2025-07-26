@@ -2,7 +2,7 @@ import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
+
 import { AuthProvider } from "@/context/auth-context";
 import { AppHeader } from "@/components/app-header";
 
@@ -19,10 +19,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
-  ],
+  themeColor: "#ffffff",
 };
 
 export const metadata: Metadata = {
@@ -137,20 +134,12 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem={true}
-          disableTransitionOnChange
-          storageKey="quiver-theme"
-        >
-          <AuthProvider>
-            <AppHeader />
-            <main id="main-content" role="main">
-              {children}
-            </main>
-          </AuthProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <AppHeader />
+          <main id="main-content" role="main">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );
