@@ -14,7 +14,9 @@ import {
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
+import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { Beach } from "@/types/database";
 
 interface BeachDetailProps {
   id: string;
@@ -23,6 +25,25 @@ interface BeachDetailProps {
 export function BeachDetail({ id }: BeachDetailProps) {
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  // Fetch beach information
+  const fetchBeach = useCallback(async () => {
+    console.log("🏖️ Fetching beach data for:", id);
+    const result = await getBeachById(id);
+    if (result.success && result.data) {
+      console.log("✅ Beach data:", result.data);
+      return result.data;
+    }
+    throw new Error(result.error || "Failed to fetch beach data");
+  }, [id]);
+
+  const {
+    data: beach,
+    loading: beachLoading,
+    error: beachError,
+  } = useDataFetcher(fetchBeach, {
+    immediate: true,
+  });
 
   // Single data fetch - 10-day enhanced forecast
   const fetchForecasts = useCallback(async () => {
@@ -49,12 +70,16 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
   const {
     data: forecasts,
-    loading,
-    error,
+    loading: forecastsLoading,
+    error: forecastsError,
     refetch,
   } = useDataFetcher(fetchForecasts, {
     immediate: true,
   });
+
+  // Combined loading and error states
+  const loading = beachLoading || forecastsLoading;
+  const error = beachError || forecastsError;
 
   // Process data for display
   const forecastsByDate: Record<string, EnhancedForecastEntity[]> = {};
@@ -99,12 +124,12 @@ export function BeachDetail({ id }: BeachDetailProps) {
     );
   }
 
-  if (error || !forecasts) {
+  if (error || !forecasts || !beach) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sandy-beige via-white to-blue-50">
         <div className="text-center">
           <h2 className="text-xl font-roboto font-bold mb-2 text-dark-grey">
-            {error || "Beach forecast not found"}
+            {error || "Beach data not found"}
           </h2>
           <Button
             onClick={() => router.push("/map")}
@@ -131,14 +156,14 @@ export function BeachDetail({ id }: BeachDetailProps) {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-xl font-roboto font-bold text-dark-grey">
-            Beach Details
+            {beach.name}
           </h1>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         <h1 className="text-3xl md:text-4xl font-roboto font-extrabold mb-8 text-center bg-gradient-to-r from-ocean-blue to-blue-600 bg-clip-text text-transparent">
-          Beach Details
+          {beach.name}
         </h1>
 
         {/* Today's Overview (First Day) */}
