@@ -3,23 +3,18 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { HERO_VIDEOS, CONTENT } from "@/lib/constants/features";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 
 export function HeroSection() {
-  const [showVideo, setShowVideo] = useState(false);
+  const [showVideo, setShowVideo] = useState(true);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Only load video when user requests it
-  const handlePlayVideo = () => {
-    setShowVideo(true);
-  };
 
   useEffect(() => {
     if (!showVideo) return;
@@ -140,19 +135,6 @@ export function HeroSection() {
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
-
-          {/* Play Video Button - Optional Enhancement */}
-          {!showVideo && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={handlePlayVideo}
-              className="bg-white/10 border-white/30 text-white hover:bg-white/20 px-8 py-4 text-lg font-roboto font-semibold rounded-full backdrop-blur-sm transition-all duration-300"
-            >
-              <Play className="mr-2 h-5 w-5" />
-              Watch Video
-            </Button>
-          )}
         </motion.div>
       </motion.div>
     </section>
