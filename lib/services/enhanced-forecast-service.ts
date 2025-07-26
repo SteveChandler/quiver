@@ -470,13 +470,15 @@ export class EnhancedForecastService {
   }
 
   /**
-   * Helper function to get normalized time string (HH:MM:SS) in local timezone
+   * Helper function to get normalized time string rounded to 3-hour intervals
+   * Valid times: 00:00:00, 03:00:00, 06:00:00, 09:00:00, 12:00:00, 15:00:00, 18:00:00, 21:00:00
    */
   private getNormalizedTimeString(date: Date): string {
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    const seconds = String(date.getSeconds()).padStart(2, "0");
-    return `${hours}:${minutes}:${seconds}`;
+    // Round to nearest 3-hour interval
+    const currentHour = date.getHours();
+    const roundedHour = Math.floor(currentHour / 3) * 3;
+    const hours = String(roundedHour).padStart(2, "0");
+    return `${hours}:00:00`;
   }
 
   /**
