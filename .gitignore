@@ -61,3 +61,8 @@ scripts/setup-dev-cron.sh
 .github/workflows/forecast-update.yml.template
 .env
 .cursorrules
+
+# Performance testing results
+scripts/lighthouseRun.*
+scripts/performance-results.*
+lighthouse-results/

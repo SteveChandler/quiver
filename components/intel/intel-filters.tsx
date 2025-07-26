@@ -21,6 +21,7 @@ interface IntelFiltersProps {
   onTagChange: (tag: IntelPostTag | "all") => void;
   onRadiusChange: (radius: number) => void;
   onReset: () => void;
+  showRadius?: boolean; // New prop to control radius filter visibility
   className?: string;
 }
 
@@ -30,6 +31,7 @@ export function IntelFilters({
   onTagChange,
   onRadiusChange,
   onReset,
+  showRadius = true, // Default to showing radius filter
   className = "",
 }: IntelFiltersProps) {
   const handleRadiusChange = (value: number[]) => {
@@ -86,44 +88,46 @@ export function IntelFilters({
         )}
       </div>
 
-      {/* Radius Filter */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="radius-filter" className="text-xs font-medium">
-            Search Radius
-          </Label>
-          <span className="text-xs text-muted-foreground">
-            {selectedRadius} {selectedRadius === 1 ? "mile" : "miles"}
-          </span>
-        </div>
+      {/* Radius Filter - Only show when showRadius is true */}
+      {showRadius && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="radius-filter" className="text-xs font-medium">
+              Search Radius
+            </Label>
+            <span className="text-xs text-muted-foreground">
+              {selectedRadius} {selectedRadius === 1 ? "mile" : "miles"}
+            </span>
+          </div>
 
-        <div className="px-2">
-          <Slider
-            id="radius-filter"
-            min={1}
-            max={50}
-            step={1}
-            value={[selectedRadius]}
-            onValueChange={handleRadiusChange}
-            className="w-full"
-          />
-        </div>
+          <div className="px-2">
+            <Slider
+              id="radius-filter"
+              min={1}
+              max={50}
+              step={1}
+              value={[selectedRadius]}
+              onValueChange={handleRadiusChange}
+              className="w-full"
+            />
+          </div>
 
-        {/* Quick radius options */}
-        <div className="flex flex-wrap gap-1">
-          {[1, 2, 5, 10, 25].map((radius) => (
-            <Button
-              key={radius}
-              variant={selectedRadius === radius ? "default" : "outline"}
-              size="sm"
-              onClick={() => onRadiusChange(radius)}
-              className="h-7 px-2 text-xs"
-            >
-              {radius} mi
-            </Button>
-          ))}
+          {/* Quick radius options */}
+          <div className="flex flex-wrap gap-1">
+            {[1, 2, 5, 10, 25].map((radius) => (
+              <Button
+                key={radius}
+                variant={selectedRadius === radius ? "default" : "outline"}
+                size="sm"
+                onClick={() => onRadiusChange(radius)}
+                className="h-7 px-2 text-xs"
+              >
+                {radius} mi
+              </Button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Filter Summary */}
       <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
@@ -134,11 +138,17 @@ export function IntelFilters({
             : getIntelTagConfig(
                 selectedTag as IntelPostTag
               ).label.toLowerCase()}
-        </strong>{" "}
-        within{" "}
-        <strong>
-          {selectedRadius} {selectedRadius === 1 ? "mile" : "miles"}
         </strong>
+        {showRadius && (
+          <>
+            {" "}
+            within{" "}
+            <strong>
+              {selectedRadius} {selectedRadius === 1 ? "mile" : "miles"}
+            </strong>
+          </>
+        )}
+        {!showRadius && " from all locations"}
       </div>
     </div>
   );

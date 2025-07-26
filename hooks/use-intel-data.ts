@@ -6,6 +6,7 @@ import { useAuth } from "@/context/auth-context";
 import {
   getNearbyIntelPosts,
   getPublicIntelPosts,
+  getAllIntelPosts,
   type GetNearbyIntelPostsParams,
 } from "@/actions/intel-actions";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
@@ -133,8 +134,103 @@ export function useIntelData({
 }
 
 /**
- * Hook for location-based intel data fetching
- * Automatically gets user location and fetches intel posts
+ * Hook for fetching all intel posts without location filtering
+ * Useful for fallback/demo mode when location is unavailable
+ */
+export function useAllIntelData({
+  tag = "all",
+  limit = 50,
+  enabled = true,
+  autoRefresh = false,
+  refreshInterval = 30000,
+}: {
+  tag?: IntelPostTag | "all";
+  limit?: number;
+  enabled?: boolean;
+  autoRefresh?: boolean;
+  refreshInterval?: number;
+} = {}): UseIntelDataReturn {
+  const { user } = useAuth();
+  const [filters, setFilters] = useState({
+    tag,
+    limit,
+  });
+
+  // Create the fetch function for all posts
+  const fetchAllIntelData = useCallback(async (): Promise<IntelData | null> => {
+    if (!enabled) {
+      return null;
+    }
+
+    const params = {
+      tag: filters.tag,
+      limit: filters.limit,
+    };
+
+    try {
+      const result = await getAllIntelPosts(params);
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch intel posts");
+      }
+
+      // Transform the result to match the expected IntelData format
+      return {
+        posts: result.data.posts,
+        total: result.data.total,
+        filters: {
+          latitude: 0, // No location for all posts
+          longitude: 0, // No location for all posts
+          radius: 0, // No radius for all posts
+          tag: filters.tag,
+          limit: filters.limit,
+        },
+      };
+    } catch (error) {
+      console.error("Error fetching all intel data:", error);
+      throw error;
+    }
+  }, [enabled, filters, user]);
+
+  // Use the data fetcher hook
+  const { data, loading, error, refetch } = useDataFetcher(fetchAllIntelData);
+
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (!autoRefresh || !enabled || loading) return;
+
+    const interval = setInterval(() => {
+      refetch();
+    }, refreshInterval);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, enabled, loading, refreshInterval, refetch]);
+
+  // Update filters function
+  const updateFilters = useCallback(
+    (newFilters: Partial<{ tag: IntelPostTag | "all"; limit: number }>) => {
+      setFilters((prev) => ({
+        tag: newFilters.tag ?? prev.tag,
+        limit: newFilters.limit ?? prev.limit,
+      }));
+    },
+    []
+  );
+
+  return {
+    data,
+    posts: data?.posts || [],
+    loading,
+    error,
+    refetch,
+    updateFilters,
+    hasData: !!data && data.posts.length > 0,
+  };
+}
+
+/**
+ * Enhanced hook for location-based intel data fetching with fallback to all posts
+ * Automatically gets user location and fetches intel posts, with option to show all posts
  */
 export function useLocationIntelData({
   radius = 5,
@@ -142,7 +238,10 @@ export function useLocationIntelData({
   limit = 50,
   autoRefresh = true,
   refreshInterval = 30000,
-}: Omit<UseIntelDataParams, "latitude" | "longitude" | "enabled"> = {}) {
+  showAll = false, // New parameter to force showing all posts
+}: Omit<UseIntelDataParams, "latitude" | "longitude" | "enabled"> & {
+  showAll?: boolean;
+} = {}) {
   const [location, setLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -193,6 +292,13 @@ export function useLocationIntelData({
     );
   }, []);
 
+  // Function to manually set location (for testing/fallback)
+  const setManualLocation = useCallback((lat: number, lng: number) => {
+    setLocation({ latitude: lat, longitude: lng });
+    setLocationError(null);
+    setGettingLocation(false);
+  }, []);
+
   // Auto-get location on mount
   useEffect(() => {
     if (!location && !locationError && !gettingLocation) {
@@ -200,25 +306,39 @@ export function useLocationIntelData({
     }
   }, [location, locationError, gettingLocation, getCurrentLocation]);
 
-  // Use intel data hook with current location
-  const intelData = useIntelData({
+  // Use all posts hook when showAll is true or location is unavailable
+  const allIntelData = useAllIntelData({
+    tag,
+    limit,
+    enabled: showAll || !location,
+    autoRefresh,
+    refreshInterval,
+  });
+
+  // Use location-based intel data hook with current location
+  const locationIntelData = useIntelData({
     latitude: location?.latitude,
     longitude: location?.longitude,
     radius,
     tag,
     limit,
-    enabled: !!location,
+    enabled: !showAll && !!location,
     autoRefresh,
     refreshInterval,
   });
 
+  // Choose which data to return based on showAll flag and location availability
+  const activeData = showAll || !location ? allIntelData : locationIntelData;
+
   return {
-    ...intelData,
+    ...activeData,
     location,
     locationError,
     gettingLocation,
     getCurrentLocation,
+    setManualLocation,
     hasLocation: !!location,
+    showingAll: showAll || !location, // Indicates if showing all posts vs nearby
   };
 }
 

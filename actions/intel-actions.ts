@@ -614,3 +614,139 @@ export async function getPublicIntelPosts(
     };
   }
 }
+
+/**
+ * Get all intel posts without location filtering (for fallback/demo mode)
+ */
+export async function getAllIntelPosts(
+  params: {
+    tag?: IntelPostTag | "all";
+    limit?: number;
+  } = {}
+): Promise<ActionResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    // Get authenticated user (optional for this function)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { tag, limit = 50 } = params;
+
+    let query = supabase
+      .from("intel_posts")
+      .select(
+        `
+        id,
+        user_id,
+        latitude,
+        longitude,
+        tag,
+        title,
+        description,
+        photo_url,
+        photo_storage_path,
+        confirmations_count,
+        is_active,
+        expires_at,
+        created_at,
+        updated_at
+      `
+      )
+      .eq("is_active", true)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    // Apply tag filter if specified
+    if (tag && tag !== "all") {
+      query = query.eq("tag", tag);
+    }
+
+    const { data: intelPosts, error: intelError } = await query;
+
+    if (intelError) {
+      console.error("Error fetching all intel posts:", intelError);
+      return {
+        success: false,
+        error: "Failed to fetch intel posts",
+      };
+    }
+
+    if (!intelPosts || intelPosts.length === 0) {
+      return {
+        success: true,
+        data: {
+          posts: [],
+          total: 0,
+          filters: { tag: tag || "all", limit },
+        },
+      };
+    }
+
+    // Get user details for posts
+    const userIds = [...new Set(intelPosts.map((post) => post.user_id))];
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", userIds);
+
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+      return {
+        success: false,
+        error: "Failed to fetch user profiles",
+      };
+    }
+
+    // Get user confirmations if authenticated
+    let userConfirmations: any[] = [];
+    if (user) {
+      const postIds = intelPosts.map((post) => post.id);
+      const { data: confirmations, error: confirmationsError } = await supabase
+        .from("intel_post_confirmations")
+        .select("intel_post_id")
+        .eq("user_id", user.id)
+        .in("intel_post_id", postIds);
+
+      if (!confirmationsError && confirmations) {
+        userConfirmations = confirmations;
+      }
+    }
+
+    // Combine data
+    const profilesMap = new Map(profiles?.map((p) => [p.id, p]) || []);
+    const confirmationsSet = new Set(
+      userConfirmations.map((c) => c.intel_post_id)
+    );
+
+    const enrichedPosts: IntelPostWithUser[] = intelPosts.map((post) => {
+      const profile = profilesMap.get(post.user_id);
+      return {
+        ...post,
+        user: {
+          full_name: profile?.full_name || "Anonymous",
+          avatar_url: profile?.avatar_url || null,
+        },
+        user_confirmed: user ? confirmationsSet.has(post.id) : false,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        posts: enrichedPosts,
+        total: enrichedPosts.length,
+        filters: { tag: tag || "all", limit },
+      },
+    };
+  } catch (error) {
+    console.error("Error in getAllIntelPosts:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to fetch intel posts",
+    };
+  }
+}

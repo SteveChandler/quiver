@@ -1,18 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { CalendarDays, Waves, Plus } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
-import { ForecastTab } from "./forecast-tab";
-import { NearbyTab } from "./nearby-tab";
-import { CommunityTab } from "./community-tab";
 import { useHomeData } from "./use-home-data";
 import { cn } from "@/lib/utils";
 import { useUserProfile } from "@/hooks/use-user-profile";
+
+// Lazy load heavy tab components
+const ForecastTab = lazy(() =>
+  import("./forecast-tab").then((m) => ({ default: m.ForecastTab }))
+);
+const NearbyTab = lazy(() =>
+  import("./nearby-tab").then((m) => ({ default: m.NearbyTab }))
+);
+const CommunityTab = lazy(() =>
+  import("./community-tab").then((m) => ({ default: m.CommunityTab }))
+);
+
+// Loading component for tabs
+function TabSkeleton() {
+  return (
+    <div className="w-full h-96 bg-gradient-to-r from-gray-100 to-gray-200 animate-pulse rounded-lg">
+      <div className="flex items-center justify-center h-full">
+        <div className="loading-spinner" />
+      </div>
+    </div>
+  );
+}
 
 export function HomeScreen() {
   const [activeTab, setActiveTab] = useState("forecast");
@@ -117,21 +136,33 @@ export function HomeScreen() {
             onValueChange={(value) => setActiveTab(value)}
           >
             <TabsList className="grid grid-cols-3 w-full max-w-3xl mx-auto h-12 sm:h-14">
-              <TabsTrigger value="forecast" className="text-sm sm:text-base">Forecast</TabsTrigger>
-              <TabsTrigger value="nearby" className="text-sm sm:text-base">Nearby</TabsTrigger>
-              <TabsTrigger value="community" className="text-sm sm:text-base">Local Intel</TabsTrigger>
+              <TabsTrigger value="forecast" className="text-sm sm:text-base">
+                Forecast
+              </TabsTrigger>
+              <TabsTrigger value="nearby" className="text-sm sm:text-base">
+                Nearby
+              </TabsTrigger>
+              <TabsTrigger value="community" className="text-sm sm:text-base">
+                Local Intel
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="forecast">
-              <ForecastTab profile={profile} />
+              <Suspense fallback={<TabSkeleton />}>
+                <ForecastTab profile={profile} />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="nearby">
-              <NearbyTab beaches={beaches} loading={loading} />
+              <Suspense fallback={<TabSkeleton />}>
+                <NearbyTab beaches={beaches} loading={loading} />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="community">
-              <CommunityTab sessions={sessions} loading={loading} />
+              <Suspense fallback={<TabSkeleton />}>
+                <CommunityTab sessions={sessions} loading={loading} />
+              </Suspense>
             </TabsContent>
           </Tabs>
         </section>

@@ -3,127 +3,104 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { HERO_VIDEOS, CONTENT } from "@/lib/constants/features";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 
 export function HeroSection() {
+  const [showVideo, setShowVideo] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const nextVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Only load video when user requests it
+  const handlePlayVideo = () => {
+    setShowVideo(true);
+  };
 
   useEffect(() => {
+    if (!showVideo) return;
+
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
     const handleCanPlay = () => {
-      setIsInitialLoading(false);
+      setIsVideoLoaded(true);
       setVideoError(false);
-      setIsTransitioning(false);
-
-      // Auto-play the video
       videoElement.play().catch(console.error);
     };
 
     const handleVideoError = () => {
       setVideoError(true);
-      setIsInitialLoading(false);
-      setIsTransitioning(false);
+      setIsVideoLoaded(false);
     };
 
     const handleVideoEnd = () => {
-      // Start transition to next video
-      setIsTransitioning(true);
-
-      // Preload next video
       const nextIndex = (currentVideoIndex + 1) % HERO_VIDEOS.length;
-      if (nextVideoRef.current) {
-        nextVideoRef.current.src = HERO_VIDEOS[nextIndex];
-        nextVideoRef.current.load();
-      }
-
-      // Short delay to allow preload, then switch
-      setTimeout(() => {
-        setCurrentVideoIndex(nextIndex);
-      }, 100);
+      setCurrentVideoIndex(nextIndex);
     };
 
-    // Add event listeners
     videoElement.addEventListener("canplay", handleCanPlay);
     videoElement.addEventListener("error", handleVideoError);
     videoElement.addEventListener("ended", handleVideoEnd);
-
-    // Load the video
     videoElement.load();
 
-    // Cleanup function
     return () => {
       videoElement.removeEventListener("canplay", handleCanPlay);
       videoElement.removeEventListener("error", handleVideoError);
       videoElement.removeEventListener("ended", handleVideoEnd);
     };
-  }, [currentVideoIndex]);
-
-  // Preload next video
-  useEffect(() => {
-    if (nextVideoRef.current && !isInitialLoading) {
-      const nextIndex = (currentVideoIndex + 1) % HERO_VIDEOS.length;
-      nextVideoRef.current.src = HERO_VIDEOS[nextIndex];
-      nextVideoRef.current.load();
-    }
-  }, [currentVideoIndex, isInitialLoading]);
+  }, [showVideo, currentVideoIndex]);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background Video */}
+      {/* Optimized Background - Static Image for Fast LCP */}
       <div className="absolute inset-0 w-full h-full">
-        {/* Fallback background image */}
-        <div
-          className="absolute inset-0 w-full h-full bg-cover bg-center bg-[url('/placeholder.jpg')]"
-          style={{ zIndex: videoError || isInitialLoading ? 10 : 1 }}
+        {/* High-performance static background image */}
+        <Image
+          src="/placeholder-logo.png" // Using existing logo as placeholder
+          alt="Quiver - Surf Sessions Tracker"
+          fill
+          priority // Critical for LCP
+          quality={85}
+          className={`object-cover transition-opacity duration-500 ${
+            showVideo && isVideoLoaded ? "opacity-20" : "opacity-100"
+          }`}
+          style={{ objectPosition: "center" }}
+          placeholder="blur"
+          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
         />
 
-        {/* Initial loading state - only show on first load */}
-        {isInitialLoading && !videoError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
-          </div>
-        )}
-
-        {/* Main video element */}
-        {!videoError && (
+        {/* Video Background - Only loads when requested */}
+        {showVideo && (
           <video
             ref={videoRef}
             key={currentVideoIndex}
             muted
             playsInline
-            className="w-full h-full object-cover transition-opacity duration-300"
-            poster="/placeholder.jpg"
-            style={{
-              zIndex: isInitialLoading || isTransitioning ? 1 : 10,
-              opacity: isTransitioning ? 0.7 : 1,
-            }}
+            loop
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+              isVideoLoaded ? "opacity-100" : "opacity-0"
+            }`}
+            style={{ zIndex: 10 }}
           >
             <source src={HERO_VIDEOS[currentVideoIndex]} type="video/mp4" />
           </video>
         )}
 
-        {/* Hidden preload video for next video */}
-        <video
-          ref={nextVideoRef}
-          muted
-          playsInline
-          className="hidden"
-          preload="auto"
-        />
+        {/* Video loading indicator */}
+        {showVideo && !isVideoLoaded && !videoError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+          </div>
+        )}
       </div>
 
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/40 z-5" />
+      <div className="absolute inset-0 bg-black/40 z-15" />
 
       {/* Hero Content */}
       <motion.div
@@ -149,7 +126,10 @@ export function HeroSection() {
           {CONTENT.hero.subtitle}
         </motion.p>
 
-        <motion.div {...ANIMATION_VARIANTS.heroText(0.4)}>
+        <motion.div
+          {...ANIMATION_VARIANTS.heroText(0.4)}
+          className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+        >
           <Button
             size="lg"
             className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
@@ -160,6 +140,19 @@ export function HeroSection() {
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
+
+          {/* Play Video Button - Optional Enhancement */}
+          {!showVideo && (
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handlePlayVideo}
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20 px-8 py-4 text-lg font-roboto font-semibold rounded-full backdrop-blur-sm transition-all duration-300"
+            >
+              <Play className="mr-2 h-5 w-5" />
+              Watch Video
+            </Button>
+          )}
         </motion.div>
       </motion.div>
     </section>

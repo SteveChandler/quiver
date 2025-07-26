@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,7 +27,6 @@ import { UserStats } from "@/components/user-stats";
 import { FavoriteBeaches } from "@/components/favorite-beaches";
 import { UserAvatar } from "@/components/user-avatar";
 import { EditProfileModal } from "@/components/edit-profile-modal";
-import { BoardsManager } from "@/components/profile/boards-manager";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { getUserBoards } from "@/actions/board-actions";
@@ -37,9 +36,56 @@ import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
-import { UserComments } from "@/components/profile/user-comments";
-import { JournalView } from "@/components/journal/journal-view";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+
+// Lazy load heavy tab components for better performance
+const BoardsManager = lazy(() =>
+  import("@/components/profile/boards-manager").then((m) => ({
+    default: m.BoardsManager,
+  }))
+);
+const UserComments = lazy(() =>
+  import("@/components/profile/user-comments").then((m) => ({
+    default: m.UserComments,
+  }))
+);
+const JournalView = lazy(() =>
+  import("@/components/journal/journal-view").then((m) => ({
+    default: m.JournalView,
+  }))
+);
+
+// Loading skeletons for tabs
+function SessionsLoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="h-32 bg-gray-100 rounded-lg animate-pulse"
+        ></div>
+      ))}
+    </div>
+  );
+}
+
+function TabLoadingSkeleton({ type }: { type: string }) {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center space-y-2">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm text-gray-600">Loading {type}...</p>
+        </div>
+      </div>
+      <div className="grid gap-4">
+        {[1, 2].map((i) => (
+          <div key={i} className="h-24 bg-gray-100 rounded-lg"></div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function ProfileView() {
   const { user, signOut, isLoading: authLoading, refreshSession } = useAuth();
@@ -363,11 +409,17 @@ export function ProfileView() {
 
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg overflow-hidden">
                   <TabsContent value="sessions" className="p-6 space-y-4 m-0">
-                    <JournalView />
+                    <Suspense fallback={<TabLoadingSkeleton type="Journal" />}>
+                      <JournalView />
+                    </Suspense>
                   </TabsContent>
 
                   <TabsContent value="quiver" className="p-6 space-y-4 m-0">
-                    {user && <BoardsManager userId={user.id} boards={boards} />}
+                    {user && (
+                      <Suspense fallback={<TabLoadingSkeleton type="Boards" />}>
+                        <BoardsManager userId={user.id} boards={boards} />
+                      </Suspense>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="beaches" className="p-6 space-y-4 m-0">
@@ -402,7 +454,13 @@ export function ProfileView() {
                   </TabsContent>
 
                   <TabsContent value="comments" className="p-6 space-y-4 m-0">
-                    {user && <UserComments userId={user.id} />}
+                    {user && (
+                      <Suspense
+                        fallback={<TabLoadingSkeleton type="Comments" />}
+                      >
+                        <UserComments userId={user.id} />
+                      </Suspense>
+                    )}
                   </TabsContent>
                 </div>
               </Tabs>

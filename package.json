@@ -29,7 +29,13 @@
     "db:health": "node scripts/check-database-health.mjs",
     "install:requirements": "npm install",
     "setup": "bash install.sh",
-    "fresh-install": "rm -rf node_modules package-lock.json && npm install"
+    "fresh-install": "rm -rf node_modules package-lock.json && npm install",
+    "build:analyze": "ANALYZE=true npm run build",
+    "lighthouse": "lighthouse http://localhost:3000 --output json --output-path scripts/lighthouseRun.json",
+    "lighthouse:ci": "lhci autorun",
+    "perf:audit": "npm run build && npm run lighthouse",
+    "perf:monitor": "next build && next start & sleep 5 && npm run lighthouse && pkill -f 'next start'",
+    "perf:test": "node scripts/performance-test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",
@@ -94,7 +100,8 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "latest",
     "vaul": "^0.9.6",
-    "zod": "latest"
+    "zod": "latest",
+    "web-vitals": "^4.2.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
@@ -110,7 +117,10 @@
     "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.17",
-    "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "typescript": "^5.6.3",
+    "@next/bundle-analyzer": "^14.2.3",
+    "lighthouse": "^12.2.1",
+    "@lhci/cli": "^0.14.0",
+    "webpack-bundle-analyzer": "^4.10.2"
   }
 }

@@ -20,6 +20,8 @@ import {
   AlertTriangle,
   RefreshCw,
   Settings,
+  Globe,
+  MapPin,
 } from "lucide-react";
 import { INTEL_UI_TEXT } from "@/lib/constants/intel";
 import {
@@ -35,9 +37,11 @@ interface IntelDashboardProps {
 }
 
 type ViewMode = "split" | "map" | "feed";
+type LocationMode = "nearby" | "all";
 
 export function IntelDashboard({ className = "" }: IntelDashboardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("split");
+  const [locationMode, setLocationMode] = useState<LocationMode>("all"); // Default to showing all posts
   const [showFilters, setShowFilters] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number] | undefined>();
@@ -49,7 +53,7 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
   const { selectedTag, selectedRadius, updateTag, updateRadius, resetFilters } =
     useIntelFilters();
 
-  // Intel data with location
+  // Intel data with location (now supports showAll mode)
   const {
     posts,
     loading,
@@ -59,30 +63,34 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
     locationError,
     gettingLocation,
     getCurrentLocation,
+    setManualLocation,
     hasLocation,
     updateFilters,
+    showingAll,
   } = useLocationIntelData({
     tag: selectedTag,
     radius: selectedRadius,
     autoRefresh: true,
-    refreshInterval: 30000, // 30 seconds
+    refreshInterval: 30000,
+    showAll: locationMode === "all",
   });
 
   // Handle map movement to update data
   const handleMapMove = useCallback(
     (center: mapboxgl.LngLat, zoom: number) => {
-      // Only update data if the map has moved significantly
+      // Only update data if the map has moved significantly and we're in nearby mode
       const threshold = 0.01; // ~1km
       if (
-        !location ||
-        Math.abs(center.lat - location.latitude) > threshold ||
-        Math.abs(center.lng - location.longitude) > threshold
+        locationMode === "nearby" &&
+        location &&
+        (Math.abs(center.lat - location.latitude) > threshold ||
+          Math.abs(center.lng - location.longitude) > threshold)
       ) {
         // Don't automatically update location for now
         // Users can manually refresh if they want intel for a different area
       }
     },
-    [location]
+    [location, locationMode]
   );
 
   // Handle intel post confirmation
@@ -152,6 +160,11 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
     updateFilters({ tag: "all", radius: 5 });
   }, [resetFilters, updateFilters]);
 
+  // Handle location mode toggle
+  const handleLocationModeToggle = useCallback(() => {
+    setLocationMode((prev) => (prev === "nearby" ? "all" : "nearby"));
+  }, []);
+
   // Handle successful post creation
   const handlePostSuccess = useCallback(() => {
     refetch();
@@ -160,42 +173,30 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
   const canConfirm = !!user;
   const canPost = !!user;
 
-  // Show location error state
-  if (locationError) {
-    return (
-      <div className={cn("flex flex-col h-full", className)}>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-md p-6">
-            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-2">Location Required</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {locationError}
-            </p>
-            <div className="space-y-2">
-              <Button onClick={getCurrentLocation} className="w-full">
-                Try Again
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Enable location services to see local intel posts
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Get center coordinates for map display
+  const getMapCenter = useCallback((): [number, number] => {
+    if (location) {
+      return [location.latitude, location.longitude];
+    }
+    // Default to Ocean Beach, CA as fallback
+    return [32.7507, -117.254];
+  }, [location]);
 
-  // Show loading state while getting location
-  if (gettingLocation) {
+  // Show loading state while getting location (only if in nearby mode)
+  if (locationMode === "nearby" && gettingLocation) {
     return (
       <div className={cn("flex flex-col h-full", className)}>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
             <h3 className="text-lg font-medium mb-2">Getting Your Location</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-4">
               Please allow location access to see local intel
             </p>
+            <Button onClick={() => setLocationMode("all")} variant="outline">
+              <Globe className="h-4 w-4 mr-2" />
+              Show All Posts Instead
+            </Button>
           </div>
         </div>
       </div>
@@ -210,16 +211,37 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
           <div>
             <h1 className="text-lg font-semibold">{INTEL_UI_TEXT.TITLE}</h1>
             <p className="text-sm text-muted-foreground">
-              {hasLocation && (
+              {showingAll ? (
+                <span>{posts.length} intel posts from all locations</span>
+              ) : hasLocation ? (
                 <span>
                   {posts.length} intel posts within {selectedRadius}{" "}
                   {selectedRadius === 1 ? "mile" : "miles"}
                 </span>
+              ) : (
+                <span>{posts.length} intel posts</span>
               )}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Location Mode Toggle */}
+            <Button
+              variant={locationMode === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={handleLocationModeToggle}
+              className="h-8"
+            >
+              {locationMode === "all" ? (
+                <Globe className="h-4 w-4" />
+              ) : (
+                <MapPin className="h-4 w-4" />
+              )}
+              <span className="ml-1 hidden sm:inline">
+                {locationMode === "all" ? "All Posts" : "Nearby"}
+              </span>
+            </Button>
+
             {/* View Mode Toggles */}
             <div className="hidden sm:flex items-center gap-1 bg-muted p-1 rounded-lg">
               <Button
@@ -285,16 +307,44 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
               onTagChange={handleTagChange}
               onRadiusChange={handleRadiusChange}
               onReset={handleResetFilters}
+              showRadius={locationMode === "nearby"} // Only show radius filter in nearby mode
             />
+          </div>
+        )}
+
+        {/* Location Error - Show as warning banner instead of blocking */}
+        {locationMode === "nearby" && locationError && (
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center gap-2 text-yellow-800">
+              <AlertTriangle className="h-4 w-4" />
+              <p className="text-sm font-medium">Location unavailable</p>
+            </div>
+            <p className="text-xs text-yellow-700 mt-1">
+              {locationError}. You can still view all intel posts or try getting
+              your location again.
+            </p>
+            <div className="flex gap-2 mt-2">
+              <Button size="sm" variant="outline" onClick={getCurrentLocation}>
+                Try Again
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setLocationMode("all")}
+              >
+                <Globe className="h-4 w-4 mr-1" />
+                Show All Posts
+              </Button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
-        {viewMode === "map" && hasLocation && (
+        {viewMode === "map" && (
           <IntelMap
-            initialCenter={[location.latitude, location.longitude]}
+            initialCenter={getMapCenter()}
             posts={posts}
             onMapMove={handleMapMove}
             selectedTag={selectedTag}
@@ -315,12 +365,12 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
           </div>
         )}
 
-        {viewMode === "split" && hasLocation && (
+        {viewMode === "split" && (
           <div className="flex flex-col lg:flex-row h-full">
             {/* Map */}
             <div className="flex-1 lg:flex-1">
               <IntelMap
-                initialCenter={[location.latitude, location.longitude]}
+                initialCenter={getMapCenter()}
                 posts={posts}
                 onMapMove={handleMapMove}
                 selectedTag={selectedTag}
@@ -369,7 +419,7 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
       </div>
 
       {/* Floating Action Button */}
-      {canPost && hasLocation && (
+      {canPost && (
         <div className="fixed bottom-20 right-4 z-10 lg:bottom-6">
           <Button
             onClick={() => setShowPostForm(true)}
@@ -382,7 +432,7 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
       )}
 
       {/* Sign In Prompt for Unauthenticated Users */}
-      {!canPost && hasLocation && (
+      {!canPost && (
         <div className="bg-muted/50 border-t p-4">
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-2">
@@ -407,7 +457,7 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
         initialLocation={
           location
             ? { latitude: location.latitude, longitude: location.longitude }
-            : undefined
+            : { latitude: 32.7507, longitude: -117.254 } // Default to Ocean Beach
         }
       />
     </div>

@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { InteractiveMap } from "@/components/map/interactive-map";
-import { BuoyConditions } from "@/components/buoy-conditions";
+import { useState, Suspense, lazy } from "react";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import type { Beach } from "@/types/database";
+
+// Lazy load heavy map components
+const InteractiveMap = lazy(() =>
+  import("@/components/map/interactive-map").then((m) => ({
+    default: m.InteractiveMap,
+  }))
+);
+const BuoyConditions = lazy(() =>
+  import("@/components/buoy-conditions").then((m) => ({
+    default: m.BuoyConditions,
+  }))
+);
 
 interface BuoyConditions {
   water_temperature?: number;
@@ -20,6 +30,31 @@ interface BuoyConditions {
     height: number;
     name: string;
   }>;
+}
+
+// Loading components
+function MapLoadingSkeleton() {
+  return (
+    <div className="h-full w-full bg-gradient-to-br from-blue-50 to-blue-100 animate-pulse flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <div className="w-12 h-12 border-3 border-blue-300 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+        <p className="text-blue-700 font-medium">Loading Enhanced Map...</p>
+      </div>
+    </div>
+  );
+}
+
+function BuoyLoadingSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+      <div className="space-y-2">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-4 bg-gray-200 rounded w-full"></div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function EnhancedMapPage() {
@@ -40,12 +75,14 @@ export default function EnhancedMapPage() {
       <div className="flex-1 flex">
         {/* Interactive Map - Takes most of the space */}
         <div className="flex-1 relative">
-          <InteractiveMap
-            onBuoyConditions={setCurrentConditions}
-            onLocationClick={handleLocationClick}
-            onMapClick={handleMapClick}
-            className="h-full w-full"
-          />
+          <Suspense fallback={<MapLoadingSkeleton />}>
+            <InteractiveMap
+              onBuoyConditions={setCurrentConditions}
+              onLocationClick={handleLocationClick}
+              onMapClick={handleMapClick}
+              className="h-full w-full"
+            />
+          </Suspense>
 
           {/* Location indicator overlay */}
           {selectedLocation && (
@@ -78,7 +115,9 @@ export default function EnhancedMapPage() {
                     ✕
                   </button>
                 </div>
-                <BuoyConditions conditions={currentConditions} />
+                <Suspense fallback={<BuoyLoadingSkeleton />}>
+                  <BuoyConditions conditions={currentConditions} />
+                </Suspense>
               </>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
