@@ -47,6 +47,15 @@ function isDateTomorrow(dateString: string): boolean {
   return dateString === getTomorrowDate();
 }
 
+// Helper function to format date string for display
+function formatDate(dateString: string): string {
+  const date = createDateFromString(dateString);
+  return date.toLocaleDateString("en-US", {
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
 // Helper function to format date string into proper Date object
 function createDateFromString(dateString: string): Date {
   // Handle both YYYY-MM-DD and ISO date formats

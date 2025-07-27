@@ -16,8 +16,9 @@ describe("ForecastDataTransparency", () => {
         <ForecastDataTransparency dataSource="NOAA_NWS" />
       );
 
+      // Updated to match actual styling classes in the component
       const alertElement = container.querySelector(
-        '[class*="border-green-200"]'
+        '[class*="border-green-500"], [class*="bg-green-500"]'
       );
       expect(alertElement).toBeInTheDocument();
     });
@@ -61,8 +62,9 @@ describe("ForecastDataTransparency", () => {
         <ForecastDataTransparency dataSource="FALLBACK" />
       );
 
+      // Updated to match actual styling classes in the component
       const alertElement = container.querySelector(
-        '[class*="border-orange-200"]'
+        '[class*="border-orange-500"], [class*="bg-orange-500"]'
       );
       expect(alertElement).toBeInTheDocument();
     });

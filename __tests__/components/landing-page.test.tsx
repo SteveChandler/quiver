@@ -1,6 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import LandingPage from "@/components/landing-page";
 
+// Mock the performance utils to disable progressive loading in tests
+jest.mock("@/lib/utils/performance-utils", () => ({
+  PerformanceUtils: {
+    createImageObserver: jest.fn(() => null),
+    preloadCriticalResources: jest.fn(),
+  },
+}));
+
 // Mock all the section components to test integration
 jest.mock("@/components/landing-page/hero-section", () => ({
   HeroSection: () => <div data-testid="hero-section">Hero Section</div>,
@@ -33,16 +41,15 @@ jest.mock("@/components/landing-page/footer-section", () => ({
 }));
 
 describe("LandingPage", () => {
-  it("renders all sections in correct order", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("renders hero section immediately", () => {
     render(<LandingPage />);
 
-    // Check that all sections are rendered
+    // Hero section should render immediately since it's not lazy loaded
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
-    expect(screen.getByTestId("social-feed-section")).toBeInTheDocument();
-    expect(screen.getByTestId("forecast-section")).toBeInTheDocument();
-    expect(screen.getByTestId("features-section")).toBeInTheDocument();
-    expect(screen.getByTestId("cta-section")).toBeInTheDocument();
-    expect(screen.getByTestId("footer-section")).toBeInTheDocument();
   });
 
   it("applies the correct background gradient class", () => {
@@ -58,31 +65,43 @@ describe("LandingPage", () => {
     );
   });
 
-  it("renders sections in the correct order", () => {
-    render(<LandingPage />);
+  it("renders progressive section containers", () => {
+    const { container } = render(<LandingPage />);
 
-    const allSections = [
-      screen.getByTestId("hero-section"),
-      screen.getByTestId("social-feed-section"),
-      screen.getByTestId("forecast-section"),
-      screen.getByTestId("features-section"),
-      screen.getByTestId("cta-section"),
-      screen.getByTestId("footer-section"),
-    ];
+    // Check that the progressive loading structure exists
+    const sectionsContainer = container.querySelector(".space-y-0");
+    expect(sectionsContainer).toBeInTheDocument();
 
-    // Check that sections appear in order in the DOM
-    for (let i = 0; i < allSections.length - 1; i++) {
-      expect(allSections[i].compareDocumentPosition(allSections[i + 1])).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING
-      );
-    }
+    // Should have 5 progressive section containers (one for each lazy-loaded section)
+    const progressiveSections = sectionsContainer?.children;
+    expect(progressiveSections).toHaveLength(5);
   });
 
-  it("is accessible and has proper structure", () => {
+  it("shows loading skeletons initially for lazy sections", () => {
+    const { container } = render(<LandingPage />);
+
+    // Should show skeleton loading states for progressive sections
+    const skeletons = container.querySelectorAll(".animate-pulse");
+    expect(skeletons.length).toBeGreaterThan(0);
+  });
+
+  it("has proper semantic structure", () => {
     const { container } = render(<LandingPage />);
 
     // Check that the main container has proper HTML structure
     const mainDiv = container.firstChild as HTMLElement;
     expect(mainDiv).toHaveClass("min-h-screen");
+
+    // Should have hero section and sections container
+    expect(screen.getByTestId("hero-section")).toBeInTheDocument();
+    expect(container.querySelector(".space-y-0")).toBeInTheDocument();
+  });
+
+  it("includes loading spinner in skeleton placeholders", () => {
+    const { container } = render(<LandingPage />);
+
+    // Check for loading spinner elements
+    const loadingSpinners = container.querySelectorAll(".loading-spinner");
+    expect(loadingSpinners.length).toBeGreaterThan(0);
   });
 });

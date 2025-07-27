@@ -1,0 +1,402 @@
+import React from "react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { UserStats } from "@/components/user-stats";
+import { getUserStats } from "@/actions/profile-actions";
+
+// Mock the profile actions
+jest.mock("@/actions/profile-actions", () => ({
+  getUserStats: jest.fn(),
+}));
+
+// Mock the UI components
+jest.mock("@/components/ui/card", () => ({
+  Card: ({ children }: any) => <div data-testid="stat-card">{children}</div>,
+  CardContent: ({ children }: any) => (
+    <div data-testid="card-content">{children}</div>
+  ),
+  CardHeader: ({ children, className }: any) => (
+    <div data-testid="card-header" className={className}>
+      {children}
+    </div>
+  ),
+  CardTitle: ({ children, className }: any) => (
+    <h3 data-testid="card-title" className={className}>
+      {children}
+    </h3>
+  ),
+}));
+
+// Mock the loading component
+jest.mock("@/components/ui/loading-states", () => ({
+  CenteredLoadingSpinner: ({ text }: any) => (
+    <div data-testid="loading-spinner">{text}</div>
+  ),
+}));
+
+// Mock Lucide icons
+jest.mock("lucide-react", () => ({
+  Loader2: () => <div data-testid="loader2-icon" />,
+  Waves: () => <div data-testid="waves-icon" />,
+  MapPin: () => <div data-testid="mappin-icon" />,
+  Star: () => <div data-testid="star-icon" />,
+  Calendar: () => <div data-testid="calendar-icon" />,
+}));
+
+// Mock console to avoid noise in tests
+const mockConsole = {
+  log: jest.fn(),
+  error: jest.fn(),
+};
+Object.assign(console, mockConsole);
+
+describe("UserStats", () => {
+  const mockGetUserStats = getUserStats as jest.MockedFunction<
+    typeof getUserStats
+  >;
+  const mockUserId = "user-123";
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("Loading State", () => {
+    it("shows loading spinner while fetching stats", () => {
+      mockGetUserStats.mockImplementation(() => new Promise(() => {})); // Never resolves
+
+      render(<UserStats userId={mockUserId} />);
+
+      expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
+      expect(screen.getByText("Loading stats...")).toBeInTheDocument();
+    });
+
+    it("calls getUserStats with correct userId", () => {
+      mockGetUserStats.mockResolvedValue({ success: true, data: null });
+
+      render(<UserStats userId={mockUserId} />);
+
+      expect(mockGetUserStats).toHaveBeenCalledWith(mockUserId);
+    });
+  });
+
+  describe("Successful Data Display", () => {
+    const mockStatsData = {
+      sessionCount: 42,
+      boardCount: 5,
+      averageRating: 4.2,
+      mostVisitedBeach: "Malibu",
+      mostVisitedBeachCount: 15,
+    };
+
+    beforeEach(() => {
+      mockGetUserStats.mockResolvedValue({
+        success: true,
+        data: mockStatsData,
+      });
+    });
+
+    it("displays all stat cards", async () => {
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        const statCards = screen.getAllByTestId("stat-card");
+        expect(statCards).toHaveLength(4);
+      });
+    });
+
+    it("displays session count correctly", async () => {
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Sessions")).toBeInTheDocument();
+        expect(screen.getByText("42")).toBeInTheDocument();
+        expect(screen.getByText("Total sessions (all)")).toBeInTheDocument();
+      });
+    });
+
+    it("displays board count correctly", async () => {
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Boards")).toBeInTheDocument();
+        expect(screen.getByText("5")).toBeInTheDocument();
+        expect(screen.getByText("Boards in quiver")).toBeInTheDocument();
+      });
+    });
+
+    it("displays rating correctly", async () => {
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Rating")).toBeInTheDocument();
+        expect(screen.getByText("4.2")).toBeInTheDocument();
+        expect(screen.getByText("Average session rating")).toBeInTheDocument();
+      });
+    });
+
+    it("displays most visited beach correctly", async () => {
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Default Spot")).toBeInTheDocument();
+        expect(screen.getByText("Malibu")).toBeInTheDocument();
+        expect(screen.getByText("15 visits")).toBeInTheDocument();
+      });
+    });
+
+    it("includes all required icons", async () => {
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("calendar-icon")).toBeInTheDocument();
+        expect(screen.getByTestId("waves-icon")).toBeInTheDocument();
+        expect(screen.getByTestId("star-icon")).toBeInTheDocument();
+        expect(screen.getByTestId("mappin-icon")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("Edge Cases and Missing Data", () => {
+    it("handles zero values correctly", async () => {
+      const zeroStatsData = {
+        sessionCount: 0,
+        boardCount: 0,
+        averageRating: 0,
+        mostVisitedBeach: null,
+        mostVisitedBeachCount: 0,
+      };
+
+      mockGetUserStats.mockResolvedValue({
+        success: true,
+        data: zeroStatsData,
+      });
+
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText("0")).toHaveLength(2); // session count and board count
+        expect(screen.getAllByText("-")).toHaveLength(2); // rating and beach name
+        expect(screen.getByText("No sessions yet")).toBeInTheDocument();
+      });
+    });
+
+    it("handles null rating correctly", async () => {
+      const statsWithNullRating = {
+        sessionCount: 5,
+        boardCount: 2,
+        averageRating: null,
+        mostVisitedBeach: "Beach",
+        mostVisitedBeachCount: 1,
+      };
+
+      mockGetUserStats.mockResolvedValue({
+        success: true,
+        data: statsWithNullRating,
+      });
+
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Rating")).toBeInTheDocument();
+        expect(screen.getByText("-")).toBeInTheDocument(); // null rating shows as dash
+      });
+    });
+
+    it("handles undefined rating correctly", async () => {
+      const statsWithUndefinedRating = {
+        sessionCount: 5,
+        boardCount: 2,
+        averageRating: undefined,
+        mostVisitedBeach: "Beach",
+        mostVisitedBeachCount: 1,
+      };
+
+      mockGetUserStats.mockResolvedValue({
+        success: true,
+        data: statsWithUndefinedRating,
+      });
+
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Rating")).toBeInTheDocument();
+        expect(screen.getByText("-")).toBeInTheDocument(); // undefined rating shows as dash
+      });
+    });
+
+    it("handles null most visited beach correctly", async () => {
+      const statsWithoutBeach = {
+        sessionCount: 5,
+        boardCount: 2,
+        averageRating: 4.0,
+        mostVisitedBeach: null,
+        mostVisitedBeachCount: 0,
+      };
+
+      mockGetUserStats.mockResolvedValue({
+        success: true,
+        data: statsWithoutBeach,
+      });
+
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Default Spot")).toBeInTheDocument();
+        expect(screen.getByText("-")).toBeInTheDocument(); // null beach shows as dash
+        expect(screen.getByText("No sessions yet")).toBeInTheDocument();
+      });
+    });
+
+    it("handles very long beach names with truncation", async () => {
+      const statsWithLongBeachName = {
+        sessionCount: 10,
+        boardCount: 3,
+        averageRating: 4.5,
+        mostVisitedBeach:
+          "This Is A Very Long Beach Name That Should Be Truncated",
+        mostVisitedBeachCount: 5,
+      };
+
+      mockGetUserStats.mockResolvedValue({
+        success: true,
+        data: statsWithLongBeachName,
+      });
+
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        const beachNameElement = screen.getByText(
+          "This Is A Very Long Beach Name That Should Be Truncated"
+        );
+        expect(beachNameElement.closest(".truncate")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("Error Handling", () => {
+    it("shows error state when API call fails", async () => {
+      mockGetUserStats.mockRejectedValue(new Error("API Error"));
+
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Stats unavailable")).toBeInTheDocument();
+      });
+
+      expect(mockConsole.error).toHaveBeenCalledWith(
+        "Error loading user stats:",
+        expect.any(Error)
+      );
+    });
+
+    it("shows error state when API returns unsuccessful result", async () => {
+      mockGetUserStats.mockResolvedValue({
+        success: false,
+        data: null,
+      });
+
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Stats unavailable")).toBeInTheDocument();
+      });
+    });
+
+    it("shows error state when API returns null data", async () => {
+      mockGetUserStats.mockResolvedValue({
+        success: true,
+        data: null,
+      });
+
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Stats unavailable")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("Component Structure", () => {
+    const mockStatsData = {
+      sessionCount: 10,
+      boardCount: 3,
+      averageRating: 4.0,
+      mostVisitedBeach: "Test Beach",
+      mostVisitedBeachCount: 5,
+    };
+
+    beforeEach(() => {
+      mockGetUserStats.mockResolvedValue({
+        success: true,
+        data: mockStatsData,
+      });
+    });
+
+    it("uses correct grid layout classes", async () => {
+      const { container } = render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        const gridContainer = container.querySelector(".grid");
+        expect(gridContainer).toBeInTheDocument();
+        expect(gridContainer).toHaveClass(
+          "grid-cols-2",
+          "gap-4",
+          "md:grid-cols-4"
+        );
+      });
+    });
+
+    it("applies correct card header classes", async () => {
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        const cardHeaders = screen.getAllByTestId("card-header");
+        cardHeaders.forEach((header) => {
+          expect(header).toHaveClass(
+            "flex",
+            "flex-row",
+            "items-center",
+            "justify-between",
+            "space-y-0",
+            "pb-2"
+          );
+        });
+      });
+    });
+
+    it("applies correct typography classes", async () => {
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        const cardTitles = screen.getAllByTestId("card-title");
+        cardTitles.forEach((title) => {
+          expect(title).toHaveClass("text-sm", "font-medium");
+        });
+      });
+    });
+  });
+
+  describe("User ID Changes", () => {
+    it("refetches data when userId changes", async () => {
+      const { rerender } = render(<UserStats userId="user-1" />);
+
+      expect(mockGetUserStats).toHaveBeenCalledWith("user-1");
+
+      rerender(<UserStats userId="user-2" />);
+
+      expect(mockGetUserStats).toHaveBeenCalledWith("user-2");
+      expect(mockGetUserStats).toHaveBeenCalledTimes(2);
+    });
+
+    it("shows loading state during userId transition", async () => {
+      mockGetUserStats.mockImplementation(() => new Promise(() => {}));
+
+      const { rerender } = render(<UserStats userId="user-1" />);
+
+      expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
+
+      rerender(<UserStats userId="user-2" />);
+
+      expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
+    });
+  });
+});

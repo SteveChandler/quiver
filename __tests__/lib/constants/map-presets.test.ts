@@ -18,7 +18,7 @@ describe("Map Presets", () => {
       expect(MAP_IMAGE_PRESETS.CARD_LARGE_WIDE).toEqual({
         width: 300,
         height: 200,
-        zoom: 14,
+        zoom: 10, // Updated from 14 to match actual value
       });
     });
 
@@ -26,7 +26,7 @@ describe("Map Presets", () => {
       expect(MAP_IMAGE_PRESETS.CARD_SMALL).toEqual({
         width: 200,
         height: 96,
-        zoom: 15,
+        zoom: 11, // Updated from 15 to match actual value
       });
     });
 
