@@ -10,80 +10,81 @@ import {
   Eye,
   AlertTriangle,
   Car,
+  Waves,
 } from "lucide-react";
 
 export const FEATURE_CARDS = [
   {
-    icon: Calendar,
-    title: "Session Planner Pro",
+    icon: Users,
+    title: "Find Your Surf Crew",
     description:
-      "AI-powered session planning with automatic ideal time selection, smart gear recommendations, and exclusive invite-only group sessions.",
+      "Connect with surfers in your area, join group sessions, and build lasting friendships. Never surf alone again with our thriving community.",
     iconBgColor: "bg-ocean-blue/10",
     iconColor: "text-ocean-blue",
     features: [
       {
-        icon: Clock,
-        text: "Auto-select ideal times",
-        color: "text-ocean-blue",
-      },
-      {
-        icon: Settings,
-        text: "Smart gear suggestions",
-        color: "text-ocean-blue",
-      },
-      {
         icon: Users,
-        text: "Invite-only group sessions",
+        text: "Find local surf buddies",
+        color: "text-ocean-blue",
+      },
+      {
+        icon: Calendar,
+        text: "Join group sessions",
+        color: "text-ocean-blue",
+      },
+      {
+        icon: MapPin,
+        text: "Meet at surf spots",
         color: "text-ocean-blue",
       },
     ],
   },
   {
-    icon: BarChart3,
-    title: "Surf Journal+",
+    icon: TrendingUp,
+    title: "Track Epic Sessions",
     description:
-      "Advanced wave analytics and performance tracking with private logs and personalized surf habit insights.",
+      "Log your surf sessions with photos, share your progress, and inspire your community. Build your surf story one session at a time.",
     iconBgColor: "bg-sunset-orange/10",
     iconColor: "text-sunset-orange",
     features: [
       {
-        icon: TrendingUp,
-        text: "Wave analytics",
-        color: "text-sunset-orange",
-      },
-      {
         icon: BarChart3,
-        text: "Performance tracking",
+        text: "Track your progression",
         color: "text-sunset-orange",
       },
       {
         icon: Book,
-        text: "Private logs & insights",
+        text: "Share session stories",
+        color: "text-sunset-orange",
+      },
+      {
+        icon: Eye,
+        text: "Inspire others",
         color: "text-sunset-orange",
       },
     ],
   },
   {
     icon: MapPin,
-    title: "Local Intel Club",
+    title: "Discover Epic Spots",
     description:
-      "Exclusive access to user-submitted local knowledge including parking secrets, hazard warnings, and crowd vibes.",
+      "Explore new surf breaks with community reviews, local insights, and real-time conditions. Find your next favorite surf spot.",
     iconBgColor: "bg-green-500/10",
     iconColor: "text-green-600",
     features: [
       {
-        icon: Car,
-        text: "Parking secrets",
+        icon: Waves,
+        text: "Live surf conditions",
         color: "text-green-600",
       },
       {
         icon: AlertTriangle,
-        text: "Hazard warnings",
+        text: "Local knowledge & tips",
         color: "text-green-600",
       },
       {
-        icon: Eye,
-        text: "Crowd vibes intel",
+        icon: Clock,
+        text: "Best times to surf",
         color: "text-green-600",
       },
     ],
@@ -100,30 +101,38 @@ export const HERO_VIDEOS = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: ["Surf Together,", "Anytime,", "Anywhere"],
+    title: ["Never Surf", "Alone", "Again"],
     subtitle:
-      "Connect with your surf community, plan sessions, and share the stoke",
-    cta: "Join the Wave",
+      "Find surf buddies, track epic sessions, and discover the best spots with your community",
+    cta: "Join 1,000+ Surfers",
+    benefits: [
+      "🤝 Find surf buddies in your area",
+      "📊 Track & share your sessions",
+      "🌊 Get accurate surf forecasts",
+      "📍 Discover epic surf spots",
+    ],
   },
   sections: {
     social: {
-      title: "See what your friends are catching",
+      title: "Join the surf community that's changing everything",
       subtitle:
-        "Get inspired by your community's latest sessions and discover new spots",
+        "See what 1,000+ surfers are sharing - epic sessions, hidden spots, and the stoke that keeps us coming back",
     },
     forecast: {
-      title: "Perfect timing, every time",
-      subtitle: "Get accurate forecasts to plan your next session",
-      link: "View full 10-day forecast",
+      title: "Get the most accurate surf forecasts",
+      subtitle:
+        "Know exactly when to paddle out with forecasts trusted by your local surf community",
+      link: "See detailed forecasts →",
     },
     features: {
-      title: "Everything you need to surf better",
-      subtitle: "From planning to sharing, Quiver has you covered",
+      title: "Everything you need to surf with friends",
+      subtitle:
+        "From finding surf buddies to sharing epic sessions - your complete surf community platform",
     },
     cta: {
-      title: "Ready to catch your next wave?",
+      title: "Ready to join the surf revolution?",
       subtitle:
-        "Join thousands of surfers already using Quiver to connect, plan, and share their passion for the ocean.",
+        "Join 1,000+ surfers who've found their crew, tracked epic sessions, and discovered amazing spots. Free to join, priceless connections.",
     },
   },
 } as const;

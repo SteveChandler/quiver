@@ -110,35 +110,57 @@ function ModernForecastCard({
 export function ForecastSection() {
   return (
     <SectionWrapper
-      className="py-20 px-4 bg-gradient-to-r from-blue-50 to-cyan-50"
+      className="py-20 px-4 bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100 relative"
       title={CONTENT.sections.forecast.title}
       subtitle={CONTENT.sections.forecast.subtitle}
-      maxWidth="4xl"
+      maxWidth="6xl"
       centerContent
     >
-      <motion.div
-        {...ANIMATION_VARIANTS.fadeUpWithDelay(0.2)}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
-      >
-        {MODERN_FORECAST_DATA.map((forecast, index) => (
-          <ModernForecastCard key={index} {...forecast} />
-        ))}
-      </motion.div>
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-ocean-blue/5 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl"></div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6, delay: 0.4 }}
-      >
-        <Link
-          href="/auth/sign-up"
-          className="text-ocean-blue hover:text-ocean-blue/80 font-montserrat font-semibold text-lg flex items-center justify-center gap-2 transition-colors"
+      <div className="relative z-10">
+        <motion.div
+          {...ANIMATION_VARIANTS.fadeUpWithDelay(0.2)}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10"
         >
-          {CONTENT.sections.forecast.link}
-          <ExternalLink className="h-4 w-4" />
-        </Link>
-      </motion.div>
+          {MODERN_FORECAST_DATA.map((forecast, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: index * 0.1 }}
+              className="transform hover:scale-105 transition-transform duration-300"
+            >
+              <ModernForecastCard {...forecast} />
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Enhanced CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="text-center"
+        >
+          <p className="text-gray-600 mb-4 text-lg">
+            Want personalized forecasts for your favorite spots?
+          </p>
+          <Link
+            href="/auth/sign-up"
+            className="inline-flex items-center gap-2 bg-ocean-blue text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-ocean-blue/90 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+          >
+            {CONTENT.sections.forecast.link}
+            <ExternalLink className="h-5 w-5" />
+          </Link>
+        </motion.div>
+      </div>
     </SectionWrapper>
   );
 }

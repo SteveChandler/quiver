@@ -5,6 +5,8 @@ import "./globals.css";
 
 import { AuthProvider } from "@/context/auth-context";
 import { AppHeader } from "@/components/app-header";
+// import { SEO_CONFIG, PAGE_SEO } from "@/lib/constants/seo";
+// import { HomePageStructuredData } from "@/components/seo/structured-data";
 
 // Optimize font loading with display swap for better performance
 const inter = Inter({
@@ -25,7 +27,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Quiver - Surf Sessions Tracker",
   description: "Community-driven surf sessions tracker and predictor",
-  generator: "v0.dev",
+  generator: "Next.js",
 
   // Performance optimizations
   metadataBase: new URL(
@@ -99,6 +101,9 @@ export default function RootLayout({
         />
 
         {/* Remove non-existent webpack chunk preload - these are dynamic */}
+
+        {/* Structured Data for SEO */}
+        {/* <HomePageStructuredData /> */}
 
         {/* Critical inline styles for faster render */}
         <style

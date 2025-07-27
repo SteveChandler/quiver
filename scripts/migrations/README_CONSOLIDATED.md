@@ -103,6 +103,34 @@ npx playwright test beach-card-interactions.spec.ts
 4. **`018_fix_performance_warnings.sql`** - Performance optimizations
 5. **`019_comprehensive_performance_optimization.sql`** - Comprehensive indexes
 
+### Migration 025: Intel Posts System
+
+**File**: `025_intel_posts.sql`
+**Purpose**: Create a community-driven beach intelligence system
+**Status**: ✅ Implemented
+**Key Changes**:
+
+- Intel posts table with user-generated beach insights
+- Confirmation system for intelligence validation
+- RLS policies for secure intel sharing
+- Auto-expiry system for time-sensitive intel
+
+### Migration 026: Fix Security Definer Views
+
+**File**: `026_fix_security_definer_views.sql`  
+**Purpose**: Address Supabase security linter warnings for views with SECURITY DEFINER property
+**Status**: ✅ Implemented
+**Key Changes**:
+
+- Recreated `v_index_usage_stats` view with `SECURITY INVOKER`
+- Fixed `activity_feed_secure` view if it exists with proper user permissions
+- Views now respect Row Level Security (RLS) policies
+- Eliminated privilege escalation through view access
+  **Security Benefits**:
+- Views run with querying user's permissions instead of elevated privileges
+- Proper enforcement of user context and RLS policies
+- Compliance with Supabase security best practices
+
 ## 🔧 Maintenance
 
 ### Regular Tasks

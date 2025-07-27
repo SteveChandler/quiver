@@ -12,6 +12,7 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
+import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getBeachById } from "@/actions/beach/beach-query-actions";
@@ -243,6 +244,17 @@ export function BeachDetail({ id }: BeachDetailProps) {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Local Intel Section */}
+        {beach && (
+          <BeachIntelSection
+            beachId={id}
+            beachName={beach.name}
+            latitude={beach.latitude}
+            longitude={beach.longitude}
+            className="mb-8"
+          />
         )}
 
         {/* Selected Day Detail */}

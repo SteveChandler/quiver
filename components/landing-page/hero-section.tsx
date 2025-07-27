@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Users, TrendingUp, MapPin, Waves } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { HERO_VIDEOS, CONTENT } from "@/lib/constants/features";
@@ -57,7 +57,7 @@ export function HeroSection() {
         {/* High-performance static background image */}
         <Image
           src="/placeholder-logo.png" // Using existing logo as placeholder
-          alt="Quiver - Surf Sessions Tracker"
+          alt="Quiver - Ultimate Surf Community Platform"
           fill
           priority // Critical for LCP
           quality={85}
@@ -94,40 +94,67 @@ export function HeroSection() {
         )}
       </div>
 
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/40 z-15" />
+      {/* Enhanced Overlay with Gradient */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/60 z-15" />
 
-      {/* Hero Content */}
+      {/* Hero Content - Modernized */}
       <motion.div
         {...ANIMATION_VARIANTS.heroText(0.1)}
-        className="relative z-30 text-center text-white px-4 max-w-4xl mx-auto"
+        className="relative z-30 text-center text-white px-4 max-w-5xl mx-auto"
       >
+        {/* Social Proof Badge */}
+        <motion.div
+          {...ANIMATION_VARIANTS.heroText(0.15)}
+          className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-6 text-sm font-medium"
+        >
+          <Users className="h-4 w-4" />
+          <span>Join 1,000+ surfers worldwide</span>
+        </motion.div>
+
+        {/* Main Headline - More Impactful */}
         <motion.h1
           {...ANIMATION_VARIANTS.heroText(0.2)}
-          className="text-5xl md:text-7xl font-roboto font-bold mb-6 leading-tight"
+          className="text-5xl md:text-7xl lg:text-8xl font-roboto font-bold mb-6 leading-tight"
         >
           {CONTENT.hero.title.map((line, index) => (
-            <span key={index}>
+            <span key={index} className="block">
               {line}
-              {index < CONTENT.hero.title.length - 1 && <br />}
+              {index === 1 && <br className="hidden md:block" />}
             </span>
           ))}
         </motion.h1>
 
+        {/* Enhanced Subtitle */}
         <motion.p
           {...ANIMATION_VARIANTS.heroText(0.3)}
-          className="text-xl md:text-2xl font-open-sans mb-8 text-white/90"
+          className="text-xl md:text-2xl lg:text-3xl font-open-sans mb-8 text-white/90 max-w-3xl mx-auto leading-relaxed"
         >
           {CONTENT.hero.subtitle}
         </motion.p>
 
+        {/* Key Benefits Grid */}
+        <motion.div
+          {...ANIMATION_VARIANTS.heroText(0.35)}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 max-w-4xl mx-auto"
+        >
+          {CONTENT.hero.benefits.map((benefit, index) => (
+            <div
+              key={index}
+              className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-sm font-medium"
+            >
+              {benefit}
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Enhanced CTA Section */}
         <motion.div
           {...ANIMATION_VARIANTS.heroText(0.4)}
           className="flex flex-col sm:flex-row gap-4 justify-center items-center"
         >
           <Button
             size="lg"
-            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             asChild
           >
             <Link href="/auth/sign-up">
@@ -135,6 +162,34 @@ export function HeroSection() {
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
+
+          <div className="flex items-center gap-2 text-white/80 text-sm">
+            <TrendingUp className="h-4 w-4" />
+            <span>Free to join • No credit card required</span>
+          </div>
+        </motion.div>
+
+        {/* Feature Icons */}
+        <motion.div
+          {...ANIMATION_VARIANTS.heroText(0.5)}
+          className="flex justify-center items-center gap-8 mt-12 text-white/60"
+        >
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            <span className="text-sm">Community</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Waves className="h-5 w-5" />
+            <span className="text-sm">Forecasts</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            <span className="text-sm">Spots</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            <span className="text-sm">Tracking</span>
+          </div>
         </motion.div>
       </motion.div>
     </section>
