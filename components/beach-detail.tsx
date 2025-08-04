@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/accordion";
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
+import { SessionForecastComparison } from "@/components/forecast/session-forecast-comparison";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -26,6 +28,9 @@ interface BeachDetailProps {
 export function BeachDetail({ id }: BeachDetailProps) {
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  // Fetch forecast calibration data
+  const { sessionSnapshots } = useForecastCalibration({ beachId: id });
 
   // Fetch beach information
   const fetchBeach = useCallback(async () => {
@@ -524,6 +529,20 @@ export function BeachDetail({ id }: BeachDetailProps) {
             })}
           </div>
         </div>
+
+        {/* Forecast Accuracy Section */}
+        {sessionSnapshots && sessionSnapshots.length > 0 && (
+          <div className="space-y-6 mt-8">
+            <h2 className="text-2xl md:text-3xl font-roboto font-bold bg-gradient-to-r from-ocean-blue to-blue-600 bg-clip-text text-transparent">
+              Forecast Accuracy
+            </h2>
+            <SessionForecastComparison
+              snapshots={sessionSnapshots}
+              maxItems={5}
+              className="bg-white/80 backdrop-blur-sm border-ocean-blue/20"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
