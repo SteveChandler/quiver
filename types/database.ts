@@ -341,6 +341,37 @@ export type IntelPostWithUser = IntelPost & {
   user_confirmed?: boolean; // Whether the current user has confirmed this post
 };
 
+// Forecast Calibration Types
+export type SessionForecastSnapshot = {
+  id: string;
+  session_id: string;
+  user_id: string;
+  beach_id: string;
+  forecast_snapshot: Record<string, any>; // JSONB - forecast data at session time
+  actual_conditions: Record<string, any>; // JSONB - actual conditions from session
+  forecast_confidence_score: number | null;
+  data_source: string | null;
+  session_date: string; // DATE
+  created_at: string;
+  updated_at: string;
+};
+
+export type BeachForecastAccuracy = {
+  id: string;
+  beach_id: string;
+  avg_wave_height_delta: number | null;
+  avg_wind_speed_delta: number | null;
+  avg_confidence_accuracy: number | null;
+  total_sessions_count: number;
+  last_30_days_count: number;
+  last_7_days_count: number;
+  overall_accuracy_score: number | null;
+  wave_height_accuracy: number | null;
+  wind_accuracy: number | null;
+  calculation_date: string; // DATE
+  updated_at: string;
+};
+
 // Database schema with tables
 export type Database = {
   public: {
@@ -404,6 +435,21 @@ export type Database = {
         Row: IntelPostConfirmation;
         Insert: Omit<IntelPostConfirmation, "id" | "created_at">;
         Update: Partial<Omit<IntelPostConfirmation, "id" | "created_at">>;
+      };
+      session_forecast_snapshots: {
+        Row: SessionForecastSnapshot;
+        Insert: Omit<
+          SessionForecastSnapshot,
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<
+          Omit<SessionForecastSnapshot, "id" | "created_at" | "updated_at">
+        >;
+      };
+      beach_forecast_accuracy: {
+        Row: BeachForecastAccuracy;
+        Insert: Omit<BeachForecastAccuracy, "id" | "updated_at">;
+        Update: Partial<Omit<BeachForecastAccuracy, "id" | "updated_at">>;
       };
     };
     Enums: {

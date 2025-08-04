@@ -165,6 +165,18 @@ export async function getUserStats(userId: string) {
   try {
     const supabase = await createSupabaseServerClient();
 
+    // Get user profile for favorite_spot
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("favorite_spot")
+      .eq("id", userId)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching profile for stats:", profileError);
+      // Continue execution even if profile fetch fails
+    }
+
     // Get session count
     const { count: sessionCount, error: sessionError } = await supabase
       .from("sessions")
@@ -230,6 +242,7 @@ export async function getUserStats(userId: string) {
         sessionCount: sessionCount || 0,
         boardCount: boardCount || 0,
         averageRating,
+        favoriteSpot: profileData?.favorite_spot || null,
         mostVisitedBeach,
         mostVisitedBeachCount,
       },

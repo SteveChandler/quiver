@@ -5,8 +5,6 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Settings,
-  LogOut,
   CalendarDays,
   ImageIcon,
   WavesIcon as Surfboard,
@@ -88,7 +86,7 @@ function TabLoadingSkeleton({ type }: { type: string }) {
 }
 
 export function ProfileView() {
-  const { user, signOut, isLoading: authLoading, refreshSession } = useAuth();
+  const { user, isLoading: authLoading, refreshSession } = useAuth();
   const router = useRouter();
   const [boards, setBoards] = useState<Board[]>([]);
   const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
@@ -97,22 +95,6 @@ export function ProfileView() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
-
-  const handleSignOut = async () => {
-    try {
-      // Use the API route to sign out (which will clear cookies)
-      await fetch("/api/auth/supabase", {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      // Also call signOut to update the local auth state
-      await signOut();
-      router.push("/auth/sign-in");
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
-  };
 
   const loadUserData = async () => {
     if (!user) return;
@@ -208,28 +190,10 @@ export function ProfileView() {
         {...ANIMATION_VARIANTS.fadeInView}
         className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-white/20 shadow-sm"
       >
-        <div className="container flex items-center justify-between h-16 px-4">
+        <div className="container flex items-center h-16 px-4">
           <h1 className="text-xl font-roboto font-bold text-dark-grey">
             Profile
           </h1>
-          <div className="flex items-center gap-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setEditModalOpen(true)}
-              className="hover:bg-ocean-blue/10 transition-colors duration-300"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleSignOut}
-              className="hover:bg-red-500/10 hover:text-red-600 transition-colors duration-300"
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
         </div>
       </motion.header>
 
