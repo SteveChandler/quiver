@@ -320,3 +320,107 @@ export async function updateAllBeachForecasts() {
     };
   }
 }
+
+// Get today's forecast for a beach (used by home page)
+export async function getForecastForToday(beachId: string) {
+  try {
+    console.log("🏠 getForecastForToday called with beachId:", beachId);
+
+    const supabase = await createSupabaseServiceRoleClient();
+    const { getCurrentForecast } = await import(
+      "@/lib/utils/current-forecast-utils"
+    );
+
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
+
+    console.log("📅 Searching for forecasts between:", today, "and", tomorrow);
+
+    // Get today's and tomorrow's enhanced forecasts using same view as beach details page
+    const { data: enhancedForecasts, error: enhancedError } = await supabase
+      .from("ten_day_enhanced_forecasts")
+      .select("*")
+      .eq("beach_id", beachId)
+      .order("forecast_date", { ascending: true })
+      .order("forecast_time", { ascending: true });
+
+    console.log("🔍 Enhanced forecasts query result:", {
+      error: enhancedError,
+      count: enhancedForecasts?.length || 0,
+      sampleForecast: enhancedForecasts?.[0]
+        ? {
+            date: enhancedForecasts[0].forecast_date,
+            time: enhancedForecasts[0].forecast_time,
+            tide: enhancedForecasts[0].tide_status,
+            wind: enhancedForecasts[0].wind_speed,
+          }
+        : null,
+    });
+
+    if (enhancedError) {
+      console.error(
+        "❌ Error fetching enhanced forecast for today:",
+        enhancedError
+      );
+    }
+
+    if (enhancedForecasts && enhancedForecasts.length > 0) {
+      // Use same logic as beach details page - take the first forecast from the sorted results
+      // The view already filters to next 10 days and sorts by date/time
+      const currentForecast = enhancedForecasts[0];
+
+      if (currentForecast) {
+        console.log(
+          `✅ Home page forecast found: ${currentForecast.forecast_date} ${currentForecast.forecast_time}, tide: ${currentForecast.tide_status}, wind: ${currentForecast.wind_speed}`
+        );
+        return currentForecast;
+      }
+    }
+
+    // Fallback to basic forecasts table if enhanced not available
+    console.log("🔄 Trying fallback to basic forecasts table...");
+
+    const { data: basicForecasts, error: basicError } = await supabase
+      .from("forecasts")
+      .select("*")
+      .eq("beach_id", beachId)
+      .in("forecast_date", [today, tomorrow])
+      .order("forecast_date", { ascending: true })
+      .order("forecast_time", { ascending: true });
+
+    console.log("📊 Basic forecasts query result:", {
+      error: basicError,
+      count: basicForecasts?.length || 0,
+      sampleForecast: basicForecasts?.[0]
+        ? {
+            date: basicForecasts[0].forecast_date,
+            time: basicForecasts[0].forecast_time,
+            beachId: basicForecasts[0].beach_id,
+          }
+        : null,
+    });
+
+    if (basicError) {
+      console.error("❌ Error fetching basic forecast for today:", basicError);
+      throw new Error(basicError.message);
+    }
+
+    if (basicForecasts && basicForecasts.length > 0) {
+      const currentForecast = getCurrentForecast(basicForecasts);
+      if (currentForecast) {
+        console.log(
+          `✅ Home page forecast (fallback): ${currentForecast.forecast_date} ${currentForecast.forecast_time}`
+        );
+        return currentForecast;
+      }
+    }
+
+    console.log("❌ No forecast data found for beach:", beachId);
+    return null;
+  } catch (error) {
+    console.error("Error in getForecastForToday:", error);
+    throw error;
+  }
+}

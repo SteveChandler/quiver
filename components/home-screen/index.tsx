@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, lazy } from "react";
+import { useState, Suspense, lazy, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/bottom-navigation";
@@ -8,7 +8,10 @@ import { CalendarDays, Waves } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { useHomeData } from "./use-home-data";
-import { useUserProfile } from "@/hooks/use-user-profile";
+
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { getBeachById } from "@/actions/beach/beach-query-actions";
+import type { Beach } from "@/types/database";
 
 // Lazy load heavy tab components
 const ForecastTab = lazy(() =>
@@ -37,15 +40,81 @@ export function HomeScreen() {
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
 
-  // Use shared profile loading hook with built-in timeout
-  const { profile } = useUserProfile({
-    userId: user?.id,
-    enabled: !!user,
-    timeout: 10000, // 10 second timeout
-  });
+  // Simple direct approach - fetch profile and default beach together
+  const fetchProfileAndDefaultBeach = useCallback(async () => {
+    if (!user?.id) return { profile: null, defaultBeach: null };
 
-  // Debug active tab
-  console.log("HomeScreen activeTab:", activeTab, "user:", !!user);
+    try {
+      // Get profile directly
+      const { getProfile } = await import("@/actions/profile-actions");
+      const profileResult = await getProfile(user.id);
+
+      if (!profileResult.success || !profileResult.data) {
+        console.log("❌ No profile found");
+        return { profile: null, defaultBeach: null };
+      }
+
+      const profile = profileResult.data;
+      console.log("✅ Profile loaded:", {
+        id: profile.id,
+        favoriteSpot: profile.favorite_spot,
+        defaultBeachId: profile.default_beach_id,
+      });
+
+      // Find default beach using favorite_spot (legacy field)
+      if (profile.favorite_spot) {
+        console.log("🏖️ Looking up favorite_spot:", profile.favorite_spot);
+
+        const { getBeaches } = await import("@/actions/beach-actions");
+        const beachesResult = await getBeaches();
+
+        if (beachesResult.success && beachesResult.data) {
+          const favoriteSpotLower = profile.favorite_spot.toLowerCase();
+          const matchingBeach = beachesResult.data.find(
+            (beach) =>
+              beach.name.toLowerCase() === favoriteSpotLower ||
+              beach.name.toLowerCase().includes(favoriteSpotLower) ||
+              favoriteSpotLower.includes(beach.name.toLowerCase())
+          );
+
+          if (matchingBeach) {
+            console.log("✅ Found default beach:", matchingBeach.name);
+            return { profile, defaultBeach: matchingBeach };
+          }
+        }
+      }
+
+      // Fallback to default_beach_id
+      if (profile.default_beach_id) {
+        const result = await getBeachById(profile.default_beach_id);
+        if (result.success && result.data) {
+          console.log("✅ Using default_beach_id:", result.data.name);
+          return { profile, defaultBeach: result.data };
+        }
+      }
+
+      console.log("⚠️ No default beach found");
+      return { profile, defaultBeach: null };
+    } catch (error) {
+      console.error("❌ Error fetching profile/beach:", error);
+      return { profile: null, defaultBeach: null };
+    }
+  }, [user?.id]);
+
+  const { data: profileData, loading: profileLoading } = useDataFetcher(
+    fetchProfileAndDefaultBeach
+  );
+
+  const profile = profileData?.profile;
+  const defaultBeach = profileData?.defaultBeach;
+
+  console.log("🏠 HomeScreen Summary:", {
+    hasUser: !!user,
+    hasProfile: !!profile,
+    hasDefaultBeach: !!defaultBeach,
+    defaultBeachName: defaultBeach?.name,
+    profileLoading,
+  });
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -119,7 +188,7 @@ export function HomeScreen() {
 
             <TabsContent value="forecast">
               <Suspense fallback={<TabSkeleton />}>
-                <ForecastTab profile={profile} />
+                <ForecastTab profile={profile} defaultBeach={defaultBeach} />
               </Suspense>
             </TabsContent>
 

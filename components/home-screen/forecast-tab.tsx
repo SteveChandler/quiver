@@ -31,8 +31,24 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
 
   // Get forecast for default beach
   const fetchTodaysForecast = useCallback(async () => {
-    if (!defaultBeach?.id) return null;
-    return await getForecastForToday(defaultBeach.id);
+    console.log("🌊 ForecastTab fetchTodaysForecast called:", {
+      hasDefaultBeach: !!defaultBeach,
+      beachId: defaultBeach?.id,
+      beachName: defaultBeach?.name,
+    });
+
+    if (!defaultBeach?.id) {
+      console.log("❌ No defaultBeach.id, returning null");
+      return null;
+    }
+
+    console.log(
+      "📞 Calling getForecastForToday with beachId:",
+      defaultBeach.id
+    );
+    const result = await getForecastForToday(defaultBeach.id);
+    console.log("📊 getForecastForToday result:", result);
+    return result;
   }, [defaultBeach?.id]);
 
   const {
@@ -40,6 +56,13 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
     loading: forecastLoading,
     error: forecastError,
   } = useDataFetcher(fetchTodaysForecast);
+
+  console.log("🏖️ ForecastTab useDataFetcher result:", {
+    todaysForecast,
+    forecastLoading,
+    forecastError,
+    willShowUnavailable: !!(forecastError || !todaysForecast),
+  });
 
   // Get calibration data for the beach
   const { beachAccuracy, getConfidenceLevel, accuracyStats } =
