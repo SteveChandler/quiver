@@ -102,12 +102,12 @@ export async function POST(request: NextRequest): Promise<Response> {
     // Fetch CDIP stations for Southern California beaches first
     // Filter by geographic coordinates (Southern California region)
     const socaBeaches = beaches.filter(
-        (beach: Beach) =>
-          beach.latitude >= 32.0 &&
-          beach.latitude <= 35.0 &&
-          beach.longitude >= -120.0 &&
-          beach.longitude <= -117.0
-      );
+      (beach: Beach) =>
+        beach.latitude >= 32.0 &&
+        beach.latitude <= 35.0 &&
+        beach.longitude >= -120.0 &&
+        beach.longitude <= -117.0
+    );
 
     const cdipStationsUpdated: string[] = [];
     if (socaBeaches.length > 0) {
