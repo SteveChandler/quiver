@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
+import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getForecastForToday } from "@/actions/forecast-actions";
@@ -55,7 +56,10 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
     data: todaysForecast,
     loading: forecastLoading,
     error: forecastError,
-  } = useDataFetcher(fetchTodaysForecast);
+  } = useDataFetcher(fetchTodaysForecast, {
+    // Skip the fetch if we don't have a default beach yet
+    skip: !defaultBeach?.id,
+  });
 
   console.log("🏖️ ForecastTab useDataFetcher result:", {
     todaysForecast,
@@ -275,15 +279,27 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
             </Button>
           </div>
 
+          {/* Local Intel for this beach */}
+          <div className="mt-4">
+            <BeachIntelSection
+              beachId={defaultBeach.id}
+              beachName={defaultBeach.name}
+              latitude={defaultBeach.latitude}
+              longitude={defaultBeach.longitude}
+              className="border-0 p-0"
+            />
+          </div>
+
           {/* Encourage feedback if no accuracy data */}
           {!beachAccuracy && (
-            <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200 mt-4">
               <Star className="h-6 w-6 text-yellow-500 mx-auto mb-2" />
               <p className="text-sm text-yellow-700 font-medium mb-1">
-                Help Build Community Forecasts!
+                Help Improve Forecast Accuracy!
               </p>
               <p className="text-xs text-yellow-600">
-                Log sessions and provide feedback to improve forecast accuracy
+                Log your surf sessions to help calibrate forecasts for this
+                beach
               </p>
             </div>
           )}

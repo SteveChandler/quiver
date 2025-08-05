@@ -10,18 +10,14 @@ test.describe("Forecast Loading Flows", () => {
         body: JSON.stringify({
           success: true,
           data: {
-            type: "enhanced",
-            wave_height: "4-6 ft",
-            wind_speed: "10-15 mph",
-            wind_direction: "W",
-            weather_condition: "Partly cloudy",
-            confidence_score: 85,
+            message: "Enhanced forecasts updated for test beach",
+            forecastsCount: 96,
           },
         }),
       });
     });
 
-    // Mock beaches API
+    // Mock beaches API with realistic beach data
     await page.route("**/api/beaches**", async (route) => {
       await route.fulfill({
         status: 200,

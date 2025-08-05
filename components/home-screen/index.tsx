@@ -9,8 +9,7 @@ import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { useHomeData } from "./use-home-data";
 
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { getBeachById } from "@/actions/beach/beach-query-actions";
+import { useCachedProfile } from "@/hooks/use-cached-profile";
 import type { Beach } from "@/types/database";
 
 // Lazy load heavy tab components
@@ -40,73 +39,9 @@ export function HomeScreen() {
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
 
-  // Simple direct approach - fetch profile and default beach together
-  const fetchProfileAndDefaultBeach = useCallback(async () => {
-    if (!user?.id) return { profile: null, defaultBeach: null };
-
-    try {
-      // Get profile directly
-      const { getProfile } = await import("@/actions/profile-actions");
-      const profileResult = await getProfile(user.id);
-
-      if (!profileResult.success || !profileResult.data) {
-        console.log("❌ No profile found");
-        return { profile: null, defaultBeach: null };
-      }
-
-      const profile = profileResult.data;
-      console.log("✅ Profile loaded:", {
-        id: profile.id,
-        favoriteSpot: profile.favorite_spot,
-        defaultBeachId: profile.default_beach_id,
-      });
-
-      // Find default beach using favorite_spot (legacy field)
-      if (profile.favorite_spot) {
-        console.log("🏖️ Looking up favorite_spot:", profile.favorite_spot);
-
-        const { getBeaches } = await import("@/actions/beach-actions");
-        const beachesResult = await getBeaches();
-
-        if (beachesResult.success && beachesResult.data) {
-          const favoriteSpotLower = profile.favorite_spot.toLowerCase();
-          const matchingBeach = beachesResult.data.find(
-            (beach) =>
-              beach.name.toLowerCase() === favoriteSpotLower ||
-              beach.name.toLowerCase().includes(favoriteSpotLower) ||
-              favoriteSpotLower.includes(beach.name.toLowerCase())
-          );
-
-          if (matchingBeach) {
-            console.log("✅ Found default beach:", matchingBeach.name);
-            return { profile, defaultBeach: matchingBeach };
-          }
-        }
-      }
-
-      // Fallback to default_beach_id
-      if (profile.default_beach_id) {
-        const result = await getBeachById(profile.default_beach_id);
-        if (result.success && result.data) {
-          console.log("✅ Using default_beach_id:", result.data.name);
-          return { profile, defaultBeach: result.data };
-        }
-      }
-
-      console.log("⚠️ No default beach found");
-      return { profile, defaultBeach: null };
-    } catch (error) {
-      console.error("❌ Error fetching profile/beach:", error);
-      return { profile: null, defaultBeach: null };
-    }
-  }, [user?.id]);
-
-  const { data: profileData, loading: profileLoading } = useDataFetcher(
-    fetchProfileAndDefaultBeach
-  );
-
-  const profile = profileData?.profile;
-  const defaultBeach = profileData?.defaultBeach;
+  // Use cached profile hook to prevent flickering on navigation
+  const { profile, defaultBeach, profileLoading, hasCachedData } =
+    useCachedProfile();
 
   console.log("🏠 HomeScreen Summary:", {
     hasUser: !!user,
@@ -114,6 +49,7 @@ export function HomeScreen() {
     hasDefaultBeach: !!defaultBeach,
     defaultBeachName: defaultBeach?.name,
     profileLoading,
+    hasCachedData,
   });
 
   return (

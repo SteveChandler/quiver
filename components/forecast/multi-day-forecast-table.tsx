@@ -208,9 +208,7 @@ function ForecastTable({
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Wind
                 </th>
-                <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                  Tide
-                </th>
+
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Weather
                 </th>
@@ -283,18 +281,6 @@ function ForecastTable({
                       <span className="text-lg">
                         {getDirectionArrow(forecast.wind_direction)}
                       </span>
-                    </div>
-                  </td>
-
-                  {/* Tide */}
-                  <td className="p-3">
-                    <div className="text-xs">
-                      <div className="font-medium text-foreground">
-                        {forecast.tide_height}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {forecast.tide_status}
-                      </div>
                     </div>
                   </td>
 

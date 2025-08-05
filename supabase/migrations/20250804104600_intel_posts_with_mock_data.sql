@@ -1,15 +1,11 @@
 -- Intel Posts Migration
 -- Adds support for Local Intel Club feature
 
--- Create intel post tag enum (if it doesn't exist)
-DO $$ BEGIN
-    CREATE TYPE intel_post_tag AS ENUM ('parking', 'hazard', 'crowd', 'conditions', 'access', 'other');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+-- Create intel post tag enum
+CREATE TYPE intel_post_tag AS ENUM ('parking', 'hazard', 'crowd', 'conditions', 'access', 'other');
 
--- Create intel_posts table (if it doesn't exist)
-CREATE TABLE IF NOT EXISTS intel_posts (
+-- Create intel_posts table
+CREATE TABLE intel_posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     latitude DECIMAL(10, 8) NOT NULL,
@@ -26,8 +22,8 @@ CREATE TABLE IF NOT EXISTS intel_posts (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
--- Create intel_post_confirmations table (if it doesn't exist)
-CREATE TABLE IF NOT EXISTS intel_post_confirmations (
+-- Create intel_post_confirmations table
+CREATE TABLE intel_post_confirmations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     intel_post_id UUID NOT NULL REFERENCES intel_posts(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -35,18 +31,18 @@ CREATE TABLE IF NOT EXISTS intel_post_confirmations (
     UNIQUE(intel_post_id, user_id)
 );
 
--- Create spatial index for geo-queries (if it doesn't exist)
-CREATE INDEX IF NOT EXISTS intel_posts_location_idx ON intel_posts USING GIST (
+-- Create spatial index for geo-queries
+CREATE INDEX intel_posts_location_idx ON intel_posts USING GIST (
     ST_Point(longitude, latitude)
 );
 
--- Create other indexes for performance (if they don't exist)
-CREATE INDEX IF NOT EXISTS intel_posts_user_id_idx ON intel_posts(user_id);
-CREATE INDEX IF NOT EXISTS intel_posts_tag_idx ON intel_posts(tag);
-CREATE INDEX IF NOT EXISTS intel_posts_created_at_idx ON intel_posts(created_at DESC);
-CREATE INDEX IF NOT EXISTS intel_posts_is_active_idx ON intel_posts(is_active);
-CREATE INDEX IF NOT EXISTS intel_post_confirmations_post_id_idx ON intel_post_confirmations(intel_post_id);
-CREATE INDEX IF NOT EXISTS intel_post_confirmations_user_id_idx ON intel_post_confirmations(user_id);
+-- Create other indexes for performance
+CREATE INDEX intel_posts_user_id_idx ON intel_posts(user_id);
+CREATE INDEX intel_posts_tag_idx ON intel_posts(tag);
+CREATE INDEX intel_posts_created_at_idx ON intel_posts(created_at DESC);
+CREATE INDEX intel_posts_is_active_idx ON intel_posts(is_active);
+CREATE INDEX intel_post_confirmations_post_id_idx ON intel_post_confirmations(intel_post_id);
+CREATE INDEX intel_post_confirmations_user_id_idx ON intel_post_confirmations(user_id);
 
 -- Create trigger for updated_at
 CREATE OR REPLACE FUNCTION update_intel_posts_updated_at()
@@ -57,7 +53,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS intel_posts_updated_at_trigger ON intel_posts;
 CREATE TRIGGER intel_posts_updated_at_trigger
     BEFORE UPDATE ON intel_posts
     FOR EACH ROW
@@ -82,7 +77,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS intel_post_confirmations_count_trigger ON intel_post_confirmations;
 CREATE TRIGGER intel_post_confirmations_count_trigger
     AFTER INSERT OR DELETE ON intel_post_confirmations
     FOR EACH ROW
@@ -92,12 +86,7 @@ CREATE TRIGGER intel_post_confirmations_count_trigger
 ALTER TABLE intel_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE intel_post_confirmations ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for intel_posts (drop existing first to avoid conflicts)
-DROP POLICY IF EXISTS "Anyone can view active intel posts" ON intel_posts;
-DROP POLICY IF EXISTS "Users can insert their own intel posts" ON intel_posts;
-DROP POLICY IF EXISTS "Users can update their own intel posts" ON intel_posts;
-DROP POLICY IF EXISTS "Users can delete their own intel posts" ON intel_posts;
-
+-- RLS Policies for intel_posts
 CREATE POLICY "Anyone can view active intel posts" ON intel_posts
     FOR SELECT USING (is_active = true);
 
@@ -111,11 +100,7 @@ CREATE POLICY "Users can update their own intel posts" ON intel_posts
 CREATE POLICY "Users can delete their own intel posts" ON intel_posts
     FOR DELETE USING (auth.uid() = user_id);
 
--- RLS Policies for intel_post_confirmations (drop existing first to avoid conflicts)
-DROP POLICY IF EXISTS "Anyone can view intel post confirmations" ON intel_post_confirmations;
-DROP POLICY IF EXISTS "Users can insert their own confirmations" ON intel_post_confirmations;
-DROP POLICY IF EXISTS "Users can delete their own confirmations" ON intel_post_confirmations;
-
+-- RLS Policies for intel_post_confirmations
 CREATE POLICY "Anyone can view intel post confirmations" ON intel_post_confirmations
     FOR SELECT USING (true);
 
@@ -125,15 +110,7 @@ CREATE POLICY "Users can insert their own confirmations" ON intel_post_confirmat
 CREATE POLICY "Users can delete their own confirmations" ON intel_post_confirmations
     FOR DELETE USING (auth.uid() = user_id);
 
--- Create function to get nearby intel posts (drop all existing versions first)
-DO $$ DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN (SELECT oid::regprocedure FROM pg_proc WHERE proname = 'get_nearby_intel_posts') LOOP
-        EXECUTE 'DROP FUNCTION ' || r.oid::regprocedure;
-    END LOOP;
-END $$;
-
+-- Create function to get nearby intel posts
 CREATE OR REPLACE FUNCTION get_nearby_intel_posts(
     center_lat DECIMAL,
     center_lng DECIMAL,
@@ -196,7 +173,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Grant access to the function (safe to run multiple times)
+-- Grant access to the function
 GRANT EXECUTE ON FUNCTION get_nearby_intel_posts TO authenticated;
 
 COMMENT ON TABLE intel_posts IS 'Local Intel Club posts for surf conditions, hazards, parking, and crowd information';

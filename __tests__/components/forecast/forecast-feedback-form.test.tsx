@@ -92,6 +92,7 @@ describe("ForecastFeedbackForm", () => {
   });
 
   it("updates wave height slider correctly", async () => {
+    const user = userEvent.setup();
     renderForm();
 
     // Find the first slider (wave height slider)
@@ -101,8 +102,9 @@ describe("ForecastFeedbackForm", () => {
     // Initial value should be 3 ft
     expect(screen.getByText("3 ft")).toBeInTheDocument();
 
-    // Simulate slider change
-    fireEvent.change(waveHeightSlider, { target: { value: "5" } });
+    // Focus the slider and use arrow keys to change value
+    await user.click(waveHeightSlider);
+    await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}"); // Move from 3 to 5
 
     await waitFor(() => {
       expect(screen.getByText("5 ft")).toBeInTheDocument();
@@ -110,12 +112,18 @@ describe("ForecastFeedbackForm", () => {
   });
 
   it("shows wave height delta when forecast is available", async () => {
+    const user = userEvent.setup();
     renderForm();
 
     // Change wave height to something different from forecast
     const sliders = screen.getAllByRole("slider");
     const waveHeightSlider = sliders[0];
-    fireEvent.change(waveHeightSlider, { target: { value: "6" } });
+
+    // Focus the slider and use arrow keys to change value from 3 to 6
+    await user.click(waveHeightSlider);
+    await user.keyboard(
+      "{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}"
+    ); // Move from 3 to 6
 
     await waitFor(() => {
       // Should show delta
@@ -130,19 +138,35 @@ describe("ForecastFeedbackForm", () => {
     const windSelect = screen.getByRole("combobox");
     await user.click(windSelect);
 
-    const glasssyOption = screen.getByText("Glassy (0-2 mph)");
+    // Wait for dropdown to open and find the option by role
+    await waitFor(() => {
+      expect(
+        screen.getByRole("option", { name: "Glassy (0-2 mph)" })
+      ).toBeInTheDocument();
+    });
+
+    const glasssyOption = screen.getByRole("option", {
+      name: "Glassy (0-2 mph)",
+    });
     await user.click(glasssyOption);
 
-    expect(screen.getByDisplayValue("Glassy (0-2 mph)")).toBeInTheDocument();
+    // Check that the select now shows the selected value
+    await waitFor(() => {
+      expect(windSelect).toHaveTextContent("Glassy (0-2 mph)");
+    });
   });
 
   it("updates overall accuracy rating", async () => {
+    const user = userEvent.setup();
     renderForm();
 
     // Find the second slider (accuracy slider)
     const sliders = screen.getAllByRole("slider");
     const accuracySlider = sliders[1];
-    fireEvent.change(accuracySlider, { target: { value: "5" } });
+
+    // Focus the slider and use arrow keys to change value from 3 to 5
+    await user.click(accuracySlider);
+    await user.keyboard("{ArrowRight}{ArrowRight}"); // Move from 3 to 5
 
     await waitFor(() => {
       expect(screen.getByText("Excellent")).toBeInTheDocument();
@@ -168,20 +192,28 @@ describe("ForecastFeedbackForm", () => {
     // Set wave height
     const sliders = screen.getAllByRole("slider");
     const waveSlider = sliders[0];
-    fireEvent.change(waveSlider, { target: { value: "5" } });
+    await user.click(waveSlider);
+    await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}"); // Move from 3 to 5
 
     // Set wind condition using fireEvent instead of userEvent for Radix Select
     const windSelect = screen.getByRole("combobox");
     fireEvent.click(windSelect);
 
     await waitFor(() => {
-      const option = screen.getByText("Light Offshore (3-8 mph)");
-      fireEvent.click(option);
+      expect(
+        screen.getByRole("option", { name: "Light Offshore (3-8 mph)" })
+      ).toBeInTheDocument();
     });
+
+    const option = screen.getByRole("option", {
+      name: "Light Offshore (3-8 mph)",
+    });
+    fireEvent.click(option);
 
     // Set accuracy rating
     const accuracySlider = sliders[1];
-    fireEvent.change(accuracySlider, { target: { value: "4" } });
+    await user.click(accuracySlider);
+    await user.keyboard("{ArrowRight}"); // Move from 3 to 4
 
     // Add notes
     const notesTextarea = screen.getByPlaceholderText(
@@ -216,15 +248,20 @@ describe("ForecastFeedbackForm", () => {
   });
 
   it("enables submit button when wind condition is selected", async () => {
+    const user = userEvent.setup();
     renderForm();
 
     const windSelect = screen.getByRole("combobox");
-    fireEvent.click(windSelect);
+    await user.click(windSelect);
 
     await waitFor(() => {
-      const option = screen.getByText("Glassy (0-2 mph)");
-      fireEvent.click(option);
+      expect(
+        screen.getByRole("option", { name: "Glassy (0-2 mph)" })
+      ).toBeInTheDocument();
     });
+
+    const option = screen.getByRole("option", { name: "Glassy (0-2 mph)" });
+    await user.click(option);
 
     await waitFor(() => {
       const submitButton = screen.getByRole("button", {
@@ -256,9 +293,13 @@ describe("ForecastFeedbackForm", () => {
     fireEvent.click(windSelect);
 
     await waitFor(() => {
-      const option = screen.getByText("Glassy (0-2 mph)");
-      fireEvent.click(option);
+      expect(
+        screen.getByRole("option", { name: "Glassy (0-2 mph)" })
+      ).toBeInTheDocument();
     });
+
+    const option = screen.getByRole("option", { name: "Glassy (0-2 mph)" });
+    fireEvent.click(option);
 
     const submitButton = screen.getByRole("button", {
       name: /submit feedback/i,
@@ -280,27 +321,36 @@ describe("ForecastFeedbackForm", () => {
     expect(screen.queryByText(/Forecast:/)).not.toBeInTheDocument();
   });
 
-  it("displays accuracy rating labels correctly", () => {
+  it("displays accuracy rating labels correctly", async () => {
+    const user = userEvent.setup();
     renderForm();
 
     // Find the accuracy slider (second slider)
     const sliders = screen.getAllByRole("slider");
     const accuracySlider = sliders[1];
 
-    // Test different rating values
-    fireEvent.change(accuracySlider, { target: { value: "1" } });
+    // Start by clicking to focus
+    await user.click(accuracySlider);
+
+    // Test different rating values by navigating with keyboard
+    // First go to minimum (1) by pressing Home key
+    await user.keyboard("{Home}");
     expect(screen.getByText("Poor")).toBeInTheDocument();
 
-    fireEvent.change(accuracySlider, { target: { value: "2" } });
+    // Navigate to 2
+    await user.keyboard("{ArrowRight}");
     expect(screen.getByText("Below Average")).toBeInTheDocument();
 
-    fireEvent.change(accuracySlider, { target: { value: "3" } });
+    // Navigate to 3
+    await user.keyboard("{ArrowRight}");
     expect(screen.getByText("Average")).toBeInTheDocument();
 
-    fireEvent.change(accuracySlider, { target: { value: "4" } });
+    // Navigate to 4
+    await user.keyboard("{ArrowRight}");
     expect(screen.getByText("Good")).toBeInTheDocument();
 
-    fireEvent.change(accuracySlider, { target: { value: "5" } });
+    // Navigate to 5
+    await user.keyboard("{ArrowRight}");
     expect(screen.getByText("Excellent")).toBeInTheDocument();
   });
 });

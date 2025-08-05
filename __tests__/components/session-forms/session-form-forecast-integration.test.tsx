@@ -9,6 +9,29 @@ import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import * as sessionActions from "@/actions/session-actions";
 import * as forecastActions from "@/actions/forecast-actions";
 
+// Mock Supabase client first to prevent RealtimeClient issues
+jest.mock("@/lib/supabase/client", () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getUser: jest.fn(),
+      onAuthStateChange: jest.fn(),
+    },
+    from: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    single: jest.fn(),
+    insert: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
+    storage: {
+      from: jest.fn().mockReturnThis(),
+      upload: jest.fn(),
+      remove: jest.fn(),
+      getPublicUrl: jest.fn(),
+    },
+  })),
+}));
+
 // Mock dependencies
 jest.mock("next/navigation");
 jest.mock("@/context/auth-context");

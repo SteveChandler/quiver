@@ -28,6 +28,9 @@ interface BeachDetailProps {
 export function BeachDetail({ id }: BeachDetailProps) {
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [accordionValue, setAccordionValue] = useState<string | undefined>(
+    undefined
+  );
 
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
@@ -335,14 +338,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                     {selectedDayForecast.weather_condition}
                   </span>
                 </div>
-                <div className="bg-teal-50/70 p-3 rounded-lg border border-teal-200">
-                  <strong className="font-roboto text-teal-700">
-                    Tide Status:
-                  </strong>{" "}
-                  <span className="font-open-sans text-teal-600">
-                    {selectedDayForecast.tide_status}
-                  </span>
-                </div>
+
                 <div className="bg-emerald-50/70 p-3 rounded-lg border border-emerald-200">
                   <strong className="font-roboto text-emerald-700">
                     Confidence:
@@ -353,7 +349,12 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 </div>
               </div>
 
-              <Accordion type="single" collapsible>
+              <Accordion
+                type="single"
+                collapsible
+                value={accordionValue}
+                onValueChange={setAccordionValue}
+              >
                 <AccordionItem value="swells" className="border-ocean-blue/20">
                   <AccordionTrigger className="font-roboto text-ocean-blue hover:text-ocean-blue/80">
                     Swell & Wind Wave Details
@@ -444,9 +445,12 @@ export function BeachDetail({ id }: BeachDetailProps) {
                       ? "ring-2 ring-ocean-blue shadow-2xl scale-105"
                       : ""
                   }`}
-                  onClick={() =>
-                    setSelectedDay(selectedDay === date ? null : date)
-                  }
+                  onClick={() => {
+                    const newSelectedDay = selectedDay === date ? null : date;
+                    setSelectedDay(newSelectedDay);
+                    // Auto-expand swell details when a day is selected
+                    setAccordionValue(newSelectedDay ? "swells" : undefined);
+                  }}
                 >
                   <CardHeader className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-t-2xl">
                     <CardTitle className="text-base md:text-lg font-roboto font-semibold">
@@ -503,14 +507,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                           {representative.weather_condition}
                         </span>
                       </div>
-                      <div className="text-sm font-open-sans">
-                        <strong className="font-roboto text-teal-700">
-                          Tide Status:
-                        </strong>{" "}
-                        <span className="text-teal-600">
-                          {representative.tide_status}
-                        </span>
-                      </div>
+
                       <div className="text-sm font-open-sans">
                         <strong className="font-roboto text-emerald-700">
                           Confidence:

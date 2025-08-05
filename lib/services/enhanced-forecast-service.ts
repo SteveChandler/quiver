@@ -758,7 +758,10 @@ export class EnhancedForecastService {
     if (feet < 1) {
       return `${Math.round(feet * 10) / 10} ft`;
     }
-    return `${Math.round(feet)} ft`;
+    // Use decimal precision to show actual NOAA variation
+    // Round to nearest 0.1 feet for maximum precision
+    const rounded = Math.round(feet * 10) / 10;
+    return `${rounded} ft`;
   }
 
   private extractWindSpeed(windSpeedStr: string): string {

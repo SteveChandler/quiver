@@ -125,15 +125,7 @@ CREATE POLICY "Users can insert their own confirmations" ON intel_post_confirmat
 CREATE POLICY "Users can delete their own confirmations" ON intel_post_confirmations
     FOR DELETE USING (auth.uid() = user_id);
 
--- Create function to get nearby intel posts (drop all existing versions first)
-DO $$ DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN (SELECT oid::regprocedure FROM pg_proc WHERE proname = 'get_nearby_intel_posts') LOOP
-        EXECUTE 'DROP FUNCTION ' || r.oid::regprocedure;
-    END LOOP;
-END $$;
-
+-- Create function to get nearby intel posts
 CREATE OR REPLACE FUNCTION get_nearby_intel_posts(
     center_lat DECIMAL,
     center_lng DECIMAL,
@@ -196,7 +188,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Grant access to the function (safe to run multiple times)
+-- Grant access to the function
 GRANT EXECUTE ON FUNCTION get_nearby_intel_posts TO authenticated;
 
 COMMENT ON TABLE intel_posts IS 'Local Intel Club posts for surf conditions, hazards, parking, and crowd information';

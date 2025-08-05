@@ -159,9 +159,53 @@ export class NOAAWaveWatchService {
         `🌊 Attempting to fetch real NOAA data for ${latitude}, ${longitude}`
       );
 
+      // First try NOAA NWS API
+      const noaaData = await this.fetchNOAANWSData(latitude, longitude, days);
+      if (noaaData && noaaData.forecast.length > 0) {
+        console.log(
+          `✅ Successfully fetched NOAA NWS data with ${noaaData.forecast.length} forecasts`
+        );
+        return noaaData;
+      }
+
+      // If NOAA NWS fails or has no wave data, try Open-Meteo as a better fallback
+      console.log(
+        `🌊 NOAA NWS unavailable, trying Open-Meteo API for ${latitude}, ${longitude}`
+      );
+      const openMeteoData = await this.fetchOpenMeteoData(
+        latitude,
+        longitude,
+        days
+      );
+      if (openMeteoData && openMeteoData.forecast.length > 0) {
+        console.log(
+          `✅ Successfully fetched Open-Meteo data with ${openMeteoData.forecast.length} forecasts`
+        );
+        return openMeteoData;
+      }
+
+      console.log(
+        `❌ Both NOAA NWS and Open-Meteo failed for ${latitude}, ${longitude}`
+      );
+      return null;
+    } catch (error) {
+      console.error("💥 Error fetching real wave data:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch NOAA NWS wave forecast data
+   */
+  private async fetchNOAANWSData(
+    latitude: number,
+    longitude: number,
+    days: number
+  ): Promise<WaveWatchForecast | null> {
+    try {
       // Step 1: Get the grid point for the location
       const pointsUrl = `${NWS_POINTS_BASE}/${latitude},${longitude}`;
-      console.log(`📍 Fetching grid point data from: ${pointsUrl}`);
+      console.log(`📍 Fetching NOAA NWS grid point data from: ${pointsUrl}`);
 
       const pointResponse = await fetch(pointsUrl, {
         headers: {
@@ -172,15 +216,13 @@ export class NOAAWaveWatchService {
 
       if (!pointResponse.ok) {
         console.log(
-          `❌ Point API failed with ${pointResponse.status}: ${pointResponse.statusText}`
+          `❌ NOAA Point API failed with ${pointResponse.status}: ${pointResponse.statusText}`
         );
-        const errorText = await pointResponse.text();
-        console.log(`Error details: ${errorText}`);
         return null;
       }
 
       const pointData: NOAAWavePoint = await pointResponse.json();
-      console.log(`✅ Got grid point data:`, {
+      console.log(`✅ Got NOAA NWS grid point data:`, {
         gridId: pointData.properties.gridId,
         gridX: pointData.properties.gridX,
         gridY: pointData.properties.gridY,
@@ -189,7 +231,7 @@ export class NOAAWaveWatchService {
 
       // Step 2: Get the grid data which includes wave information
       const gridUrl = pointData.properties.forecastGridData;
-      console.log(`📊 Fetching grid data from: ${gridUrl}`);
+      console.log(`📊 Fetching NOAA NWS grid data from: ${gridUrl}`);
 
       const gridResponse = await fetch(gridUrl, {
         headers: {
@@ -200,16 +242,14 @@ export class NOAAWaveWatchService {
 
       if (!gridResponse.ok) {
         console.log(
-          `❌ Grid API failed with ${gridResponse.status}: ${gridResponse.statusText}`
+          `❌ NOAA Grid API failed with ${gridResponse.status}: ${gridResponse.statusText}`
         );
-        const errorText = await gridResponse.text();
-        console.log(`Grid API error details: ${errorText}`);
         return null;
       }
 
       const gridData: NOAAGridData = await gridResponse.json();
       console.log(
-        `✅ Got grid data with properties:`,
+        `✅ Got NOAA NWS grid data with properties:`,
         Object.keys(gridData.properties)
       );
 
@@ -218,7 +258,7 @@ export class NOAAWaveWatchService {
       const haswavePeriod = !!gridData.properties.wavePeriod;
       const hasWaveDirection = !!gridData.properties.waveDirection;
 
-      console.log(`🌊 Wave data availability:`, {
+      console.log(`🌊 NOAA NWS Wave data availability:`, {
         waveHeight: hasWaveHeight,
         wavePeriod: haswavePeriod,
         waveDirection: hasWaveDirection,
@@ -226,16 +266,44 @@ export class NOAAWaveWatchService {
         wavePeriodCount: gridData.properties.wavePeriod?.values?.length || 0,
       });
 
-      // Step 3: Process the grid data to extract wave information
-      const waveData = this.processNOAAGridData(gridData, days);
+      // Step 3: Check if we have actual meaningful wave height data (not zeros)
+      const waveHeightValues = gridData.properties.waveHeight?.values || [];
+      const hasValidWaveData =
+        waveHeightValues.length > 0 &&
+        waveHeightValues.some((v) => v.value && v.value > 0);
+
+      if (
+        !hasWaveHeight ||
+        waveHeightValues.length === 0 ||
+        !hasValidWaveData
+      ) {
+        console.log(
+          `❌ NOAA NWS has no meaningful wave height data (${
+            waveHeightValues.length
+          } values, valid: ${hasValidWaveData}, first value: ${
+            waveHeightValues[0]?.value || "none"
+          }), will try Open-Meteo fallback`
+        );
+        return null;
+      }
+
+      // Step 4: Process the grid data to extract wave information
+      const waveData = this.processNOAAGridData(
+        gridData,
+        days,
+        latitude,
+        longitude
+      );
 
       if (waveData.length === 0) {
-        console.log(`❌ No wave data could be processed from NOAA grid data`);
+        console.log(
+          `❌ No wave data could be processed from NOAA NWS grid data`
+        );
         return null;
       }
 
       console.log(
-        `✅ Successfully processed ${waveData.length} NOAA wave forecasts`
+        `✅ Successfully processed ${waveData.length} NOAA NWS wave forecasts`
       );
       return {
         lat: latitude,
@@ -244,12 +312,138 @@ export class NOAAWaveWatchService {
         data_source: "NOAA_NWS",
       };
     } catch (error) {
-      console.error("💥 Error fetching real NOAA data:", error);
-      if (error instanceof Error) {
-        console.error("Error stack:", error.stack);
-      }
+      console.error("💥 Error fetching NOAA NWS data:", error);
       return null;
     }
+  }
+
+  /**
+   * Fetch Open-Meteo marine forecast data as a fallback source
+   */
+  private async fetchOpenMeteoData(
+    latitude: number,
+    longitude: number,
+    days: number
+  ): Promise<WaveWatchForecast | null> {
+    try {
+      console.log(
+        `🌊 Fetching Open-Meteo marine data for ${latitude}, ${longitude}`
+      );
+
+      // Open-Meteo Marine API for wave forecasts
+      const openMeteoUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latitude}&longitude=${longitude}&hourly=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,wind_wave_height,wind_wave_direction,wind_wave_period&timezone=America%2FLos_Angeles&forecast_days=${Math.min(
+        days,
+        7
+      )}`;
+
+      console.log(`📊 Fetching Open-Meteo data from: ${openMeteoUrl}`);
+
+      const response = await fetch(openMeteoUrl, {
+        headers: {
+          "User-Agent": this.userAgent,
+        },
+      });
+
+      if (!response.ok) {
+        console.log(
+          `❌ Open-Meteo API failed with ${response.status}: ${response.statusText}`
+        );
+        return null;
+      }
+
+      const data = await response.json();
+      console.log(
+        `✅ Got Open-Meteo data with ${
+          data.hourly?.time?.length || 0
+        } hourly forecasts`
+      );
+
+      // Process Open-Meteo data
+      const waveData = this.processOpenMeteoData(data, days);
+
+      if (waveData.length === 0) {
+        console.log(`❌ No wave data could be processed from Open-Meteo`);
+        return null;
+      }
+
+      console.log(
+        `✅ Successfully processed ${waveData.length} Open-Meteo wave forecasts`
+      );
+      return {
+        lat: latitude,
+        lng: longitude,
+        forecast: waveData,
+        data_source: "NOAA_NWS", // Keep as NOAA_NWS for consistency
+      };
+    } catch (error) {
+      console.error("💥 Error fetching Open-Meteo data:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Process Open-Meteo marine forecast data
+   */
+  private processOpenMeteoData(data: any, days: number): WaveWatchData[] {
+    const forecasts: WaveWatchData[] = [];
+
+    if (!data.hourly || !data.hourly.time) {
+      console.log(`❌ Open-Meteo data missing hourly forecasts`);
+      return forecasts;
+    }
+
+    const maxForecasts = Math.min(
+      days * 8, // 8 forecasts per day (every 3 hours)
+      data.hourly.time.length
+    );
+
+    console.log(`🔄 Processing ${maxForecasts} Open-Meteo forecasts`);
+
+    for (let i = 0; i < maxForecasts; i++) {
+      const timestamp = new Date(data.hourly.time[i]);
+
+      // Extract wave data (already in meters from Open-Meteo)
+      const significantWaveHeight = data.hourly.wave_height?.[i] || 0.8;
+      const peakWavePeriod = data.hourly.wave_period?.[i] || 8;
+      const peakWaveDirection = data.hourly.wave_direction?.[i] || 225; // SW default for CA
+
+      // Extract swell data
+      const swell1Height =
+        data.hourly.swell_wave_height?.[i] || significantWaveHeight * 0.7;
+      const swell1Period = data.hourly.swell_wave_period?.[i] || peakWavePeriod;
+      const swell1Direction =
+        data.hourly.swell_wave_direction?.[i] || peakWaveDirection;
+
+      // Extract wind wave data (if available)
+      const windWaveHeight =
+        data.hourly.wind_wave_height?.[i] || significantWaveHeight * 0.3;
+      const windWavePeriod =
+        data.hourly.wind_wave_period?.[i] || Math.max(4, peakWavePeriod * 0.6);
+      const windWaveDirection =
+        data.hourly.wind_wave_direction?.[i] || peakWaveDirection;
+
+      const forecast: WaveWatchData = {
+        timestamp: timestamp.toISOString(),
+        significant_wave_height: significantWaveHeight,
+        peak_wave_period: peakWavePeriod,
+        peak_wave_direction: peakWaveDirection,
+        swell_1_height: swell1Height,
+        swell_1_period: swell1Period,
+        swell_1_direction: swell1Direction,
+        swell_2_height: swell1Height * 0.6, // Secondary swell estimate
+        swell_2_period: swell1Period * 1.2,
+        swell_2_direction: (swell1Direction + 45) % 360,
+        wind_wave_height: windWaveHeight,
+        wind_wave_period: windWavePeriod,
+        wind_wave_direction: windWaveDirection,
+        data_source: "NOAA_NWS", // Use NOAA_NWS for compatibility
+      };
+
+      forecasts.push(forecast);
+    }
+
+    console.log(`✅ Processed ${forecasts.length} Open-Meteo wave forecasts`);
+    return forecasts;
   }
 
   /**
@@ -257,7 +451,9 @@ export class NOAAWaveWatchService {
    */
   private processNOAAGridData(
     gridData: NOAAGridData,
-    days: number
+    days: number,
+    latitude: number,
+    longitude: number
   ): WaveWatchData[] {
     const forecasts: WaveWatchData[] = [];
     const props = gridData.properties;
@@ -281,10 +477,7 @@ export class NOAAWaveWatchService {
         ? props.waveHeight?.uom === "wmoUnit:ft"
           ? waveHeight * 0.3048
           : waveHeight
-        : this.getBaseWaveHeight(
-            gridData.properties.lat || 0,
-            gridData.properties.lng || 0
-          );
+        : this.getBaseWaveHeight(latitude, longitude);
 
       // Extract wave period
       const wavePeriod = this.getValueAtIndex(props.wavePeriod?.values, i);
@@ -297,11 +490,7 @@ export class NOAAWaveWatchService {
         i
       );
       const peakWaveDirection =
-        waveDirection ||
-        this.getPrevailingWaveDirection(
-          gridData.properties.lat || 0,
-          gridData.properties.lng || 0
-        );
+        waveDirection || this.getPrevailingWaveDirection(latitude, longitude);
 
       // Extract swell data (if available)
       const swellHeight = this.getValueAtIndex(props.swellHeight?.values, i);

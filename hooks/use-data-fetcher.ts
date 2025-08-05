@@ -8,6 +8,7 @@ interface DataFetcherState<T> {
 
 interface DataFetcherOptions {
   immediate?: boolean;
+  skip?: boolean;
   onSuccess?: (data: any) => void;
   onError?: (error: string) => void;
 }
@@ -16,7 +17,7 @@ export function useDataFetcher<T>(
   fetchFn: () => Promise<T>,
   options: DataFetcherOptions = {}
 ) {
-  const { immediate = true, onSuccess, onError } = options;
+  const { immediate = true, skip = false, onSuccess, onError } = options;
 
   // Use ref to store the latest fetch function to avoid dependency issues
   const fetchFnRef = useRef(fetchFn);
@@ -30,7 +31,7 @@ export function useDataFetcher<T>(
 
   const [state, setState] = useState<DataFetcherState<T>>({
     data: null,
-    loading: immediate,
+    loading: immediate && !skip,
     error: null,
   });
 
@@ -63,11 +64,21 @@ export function useDataFetcher<T>(
     }
   }, []); // Empty dependency array since we use refs
 
+  // Track previous skip value to trigger fetch when skip becomes false
+  const prevSkipRef = useRef(skip);
+
   useEffect(() => {
-    if (immediate) {
+    const wasSkipped = prevSkipRef.current;
+    const isCurrentlySkipped = skip;
+
+    // Trigger fetch when immediate is true and not skipped,
+    // or when skip changes from true to false
+    if ((immediate && !skip) || (wasSkipped && !isCurrentlySkipped)) {
       fetchData();
     }
-  }, [fetchData, immediate]);
+
+    prevSkipRef.current = skip;
+  }, [fetchData, immediate, skip]);
 
   const retry = useCallback(() => {
     fetchData();

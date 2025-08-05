@@ -115,12 +115,14 @@ global.ResizeObserver = jest.fn(() => ({
 }));
 
 // Polyfill for hasPointerCapture (needed by Radix UI components)
-Element.prototype.hasPointerCapture = jest.fn(() => false);
-Element.prototype.setPointerCapture = jest.fn();
-Element.prototype.releasePointerCapture = jest.fn();
+if (typeof Element !== "undefined") {
+  Element.prototype.hasPointerCapture = jest.fn(() => false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
 
-// Polyfill for scrollIntoView (needed by Radix UI components)
-Element.prototype.scrollIntoView = jest.fn();
+  // Polyfill for scrollIntoView (needed by Radix UI components)
+  Element.prototype.scrollIntoView = jest.fn();
+}
 
 // Suppress console errors during tests
 global.console = {
