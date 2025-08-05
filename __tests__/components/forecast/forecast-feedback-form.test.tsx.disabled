@@ -1,6 +1,6 @@
 // DISABLED: Converted to Playwright tests in e2e/forecast-components.spec.ts
 // This Jest test had issues with Radix UI component interactions
-//
+// 
 // import React from "react";
 // import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 // import userEvent from "@testing-library/user-event";

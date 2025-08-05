@@ -32,7 +32,7 @@ import {
   updatePlannedSessionToCompleted,
 } from "@/actions/session-actions";
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
-import { ForecastFeedbackPrompt } from "@/components/forecast/forecast-feedback-prompt";
+
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getForecastForDate } from "@/actions/forecast-actions";
 
@@ -512,16 +512,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
               </CardContent>
             </Card>
 
-            {/* Forecast Feedback Prompt */}
-            {showFeedbackPrompt && createdSession && !feedbackCompleted && (
-              <ForecastFeedbackPrompt
-                session={createdSession}
-                forecast={sessionForecast}
-                onSubmitFeedback={handleForecastFeedback}
-                onDismiss={handleSkipFeedback}
-                autoShow={false}
-              />
-            )}
+            {/* Forecast Feedback Prompt - Temporarily disabled */}
           </div>
         )}
 

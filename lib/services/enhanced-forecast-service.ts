@@ -1,6 +1,7 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { NOAAWaveWatchService } from "./noaa-wavewatch-service";
 import { NOAACOOPSService } from "./noaa-coops-service";
+import { CDIPService } from "./cdip-service";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 import {
@@ -24,6 +25,8 @@ import {
   type TideData,
   type WeatherData,
   type EnhancedForecastEntity,
+  type CDIPBuoyData,
+  type EnhancedForecastWithRawData,
 } from "@/types/forecast";
 import {
   ForecastError,
@@ -218,10 +221,12 @@ class NOAAWeatherDataSource implements WeatherDataSource {
 export class EnhancedForecastService {
   private waveWatchService: NOAAWaveWatchService;
   private coopsService: NOAACOOPSService;
+  private cdipService: CDIPService;
 
   constructor() {
     this.waveWatchService = new NOAAWaveWatchService();
     this.coopsService = new NOAACOOPSService();
+    this.cdipService = new CDIPService();
   }
 
   /**
@@ -242,12 +247,13 @@ export class EnhancedForecastService {
         }
 
         // Fetch all data sources in parallel with error handling
-        const [waveData, tideData, weatherData, buoyData] =
+        const [waveData, tideData, weatherData, buoyData, cdipData] =
           await Promise.allSettled([
             this.fetchWaveDataWithRetry(beach),
             this.fetchTidalDataWithRetry(beach),
             this.fetchWeatherDataWithRetry(beach),
             this.fetchNearbyBuoyDataWithRetry(beach),
+            this.fetchCDIPDataWithRetry(beach),
           ]);
 
         // Process results and handle failures gracefully
@@ -258,6 +264,7 @@ export class EnhancedForecastService {
           weatherData:
             weatherData.status === "fulfilled" ? weatherData.value : [],
           buoyData: buoyData.status === "fulfilled" ? buoyData.value : null,
+          cdipData: cdipData.status === "fulfilled" ? cdipData.value : null,
         };
 
         // Log any data source failures
@@ -272,6 +279,8 @@ export class EnhancedForecastService {
           });
         if (buoyData.status === "rejected")
           logError(buoyData.reason, { beachId: beach.id, dataSource: "buoy" });
+        if (cdipData.status === "rejected")
+          logError(cdipData.reason, { beachId: beach.id, dataSource: "cdip" });
 
         // Process and combine all data sources
         const forecasts = this.combineDataSources(processedData);
@@ -351,6 +360,36 @@ export class EnhancedForecastService {
   private async fetchNearbyBuoyDataWithRetry(beach: Beach) {
     return withRetry(async () => {
       return this.fetchNearbyBuoyData(beach);
+    });
+  }
+
+  /**
+   * Fetch CDIP data with retry logic
+   */
+  private async fetchCDIPDataWithRetry(beach: Beach) {
+    return withRetry(async () => {
+      try {
+        // Check if this is a Southern California beach that could benefit from CDIP data
+        const nearestStation = await this.cdipService.getNearestStation(
+          beach.latitude,
+          beach.longitude,
+          50 // 50km radius
+        );
+
+        if (!nearestStation) {
+          // No nearby CDIP station, return null
+          return null;
+        }
+
+        // Fetch CDIP data for the nearest station
+        const cdipData = await this.cdipService.fetchBuoyData(nearestStation);
+        return cdipData;
+      } catch (error) {
+        throw new DataSourceError("CDIP", error as Error, {
+          beachId: beach.id,
+          location: { lat: beach.latitude, lng: beach.longitude },
+        });
+      }
     });
   }
 
@@ -490,18 +529,30 @@ export class EnhancedForecastService {
     tideData,
     weatherData,
     buoyData,
+    cdipData,
   }: {
     beach: Beach;
     waveData: any;
     tideData: any;
     weatherData: any[];
     buoyData: any;
-  }): EnhancedForecastEntity[] {
-    const forecasts: EnhancedForecastEntity[] = [];
+    cdipData: CDIPBuoyData | null;
+  }): EnhancedForecastWithRawData[] {
+    const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
 
-    // Determine the primary data source based on wave data availability
-    const primaryDataSource = waveData?.data_source || "FALLBACK";
+    // Determine the primary data source - prioritize CDIP for high-quality buoy data
+    const primaryDataSource = cdipData
+      ? "CDIP"
+      : waveData?.data_source || "FALLBACK";
+
+    // Determine data sources used for metadata
+    const dataSources: string[] = [];
+    if (cdipData) dataSources.push("CDIP");
+    if (waveData) dataSources.push("NOAA_NWS");
+    if (tideData) dataSources.push("NOAA_COOPS");
+    if (buoyData) dataSources.push("NOAA_BUOY");
+    if (dataSources.length === 0) dataSources.push("FALLBACK");
 
     // Generate forecasts using constants
     for (let i = 0; i < TOTAL_FORECASTS; i++) {
@@ -524,12 +575,17 @@ export class EnhancedForecastService {
       // Use buoy data for current conditions if available
       const useBuoyData = i === 0 && buoyData;
 
+      // Get CDIP data for this time (use most recent if available)
+      const cdipPoint = this.getCDIPDataForTime(cdipData, forecastTime);
+      const useCDIPData = !!cdipPoint;
+
       // Calculate confidence score based on data availability and freshness
       const confidenceScore = this.calculateConfidenceScore({
         hasWaveData: !!wavePoint,
         hasTideData: !!tideInfo,
         hasWeatherData: !!weatherPoint,
         hasBuoyData: useBuoyData,
+        hasCDIPData: useCDIPData,
         forecastHoursAhead: i * FORECAST_CONSTANTS.INTERVAL_HOURS,
       });
 
@@ -538,35 +594,57 @@ export class EnhancedForecastService {
         forecast_date: this.getNormalizedDateString(forecastTime),
         forecast_time: this.getNormalizedTimeString(forecastTime),
 
-        // Wave data from WaveWatch III or buoy
+        // Wave data prioritized: CDIP > NOAA Buoy > WaveWatch III
         wave_height:
-          useBuoyData && buoyData.wave_height
+          useCDIPData && cdipPoint
+            ? this.metersToFeet(cdipPoint.significantWaveHeight)
+            : useBuoyData && buoyData.wave_height
             ? this.metersToFeet(buoyData.wave_height)
             : wavePoint
             ? this.metersToFeet(wavePoint.significant_wave_height)
             : null,
         wave_period:
-          useBuoyData && buoyData.wave_period
+          useCDIPData && cdipPoint
+            ? `${cdipPoint.peakWavePeriod}s`
+            : useBuoyData && buoyData.wave_period
             ? `${buoyData.wave_period}s`
             : wavePoint
             ? `${wavePoint.peak_wave_period}s`
             : null,
-        wave_direction: wavePoint
-          ? this.waveWatchService.getWaveDirectionText(
-              wavePoint.peak_wave_direction
-            )
-          : null,
+        wave_direction:
+          useCDIPData && cdipPoint
+            ? this.waveWatchService.getWaveDirectionText(
+                cdipPoint.peakWaveDirection
+              )
+            : wavePoint
+            ? this.waveWatchService.getWaveDirectionText(
+                wavePoint.peak_wave_direction
+              )
+            : null,
 
-        // Detailed swell information
-        swell_1_height: wavePoint
-          ? this.metersToFeet(wavePoint.swell_1_height)
-          : null,
-        swell_1_period: wavePoint ? `${wavePoint.swell_1_period}s` : null,
-        swell_1_direction: wavePoint
-          ? this.waveWatchService.getWaveDirectionText(
-              wavePoint.swell_1_direction
-            )
-          : null,
+        // Detailed swell information - prioritize CDIP when available
+        swell_1_height:
+          useCDIPData && cdipPoint?.swellHeight
+            ? this.metersToFeet(cdipPoint.swellHeight)
+            : wavePoint
+            ? this.metersToFeet(wavePoint.swell_1_height)
+            : null,
+        swell_1_period:
+          useCDIPData && cdipPoint?.swellPeriod
+            ? `${cdipPoint.swellPeriod}s`
+            : wavePoint
+            ? `${wavePoint.swell_1_period}s`
+            : null,
+        swell_1_direction:
+          useCDIPData && cdipPoint?.swellDirection
+            ? this.waveWatchService.getWaveDirectionText(
+                cdipPoint.swellDirection
+              )
+            : wavePoint
+            ? this.waveWatchService.getWaveDirectionText(
+                wavePoint.swell_1_direction
+              )
+            : null,
 
         swell_2_height: wavePoint
           ? this.metersToFeet(wavePoint.swell_2_height)
@@ -578,16 +656,29 @@ export class EnhancedForecastService {
             )
           : null,
 
-        // Wind waves
-        wind_wave_height: wavePoint
-          ? this.metersToFeet(wavePoint.wind_wave_height)
-          : null,
-        wind_wave_period: wavePoint ? `${wavePoint.wind_wave_period}s` : null,
-        wind_wave_direction: wavePoint
-          ? this.waveWatchService.getWaveDirectionText(
-              wavePoint.wind_wave_direction
-            )
-          : null,
+        // Wind waves - prioritize CDIP when available
+        wind_wave_height:
+          useCDIPData && cdipPoint?.windWaveHeight
+            ? this.metersToFeet(cdipPoint.windWaveHeight)
+            : wavePoint
+            ? this.metersToFeet(wavePoint.wind_wave_height)
+            : null,
+        wind_wave_period:
+          useCDIPData && cdipPoint?.windWavePeriod
+            ? `${cdipPoint.windWavePeriod}s`
+            : wavePoint
+            ? `${wavePoint.wind_wave_period}s`
+            : null,
+        wind_wave_direction:
+          useCDIPData && cdipPoint?.windWaveDirection
+            ? this.waveWatchService.getWaveDirectionText(
+                cdipPoint.windWaveDirection
+              )
+            : wavePoint
+            ? this.waveWatchService.getWaveDirectionText(
+                wavePoint.wind_wave_direction
+              )
+            : null,
 
         // Water temperature
         water_temp:
@@ -619,7 +710,30 @@ export class EnhancedForecastService {
         data_source: primaryDataSource,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-      };
+
+        // Raw forecast data for debugging and analysis
+        raw_forecast: {
+          cdip_data: cdipData,
+          noaa_data: {
+            wave_data: waveData,
+            tide_data: tideData,
+            weather_data: weatherData,
+            buoy_data: buoyData,
+          },
+          data_sources: dataSources,
+          quality_scores: {
+            cdip: cdipData
+              ? this.cdipService.getDataQualityScore(cdipData)
+              : undefined,
+            noaa: waveData ? 75 : undefined, // Default NOAA quality score
+            overall: confidenceScore,
+          },
+          fetch_timestamps: {
+            cdip: cdipData?.lastUpdated,
+            noaa: now.toISOString(),
+          },
+        },
+      } as EnhancedForecastWithRawData;
 
       // Validate forecast values for San Diego area and flag unrealistic conditions
       this.validateForecastValues(forecast, beach.name);
@@ -628,6 +742,22 @@ export class EnhancedForecastService {
     }
 
     return forecasts;
+  }
+
+  /**
+   * Get CDIP data for a specific time (use most recent data)
+   */
+  private getCDIPDataForTime(cdipData: CDIPBuoyData | null, targetTime: Date) {
+    if (!cdipData?.data || cdipData.data.length === 0) return null;
+
+    // For CDIP data, use the most recent measurement since it's real-time buoy data
+    // Sort by timestamp and return the latest
+    const sortedData = [...cdipData.data].sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    return sortedData[0]; // Return the most recent data point
   }
 
   /**
@@ -727,24 +857,31 @@ export class EnhancedForecastService {
     hasTideData,
     hasWeatherData,
     hasBuoyData,
+    hasCDIPData,
     forecastHoursAhead,
   }: {
     hasWaveData: boolean;
     hasTideData: boolean;
     hasWeatherData: boolean;
     hasBuoyData: boolean;
+    hasCDIPData?: boolean;
     forecastHoursAhead: number;
   }): number {
     let score = 50; // Base score
 
-    // Data availability bonuses
-    if (hasWaveData) score += 20;
+    // Data availability bonuses - CDIP gets highest bonus for quality
+    if (hasCDIPData) score += 25; // Premium for high-quality CDIP buoy data
+    else if (hasWaveData) score += 20; // Standard wave model data
+
     if (hasTideData) score += 15;
     if (hasWeatherData) score += 10;
     if (hasBuoyData) score += 15;
 
     // Time penalty (forecasts get less reliable over time)
-    const timePenalty = Math.min(30, forecastHoursAhead * 0.5);
+    // CDIP data is real-time so less time penalty for recent forecasts
+    const timePenalty = hasCDIPData
+      ? Math.min(20, forecastHoursAhead * 0.3) // Reduced penalty for CDIP data
+      : Math.min(30, forecastHoursAhead * 0.5);
     score -= timePenalty;
 
     return Math.max(0, Math.min(100, Math.round(score)));

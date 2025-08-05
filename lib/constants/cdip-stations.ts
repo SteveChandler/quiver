@@ -1,0 +1,210 @@
+/**
+ * CDIP (Coastal Data Information Program) Station Configurations
+ *
+ * CDIP is operated by the Scripps Institution of Oceanography and provides
+ * high-quality wave data from buoy stations along the California coast.
+ *
+ * Station data includes:
+ * - Real-time wave height, period, and direction
+ * - Spectral wave data with swell separation
+ * - Historical data for trend analysis
+ * - Quality-controlled measurements
+ */
+
+import { CDIPStationConfig } from "@/types/forecast";
+
+export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
+  // Southern California Primary Stations
+  "100": {
+    id: "100",
+    name: "Torrey Pines Outer",
+    latitude: 32.921,
+    longitude: -117.39,
+    deployDepth: 550, // meters
+    hullType: "3-meter discus buoy",
+    parameters: ["wave", "weather", "drifter"],
+  },
+
+  "46225": {
+    id: "46225",
+    name: "Point Reyes",
+    latitude: 37.751,
+    longitude: -122.839,
+    deployDepth: 430,
+    hullType: "3-meter discus buoy",
+    parameters: ["wave", "weather"],
+  },
+
+  "46236": {
+    id: "46236",
+    name: "Monterey Bay",
+    latitude: 36.771,
+    longitude: -122.186,
+    deployDepth: 1100,
+    hullType: "3-meter discus buoy",
+    parameters: ["wave", "weather", "sst"],
+  },
+
+  // Additional SoCal Stations
+  "67": {
+    id: "67",
+    name: "San Pedro South",
+    latitude: 33.618,
+    longitude: -118.318,
+    deployDepth: 880,
+    hullType: "3-meter discus buoy",
+    parameters: ["wave", "weather"],
+  },
+
+  "191": {
+    id: "191",
+    name: "Harvest",
+    latitude: 34.443,
+    longitude: -120.775,
+    deployDepth: 476,
+    hullType: "3-meter discus buoy",
+    parameters: ["wave", "weather"],
+  },
+
+  "46221": {
+    id: "46221",
+    name: "Point Arena",
+    latitude: 38.837,
+    longitude: -123.737,
+    deployDepth: 100,
+    hullType: "3-meter discus buoy",
+    parameters: ["wave", "weather"],
+  },
+
+  // Central California
+  "71": {
+    id: "71",
+    name: "Half Moon Bay",
+    latitude: 37.494,
+    longitude: -122.469,
+    deployDepth: 274,
+    hullType: "3-meter discus buoy",
+    parameters: ["wave", "weather"],
+  },
+
+  "157": {
+    id: "157",
+    name: "Pt. Sur",
+    latitude: 36.3,
+    longitude: -121.892,
+    deployDepth: 384,
+    hullType: "3-meter discus buoy",
+    parameters: ["wave", "weather"],
+  },
+};
+
+// Primary stations for Southern California beaches
+export const SOCAL_PRIMARY_STATIONS = ["100", "67", "191"];
+
+// All California stations (north to south)
+export const CALIFORNIA_STATIONS = [
+  "46221", // Point Arena
+  "46225", // Point Reyes
+  "71", // Half Moon Bay
+  "46236", // Monterey Bay
+  "157", // Point Sur
+  "191", // Harvest
+  "67", // San Pedro South
+  "100", // Torrey Pines Outer
+];
+
+// Station coverage areas (approximate radius in km)
+export const STATION_COVERAGE_RADIUS = {
+  "100": 100, // Covers most of San Diego County
+  "67": 75, // Covers LA/Orange County
+  "191": 50, // Covers Santa Barbara area
+  "157": 60, // Covers Big Sur area
+  "46236": 80, // Covers Monterey Bay area
+  "71": 50, // Covers San Francisco Peninsula
+  "46225": 75, // Covers North Bay
+  "46221": 60, // Covers Mendocino Coast
+} as const;
+
+// API Configuration
+export const CDIP_API_CONFIG = {
+  baseUrl: "https://cdip.ucsd.edu/data_access/MEM_2dTo1d.cdip",
+  dataTypes: {
+    wave: "xy", // Wave height/period/direction
+    weather: "ww", // Wind/weather
+    sst: "oc", // Sea surface temperature
+  },
+  formats: {
+    json: "json",
+    netcdf: "nc",
+    text: "txt",
+  },
+  timeFormats: {
+    utc: "Z",
+    local: "",
+  },
+} as const;
+
+// Quality thresholds for data validation
+export const DATA_QUALITY_THRESHOLDS = {
+  // Wave height validation (meters)
+  waveHeight: {
+    min: 0.1,
+    max: 15.0, // Reasonable maximum for Pacific Coast
+    typical_max: 8.0, // Typical maximum for Southern California
+  },
+
+  // Wave period validation (seconds)
+  wavePeriod: {
+    min: 2.0, // Minimum for meaningful waves
+    max: 30.0, // Maximum realistic period
+    swell_min: 8.0, // Minimum for swell classification
+  },
+
+  // Wave direction validation (degrees)
+  waveDirection: {
+    min: 0,
+    max: 360,
+  },
+
+  // Data freshness (minutes)
+  dataFreshness: {
+    excellent: 30, // Within 30 minutes
+    good: 120, // Within 2 hours
+    acceptable: 360, // Within 6 hours
+    stale: 720, // Older than 12 hours
+  },
+} as const;
+
+// Helper functions
+export function getStationsByRegion(
+  region: "socal" | "central" | "norcal" | "all"
+): string[] {
+  switch (region) {
+    case "socal":
+      return ["100", "67", "191"];
+    case "central":
+      return ["157", "46236", "71"];
+    case "norcal":
+      return ["46225", "46221"];
+    case "all":
+      return CALIFORNIA_STATIONS;
+    default:
+      return SOCAL_PRIMARY_STATIONS;
+  }
+}
+
+export function getStationConfig(stationId: string): CDIPStationConfig | null {
+  return CDIP_STATIONS[stationId] || null;
+}
+
+export function isValidStationId(stationId: string): boolean {
+  return stationId in CDIP_STATIONS;
+}
+
+export function getStationCoverageRadius(stationId: string): number {
+  return (
+    STATION_COVERAGE_RADIUS[
+      stationId as keyof typeof STATION_COVERAGE_RADIUS
+    ] || 50
+  );
+}

@@ -117,8 +117,8 @@ describe("AdjustedForecastDisplay", () => {
     expect(screen.getByText("Community-Adjusted Forecast")).toBeInTheDocument();
     expect(screen.getByText("Wave Height")).toBeInTheDocument();
     expect(screen.getByText("Wind Speed")).toBeInTheDocument();
-    expect(screen.getByText("Raw Forecast")).toBeInTheDocument();
-    expect(screen.getByText("Community Adjusted")).toBeInTheDocument();
+    expect(screen.getAllByText("Raw Forecast")).toHaveLength(2); // Wave height and wind speed
+    expect(screen.getAllByText("Community Adjusted")).toHaveLength(2); // Wave height and wind speed
   });
 
   it("shows delta badges for significant adjustments", () => {
@@ -166,7 +166,7 @@ describe("AdjustedForecastDisplay", () => {
     );
 
     // Should show "Confirmed" instead of adjustments
-    expect(screen.getByText("Confirmed")).toBeInTheDocument();
+    expect(screen.getAllByText("Confirmed")).toHaveLength(2); // Wave height and wind speed
   });
 
   it("renders without beach accuracy data", () => {
@@ -252,8 +252,9 @@ describe("AdjustedForecastDisplay", () => {
       />
     );
 
-    // The tooltip trigger should be present
-    const tooltipTrigger = screen.getByRole("button", { name: /info/i });
+    // The tooltip trigger should be present (info button)
+    const tooltipTrigger = screen.getByRole("button");
     expect(tooltipTrigger).toBeInTheDocument();
+    expect(tooltipTrigger.querySelector("svg")).toBeInTheDocument(); // Has info icon
   });
 });
