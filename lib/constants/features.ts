@@ -106,7 +106,6 @@ export const CONTENT = {
       "Find surf buddies, track epic sessions, and discover the best spots with your community",
     cta: "Join 1,000+ Surfers",
     benefits: [
-      "🤝 Find surf buddies in your area",
       "📊 Track & share your sessions",
       "🌊 Get accurate surf forecasts",
       "📍 Discover epic surf spots",

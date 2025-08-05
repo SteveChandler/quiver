@@ -85,7 +85,7 @@ export function CTASection() {
           <div className="w-px h-8 bg-white/30"></div>
           <div className="text-center">
             <div className="text-2xl font-bold">Free</div>
-            <div className="text-sm">Forever</div>
+            <div className="text-sm">To Join</div>
           </div>
         </motion.div>
 

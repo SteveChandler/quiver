@@ -135,7 +135,7 @@ export function HeroSection() {
         {/* Key Benefits Grid */}
         <motion.div
           {...ANIMATION_VARIANTS.heroText(0.35)}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 max-w-4xl mx-auto"
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto"
         >
           {CONTENT.hero.benefits.map((benefit, index) => (
             <div
