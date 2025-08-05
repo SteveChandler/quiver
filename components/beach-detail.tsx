@@ -411,7 +411,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
           </Card>
         )}
 
-        {/* 10-Day Tide Chart */}
+        {/* 5-Day Tide Chart */}
         {forecasts && forecasts.length > 0 && (
           <div className="mb-8">
             <TideChart forecasts={forecasts} />
@@ -454,7 +454,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 >
                   <CardHeader className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-t-2xl">
                     <CardTitle className="text-base md:text-lg font-roboto font-semibold">
-                      {dayName} ({dayForecasts.length} forecasts)
+                      {dayName}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4">

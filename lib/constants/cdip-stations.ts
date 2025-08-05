@@ -125,9 +125,26 @@ export const STATION_COVERAGE_RADIUS = {
   "46221": 60, // Covers Mendocino Coast
 } as const;
 
-// API Configuration
+// API Configuration - Updated to use working ERDDAP endpoints
 export const CDIP_API_CONFIG = {
-  baseUrl: "https://cdip.ucsd.edu/data_access/MEM_2dTo1d.cdip",
+  // Primary API: ERDDAP - reliable and standardized
+  baseUrl: "http://erddap.cdip.ucsd.edu/erddap/tabledap/wave_agg.json",
+  
+  // API endpoints for different data types
+  endpoints: {
+    // Wave data: Get recent wave measurements
+    waveData: "?station_id,time,waveHs,waveTp,waveTa,waveDp&waveFlagPrimary=1&time>max(time)-1days&station_id=\"{stationId}\"",
+    // Station metadata: Get station info
+    metadata: "?station_id,metaStationName,latitude,longitude&station_id=\"{stationId}\"&distinct()",
+  },
+  
+  // Fallback URLs for alternative access methods
+  fallbackUrls: {
+    thredds: "https://thredds.cdip.ucsd.edu/thredds/catalog/cdip/realtime/catalog.html",
+    ndar: "http://cdip.ucsd.edu/data_access/ndar.cdip",
+  },
+  
+  // Data processing settings
   dataTypes: {
     wave: "xy", // Wave height/period/direction
     weather: "ww", // Wind/weather
@@ -135,7 +152,7 @@ export const CDIP_API_CONFIG = {
   },
   formats: {
     json: "json",
-    netcdf: "nc",
+    netcdf: "nc", 
     text: "txt",
   },
   timeFormats: {

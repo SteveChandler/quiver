@@ -131,14 +131,21 @@ export async function POST(request: NextRequest): Promise<Response> {
       failures: [],
     };
 
-    // Process beaches in batches to avoid overwhelming APIs
-    const BATCH_SIZE = 5;
+    // Process beaches in batches to avoid overwhelming APIs and database
+    const BATCH_SIZE = 2; // Reduced from 5 to prevent database timeouts
     const batches = [];
     for (let i = 0; i < beaches.length; i += BATCH_SIZE) {
       batches.push(beaches.slice(i, i + BATCH_SIZE));
     }
 
-    for (const batch of batches) {
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      
+      // Add delay between batches to prevent database overload
+      if (batchIndex > 0) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+      }
+      
       const batchPromises = batch.map(async (beach: Beach) => {
         try {
           // Generate comprehensive forecast with CDIP integration
@@ -164,24 +171,27 @@ export async function POST(request: NextRequest): Promise<Response> {
           return { success: true, beachId: beach.id };
         } catch (error) {
           results.failed++;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          // Check if it's a database timeout and log accordingly
+          if (errorMessage.includes('statement timeout') || errorMessage.includes('57014')) {
+            console.warn(`Database timeout for beach ${beach.name} - this is expected during initial sync`);
+          } else {
+            console.error(`Failed to sync beach ${beach.name}:`, error);
+          }
+          
           results.failures.push({
             beachId: beach.id,
             beachName: beach.name,
-            error: error instanceof Error ? error.message : String(error),
+            error: errorMessage,
           });
 
-          console.error(`Failed to sync beach ${beach.name}:`, error);
           return { success: false, beachId: beach.id, error };
         }
       });
 
       // Wait for batch to complete before processing next batch
       await Promise.allSettled(batchPromises);
-
-      // Small delay between batches to be respectful of APIs
-      if (batches.indexOf(batch) < batches.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
     }
 
     results.duration = `${Date.now() - startTime}ms`;

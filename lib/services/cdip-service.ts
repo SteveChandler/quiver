@@ -49,6 +49,7 @@ export class CDIPService {
    * Fetch current wave data for a specific CDIP station
    */
   async fetchBuoyData(stationId: string): Promise<CDIPBuoyData | null> {
+    console.log(`🌊 CDIP fetchBuoyData called for station: ${stationId}`);
     try {
       // Check if station exists
       const stationConfig = getStationConfig(stationId);
@@ -56,6 +57,7 @@ export class CDIPService {
         console.warn(`❌ Unknown CDIP station: ${stationId}`);
         return null;
       }
+      console.log(`✅ CDIP station config found: ${stationConfig.name}`);
 
       // Check rate limiting
       if (!CDIPRateLimiter.canMakeRequest()) {
@@ -65,18 +67,27 @@ export class CDIPService {
         );
         return null;
       }
+      console.log(`✅ CDIP rate limit check passed`);
 
       // Check cache
       const cached = this.getCachedData(stationId);
       if (cached) {
+        console.log(`📦 CDIP returning cached data for station ${stationId}`);
         return cached;
       }
 
       // Fetch data from CDIP API
+      console.log(`🔄 CDIP fetching raw data for station ${stationId}`);
       const rawData = await this.fetchCDIPRawData(stationId);
       if (!rawData) {
+        console.warn(
+          `❌ CDIP fetchCDIPRawData returned null for station ${stationId}`
+        );
         return null;
       }
+      console.log(
+        `✅ CDIP raw data fetched successfully for station ${stationId}`
+      );
 
       // Transform and validate data
       const buoyData = this.transformToCDIPBuoyData(stationId, rawData);
@@ -358,43 +369,125 @@ export class CDIPService {
     stationId: string
   ): Promise<CDIPDataResponse | null> {
     try {
-      // CDIP API endpoint for recent wave data
-      const url = `${CDIP_API_CONFIG.baseUrl}?stn=${stationId}&param=${CDIP_API_CONFIG.dataTypes.wave}&format=${CDIP_API_CONFIG.formats.json}`;
+      // Use ERDDAP API - construct the URL with wave data endpoint
+      const endpoint = CDIP_API_CONFIG.endpoints.waveData.replace(
+        "{stationId}",
+        stationId
+      );
+      const url = `${CDIP_API_CONFIG.baseUrl}${endpoint}`;
+
+      console.log(`🌊 Fetching CDIP data from: ${url}`);
 
       const response = await fetch(url, {
         headers: {
           "User-Agent": this.userAgent,
+          Accept: "application/json",
         },
       });
 
       if (!response.ok) {
         console.error(
-          `CDIP API error: ${response.status} - ${response.statusText}`
+          `❌ CDIP API error: ${response.status} - ${response.statusText} for station ${stationId}`
         );
         return null;
       }
 
       const data = await response.json();
 
-      if (!data || !data.data) {
-        console.warn(
-          `CDIP returned empty or invalid data for station ${stationId}`
-        );
+      // ERDDAP returns data in a different format: {table: {columnNames: [...], rows: [[...]]}}
+      if (
+        !data ||
+        !data.table ||
+        !data.table.rows ||
+        data.table.rows.length === 0
+      ) {
+        console.warn(`⚠️ CDIP returned empty data for station ${stationId}`);
         return null;
       }
 
-      return data as CDIPDataResponse;
+      // Transform ERDDAP format to CDIPDataResponse format with proper array structure
+      const transformedData = this.transformERDDAPToDataResponse(
+        data,
+        stationId
+      );
+
+      console.log(
+        `✅ Successfully fetched CDIP data for station ${stationId}: ${transformedData.data.length} data points`
+      );
+
+      return transformedData;
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        console.error(`CDIP API request timeout for station ${stationId}`);
+        console.error(`⏰ CDIP API request timeout for station ${stationId}`);
       } else {
         console.error(
-          `CDIP API request failed for station ${stationId}:`,
+          `💥 CDIP API request failed for station ${stationId}:`,
           error
         );
       }
       return null;
     }
+  }
+
+  /**
+   * Transform ERDDAP response format to CDIPDataResponse format with proper array structure
+   */
+  private transformERDDAPToDataResponse(
+    erddapData: any,
+    stationId: string
+  ): CDIPDataResponse {
+    const { columnNames, rows } = erddapData.table;
+
+    // Map ERDDAP columns: [station_id, time, waveHs, waveTp, waveTa, waveDp]
+    const stationIdIdx = columnNames.indexOf("station_id");
+    const timeIdx = columnNames.indexOf("time");
+    const waveHsIdx = columnNames.indexOf("waveHs"); // Significant wave height (m)
+    const waveTpIdx = columnNames.indexOf("waveTp"); // Peak wave period (s)
+    const waveTaIdx = columnNames.indexOf("waveTa"); // Average wave period (s)
+    const waveDpIdx = columnNames.indexOf("waveDp"); // Peak wave direction (degrees)
+
+    // Transform rows to the array format that transformToCDIPBuoyData expects
+    // Format: [timestamp, waveHeight, period, direction]
+    const dataPoints: any[] = rows.map((row: any[]) => {
+      // Convert from meters to feet for wave height
+      const waveHeightMeters = row[waveHsIdx] || 0;
+      const waveHeightFeet = waveHeightMeters * 3.28084;
+
+      return [
+        row[timeIdx] || new Date().toISOString(), // timestamp
+        waveHeightFeet, // wave height in feet
+        row[waveTpIdx] || row[waveTaIdx] || 0, // period in seconds
+        row[waveDpIdx] || 0, // direction in degrees
+      ];
+    });
+
+    // Sort by timestamp (newest first)
+    dataPoints.sort(
+      (a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime()
+    );
+
+    // Get station config for location info
+    const stationConfig = getStationConfig(stationId);
+
+    return {
+      stationId,
+      dataSource: "CDIP",
+      timestamp: new Date().toISOString(),
+      data: dataPoints,
+      metadata: {
+        station_name: stationConfig?.name || `CDIP Station ${stationId}`,
+        location: {
+          latitude: stationConfig?.latitude || 0,
+          longitude: stationConfig?.longitude || 0,
+        },
+        parameters: ["wave"],
+        units: {
+          waveHeight: "ft",
+          period: "s",
+          direction: "deg",
+        },
+      },
+    };
   }
 
   private isValidDataPoint(

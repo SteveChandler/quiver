@@ -164,7 +164,7 @@ export function TideChart({
 }: TideChartProps) {
   const chartConfig = getTideChartConfig();
 
-  // Process and filter data to 10 days maximum
+  // Process and filter data to 5 days maximum
   const processedData = useMemo(() => {
     let tideData: TideDataPoint[] = [];
 
@@ -188,7 +188,7 @@ export function TideChart({
         yDomain: [-8, 8],
       };
 
-    // Limit to 10 days from the first data point
+    // Limit to 5 days from the first data point
     const firstDate = tideData[0]?.time;
     if (!firstDate) {
       return {
@@ -198,10 +198,12 @@ export function TideChart({
       };
     }
 
-    const tenDaysLater = new Date(firstDate);
-    tenDaysLater.setDate(tenDaysLater.getDate() + 10);
+    const fiveDaysLater = new Date(firstDate);
+    fiveDaysLater.setDate(fiveDaysLater.getDate() + 5);
 
-    const filteredData = tideData.filter((point) => point.time <= tenDaysLater);
+    const filteredData = tideData.filter(
+      (point) => point.time <= fiveDaysLater
+    );
 
     // Check if filtering removed all data
     if (filteredData.length === 0) {
@@ -295,7 +297,7 @@ export function TideChart({
     return (
       <Card className={className}>
         <CardHeader>
-          <CardTitle>10-Day Tide Chart</CardTitle>
+          <CardTitle>5-Day Tide Chart</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-muted-foreground">
@@ -309,12 +311,12 @@ export function TideChart({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>10-Day Tide Chart</CardTitle>
+        <CardTitle>5-Day Tide Chart</CardTitle>
       </CardHeader>
       <CardContent>
         <div
           role="img"
-          aria-label="10-day tide chart showing high and low tide heights over time"
+          aria-label="5-day tide chart showing high and low tide heights over time"
           className="w-full"
         >
           <ChartContainer config={chartConfig} className="aspect-[8/3] w-full">

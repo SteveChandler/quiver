@@ -367,9 +367,13 @@ export class EnhancedForecastService {
    * Fetch CDIP data with retry logic
    */
   private async fetchCDIPDataWithRetry(beach: Beach) {
+    console.log(
+      `🏖️ fetchCDIPDataWithRetry called for beach: ${beach.name} (${beach.latitude}, ${beach.longitude})`
+    );
     return withRetry(async () => {
       try {
         // Check if this is a Southern California beach that could benefit from CDIP data
+        console.log(`🔍 Looking for nearest CDIP station for ${beach.name}`);
         const nearestStation = await this.cdipService.getNearestStation(
           beach.latitude,
           beach.longitude,
@@ -377,14 +381,35 @@ export class EnhancedForecastService {
         );
 
         if (!nearestStation) {
-          // No nearby CDIP station, return null
+          console.warn(
+            `❌ No nearby CDIP station found for ${beach.name} within 50km`
+          );
           return null;
         }
 
+        console.log(
+          `✅ Found nearest CDIP station ${nearestStation} for ${beach.name}`
+        );
+
         // Fetch CDIP data for the nearest station
+        console.log(
+          `🌊 Fetching CDIP data from station ${nearestStation} for ${beach.name}`
+        );
         const cdipData = await this.cdipService.fetchBuoyData(nearestStation);
+
+        if (cdipData) {
+          console.log(
+            `✅ Successfully fetched CDIP data for ${beach.name} from station ${nearestStation}`
+          );
+        } else {
+          console.warn(
+            `❌ CDIP data fetch returned null for ${beach.name} from station ${nearestStation}`
+          );
+        }
+
         return cdipData;
       } catch (error) {
+        console.error(`💥 Error fetching CDIP data for ${beach.name}:`, error);
         throw new DataSourceError("CDIP", error as Error, {
           beachId: beach.id,
           location: { lat: beach.latitude, lng: beach.longitude },
@@ -745,19 +770,33 @@ export class EnhancedForecastService {
   }
 
   /**
-   * Get CDIP data for a specific time (use most recent data)
+   * Get CDIP data for a specific time
+   * CDIP provides real-time buoy measurements, not forecasts
+   * Only use for current/recent conditions (within 6 hours)
    */
   private getCDIPDataForTime(cdipData: CDIPBuoyData | null, targetTime: Date) {
     if (!cdipData?.data || cdipData.data.length === 0) return null;
 
-    // For CDIP data, use the most recent measurement since it's real-time buoy data
-    // Sort by timestamp and return the latest
+    const now = new Date();
+    const hoursFromNow = (targetTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    // Only use CDIP data for current conditions (within 6 hours)
+    // Beyond that, NOAA forecasts are more appropriate
+    if (hoursFromNow > 6) {
+      console.log(`📊 Target time ${targetTime.toISOString()} is ${hoursFromNow.toFixed(1)}h from now - using NOAA forecast instead of CDIP current conditions`);
+      return null;
+    }
+
+    // For current/recent times, use the most recent CDIP measurement
     const sortedData = [...cdipData.data].sort(
       (a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    return sortedData[0]; // Return the most recent data point
+    const recentData = sortedData[0];
+    console.log(`🌊 Using CDIP current conditions for ${targetTime.toISOString()}: ${recentData.waveHeight}ft from ${recentData.timestamp}`);
+    
+    return recentData;
   }
 
   /**

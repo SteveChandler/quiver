@@ -1,6 +1,6 @@
 # TideChart Component
 
-A production-ready, accessible Recharts-based component for displaying 10-day tide data with high/low tide markers and labels.
+A production-ready, accessible Recharts-based component for displaying 5-day tide data with high/low tide markers and labels.
 
 ## Usage
 
@@ -61,7 +61,7 @@ interface TideDataPoint {
 
 ### 📊 **Data Processing**
 
-- **10-day limit**: Automatically filters to max 10 days from first data point
+- **5-day limit**: Automatically filters to max 5 days from first data point
 - **Smart Y-axis**: Calculates domain with 10% padding around data range
 - **Today/Tomorrow labels**: X-axis shows "Today", "Tomorrow", then day names
 - **Dual data support**: Works with both direct `TideDataPoint[]` and legacy `EnhancedForecastEntity[]`
