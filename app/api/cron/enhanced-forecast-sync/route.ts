@@ -20,7 +20,6 @@ interface Beach {
   name: string;
   latitude: number;
   longitude: number;
-  state: string;
 }
 
 interface CronSyncResult {
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     // Fetch all beaches from database
     const { data: beaches, error: beachError } = await supabase
       .from("beaches")
-      .select("id, name, latitude, longitude, state");
+      .select("id, name, latitude, longitude");
 
     if (beachError) {
       throw new Error(`Failed to fetch beaches: ${beachError.message}`);
@@ -101,14 +100,14 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     // Fetch CDIP stations for Southern California beaches first
+    // Filter by geographic coordinates (Southern California region)
     const socaBeaches = beaches.filter(
-      (beach: Beach) =>
-        beach.state === "CA" &&
-        beach.latitude >= 32.0 &&
-        beach.latitude <= 35.0 &&
-        beach.longitude >= -120.0 &&
-        beach.longitude <= -117.0
-    );
+        (beach: Beach) =>
+          beach.latitude >= 32.0 &&
+          beach.latitude <= 35.0 &&
+          beach.longitude >= -120.0 &&
+          beach.longitude <= -117.0
+      );
 
     const cdipStationsUpdated: string[] = [];
     if (socaBeaches.length > 0) {
