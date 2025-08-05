@@ -16,7 +16,7 @@ import {
   SessionFormMode,
 } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef, useEffect } from "react";
 
 interface DateTimeSectionProps {
   mode: SessionFormMode;
@@ -48,9 +48,51 @@ export function DateTimeSection({
   // Get current duration value as number for the select - stabilize the value
   const currentDurationValue = useMemo(() => {
     if (!formState.duration) return "60";
-    const parsed = parseInt(formState.duration);
-    return isNaN(parsed) ? "60" : parsed.toString();
+    // Extract number from strings like "60m", "2h 30m", etc.
+    const match = formState.duration.match(/(\d+)/);
+    const parsed = match ? parseInt(match[1]) : 60;
+    return parsed.toString();
   }, [formState.duration]);
+
+  // Memoize date constraints to prevent infinite re-renders
+  const dateConstraints = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return {
+      min: isPlanning ? today : undefined,
+      max: isPlanning ? undefined : today,
+    };
+  }, [isPlanning]);
+
+  // Use ref to prevent infinite loops
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const updateFieldRef = useRef(updateField);
+  updateFieldRef.current = updateField;
+
+  // Stable date change handler that doesn't cause re-renders
+  const handleDateChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      updateFieldRef.current("selectedDate", e.target.value);
+    },
+    []
+  );
+
+  // Update input value when formState changes (but not during typing)
+  useEffect(() => {
+    if (
+      dateInputRef.current &&
+      dateInputRef.current !== document.activeElement
+    ) {
+      dateInputRef.current.value = formState.selectedDate || "";
+    }
+  }, [formState.selectedDate]);
+
+  // Memoize time change handler
+  const handleTimeChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      updateField("selectedTime", e.target.value);
+    },
+    [updateField]
+  );
 
   return (
     <SimpleCardLayout
@@ -74,17 +116,14 @@ export function DateTimeSection({
               {isPlanning ? "Session Date" : "Date Surfed"}
             </label>
             <input
+              ref={dateInputRef}
               type="date"
               className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={formState.selectedDate || ""}
-              onChange={(e) => updateField("selectedDate", e.target.value)}
+              defaultValue={formState.selectedDate || ""}
+              onChange={handleDateChange}
               disabled={isDisabled}
-              max={
-                isPlanning ? undefined : new Date().toISOString().split("T")[0]
-              }
-              min={
-                isPlanning ? new Date().toISOString().split("T")[0] : undefined
-              }
+              max={dateConstraints.max}
+              min={dateConstraints.min}
               data-testid="session-date-input"
             />
             {isPlanning && (
@@ -104,7 +143,7 @@ export function DateTimeSection({
                 type="time"
                 className="w-full border rounded-lg p-3 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formState.selectedTime || ""}
-                onChange={(e) => updateField("selectedTime", e.target.value)}
+                onChange={handleTimeChange}
                 disabled={isDisabled}
                 data-testid="session-time-input"
               />

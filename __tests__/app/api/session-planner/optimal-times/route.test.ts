@@ -586,4 +586,131 @@ describe("/api/session-planner/optimal-times", () => {
       );
     });
   });
+
+  describe("Time filtering and confidence score fixes", () => {
+    it("should filter optimal times within 4 hours of selected time", async () => {
+      const mockFromResult = {
+        from: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnValue({
+          data: [
+            {
+              forecast_time: "06:00",
+              wave_height: "4.5",
+              wind_speed: "8mph",
+              wind_direction: "E",
+              confidence_score: 0.8,
+            },
+            {
+              forecast_time: "09:00", // 3 hours from selected
+              wave_height: "5.0",
+              wind_speed: "6mph",
+              wind_direction: "NE",
+              confidence_score: 0.9,
+            },
+            {
+              forecast_time: "15:00", // 9 hours from selected - should be filtered out
+              wave_height: "3.0",
+              wind_speed: "10mph",
+              wind_direction: "W",
+              confidence_score: 0.7,
+            },
+          ],
+          error: null,
+        }),
+      };
+
+      mockSupabaseServerClient.mockResolvedValue(mockFromResult as any);
+
+      const request = createMockRequest({
+        beachId: "beach-123",
+        date: "2024-01-17",
+        selectedTime: "06:00", // Should only return times within 4 hours
+      });
+
+      const response = await GET(request);
+      const result = await response.json();
+
+      expect(result.success).toBe(true);
+      expect(result.data.optimalTimes).toHaveLength(2); // Only 06:00 and 09:00
+
+      // Should not include 15:00 which is 9 hours away
+      const times = result.data.optimalTimes.map((slot: any) => slot.time);
+      expect(times).toContain("06:00");
+      expect(times).toContain("09:00");
+      expect(times).not.toContain("15:00");
+    });
+
+    it("should cap confidence scores at 100", async () => {
+      const mockFromResult = {
+        from: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnValue({
+          data: [
+            {
+              forecast_time: "12:00",
+              wave_height: "6.0", // Max wave score: 35
+              wind_speed: "5mph", // Max wind score: 25
+              wind_direction: "E", // Max direction score: 20
+              confidence_score: 0.95, // Max confidence score: 19 (0.95 * 20)
+              // Total would be 35 + 25 + 20 + 19 = 99, should not exceed 100
+            },
+          ],
+          error: null,
+        }),
+      };
+
+      mockSupabaseServerClient.mockResolvedValue(mockFromResult as any);
+
+      const request = createMockRequest({
+        beachId: "beach-123",
+        date: "2024-01-17",
+      });
+
+      const response = await GET(request);
+      const result = await response.json();
+
+      expect(result.success).toBe(true);
+      expect(result.data.optimalTimes[0].score).toBeLessThanOrEqual(100);
+      expect(
+        result.data.optimalTimes[0].conditions.confidence
+      ).toBeLessThanOrEqual(100);
+    });
+
+    it("should handle confidence scores in 0-100 range", async () => {
+      const mockFromResult = {
+        from: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnValue({
+          data: [
+            {
+              forecast_time: "12:00",
+              wave_height: "4.0",
+              wind_speed: "7mph",
+              wind_direction: "E",
+              confidence_score: 85, // Already in 0-100 range, should be normalized to 0.85
+            },
+          ],
+          error: null,
+        }),
+      };
+
+      mockSupabaseServerClient.mockResolvedValue(mockFromResult as any);
+
+      const request = createMockRequest({
+        beachId: "beach-123",
+        date: "2024-01-17",
+      });
+
+      const response = await GET(request);
+      const result = await response.json();
+
+      expect(result.success).toBe(true);
+      expect(result.data.optimalTimes[0].conditions.confidence).toBe(85);
+      expect(result.data.optimalTimes[0].score).toBeLessThanOrEqual(100);
+    });
+  });
 });

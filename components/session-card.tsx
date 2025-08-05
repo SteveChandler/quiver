@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";
 import { StarRating } from "@/components/ui/star-rating";
 import {
@@ -11,6 +12,8 @@ import {
   Users,
   Car,
   Thermometer,
+  CalendarClock,
+  CheckCircle,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -82,6 +85,19 @@ export function SessionCard({
 
   const cardContent = (
     <CardContent className="p-4 space-y-4">
+      {/* Session Status Badge */}
+      {session?.status === "planned" && (
+        <div className="mb-2">
+          <Badge
+            variant="secondary"
+            className="bg-blue-100 text-blue-800 border-blue-200"
+          >
+            <CalendarClock className="h-3 w-3 mr-1" />
+            Planned Session
+          </Badge>
+        </div>
+      )}
+
       {/* User Info */}
       <div className="flex items-center gap-3">
         {session?.user?.id && onUserClick && !isOwner ? (

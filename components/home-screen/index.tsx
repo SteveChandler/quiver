@@ -1,12 +1,9 @@
 "use client";
 
 import { useState, Suspense, lazy, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/bottom-navigation";
-import { CalendarDays, Waves } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
-import Link from "next/link";
 import { useHomeData } from "./use-home-data";
 
 import { useCachedProfile } from "@/hooks/use-cached-profile";
@@ -64,43 +61,6 @@ export function HomeScreen() {
           <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">
             The waves are looking good today. Ready to catch some?
           </p>
-        </section>
-
-        {/* Quick Actions */}
-        <section className="centered-container">
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto">
-            {user ? (
-              <>
-                <Link href="/plan-session">
-                  <Button
-                    className="h-auto py-6 sm:py-8 flex flex-col items-center gap-3 w-full text-base sm:text-lg"
-                    variant="default"
-                  >
-                    <CalendarDays className="h-7 w-7 sm:h-8 sm:w-8" />
-                    <span>Plan Session</span>
-                  </Button>
-                </Link>
-                <Link href="/log-session">
-                  <Button
-                    className="h-auto py-6 sm:py-8 flex flex-col items-center gap-3 w-full text-base sm:text-lg"
-                    variant="outline"
-                  >
-                    <Waves className="h-7 w-7 sm:h-8 sm:w-8" />
-                    <span>Add to Journal</span>
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <div className="col-span-2 text-center p-8 sm:p-10 bg-muted/50 rounded-lg">
-                <p className="text-muted-foreground mb-4 text-base sm:text-lg">
-                  Sign in to plan and log your surf sessions
-                </p>
-                <Link href="/auth/sign-in">
-                  <Button size="lg">Sign In to Get Started</Button>
-                </Link>
-              </div>
-            )}
-          </div>
         </section>
 
         {/* Tabs Section */}

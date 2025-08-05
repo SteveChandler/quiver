@@ -36,12 +36,13 @@ export function BeachSelector({
   // 2. Whenever query changes, recompute our filtered list
   useEffect(() => {
     if (!query) {
-      setMatches(allBeaches.slice(0, 10)); // show first 10 by default
+      setMatches(allBeaches.slice(0, 50)); // show first 50 by default
     } else {
       const q = query.toLowerCase();
-      const filtered = allBeaches.filter((b) =>
-        b.name.toLowerCase().startsWith(q)
-      );
+      const filtered = allBeaches.filter((b) => {
+        const beachName = b.name.toLowerCase();
+        return beachName.includes(q) || q.includes(beachName);
+      });
       setMatches(filtered);
     }
   }, [query, allBeaches]);
@@ -56,9 +57,26 @@ export function BeachSelector({
 
   // 3. When the user picks something (click or select)
   const trySelect = (beachName: string) => {
-    const found = allBeaches.find((b) => b.name === beachName);
+    if (!beachName?.trim()) return;
+
+    const normalizedQuery = beachName.toLowerCase().trim();
+
+    // Try exact match first
+    let found = allBeaches.find(
+      (b) => b.name.toLowerCase() === normalizedQuery
+    );
+
+    // If no exact match, try partial match
+    if (!found) {
+      found = allBeaches.find(
+        (b) =>
+          b.name.toLowerCase().includes(normalizedQuery) ||
+          normalizedQuery.includes(b.name.toLowerCase())
+      );
+    }
+
     if (found) {
-      setQuery(beachName);
+      setQuery(found.name); // Use the actual beach name from database
       setSelectionMade(true);
       onBeachSelected(found);
     }
@@ -71,21 +89,54 @@ export function BeachSelector({
     setSelectionMade(false); // Reset selection state when input changes
   };
 
+  const handleFocus = () => {
+    setSelectionMade(false); // Always show options when focusing
+  };
+
+  const handleBlur = () => {
+    // Only try to select if the user hasn't manually cleared the field
+    if (query.trim()) {
+      setTimeout(() => trySelect(query), 100); // Small delay to allow for clicks on dropdown items
+    }
+  };
+
   return (
     <div className="flex flex-col space-y-1">
-      <label htmlFor="beach-input" className="font-medium text-sm">
-        Where are you surfing?
-      </label>
-      <input
-        id="beach-input"
-        className="border rounded p-2"
-        value={query}
-        placeholder="Type or select a beach"
-        onChange={handleInputChange}
-        onBlur={() => trySelect(query)}
-        onFocus={() => setSelectionMade(false)} // Show options when focusing back on input
-        data-testid="beach-search-input"
-      />
+      <div className="relative">
+        <input
+          id="beach-input"
+          className="border rounded p-2 w-full"
+          value={query}
+          placeholder="Type or select a beach"
+          onChange={handleInputChange}
+          onBlur={handleBlur}
+          onFocus={handleFocus}
+          data-testid="beach-search-input"
+        />
+        {selectionMade && query && (
+          <button
+            type="button"
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            onClick={() => {
+              setQuery("");
+              setSelectionMade(false);
+              // Clear the selection in the parent component
+              const emptyBeach = {
+                id: "",
+                name: "",
+                latitude: 0,
+                longitude: 0,
+                created_at: "",
+                updated_at: "",
+              };
+              onBeachSelected(emptyBeach);
+            }}
+            title="Clear selection"
+          >
+            ×
+          </button>
+        )}
+      </div>
 
       {!selectionMade && (
         <>
@@ -101,7 +152,7 @@ export function BeachSelector({
             </p>
           )}
 
-          <ul className="border rounded max-h-40 overflow-auto mt-1">
+          <ul className="border rounded max-h-60 overflow-auto mt-1">
             {matches.map((b) => (
               <li
                 key={b.id}

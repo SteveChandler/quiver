@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import {
   createForecastSnapshot,
-  getBeachAccuracy,
-  getSessionForecastSnapshots,
+  // TODO: These functions are not currently exported
+  // getBeachAccuracy,
+  // getSessionForecastSnapshots,
 } from "@/actions/forecast-calibration-actions";
 import type {
   BeachForecastAccuracy,
@@ -30,7 +31,8 @@ export function useForecastCalibration({
   // Fetch beach accuracy data
   const fetchBeachAccuracy = useCallback(async () => {
     if (!beachId) return null;
-    return await getBeachAccuracy(beachId);
+    // TODO: Implement getBeachAccuracy when available
+    return { success: false, error: "Not implemented", data: null };
   }, [beachId]);
 
   const {
@@ -43,7 +45,8 @@ export function useForecastCalibration({
   // Fetch session snapshots for comparison
   const fetchSessionSnapshots = useCallback(async () => {
     if (!beachId) return [];
-    return await getSessionForecastSnapshots({ beachId, limit: 10 });
+    // TODO: Implement getSessionForecastSnapshots when available
+    return { success: false, error: "Not implemented", data: [] };
   }, [beachId]);
 
   const {

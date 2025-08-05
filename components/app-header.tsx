@@ -4,17 +4,26 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
-import { Menu, X, Loader2 } from "lucide-react";
+import { Menu, X, Loader2, User, LogOut } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useUserProfile } from "@/hooks/use-user-profile";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function AppHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, signOut } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   // Use shared profile loading hook
   const { profile, loading: profileLoading } = useUserProfile({
@@ -88,18 +97,59 @@ export function AppHeader() {
           {authLoading ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : user ? (
-            <Link href="/profile">
-              <UserAvatar
-                src={profile?.avatar_url}
-                name={profile?.full_name}
-                email={user?.email}
-                size="sm"
-                isLoading={profileLoading}
-              />
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="relative h-8 w-8 rounded-full"
+                >
+                  <UserAvatar
+                    src={profile?.avatar_url}
+                    name={profile?.full_name}
+                    email={user?.email}
+                    size="sm"
+                    isLoading={profileLoading}
+                  />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {profile?.full_name || "Surfer"}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user?.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                  onClick={async () => {
+                    try {
+                      await signOut();
+                      router.push("/");
+                    } catch (error) {
+                      console.error("Logout error:", error);
+                    }
+                  }}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
-            <Link href="/auth/sign-up">
-              <Button size="sm">Sign Up</Button>
+            <Link href="/auth/sign-in">
+              <Button size="sm">Sign In</Button>
             </Link>
           )}
         </div>

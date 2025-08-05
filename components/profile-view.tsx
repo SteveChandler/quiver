@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Heart,
   MessageSquare,
+  User,
 } from "lucide-react";
 import { FullPageLoader, AuthLoader } from "@/components/ui/loading-states";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
@@ -191,8 +192,11 @@ export function ProfileView() {
         className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-white/20 shadow-sm"
       >
         <div className="container flex items-center h-16 px-4">
-          <h1 className="text-xl font-roboto font-bold text-dark-grey">
-            Profile
+          <h1 className="text-xl font-roboto font-bold text-dark-grey flex items-center gap-2">
+            <User className="h-5 w-5 text-ocean-blue" />
+            {profile?.full_name
+              ? `${profile.full_name}'s Profile`
+              : "Your Profile"}
           </h1>
         </div>
       </motion.header>

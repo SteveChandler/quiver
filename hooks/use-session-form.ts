@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getUserBoards } from "@/actions/board-actions";
 import { getBeaches } from "@/actions/beach-actions";
 import { Board, Beach } from "@/types/database";
@@ -69,7 +69,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     selectedTime: "",
     selectedBoard: "",
     boardId: undefined,
-    duration: "",
+    duration: "60m", // Default to 1 hour
     waveQuality: "",
     waterTemp: "",
     crowdLevel: "",
@@ -130,12 +130,15 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     }
   }, [formState.selectedBoard, boards]);
 
-  const updateField = <K extends keyof SessionFormState>(
-    field: K,
-    value: SessionFormState[K]
-  ) => {
-    setFormState((prev) => ({ ...prev, [field]: value }));
-  };
+  const updateField = useCallback(
+    <K extends keyof SessionFormState>(
+      field: K,
+      value: SessionFormState[K]
+    ) => {
+      setFormState((prev) => ({ ...prev, [field]: value }));
+    },
+    []
+  );
 
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);

@@ -34,7 +34,6 @@ import {
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
-import { getForecastForDate } from "@/actions/forecast-actions";
 
 interface SessionFormProps {
   initialMode?: SessionFormMode;
@@ -156,14 +155,18 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     ) {
       const loadForecast = async () => {
         try {
-          const forecastData = await getForecastForDate(
-            formState.selectedBeachId,
-            formState.selectedDate
-          );
-          if (forecastData.success && forecastData.data) {
-            setSessionForecast(forecastData.data);
-            setShowFeedbackPrompt(true);
-          }
+          // TODO: getForecastForDate is not currently exported from forecast-actions
+          // const forecastData = await getForecastForDate(
+          //   formState.selectedBeachId,
+          //   formState.selectedDate
+          // );
+          // if (forecastData.success && forecastData.data) {
+          //   setSessionForecast(forecastData.data);
+          //   setShowFeedbackPrompt(true);
+          // }
+
+          // For now, just show feedback prompt
+          setShowFeedbackPrompt(true);
         } catch (error) {
           console.error("Error loading forecast for feedback:", error);
           // Still show feedback prompt even if forecast loading fails
@@ -243,6 +246,22 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
 
     if (!user?.id) {
       toast.error("Authentication required");
+      return;
+    }
+
+    // Validate required fields
+    if (!formState.selectedBeach) {
+      toast.error("Please select a beach location");
+      return;
+    }
+
+    if (!formState.selectedBeachId) {
+      toast.error("Please select a valid beach from the dropdown");
+      return;
+    }
+
+    if (!formState.selectedDate) {
+      toast.error("Please select a date");
       return;
     }
 

@@ -101,9 +101,8 @@ export const HERO_VIDEOS = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: ["Never Surf", "Alone", "Again"],
-    subtitle:
-      "Find surf buddies, track epic sessions, and discover the best spots with your community",
+    title: ["Where Surf", "Meets Community"],
+    subtitle: "Plan. Track. Connect.",
     cta: "Join 1,000+ Surfers",
     benefits: [
       "📊 Track & share your sessions",

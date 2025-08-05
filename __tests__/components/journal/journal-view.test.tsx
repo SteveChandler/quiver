@@ -304,13 +304,111 @@ describe("JournalView", () => {
     expect(insightsTab).toBeInTheDocument();
   });
 
-  it("opens export modal when export button is clicked", () => {
+  it("shows filter button and allows filtering sessions", () => {
     render(<JournalView />);
 
-    const exportButton = screen.getByRole("button", { name: /export/i });
-    fireEvent.click(exportButton);
+    // Should show the filter dropdown
+    const filterButton = screen.getByRole("combobox");
+    expect(filterButton).toBeInTheDocument();
+  });
 
-    expect(screen.getByTestId("export-modal")).toBeInTheDocument();
+  it("filters sessions correctly by status", () => {
+    // Mock sessions with different statuses
+    const mockFilterSessions = [
+      {
+        id: "1",
+        beach: { name: "Test Beach 1" },
+        status: "completed",
+        rating: 4,
+        session_date: "2024-01-01",
+        duration_minutes: 120,
+        user: { full_name: "Test User" },
+      },
+      {
+        id: "2",
+        beach: { name: "Test Beach 2" },
+        status: "planned",
+        rating: 0,
+        session_date: "2024-01-02",
+        duration_minutes: null,
+        user: { full_name: "Test User" },
+      },
+    ];
+
+    (useDataFetcher as jest.Mock).mockImplementation((fetchFn) => {
+      return {
+        data: mockFilterSessions,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      };
+    });
+
+    render(<JournalView />);
+
+    // Should show all sessions by default (2 sessions)
+    expect(screen.getByText("2 sessions")).toBeInTheDocument();
+  });
+
+  it("displays separate counts for completed and planned sessions", () => {
+    // Mock sessions with mixed statuses
+    const mockCountSessions = [
+      {
+        id: "1",
+        beach: { name: "Test Beach 1" },
+        status: "completed",
+        rating: 4,
+        session_date: "2024-01-01",
+        duration_minutes: 120,
+        user: { full_name: "Test User" },
+      },
+      {
+        id: "2",
+        beach: { name: "Test Beach 2" },
+        status: "planned",
+        rating: 0,
+        session_date: "2024-01-02",
+        duration_minutes: null,
+        user: { full_name: "Test User" },
+      },
+    ];
+
+    (useDataFetcher as jest.Mock).mockImplementation((fetchFn) => {
+      return {
+        data: mockCountSessions,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      };
+    });
+
+    render(<JournalView />);
+
+    // Should show separate counts in stats
+    expect(screen.getByText("Completed Sessions")).toBeInTheDocument();
+    expect(screen.getByText("Planned Sessions")).toBeInTheDocument();
+
+    // Check that both completed and planned sessions show count of 1
+    const completedCards = screen.getAllByText("1");
+    expect(completedCards).toHaveLength(2); // One for completed, one for planned
+  });
+
+  it("shows contextual empty state messages based on filter", () => {
+    (useDataFetcher as jest.Mock).mockImplementation((fetchFn) => {
+      return {
+        data: [],
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      };
+    });
+
+    render(<JournalView />);
+
+    // Should show general empty state message by default
+    expect(
+      screen.getByText("No sessions yet. Start building your surf journal!")
+    ).toBeInTheDocument();
   });
 
   it("opens annotation modal when session is clicked", () => {
@@ -360,9 +458,7 @@ describe("JournalView", () => {
     render(<JournalView />);
 
     expect(
-      screen.getByText(
-        "No sessions logged yet. Start building your surf journal!"
-      )
+      screen.getByText("No sessions yet. Start building your surf journal!")
     ).toBeInTheDocument();
     expect(screen.getByText("Log Your First Session")).toBeInTheDocument();
   });
