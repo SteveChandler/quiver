@@ -1,0 +1,11 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/enhanced-forecast-sync",
+      "schedule": "0 6 * * *",
+      "headers": {
+        "authorization": "Bearer $CRON_SECRET"
+      }
+    }
+  ]
+}
