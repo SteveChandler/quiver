@@ -3,6 +3,7 @@
 import React from "react";
 import { MultiDayForecastTable } from "@/components/forecast/multi-day-forecast-table";
 import { ForecastDataTransparency } from "@/components/ui/forecast-data-transparency";
+import { ForecastDisplayWithTransparency } from "@/components/forecast/forecast-display-with-transparency";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 interface ForecastDisplayProps {
@@ -18,6 +19,12 @@ interface ForecastDisplayProps {
   } | null;
   loading: boolean;
   error: string | null;
+  // New transparency props - opt-in for backward compatibility
+  showTransparency?: boolean;
+  showQualitySummary?: boolean;
+  showFallbackInfo?: boolean;
+  allowToggleTransparency?: boolean;
+  className?: string;
 }
 
 export function ForecastDisplay({
@@ -25,7 +32,28 @@ export function ForecastDisplay({
   beach,
   loading,
   error,
+  showTransparency = false,
+  showQualitySummary = false,
+  showFallbackInfo = true,
+  allowToggleTransparency = false,
+  className,
 }: ForecastDisplayProps) {
+  // If transparency is requested, use the enhanced component
+  if (showTransparency || showQualitySummary || allowToggleTransparency) {
+    return (
+      <ForecastDisplayWithTransparency
+        forecasts={forecasts}
+        beach={beach}
+        loading={loading}
+        error={error}
+        showTransparency={showTransparency}
+        showQualitySummary={showQualitySummary}
+        showFallbackInfo={showFallbackInfo}
+        allowToggleTransparency={allowToggleTransparency}
+        className={className}
+      />
+    );
+  }
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto px-4 space-y-6">

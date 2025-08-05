@@ -21,6 +21,7 @@ import {
 import { MultiDayForecastTable } from "./forecast/multi-day-forecast-table";
 import { TideChart } from "./forecast/tide-chart-recharts";
 import { SimplifiedForecastTable } from "./forecast/simplified-forecast-table";
+import { BeachesEnhancedForecastWithTransparency } from "./forecast/beaches-enhanced-forecast-with-transparency";
 
 interface BeachesEnhancedForecastProps {
   beachId?: string;
@@ -28,6 +29,11 @@ interface BeachesEnhancedForecastProps {
   showHeader?: boolean;
   defaultDays?: number;
   autoGenerate?: boolean;
+  // New transparency props - opt-in for user activation
+  showTransparency?: boolean;
+  showQualitySummary?: boolean;
+  allowToggleTransparency?: boolean;
+  highlightQualityVariations?: boolean;
 }
 
 export function BeachesEnhancedForecast({
@@ -36,7 +42,28 @@ export function BeachesEnhancedForecast({
   showHeader = true,
   defaultDays = 12,
   autoGenerate = true,
+  showTransparency = false,
+  showQualitySummary = false,
+  allowToggleTransparency = false,
+  highlightQualityVariations = false,
 }: BeachesEnhancedForecastProps) {
+  // If advanced transparency is requested, use the enhanced version
+  if (showTransparency || showQualitySummary || allowToggleTransparency) {
+    return (
+      <BeachesEnhancedForecastWithTransparency
+        beachId={beachId}
+        beachName={beachName}
+        showHeader={showHeader}
+        showTransparency={showTransparency}
+        showTransparencySummary={showQualitySummary}
+        allowToggleTransparency={allowToggleTransparency}
+        highlightQualityVariations={highlightQualityVariations}
+        showFallbackInfo={true}
+        expandableTransparency={true}
+        showQualityChart={showQualitySummary}
+      />
+    );
+  }
   const {
     forecasts,
     availableDates,
@@ -167,7 +194,7 @@ export function BeachesEnhancedForecast({
 
             {/* Multi-Day Tide Chart Display */}
             <TideChart forecasts={forecasts} />
-            
+
             {/* Simplified Forecast Table */}
             <SimplifiedForecastTable forecasts={forecasts} />
 
