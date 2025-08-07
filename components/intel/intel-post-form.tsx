@@ -322,6 +322,14 @@ export function IntelPostForm({
         description: data.description,
         photo_url: photoUrl,
         photo_storage_path: photoStoragePath,
+        // Surf condition fields
+        wave_height: data.wave_height ?? null,
+        wind_speed: data.wind_speed ?? null,
+        wind_direction: data.wind_direction ?? null,
+        water_temp: data.water_temp ?? null,
+        crowd_level: data.crowd_level ?? 3,
+        wave_types: data.wave_types ?? [],
+        forecast_accuracy: data.forecast_accuracy ?? null,
       });
 
       if (result.success) {

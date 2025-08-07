@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - `types/ARCHITECTURE.md` - TypeScript type definitions and domain models
 - CHANGELOG.md for tracking all project changes
 - **Intel Sharing Modal - Surf Conditions Integration**
+
   - Added surf condition fields to intel sharing modal for "conditions" tag posts
   - Includes wave height, wind speed/direction, water temperature, crowd level
   - Wave type selector with same icons and UI as session logging
@@ -24,6 +25,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Updated TypeScript types and backend actions to handle new condition data
   - Fixed wave characteristics layout: removed duplicate label and improved 2x4 grid layout
   - Enhanced button text wrapping to prevent overflow in wave type selector
+
+- Development convenience: `scripts/mock-last-week-community-data.sql` to generate last-week community data
+  - Populates `check_ins` across key SD beaches with realistic values and forecast accuracy ratings
+  - Adds `intel_posts` condition entries using new surf condition fields (`wave_height`, `wind_speed`, `wind_direction`, `water_temp`, `crowd_level`, `wave_types`, `forecast_accuracy`)
+  - Creates confirmations and updates `confirmations_count` for recent intel
 
 ### Changed
 

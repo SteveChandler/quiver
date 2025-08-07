@@ -16,6 +16,16 @@ You can run these scripts in your Supabase SQL Editor:
 
 - `create_session_tables.sql` - Creates the initial tables for beaches, boards, sessions, and session media
 - `update_session_policy.sql` - Updates the Row Level Security policy on the sessions table to make sessions viewable by all users (for the community feature)
+- `mock-last-week-community-data.sql` - Generates last-week community data for check-ins and intel posts with surf condition fields
+
+### Running last-week mock data
+
+To populate recent data that showcases the new community features (check-ins, intel surf conditions):
+
+1. Ensure personas exist (e.g., via `scripts/create-comprehensive-mock-data.sql` or your own users) so the referenced UUIDs are valid.
+2. Open `mock-last-week-community-data.sql` and adjust UUIDs if needed.
+3. Run the script in the Supabase SQL Editor.
+4. Verify in the app: check the Intel tab and recent check-ins on beach pages.
 
 ## Update Session Policies
 
