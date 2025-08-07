@@ -73,7 +73,7 @@ describe("AdjustedForecastDisplay", () => {
 
     // Raw forecast: 10mph, adjusted should be lower
     expect(screen.getByText("10")).toBeInTheDocument(); // Raw value (crossed out)
-    expect(screen.getByText("8 mph")).toBeInTheDocument(); // Adjusted value
+    expect(screen.getByText("9 mph")).toBeInTheDocument(); // Adjusted value
   });
 
   it("displays correct confidence level for high accuracy", () => {

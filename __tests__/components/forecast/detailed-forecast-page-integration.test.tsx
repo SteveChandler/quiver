@@ -37,7 +37,7 @@ jest.mock("@/components/forecast/forecast-fallback-messaging", () => ({
 }));
 
 // Mock the MultiDayForecastTable
-jest.mock("@/components/forecast/multi-day-forecast-table", () => ({
+jest.mock("@/components/forecast/forecast-table", () => ({
   MultiDayForecastTable: ({ forecasts }: any) => (
     <div data-testid="multi-day-forecast-table">
       <span>Forecast table with {forecasts.length} forecasts</span>

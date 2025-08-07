@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ForecastDisplay } from "@/components/forecast/forecast-display";
 import { EnhancedForecastEntity } from "@/types/forecast";
 import {
@@ -17,8 +18,12 @@ describe("ForecastDisplay", () => {
     expect(screen.getByText("10-Day Surf Forecast")).toBeInTheDocument();
   });
 
-  it("should render MultiDayForecastTable when forecasts are available", () => {
+  it("should render MultiDayForecastTable when forecasts are available", async () => {
     render(<ForecastDisplay {...defaultProps} />);
+
+    // The table is collapsed by default, click to expand Monday 1/15
+    const expandButton = screen.getByText("Monday, 1/15");
+    await userEvent.click(expandButton);
 
     // Check for table structure from MultiDayForecastTable
     expect(screen.getByText("Time")).toBeInTheDocument();
@@ -81,7 +86,7 @@ describe("ForecastDisplay", () => {
     expect(screen.queryByText("Test Beach")).not.toBeInTheDocument();
   });
 
-  it("should maintain proper component hierarchy", () => {
+  it("should maintain proper component hierarchy", async () => {
     render(<ForecastDisplay {...defaultProps} />);
 
     // Check that the main container exists
@@ -90,6 +95,11 @@ describe("ForecastDisplay", () => {
 
     // Check that data transparency and table components are both rendered
     expect(screen.getByText("Real Wave Data")).toBeInTheDocument();
+
+    // Expand the table to see headers
+    const expandButton = screen.getByText("Monday, 1/15");
+    await userEvent.click(expandButton);
+
     expect(screen.getByText("Time")).toBeInTheDocument(); // Table header
   });
 });

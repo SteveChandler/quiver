@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Removed
 
 - **Dead Code Cleanup in Forecast Components**
+
   - Removed `tide-chart-example.tsx` (134 lines) - Pure demo component with no usage
   - Removed `forecast-line-chart.tsx` (208+ lines) - Unused custom SVG chart, redundant with Recharts
   - Removed `multi-day-forecast-table.tsx` (368 lines) - Consolidated into forecast-table.tsx
@@ -35,6 +36,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Removed associated test files for deleted components
   - Cleaned up component mock references in test setup files
   - Updated ARCHITECTURE.md files to reflect consolidation
+
+- **Test Suite Cleanup**
+  - Removed `__tests__/components/session-forms/session-form-forecast-integration.test.tsx` - Tested non-existent forecast feedback functionality
+  - Removed `__tests__/components/forecast/forecast-feedback-form.test.tsx` - Disabled test already converted to Playwright
+  - Fixed Supabase mocking issues that caused test failures
+  - All forecast tests now pass (359 tests, 23 test suites)
 
 ## [2025.01.15] - Production Release
 
