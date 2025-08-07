@@ -115,7 +115,7 @@ export function HeroSection() {
           className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-6 text-sm font-medium"
         >
           <Users className="h-4 w-4" />
-          <span>Join 1,000+ surfers worldwide</span>
+          <span>Join surfers near you</span>
         </motion.div>
 
         {/* Main Headline - More Impactful */}
@@ -197,7 +197,7 @@ export function HeroSection() {
           <div className="hidden sm:block text-white/40">•</div>
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            <span>1,000+ active surfers</span>
+            <span>Growing surf community</span>
           </div>
         </motion.div>
 

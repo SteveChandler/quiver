@@ -114,9 +114,9 @@ export const CONTENT = {
   },
   sections: {
     social: {
-      title: "Join the surf community that's changing everything",
+      title: "Join the surf community that's growing every day",
       subtitle:
-        "See what 1,000+ surfers are sharing - epic sessions, hidden spots, and the stoke that keeps us coming back",
+        "See what surfers are sharing — epic sessions, hidden spots, and the stoke that keeps us coming back",
     },
     forecast: {
       title: "Get the most accurate surf forecasts",
@@ -130,9 +130,9 @@ export const CONTENT = {
         "From finding surf buddies to sharing epic sessions - your complete surf community platform",
     },
     cta: {
-      title: "Ready to join the surf revolution?",
+      title: "Ready to join the surf community?",
       subtitle:
-        "Join 1,000+ surfers who've found their crew, tracked epic sessions, and discovered amazing spots. Free to join, priceless connections.",
+        "Find your crew, track epic sessions, and discover amazing spots. Free to join — priceless connections.",
     },
   },
 } as const;

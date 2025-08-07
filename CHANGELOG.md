@@ -42,6 +42,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Supports both `EnhancedForecast` and `EnhancedForecastEntity` types
 - Removed duplicate page-level headers from `app/about/page.tsx` and `app/features/page.tsx` to rely on global `AppHeader` from `app/layout.tsx`
 - Landing page UX: Updated "Explore Features" button style to translucent on-image variant for better contrast (no solid white pill)
+- Landing page copy: Replaced inflated counts with honest language (e.g., "Join surfers near you", "Growing surf community")
+- Removed remaining numeric claims from landing sections (hero badge, social stats, CTA) and updated SEO copy to reflect realistic growth messaging
 
 ### Removed
 
