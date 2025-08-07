@@ -174,8 +174,8 @@ export function HeroSection() {
           {/* Secondary CTA */}
           <Button
             size="lg"
-            variant="outline"
-            className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 px-8 py-4 text-lg font-roboto font-semibold rounded-full backdrop-blur-sm transition-all duration-300"
+            variant="ghost"
+            className="bg-white/10 border border-white/30 text-white hover:bg-white/20 hover:border-white/50 px-8 py-4 text-lg font-roboto font-semibold rounded-full backdrop-blur-sm transition-all duration-300"
             asChild
           >
             <Link href="/features">

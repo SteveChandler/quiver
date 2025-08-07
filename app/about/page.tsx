@@ -29,31 +29,6 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-      {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link
-              href="/"
-              className="text-2xl font-roboto font-bold text-dark-grey"
-            >
-              Quiver
-            </Link>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/auth/sign-in"
-                className="text-dark-grey hover:text-ocean-blue transition-colors"
-              >
-                Sign In
-              </Link>
-              <Button asChild className="bg-ocean-blue hover:bg-ocean-blue/90">
-                <Link href="/auth/sign-up">Get Started</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">

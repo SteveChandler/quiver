@@ -40,6 +40,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Maintained backward compatibility with existing component exports
   - Updated all imports across the codebase to use consolidated component
   - Supports both `EnhancedForecast` and `EnhancedForecastEntity` types
+- Removed duplicate page-level headers from `app/about/page.tsx` and `app/features/page.tsx` to rely on global `AppHeader` from `app/layout.tsx`
+- Landing page UX: Updated "Explore Features" button style to translucent on-image variant for better contrast (no solid white pill)
 
 ### Removed
 
