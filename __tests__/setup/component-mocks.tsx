@@ -1,9 +1,9 @@
 import React from "react";
 import { EnhancedForecastEntity, EnhancedForecast } from "@/types/database";
 
-// Mock MultiDayForecastTable component
-export const mockMultiDayForecastTable = () => {
-  jest.mock("@/components/forecast/multi-day-forecast-table", () => ({
+// Mock Forecast Table components
+export const mockForecastTables = () => {
+  jest.mock("@/components/forecast/forecast-table", () => ({
     MultiDayForecastTable: ({
       forecasts,
     }: {
@@ -11,6 +11,15 @@ export const mockMultiDayForecastTable = () => {
     }) => (
       <div data-testid="multi-day-forecast-table">
         Multi-day forecast table with {forecasts.length} forecasts
+      </div>
+    ),
+    SimplifiedForecastTable: ({
+      forecasts,
+    }: {
+      forecasts: EnhancedForecastEntity[];
+    }) => (
+      <div data-testid="simplified-forecast-table">
+        Simplified forecast table with {forecasts.length} forecasts
       </div>
     ),
   }));
@@ -32,21 +41,6 @@ export const mockForecastDataTransparency = () => {
           <span>Overall Confidence: {overallConfidence}%</span>
         )}
         <span>Data Quality</span>
-      </div>
-    ),
-  }));
-};
-
-// Mock SimplifiedForecastTable component
-export const mockSimplifiedForecastTable = () => {
-  jest.mock("@/components/forecast/simplified-forecast-table", () => ({
-    SimplifiedForecastTable: ({
-      forecasts,
-    }: {
-      forecasts: EnhancedForecastEntity[];
-    }) => (
-      <div data-testid="simplified-forecast-table">
-        Simplified forecast table with {forecasts.length} forecasts
       </div>
     ),
   }));
@@ -201,9 +195,8 @@ export const mockJournalComponents = () => {
 
 // Comprehensive setup function for forecast-related tests
 export const setupForecastComponentMocks = () => {
-  mockMultiDayForecastTable();
+  mockForecastTables();
   mockForecastDataTransparency();
-  mockSimplifiedForecastTable();
   mockBeachesEnhancedForecast();
 };
 

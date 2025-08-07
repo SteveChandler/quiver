@@ -105,32 +105,34 @@ interface TransparencySummary {
 
 ### 📋 **Tabular Display Components**
 
-#### **`multi-day-forecast-table.tsx`** - Comprehensive 10-Day View
+#### **`forecast-table.tsx`** - Unified Tabular Display
 
 ```typescript
 interface ForecastTableProps {
-  forecasts: EnhancedForecast[];
-  date: string;
-  isExpanded: boolean;
-  onToggle: () => void;
-  isToday: boolean;
+  forecasts: ForecastData[]; // Supports both EnhancedForecast and EnhancedForecastEntity
+  variant?: "standard" | "simplified";
+  className?: string;
 }
+
+// Backward-compatible exports
+export const MultiDayForecastTable = (props) => (
+  <ForecastTable {...props} variant="standard" />
+);
+export const SimplifiedForecastTable = (props) => (
+  <ForecastTable {...props} variant="simplified" />
+);
 ```
 
 **Features:**
 
+- **Unified Component**: Single component with variant support
 - **Expandable Day Views**: Progressive disclosure of hourly data
 - **Key Time Highlighting**: Dawn patrol, mid-day, evening sessions
-- **Confidence Indicators**: Visual confidence scoring per forecast
+- **Dual Variants**: Standard (confidence %) vs Simplified (consistency badges)
+- **Type Flexibility**: Works with both forecast data types
 - **Responsive Design**: Mobile-optimized table layouts
 - **Accessibility**: Screen reader friendly with ARIA labels
-
-#### **`simplified-forecast-table.tsx`** - Clean, Accessible Alternative
-
-- **Streamlined Interface**: Essential information focus
-- **Enhanced Readability**: Larger text, better contrast
-- **Consistency Ratings**: Wave quality consistency indicators
-- **Weather Integration**: Comprehensive weather condition display
+- **Backward Compatibility**: Maintains existing component exports
 
 ---
 

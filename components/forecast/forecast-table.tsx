@@ -2,18 +2,25 @@
 
 import React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { EnhancedForecast } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import { Badge } from "@/components/ui/badge";
 
-interface MultiDayForecastTableProps {
-  forecasts: EnhancedForecast[];
-}
+// Generic forecast type that can accept both EnhancedForecast and EnhancedForecastEntity
+type ForecastData = EnhancedForecastEntity | any; // Allow any to support both types
 
 interface ForecastTableProps {
-  forecasts: EnhancedForecast[];
+  forecasts: ForecastData[];
+  variant?: "standard" | "simplified";
+  className?: string;
+}
+
+interface ForecastDayTableProps {
+  forecasts: ForecastData[];
   date: string;
   isExpanded: boolean;
   onToggle: () => void;
   isToday: boolean;
+  variant: "standard" | "simplified";
 }
 
 // Helper function to get normalized date string (YYYY-MM-DD) in user's timezone
@@ -46,6 +53,15 @@ function isDateTomorrow(dateString: string): boolean {
   return dateString === getTomorrowDate();
 }
 
+// Helper function to format date string for display
+function formatDate(dateString: string): string {
+  const date = createDateFromString(dateString);
+  return date.toLocaleDateString("en-US", {
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
 // Helper function to format date string into proper Date object
 function createDateFromString(dateString: string): Date {
   // Handle both YYYY-MM-DD and ISO date formats
@@ -58,13 +74,14 @@ function createDateFromString(dateString: string): Date {
   return new Date(year, month - 1, day);
 }
 
-function ForecastTable({
+function ForecastDayTable({
   forecasts,
   date,
   isExpanded,
   onToggle,
   isToday,
-}: ForecastTableProps) {
+  variant,
+}: ForecastDayTableProps) {
   const dateObj = createDateFromString(date);
 
   // Get key times of day (6am, Noon, 6pm) or closest available
@@ -98,73 +115,94 @@ function ForecastTable({
 
   const formatTime = (timeString: string) => {
     const [hours] = timeString.split(":").map(Number);
+    if (hours === 0) return "Midnight";
     if (hours === 6) return "6am";
     if (hours === 12) return "Noon";
     if (hours === 18) return "6pm";
-
-    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const period = hours < 12 ? "am" : "pm";
-    return `${hour12}${period}`;
+    if (hours < 12) return `${hours}am`;
+    return `${hours - 12}pm`;
   };
 
   const getDirectionArrow = (direction: string | null) => {
-    if (!direction) return "→";
+    if (!direction) return "•";
 
-    const directionMap: Record<string, string> = {
-      N: "↑",
-      NNE: "↗",
-      NE: "↗",
-      ENE: "↗",
-      E: "→",
-      ESE: "↘",
-      SE: "↘",
-      SSE: "↘",
-      S: "↓",
-      SSW: "↙",
-      SW: "↙",
-      WSW: "↙",
-      W: "←",
-      WNW: "↖",
-      NW: "↖",
-      NNW: "↖",
+    const dir = direction.toLowerCase();
+    const directions: Record<string, string> = {
+      n: "↑",
+      nne: "↗",
+      ne: "↗",
+      ene: "↗",
+      e: "→",
+      ese: "↘",
+      se: "↘",
+      sse: "↘",
+      s: "↓",
+      ssw: "↙",
+      sw: "↙",
+      wsw: "↙",
+      w: "←",
+      wnw: "↖",
+      nw: "↖",
+      nnw: "↖",
     };
 
-    return directionMap[direction] || "→";
+    return directions[dir] || "•";
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return "bg-green-500";
-    if (confidence >= 60) return "bg-yellow-500";
-    return "bg-red-500";
+    if (confidence >= 75) return "text-green-600";
+    if (confidence >= 50) return "text-yellow-600";
+    return "text-red-600";
   };
 
   const getConfidenceTextColor = (confidence: number) => {
-    if (confidence >= 80) return "text-green-700";
-    if (confidence >= 60) return "text-yellow-700";
+    if (confidence >= 75) return "text-green-700";
+    if (confidence >= 50) return "text-yellow-700";
     return "text-red-700";
   };
 
+  const getConfidenceBarColor = (confidence: number) => {
+    if (confidence >= 75) return "bg-green-500";
+    if (confidence >= 50) return "bg-yellow-500";
+    return "bg-red-500";
+  };
+
   const formatHeight = (height: string | null) => {
-    if (!height) return "-";
-    return height; // Keep the original formatting with space
+    return height || "N/A";
   };
 
   const formatPeriod = (period: string | null) => {
-    if (!period) return "-";
-    return period.replace("s", "s");
+    return period ? period.replace(/s$/, "s") : "N/A";
   };
 
   const formatDayLabel = () => {
-    // Use our improved date checking functions
     if (isDateToday(date)) return "Today";
     if (isDateTomorrow(date)) return "Tomorrow";
 
-    // For other dates, show full format
     return dateObj.toLocaleDateString("en-US", {
       weekday: "long",
       month: "numeric",
       day: "numeric",
     });
+  };
+
+  const getConsistencyRating = (confidence: number) => {
+    if (confidence >= 75) return "Excellent";
+    if (confidence >= 50) return "Fair";
+    return "Poor";
+  };
+
+  const getWeatherIcon = (condition: string) => {
+    const lower = condition.toLowerCase();
+    if (lower.includes("sunny") || lower.includes("clear")) return "☀️";
+    if (lower.includes("partly cloudy") || lower.includes("scattered"))
+      return "⛅";
+    if (lower.includes("cloudy") || lower.includes("overcast")) return "☁️";
+    if (lower.includes("rain") || lower.includes("shower")) return "🌧️";
+    if (lower.includes("storm") || lower.includes("thunder")) return "⛈️";
+    if (lower.includes("fog") || lower.includes("mist")) return "🌫️";
+    if (lower.includes("wind")) return "💨";
+    return "🌤️";
   };
 
   return (
@@ -183,7 +221,7 @@ function ForecastTable({
           <span className="font-semibold">{formatDayLabel()}</span>
         </div>
         <span className="text-sm text-muted-foreground">
-          {forecasts.length} forecasts
+          {forecasts.length} forecast{forecasts.length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -208,12 +246,11 @@ function ForecastTable({
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Wind
                 </th>
-
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                   Weather
                 </th>
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                  Confidence
+                  {variant === "simplified" ? "Consistency" : "Confidence"}
                 </th>
               </tr>
             </thead>
@@ -225,24 +262,19 @@ function ForecastTable({
                     index % 2 === 0 ? "bg-card" : "bg-muted/30"
                   }`}
                 >
-                  {/* Time */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-8 bg-blue-500 rounded-full"></div>
+                      <div className="w-2 h-8 bg-blue-500 rounded-full" />
                       <span className="font-medium text-sm text-foreground">
                         {formatTime(forecast.forecast_time)}
                       </span>
                     </div>
                   </td>
-
-                  {/* Surf Height */}
                   <td className="p-3">
                     <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-md font-bold text-center min-w-[60px] text-sm">
                       {formatHeight(forecast.wave_height)}
                     </div>
                   </td>
-
-                  {/* Primary Swell */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm text-foreground">
@@ -256,8 +288,6 @@ function ForecastTable({
                       </span>
                     </div>
                   </td>
-
-                  {/* Secondary Swell */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm text-foreground">
@@ -271,8 +301,6 @@ function ForecastTable({
                       </span>
                     </div>
                   </td>
-
-                  {/* Wind */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm text-foreground">
@@ -283,11 +311,11 @@ function ForecastTable({
                       </span>
                     </div>
                   </td>
-
-                  {/* Weather */}
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm">🌤️</span>
+                      <span className="text-sm">
+                        {getWeatherIcon(forecast.weather_condition)}
+                      </span>
                       <div className="text-xs">
                         <div className="font-medium text-foreground">
                           {forecast.air_temperature}
@@ -298,23 +326,36 @@ function ForecastTable({
                       </div>
                     </div>
                   </td>
-
-                  {/* Confidence */}
                   <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-3 h-3 rounded-full ${getConfidenceColor(
-                          forecast.confidence_score
-                        )}`}
-                      />
-                      <span
-                        className={`text-xs font-medium ${getConfidenceTextColor(
-                          forecast.confidence_score
-                        )}`}
+                    {variant === "simplified" ? (
+                      <Badge
+                        variant={
+                          forecast.confidence_score >= 75
+                            ? "default"
+                            : forecast.confidence_score >= 50
+                            ? "secondary"
+                            : "destructive"
+                        }
+                        className="text-xs"
                       >
-                        {forecast.confidence_score}%
-                      </span>
-                    </div>
+                        {getConsistencyRating(forecast.confidence_score)}
+                      </Badge>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-3 h-3 rounded-full ${getConfidenceBarColor(
+                            forecast.confidence_score
+                          )}`}
+                        />
+                        <span
+                          className={`text-xs font-medium ${getConfidenceTextColor(
+                            forecast.confidence_score
+                          )}`}
+                        >
+                          {forecast.confidence_score}%
+                        </span>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -326,59 +367,60 @@ function ForecastTable({
   );
 }
 
-export function MultiDayForecastTable({
+export function ForecastTable({
   forecasts,
-}: MultiDayForecastTableProps) {
-  // Compute available dates from forecasts
-  const availableDates = React.useMemo(() => {
-    const dates = Array.from(
-      new Set(forecasts.map((f) => f.forecast_date))
-    ).sort((a, b) => {
-      const dateA = createDateFromString(a);
-      const dateB = createDateFromString(b);
-      return dateA.getTime() - dateB.getTime();
-    });
-    return dates;
-  }, [forecasts]);
-
-  const [expandedDays, setExpandedDays] = React.useState<Set<string>>(() => {
-    // Initialize with first date if available
-    return new Set(availableDates.length > 0 ? [availableDates[0]] : []);
-  });
-
-  // Update expanded days when available dates change
-  React.useEffect(() => {
-    if (availableDates.length > 0 && expandedDays.size === 0) {
-      setExpandedDays(new Set([availableDates[0]]));
-    }
-  }, [availableDates, expandedDays.size]);
+  variant = "standard",
+  className,
+}: ForecastTableProps) {
+  const [expandedDates, setExpandedDates] = React.useState<Set<string>>(
+    new Set()
+  );
 
   // Group forecasts by date
-  const forecastsByDate = React.useMemo(() => {
-    return forecasts.reduce((acc, forecast) => {
+  const groupedForecasts = React.useMemo(() => {
+    const grouped: Record<string, ForecastData[]> = {};
+
+    forecasts.forEach((forecast) => {
       const date = forecast.forecast_date;
-      if (!acc[date]) {
-        acc[date] = [];
+      if (!grouped[date]) {
+        grouped[date] = [];
       }
-      acc[date].push(forecast);
-      return acc;
-    }, {} as Record<string, EnhancedForecast[]>);
+      grouped[date].push(forecast);
+    });
+
+    // Sort dates and ensure today is expanded by default
+    const sortedDates = Object.keys(grouped).sort();
+    const today = getCurrentDate();
+    if (sortedDates.includes(today)) {
+      setExpandedDates(new Set([today]));
+    }
+
+    return grouped;
   }, [forecasts]);
 
-  const toggleDay = (date: string) => {
-    const newExpanded = new Set(expandedDays);
-    if (newExpanded.has(date)) {
-      newExpanded.delete(date);
-    } else {
-      newExpanded.add(date);
+  // Update expanded dates when grouped forecasts change
+  React.useEffect(() => {
+    const sortedDates = Object.keys(groupedForecasts).sort();
+    const today = getCurrentDate();
+
+    if (sortedDates.includes(today) && expandedDates.size === 0) {
+      setExpandedDates(new Set([today]));
     }
-    setExpandedDays(newExpanded);
+  }, [groupedForecasts, expandedDates.size]);
+
+  const handleToggle = (date: string) => {
+    setExpandedDates((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(date)) {
+        newSet.delete(date);
+      } else {
+        newSet.add(date);
+      }
+      return newSet;
+    });
   };
 
-  // Use our improved date checking functions
-  const todayDate = getCurrentDate();
-  const otherDates = availableDates.filter((date) => !isDateToday(date));
-  const hasTodayData = availableDates.some((date) => isDateToday(date));
+  const sortedDates = Object.keys(groupedForecasts).sort();
 
   if (forecasts.length === 0) {
     return (
@@ -389,29 +431,27 @@ export function MultiDayForecastTable({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Today's forecasts */}
-      {hasTodayData && (
-        <ForecastTable
-          forecasts={forecastsByDate[todayDate] || []}
-          date={todayDate}
-          isExpanded={expandedDays.has(todayDate)}
-          onToggle={() => toggleDay(todayDate)}
-          isToday={true}
-        />
-      )}
-
-      {/* Other dates */}
-      {otherDates.map((date) => (
-        <ForecastTable
+    <div className={`space-y-3 ${className || ""}`}>
+      {sortedDates.map((date) => (
+        <ForecastDayTable
           key={date}
-          forecasts={forecastsByDate[date] || []}
+          forecasts={groupedForecasts[date]}
           date={date}
-          isExpanded={expandedDays.has(date)}
-          onToggle={() => toggleDay(date)}
+          isExpanded={expandedDates.has(date)}
+          onToggle={() => handleToggle(date)}
           isToday={isDateToday(date)}
+          variant={variant}
         />
       ))}
     </div>
   );
 }
+
+// Export with backward compatible names
+export const MultiDayForecastTable = (
+  props: Omit<ForecastTableProps, "variant">
+) => <ForecastTable {...props} variant="standard" />;
+
+export const SimplifiedForecastTable = (
+  props: Omit<ForecastTableProps, "variant">
+) => <ForecastTable {...props} variant="simplified" />;

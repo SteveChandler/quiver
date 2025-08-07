@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MultiDayForecastTable } from "@/components/forecast/multi-day-forecast-table";
+import { MultiDayForecastTable } from "@/components/forecast/forecast-table";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
 import { ConfidenceScoreExplanation } from "@/components/forecast/confidence-score-explanation";
 import { ForecastFallbackMessaging } from "@/components/forecast/forecast-fallback-messaging";

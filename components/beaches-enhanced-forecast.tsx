@@ -18,9 +18,11 @@ import {
   ForecastDataTransparency,
   createMockDataSources,
 } from "@/components/ui/forecast-data-transparency";
-import { MultiDayForecastTable } from "./forecast/multi-day-forecast-table";
+import {
+  MultiDayForecastTable,
+  SimplifiedForecastTable,
+} from "./forecast/forecast-table";
 import { TideChart } from "./forecast/tide-chart-recharts";
-import { SimplifiedForecastTable } from "./forecast/simplified-forecast-table";
 import { BeachesEnhancedForecastWithTransparency } from "./forecast/beaches-enhanced-forecast-with-transparency";
 
 interface BeachesEnhancedForecastProps {
