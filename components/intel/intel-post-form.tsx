@@ -30,6 +30,12 @@ import {
   X,
   AlertCircle,
   CheckCircle,
+  Waves,
+  Wind,
+  Thermometer,
+  Users,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { INTEL_CONFIG, INTEL_UI_TEXT, INTEL_TAGS } from "@/lib/constants/intel";
 import { createIntelPost } from "@/actions/intel-actions";
@@ -37,6 +43,9 @@ import { uploadImage } from "@/lib/image-upload";
 import type { IntelPostTag } from "@/types/database";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
+import { Slider } from "@/components/ui/slider";
+import { Badge } from "@/components/ui/badge";
 
 // Form validation schema
 const intelPostSchema = z.object({
@@ -62,6 +71,32 @@ const intelPostSchema = z.object({
       INTEL_CONFIG.MAX_DESCRIPTION_LENGTH,
       INTEL_UI_TEXT.VALIDATION.DESCRIPTION_TOO_LONG
     ),
+  // Surf condition fields
+  wave_height: z.number().min(0).max(50).nullable().optional(),
+  wind_speed: z.number().min(0).max(150).nullable().optional(),
+  wind_direction: z
+    .enum([
+      "N",
+      "NE",
+      "E",
+      "SE",
+      "S",
+      "SW",
+      "W",
+      "NW",
+      "OFFSHORE",
+      "ONSHORE",
+      "CROSS",
+    ])
+    .nullable()
+    .optional(),
+  water_temp: z.number().min(32).max(100).nullable().optional(),
+  crowd_level: z.number().min(1).max(5).nullable().optional(),
+  wave_types: z.array(z.string()).optional(),
+  forecast_accuracy: z
+    .enum(["accurate", "somewhat", "inaccurate"])
+    .nullable()
+    .optional(),
 });
 
 type IntelPostFormData = z.infer<typeof intelPostSchema>;
@@ -72,6 +107,47 @@ interface IntelPostFormProps {
   onSuccess?: () => void;
   initialLocation?: { latitude: number; longitude: number };
 }
+
+const windDirections = [
+  { value: "N", label: "North" },
+  { value: "NE", label: "Northeast" },
+  { value: "E", label: "East" },
+  { value: "SE", label: "Southeast" },
+  { value: "S", label: "South" },
+  { value: "SW", label: "Southwest" },
+  { value: "W", label: "West" },
+  { value: "NW", label: "Northwest" },
+  { value: "OFFSHORE", label: "Offshore" },
+  { value: "ONSHORE", label: "Onshore" },
+  { value: "CROSS", label: "Cross-shore" },
+];
+
+const accuracyOptions = [
+  {
+    value: "accurate",
+    label: "Yes",
+    icon: CheckCircle2,
+    color: "text-green-600",
+    bgColor: "bg-green-50 hover:bg-green-100",
+    description: "Forecast was spot on",
+  },
+  {
+    value: "somewhat",
+    label: "Kinda",
+    icon: AlertCircle,
+    color: "text-yellow-600",
+    bgColor: "bg-yellow-50 hover:bg-yellow-100",
+    description: "Close but not perfect",
+  },
+  {
+    value: "inaccurate",
+    label: "No",
+    icon: XCircle,
+    color: "text-red-600",
+    bgColor: "bg-red-50 hover:bg-red-100",
+    description: "Way off the mark",
+  },
+];
 
 export function IntelPostForm({
   isOpen,
@@ -95,6 +171,13 @@ export function IntelPostForm({
       tag: "other",
       title: "",
       description: "",
+      wave_height: null,
+      wind_speed: null,
+      wind_direction: null,
+      water_temp: null,
+      crowd_level: 3,
+      wave_types: [],
+      forecast_accuracy: null,
     },
   });
 
@@ -243,7 +326,18 @@ export function IntelPostForm({
 
       if (result.success) {
         toast.success(INTEL_UI_TEXT.SUCCESS.POST_CREATED);
-        form.reset();
+        form.reset({
+          tag: "other",
+          title: "",
+          description: "",
+          wave_height: null,
+          wind_speed: null,
+          wind_direction: null,
+          water_temp: null,
+          crowd_level: 3,
+          wave_types: [],
+          forecast_accuracy: null,
+        });
         setLocation(null);
         setSelectedPhoto(null);
         setPhotoPreview(null);
@@ -263,7 +357,18 @@ export function IntelPostForm({
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
-      form.reset();
+      form.reset({
+        tag: "other",
+        title: "",
+        description: "",
+        wave_height: null,
+        wind_speed: null,
+        wind_direction: null,
+        water_temp: null,
+        crowd_level: 3,
+        wave_types: [],
+        forecast_accuracy: null,
+      });
       setLocation(initialLocation || null);
       setLocationError(null);
       setSelectedPhoto(null);
@@ -418,6 +523,201 @@ export function IntelPostForm({
               </span>
             </div>
           </div>
+
+          {/* Surf Conditions Section - Only show for conditions tag */}
+          {form.watch("tag") === "conditions" && (
+            <div className="space-y-6 border-t pt-6">
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                Current Surf Conditions
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Wave Height */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Waves className="h-4 w-4" />
+                    Wave Height (ft)
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="50"
+                    placeholder="3.5"
+                    value={form.watch("wave_height") ?? ""}
+                    onChange={(e) =>
+                      form.setValue(
+                        "wave_height",
+                        e.target.value ? parseFloat(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                {/* Water Temperature */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Thermometer className="h-4 w-4" />
+                    Water Temp (°F)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="32"
+                    max="100"
+                    placeholder="68"
+                    value={form.watch("water_temp") ?? ""}
+                    onChange={(e) =>
+                      form.setValue(
+                        "water_temp",
+                        e.target.value ? parseFloat(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                {/* Wind Speed */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Wind className="h-4 w-4" />
+                    Wind Speed (mph)
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="150"
+                    placeholder="10"
+                    value={form.watch("wind_speed") ?? ""}
+                    onChange={(e) =>
+                      form.setValue(
+                        "wind_speed",
+                        e.target.value ? parseFloat(e.target.value) : null
+                      )
+                    }
+                  />
+                </div>
+
+                {/* Wind Direction */}
+                <div className="space-y-2">
+                  <Label>Wind Direction</Label>
+                  <Select
+                    value={form.watch("wind_direction") || ""}
+                    onValueChange={(value) =>
+                      form.setValue("wind_direction", value as any)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select direction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {windDirections.map((direction) => (
+                        <SelectItem
+                          key={direction.value}
+                          value={direction.value}
+                        >
+                          {direction.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Crowd Level */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Crowd Level
+                </Label>
+                <div className="space-y-3">
+                  <Slider
+                    min={1}
+                    max={5}
+                    step={1}
+                    value={[form.watch("crowd_level") || 3]}
+                    onValueChange={(value) =>
+                      form.setValue("crowd_level", value[0])
+                    }
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Empty</span>
+                    <Badge variant="outline" className="text-xs">
+                      {(() => {
+                        const level = form.watch("crowd_level") || 3;
+                        const labels = [
+                          "",
+                          "Empty",
+                          "Light",
+                          "Moderate",
+                          "Busy",
+                          "Packed",
+                        ];
+                        return labels[level] || "Moderate";
+                      })()}
+                    </Badge>
+                    <span>Packed</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Wave Types */}
+              <div className="space-y-3">
+                <WaveTypeSelector
+                  selectedTypes={form.watch("wave_types") || []}
+                  onChange={(types) => form.setValue("wave_types", types)}
+                />
+              </div>
+
+              {/* Forecast Accuracy */}
+              <div className="space-y-3">
+                <Label>Was today's forecast accurate?</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {accuracyOptions.map((option) => {
+                    const IconComponent = option.icon;
+                    const isSelected =
+                      form.watch("forecast_accuracy") === option.value;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() =>
+                          form.setValue(
+                            "forecast_accuracy",
+                            option.value as any
+                          )
+                        }
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          isSelected
+                            ? "border-blue-500 bg-blue-50"
+                            : `border-gray-200 ${option.bgColor}`
+                        }`}
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          <IconComponent
+                            className={`h-6 w-6 ${
+                              isSelected ? "text-blue-600" : option.color
+                            }`}
+                          />
+                          <span
+                            className={`font-medium ${
+                              isSelected ? "text-blue-700" : "text-gray-700"
+                            }`}
+                          >
+                            {option.label}
+                          </span>
+                          <span className="text-xs text-gray-500 text-center">
+                            {option.description}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Photo Upload */}
           <div className="space-y-2">

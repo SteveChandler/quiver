@@ -8,12 +8,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Profile page redirect: Users are now automatically redirected to their profile after logging a session
 - Architecture documentation for all core directories:
   - `styles/ARCHITECTURE.md` - Global CSS and Tailwind configuration
   - `supabase/ARCHITECTURE.md` - Database migrations and performance optimizations
   - `test-utils/ARCHITECTURE.md` - Testing utilities and navigation helpers
   - `types/ARCHITECTURE.md` - TypeScript type definitions and domain models
 - CHANGELOG.md for tracking all project changes
+- **Intel Sharing Modal - Surf Conditions Integration**
+  - Added surf condition fields to intel sharing modal for "conditions" tag posts
+  - Includes wave height, wind speed/direction, water temperature, crowd level
+  - Wave type selector with same icons and UI as session logging
+  - Forecast accuracy rating with same visual components as check-in form
+  - Database migration to support surf condition fields in intel_posts table
+  - Updated TypeScript types and backend actions to handle new condition data
+  - Fixed wave characteristics layout: removed duplicate label and improved 2x4 grid layout
+  - Enhanced button text wrapping to prevent overflow in wave type selector
 
 ### Changed
 
@@ -137,12 +147,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 
+- Session duration dropdown regression: Fixed empty dropdown and restored "1 hour" default selection
+- User boards display regression: Fixed boards not appearing for existing users in session forms
 - Session form consolidation and language consistency
 - Profile picture upload error messaging
 - Visit date validation in review forms
 - Out-of-area search messaging improvements
 - Success messages for session saves and profile updates
 - Board creation authentication flow simplification
+
+## [2025.01.16] - Community-Enhanced Surf Forecasts
+
+### Added
+
+- **Community Check-In System**: Complete surf condition reporting system with real-time community data
+  - New `check_ins` database table with RLS policies and performance indexes
+  - Server actions for CRUD operations with authentication wrappers
+  - Reusable CheckInForm component with comprehensive validation
+  - CheckInDisplay and CheckInFeed components for community data visualization
+  - Data fetching hooks following established useDataFetcher patterns
+- **Enhanced Session Conditions**: Merged check-in functionality into existing session conditions form
+  - Beautiful forecast vs actual conditions comparison
+  - Improved UI with slider-based crowd level and forecast accuracy buttons
+  - Community condition reporting integrated seamlessly into session logging
+- **Local Intel Enhancement**: Enhanced Local Intel tab with condition reports
+  - Real-time conditions feed from community check-ins
+  - Check-in submission modal with beach-specific data
+  - Forecast accuracy statistics and community validation
+- **Comprehensive Testing**: 3 new test files covering all check-in functionality
+  - Server action tests with Supabase mocking
+  - Component tests with user interaction validation
+  - Hook tests with data fetching patterns
+
+### Performance
+
+- Database functions for optimized check-in queries with user profile joins
+- Indexed timestamp queries for efficient recent condition lookups
+- RLS policies using performance-optimized auth patterns
+
+### Fixed
+
+- **Dynamic Forecast Integration**: Fixed static forecast data in Session Conditions
+  - Forecast now updates automatically when users change session date/time
+  - Created `useSessionForecast` hook to fetch real forecast data for specific date/time/beach
+  - Added loading states and proper error handling for forecast data
+  - Users now see accurate forecast vs actual conditions comparison
+- Migration syntax error: Changed `timestamp` column to `checked_in_at` to avoid PostgreSQL reserved keyword conflict
+- Index predicate error: Removed `now()` function from index WHERE clause since non-immutable functions aren't allowed in index predicates
 
 ## [2024.12.01] - Initial Foundation
 

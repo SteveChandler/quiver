@@ -1,0 +1,189 @@
+"use client";
+
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
+
+export interface WaveType {
+  id: string;
+  label: string;
+  emoji: string;
+  description: string;
+  color: string;
+}
+
+export const WAVE_TYPES: WaveType[] = [
+  {
+    id: "fat",
+    label: "Fat",
+    emoji: "🌊",
+    description: "Wide, mellow waves",
+    color: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+  },
+  {
+    id: "mushy",
+    label: "Mushy",
+    emoji: "🫧",
+    description: "Soft, slow-breaking waves",
+    color: "bg-gray-100 text-gray-800 hover:bg-gray-200",
+  },
+  {
+    id: "peaky",
+    label: "Peaky",
+    emoji: "⛰️",
+    description: "Sharp, defined peaks",
+    color: "bg-purple-100 text-purple-800 hover:bg-purple-200",
+  },
+  {
+    id: "powerful",
+    label: "Powerful",
+    emoji: "💪",
+    description: "Strong, heavy waves",
+    color: "bg-red-100 text-red-800 hover:bg-red-200",
+  },
+  {
+    id: "closeouts",
+    label: "Closeouts",
+    emoji: "🚪",
+    description: "Waves breaking all at once",
+    color: "bg-orange-100 text-orange-800 hover:bg-orange-200",
+  },
+  {
+    id: "barreling",
+    label: "Barreling",
+    emoji: "🌀",
+    description: "Hollow, tube-forming waves",
+    color: "bg-cyan-100 text-cyan-800 hover:bg-cyan-200",
+  },
+  {
+    id: "reform",
+    label: "Reform",
+    emoji: "🔄",
+    description: "Waves that break, then reform",
+    color: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+  },
+  {
+    id: "clean",
+    label: "Clean",
+    emoji: "📏",
+    description: "Well-organized, smooth waves",
+    color: "bg-green-100 text-green-800 hover:bg-green-200",
+  },
+];
+
+interface WaveTypeSelectorProps {
+  selectedTypes: string[];
+  onChange: (types: string[]) => void;
+  className?: string;
+}
+
+export function WaveTypeSelector({
+  selectedTypes,
+  onChange,
+  className = "",
+}: WaveTypeSelectorProps) {
+  const toggleWaveType = (typeId: string) => {
+    const isSelected = selectedTypes.includes(typeId);
+    if (isSelected) {
+      onChange(selectedTypes.filter((id) => id !== typeId));
+    } else {
+      onChange([...selectedTypes, typeId]);
+    }
+  };
+
+  const removeWaveType = (typeId: string) => {
+    onChange(selectedTypes.filter((id) => id !== typeId));
+  };
+
+  const clearAll = () => {
+    onChange([]);
+  };
+
+  return (
+    <div className={`space-y-4 ${className}`}>
+      {/* Selected Tags */}
+      {selectedTypes.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">Selected:</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearAll}
+              className="h-6 px-2 text-xs text-gray-500 hover:text-gray-700"
+            >
+              Clear all
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {selectedTypes.map((typeId) => {
+              const waveType = WAVE_TYPES.find((t) => t.id === typeId);
+              if (!waveType) return null;
+
+              return (
+                <Badge
+                  key={typeId}
+                  variant="secondary"
+                  className={`${waveType.color} cursor-pointer`}
+                  onClick={() => removeWaveType(typeId)}
+                >
+                  <span className="mr-1">{waveType.emoji}</span>
+                  {waveType.label}
+                  <X className="ml-1 h-3 w-3" />
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Available Options */}
+      <div className="space-y-2">
+        <span className="text-sm font-medium text-gray-700">
+          Wave characteristics:
+        </span>
+        <div className="grid grid-cols-2 gap-2">
+          {WAVE_TYPES.map((waveType) => {
+            const isSelected = selectedTypes.includes(waveType.id);
+
+            return (
+              <button
+                key={waveType.id}
+                type="button"
+                onClick={() => toggleWaveType(waveType.id)}
+                className={`p-2 rounded-lg border-2 transition-all text-left ${
+                  isSelected
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+                title={waveType.description}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">{waveType.emoji}</span>
+                  <span
+                    className={`text-sm font-medium ${
+                      isSelected ? "text-blue-700" : "text-gray-700"
+                    }`}
+                  >
+                    {waveType.label}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 leading-tight break-words">
+                  {waveType.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {selectedTypes.length === 0 && (
+        <p className="text-xs text-gray-500 text-center italic">
+          Select wave characteristics that best describe the conditions
+        </p>
+      )}
+    </div>
+  );
+}

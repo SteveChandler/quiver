@@ -22,6 +22,7 @@ export type SessionFormState = {
   overallRating: string;
   notes: string;
   photos: string[];
+  waveTypes: string[]; // Array of wave type IDs
   // New Session Planner Pro fields
   optimalTimes?: Array<{
     time: string;
@@ -77,6 +78,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     overallRating: "",
     notes: "",
     photos: [],
+    waveTypes: [],
     // Initialize new Session Planner Pro fields
     optimalTimes: undefined,
     selectedOptimalTime: undefined,
@@ -160,6 +162,7 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
       overallRating: "",
       notes: "",
       photos: [],
+      waveTypes: [],
       // Reset new Session Planner Pro fields
       optimalTimes: undefined,
       selectedOptimalTime: undefined,

@@ -495,9 +495,14 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         setSessionCreated(true);
       }
 
-      // Handle completion - only redirect for planned sessions
+      // Handle completion - redirect to profile for both planned and logged sessions
       if (isPlanning) {
         router.push("/profile");
+      } else {
+        // For logged sessions, redirect to profile after a brief delay to show success message
+        setTimeout(() => {
+          router.push("/profile");
+        }, 1500);
       }
     } catch (error) {
       console.error("Error saving session:", error);

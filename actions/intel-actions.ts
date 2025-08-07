@@ -43,6 +43,13 @@ export async function createIntelPost(
       description,
       photo_url,
       photo_storage_path,
+      wave_height,
+      wind_speed,
+      wind_direction,
+      water_temp,
+      crowd_level,
+      wave_types,
+      forecast_accuracy,
     } = data;
 
     // Validate required fields
@@ -76,6 +83,14 @@ export async function createIntelPost(
         photo_url,
         photo_storage_path,
         expires_at: expiryDate.toISOString(),
+        // Surf condition fields
+        wave_height,
+        wind_speed,
+        wind_direction,
+        water_temp,
+        crowd_level,
+        wave_types,
+        forecast_accuracy,
       })
       .select()
       .single();
