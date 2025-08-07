@@ -54,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Updated ARCHITECTURE.md files to reflect consolidation
 
 - **Test Suite Cleanup**
+- Local Intel UX: Intel post modal now shows nearest beach name instead of raw latitude/longitude
   - Removed `__tests__/components/session-forms/session-form-forecast-integration.test.tsx` - Tested non-existent forecast feedback functionality
   - Removed `__tests__/components/forecast/forecast-feedback-form.test.tsx` - Disabled test already converted to Playwright
   - Fixed Supabase mocking issues that caused test failures

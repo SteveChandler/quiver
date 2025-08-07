@@ -33,6 +33,8 @@ import {
   getConfidenceLabel,
 } from "@/lib/constants/intel";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
+import { getNearestBeachName } from "@/lib/utils/nearest-beach";
+import { useMemo } from "react";
 
 interface BeachIntelSectionProps {
   beachId: string;
@@ -277,6 +279,11 @@ function IntelPostCard({
     addSuffix: true,
   });
 
+  const nearestBeach = useMemo(
+    () => getNearestBeachName(Number(post.latitude), Number(post.longitude)),
+    [post.latitude, post.longitude]
+  );
+
   return (
     <div className="bg-white/70 rounded-xl border border-blue-100/80 p-4 transition-all duration-200 hover:bg-white/90 hover:shadow-md">
       <div className="flex items-start gap-3">
@@ -335,6 +342,10 @@ function IntelPostCard({
           {/* Actions */}
           <div className="flex items-center justify-between mt-3">
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 text-xs text-gray-600">
+                <MapPin className="h-3 w-3" />
+                <span>{nearestBeach}</span>
+              </div>
               {canConfirm && (
                 <Button
                   variant="ghost"

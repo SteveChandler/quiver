@@ -28,6 +28,8 @@ import {
 import { INTEL_UI_TEXT } from "@/lib/constants/intel";
 import type { IntelPostWithUser } from "@/types/database";
 import { cn } from "@/lib/utils";
+import { getNearestBeachName } from "@/lib/utils/nearest-beach";
+import { useMemo } from "react";
 
 interface IntelPostModalProps {
   post: IntelPostWithUser;
@@ -70,6 +72,11 @@ export function IntelPostModal({
   };
 
   const isExpired = post.expires_at && new Date(post.expires_at) < new Date();
+
+  const nearestBeach = useMemo(
+    () => getNearestBeachName(post.latitude, post.longitude),
+    [post.latitude, post.longitude]
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -141,9 +148,7 @@ export function IntelPostModal({
           {/* Location */}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4" />
-            <span>
-              {post.latitude.toFixed(4)}, {post.longitude.toFixed(4)}
-            </span>
+            <span>{nearestBeach}</span>
           </div>
 
           {/* Confirmations */}
