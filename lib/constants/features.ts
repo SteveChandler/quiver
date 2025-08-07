@@ -101,13 +101,15 @@ export const HERO_VIDEOS = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: ["Where Surf", "Meets Community"],
-    subtitle: "Plan. Track. Connect.",
-    cta: "Join 1,000+ Surfers",
+    title: ["Your Surf Community", "Awaits"],
+    subtitle:
+      "Connect with surfers, track epic sessions, and discover the best waves in your area. Join the community that's revolutionizing how we surf together.",
+    cta: "Join Free Today",
+    secondaryCta: "Explore Features",
     benefits: [
-      "📊 Track & share your sessions",
-      "🌊 Get accurate surf forecasts",
-      "📍 Discover epic surf spots",
+      "🏄‍♀️ Connect with local surfers",
+      "📊 Track & share epic sessions",
+      "🌊 Get community-verified forecasts",
     ],
   },
   sections: {

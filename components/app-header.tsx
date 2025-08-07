@@ -31,7 +31,13 @@ export function AppHeader() {
     enabled: !!user,
   });
 
-  const navItems: { name: string; href: string; icon: null }[] = [];
+  // Navigation items - different for authenticated vs unauthenticated users
+  const navItems: { name: string; href: string; icon: null }[] = user
+    ? [] // Authenticated users have bottom navigation
+    : [
+        { name: "Features", href: "/features", icon: null },
+        { name: "About", href: "/about", icon: null },
+      ];
 
   const isActiveRoute = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -148,9 +154,21 @@ export function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link href="/auth/sign-in">
-              <Button size="sm">Sign In</Button>
-            </Link>
+            <div className="flex items-center space-x-2">
+              <Link href="/auth/sign-in">
+                <Button variant="ghost" size="sm">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/auth/sign-up">
+                <Button
+                  size="sm"
+                  className="bg-ocean-blue hover:bg-ocean-blue/90"
+                >
+                  Sign Up
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
       </div>
@@ -175,16 +193,29 @@ export function AppHeader() {
               </Link>
             ))}
 
-            {/* Mobile Auth Button */}
+            {/* Mobile Auth Buttons */}
             {!user && (
-              <Link
-                href="/auth/sign-up"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <Button size="sm" className="w-full">
-                  Sign Up
-                </Button>
-              </Link>
+              <div className="space-y-2 pt-2 border-t">
+                <Link
+                  href="/auth/sign-in"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Button variant="outline" size="sm" className="w-full">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link
+                  href="/auth/sign-up"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Button
+                    size="sm"
+                    className="w-full bg-ocean-blue hover:bg-ocean-blue/90"
+                  >
+                    Sign Up
+                  </Button>
+                </Link>
+              </div>
             )}
           </nav>
         </div>

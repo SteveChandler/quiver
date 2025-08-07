@@ -3,7 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Users, TrendingUp, MapPin, Waves } from "lucide-react";
+import {
+  ArrowRight,
+  Users,
+  TrendingUp,
+  MapPin,
+  Waves,
+  Eye,
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { HERO_VIDEOS, CONTENT } from "@/lib/constants/features";
@@ -152,6 +159,7 @@ export function HeroSection() {
           {...ANIMATION_VARIANTS.heroText(0.4)}
           className="flex flex-col sm:flex-row gap-4 justify-center items-center"
         >
+          {/* Primary CTA */}
           <Button
             size="lg"
             className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
@@ -163,9 +171,33 @@ export function HeroSection() {
             </Link>
           </Button>
 
-          <div className="flex items-center gap-2 text-white/80 text-sm">
+          {/* Secondary CTA */}
+          <Button
+            size="lg"
+            variant="outline"
+            className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 px-8 py-4 text-lg font-roboto font-semibold rounded-full backdrop-blur-sm transition-all duration-300"
+            asChild
+          >
+            <Link href="/features">
+              {CONTENT.hero.secondaryCta}
+              <Eye className="ml-2 h-5 w-5" />
+            </Link>
+          </Button>
+        </motion.div>
+
+        {/* Trust Signals */}
+        <motion.div
+          {...ANIMATION_VARIANTS.heroText(0.45)}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 text-white/80 text-sm"
+        >
+          <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             <span>Free to join • No credit card required</span>
+          </div>
+          <div className="hidden sm:block text-white/40">•</div>
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span>1,000+ active surfers</span>
           </div>
         </motion.div>
 

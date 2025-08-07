@@ -32,8 +32,23 @@ jest.mock("@/lib/supabase/client", () => ({
   })),
 }));
 
+// Mock Next.js navigation
+const mockPush = jest.fn();
+const mockRouter = {
+  push: mockPush,
+  replace: jest.fn(),
+  back: jest.fn(),
+  forward: jest.fn(),
+  refresh: jest.fn(),
+  prefetch: jest.fn(),
+};
+
 // Mock dependencies
-jest.mock("next/navigation");
+jest.mock("next/navigation", () => ({
+  useRouter: jest.fn(() => mockRouter),
+  useSearchParams: jest.fn(),
+  usePathname: jest.fn(),
+}));
 jest.mock("@/context/auth-context");
 jest.mock("@/hooks/use-session-form");
 jest.mock("@/hooks/use-forecast-calibration");
@@ -97,17 +112,14 @@ const mockForecast = {
 };
 
 describe("SessionForm Forecast Integration", () => {
-  const mockPush = jest.fn();
   const mockUpdateField = jest.fn();
   const mockSubmitForecastFeedback = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Mock router
-    (useRouter as jest.Mock).mockReturnValue({
-      push: mockPush,
-    });
+    // Router is already mocked globally
+    mockPush.mockClear();
 
     // Mock search params
     (useSearchParams as jest.Mock).mockReturnValue({

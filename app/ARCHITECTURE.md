@@ -1,0 +1,446 @@
+# App Directory Architecture
+
+## Overview
+
+The `/app` directory follows Next.js 13+ App Router conventions, implementing a modern, scalable architecture for the Quiver surf community platform. This directory contains both client-side pages and server-side API routes, providing a comprehensive full-stack application structure.
+
+## Directory Structure & Functions
+
+### 📁 Root Files
+
+#### `page.tsx`
+
+- **Function**: Main landing page/homepage
+- **Type**: Client component wrapper
+- **Behavior**: Dynamically renders either landing page (unauthenticated) or dashboard (authenticated)
+- **Implementation**: Delegates to `client-app.tsx` for authentication-based routing
+
+#### `client-app.tsx`
+
+- **Function**: Main client-side application orchestrator
+- **Type**: Client component with lazy loading
+- **Features**:
+  - Authentication-based routing
+  - Performance optimizations (lazy loading, preloading)
+  - Error boundaries and loading states
+  - Web Vitals tracking
+  - Memory usage monitoring (development)
+
+#### `layout.tsx`
+
+- **Function**: Root layout wrapper for entire application
+- **Features**:
+  - Font optimization (Inter with display swap)
+  - SEO metadata configuration
+  - Performance optimizations (resource hints, prefetching)
+  - Auth context provider
+  - Global styles and viewport settings
+
+#### `globals.css`
+
+- **Function**: Global styles and CSS variables
+- **Features**:
+  - Responsive design breakpoints
+  - Container utilities
+  - Dark/light theme variables
+  - Performance-optimized layouts
+
+---
+
+### 📁 `/about`
+
+- **Function**: Company information and mission page
+- **Type**: Static marketing page
+- **Content**: Company story, values, team information, future roadmap
+- **Features**: SEO optimized with structured data
+
+### 📁 `/admin`
+
+- **Function**: Administrative interface for platform management
+- **Access**: Admin-only routes
+- **Features**:
+  - Forecast management dashboard
+  - Beach data administration
+  - System monitoring tools
+
+#### `/admin/forecasts/page.tsx`
+
+- **Function**: Forecast management interface
+- **Features**:
+  - Bulk forecast updates
+  - Individual beach forecast management
+  - Status monitoring and error handling
+
+---
+
+### 📁 `/api` - Server-Side API Routes
+
+#### `/api/admin/`
+
+- **Function**: Administrative API endpoints
+- **Security**: Admin authentication required
+- **Endpoints**:
+  - `cleanup-inactive-buoys/` - Buoy maintenance operations
+  - `sync-buoys/` - NOAA buoy data synchronization
+  - `update-buoy-conditions/` - Real-time conditions updates
+
+#### `/api/analytics/`
+
+- **Function**: User analytics and session data
+- **Features**:
+  - Session analytics aggregation
+  - Calendar heatmap data
+  - Privacy controls for session data
+
+#### `/api/auth/`
+
+- **Function**: Authentication system integration
+- **Provider**: Supabase Auth
+- **Endpoints**:
+  - `[...supabase]/` - Supabase auth callbacks
+  - `check-session/` - Session validation
+  - `refresh-session/` - Token refresh
+  - `supabase/resend-confirmation/` - Email confirmation
+
+#### `/api/beaches/`
+
+- **Function**: Beach location data management
+- **Features**:
+  - Nearby beach queries with geospatial search
+  - Beach CRUD operations (admin)
+  - Location-based filtering
+
+#### `/api/boards/`
+
+- **Function**: User surfboard management
+- **Features**:
+  - Board creation and management
+  - Session count tracking
+  - User-specific board data
+
+#### `/api/buoys/`
+
+- **Function**: Real-time buoy data access
+- **Data Source**: NOAA NDBC (National Data Buoy Center)
+- **Endpoints**:
+  - `conditions/` - Current buoy conditions
+  - `nearby/` - Geospatial buoy search
+
+#### `/api/cache/`
+
+- **Function**: Caching system management
+- **Features**:
+  - Cache status monitoring
+  - Performance optimization data
+  - Beach cluster forecasting cache
+
+#### `/api/cron/`
+
+- **Function**: Scheduled job endpoints
+- **Security**: Cron authentication required
+- **Jobs**:
+  - `enhanced-forecast-sync/` - Comprehensive NOAA data sync
+  - `smart-forecast-update/` - Intelligent forecast updates
+
+#### `/api/forecasts/`
+
+- **Function**: Surf forecast system
+- **Data Sources**: NOAA WaveWatch III, CO-OPS, Weather Service
+- **Endpoints**:
+  - `update/` - Forecast update management
+  - `update-enhanced/` - Advanced forecast generation with CDIP integration
+
+#### `/api/health/`
+
+- **Function**: System health monitoring
+- **Usage**: Load balancer health checks, monitoring systems
+
+#### `/api/intel/`
+
+- **Function**: Community intelligence system
+- **Features**:
+  - Location-based intel posts (parking, hazards, conditions)
+  - Community confirmation system
+  - Geospatial filtering and tagging
+
+#### `/api/journal/`
+
+- **Function**: Session journaling and export
+- **Features**:
+  - PDF export generation
+  - Session analytics
+  - Data portability
+
+#### `/api/plan-session/`
+
+- **Function**: Session planning assistance
+- **Features**: Integration with forecast data for optimal session timing
+
+#### `/api/recent-posts/`
+
+- **Function**: Social feed data
+- **Features**: Recent community activity aggregation
+
+#### `/api/session-planner/`
+
+- **Function**: Advanced session planning tools
+- **Features**:
+  - `gear-suggestions/` - AI-powered board recommendations
+  - `invitations/` - Session buddy system
+  - `optimal-times/` - Forecast-based timing optimization
+
+#### `/api/surf/`
+
+- **Function**: Core surf forecast API
+- **Features**:
+  - Multi-source forecast aggregation
+  - Smart beach resolution
+  - Confidence scoring
+- **Documentation**: Comprehensive API documentation in README.md
+
+---
+
+### 📁 `/auth` - Authentication Pages
+
+#### `/auth/sign-in/page.tsx`
+
+- **Function**: User sign-in interface
+- **Features**:
+  - Email/password authentication
+  - Responsive design
+  - Error handling and validation
+  - Link to sign-up page
+
+#### `/auth/sign-up/page.tsx`
+
+- **Function**: User registration interface
+- **Features**:
+  - Account creation flow
+  - Email verification
+  - Terms acceptance
+  - Link to sign-in page
+
+---
+
+### 📁 `/beach/[id]`
+
+- **Function**: Dynamic beach detail pages
+- **Type**: Server-side rendered with dynamic routing
+- **Features**:
+  - Beach-specific information
+  - Forecast data integration
+  - Community features (reviews, intel)
+  - Real-time conditions
+
+---
+
+### 📁 `/features`
+
+- **Function**: Product features showcase page
+- **Type**: Static marketing page
+- **Content**: Platform capabilities, feature explanations
+- **Purpose**: User education and conversion
+
+---
+
+### 📁 `/forecast/[beachId]`
+
+- **Function**: Beach-specific forecast pages
+- **Type**: Server-side rendered with dynamic routing
+- **Features**:
+  - 10-day forecast display
+  - Multi-source data integration
+  - Confidence scoring
+  - Historical data comparison
+
+---
+
+### 📁 `/log-session`
+
+- **Function**: Session logging interface
+- **Type**: Protected route (authentication required)
+- **Features**:
+  - Session data capture
+  - Photo uploads
+  - Condition recording
+  - Board selection
+
+---
+
+### 📁 `/map`
+
+- **Function**: Interactive map interfaces
+
+#### `/map/page.tsx`
+
+- **Function**: Basic map view
+- **Features**: Beach location display, basic interactivity
+
+#### `/map/enhanced-page.tsx`
+
+- **Function**: Advanced map interface
+- **Features**:
+  - Real-time buoy data overlay
+  - Advanced filtering
+  - Performance optimizations
+  - Loading states and error handling
+
+---
+
+### 📁 `/plan-session`
+
+- **Function**: Session planning interface
+- **Type**: Protected route
+- **Features**:
+  - Future session scheduling
+  - Forecast integration
+  - Gear recommendations
+  - Buddy invitations
+
+---
+
+### 📁 `/privacy`
+
+- **Function**: Privacy policy page
+- **Type**: Static legal page
+- **Content**: Data handling policies, user rights
+- **Compliance**: GDPR, CCPA requirements
+
+---
+
+### 📁 `/profile`
+
+- **Function**: User profile management
+
+#### `/profile/page.tsx`
+
+- **Function**: Profile display page
+- **Features**:
+  - User statistics
+  - Session history
+  - Social features
+
+#### `/profile/edit/page.tsx`
+
+- **Function**: Profile editing interface
+- **Features**:
+  - Personal information updates
+  - Privacy settings
+  - Account management
+
+---
+
+### 📁 `/sessions`
+
+- **Function**: Session management system
+
+#### `/sessions/page.tsx`
+
+- **Function**: Session list/history view
+- **Features**:
+  - Session filtering and search
+  - Analytics dashboard
+  - Export capabilities
+
+#### `/sessions/[id]/page.tsx`
+
+- **Function**: Individual session detail pages
+- **Features**:
+  - Detailed session information
+  - Photo galleries
+  - Social sharing
+  - Edit capabilities
+
+---
+
+## Architecture Patterns
+
+### 🔒 Authentication Strategy
+
+- **Provider**: Supabase Auth
+- **Pattern**: Client-side authentication state with server-side validation
+- **Routes**: Protected routes check authentication before rendering
+- **Session Management**: Automatic token refresh and persistence
+
+### 🎯 Routing Strategy
+
+- **Pattern**: File-based routing with Next.js App Router
+- **Dynamic Routes**: Parameterized routes for beaches, sessions, users
+- **Nested Layouts**: Consistent UI patterns across route groups
+- **Loading States**: Suspense boundaries for smooth UX
+
+### 📊 Data Fetching
+
+- **Server Components**: Default for static/server-rendered content
+- **Client Components**: Interactive features requiring state
+- **API Routes**: Internal API for complex operations
+- **External APIs**: NOAA, Supabase integration
+
+### 🚀 Performance Optimizations
+
+- **Lazy Loading**: Component-level code splitting
+- **Resource Hints**: DNS prefetch, preconnect, prefetch
+- **Image Optimization**: Next.js Image component
+- **Font Optimization**: Display swap strategy
+- **Caching**: API response caching and client-side state management
+
+### 🔧 Development Features
+
+- **Hot Reload**: Fast development iteration
+- **TypeScript**: Full type safety
+- **Error Boundaries**: Graceful error handling
+- **Performance Monitoring**: Web Vitals tracking
+- **Memory Monitoring**: Development-mode resource tracking
+
+## Security Considerations
+
+### 🛡️ API Security
+
+- **Authentication**: JWT token validation
+- **Authorization**: Role-based access control (admin routes)
+- **Rate Limiting**: API request throttling
+- **Input Validation**: Request sanitization and validation
+
+### 🔐 Route Protection
+
+- **Middleware**: Authentication checks at route level
+- **Server-Side Validation**: Double verification for sensitive operations
+- **CSRF Protection**: Built-in Next.js protections
+
+### 📱 Client Security
+
+- **XSS Prevention**: React's built-in protections
+- **Secure Headers**: CSP, HSTS configuration
+- **Environment Variables**: Secure API key management
+
+## Integration Points
+
+### 🌊 External Services
+
+- **NOAA APIs**: Weather and ocean data
+- **Supabase**: Database and authentication
+- **Mapbox/Google Maps**: Mapping services
+- **CDIP**: California wave monitoring
+
+### 📊 Internal Services
+
+- **Database**: PostgreSQL via Supabase
+- **Storage**: Supabase Storage for media
+- **Caching**: In-memory and database caching
+- **Analytics**: Session tracking and user analytics
+
+## Deployment Considerations
+
+### 🚀 Build Process
+
+- **Static Generation**: Pre-rendered pages where possible
+- **Server-Side Rendering**: Dynamic content with fresh data
+- **API Routes**: Serverless function deployment
+- **Asset Optimization**: Automatic image and code optimization
+
+### 📈 Scalability
+
+- **Serverless Architecture**: Auto-scaling API routes
+- **CDN Integration**: Global content delivery
+- **Database Optimization**: Query optimization and indexing
+- **Caching Strategy**: Multi-level caching implementation

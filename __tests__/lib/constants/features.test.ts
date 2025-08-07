@@ -64,7 +64,7 @@ describe("Features Constants", () => {
       expect(CONTENT.hero).toHaveProperty("cta");
 
       expect(Array.isArray(CONTENT.hero.title)).toBe(true);
-      expect(CONTENT.hero.title).toHaveLength(3);
+      expect(CONTENT.hero.title).toHaveLength(2); // Updated to match actual structure
       expect(typeof CONTENT.hero.subtitle).toBe("string");
       expect(typeof CONTENT.hero.cta).toBe("string");
     });

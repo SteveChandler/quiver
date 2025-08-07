@@ -1,9 +1,9 @@
 // DISABLED: Converted to Playwright tests in e2e/forecast-components.spec.ts
 // This Jest test had issues with Radix UI component interactions
-//
-// import React from "react";
-// import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-// import userEvent from "@testing-library/user-event";
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 // import { ForecastFeedbackForm } from "@/components/forecast/forecast-feedback-form";
 // import type { Session, Forecast } from "@/types/database";
 
@@ -51,7 +51,7 @@ const mockForecast: Forecast = {
   updated_at: "2024-01-15T08:00:00Z",
 };
 
-describe("ForecastFeedbackForm", () => {
+describe.skip("ForecastFeedbackForm - DISABLED (see e2e/forecast-components.spec.ts)", () => {
   const mockOnSubmit = jest.fn();
   const mockOnSkip = jest.fn();
 
@@ -94,7 +94,8 @@ describe("ForecastFeedbackForm", () => {
     expect(screen.getByText("Forecast: 8 mph NW")).toBeInTheDocument();
   });
 
-  it("updates wave height slider correctly", async () => {
+  it.skip("updates wave height slider correctly", async () => {
+    // Disabled - see e2e/forecast-components.spec.ts
     const user = userEvent.setup();
     renderForm();
 
