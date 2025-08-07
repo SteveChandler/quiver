@@ -66,3 +66,4 @@ scripts/setup-dev-cron.sh
 scripts/lighthouseRun.*
 scripts/performance-results.*
 lighthouse-results/
+.env.test

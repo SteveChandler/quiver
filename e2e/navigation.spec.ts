@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { waitForPageLoad, handleAuthRedirect, waitForNavigation } from "./test-helpers";
+import {
+  waitForPageLoad,
+  handleAuthRedirect,
+  waitForNavigation,
+} from "./test-helpers";
 
 test.describe("Navigation", () => {
   test.beforeEach(async ({ page }) => {
@@ -121,7 +125,7 @@ test.describe("Navigation", () => {
 
     for (const pagePath of pages) {
       await page.goto(pagePath);
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
       await page.waitForTimeout(1000);
 
       // Trigger user activity to show nav

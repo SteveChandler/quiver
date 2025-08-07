@@ -124,14 +124,7 @@ test.describe("Map and Beach Directory", () => {
     );
 
     // Should have some condition information visible
-    if (visibleConditions.some((condition) => condition)) {
-      expect(visibleConditions.some((condition) => condition)).toBeTruthy();
-    } else {
-      // If no conditions shown, that's acceptable - note it
-      console.log(
-        "No surf conditions displayed - this may be expected behavior"
-      );
-    }
+    expect(visibleConditions.some((condition) => condition)).toBeTruthy();
   });
 
   test("should allow filtering beaches by conditions", async ({ page }) => {
@@ -292,11 +285,8 @@ test.describe("Map and Beach Directory", () => {
       forecastElements.map((el) => el.isVisible().catch(() => false))
     );
 
-    if (visibleForecast.some((forecast) => forecast)) {
-      expect(visibleForecast.some((forecast) => forecast)).toBeTruthy();
-    } else {
-      console.log("No forecast data displayed - this may be expected behavior");
-    }
+    // Should have some forecast data visible
+    expect(visibleForecast.some((forecast) => forecast)).toBeTruthy();
   });
 
   test("should support different map view modes", async ({ page }) => {

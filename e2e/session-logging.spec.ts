@@ -23,7 +23,7 @@ test.describe("Session Logging", () => {
         page.url().includes("/auth") ||
         page.url() === new URL("/", page.url()).href
       ) {
-        test.skip("User not authenticated - skipping session logging tests");
+        // Authentication is handled by global setup
       }
 
       // Check that session form is visible or we're redirected
@@ -74,13 +74,13 @@ test.describe("Session Logging", () => {
     // Skip if not authenticated
     const authState = await handleAuthRedirect(page);
     if (authState.isAuthPage) {
-      test.skip("User not authenticated - skipping validation tests");
+      // Authentication is handled by global setup
     }
 
     // Try to submit form without filling required fields
     const submitButton = page
       .getByRole("button", {
-        name: /add to journal|log session|save|submit/i,
+        name: /log session|save|submit/i,
       })
       .first();
 
@@ -111,7 +111,7 @@ test.describe("Session Logging", () => {
       page.url().includes("/auth") ||
       page.url() === new URL("/", page.url()).href
     ) {
-      test.skip("User not authenticated - skipping form filling tests");
+      // Authentication is handled by global setup
     }
 
     // Fill out beach information
@@ -324,7 +324,7 @@ test.describe("Session Logging", () => {
     // Submit the form
     const submitButton = page
       .getByRole("button", {
-        name: /add to journal|log session|save|submit/i,
+        name: /log session|save|submit/i,
       })
       .first();
 
@@ -408,7 +408,7 @@ test.describe("Session Logging", () => {
 
       // Try to submit and check for validation
       const submitButton = page.getByRole("button", {
-        name: /add to journal|log session|save|submit/i,
+        name: /log session|save|submit/i,
       });
       if (await submitButton.isVisible()) {
         await submitButton.click();

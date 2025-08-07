@@ -30,7 +30,9 @@ test.describe("Authentication", () => {
     // Check form elements
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/password/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
+    await expect(
+      page.locator('button[type="submit"]').filter({ hasText: /sign in/i })
+    ).toBeVisible();
 
     // Check description text
     await expect(
@@ -41,8 +43,11 @@ test.describe("Authentication", () => {
   test("should show validation errors for empty form submission", async ({
     page,
   }) => {
-    // Try to submit empty form
-    await page.getByRole("button", { name: /sign in/i }).click();
+    // Try to submit empty form - target the form submit button specifically
+    await page
+      .locator('button[type="submit"]')
+      .filter({ hasText: /sign in/i })
+      .click();
 
     // Wait a moment for potential validation
     await page.waitForTimeout(1000);
@@ -80,7 +85,10 @@ test.describe("Authentication", () => {
   }) => {
     await page.getByLabel(/email/i).fill("invalid-email");
     await page.getByLabel(/password/i).fill("password123");
-    await page.getByRole("button", { name: /sign in/i }).click();
+    await page
+      .locator('button[type="submit"]')
+      .filter({ hasText: /sign in/i })
+      .click();
 
     // Wait for potential validation
     await page.waitForTimeout(1000);

@@ -34,7 +34,7 @@ export function BeachQuickActions({
       >
         <Button variant="outline" className="w-full">
           <Waves className="h-4 w-4 mr-1" />
-          Add to Journal
+          Log Session
         </Button>
       </Link>
       <FavoriteButton beachId={beach.id} variant="outline" size="default" />

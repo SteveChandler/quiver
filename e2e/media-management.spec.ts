@@ -77,7 +77,7 @@ test.describe("Media/Photo Management", () => {
 
         // Submit session with photos
         const saveButton = page
-          .getByRole("button", { name: /save|log|add to journal/i })
+          .getByRole("button", { name: /save|log session/i })
           .first();
         if ((await saveButton.isVisible()) && (await saveButton.isEnabled())) {
           await saveButton.click();

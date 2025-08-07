@@ -4,14 +4,14 @@ import { Instagram, Play } from "lucide-react";
 
 const FOOTER_LINKS = {
   product: [
-    { name: "Features", href: "#" },
+    { name: "Features", href: "/features" },
     { name: "Pricing", href: "#" },
     { name: "FAQ", href: "#" },
   ],
   company: [
-    { name: "About", href: "#" },
+    { name: "About", href: "/about" },
     { name: "Contact", href: "#" },
-    { name: "Privacy", href: "#" },
+    { name: "Privacy", href: "/privacy" },
   ],
 } as const;
 
