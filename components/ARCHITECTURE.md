@@ -164,7 +164,6 @@ interface ComponentProps {
 - **`forecast-display-with-transparency.tsx`** - Enhanced transparency features
 - **`multi-day-forecast-table.tsx`** - Tabular 10-day forecast view
 - **`simplified-forecast-table.tsx`** - Clean, accessible forecast table
-- **`forecast-line-chart.tsx`** - Wave height trend visualization
 
 #### Transparency & Data Quality
 

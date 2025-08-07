@@ -169,13 +169,6 @@ interface TideDataPoint {
 - **Today/Tomorrow Labels**: Intelligent date labeling
 - **Dual Data Support**: Direct data and legacy format compatibility
 
-#### **`forecast-line-chart.tsx`** - Wave Height Trends
-
-- **Multi-Day Trends**: Wave height progression visualization
-- **Confidence Overlays**: Quality indicators on trend lines
-- **Interactive Tooltips**: Detailed forecast information on hover
-- **Performance Optimized**: Memoized calculations and rendering
-
 ---
 
 ### 🔍 **Data Quality & Transparency Components**

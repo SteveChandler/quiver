@@ -52,23 +52,6 @@ export const mockSimplifiedForecastTable = () => {
   }));
 };
 
-// Mock ForecastLineChart component
-export const mockForecastLineChart = () => {
-  jest.mock("@/components/forecast/forecast-line-chart", () => ({
-    ForecastLineChart: ({
-      forecasts,
-      className,
-    }: {
-      forecasts: EnhancedForecastEntity[];
-      className?: string;
-    }) => (
-      <div data-testid="forecast-line-chart" className={className}>
-        Forecast line chart with {forecasts.length} data points
-      </div>
-    ),
-  }));
-};
-
 // Mock ForecastSection component (for landing page tests)
 export const mockForecastSection = () => {
   jest.mock("@/components/landing-page/forecast-section", () => ({
@@ -221,7 +204,6 @@ export const setupForecastComponentMocks = () => {
   mockMultiDayForecastTable();
   mockForecastDataTransparency();
   mockSimplifiedForecastTable();
-  mockForecastLineChart();
   mockBeachesEnhancedForecast();
 };
 

@@ -19,6 +19,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Enhanced .cursorrules to reference Architecture files for better development workflow
 
+### Removed
+
+- **Dead Code Cleanup in Forecast Components**
+  - Removed `tide-chart-example.tsx` (134 lines) - Pure demo component with no usage
+  - Removed `forecast-line-chart.tsx` (208+ lines) - Unused custom SVG chart, redundant with Recharts
+  - Removed associated test file `__tests__/components/forecast/forecast-line-chart.test.tsx`
+  - Cleaned up component mock references in test setup files
+  - Updated ARCHITECTURE.md files to remove references to deleted components
+
 ## [2025.01.15] - Production Release
 
 ### Added
