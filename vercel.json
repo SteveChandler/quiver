@@ -2,8 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/enhanced-forecast-sync",
-      "schedule": "0 6 * * *",
-      "target": "production"
+      "schedule": "0 6 * * *"
     }
   ]
 }

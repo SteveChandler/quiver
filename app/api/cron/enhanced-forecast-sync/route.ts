@@ -42,6 +42,16 @@ export async function POST(request: NextRequest): Promise<Response> {
   const startTime = Date.now();
 
   try {
+    // Only allow running in production to avoid accidental dev/preview execution
+    const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
+    if (env !== "production") {
+      return createErrorResponse(
+        "Forbidden",
+        `Cron disabled for environment: ${env}`,
+        403
+      );
+    }
+
     // Validate cron authentication
     const authHeader = request.headers.get("authorization");
     if (!validateCronAuth(authHeader)) {
@@ -140,12 +150,12 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex];
-      
+
       // Add delay between batches to prevent database overload
       if (batchIndex > 0) {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay
       }
-      
+
       const batchPromises = batch.map(async (beach: Beach) => {
         try {
           // Generate comprehensive forecast with CDIP integration
@@ -171,15 +181,21 @@ export async function POST(request: NextRequest): Promise<Response> {
           return { success: true, beachId: beach.id };
         } catch (error) {
           results.failed++;
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+
           // Check if it's a database timeout and log accordingly
-          if (errorMessage.includes('statement timeout') || errorMessage.includes('57014')) {
-            console.warn(`Database timeout for beach ${beach.name} - this is expected during initial sync`);
+          if (
+            errorMessage.includes("statement timeout") ||
+            errorMessage.includes("57014")
+          ) {
+            console.warn(
+              `Database timeout for beach ${beach.name} - this is expected during initial sync`
+            );
           } else {
             console.error(`Failed to sync beach ${beach.name}:`, error);
           }
-          
+
           results.failures.push({
             beachId: beach.id,
             beachName: beach.name,
@@ -218,6 +234,15 @@ export async function POST(request: NextRequest): Promise<Response> {
  */
 export async function GET(request: NextRequest): Promise<Response> {
   try {
+    const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
+    if (env !== "production") {
+      return createErrorResponse(
+        "Forbidden",
+        `Health check disabled for environment: ${env}`,
+        403
+      );
+    }
+
     // Basic auth check for GET requests too
     const authHeader = request.headers.get("authorization");
     if (!validateCronAuth(authHeader)) {
