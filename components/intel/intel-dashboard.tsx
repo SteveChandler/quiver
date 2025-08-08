@@ -8,7 +8,10 @@ import { IntelMap } from "./intel-map";
 import { IntelFeed } from "./intel-feed";
 import { IntelFilters } from "./intel-filters";
 import { IntelPostForm } from "./intel-post-form";
+import { CheckInForm } from "@/components/ui/check-in-form";
+import { CheckInFeed } from "@/components/ui/check-in-display";
 import { useLocationIntelData, useIntelFilters } from "@/hooks/use-intel-data";
+import { useRealtimeBeachCheckIns } from "@/hooks/use-check-ins";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import {
@@ -44,6 +47,7 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
   const [locationMode, setLocationMode] = useState<LocationMode>("all"); // Default to showing all posts
   const [showFilters, setShowFilters] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
+  const [showCheckInForm, setShowCheckInForm] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number] | undefined>();
 
   const { user } = useAuth();
@@ -285,6 +289,19 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
               )}
             </Button>
 
+            {/* Check-In Button */}
+            {canPost && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowCheckInForm(true)}
+                className="h-8 bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Check-In
+              </Button>
+            )}
+
             {/* Refresh Button */}
             <Button
               variant="outline"
@@ -353,15 +370,32 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
         )}
 
         {viewMode === "feed" && (
-          <div className="h-full overflow-y-auto p-4">
-            <IntelFeed
-              posts={posts}
-              loading={loading}
-              onConfirm={handleConfirmPost}
-              onPlanSession={handlePlanSession}
-              canConfirm={canConfirm}
-              selectedTag={selectedTag}
-            />
+          <div className="h-full overflow-y-auto p-4 space-y-6">
+            {/* Recent Conditions Section */}
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Recent Conditions</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Real-time reports from surfers like you
+              </p>
+              {/* TODO: Add actual check-ins data here */}
+              <CheckInFeed
+                checkIns={[]} // Will be populated with real data
+                emptyMessage="No recent condition reports. Be the first to check in!"
+              />
+            </div>
+
+            {/* Intel Posts Section */}
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Local Intel</h2>
+              <IntelFeed
+                posts={posts}
+                loading={loading}
+                onConfirm={handleConfirmPost}
+                onPlanSession={handlePlanSession}
+                canConfirm={canConfirm}
+                selectedTag={selectedTag}
+              />
+            </div>
           </div>
         )}
 
@@ -447,6 +481,23 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
             : { latitude: 32.7507, longitude: -117.254 } // Default to Ocean Beach
         }
       />
+
+      {/* Check-In Form */}
+      {showCheckInForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <CheckInForm
+              beachId="default" // TODO: Get from selected beach or user location
+              beachName="Local Spot"
+              onSuccess={() => {
+                setShowCheckInForm(false);
+                refetch(); // Refresh the intel data
+              }}
+              onCancel={() => setShowCheckInForm(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

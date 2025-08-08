@@ -44,6 +44,8 @@ const mockSupabaseClient = {
       order: jest.fn(() => Promise.resolve({ data: [], error: null })),
       limit: jest.fn(() => Promise.resolve({ data: [], error: null })),
       range: jest.fn(() => Promise.resolve({ data: [], error: null })),
+      // Add these missing methods that can be called directly after select
+      then: jest.fn((callback) => callback({ data: [], error: null })),
     })),
     insert: jest.fn(() => ({
       select: jest.fn(() => ({

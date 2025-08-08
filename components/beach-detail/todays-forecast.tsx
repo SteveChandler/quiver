@@ -1,6 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Waves, Wind, Thermometer, Info } from "lucide-react";
 import { formatForecastTime } from "@/lib/utils";
+import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
+import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import type { Forecast } from "@/types/database";
 
 interface TodaysForecastProps {
@@ -76,11 +78,27 @@ function ModernForecastDisplay({ forecast }: { forecast: Forecast }) {
 }
 
 export function TodaysForecast({ forecast }: TodaysForecastProps) {
+  const { beachAccuracy } = useForecastCalibration({
+    beachId: forecast?.beach_id,
+  });
+
   return (
     <section className="space-y-4">
       <h3 className="text-lg font-semibold">Today's Forecast</h3>
       {forecast ? (
-        <ModernForecastDisplay forecast={forecast} />
+        <div className="space-y-4">
+          {/* Enhanced forecast with community adjustments */}
+          {beachAccuracy && (
+            <AdjustedForecastDisplay
+              rawForecast={forecast}
+              beachAccuracy={beachAccuracy}
+              compact={true}
+            />
+          )}
+
+          {/* Original forecast display */}
+          <ModernForecastDisplay forecast={forecast} />
+        </div>
       ) : (
         <Card>
           <CardContent className="p-6 text-center">

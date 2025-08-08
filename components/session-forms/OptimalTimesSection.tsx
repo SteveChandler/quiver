@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,13 +52,23 @@ export function OptimalTimesSection({
   );
 
   // Fetch optimal times when beach and date are selected
-  const fetchOptimalTimes = async () => {
+  const fetchOptimalTimes = useCallback(async () => {
     if (!formState.selectedBeachId || !formState.selectedDate) {
       return null;
     }
 
+    const params = new URLSearchParams({
+      beachId: formState.selectedBeachId,
+      date: formState.selectedDate,
+    });
+
+    // Add selected time if available to filter recommendations
+    if (formState.selectedTime) {
+      params.append("selectedTime", formState.selectedTime);
+    }
+
     const response = await fetch(
-      `/api/session-planner/optimal-times?beachId=${formState.selectedBeachId}&date=${formState.selectedDate}`
+      `/api/session-planner/optimal-times?${params}`
     );
 
     if (!response.ok) {
@@ -66,10 +76,14 @@ export function OptimalTimesSection({
     }
 
     return response.json();
-  };
+  }, [
+    formState.selectedBeachId,
+    formState.selectedDate,
+    formState.selectedTime,
+  ]);
 
   const { data, loading, error, refetch } = useDataFetcher(fetchOptimalTimes, {
-    enabled: !!(formState.selectedBeachId && formState.selectedDate),
+    skip: !(formState.selectedBeachId && formState.selectedDate), // skip when missing beach ID or date
   });
 
   // Update form state when optimal times are loaded
@@ -80,12 +94,15 @@ export function OptimalTimesSection({
   }, [data, updateField]);
 
   // Handle time slot selection
-  const handleTimeSlotSelect = (timeSlot: OptimalTimeSlot) => {
-    const timeValue = timeSlot.time;
-    setSelectedTimeSlot(timeValue);
-    updateField("selectedOptimalTime", timeValue);
-    updateField("selectedTime", timeValue);
-  };
+  const handleTimeSlotSelect = useCallback(
+    (timeSlot: OptimalTimeSlot) => {
+      const timeValue = timeSlot.time;
+      setSelectedTimeSlot(timeValue);
+      updateField("selectedOptimalTime", timeValue);
+      updateField("selectedTime", timeValue);
+    },
+    [updateField]
+  );
 
   // Show loading state
   if (loading) {
@@ -233,6 +250,9 @@ export function OptimalTimesSection({
               const isSelected = selectedTimeSlot === timeSlot.time;
               const isTopChoice = index === 0;
 
+              // Memoize the click handler to prevent ref loops
+              const handleClick = () => handleTimeSlotSelect(timeSlot);
+
               return (
                 <Button
                   key={timeSlot.time}
@@ -241,7 +261,7 @@ export function OptimalTimesSection({
                     "h-auto p-4 text-left justify-start relative",
                     isSelected && "ring-2 ring-primary ring-offset-2"
                   )}
-                  onClick={() => handleTimeSlotSelect(timeSlot)}
+                  onClick={handleClick}
                 >
                   <div className="flex items-start justify-between w-full">
                     <div className="flex-1 min-w-0">

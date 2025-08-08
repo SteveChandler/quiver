@@ -41,21 +41,21 @@ export function SocialFeedSection() {
           <div className="flex items-center justify-center w-12 h-12 bg-ocean-blue/10 rounded-full mx-auto mb-2">
             <Users className="h-6 w-6 text-ocean-blue" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">1,000+</div>
-          <div className="text-sm text-gray-600">Active Surfers</div>
+          <div className="text-2xl font-bold text-gray-900">Active</div>
+          <div className="text-sm text-gray-600">Community</div>
         </div>
         <div className="text-center">
           <div className="flex items-center justify-center w-12 h-12 bg-sunset-orange/10 rounded-full mx-auto mb-2">
             <TrendingUp className="h-6 w-6 text-sunset-orange" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">5,000+</div>
+          <div className="text-2xl font-bold text-gray-900">Epic</div>
           <div className="text-sm text-gray-600">Sessions Logged</div>
         </div>
         <div className="text-center">
           <div className="flex items-center justify-center w-12 h-12 bg-green-500/10 rounded-full mx-auto mb-2">
             <Heart className="h-6 w-6 text-green-600" />
           </div>
-          <div className="text-2xl font-bold text-gray-900">15,000+</div>
+          <div className="text-2xl font-bold text-gray-900">Real</div>
           <div className="text-sm text-gray-600">Connections Made</div>
         </div>
       </motion.div>

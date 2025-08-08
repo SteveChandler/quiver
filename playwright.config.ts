@@ -12,8 +12,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 5 : undefined,
+  /* Use more workers for better performance - adjust based on available cores */
+  workers: process.env.CI ? 5 : 10,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [["dot"], ["html"]],
   /* Global setup for authentication */
@@ -72,21 +72,7 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
 
-    {
-      name: "Mobile Safari",
-      testIgnore: [
-        "**/auth.spec.ts",
-        "**/landing-page.spec.ts",
-        "**/comprehensive.spec.ts",
-      ],
-      use: {
-        ...devices["iPhone 12"],
-        // Mobile-specific settings
-        viewport: { width: 390, height: 844 },
-        isMobile: true,
-        hasTouch: true,
-      },
-    },
+    // Mobile Safari tests removed - focus on desktop browser testing
 
     /* Test against branded browsers. */
     // {

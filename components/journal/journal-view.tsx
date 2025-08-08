@@ -15,19 +15,26 @@ import {
   Calendar,
   List,
   BarChart3,
-  Download,
   Plus,
   Filter,
   TrendingUp,
   Eye,
   EyeOff,
   Settings,
+  CalendarClock,
+  CheckCircle,
 } from "lucide-react";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { CalendarHeatmap } from "./calendar-heatmap";
 import { SessionAnalytics } from "./session-analytics";
 import { SessionAnnotationModal } from "./session-annotation-modal";
-import { ExportModal } from "./export-modal";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getUserSessions } from "@/actions/session-actions";
@@ -51,7 +58,9 @@ export function JournalView({ className }: JournalViewProps) {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [selectedSession, setSelectedSession] =
     useState<SessionWithDetails | null>(null);
-  const [showExportModal, setShowExportModal] = useState(false);
+  const [sessionFilter, setSessionFilter] = useState<
+    "all" | "planned" | "completed"
+  >("all");
   const [showAnnotationModal, setShowAnnotationModal] = useState(false);
   const [displayOptions, setDisplayOptions] = useState<JournalDisplayOptions>({
     viewMode: "list",
@@ -138,9 +147,19 @@ export function JournalView({ className }: JournalViewProps) {
     }
   };
 
+  // Filter sessions based on current filter
+  const filteredSessions =
+    sessions?.filter((session) => {
+      if (sessionFilter === "all") return true;
+      return session.status === sessionFilter;
+    }) || [];
+
   const completedSessions =
     sessions?.filter((session) => session.status === "completed") || [];
-  const totalSessions = completedSessions.length;
+  const plannedSessions =
+    sessions?.filter((session) => session.status === "planned") || [];
+
+  const totalSessions = filteredSessions.length;
   const totalHours =
     completedSessions.reduce((sum, session) => {
       return sum + (session.duration_minutes || 0);
@@ -171,18 +190,16 @@ export function JournalView({ className }: JournalViewProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowExportModal(true)}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
           <Button variant="outline" size="sm" asChild>
             <Link href="/log-session">
               <Plus className="h-4 w-4 mr-2" />
               Log Session
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/plan-session">
+              <Plus className="h-4 w-4 mr-2" />
+              Plan Session
             </Link>
           </Button>
         </div>
@@ -192,8 +209,14 @@ export function JournalView({ className }: JournalViewProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold">{totalSessions}</div>
+            <div className="text-2xl font-bold">{completedSessions.length}</div>
             <p className="text-sm text-muted-foreground">Completed Sessions</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{plannedSessions.length}</div>
+            <p className="text-sm text-muted-foreground">Planned Sessions</p>
           </CardContent>
         </Card>
         <Card>
@@ -215,7 +238,7 @@ export function JournalView({ className }: JournalViewProps) {
             <div className="text-2xl font-bold">
               {analytics?.favoriteBeach || "None"}
             </div>
-                            <p className="text-sm text-muted-foreground">Default Spot</p>
+            <p className="text-sm text-muted-foreground">Default Spot</p>
           </CardContent>
         </Card>
       </div>
@@ -255,18 +278,40 @@ export function JournalView({ className }: JournalViewProps) {
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">{totalSessions} sessions</Badge>
-              <Button variant="ghost" size="sm">
-                <Filter className="h-4 w-4" />
-              </Button>
+              <Badge variant="secondary">
+                {totalSessions}{" "}
+                {sessionFilter === "all"
+                  ? "sessions"
+                  : `${sessionFilter} sessions`}
+              </Badge>
+              <Select
+                value={sessionFilter}
+                onValueChange={(value) =>
+                  setSessionFilter(value as "all" | "planned" | "completed")
+                }
+              >
+                <SelectTrigger className="w-auto">
+                  <SelectValue>
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      Filter
+                    </div>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sessions</SelectItem>
+                  <SelectItem value="completed">Completed Sessions</SelectItem>
+                  <SelectItem value="planned">Planned Sessions</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           {/* Sessions Display */}
           {viewMode === "list" ? (
             <div className="space-y-4">
-              {completedSessions.length > 0 ? (
-                completedSessions.map((session) => (
+              {filteredSessions.length > 0 ? (
+                filteredSessions.map((session) => (
                   <div key={session.id} className="relative">
                     <SessionCardWrapper
                       session={session}
@@ -302,12 +347,24 @@ export function JournalView({ className }: JournalViewProps) {
                 <Card>
                   <CardContent className="p-8 text-center">
                     <p className="text-muted-foreground mb-4">
-                      No sessions logged yet. Start building your surf journal!
+                      {sessionFilter === "planned"
+                        ? "No planned sessions yet. Start planning your surf adventures!"
+                        : sessionFilter === "completed"
+                        ? "No completed sessions yet. Start logging your surf sessions!"
+                        : "No sessions yet. Start building your surf journal!"}
                     </p>
                     <Button asChild>
-                      <Link href="/log-session">
+                      <Link
+                        href={
+                          sessionFilter === "planned"
+                            ? "/plan-session"
+                            : "/log-session"
+                        }
+                      >
                         <Plus className="h-4 w-4 mr-2" />
-                        Log Your First Session
+                        {sessionFilter === "planned"
+                          ? "Plan Your First Session"
+                          : "Log Your First Session"}
                       </Link>
                     </Button>
                   </CardContent>
@@ -317,7 +374,7 @@ export function JournalView({ className }: JournalViewProps) {
           ) : (
             <CalendarHeatmap
               userId={user?.id || ""}
-              sessions={completedSessions}
+              sessions={filteredSessions}
               onDateClick={(date, sessions) => {
                 if (sessions.length > 0) {
                   setSelectedSession(sessions[0]);
@@ -353,13 +410,6 @@ export function JournalView({ className }: JournalViewProps) {
           }}
         />
       )}
-
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        sessions={completedSessions}
-        analytics={analytics}
-      />
     </div>
   );
 }

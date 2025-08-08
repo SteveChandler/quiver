@@ -136,7 +136,7 @@ export interface EnhancedForecastEntity {
   next_tide_height: string;
   weather_condition: string;
   confidence_score: number;
-  data_source: "NOAA_NWS" | "FALLBACK";
+  data_source: "NOAA_NWS" | "CDIP" | "FALLBACK";
   created_at: string;
   updated_at: string;
 }
@@ -164,7 +164,7 @@ export interface WeatherDataSource extends ForecastDataSource {
 // Data source response types
 export interface WaveData {
   readonly forecast: WavePoint[];
-  readonly data_source: "NOAA_NWS" | "FALLBACK";
+  readonly data_source: "NOAA_NWS" | "CDIP" | "FALLBACK";
   readonly location: {
     readonly latitude: number;
     readonly longitude: number;
@@ -185,7 +185,7 @@ export interface WavePoint {
   readonly windWaveHeight: number;
   readonly windWavePeriod: number;
   readonly windWaveDirection: number;
-  readonly data_source: "NOAA_NWS" | "FALLBACK";
+  readonly data_source: "NOAA_NWS" | "CDIP" | "FALLBACK";
 }
 
 export interface TideData {
@@ -254,4 +254,87 @@ export interface ForecastPreview {
   wind_direction: string;
   weather_condition: string;
   confidence_score?: number;
+}
+
+// CDIP Data Types
+export interface CDIPDataPoint {
+  timestamp: string;
+  significantWaveHeight: number; // meters
+  peakWavePeriod: number; // seconds
+  peakWaveDirection: number; // degrees
+  swellHeight?: number; // meters
+  swellPeriod?: number; // seconds
+  swellDirection?: number; // degrees
+  windWaveHeight?: number; // meters
+  windWavePeriod?: number; // seconds
+  windWaveDirection?: number; // degrees
+}
+
+export interface CDIPBuoyData {
+  stationId: string;
+  stationName: string;
+  data: CDIPDataPoint[];
+  dataSource: "CDIP";
+  lastUpdated: string;
+}
+
+export interface CDIPMetaResponse {
+  stnId: string;
+  stnName: string;
+  deployLatitude: number;
+  deployLongitude: number;
+  deployDepth: number;
+  hullType: string;
+  dataStart: string;
+  dataEnd: string;
+  parameters: string[];
+}
+
+export interface CDIPDataResponse {
+  parameter: string;
+  sensorId: string;
+  units: string;
+  dataGaps: any[];
+  data: Array<[string, number, number, number]>; // [timestamp, waveHeight, period, direction]
+}
+
+export interface CDIPStationConfig {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  deployDepth: number;
+  hullType: string;
+  parameters: string[];
+}
+
+// Rate Limiter Types
+export interface RateLimiterConfig {
+  requestsPerMinute: number;
+  requestsPerHour: number;
+  burstLimit: number;
+}
+
+export interface RateLimitStatus {
+  canMakeRequest: boolean;
+  timeUntilReset: number;
+  requestsRemaining: number;
+}
+
+// Enhanced Forecast with Raw Data
+export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
+  raw_forecast?: {
+    cdip_data?: CDIPBuoyData | null;
+    noaa_data?: any;
+    data_sources: string[];
+    quality_scores?: {
+      cdip?: number;
+      noaa?: number;
+      overall?: number;
+    };
+    fetch_timestamps?: {
+      cdip?: string;
+      noaa?: string;
+    };
+  };
 }

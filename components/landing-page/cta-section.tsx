@@ -74,18 +74,18 @@ export function CTASection() {
           className="flex items-center justify-center gap-6 mb-8 text-white/80"
         >
           <div className="text-center">
-            <div className="text-2xl font-bold">1,000+</div>
-            <div className="text-sm">Active Surfers</div>
+            <div className="text-2xl font-bold">Active</div>
+            <div className="text-sm">Community</div>
           </div>
           <div className="w-px h-8 bg-white/30"></div>
           <div className="text-center">
-            <div className="text-2xl font-bold">4.8★</div>
-            <div className="text-sm">User Rating</div>
+            <div className="text-2xl font-bold">Built by</div>
+            <div className="text-sm">Surfers</div>
           </div>
           <div className="w-px h-8 bg-white/30"></div>
           <div className="text-center">
             <div className="text-2xl font-bold">Free</div>
-            <div className="text-sm">Forever</div>
+            <div className="text-sm">To Join</div>
           </div>
         </motion.div>
 
@@ -98,11 +98,11 @@ export function CTASection() {
         >
           <Button
             size="lg"
-            className="bg-white text-ocean-blue hover:bg-gray-100 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             asChild
           >
             <Link href="/auth/sign-up">
-              Join 1,000+ Surfers Free
+              Join the Community Free
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>

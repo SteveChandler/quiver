@@ -6,8 +6,8 @@ import {
 } from "@/lib/api-response-utils";
 
 // Mark this route as dynamic to prevent static generation
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface SessionInvitation {
   id: string;
@@ -232,10 +232,10 @@ export async function GET(request: NextRequest) {
     // Handle friends type - return user's following list
     if (type === "friends") {
       const { data: following, error: followingError } = await supabase
-        .from("follows")
+        .from("user_follows")
         .select(
           `
-          following:profiles!follows_following_id_fkey(
+          following:profiles!user_follows_following_id_fkey(
             id,
             full_name,
             avatar_url,

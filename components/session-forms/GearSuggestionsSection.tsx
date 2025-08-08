@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +65,7 @@ export function GearSuggestionsSection({
   const windSpeed = selectedOptimalTime?.conditions.windSpeed || 10; // Default to 10mph
 
   // Fetch gear suggestions based on conditions
-  const fetchGearSuggestions = async () => {
+  const fetchGearSuggestions = useCallback(async () => {
     if (!formState.selectedBeachId) {
       return null;
     }
@@ -85,12 +85,12 @@ export function GearSuggestionsSection({
     }
 
     return response.json();
-  };
+  }, [formState.selectedBeachId, waveHeight, windSpeed]);
 
   const { data, loading, error, refetch } = useDataFetcher(
     fetchGearSuggestions,
     {
-      enabled: !!formState.selectedBeachId,
+      skip: !formState.selectedBeachId, // skip when no beach ID (inverted logic from enabled)
     }
   );
 
@@ -110,11 +110,14 @@ export function GearSuggestionsSection({
   }, [data, updateField]);
 
   // Handle board selection
-  const handleBoardSelect = (boardId: string) => {
-    setSelectedBoardId(boardId);
-    updateField("boardId", boardId);
-    updateField("selectedBoard", boardId);
-  };
+  const handleBoardSelect = useCallback(
+    (boardId: string) => {
+      setSelectedBoardId(boardId);
+      updateField("boardId", boardId);
+      updateField("selectedBoard", boardId);
+    },
+    [updateField]
+  );
 
   // Show loading state
   if (loading) {
@@ -254,6 +257,9 @@ export function GearSuggestionsSection({
               const isSelected = selectedBoardId === suggestion.board.id;
               const isTopChoice = index === 0;
 
+              // Memoize the click handler to prevent ref loops
+              const handleClick = () => handleBoardSelect(suggestion.board.id);
+
               return (
                 <Button
                   key={suggestion.board.id}
@@ -262,7 +268,7 @@ export function GearSuggestionsSection({
                     "h-auto p-4 text-left justify-start relative",
                     isSelected && "ring-2 ring-primary ring-offset-2"
                   )}
-                  onClick={() => handleBoardSelect(suggestion.board.id)}
+                  onClick={handleClick}
                 >
                   <div className="flex items-start justify-between w-full">
                     <div className="flex-1 min-w-0">

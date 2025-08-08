@@ -324,6 +324,14 @@ export type IntelPost = {
   expires_at?: string | null;
   created_at: string;
   updated_at: string;
+  // Surf condition fields
+  wave_height?: number | null;
+  wind_speed?: number | null;
+  wind_direction?: string | null;
+  water_temp?: number | null;
+  crowd_level?: number | null;
+  wave_types?: string[] | null;
+  forecast_accuracy?: "accurate" | "somewhat" | "inaccurate" | null;
 };
 
 export type IntelPostConfirmation = {
@@ -339,6 +347,73 @@ export type IntelPostWithUser = IntelPost & {
     avatar_url: string | null;
   };
   user_confirmed?: boolean; // Whether the current user has confirmed this post
+};
+
+// Check-ins Types for Community Surf Condition Reports
+export type CheckIn = {
+  id: string;
+  user_id: string;
+  beach_id: string;
+  checked_in_at: string;
+  // Surf conditions
+  wave_height: number | null; // feet
+  wind_speed: number | null; // mph
+  wind_direction: string | null; // N, NE, E, SE, S, SW, W, NW, OFFSHORE, ONSHORE, CROSS
+  water_temp: number | null; // fahrenheit
+  // Community data
+  crowd_level: number | null; // 1-5 scale (1=empty, 5=packed)
+  vibe: string | null; // Free text notes
+  // Forecast accuracy rating
+  forecast_accuracy_rating: "accurate" | "somewhat" | "inaccurate";
+  // Metadata
+  created_at: string;
+  updated_at: string;
+};
+
+export type CheckInWithUser = CheckIn & {
+  user: {
+    username: string | null;
+    profile_picture_url: string | null;
+  };
+};
+
+export type ForecastAccuracyStats = {
+  total_reports: number;
+  accurate_count: number;
+  somewhat_count: number;
+  inaccurate_count: number;
+  accuracy_percentage: number;
+};
+
+// Forecast Calibration Types
+export type SessionForecastSnapshot = {
+  id: string;
+  session_id: string;
+  user_id: string;
+  beach_id: string;
+  forecast_snapshot: Record<string, any>; // JSONB - forecast data at session time
+  actual_conditions: Record<string, any>; // JSONB - actual conditions from session
+  forecast_confidence_score: number | null;
+  data_source: string | null;
+  session_date: string; // DATE
+  created_at: string;
+  updated_at: string;
+};
+
+export type BeachForecastAccuracy = {
+  id: string;
+  beach_id: string;
+  avg_wave_height_delta: number | null;
+  avg_wind_speed_delta: number | null;
+  avg_confidence_accuracy: number | null;
+  total_sessions_count: number;
+  last_30_days_count: number;
+  last_7_days_count: number;
+  overall_accuracy_score: number | null;
+  wave_height_accuracy: number | null;
+  wind_accuracy: number | null;
+  calculation_date: string; // DATE
+  updated_at: string;
 };
 
 // Database schema with tables
@@ -404,6 +479,26 @@ export type Database = {
         Row: IntelPostConfirmation;
         Insert: Omit<IntelPostConfirmation, "id" | "created_at">;
         Update: Partial<Omit<IntelPostConfirmation, "id" | "created_at">>;
+      };
+      session_forecast_snapshots: {
+        Row: SessionForecastSnapshot;
+        Insert: Omit<
+          SessionForecastSnapshot,
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<
+          Omit<SessionForecastSnapshot, "id" | "created_at" | "updated_at">
+        >;
+      };
+      beach_forecast_accuracy: {
+        Row: BeachForecastAccuracy;
+        Insert: Omit<BeachForecastAccuracy, "id" | "updated_at">;
+        Update: Partial<Omit<BeachForecastAccuracy, "id" | "updated_at">>;
+      };
+      check_ins: {
+        Row: CheckIn;
+        Insert: Omit<CheckIn, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<CheckIn, "id" | "created_at" | "updated_at">>;
       };
     };
     Enums: {

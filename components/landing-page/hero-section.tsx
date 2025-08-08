@@ -3,7 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Users, TrendingUp, MapPin, Waves } from "lucide-react";
+import {
+  ArrowRight,
+  Users,
+  TrendingUp,
+  MapPin,
+  Waves,
+  Eye,
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { HERO_VIDEOS, CONTENT } from "@/lib/constants/features";
@@ -108,7 +115,7 @@ export function HeroSection() {
           className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-6 text-sm font-medium"
         >
           <Users className="h-4 w-4" />
-          <span>Join 1,000+ surfers worldwide</span>
+          <span>Join surfers near you</span>
         </motion.div>
 
         {/* Main Headline - More Impactful */}
@@ -135,7 +142,7 @@ export function HeroSection() {
         {/* Key Benefits Grid */}
         <motion.div
           {...ANIMATION_VARIANTS.heroText(0.35)}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 max-w-4xl mx-auto"
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto"
         >
           {CONTENT.hero.benefits.map((benefit, index) => (
             <div
@@ -152,6 +159,7 @@ export function HeroSection() {
           {...ANIMATION_VARIANTS.heroText(0.4)}
           className="flex flex-col sm:flex-row gap-4 justify-center items-center"
         >
+          {/* Primary CTA */}
           <Button
             size="lg"
             className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
@@ -163,9 +171,33 @@ export function HeroSection() {
             </Link>
           </Button>
 
-          <div className="flex items-center gap-2 text-white/80 text-sm">
+          {/* Secondary CTA */}
+          <Button
+            size="lg"
+            variant="ghost"
+            className="bg-white/10 border border-white/30 text-white hover:bg-white/20 hover:border-white/50 px-8 py-4 text-lg font-roboto font-semibold rounded-full backdrop-blur-sm transition-all duration-300"
+            asChild
+          >
+            <Link href="/features">
+              {CONTENT.hero.secondaryCta}
+              <Eye className="ml-2 h-5 w-5" />
+            </Link>
+          </Button>
+        </motion.div>
+
+        {/* Trust Signals */}
+        <motion.div
+          {...ANIMATION_VARIANTS.heroText(0.45)}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 text-white/80 text-sm"
+        >
+          <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             <span>Free to join • No credit card required</span>
+          </div>
+          <div className="hidden sm:block text-white/40">•</div>
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span>Growing surf community</span>
           </div>
         </motion.div>
 

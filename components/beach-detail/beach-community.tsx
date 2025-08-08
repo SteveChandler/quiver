@@ -56,7 +56,7 @@ export function BeachCommunity({
                 >
                   <Button className="w-full">
                     <Waves className="h-4 w-4 mr-1" />
-                    Add to Journal
+                    Log Session
                   </Button>
                 </Link>
                 <Link

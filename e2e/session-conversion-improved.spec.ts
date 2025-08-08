@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Session Conversion (Improved)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     // Skip if not authenticated
     if (page.url().includes("/auth")) {

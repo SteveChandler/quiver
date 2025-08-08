@@ -29,6 +29,14 @@ interface CreateIntelPostData {
   description: string;
   photo_url?: string;
   photo_storage_path?: string;
+  // Surf condition fields
+  wave_height?: number | null;
+  wind_speed?: number | null;
+  wind_direction?: string | null;
+  water_temp?: number | null;
+  crowd_level?: number | null;
+  wave_types?: string[];
+  forecast_accuracy?: "accurate" | "somewhat" | "inaccurate" | null;
 }
 
 /**
@@ -202,6 +210,13 @@ export async function POST(request: NextRequest) {
       description,
       photo_url,
       photo_storage_path,
+      wave_height,
+      wind_speed,
+      wind_direction,
+      water_temp,
+      crowd_level,
+      wave_types,
+      forecast_accuracy,
     }: CreateIntelPostData = body;
 
     // Validate required fields
@@ -266,6 +281,14 @@ export async function POST(request: NextRequest) {
         photo_url,
         photo_storage_path,
         expires_at: expiryDate.toISOString(),
+        // Surf condition fields
+        wave_height,
+        wind_speed,
+        wind_direction,
+        water_temp,
+        crowd_level,
+        wave_types,
+        forecast_accuracy,
       })
       .select()
       .single();

@@ -5,8 +5,7 @@ import "./globals.css";
 
 import { AuthProvider } from "@/context/auth-context";
 import { AppHeader } from "@/components/app-header";
-// import { SEO_CONFIG, PAGE_SEO } from "@/lib/constants/seo";
-// import { HomePageStructuredData } from "@/components/seo/structured-data";
+import { SEO_CONFIG } from "@/lib/constants/seo";
 
 // Optimize font loading with display swap for better performance
 const inter = Inter({
@@ -25,8 +24,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Quiver - Surf Sessions Tracker",
-  description: "Community-driven surf sessions tracker and predictor",
+  title: {
+    default: "Quiver | Surf Community & Session Tracker",
+    template: "%s | Quiver",
+  },
+  description:
+    "Join the ultimate surf community. Find surf buddies, track sessions, get forecasts, and discover the best surf spots.",
   generator: "Next.js",
 
   // Performance optimizations
@@ -36,26 +39,28 @@ export const metadata: Metadata = {
 
   // Open Graph optimizations for social sharing
   openGraph: {
-    title: "Quiver - Surf Sessions Tracker",
-    description: "Community-driven surf sessions tracker and predictor",
+    title: SEO_CONFIG.openGraph.title,
+    description: SEO_CONFIG.openGraph.description,
     url: "/",
-    siteName: "Quiver",
-    locale: "en_US",
-    type: "website",
+    siteName: SEO_CONFIG.openGraph.siteName,
+    locale: SEO_CONFIG.openGraph.locale,
+    type: SEO_CONFIG.openGraph.type as any,
+    images: SEO_CONFIG.openGraph.images,
   },
 
   // Twitter optimizations
   twitter: {
-    card: "summary_large_image",
-    title: "Quiver - Surf Sessions Tracker",
-    description: "Community-driven surf sessions tracker and predictor",
+    card: SEO_CONFIG.twitter.card as any,
+    title: SEO_CONFIG.twitter.title,
+    description: SEO_CONFIG.twitter.description,
+    site: SEO_CONFIG.twitter.site,
+    creator: SEO_CONFIG.twitter.creator,
+    images: SEO_CONFIG.openGraph.images?.[0]?.url,
   },
 
   // Performance hints
   other: {
-    "mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "default",
+    ...SEO_CONFIG.additionalMeta,
   },
 };
 

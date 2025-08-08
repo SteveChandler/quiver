@@ -1,0 +1,22 @@
+name: Enhanced Forecast Sync
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC (10 PM PST / 11 PM PDT)
+    - cron: "0 6 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  sync-forecasts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Enhanced Forecast Sync
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f \
+            ${{ secrets.APP_URL }}/api/cron/enhanced-forecast-sync
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ secrets.APP_URL }}

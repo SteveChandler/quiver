@@ -8,33 +8,56 @@ import { SectionWrapper } from "./section-wrapper";
 import { CONTENT } from "@/lib/constants/features";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 
-// Modern forecast preview data for landing page
-const MODERN_FORECAST_DATA = [
-  {
-    day: "Today",
-    date: "Dec 15",
-    waveHeight: "3-4 ft",
-    windSpeed: "4 mph",
-    waterTemp: "65°F",
-    conditions: "Good",
-  },
-  {
-    day: "Tomorrow",
-    date: "Dec 16",
-    waveHeight: "5-6 ft",
-    windSpeed: "18 mph",
-    waterTemp: "64°F",
-    conditions: "Excellent",
-  },
-  {
-    day: "Thu",
-    date: "Dec 17",
-    waveHeight: "2-3 ft",
-    windSpeed: "12 mph",
-    waterTemp: "65°F",
-    conditions: "Fair",
-  },
-];
+// Generate dynamic forecast data for landing page
+const generateForecastData = () => {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayAfter = new Date(today);
+  dayAfter.setDate(dayAfter.getDate() + 2);
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getDayName = (date: Date) => {
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
+    return date.toLocaleDateString("en-US", { weekday: "short" });
+  };
+
+  return [
+    {
+      day: "Today",
+      date: formatDate(today),
+      waveHeight: "3-4 ft",
+      windSpeed: "4 mph",
+      waterTemp: "65°F",
+      conditions: "Good",
+    },
+    {
+      day: "Tomorrow",
+      date: formatDate(tomorrow),
+      waveHeight: "5-6 ft",
+      windSpeed: "18 mph",
+      waterTemp: "64°F",
+      conditions: "Excellent",
+    },
+    {
+      day: getDayName(dayAfter),
+      date: formatDate(dayAfter),
+      waveHeight: "2-3 ft",
+      windSpeed: "12 mph",
+      waterTemp: "65°F",
+      conditions: "Fair",
+    },
+  ];
+};
+
+const MODERN_FORECAST_DATA = generateForecastData();
 
 function ModernForecastCard({
   day,

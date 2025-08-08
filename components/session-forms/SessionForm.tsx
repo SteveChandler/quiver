@@ -33,6 +33,8 @@ import {
 } from "@/actions/session-actions";
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 
+import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
+
 interface SessionFormProps {
   initialMode?: SessionFormMode;
 }
@@ -51,6 +53,10 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
   const [convertingFromPlanned, setConvertingFromPlanned] = useState<
     string | null
   >(null);
+  const [createdSession, setCreatedSession] = useState<any>(null);
+  const [sessionForecast, setSessionForecast] = useState<any>(null);
+  const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
+  const [feedbackCompleted, setFeedbackCompleted] = useState(false);
 
   const {
     mode,
@@ -133,16 +139,73 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     }
   }, [convertSessionId, user, isConverting, updateField, router]);
 
-  // Auto-redirect after session is successfully logged
+  // Initialize forecast calibration hook
+  const { submitForecastFeedback } = useForecastCalibration({
+    sessionId: createdSession?.id,
+    beachId: formState.selectedBeachId,
+  });
+
+  // Load forecast data for the session when session is created
   useEffect(() => {
-    if (!isPlanning && sessionCreated) {
+    if (
+      sessionCreated &&
+      createdSession &&
+      formState.selectedBeachId &&
+      formState.selectedDate
+    ) {
+      const loadForecast = async () => {
+        try {
+          // TODO: getForecastForDate is not currently exported from forecast-actions
+          // const forecastData = await getForecastForDate(
+          //   formState.selectedBeachId,
+          //   formState.selectedDate
+          // );
+          // if (forecastData.success && forecastData.data) {
+          //   setSessionForecast(forecastData.data);
+          //   setShowFeedbackPrompt(true);
+          // }
+
+          // For now, just show feedback prompt
+          setShowFeedbackPrompt(true);
+        } catch (error) {
+          console.error("Error loading forecast for feedback:", error);
+          // Still show feedback prompt even if forecast loading fails
+          setShowFeedbackPrompt(true);
+        }
+      };
+
+      if (!isPlanning) {
+        loadForecast();
+      }
+    }
+  }, [
+    sessionCreated,
+    createdSession,
+    formState.selectedBeachId,
+    formState.selectedDate,
+    isPlanning,
+  ]);
+
+  // Auto-redirect after session is successfully logged and feedback is handled
+  useEffect(() => {
+    if (
+      !isPlanning &&
+      sessionCreated &&
+      (feedbackCompleted || !showFeedbackPrompt)
+    ) {
       const redirectTimer = setTimeout(() => {
         router.push("/profile");
       }, 2500); // 2.5 seconds to show success message
 
       return () => clearTimeout(redirectTimer);
     }
-  }, [sessionCreated, isPlanning, router]);
+  }, [
+    sessionCreated,
+    isPlanning,
+    feedbackCompleted,
+    showFeedbackPrompt,
+    router,
+  ]);
 
   const isComplete = Boolean(
     formState.selectedBeach &&
@@ -154,6 +217,26 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     router.push("/profile");
   };
 
+  const handleForecastFeedback = async (feedback: any) => {
+    if (!createdSession) return;
+
+    try {
+      await submitForecastFeedback(createdSession, sessionForecast, feedback);
+      setFeedbackCompleted(true);
+      setShowFeedbackPrompt(false);
+    } catch (error) {
+      console.error("Error submitting forecast feedback:", error);
+      // Let the user continue even if feedback fails
+      setFeedbackCompleted(true);
+      setShowFeedbackPrompt(false);
+    }
+  };
+
+  const handleSkipFeedback = () => {
+    setFeedbackCompleted(true);
+    setShowFeedbackPrompt(false);
+  };
+
   const handlePhotosChange = (files: File[]) => {
     setSelectedPhotos(files);
   };
@@ -163,6 +246,22 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
 
     if (!user?.id) {
       toast.error("Authentication required");
+      return;
+    }
+
+    // Validate required fields
+    if (!formState.selectedBeach) {
+      toast.error("Please select a beach location");
+      return;
+    }
+
+    if (!formState.selectedBeachId) {
+      toast.error("Please select a valid beach from the dropdown");
+      return;
+    }
+
+    if (!formState.selectedDate) {
+      toast.error("Please select a date");
       return;
     }
 
@@ -359,6 +458,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         };
 
         const session = await createLoggedSession(loggedSessionData, user.id);
+        setCreatedSession(session);
 
         // If photos were selected, upload them
         if (selectedPhotos.length > 0) {
@@ -395,9 +495,14 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         setSessionCreated(true);
       }
 
-      // Handle completion - only redirect for planned sessions
+      // Handle completion - redirect to profile for both planned and logged sessions
       if (isPlanning) {
         router.push("/profile");
+      } else {
+        // For logged sessions, redirect to profile after a brief delay to show success message
+        setTimeout(() => {
+          router.push("/profile");
+        }, 1500);
       }
     } catch (error) {
       console.error("Error saving session:", error);
@@ -418,17 +523,21 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       <div className="container flex-1 px-4">
         {/* Success Message */}
         {!isPlanning && sessionCreated && (
-          <Card className={`mb-4 ${styles.headerBorder} ${styles.headerBg}`}>
-            <CardContent className="pt-6">
-              <div className={`flex items-center ${styles.headerText}`}>
-                <CheckCircle2 className="w-5 h-5 mr-2" />
-                <div>
-                  <p className="font-medium">{text.successMessage}</p>
-                  <p className="text-sm opacity-80">{text.finishMessage}</p>
+          <div className="space-y-4 mb-4">
+            <Card className={`${styles.headerBorder} ${styles.headerBg}`}>
+              <CardContent className="pt-6">
+                <div className={`flex items-center ${styles.headerText}`}>
+                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                  <div>
+                    <p className="font-medium">{text.successMessage}</p>
+                    <p className="text-sm opacity-80">{text.finishMessage}</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Forecast Feedback Prompt - Temporarily disabled */}
+          </div>
         )}
 
         <form

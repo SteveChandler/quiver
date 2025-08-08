@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, Suspense, lazy } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, Suspense, lazy, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/bottom-navigation";
-import { CalendarDays, Waves } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
-import Link from "next/link";
 import { useHomeData } from "./use-home-data";
-import { useUserProfile } from "@/hooks/use-user-profile";
+
+import { useCachedProfile } from "@/hooks/use-cached-profile";
+import type { Beach } from "@/types/database";
 
 // Lazy load heavy tab components
 const ForecastTab = lazy(() =>
@@ -37,15 +36,18 @@ export function HomeScreen() {
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
 
-  // Use shared profile loading hook with built-in timeout
-  const { profile } = useUserProfile({
-    userId: user?.id,
-    enabled: !!user,
-    timeout: 10000, // 10 second timeout
-  });
+  // Use cached profile hook to prevent flickering on navigation
+  const { profile, defaultBeach, profileLoading, hasCachedData } =
+    useCachedProfile();
 
-  // Debug active tab
-  console.log("HomeScreen activeTab:", activeTab, "user:", !!user);
+  console.log("🏠 HomeScreen Summary:", {
+    hasUser: !!user,
+    hasProfile: !!profile,
+    hasDefaultBeach: !!defaultBeach,
+    defaultBeachName: defaultBeach?.name,
+    profileLoading,
+    hasCachedData,
+  });
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -59,43 +61,6 @@ export function HomeScreen() {
           <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">
             The waves are looking good today. Ready to catch some?
           </p>
-        </section>
-
-        {/* Quick Actions */}
-        <section className="centered-container">
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-3xl mx-auto">
-            {user ? (
-              <>
-                <Link href="/plan-session">
-                  <Button
-                    className="h-auto py-6 sm:py-8 flex flex-col items-center gap-3 w-full text-base sm:text-lg"
-                    variant="default"
-                  >
-                    <CalendarDays className="h-7 w-7 sm:h-8 sm:w-8" />
-                    <span>Plan Session</span>
-                  </Button>
-                </Link>
-                <Link href="/log-session">
-                  <Button
-                    className="h-auto py-6 sm:py-8 flex flex-col items-center gap-3 w-full text-base sm:text-lg"
-                    variant="outline"
-                  >
-                    <Waves className="h-7 w-7 sm:h-8 sm:w-8" />
-                    <span>Add to Journal</span>
-                  </Button>
-                </Link>
-              </>
-            ) : (
-              <div className="col-span-2 text-center p-8 sm:p-10 bg-muted/50 rounded-lg">
-                <p className="text-muted-foreground mb-4 text-base sm:text-lg">
-                  Sign in to plan and log your surf sessions
-                </p>
-                <Link href="/auth/sign-in">
-                  <Button size="lg">Sign In to Get Started</Button>
-                </Link>
-              </div>
-            )}
-          </div>
         </section>
 
         {/* Tabs Section */}
@@ -119,7 +84,7 @@ export function HomeScreen() {
 
             <TabsContent value="forecast">
               <Suspense fallback={<TabSkeleton />}>
-                <ForecastTab profile={profile} />
+                <ForecastTab profile={profile} defaultBeach={defaultBeach} />
               </Suspense>
             </TabsContent>
 

@@ -101,22 +101,22 @@ export const HERO_VIDEOS = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: ["Never Surf", "Alone", "Again"],
+    title: ["Your Surf Community", "Awaits"],
     subtitle:
-      "Find surf buddies, track epic sessions, and discover the best spots with your community",
-    cta: "Join 1,000+ Surfers",
+      "Connect with surfers, track epic sessions, and discover the best waves in your area. Join the community that's revolutionizing how we surf together.",
+    cta: "Join Free Today",
+    secondaryCta: "Explore Features",
     benefits: [
-      "🤝 Find surf buddies in your area",
-      "📊 Track & share your sessions",
-      "🌊 Get accurate surf forecasts",
-      "📍 Discover epic surf spots",
+      "🏄‍♀️ Connect with local surfers",
+      "📊 Track & share epic sessions",
+      "🌊 Get community-verified forecasts",
     ],
   },
   sections: {
     social: {
-      title: "Join the surf community that's changing everything",
+      title: "Join the surf community that's growing every day",
       subtitle:
-        "See what 1,000+ surfers are sharing - epic sessions, hidden spots, and the stoke that keeps us coming back",
+        "See what surfers are sharing — epic sessions, hidden spots, and the stoke that keeps us coming back",
     },
     forecast: {
       title: "Get the most accurate surf forecasts",
@@ -130,9 +130,9 @@ export const CONTENT = {
         "From finding surf buddies to sharing epic sessions - your complete surf community platform",
     },
     cta: {
-      title: "Ready to join the surf revolution?",
+      title: "Ready to join the surf community?",
       subtitle:
-        "Join 1,000+ surfers who've found their crew, tracked epic sessions, and discovered amazing spots. Free to join, priceless connections.",
+        "Find your crew, track epic sessions, and discover amazing spots. Free to join — priceless connections.",
     },
   },
 } as const;

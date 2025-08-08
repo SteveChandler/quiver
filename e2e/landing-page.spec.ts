@@ -97,7 +97,7 @@ test.describe("Landing Page", () => {
       const sectionCount = await page.locator("section").count();
       const divCount = await page.locator("div").count();
       const mainCount = await page.locator("main").count();
-      
+
       // Should have some structured content (sections, divs, or main)
       expect(sectionCount + divCount + mainCount).toBeGreaterThan(0);
     });
@@ -158,6 +158,91 @@ test.describe("Landing Page", () => {
         // If no learn more link found, directly navigate to test the route exists
         await page.goto("/auth/sign-in");
         expect(page.url()).toContain("/auth/sign-in");
+      }
+    });
+
+    test("should navigate to features page", async ({ page }) => {
+      // Wait for page to load
+      await page.waitForSelector("body", { timeout: 15000 });
+      await page.waitForTimeout(3000);
+
+      // Scroll down to footer to find features link
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(2000);
+
+      const featuresLink = page.getByRole("link", { name: "Features" });
+
+      try {
+        await expect(featuresLink).toBeVisible({ timeout: 10000 });
+        await featuresLink.click();
+        await page.waitForURL("**/features", { timeout: 10000 });
+        expect(page.url()).toContain("/features");
+
+        // Verify page content
+        await expect(
+          page.getByText("Everything You Need to Surf with Friends")
+        ).toBeVisible();
+      } catch {
+        // If no features link found, directly navigate to test the route exists
+        await page.goto("/features");
+        expect(page.url()).toContain("/features");
+        await expect(
+          page.getByText("Everything You Need to Surf with Friends")
+        ).toBeVisible();
+      }
+    });
+
+    test("should navigate to about page", async ({ page }) => {
+      // Wait for page to load
+      await page.waitForSelector("body", { timeout: 15000 });
+      await page.waitForTimeout(3000);
+
+      // Scroll down to footer to find about link
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(2000);
+
+      const aboutLink = page.getByRole("link", { name: "About" });
+
+      try {
+        await expect(aboutLink).toBeVisible({ timeout: 10000 });
+        await aboutLink.click();
+        await page.waitForURL("**/about", { timeout: 10000 });
+        expect(page.url()).toContain("/about");
+
+        // Verify page content
+        await expect(page.getByText("About Quiver")).toBeVisible();
+      } catch {
+        // If no about link found, directly navigate to test the route exists
+        await page.goto("/about");
+        expect(page.url()).toContain("/about");
+        await expect(page.getByText("About Quiver")).toBeVisible();
+      }
+    });
+
+    test("should navigate to privacy page", async ({ page }) => {
+      // Wait for page to load
+      await page.waitForSelector("body", { timeout: 15000 });
+      await page.waitForTimeout(3000);
+
+      // Scroll down to footer to find privacy link
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(2000);
+
+      const privacyLink = page.getByRole("link", { name: "Privacy" });
+
+      try {
+        await expect(privacyLink).toBeVisible({ timeout: 10000 });
+        await privacyLink.click();
+        await page.waitForURL("**/privacy", { timeout: 10000 });
+        expect(page.url()).toContain("/privacy");
+
+        // Verify page content
+        await expect(page.getByRole("heading", { name: "Privacy Policy", exact: true })).toBeVisible();
+      } catch {
+        // If no privacy link found, directly navigate to test the route exists
+        await page.goto("/privacy");
+        expect(page.url()).toContain("/privacy");
+        await expect(page.getByRole("heading", { name: "Privacy Policy", exact: true })).toBeVisible();
       }
     });
   });

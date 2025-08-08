@@ -52,16 +52,16 @@ export const SEO_CONFIG = {
   openGraph: {
     title: "Quiver - Ultimate Surf Community Platform",
     description:
-      "Join 1,000+ surfers who use Quiver to find surf buddies, track epic sessions, and discover the best spots. Your surf community awaits.",
+      "Join a growing surf community to find surf buddies, track epic sessions, and discover the best spots. Your surf community awaits.",
     type: "website",
     locale: "en_US",
     siteName: "Quiver - Surf Community App",
     images: [
       {
-        url: "/og-image.jpg", // We'll need to create this
+        url: "/images/buoy.png",
         width: 1200,
         height: 630,
-        alt: "Quiver - Surf Community App Screenshot",
+        alt: "Quiver - Surf Community App",
       },
     ],
   },
@@ -182,7 +182,7 @@ export const PAGE_SEO = {
     title:
       "Quiver - Ultimate Surf Community | Find Surf Buddies & Track Sessions",
     description:
-      "Join 1,000+ surfers using Quiver to find surf buddies, track epic sessions, and discover the best spots. Never surf alone again. Free to join!",
+      "Join a growing surf community using Quiver to find surf buddies, track epic sessions, and discover the best spots. Never surf alone again. Free to join!",
     canonicalUrl: "/",
   },
 

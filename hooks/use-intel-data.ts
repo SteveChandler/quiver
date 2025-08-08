@@ -7,8 +7,8 @@ import {
   getNearbyIntelPosts,
   getPublicIntelPosts,
   getAllIntelPosts,
-  type GetNearbyIntelPostsParams,
 } from "@/actions/intel-actions";
+import type { GetNearbyIntelPostsParams } from "@/types/intel";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 
 interface IntelData {

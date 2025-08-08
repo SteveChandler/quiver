@@ -29,12 +29,15 @@ test.describe("Forecast Data Transparency", () => {
       if (await transparencyAlert.isVisible()) {
         // Verify real data indicators
         const realDataBadge = page.getByText("Real Wave Data");
-        const noaaText = page.getByText(/NOAA WaveWatch III/i);
+        // Accept both NOAA and Open-Meteo sources since we now use Open-Meteo as fallback
+        const dataSourceText = page.locator(
+          "text=/NOAA WaveWatch III|Open-Meteo Marine/i"
+        );
         const checkIcon = page.locator('svg[class*="lucide-circle-check"]');
 
         if (await realDataBadge.isVisible()) {
           await expect(realDataBadge).toBeVisible();
-          await expect(noaaText).toBeVisible();
+          await expect(dataSourceText).toBeVisible();
           await expect(checkIcon).toBeVisible();
 
           // Verify green styling for real data
@@ -47,10 +50,25 @@ test.describe("Forecast Data Transparency", () => {
   test("should display fallback data indicators when using estimated data", async ({
     page,
   }) => {
-    // Test fallback data by potentially mocking API or finding location with fallback
+    // Mock API to simulate locations with no real wave data (forcing fallback)
+    await page.route("**/api/forecasts/update-enhanced**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: {
+            message: "Enhanced forecasts updated with fallback data",
+            forecastsCount: 96,
+            usedFallback: true,
+          },
+        }),
+      });
+    });
+
     await page.goto("/map");
 
-    // Search for a location that might use fallback data
+    // Search for a remote location that would use fallback data
     const searchInput = page.getByPlaceholder(/search.*beach/i);
     if (await searchInput.isVisible()) {
       await searchInput.fill("Remote Beach Location");

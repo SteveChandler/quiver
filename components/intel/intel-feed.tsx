@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
 import { INTEL_UI_TEXT } from "@/lib/constants/intel";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 import { cn } from "@/lib/utils";
+import { getNearestBeachName } from "@/lib/utils/nearest-beach";
 
 interface IntelFeedProps {
   posts: IntelPostWithUser[];
@@ -170,6 +171,11 @@ function IntelFeedCard({
   const confidenceLabel = getConfidenceLabel(post.confirmations_count);
   const isExpired = post.expires_at && new Date(post.expires_at) < new Date();
 
+  const nearestBeach = useMemo(
+    () => getNearestBeachName(Number(post.latitude), Number(post.longitude)),
+    [post.latitude, post.longitude]
+  );
+
   const handleConfirm = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!canConfirm || isConfirming) return;
@@ -234,6 +240,12 @@ function IntelFeedCard({
           <p className="text-sm leading-relaxed line-clamp-3">
             {post.description}
           </p>
+
+          {/* Location */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3" />
+            <span>{nearestBeach}</span>
+          </div>
 
           {/* Photo */}
           {post.photo_url && (

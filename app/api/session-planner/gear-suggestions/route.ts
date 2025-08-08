@@ -6,8 +6,8 @@ import {
 } from "@/lib/api-response-utils";
 
 // Mark this route as dynamic to prevent static generation
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface BoardSuggestion {
   board: {
@@ -308,8 +308,10 @@ function analyzeGearSuggestions(
     });
   });
 
-  // Sort by score (best first)
-  return suggestions.sort((a, b) => b.score - a.score);
+  // Sort by score (best first) and filter out very low scores
+  const filteredSuggestions = suggestions.filter((s) => s.score > 0);
+
+  return filteredSuggestions.sort((a, b) => b.score - a.score);
 }
 
 /**

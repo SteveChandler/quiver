@@ -83,6 +83,7 @@ describe("UserStats", () => {
       sessionCount: 42,
       boardCount: 5,
       averageRating: 4.2,
+      favoriteSpot: "Ocean Beach",
       mostVisitedBeach: "Malibu",
       mostVisitedBeachCount: 15,
     };
@@ -133,13 +134,37 @@ describe("UserStats", () => {
       });
     });
 
-    it("displays most visited beach correctly", async () => {
+    it("displays default spot correctly (prioritizes profile favorite over session history)", async () => {
       render(<UserStats userId={mockUserId} />);
 
       await waitFor(() => {
         expect(screen.getByText("Default Spot")).toBeInTheDocument();
-        expect(screen.getByText("Malibu")).toBeInTheDocument();
-        expect(screen.getByText("15 visits")).toBeInTheDocument();
+        expect(screen.getByText("Ocean Beach")).toBeInTheDocument(); // Shows profile favorite_spot
+        expect(screen.getByText("From profile")).toBeInTheDocument(); // Indicates source
+      });
+    });
+
+    it("falls back to most visited beach when no profile favorite spot is set", async () => {
+      const statsWithoutFavoriteSpot = {
+        sessionCount: 10,
+        boardCount: 3,
+        averageRating: 4.0,
+        favoriteSpot: null,
+        mostVisitedBeach: "Malibu",
+        mostVisitedBeachCount: 15,
+      };
+
+      mockGetUserStats.mockResolvedValue({
+        success: true,
+        data: statsWithoutFavoriteSpot,
+      });
+
+      render(<UserStats userId={mockUserId} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Default Spot")).toBeInTheDocument();
+        expect(screen.getByText("Malibu")).toBeInTheDocument(); // Shows most visited beach
+        expect(screen.getByText("15 visits")).toBeInTheDocument(); // Shows session count
       });
     });
 
@@ -161,6 +186,7 @@ describe("UserStats", () => {
         sessionCount: 0,
         boardCount: 0,
         averageRating: 0,
+        favoriteSpot: null,
         mostVisitedBeach: null,
         mostVisitedBeachCount: 0,
       };
@@ -184,6 +210,7 @@ describe("UserStats", () => {
         sessionCount: 5,
         boardCount: 2,
         averageRating: null,
+        favoriteSpot: null,
         mostVisitedBeach: "Beach",
         mostVisitedBeachCount: 1,
       };
@@ -206,6 +233,7 @@ describe("UserStats", () => {
         sessionCount: 5,
         boardCount: 2,
         averageRating: undefined,
+        favoriteSpot: null,
         mostVisitedBeach: "Beach",
         mostVisitedBeachCount: 1,
       };
@@ -228,6 +256,7 @@ describe("UserStats", () => {
         sessionCount: 5,
         boardCount: 2,
         averageRating: 4.0,
+        favoriteSpot: null,
         mostVisitedBeach: null,
         mostVisitedBeachCount: 0,
       };
@@ -251,6 +280,7 @@ describe("UserStats", () => {
         sessionCount: 10,
         boardCount: 3,
         averageRating: 4.5,
+        favoriteSpot: null,
         mostVisitedBeach:
           "This Is A Very Long Beach Name That Should Be Truncated",
         mostVisitedBeachCount: 5,
@@ -320,6 +350,7 @@ describe("UserStats", () => {
       sessionCount: 10,
       boardCount: 3,
       averageRating: 4.0,
+      favoriteSpot: null,
       mostVisitedBeach: "Test Beach",
       mostVisitedBeachCount: 5,
     };

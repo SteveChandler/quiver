@@ -74,11 +74,11 @@ if (typeof Request === "undefined") {
   global.Request = class Request {
     constructor(url, options = {}) {
       this.url = url;
-      this.method = options.method || 'GET';
+      this.method = options.method || "GET";
       this.headers = new Map(Object.entries(options.headers || {}));
       this.body = options.body || null;
     }
-    
+
     async json() {
       return JSON.parse(this.body);
     }
@@ -93,14 +93,36 @@ if (typeof Response === "undefined") {
       this.ok = this.status >= 200 && this.status < 300;
       this.headers = new Map(Object.entries(options.headers || {}));
     }
-    
+
     async json() {
       return JSON.parse(this.body);
     }
   };
 }
 
+// Polyfill for IntersectionObserver
+global.IntersectionObserver = jest.fn(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}));
 
+// Polyfill for ResizeObserver (needed by Radix UI components)
+global.ResizeObserver = jest.fn(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}));
+
+// Polyfill for hasPointerCapture (needed by Radix UI components)
+if (typeof Element !== "undefined") {
+  Element.prototype.hasPointerCapture = jest.fn(() => false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+
+  // Polyfill for scrollIntoView (needed by Radix UI components)
+  Element.prototype.scrollIntoView = jest.fn();
+}
 
 // Suppress console errors during tests
 global.console = {

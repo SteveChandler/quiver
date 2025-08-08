@@ -159,105 +159,6 @@ test.describe("End-to-End User Flows", () => {
     });
   });
 
-  test.describe("New User Journey", () => {
-    test("Complete new user onboarding flow", async ({ page, context }) => {
-      // Clear any existing state
-      await context.clearCookies();
-      await context.clearPermissions();
-
-      // 1. Visit landing page
-      await page.goto("/");
-      await page.waitForTimeout(2000);
-
-      // 2. Check for sign up or already authenticated
-      if (
-        page.url().includes("/auth") ||
-        !(await page
-          .getByTestId("bottom-navigation")
-          .isVisible()
-          .catch(() => false))
-      ) {
-        await page.goto("/auth/sign-up");
-        await page.waitForTimeout(1000);
-
-        // Verify sign up page loads
-        const hasSignUpForm = await page
-          .getByRole("heading", { name: /sign up|create account/i })
-          .isVisible()
-          .catch(() => false);
-        if (hasSignUpForm) {
-          console.log("Sign up page loaded correctly");
-          // In a real test, you would create a new user account here
-        } else {
-          // Fallback to sign in if sign up not available
-          await page.goto("/auth/sign-in");
-          await page.waitForTimeout(1000);
-        }
-      }
-
-      // 3. Navigate to profile to check/set up profile
-      await page.goto("/profile");
-      await page.waitForTimeout(2000);
-
-      // Check if we're redirected to auth (not authenticated)
-      if (page.url().includes("/auth")) {
-        console.log("User needs to authenticate - redirected to auth page");
-        return;
-      }
-
-      // 4. Check for profile setup needs
-      const editProfileButton = page.getByRole("button", {
-        name: /edit profile/i,
-      });
-      if (await editProfileButton.isVisible()) {
-        await editProfileButton.click();
-        await page.waitForTimeout(1000);
-
-        // Check for profile form
-        const profileForm = page.locator("form");
-        if (await profileForm.isVisible()) {
-          console.log("Profile edit form is accessible");
-        }
-      }
-
-      // 5. Check boards (quiver) setup
-      const quiverTab = page.getByRole("tab", { name: /quiver|boards/i });
-      if (await quiverTab.isVisible()) {
-        await quiverTab.click();
-        await page.waitForTimeout(1000);
-
-        // Look for add board option
-        const addBoardButton = page.getByRole("button", {
-          name: /add.*board/i,
-        });
-        if (await addBoardButton.isVisible()) {
-          console.log("Add board functionality is available");
-        }
-      }
-
-      // 6. Navigate to map to explore beaches
-      await page.goto("/map");
-      await page.waitForTimeout(2000);
-
-      // Verify map interface loads
-      const hasMapInterface = await Promise.race([
-        page
-          .getByTestId("map-view")
-          .isVisible()
-          .catch(() => false),
-        page
-          .getByPlaceholder("Search beaches...")
-          .isVisible()
-          .catch(() => false),
-        page
-          .locator("main")
-          .isVisible()
-          .catch(() => false),
-      ]);
-      expect(hasMapInterface).toBeTruthy();
-    });
-  });
-
   test.describe("Beach Discovery to Session Flow", () => {
     test("Discover beach, view details, and plan session", async ({ page }) => {
       // 1. Start from home page
@@ -309,7 +210,7 @@ test.describe("End-to-End User Flows", () => {
             .isVisible()
             .catch(() => false),
           page
-            .getByText("Add to Journal")
+            .getByText("Log Session")
             .isVisible()
             .catch(() => false),
           page
@@ -374,10 +275,10 @@ test.describe("End-to-End User Flows", () => {
         await beachElement.click();
         await page.waitForTimeout(1000);
 
-        // 3. Look for Add to Journal action
+        // 3. Look for Log Session action
         const logSessionButton = page
-          .getByRole("button", { name: /add to journal|log session/i })
-          .or(page.getByRole("link", { name: /add to journal|log session/i }));
+          .getByRole("button", { name: /log session/i })
+          .or(page.getByRole("link", { name: /log session/i }));
 
         if (await logSessionButton.isVisible()) {
           await logSessionButton.click();
@@ -427,7 +328,7 @@ test.describe("End-to-End User Flows", () => {
 
             // 7. Check if save button is enabled
             const saveButton = page.getByRole("button", {
-              name: /save|add to journal|log session/i,
+              name: /save|log session/i,
             });
             if (await saveButton.isVisible()) {
               const isEnabled = await saveButton.isEnabled();

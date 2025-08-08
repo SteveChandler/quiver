@@ -96,8 +96,13 @@ test.describe("Comprehensive Surf App Workflows", () => {
       const isProfileOnProfile = profileUrl.includes("/profile");
 
       // Should either be on profile, redirected to auth, or redirected to home
-      const isProfileRedirectedToHome = profileUrl === new URL("/", page.url()).href;
-      expect(isProfileRedirectedToAuth || isProfileOnProfile || isProfileRedirectedToHome).toBeTruthy();
+      const isProfileRedirectedToHome =
+        profileUrl === new URL("/", page.url()).href;
+      expect(
+        isProfileRedirectedToAuth ||
+          isProfileOnProfile ||
+          isProfileRedirectedToHome
+      ).toBeTruthy();
 
       // If we're on the profile page, check for sessions tab
       if (isProfileOnProfile) {
@@ -214,12 +219,10 @@ test.describe("Comprehensive Surf App Workflows", () => {
           // Should navigate to beach detail or show more info
           await page.waitForTimeout(1000);
 
-          // Look for "Add to Journal" button or link
+          // Look for "Log Session" button or link
           const logSessionButton = page
-            .getByRole("link", { name: /add to journal|log session/i })
-            .or(
-              page.getByRole("button", { name: /add to journal|log session/i })
-            );
+            .getByRole("link", { name: /log session/i })
+            .or(page.getByRole("button", { name: /log session/i }));
 
           if (await logSessionButton.isVisible()) {
             await logSessionButton.click();

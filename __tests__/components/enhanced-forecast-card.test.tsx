@@ -4,7 +4,7 @@ import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast"
 import { EnhancedForecast } from "@/types/database";
 
 // Mock the MultiDayForecastTable component
-jest.mock("@/components/forecast/multi-day-forecast-table", () => ({
+jest.mock("@/components/forecast/forecast-table", () => ({
   MultiDayForecastTable: ({ forecasts }: { forecasts: EnhancedForecast[] }) => (
     <div data-testid="multi-day-forecast-table">
       <table>
