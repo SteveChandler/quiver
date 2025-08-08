@@ -5,6 +5,7 @@
   - `app/sitemap.ts` auto-generating sitemap for core routes and dynamic beach pages
   - `lib/seo/meta.ts` helper for DRY page metadata (title, description, canonical, OG/Twitter)
   - Page-level metadata for Map, Plan Session, Log Session; dynamic metadata for Beach and Forecast pages
+  - Environment setup for dev→prod flow using Vercel domains and env vars (see below)
 
 ### Changed
 
@@ -12,6 +13,8 @@
 - Updated `SEO_CONFIG` Open Graph image to use existing `public/images/buoy.png`
 - Converted Vitest-style tests to Jest-compatible mocks for check-in features (`__tests__/setup/vitest-shim.ts` added)
 - Stabilized selectors and expectations in SEO-related tests; applied flexible error assertions to session-planner API tests
+- SEO structured data now derives domain from `NEXT_PUBLIC_SITE_URL` instead of hardcoded URLs
+- Scheduled cron limited to Production deployments only via `vercel.json` (`target: production`)
 
 # Quiver Surf App - Changelog
 

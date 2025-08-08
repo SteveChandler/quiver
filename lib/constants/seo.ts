@@ -1,3 +1,7 @@
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+).replace(/\/$/, "");
+
 export const SEO_CONFIG = {
   // Primary metadata
   title:
@@ -85,8 +89,8 @@ export const SEO_CONFIG = {
       alternateName: "Quiver Surf App",
       description:
         "Ultimate surf community platform - Community-driven surf session tracking and social platform",
-      url: "https://quiver.surf", // Update with actual domain
-      logo: "https://quiver.surf/logo.png",
+      url: SITE_URL,
+      logo: `${SITE_URL}/logo.png`,
       sameAs: [
         "https://instagram.com/quiversurf",
         "https://tiktok.com/@quiversurf",
@@ -129,9 +133,9 @@ export const SEO_CONFIG = {
         "Share session photos and videos",
         "Connect with local surfers worldwide",
       ],
-      screenshot: "https://quiver.surf/app-screenshot.jpg",
-      downloadUrl: "https://quiver.surf",
-      installUrl: "https://quiver.surf",
+      screenshot: `${SITE_URL}/app-screenshot.jpg`,
+      downloadUrl: SITE_URL,
+      installUrl: SITE_URL,
     },
 
     website: {
@@ -141,16 +145,16 @@ export const SEO_CONFIG = {
       alternateName: "Quiver",
       description:
         "Ultimate surf community platform - Find surf buddies, track sessions, and join the thriving surf community",
-      url: "https://quiver.surf",
+      url: SITE_URL,
       potentialAction: {
         "@type": "SearchAction",
-        target: "https://quiver.surf/search?q={search_term_string}",
+        target: `${SITE_URL}/search?q={search_term_string}`,
         "query-input": "required name=search_term_string",
       },
       publisher: {
         "@type": "Organization",
         name: "Quiver",
-        logo: "https://quiver.surf/logo.png",
+        logo: `${SITE_URL}/logo.png`,
       },
     },
   },
