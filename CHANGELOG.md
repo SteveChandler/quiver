@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Root-level `ARCHITECTURE.md`: Top-level architecture overview and index linking to directory architecture docs and `docs/` references
 - Profile page redirect: Users are now automatically redirected to their profile after logging a session
 - Architecture documentation for all core directories:
   - `styles/ARCHITECTURE.md` - Global CSS and Tailwind configuration
@@ -63,6 +64,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Removed `__tests__/components/forecast/forecast-feedback-form.test.tsx` - Disabled test already converted to Playwright
   - Fixed Supabase mocking issues that caused test failures
   - All forecast tests now pass (359 tests, 23 test suites)
+- Removed `docs/README.md` (redundant with root `ARCHITECTURE.md` acting as primary index)
 
 ## [2025.01.15] - Production Release
 
@@ -103,6 +105,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Removed 16 unused indexes (15% storage reduction)
   - RLS performance fixes eliminating InitPlan overhead
   - Consolidated multiple permissive policies
+  - Added covering indexes for Supabase linter flags:
+    - `idx_beaches_owner_id_fkey` on `beaches(owner_id)`
+    - `idx_session_invitations_invitee_id_fkey` on `session_invitations(invitee_id)`
+    - `idx_session_invitations_inviter_id_fkey` on `session_invitations(inviter_id)`
+    - `idx_session_participants_user_id_fkey` on `session_participants(user_id)`
+  - Fixed RLS InitPlan warnings by wrapping auth calls with SELECT wrappers:
+    - `intel_posts`: insert/update/delete policies now use `(select auth.uid())`
+    - `intel_post_confirmations`: insert/delete policies now use `(select auth.uid())`
+    - `session_forecast_snapshots`: select/insert/update/delete now use `(select auth.uid())`
+    - `beach_forecast_accuracy`: service/admin manage policy uses `(select auth.jwt())` and `(select auth.uid())`
 
 - **Frontend Optimizations**
   - DRY component consolidation (~1,050 lines eliminated)
@@ -166,6 +178,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Out-of-area search messaging improvements
 - Success messages for session saves and profile updates
 - Board creation authentication flow simplification
+- Supabase security linter warning: Recreated `public.enhanced_forecasts_with_quality` view with `WITH (security_invoker = true)` to remove definer semantics
 
 ## [2025.01.16] - Community-Enhanced Surf Forecasts
 
