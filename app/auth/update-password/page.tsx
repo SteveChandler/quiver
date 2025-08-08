@@ -1,10 +1,8 @@
 "use client";
 
-import type React from "react";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,50 +14,47 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 
-export function SignUpForm() {
-  const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
+export default function UpdatePasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    if (displayName.trim().length < 2) {
-      setError("Display name must be at least 2 characters");
-      return;
-    }
+    setSuccess(null);
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
 
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      await signUp(email, password, displayName.trim());
-      router.push("/");
-    } catch (error) {
-      console.error("Sign up error:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "An error occurred during sign up"
-      );
+      const supabase = createClient();
+      const { error: updateError } = await supabase.auth.updateUser({
+        password,
+      });
+
+      if (updateError) throw updateError;
+
+      setSuccess("Your password has been updated. You can now sign in.");
+      setTimeout(() => router.push("/auth/sign-in"), 1000);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to update password";
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -68,37 +63,15 @@ export function SignUpForm() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl">Sign Up</CardTitle>
+        <CardTitle className="text-2xl">Update Password</CardTitle>
         <CardDescription>
-          Create a new account to start tracking your surf sessions
+          Enter a new password for your account.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="displayName">Display Name</Label>
-            <Input
-              id="displayName"
-              type="text"
-              placeholder="e.g. Kelly"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="your.email@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">New Password</Label>
             <Input
               id="password"
               type="password"
@@ -125,23 +98,23 @@ export function SignUpForm() {
             </Alert>
           )}
 
+          {success && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
+          )}
+
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating
-                Account...
-              </>
-            ) : (
-              "Sign Up"
-            )}
+            {isLoading ? "Updating..." : "Update Password"}
           </Button>
         </form>
       </CardContent>
       <CardFooter className="flex justify-center">
         <p className="text-sm text-muted-foreground">
-          Already have an account?{" "}
+          Return to{" "}
           <Link href="/auth/sign-in" className="text-primary hover:underline">
-            Sign In
+            sign in
           </Link>
         </p>
       </CardFooter>

@@ -163,6 +163,7 @@ export function DateTimeSection({
           </label>
           <Select
             value={currentDurationValue}
+            defaultValue={currentDurationValue}
             onValueChange={handleDurationChange}
             disabled={isDisabled}
           >

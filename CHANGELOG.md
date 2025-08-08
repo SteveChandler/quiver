@@ -46,9 +46,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Enhanced button text wrapping to prevent overflow in wave type selector
 
 - Development convenience: `scripts/mock-last-week-community-data.sql` to generate last-week community data
+
   - Populates `check_ins` across key SD beaches with realistic values and forecast accuracy ratings
   - Adds `intel_posts` condition entries using new surf condition fields (`wave_height`, `wind_speed`, `wind_direction`, `water_temp`, `crowd_level`, `wave_types`, `forecast_accuracy`)
   - Creates confirmations and updates `confirmations_count` for recent intel
+
+- Plan Session E2E test validating save, redirect, and validation behavior
+
+  - Uses Playwright with reasonable load states and flexible checks
+  - References established testing guidance
+
+- Sign-up display name collection
+
+  - Added `Display Name` field to `components/auth/sign-up-form.tsx`
+  - Extended `context/auth-context.tsx` `signUp` to pass `options.data.full_name` to Supabase
+  - Profiles auto-seed `profiles.full_name` from user metadata via existing `createProfile`
+  - Updated E2E tests to fill/allow the new field when present
+
+- Password recovery flow
+  - New pages: `app/auth/forgot-password/page.tsx` and `app/auth/update-password/page.tsx`
+  - Forgot page sends reset link via `supabase.auth.resetPasswordForEmail` with `redirectTo` → `${NEXT_PUBLIC_SITE_URL}/auth/update-password`
+  - Update page sets new password using `supabase.auth.updateUser({ password })`
+  - Added “Forgot password?” link to `components/auth/sign-in-form.tsx`
+
+### Added
+
+- Context-aware Optimal Times anchored to user-selected time (±2h), with tide/wind/swell-aware scoring and 2-hour block aggregation. Labeled as "Best for Your Session Time" when applicable. Follows `app/ARCHITECTURE.md` API utilities and `hooks/ARCHITECTURE.md` data fetching patterns.
+
+### Changed
+
+- Enhanced `app/api/session-planner/optimal-times/route.ts` scoring logic to include tide height/direction and swell period; introduced window filtering and fallback expansion.
+- Updated `components/session-forms/OptimalTimesSection.tsx` to render time ranges, add test ids, and context-aware label.
+
+### Fixed
+
+- Made Optimal Times recommendations relevant for afternoon/evening selections instead of generic early morning suggestions.
 
 ### Changed
 
@@ -63,6 +95,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Landing page UX: Updated "Explore Features" button style to translucent on-image variant for better contrast (no solid white pill)
 - Landing page copy: Replaced inflated counts with honest language (e.g., "Join surfers near you", "Growing surf community")
 - Removed remaining numeric claims from landing sections (hero badge, social stats, CTA) and updated SEO copy to reflect realistic growth messaging
+
+- Plan Session form now requires start time in plan mode; improved validation toasts
+- Redirect occurs immediately on successful plan; invitations are sent in background
+- Added analytics activity events for attempts, success, and failure of planning
 
 ### Removed
 
@@ -198,6 +234,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Board creation authentication flow simplification
 - Supabase security linter warning: Recreated `public.enhanced_forecasts_with_quality` view with `WITH (security_invoker = true)` to remove definer semantics
 
+- Fixed issue where tapping Save on Plan Session did nothing and session was not saved
+
 ## [2025.01.16] - Community-Enhanced Surf Forecasts
 
 ### Added
@@ -286,3 +324,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 **Maintained by**: Development Team  
 **Last Updated**: January 15, 2025  
 **Next Review**: After reaching 50 active users
+
+### Documentation
+
+- Added `ARCHITECTURE.md` files for:
+  - `actions/` — server action patterns, security, testing
+  - `components/beach/` — review components data flow and UX
+  - `components/intel/` — intel feed/map/form and interactions
+  - `components/journal/` — calendar/analytics/export
+  - `components/landing-page/` — sections, SEO, and performance conventions

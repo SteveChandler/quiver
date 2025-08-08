@@ -282,6 +282,13 @@ export function SignInForm() {
           <Link href="/auth/sign-up" className="text-primary hover:underline">
             Sign Up
           </Link>
+          <span className="mx-2">·</span>
+          <Link
+            href="/auth/forgot-password"
+            className="text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
         </p>
       </CardFooter>
     </Card>

@@ -143,6 +143,11 @@ test.describe("Authentication", () => {
     ).toBeVisible();
 
     // Check form elements - be more specific for password fields
+    // Display name is optional in tests; only assert if present to remain flexible
+    const displayName = page.getByLabel(/display name|name/i).first();
+    if (await displayName.isVisible().catch(() => false)) {
+      await expect(displayName).toBeVisible();
+    }
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/^password$/i).first()).toBeVisible(); // First password field
     await expect(

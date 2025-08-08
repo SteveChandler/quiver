@@ -15,10 +15,14 @@ async function globalSetup(config: FullConfig) {
   const page = await browser.newPage();
 
   try {
+    const baseUrl =
+      process.env.BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const signInUrl = new URL("/auth/sign-in", baseUrl).toString();
+
     // Check if we can access the sign-in page (indicates app is running)
     console.log("🌐 Navigating to sign-in page...");
-    await page.goto("http://localhost:3000/auth/sign-in");
-    await page.waitForLoadState("networkidle");
+    await page.goto(signInUrl);
+    await page.waitForLoadState("load");
 
     // Check if sign-in form is available with more flexible selectors
     await page.waitForTimeout(2000); // Give page time to load

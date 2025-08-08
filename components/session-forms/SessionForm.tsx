@@ -32,6 +32,7 @@ import {
   updatePlannedSessionToCompleted,
 } from "@/actions/session-actions";
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
+import { createActivity } from "@/actions/activity-actions";
 
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 
@@ -207,11 +208,15 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     router,
   ]);
 
-  const isComplete = Boolean(
-    formState.selectedBeach &&
-      formState.selectedBeachId &&
-      formState.selectedDate
-  );
+  const isComplete = (() => {
+    const hasBasics = Boolean(
+      formState.selectedBeach && formState.selectedDate
+    );
+    if (isPlanning) {
+      return hasBasics && Boolean(formState.selectedTime);
+    }
+    return hasBasics;
+  })();
 
   const handleFinishSession = () => {
     router.push("/profile");
@@ -255,19 +260,35 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       return;
     }
 
-    if (!formState.selectedBeachId) {
-      toast.error("Please select a valid beach from the dropdown");
-      return;
-    }
+    // For plan mode, allow saving with beach name even if not selected from dropdown (no beachId)
 
     if (!formState.selectedDate) {
       toast.error("Please select a date");
       return;
     }
 
+    if (isPlanning && !formState.selectedTime) {
+      toast.error("Please select a start time");
+      return;
+    }
+
+    // Ensure a default duration exists
+    if (!formState.duration) {
+      updateField("duration", "60m");
+    }
+
     setLoading(true);
 
     try {
+      // Analytics: planning attempt (non-blocking)
+      void createActivity("session_planning_attempt", "session", "n/a", {
+        beachId: formState.selectedBeachId || null,
+        beachName: formState.selectedBeach || null,
+        selectedDate: formState.selectedDate || null,
+        selectedTime: formState.selectedTime || null,
+        mode,
+      });
+
       let durationMinutes: number | undefined = undefined;
       if (formState.duration) {
         const hourMatch = formState.duration.match(/(\d+)h/);
@@ -376,64 +397,38 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
 
       if (isPlanning) {
         const result = await createPlannedSession(sessionData, user.id);
-        if (result.success) {
-          // Handle invitations if any were set
-          if (formState.invitees && formState.invitees.length > 0) {
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+
+        // Success feedback immediately
+        toast.success("Session planned successfully!");
+
+        // Analytics: success (non-blocking)
+        void createActivity("session_planned", "session", result.data.id, {
+          inviteesCount: formState.invitees?.length || 0,
+        });
+
+        // Redirect immediately to profile to complete the flow
+        router.push("/profile");
+
+        // Fire-and-forget invitations to avoid blocking redirect
+        if (formState.invitees && formState.invitees.length > 0) {
+          void (async () => {
             try {
-              const invitationResponse = await fetch(
-                "/api/session-planner/invitations",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    sessionId: result.data.id,
-                    invitees: formState.invitees,
-                    message: formState.invitationMessage,
-                  }),
-                }
-              );
-
-              const invitationResult = await invitationResponse.json();
-
-              if (invitationResult.success) {
-                const { invitationsSent, errors } = invitationResult.data;
-                if (invitationsSent > 0) {
-                  toast.success(
-                    `Session planned and ${invitationsSent} invitation(s) sent!`
-                  );
-                  if (errors.length > 0) {
-                    toast.warning(
-                      `Some invitations failed: ${errors
-                        .slice(0, 2)
-                        .join(", ")}`
-                    );
-                  }
-                } else {
-                  toast.success("Session planned successfully!");
-                  if (errors.length > 0) {
-                    toast.error(`Failed to send invitations: ${errors[0]}`);
-                  }
-                }
-              } else {
-                toast.success("Session planned successfully!");
-                toast.warning(
-                  "Failed to send invitations - you can invite friends later"
-                );
-              }
+              await fetch("/api/session-planner/invitations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  sessionId: result.data.id,
+                  invitees: formState.invitees,
+                  message: formState.invitationMessage,
+                }),
+              });
             } catch (invitationError) {
               console.error("Error sending invitations:", invitationError);
-              toast.success("Session planned successfully!");
-              toast.warning(
-                "Invitations couldn't be sent - you can try again later"
-              );
             }
-          } else {
-            toast.success("Session planned successfully!");
-          }
-        } else {
-          throw new Error(result.error);
+          })();
         }
       } else {
         // Create logged session data with additional fields
@@ -506,6 +501,14 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       }
     } catch (error) {
       console.error("Error saving session:", error);
+      // Analytics: failure (non-blocking)
+      void createActivity("session_plan_failed", "session", "n/a", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        beachId: formState.selectedBeachId || null,
+        selectedDate: formState.selectedDate || null,
+        selectedTime: formState.selectedTime || null,
+        mode,
+      });
       toast.error(
         error instanceof Error
           ? error.message
