@@ -58,10 +58,10 @@ export const SEO_CONFIG = {
     siteName: "Quiver - Surf Community App",
     images: [
       {
-        url: "/og-image.jpg", // We'll need to create this
+        url: "/images/buoy.png",
         width: 1200,
         height: 630,
-        alt: "Quiver - Surf Community App Screenshot",
+        alt: "Quiver - Surf Community App",
       },
     ],
   },

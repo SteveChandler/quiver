@@ -1,5 +1,8 @@
 import { BeachDetail } from "@/components/beach-detail";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/seo/meta";
+import { getBeachById } from "@/actions/beach/beach-query-actions";
 
 export default function BeachDetailPage({
   params,
@@ -12,4 +15,18 @@ export default function BeachDetailPage({
       <BottomNavigation />
     </>
   );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const beach = await getBeachById(params.id);
+  const name = beach?.name || "Beach";
+  return buildPageMetadata({
+    title: `${name} Surf Guide | Quiver`,
+    description: `Conditions, intel, photos, and community tips for ${name}.`,
+    path: `/beach/${params.id}`,
+  });
 }

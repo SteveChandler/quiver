@@ -1,4 +1,6 @@
 import { Suspense, lazy } from "react";
+import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/seo/meta";
 import { BottomNavigation } from "@/components/bottom-navigation";
 
 // Lazy load heavy map component
@@ -40,3 +42,10 @@ export default function MapPage() {
     </div>
   );
 }
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Surf Spots Map | Quiver",
+  description:
+    "Explore surf spots with reviews and live conditions. Find your next epic wave with Quiver's map.",
+  path: "/map",
+});

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "../setup/vitest-shim";
 import { renderHook, waitFor } from "@testing-library/react";
 import {
   useRecentCheckIns,
@@ -15,15 +15,33 @@ import {
 } from "@/actions/check-in-actions";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 
-// Mock dependencies
-vi.mock("@/actions/check-in-actions");
-vi.mock("@/hooks/use-data-fetcher");
+// Mock dependencies with factories for Jest
+jest.mock("@/actions/check-in-actions", () => ({
+  getRecentCheckIns: jest.fn(),
+  getForecastAccuracyStats: jest.fn(),
+  getUserCheckIns: jest.fn(),
+  getBeachCheckIns: jest.fn(),
+}));
+jest.mock("@/hooks/use-data-fetcher", () => ({
+  __esModule: true,
+  useDataFetcher: jest.fn(),
+}));
 
-const mockGetRecentCheckIns = vi.mocked(getRecentCheckIns);
-const mockGetForecastAccuracyStats = vi.mocked(getForecastAccuracyStats);
-const mockGetUserCheckIns = vi.mocked(getUserCheckIns);
-const mockGetBeachCheckIns = vi.mocked(getBeachCheckIns);
-const mockUseDataFetcher = vi.mocked(useDataFetcher);
+const mockGetRecentCheckIns =
+  getRecentCheckIns as unknown as jest.MockedFunction<typeof getRecentCheckIns>;
+const mockGetForecastAccuracyStats =
+  getForecastAccuracyStats as unknown as jest.MockedFunction<
+    typeof getForecastAccuracyStats
+  >;
+const mockGetUserCheckIns = getUserCheckIns as unknown as jest.MockedFunction<
+  typeof getUserCheckIns
+>;
+const mockGetBeachCheckIns = getBeachCheckIns as unknown as jest.MockedFunction<
+  typeof getBeachCheckIns
+>;
+const mockUseDataFetcher = useDataFetcher as unknown as jest.MockedFunction<
+  typeof useDataFetcher
+>;
 
 beforeEach(() => {
   vi.clearAllMocks();

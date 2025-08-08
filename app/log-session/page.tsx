@@ -1,5 +1,7 @@
 import { SessionFormWrapper } from "@/components/session-forms/SessionFormWrapper";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/seo/meta";
 
 export default function LogSessionPage() {
   // Auth check is handled by middleware for protected routes
@@ -12,3 +14,10 @@ export default function LogSessionPage() {
     </div>
   );
 }
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Log Your Surf Session | Quiver",
+  description:
+    "Log and share your surf sessions. Track your progress with Quiver.",
+  path: "/log-session",
+});
