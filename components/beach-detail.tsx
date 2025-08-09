@@ -89,20 +89,27 @@ export function BeachDetail({ id }: BeachDetailProps) {
     d.setHours(d.getHours() + 24);
     return d.toISOString();
   }, [now]);
-  // Lazy import to avoid breaking existing patterns; use within render guard
-  const [normalizedWindow, setNormalizedWindow] = useState<any>(null);
-  const initNormalized = useCallback(async () => {
-    try {
-      const mod = await import("@/actions/forecast/forecast-actions");
-      const res = await mod.getForecastWindow(id, startIso, endIso);
-      if (res.success) setNormalizedWindow(res.data);
-    } catch {}
+  // Fetch normalized window via API route using the standard data fetching pattern
+  const fetchWindow = useCallback(async () => {
+    const params = new URLSearchParams({
+      beachId: id,
+      start: startIso,
+      end: endIso,
+    });
+    const res = await fetch(`/api/forecasts/window?${params.toString()}`, {
+      cache: "no-store",
+    });
+    const json = await res.json();
+    if (json?.success && json?.data) {
+      return json.data;
+    }
+    return null;
   }, [id, startIso, endIso]);
-  useMemo(() => {
-    // fire and forget on mount
-    initNormalized();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const {
+    data: normalizedWindow,
+    loading: windowLoading,
+    error: windowError,
+  } = useDataFetcher(fetchWindow, { immediate: true });
 
   // Combined loading and error states
   const loading = beachLoading || forecastsLoading;

@@ -91,6 +91,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Services: `lib/services/ndbc-service.ts` (NDBC stations + latest obs), `lib/services/noaa-tide-service.ts` (NOAA Tides & Currents hourly predictions), `lib/utils/fetch-utils.ts` (timeout wrapper)
   - UI: `components/forecast/spot-conditions-summary.tsx` and integration on `components/beach-detail.tsx`
   - Actions/Hooks: `actions/forecast/forecast-actions.ts#getForecastWindow`, `hooks/use-beach-forecast.ts`
+  - API: `GET /api/forecasts/window` for normalized 24h window (marine/tide/sun) used by Spot Conditions summary
 
 ### Changed
 
@@ -100,6 +101,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Open‑Meteo client marked deprecated; ingestion switched to NOAA/NDBC/CDIP pipeline
 - NDBC active stations source updated to `ndbcmapstations.json` and robust timestamp parsing for realtime2 files
 - NOAA tides `datagetter` begin/end date parameters corrected (YYYYMMDD), with diagnostics on failures
+ - Beach detail now fetches normalized window via API using `useDataFetcher` (standard pattern) and conditionally renders the Spot Conditions summary; "Today's Overview" remains primary
 
 ### Known Issues / Follow-ups
 
@@ -123,6 +125,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 
 - Made Optimal Times recommendations relevant for afternoon/evening selections instead of generic early morning suggestions.
+ - Replaced non-existent `Tide` icon with `Droplet` from `lucide-react` in Spot Conditions summary
 
 ### Changed
 

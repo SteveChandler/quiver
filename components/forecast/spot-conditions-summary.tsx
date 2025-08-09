@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Sun, Wind, Waves, Tide } from "lucide-react";
+import { Sun, Wind, Waves, Droplet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -84,7 +84,7 @@ export function SpotConditionsSummary({ data, className }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Tide className="h-4 w-4" />
+          <Droplet className="h-4 w-4" />
           <span>
             {nextTide?.tide_height_m != null
               ? `${mToFt(nextTide.tide_height_m)} ft`
