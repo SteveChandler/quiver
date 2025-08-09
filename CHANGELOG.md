@@ -16,6 +16,8 @@
 - SEO structured data now derives domain from `NEXT_PUBLIC_SITE_URL` instead of hardcoded URLs
 - Scheduled cron limited to Production deployments only via `vercel.json` (`target: production`)
 
+- Vercel Hobby compliance: changed `vercel.json` cron for `/api/cron/forecasts/refresh` from every 3 hours (`0 */3 * * *`) to daily at 12:00 UTC (`0 12 * * *`). This staggers from the 06:00 UTC enhanced sync and avoids Hobby limit violations.
+
 ### Fixed
 
 - Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user’s actual position.
@@ -36,6 +38,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+
+- Jest coverage reporting configured following repository testing patterns:
+
+  - Enabled coverage collection with V8 provider and reports: text, lcov, json, html
+  - Scoped `collectCoverageFrom` to `actions/`, `app/`, `components/`, `context/`, `hooks/`, `lib/`, and `types/` (`*.ts, *.tsx`)
+  - Excluded tests, setup/mocks, migrations, and barrel `index` files
+  - Added `npm run test:coverage` script
+  - Initial baseline after enablement: ~33.7% statements, 45.5% functions, 67.6% branches, 33.7% lines
+
+- New unit tests to raise coverage in high-impact areas:
+  - `__tests__/hooks/use-session-forecast.test.ts` (forecast mapping to session time, error/no-data cases)
+  - `__tests__/hooks/use-data-fetcher.test.ts` (success, error, refetch/reset, skip toggling)
+
+### Changed
+
+- Coverage configuration excludes expanded to reduce low-signal noise:
+
+  - Excluded `types/**`, `app/**/page.tsx`, and `app/**/layout.tsx`
+  - Resulting coverage after tests and excludes: ~34.8% lines, 46.9% functions, 67.6% branches, 34.8% statements
 
 - Root-level `ARCHITECTURE.md`: Top-level architecture overview and index linking to directory architecture docs and `docs/` references
 - Profile page redirect: Users are now automatically redirected to their profile after logging a session
@@ -101,7 +122,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Open‑Meteo client marked deprecated; ingestion switched to NOAA/NDBC/CDIP pipeline
 - NDBC active stations source updated to `ndbcmapstations.json` and robust timestamp parsing for realtime2 files
 - NOAA tides `datagetter` begin/end date parameters corrected (YYYYMMDD), with diagnostics on failures
- - Beach detail now fetches normalized window via API using `useDataFetcher` (standard pattern) and conditionally renders the Spot Conditions summary; "Today's Overview" remains primary
+- Beach detail now fetches normalized window via API using `useDataFetcher` (standard pattern) and conditionally renders the Spot Conditions summary; "Today's Overview" remains primary
 
 ### Known Issues / Follow-ups
 
@@ -125,7 +146,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 
 - Made Optimal Times recommendations relevant for afternoon/evening selections instead of generic early morning suggestions.
- - Replaced non-existent `Tide` icon with `Droplet` from `lucide-react` in Spot Conditions summary
+- Replaced non-existent `Tide` icon with `Droplet` from `lucide-react` in Spot Conditions summary
 
 ### Changed
 
