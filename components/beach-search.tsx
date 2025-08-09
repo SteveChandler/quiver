@@ -703,8 +703,8 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                         💡 Want to see your favorite beach here?
                         <button
                           onClick={() => {
-                            // Navigate to profile edit page
-                            window.location.href = "/profile/edit";
+                            // Open profile page with edit modal
+                            window.location.href = "/profile?edit=true";
                           }}
                           className="ml-1 text-blue-600 hover:text-blue-800 font-medium underline"
                         >

@@ -16,6 +16,17 @@
 - SEO structured data now derives domain from `NEXT_PUBLIC_SITE_URL` instead of hardcoded URLs
 - Scheduled cron limited to Production deployments only via `vercel.json` (`target: production`)
 
+### Fixed
+
+- Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user’s actual position.
+
+### Added
+
+- Database utility script `scripts/load_beaches_inline.sql` updated to run atomically and dedupe by case-insensitive name, keeping NEW coordinates over existing ones. Adds `country` column if missing and enforces unique index on `lower(name)`. Suitable for Supabase SQL editor.
+- Added nullable beach metadata columns and preservation in loader:
+  - Columns: `wave_type`, `skill_level`, `best_swell_directions`, `best_wind_directions`, `tide_preferences`
+  - Loader prefers new coordinates but preserves existing non-null metadata if new data is null
+
 # Quiver Surf App - Changelog
 
 All notable changes to the Quiver surf app are documented in this file.
@@ -75,6 +86,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Updated `scripts/load_beaches_with_meta.sql` to be schema-safe for current `public.beaches` table:
+
+  - Removed schema-altering statements and PostGIS setup from the loader
+  - Replaced TRUNCATE/MERGE with single-transaction CTE-driven update+insert upsert
+  - Upserts only `name`, `location`, `latitude`, `longitude`, and `description`
+  - Filters invalid coordinates and excludes known problematic entry (`204s`)
+  - Keeps case-insensitive unique index on `lower(name)`
+
 - Enhanced `app/api/session-planner/optimal-times/route.ts` scoring logic to include tide height/direction and swell period; introduced window filtering and fallback expansion.
 - Updated `components/session-forms/OptimalTimesSection.tsx` to render time ranges, add test ids, and context-aware label.
 
@@ -95,6 +114,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Landing page UX: Updated "Explore Features" button style to translucent on-image variant for better contrast (no solid white pill)
 - Landing page copy: Replaced inflated counts with honest language (e.g., "Join surfers near you", "Growing surf community")
 - Removed remaining numeric claims from landing sections (hero badge, social stats, CTA) and updated SEO copy to reflect realistic growth messaging
+
+## [2025.08.08] - Profile Edit Modal Deep Link
+
+### Changed
+
+- "Set Default Beach" now navigates to `/profile?edit=true`, which auto-opens the Edit Profile modal.
+- Centralized profile editing on `/profile` via `EditProfileModal`; removed legacy `/profile/edit` route and references.
+- Updated docs and tests to reflect the new deep link.
 
 - Plan Session form now requires start time in plan mode; improved validation toasts
 - Redirect occurs immediately on successful plan; invitations are sent in background

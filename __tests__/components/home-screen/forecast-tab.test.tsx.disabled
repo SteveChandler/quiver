@@ -235,7 +235,7 @@ describe("ForecastTab", () => {
     });
     await user.click(setBeachButton);
 
-    expect(mockPush).toHaveBeenCalledWith("/profile/edit");
+    expect(mockPush).toHaveBeenCalledWith("/profile?edit=true");
   });
 
   it("shows forecast unavailable message when forecast fails to load", () => {

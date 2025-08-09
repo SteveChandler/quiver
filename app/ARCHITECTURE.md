@@ -320,13 +320,11 @@ The `/app` directory follows Next.js 13+ App Router conventions, implementing a 
   - Session history
   - Social features
 
-#### `/profile/edit/page.tsx`
+#### Profile editing
 
-- **Function**: Profile editing interface
-- **Features**:
-  - Personal information updates
-  - Privacy settings
-  - Account management
+- **Function**: Profile editing is handled via `EditProfileModal` on `/profile`.
+- **Deep Link**: Use `/profile?edit=true` to auto-open the modal.
+- **Note**: Legacy `/profile/edit` route has been removed.
 
 ---
 

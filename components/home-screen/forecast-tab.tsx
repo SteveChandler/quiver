@@ -185,7 +185,7 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
                 feed.
               </p>
             </div>
-            <Button onClick={() => router.push("/profile/edit")} size="sm">
+            <Button onClick={() => router.push("/profile?edit=true")} size="sm">
               Set Default Beach
             </Button>
           </CardContent>

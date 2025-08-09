@@ -205,7 +205,11 @@ test.describe("Authentication", () => {
     context,
   }) => {
     // Try to access protected pages without authentication
-    const protectedPages = ["/log-session", "/plan-session", "/profile/edit"];
+    const protectedPages = [
+      "/log-session",
+      "/plan-session",
+      "/profile?edit=true",
+    ];
 
     for (const pagePath of protectedPages) {
       // Clear state before each protected page test
