@@ -25,9 +25,17 @@
 ### Added
 
 - Database utility script `scripts/load_beaches_inline.sql` updated to run atomically and dedupe by case-insensitive name, keeping NEW coordinates over existing ones. Adds `country` column if missing and enforces unique index on `lower(name)`. Suitable for Supabase SQL editor.
-- Added nullable beach metadata columns and preservation in loader:
-  - Columns: `wave_type`, `skill_level`, `best_swell_directions`, `best_wind_directions`, `tide_preferences`
-  - Loader prefers new coordinates but preserves existing non-null metadata if new data is null
+- Beach preferences formalized via migration `20250809000000_add_beach_preferences.sql`:
+
+  - Columns on `beaches`: `break_type`, `shoreline_aspect_deg`, `swell_window_min_deg`, `swell_window_max_deg`, `wind_offshore_deg`, `wind_offshore_tol_deg`, `wind_cross_shore_ok_kt`, `wind_onshore_bad_kt`, `preferred_tide_ft_min`, `preferred_tide_ft_max`, `skill_level`, `best_swell_cardinals`, `best_wind_cardinals`, `preference_model`
+  - New table: `beach_recommendation_calibration` for ongoing calibration rollups
+  - Inline loader no longer declares ad‑hoc metadata columns; preference upserts handled in `scripts/load_beaches_with_meta.sql`
+
+- Beach preference backfill and calibration seed:
+  - Migration `20250809000010_backfill_beach_preferences.sql` backfills new preference columns for all beaches (no NULLs remaining)
+  - Computes aspect, offshore wind, swell window (by break type), wind tolerances, tide range, and `skill_level`; seeds `preference_model`
+  - Inserts one `default_seed` row per beach into `beach_recommendation_calibration`
+  - Idempotent via COALESCE/existence checks; includes validation preview queries
 
 # Quiver Surf App - Changelog
 
@@ -38,6 +46,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+
+- Integrated Vercel Web Analytics and Speed Insights in `app/layout.tsx` to collect page views and performance metrics in production. Follows App Router root layout pattern documented in `app/ARCHITECTURE.md`.
 
 - Jest coverage reporting configured following repository testing patterns:
 

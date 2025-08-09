@@ -21,12 +21,6 @@ create table if not exists public.beaches (
   lon double precision,
   -- PostGIS point for geospatial queries
   coordinates geography(POINT, 4326),
-  -- Nullable metadata fields
-  wave_type text,
-  skill_level text,
-  best_swell_directions text,
-  best_wind_directions text,
-  tide_preferences text,
   -- Human-readable location string (DB may enforce NOT NULL)
   location text
 );
@@ -40,11 +34,6 @@ alter table public.beaches
   add column if not exists lat double precision,
   add column if not exists lon double precision,
   add column if not exists coordinates geography(POINT, 4326),
-  add column if not exists wave_type text,
-  add column if not exists skill_level text,
-  add column if not exists best_swell_directions text,
-  add column if not exists best_wind_directions text,
-  add column if not exists tide_preferences text,
   add column if not exists location text;
 
 drop table if exists temp_beaches;
@@ -595,13 +584,7 @@ with unioned as (
     tb.lon,
     null::double precision as latitude,
     null::double precision as longitude,
-    null::text as wave_type,
-    null::text as skill_level,
-    null::text as best_swell_directions,
-    null::text as best_wind_directions,
-    null::text as tide_preferences,
-    1 as priority,
-    'temp' as source
+    1 as priority
   from temp_beaches tb
   union all
   select
@@ -613,31 +596,17 @@ with unioned as (
     b.lon,
     b.latitude,
     b.longitude,
-    b.wave_type,
-    b.skill_level,
-    b.best_swell_directions,
-    b.best_wind_directions,
-    b.tide_preferences,
-    2 as priority,
-    'public' as source
+    2 as priority
   from public.beaches b
 )
 select
-  -- Prefer new (temp) values for core fields by ordering by priority
   (array_agg(name   order by priority))[1] as name,
   (array_agg(region order by priority))[1] as region,
   (array_agg(country order by priority))[1] as country,
   (array_agg(coalesce(lat, latitude) order by priority))[1] as lat,
   (array_agg(coalesce(lon, longitude) order by priority))[1] as lon,
-  -- Preferred latitude/longitude preserving existing non-null values
   (array_agg(coalesce(lat, latitude) order by priority))[1] as latitude,
-  (array_agg(coalesce(lon, longitude) order by priority))[1] as longitude,
-  -- For metadata, prefer non-null from temp; otherwise fallback to existing public values
-  (array_agg(wave_type order by case when source = 'temp' and wave_type is not null then 0 when source = 'public' and wave_type is not null then 1 else 2 end))[1] as wave_type,
-  (array_agg(skill_level order by case when source = 'temp' and skill_level is not null then 0 when source = 'public' and skill_level is not null then 1 else 2 end))[1] as skill_level,
-  (array_agg(best_swell_directions order by case when source = 'temp' and best_swell_directions is not null then 0 when source = 'public' and best_swell_directions is not null then 1 else 2 end))[1] as best_swell_directions,
-  (array_agg(best_wind_directions order by case when source = 'temp' and best_wind_directions is not null then 0 when source = 'public' and best_wind_directions is not null then 1 else 2 end))[1] as best_wind_directions,
-  (array_agg(tide_preferences order by case when source = 'temp' and tide_preferences is not null then 0 when source = 'public' and tide_preferences is not null then 1 else 2 end))[1] as tide_preferences
+  (array_agg(coalesce(lon, longitude) order by priority))[1] as longitude
 from unioned
 group by key;
 
@@ -660,11 +629,6 @@ set
       THEN ST_Point(t.longitude, t.latitude)::geography
     ELSE b.coordinates
   END,
-  wave_type = t.wave_type,
-  skill_level = t.skill_level,
-  best_swell_directions = t.best_swell_directions,
-  best_wind_directions = t.best_wind_directions,
-  tide_preferences = t.tide_preferences,
   location = COALESCE(t.region, b.location, format('%.6f, %.6f', t.latitude, t.longitude))
 from temp_beaches_deduped t
 where lower(b.name) = lower(t.name);
@@ -672,7 +636,6 @@ where lower(b.name) = lower(t.name);
 -- 2) Insert new rows that don't exist yet (case-insensitive)
 insert into public.beaches (
   name, region, country, lat, lon, latitude, longitude, coordinates,
-  wave_type, skill_level, best_swell_directions, best_wind_directions, tide_preferences,
   location
 )
 select
@@ -681,7 +644,6 @@ select
        THEN ST_Point(t.longitude, t.latitude)::geography
        ELSE NULL
   END,
-  t.wave_type, t.skill_level, t.best_swell_directions, t.best_wind_directions, t.tide_preferences,
   COALESCE(t.region, format('%.6f, %.6f', t.latitude, t.longitude))
 from temp_beaches_deduped t
 where not exists (

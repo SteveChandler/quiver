@@ -6,6 +6,8 @@ import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";
 import { AppHeader } from "@/components/app-header";
 import { SEO_CONFIG } from "@/lib/constants/seo";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 // Optimize font loading with display swap for better performance
 const inter = Inter({
@@ -150,6 +152,9 @@ export default function RootLayout({
             {children}
           </main>
         </AuthProvider>
+        {/* Vercel Analytics & Speed Insights */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

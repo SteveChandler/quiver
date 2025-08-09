@@ -637,10 +637,32 @@ updated as (
     location = COALESCE(s.region, format('%.6f, %.6f', s.lat, s.lon)),
     latitude = s.lat,
     longitude = s.lon,
-    description = COALESCE(s.region, s.name)
+    description = COALESCE(s.region, s.name),
+    break_type = s.break_type,
+    shoreline_aspect_deg = s.shoreline_aspect_deg,
+    swell_window_min_deg = s.swell_window_min_deg,
+    swell_window_max_deg = s.swell_window_max_deg,
+    wind_offshore_deg = s.wind_offshore_deg,
+    wind_offshore_tol_deg = s.wind_offshore_tol_deg,
+    wind_cross_shore_ok_kt = s.wind_cross_shore_ok_kt,
+    wind_onshore_bad_kt = s.wind_onshore_bad_kt,
+    preferred_tide_ft_min = s.preferred_tide_ft_min,
+    preferred_tide_ft_max = s.preferred_tide_ft_max,
+    skill_level = s.skill_level
   from (
     select
-      name, region, country, lat, lon
+      name, region, country, lat, lon,
+      break_type,
+      shoreline_aspect_deg,
+      swell_window_min_deg,
+      swell_window_max_deg,
+      wind_offshore_deg,
+      wind_offshore_tol_deg,
+      wind_cross_shore_ok_kt,
+      wind_onshore_bad_kt,
+      preferred_tide_ft_min,
+      preferred_tide_ft_max,
+      skill_level
     from deduped
     where lat is not null and lon is not null
       and lat between -90 and 90 and lon between -180 and 180
@@ -649,16 +671,55 @@ updated as (
   where lower(b.name) = lower(s.name)
   returning 1
 )
-insert into public.beaches (name, location, latitude, longitude, description)
+insert into public.beaches (
+  name,
+  location,
+  latitude,
+  longitude,
+  description,
+  break_type,
+  shoreline_aspect_deg,
+  swell_window_min_deg,
+  swell_window_max_deg,
+  wind_offshore_deg,
+  wind_offshore_tol_deg,
+  wind_cross_shore_ok_kt,
+  wind_onshore_bad_kt,
+  preferred_tide_ft_min,
+  preferred_tide_ft_max,
+  skill_level
+)
 select
   s.name,
   COALESCE(s.region, format('%.6f, %.6f', s.lat, s.lon)) as location,
   s.lat as latitude,
   s.lon as longitude,
-  COALESCE(s.region, s.name) as description
+  COALESCE(s.region, s.name) as description,
+  s.break_type,
+  s.shoreline_aspect_deg,
+  s.swell_window_min_deg,
+  s.swell_window_max_deg,
+  s.wind_offshore_deg,
+  s.wind_offshore_tol_deg,
+  s.wind_cross_shore_ok_kt,
+  s.wind_onshore_bad_kt,
+  s.preferred_tide_ft_min,
+  s.preferred_tide_ft_max,
+  s.skill_level
 from (
   select
-    name, region, country, lat, lon
+    name, region, country, lat, lon,
+    break_type,
+    shoreline_aspect_deg,
+    swell_window_min_deg,
+    swell_window_max_deg,
+    wind_offshore_deg,
+    wind_offshore_tol_deg,
+    wind_cross_shore_ok_kt,
+    wind_onshore_bad_kt,
+    preferred_tide_ft_min,
+    preferred_tide_ft_max,
+    skill_level
   from deduped
   where lat is not null and lon is not null
     and lat between -90 and 90 and lon between -180 and 180

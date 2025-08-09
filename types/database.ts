@@ -30,6 +30,21 @@ export type Beach = {
   crowd_density_rating?: number;
   parking_rating?: number;
   accessibility_rating?: number;
+  // Preferences and metadata (nullable)
+  break_type?: string | null;
+  shoreline_aspect_deg?: number | null;
+  swell_window_min_deg?: number | null;
+  swell_window_max_deg?: number | null;
+  wind_offshore_deg?: number | null;
+  wind_offshore_tol_deg?: number | null;
+  wind_cross_shore_ok_kt?: number | null;
+  wind_onshore_bad_kt?: number | null;
+  preferred_tide_ft_min?: number | null;
+  preferred_tide_ft_max?: number | null;
+  skill_level?: string | null;
+  best_swell_cardinals?: string[] | null;
+  best_wind_cardinals?: string[] | null;
+  preference_model?: Record<string, any> | null;
   created_at: string;
   updated_at: string;
 };
@@ -209,6 +224,24 @@ export type BeachReviewWithUser = BeachReview & {
     avatar_url: string | null;
     email: string | null;
   };
+};
+
+export type BeachRecommendationCalibration = {
+  id: string;
+  beach_id: string;
+  window_start: string; // date
+  window_end: string; // date
+  samples_count: number;
+  best_swell_dir_deg_min: number | null;
+  best_swell_dir_deg_max: number | null;
+  best_wind_offshore_deg: number | null;
+  best_wind_tol_deg: number | null;
+  best_tide_ft_min: number | null;
+  best_tide_ft_max: number | null;
+  skill_level_inferred?: string | null;
+  method: string; // 'default_seed' | 'user_calibrated' | 'noaa_historical'
+  metrics?: Record<string, any> | null;
+  updated_at: string;
 };
 
 // Analytics types for Surf Journal+
@@ -499,6 +532,13 @@ export type Database = {
         Row: CheckIn;
         Insert: Omit<CheckIn, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<CheckIn, "id" | "created_at" | "updated_at">>;
+      };
+      beach_recommendation_calibration: {
+        Row: BeachRecommendationCalibration;
+        Insert: Omit<BeachRecommendationCalibration, "id" | "updated_at">;
+        Update: Partial<
+          Omit<BeachRecommendationCalibration, "id" | "updated_at">
+        >;
       };
     };
     Enums: {
