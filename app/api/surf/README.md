@@ -18,7 +18,9 @@ The enhanced forecast system uses free NOAA data sources and requires no API key
 1. Create a `.env.local` file in the root of your project:
 
 ```env
-# Optional: Cron job security
+# Optional: Cron job security (preferred)
+CRON_SECRET_TOKEN=your_cron_secret
+# Backward-compatible fallback (still accepted)
 CRON_SECRET=your_cron_secret
 
 # Optional: Database optimization

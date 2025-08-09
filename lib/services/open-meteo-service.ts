@@ -1,3 +1,4 @@
+// Deprecated Open-Meteo service (kept temporarily for reference). Prefer NOAA/NDBC/CDIP.
 import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 
 export type OpenMeteoMarinePoint = {
@@ -19,6 +20,23 @@ export type OpenMeteoSunTimes = {
   sunset: string[]; // ISO
 };
 
+export async function fetchOpenMeteoWind(
+  latitude: number,
+  longitude: number,
+  timezone: string = "UTC"
+) {
+  const params = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    hourly: ["wind_speed_10m", "wind_direction_10m"].join(","),
+    timezone,
+  });
+  const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
+  const res = await fetchWithTimeout(url, { timeoutMs: 12000 });
+  if (!res.ok) throw new Error(`Open-Meteo wind failed: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchOpenMeteoMarine(
   latitude: number,
   longitude: number,
@@ -27,15 +45,16 @@ export async function fetchOpenMeteoMarine(
   const params = new URLSearchParams({
     latitude: String(latitude),
     longitude: String(longitude),
-    hourly:
-      [
-        "wave_height",
-        "wave_direction",
-        "wave_period",
-        "wind_speed_10m",
-        "wind_direction_10m",
-      ].join(","),
+    hourly: [
+      "wave_height",
+      "wave_direction",
+      "wave_period",
+      "wind_speed_10m",
+      "wind_direction_10m",
+    ].join(","),
     timezone,
+    // ensure nearest water cell
+    cell_selection: "nearest",
   });
 
   const url = `https://marine-api.open-meteo.com/v1/marine?${params.toString()}`;
@@ -54,6 +73,8 @@ export async function fetchOpenMeteoTides(
     longitude: String(longitude),
     hourly: "tide_height",
     timezone,
+    // ensure nearest water cell
+    cell_selection: "nearest",
   });
   const url = `https://marine-api.open-meteo.com/v1/tide?${params.toString()}`;
   const res = await fetchWithTimeout(url, { timeoutMs: 12000 });
@@ -86,8 +107,9 @@ export function mapMarineResponse(json: any) {
     wave_height_m: hourly.wave_height?.[idx] ?? null,
     wave_period_s: hourly.wave_period?.[idx] ?? null,
     wave_direction_deg: hourly.wave_direction?.[idx] ?? null,
-    wind_speed_ms: hourly.wind_speed_10m?.[idx] ?? null,
-    wind_direction_deg: hourly.wind_direction_10m?.[idx] ?? null,
+    // Wind from separate endpoint; keep null here
+    wind_speed_ms: null,
+    wind_direction_deg: null,
     source: "open-meteo" as const,
     is_observed: false,
   }));
@@ -115,4 +137,12 @@ export function mapSunResponse(json: any) {
   }));
 }
 
-
+export function mapWindResponse(json: any) {
+  const hourly = json?.hourly || {};
+  const time: string[] = hourly.time || [];
+  return time.map((t: string, idx: number) => ({
+    ts: new Date(t).toISOString(),
+    wind_speed_ms: hourly.wind_speed_10m?.[idx] ?? null,
+    wind_direction_deg: hourly.wind_direction_10m?.[idx] ?? null,
+  }));
+}

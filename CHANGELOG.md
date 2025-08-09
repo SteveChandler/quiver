@@ -84,7 +84,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Context-aware Optimal Times anchored to user-selected time (±2h), with tide/wind/swell-aware scoring and 2-hour block aggregation. Labeled as "Best for Your Session Time" when applicable. Follows `app/ARCHITECTURE.md` API utilities and `hooks/ARCHITECTURE.md` data fetching patterns.
 
+- Normalized forecast storage and ingestion
+  - Tables: `marine_forecasts`, `tide_forecasts`, `sun_times` with RLS and indexes
+  - Migrations: `20250808000100_create_forecast_tables.sql`, `20250808000110_add_unique_constraints_forecasts.sql`
+  - Cron API route: `GET /api/cron/forecasts/refresh` (auth via `Authorization: Bearer CRON_SECRET_TOKEN` with fallback to `CRON_SECRET`)
+  - Services: `lib/services/ndbc-service.ts` (NDBC stations + latest obs), `lib/services/noaa-tide-service.ts` (NOAA Tides & Currents hourly predictions), `lib/utils/fetch-utils.ts` (timeout wrapper)
+  - UI: `components/forecast/spot-conditions-summary.tsx` and integration on `components/beach-detail.tsx`
+  - Actions/Hooks: `actions/forecast/forecast-actions.ts#getForecastWindow`, `hooks/use-beach-forecast.ts`
+
 ### Changed
+
+- Cron refresh now uses service-role Supabase client to bypass RLS for scheduled upserts
+- `vercel.json` includes `/api/cron/forecasts/refresh` every 3h
+- Aliased DB `location` to `location_text` in actions selecting beach info
+- Open‑Meteo client marked deprecated; ingestion switched to NOAA/NDBC/CDIP pipeline
+- NDBC active stations source updated to `ndbcmapstations.json` and robust timestamp parsing for realtime2 files
+- NOAA tides `datagetter` begin/end date parameters corrected (YYYYMMDD), with diagnostics on failures
+
+### Known Issues / Follow-ups
+
+- Initial Open‑Meteo marine/tide calls returned 0 rows (marine variable mismatch and tide coverage); replaced by NOAA/NDBC/CDIP
+- Current NOAA/NDBC seed shows 0 inserts for marine/tide on first run; next step is to log nearest station IDs and inspect responses from:
+  - NDBC: `activestations.json` and `data/realtime2/<station>.txt`
+  - NOAA T&C: nearest tide station and hourly `predictions` window
+- Sun times now computed locally via SunCalc; previously seeded via Open‑Meteo
 
 - Updated `scripts/load_beaches_with_meta.sql` to be schema-safe for current `public.beaches` table:
 
