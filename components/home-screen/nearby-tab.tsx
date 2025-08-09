@@ -1,18 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { BeachCard } from "@/components/beach-card";
-import { useBeachCardData } from "@/hooks/use-beach-card-data";
-import { beachNavigation } from "@/lib/navigation-utils";
 import { useMultipleBeachReviews } from "@/hooks/use-beach-reviews";
 import { prepareMultipleBeachCardData } from "@/lib/utils/beach-card-utils";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useGeolocation } from "@/hooks/use-geolocation";
+import { getNearbyBeaches } from "@/actions/beach-actions";
 import type { Beach } from "@/types/database";
-
-// Ocean Beach, San Diego coordinates
-const OCEAN_BEACH_LAT = 32.7503;
-const OCEAN_BEACH_LNG = -117.2534;
 
 interface NearbyTabProps {
   beaches: Beach[];
@@ -20,8 +16,37 @@ interface NearbyTabProps {
 }
 
 export function NearbyTab({ beaches, loading }: NearbyTabProps) {
-  // Memoize the display beaches to prevent unnecessary recalculations
-  const displayBeaches = useMemo(() => beaches.slice(0, 5), [beaches]);
+  // Get user location (falls back to Ocean Beach if denied by design of hook)
+  const { userLocation, loading: locationLoading } = useGeolocation();
+
+  // Fetch nearby beaches using standard data fetching pattern
+  const fetchNearby = useCallback(async () => {
+    if (!userLocation) return [] as Beach[];
+
+    const result = await getNearbyBeaches(
+      userLocation.lat,
+      userLocation.lng,
+      50
+    );
+
+    if (result.success && result.data) {
+      return result.data as Beach[];
+    }
+
+    // Fallback to provided list (kept for resiliency)
+    return beaches;
+  }, [userLocation, beaches]);
+
+  const { data: nearbyData, loading: nearbyLoading } = useDataFetcher<Beach[]>(
+    fetchNearby,
+    { skip: !userLocation }
+  );
+
+  // Prefer fetched nearby data; fallback to any provided list
+  const displayBeaches = useMemo<Beach[]>(() => {
+    if (nearbyData && nearbyData.length > 0) return nearbyData;
+    return beaches;
+  }, [nearbyData, beaches]);
 
   // Memoize the beach IDs to ensure stable dependencies
   const beachIds = useMemo(
@@ -32,7 +57,7 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
   const { reviewStats, loading: reviewsLoading } =
     useMultipleBeachReviews(beachIds);
 
-  if (loading) {
+  if (loading || nearbyLoading || locationLoading) {
     return (
       <div className="flex justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -40,7 +65,7 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
     );
   }
 
-  if (beaches.length === 0) {
+  if (displayBeaches.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         No beaches found nearby
@@ -48,10 +73,9 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
     );
   }
 
-  const userLocation = { lat: OCEAN_BEACH_LAT, lng: OCEAN_BEACH_LNG };
   const beachCardData = prepareMultipleBeachCardData(
     displayBeaches,
-    userLocation,
+    userLocation || undefined,
     reviewStats,
     "BEACH_CARD_NEARBY"
   );

@@ -211,7 +211,7 @@ export async function getUserCheckIns(
       *,
       beaches:beach_id (
         name,
-        location_text
+        location_text:location
       )
     `
     )

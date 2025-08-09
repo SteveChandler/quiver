@@ -110,7 +110,7 @@ export async function getMultipleBeachAccuracy(
         *,
         beach:beaches(
           name,
-          location_text
+          location_text:location
         )
       `
       )

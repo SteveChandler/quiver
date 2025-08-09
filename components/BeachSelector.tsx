@@ -79,14 +79,38 @@ export function BeachSelector({
       setQuery(found.name); // Use the actual beach name from database
       setSelectionMade(true);
       onBeachSelected(found);
+    } else {
+      // Fall back: accept free-typed value to proceed, with empty id
+      const typed: Beach = {
+        id: "",
+        name: beachName.trim(),
+        latitude: 0,
+        longitude: 0,
+        created_at: "",
+        updated_at: "",
+      } as any;
+      setSelectionMade(true);
+      onBeachSelected(typed);
     }
   };
 
   const noMatch = !!query && matches.length === 0;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
+    const value = e.target.value;
+    setQuery(value);
     setSelectionMade(false); // Reset selection state when input changes
+
+    // Keep parent form in sync with free-typed input so required field logic can enable submit
+    const typed: Beach = {
+      id: "",
+      name: value,
+      latitude: 0,
+      longitude: 0,
+      created_at: "",
+      updated_at: "",
+    } as any;
+    onBeachSelected(typed);
   };
 
   const handleFocus = () => {

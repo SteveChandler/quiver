@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { TideChart } from "@/components/forecast/tide-chart-recharts";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { SessionForecastComparison } from "@/components/forecast/session-forecast-comparison";
 import { DetailedSwellModal } from "@/components/beach-detail/detailed-swell-modal";
+import { SpotConditionsSummary } from "@/components/forecast/spot-conditions-summary";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
@@ -79,6 +80,36 @@ export function BeachDetail({ id }: BeachDetailProps) {
   } = useDataFetcher(fetchForecasts, {
     immediate: true,
   });
+
+  // New: normalized forecast window for summary (next 24h)
+  const now = useMemo(() => new Date(), []);
+  const startIso = useMemo(() => new Date(now).toISOString(), [now]);
+  const endIso = useMemo(() => {
+    const d = new Date(now);
+    d.setHours(d.getHours() + 24);
+    return d.toISOString();
+  }, [now]);
+  // Fetch normalized window via API route using the standard data fetching pattern
+  const fetchWindow = useCallback(async () => {
+    const params = new URLSearchParams({
+      beachId: id,
+      start: startIso,
+      end: endIso,
+    });
+    const res = await fetch(`/api/forecasts/window?${params.toString()}`, {
+      cache: "no-store",
+    });
+    const json = await res.json();
+    if (json?.success && json?.data) {
+      return json.data;
+    }
+    return null;
+  }, [id, startIso, endIso]);
+  const {
+    data: normalizedWindow,
+    loading: windowLoading,
+    error: windowError,
+  } = useDataFetcher(fetchWindow, { immediate: true });
 
   // Combined loading and error states
   const loading = beachLoading || forecastsLoading;
@@ -166,6 +197,13 @@ export function BeachDetail({ id }: BeachDetailProps) {
         <h1 className="text-3xl md:text-4xl font-roboto font-extrabold mb-8 text-center bg-gradient-to-r from-ocean-blue to-blue-600 bg-clip-text text-transparent">
           {beach.name}
         </h1>
+
+        {/* Conditions Summary (normalized, next 24h) */}
+        {normalizedWindow && (
+          <div className="mb-6">
+            <SpotConditionsSummary data={normalizedWindow} />
+          </div>
+        )}
 
         {/* Today's Overview (First Day) */}
         {forecasts && forecasts.length > 0 && (

@@ -19,6 +19,7 @@ import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getForecastForToday } from "@/actions/forecast-actions";
+import { getBeaches } from "@/actions/beach/beach-query-actions";
 import type { Profile, Forecast, Beach } from "@/types/database";
 
 interface ForecastTabProps {
@@ -30,35 +31,75 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
   const router = useRouter();
   const [showAdjusted, setShowAdjusted] = useState(false);
 
-  // Get forecast for default beach
+  // When no default beach is set, pick a popular beach to display instead
+  const fetchPopularBeach = useCallback(async () => {
+    if (defaultBeach?.id) {
+      return null;
+    }
+
+    const result = await getBeaches();
+    if (!result.success || !result.data) return null;
+
+    const beaches = result.data as Beach[];
+    // Prefer a popular SD beach; fall back progressively, then first result
+    const preferredNames = [
+      "Pacific Beach",
+      "Ocean Beach",
+      "Mission Beach",
+      "La Jolla Shores",
+    ];
+
+    const byExact = preferredNames
+      .map((n) => beaches.find((b) => b.name === n))
+      .find(Boolean);
+    if (byExact) return byExact as Beach;
+
+    const byIncludes = preferredNames
+      .map((n) =>
+        beaches.find((b) => b.name.toLowerCase().includes(n.toLowerCase()))
+      )
+      .find(Boolean);
+    return (byIncludes as Beach) || beaches[0] || null;
+  }, [defaultBeach?.id]);
+
+  const { data: popularBeach, loading: popularLoading } = useDataFetcher(
+    fetchPopularBeach,
+    { skip: !!defaultBeach?.id }
+  );
+
+  const effectiveBeach = (defaultBeach || popularBeach) as Beach | null;
+  const isFallback = !defaultBeach && !!popularBeach;
+
+  // Get forecast for effective beach
   const fetchTodaysForecast = useCallback(async () => {
     console.log("🌊 ForecastTab fetchTodaysForecast called:", {
       hasDefaultBeach: !!defaultBeach,
-      beachId: defaultBeach?.id,
-      beachName: defaultBeach?.name,
+      usingFallback: isFallback,
+      beachId: effectiveBeach?.id,
+      beachName: effectiveBeach?.name,
     });
 
-    if (!defaultBeach?.id) {
+    if (!effectiveBeach?.id) {
       console.log("❌ No defaultBeach.id, returning null");
       return null;
     }
 
     console.log(
       "📞 Calling getForecastForToday with beachId:",
-      defaultBeach.id
+      effectiveBeach.id
     );
-    const result = await getForecastForToday(defaultBeach.id);
+    const result = await getForecastForToday(effectiveBeach.id);
     console.log("📊 getForecastForToday result:", result);
     return result;
-  }, [defaultBeach?.id]);
+  }, [effectiveBeach?.id, isFallback, defaultBeach]);
 
   const {
     data: todaysForecast,
     loading: forecastLoading,
     error: forecastError,
   } = useDataFetcher(fetchTodaysForecast, {
-    // Skip the fetch if we don't have a default beach yet
-    skip: !defaultBeach?.id,
+    // Skip until we know which beach to use
+    skip: !effectiveBeach?.id,
   });
 
   console.log("🏖️ ForecastTab useDataFetcher result:", {
@@ -71,7 +112,7 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
   // Get calibration data for the beach
   const { beachAccuracy, getConfidenceLevel, accuracyStats } =
     useForecastCalibration({
-      beachId: defaultBeach?.id,
+      beachId: effectiveBeach?.id,
     });
 
   const confidenceLevel = getConfidenceLevel(
@@ -79,8 +120,8 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
   );
 
   const handleViewBeach = () => {
-    if (defaultBeach?.id) {
-      router.push(`/beach/${defaultBeach.id}`);
+    if (effectiveBeach?.id) {
+      router.push(`/beach/${effectiveBeach.id}`);
     }
   };
 
@@ -99,25 +140,15 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
     );
   }
 
-  if (!defaultBeach) {
+  // While determining a fallback beach
+  if (!effectiveBeach) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <Waves className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">
-            No Default Beach Set
-          </h3>
-          <p className="text-gray-500 mb-4">
-            Set a default beach in your profile to see personalized forecasts
-          </p>
-          <Button
-            onClick={() => router.push("/profile/edit")}
-            className="bg-ocean-blue hover:bg-ocean-blue/90"
-          >
-            Set Default Beach
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+        </div>
+      </div>
     );
   }
 
@@ -130,7 +161,7 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
             Forecast Unavailable
           </h3>
           <p className="text-gray-500 mb-4">
-            No forecast data available for {defaultBeach.name} today
+            No forecast data available for {effectiveBeach.name} today
           </p>
           <Button onClick={handleViewBeach} variant="outline">
             View Beach Details
@@ -142,13 +173,31 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
 
   return (
     <div className="space-y-4">
+      {isFallback && (
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between gap-3">
+            <div className="text-left">
+              <p className="text-sm font-medium">
+                Showing popular beach forecast
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Set your default beach in your profile to personalize your home
+                feed.
+              </p>
+            </div>
+            <Button onClick={() => router.push("/profile?edit=true")} size="sm">
+              Set Default Beach
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {/* Beach Header */}
       <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <MapPin className="h-5 w-5" />
-              <span>{defaultBeach.name}</span>
+              <span>{effectiveBeach.name}</span>
             </div>
             <Button
               variant="secondary"
@@ -282,10 +331,10 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
           {/* Local Intel for this beach */}
           <div className="mt-4">
             <BeachIntelSection
-              beachId={defaultBeach.id}
-              beachName={defaultBeach.name}
-              latitude={defaultBeach.latitude}
-              longitude={defaultBeach.longitude}
+              beachId={effectiveBeach.id}
+              beachName={effectiveBeach.name}
+              latitude={effectiveBeach.latitude}
+              longitude={effectiveBeach.longitude}
               className="border-0 p-0"
             />
           </div>

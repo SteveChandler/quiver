@@ -33,6 +33,36 @@ const customJestConfig = {
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],
   // Handle dynamic imports and async code better
   preset: undefined,
+  // Coverage configuration
+  collectCoverage: true,
+  coverageProvider: "v8",
+  coverageDirectory: "coverage",
+  coverageReporters: ["text", "lcov", "json", "html"],
+  collectCoverageFrom: [
+    "actions/**/*.{ts,tsx}",
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "context/**/*.{ts,tsx}",
+    "hooks/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "!**/*.d.ts",
+    "!**/index.{ts,tsx}",
+    "!**/*.stories.{ts,tsx}",
+    "!**/__tests__/**",
+    "!**/setup/**",
+    "!**/test-utils/**",
+    "!**/migrations/**",
+    "!types/**",
+    "!app/**/page.tsx",
+    "!app/**/layout.tsx",
+  ],
+  coveragePathIgnorePatterns: [
+    "/node_modules/",
+    "/.next/",
+    "<rootDir>/e2e/",
+    "<rootDir>/__tests__/setup/",
+    "<rootDir>/test-utils/",
+  ],
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

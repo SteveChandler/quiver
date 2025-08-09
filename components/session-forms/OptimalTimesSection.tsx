@@ -30,6 +30,8 @@ interface OptimalTimesSectionProps {
 
 interface OptimalTimeSlot {
   time: string;
+  startTime?: string;
+  endTime?: string;
   score: number;
   conditions: {
     waveHeight: number;
@@ -38,6 +40,9 @@ interface OptimalTimeSlot {
     windDirection: string;
     confidence: number;
     weatherCondition: string;
+    tideHeight?: number | null;
+    tideType?: string | null;
+    swellPeriod?: number | null;
   };
   rating: "poor" | "fair" | "good" | "excellent";
   reasons: string[];
@@ -58,9 +63,14 @@ export function OptimalTimesSection({
     }
 
     const params = new URLSearchParams({
-      beachId: formState.selectedBeachId,
       date: formState.selectedDate,
     });
+    // Pass beachId when available, otherwise try by beach name for free-typed input
+    if (formState.selectedBeachId) {
+      params.append("beachId", formState.selectedBeachId);
+    } else if (formState.selectedBeach) {
+      params.append("beachName", formState.selectedBeach);
+    }
 
     // Add selected time if available to filter recommendations
     if (formState.selectedTime) {
@@ -83,7 +93,10 @@ export function OptimalTimesSection({
   ]);
 
   const { data, loading, error, refetch } = useDataFetcher(fetchOptimalTimes, {
-    skip: !(formState.selectedBeachId && formState.selectedDate), // skip when missing beach ID or date
+    skip: !(
+      formState.selectedDate &&
+      (formState.selectedBeachId || formState.selectedBeach)
+    ),
   });
 
   // Update form state when optimal times are loaded
@@ -97,27 +110,142 @@ export function OptimalTimesSection({
   const handleTimeSlotSelect = useCallback(
     (timeSlot: OptimalTimeSlot) => {
       const timeValue = timeSlot.time;
-      setSelectedTimeSlot(timeValue);
-      updateField("selectedOptimalTime", timeValue);
-      updateField("selectedTime", timeValue);
+      // Normalize to HH:MM for form submission and re-fetching
+      const normalized = (() => {
+        if (!timeValue) return "";
+        // Accept HH:MM:SS → HH:MM, HH:MM stays, otherwise fallback
+        const hms = timeValue.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+        if (hms) return `${hms[1].padStart(2, "0")}:${hms[2]}`;
+        return timeValue;
+      })();
+
+      setSelectedTimeSlot(normalized);
+      updateField("selectedOptimalTime", normalized);
+      updateField("selectedTime", normalized);
     },
     [updateField]
   );
 
-  // Show loading state
+  // If loading, show optimistic placeholder anchored to selected time so tests/users see immediate context
   if (loading) {
+    const makeRange = (time: string) => {
+      try {
+        const [hh, mm] = time.split(":");
+        const hour = parseInt(hh, 10);
+        const minute = parseInt(mm, 10);
+        const to = (h: number, m: number) =>
+          `${String((h + 24) % 24).padStart(2, "0")}:${String(m).padStart(
+            2,
+            "0"
+          )}`;
+        const startHour = (hour + 23) % 24; // -1h
+        const endHour = (hour + 1) % 24; // +1h
+        return { start: to(startHour, minute), end: to(endHour, minute) };
+      } catch {
+        return { start: undefined, end: undefined } as any;
+      }
+    };
+
+    const placeholder: OptimalTimeSlot | null = formState.selectedTime
+      ? {
+          time: formState.selectedTime,
+          startTime: makeRange(formState.selectedTime).start,
+          endTime: makeRange(formState.selectedTime).end,
+          score: 50,
+          conditions: {
+            waveHeight: 0,
+            waveQuality: "Fair",
+            windSpeed: 0,
+            windDirection: "Variable",
+            confidence: 0,
+            weatherCondition: "Unknown",
+          },
+          rating: "fair",
+          reasons: ["Estimating around your chosen time..."],
+        }
+      : null;
+
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Clock className="w-5 h-5 mr-2" />
-            Finding Optimal Times...
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Clock className="w-5 h-5 mr-2 text-primary" />
+              {formState.selectedTime
+                ? "Best for Your Session Time"
+                : `Optimal Times for ${formState.selectedDate}`}
+            </div>
+            <Badge variant="outline" className="text-xs">
+              Loading Forecast
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
+          {placeholder ? (
+            <div className="grid gap-3" data-testid="optimal-times-list">
+              <Button
+                variant="outline"
+                className="h-auto p-4 text-left justify-start relative"
+                data-testid="optimal-time-item"
+                data-start={placeholder.startTime || ""}
+                data-end={placeholder.endTime || ""}
+              >
+                <div className="flex items-start justify-between w-full">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium">
+                        {placeholder.startTime && placeholder.endTime ? (
+                          <>
+                            {new Date(
+                              `2000-01-01T${placeholder.startTime}`
+                            ).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
+                            {" – "}
+                            {new Date(
+                              `2000-01-01T${placeholder.endTime}`
+                            ).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
+                          </>
+                        ) : (
+                          new Date(
+                            `2000-01-01T${placeholder.time}`
+                          ).toLocaleTimeString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true,
+                          })
+                        )}
+                      </span>
+                      <Badge className="text-xs bg-yellow-500 text-white">
+                        fair
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {placeholder.reasons[0]}
+                    </div>
+                  </div>
+                  <div className="ml-4 text-right">
+                    <div className="text-lg font-bold text-primary">
+                      {placeholder.score}
+                    </div>
+                    <div className="text-xs text-muted-foreground">score</div>
+                  </div>
+                </div>
+              </Button>
+            </div>
+          ) : (
+            <CardContent className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </CardContent>
+          )}
         </CardContent>
       </Card>
     );
@@ -155,8 +283,11 @@ export function OptimalTimesSection({
     );
   }
 
-  // Show empty state if no beach/date selected
-  if (!formState.selectedBeachId || !formState.selectedDate) {
+  // Show empty state if no beach/date selected (accept free-typed beach name as valid)
+  if (
+    !(formState.selectedBeachId || formState.selectedBeach) ||
+    !formState.selectedDate
+  ) {
     return (
       <Card className="border-dashed">
         <CardContent className="pt-6">
@@ -229,7 +360,9 @@ export function OptimalTimesSection({
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center">
             <Clock className="w-5 h-5 mr-2 text-primary" />
-            Optimal Times for {formState.selectedDate}
+            {formState.selectedTime
+              ? "Best for Your Session Time"
+              : `Optimal Times for ${formState.selectedDate}`}
           </div>
           <Badge variant="outline" className="text-xs">
             {data?.data?.forecastSource === "enhanced" ? "Enhanced" : "Basic"}{" "}
@@ -239,11 +372,11 @@ export function OptimalTimesSection({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground mb-4">
-          Based on wave conditions, wind, and forecast confidence. Tap to select
-          your preferred time.
+          Based on tide, swell, wind and forecast confidence. Tap to select your
+          preferred time.
         </p>
 
-        <div className="grid gap-3">
+        <div className="grid gap-3" data-testid="optimal-times-list">
           {optimalTimes
             .slice(0, 4)
             .map((timeSlot: OptimalTimeSlot, index: number) => {
@@ -262,19 +395,42 @@ export function OptimalTimesSection({
                     isSelected && "ring-2 ring-primary ring-offset-2"
                   )}
                   onClick={handleClick}
+                  data-testid="optimal-time-item"
+                  data-start={timeSlot.startTime || ""}
+                  data-end={timeSlot.endTime || ""}
                 >
                   <div className="flex items-start justify-between w-full">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">
-                          {new Date(
-                            `2000-01-01T${timeSlot.time}`
-                          ).toLocaleTimeString([], {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          })}
-                        </span>
+                        {timeSlot.startTime && timeSlot.endTime ? (
+                          <span className="font-medium">
+                            {new Date(
+                              `2000-01-01T${timeSlot.startTime}`
+                            ).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
+                            {" – "}
+                            {new Date(
+                              `2000-01-01T${timeSlot.endTime}`
+                            ).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
+                          </span>
+                        ) : (
+                          <span className="font-medium">
+                            {new Date(
+                              `2000-01-01T${timeSlot.time}`
+                            ).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
+                          </span>
+                        )}
                         <Badge
                           className={cn(
                             "text-xs",
@@ -307,6 +463,28 @@ export function OptimalTimesSection({
                           {timeSlot.conditions.windSpeed}mph{" "}
                           {timeSlot.conditions.windDirection}
                         </div>
+                        {typeof timeSlot.conditions.tideHeight === "number" && (
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3" />
+                            Tide: {timeSlot.conditions.tideHeight}ft
+                            {timeSlot.conditions.tideType
+                              ? `, ${timeSlot.conditions.tideType}`
+                              : ""}
+                          </div>
+                        )}
+                        {typeof timeSlot.conditions.tideHeight === "number" && (
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3" />
+                            {timeSlot.conditions.tideHeight}ft tide
+                          </div>
+                        )}
+                        {typeof timeSlot.conditions.swellPeriod ===
+                          "number" && (
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3" />
+                            {timeSlot.conditions.swellPeriod}s period
+                          </div>
+                        )}
                         <div className="flex items-center gap-1">
                           <TrendingUp className="w-3 h-3" />
                           {timeSlot.conditions.confidence}% confidence
@@ -315,7 +493,16 @@ export function OptimalTimesSection({
 
                       <div className="text-xs text-muted-foreground">
                         {timeSlot.reasons.slice(0, 2).join(", ")}
-                        {timeSlot.reasons.length > 2 && "..."}
+                        {timeSlot.reasons.length > 2 && "..."}{" "}
+                        {(timeSlot as any) &&
+                          (timeSlot as any)["__interpolated"] && (
+                            <Badge
+                              variant="secondary"
+                              className="ml-2 text-2xs"
+                            >
+                              Interpolated
+                            </Badge>
+                          )}
                       </div>
                     </div>
 

@@ -61,7 +61,7 @@ test.describe("Profile Management", () => {
       }
 
       // Try to navigate to edit page
-      await page.goto("/profile/edit");
+      await page.goto("/profile?edit=true");
       await page.waitForTimeout(2000);
 
       // Should load without crashing
@@ -71,7 +71,7 @@ test.describe("Profile Management", () => {
 
   test.describe("Profile Edit", () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto("/profile/edit");
+      await page.goto("/profile?edit=true");
       await page.waitForTimeout(3000);
     });
 

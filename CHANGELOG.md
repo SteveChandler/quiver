@@ -16,6 +16,19 @@
 - SEO structured data now derives domain from `NEXT_PUBLIC_SITE_URL` instead of hardcoded URLs
 - Scheduled cron limited to Production deployments only via `vercel.json` (`target: production`)
 
+- Vercel Hobby compliance: changed `vercel.json` cron for `/api/cron/forecasts/refresh` from every 3 hours (`0 */3 * * *`) to daily at 12:00 UTC (`0 12 * * *`). This staggers from the 06:00 UTC enhanced sync and avoids Hobby limit violations.
+
+### Fixed
+
+- Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user’s actual position.
+
+### Added
+
+- Database utility script `scripts/load_beaches_inline.sql` updated to run atomically and dedupe by case-insensitive name, keeping NEW coordinates over existing ones. Adds `country` column if missing and enforces unique index on `lower(name)`. Suitable for Supabase SQL editor.
+- Added nullable beach metadata columns and preservation in loader:
+  - Columns: `wave_type`, `skill_level`, `best_swell_directions`, `best_wind_directions`, `tide_preferences`
+  - Loader prefers new coordinates but preserves existing non-null metadata if new data is null
+
 # Quiver Surf App - Changelog
 
 All notable changes to the Quiver surf app are documented in this file.
@@ -25,6 +38,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+
+- Jest coverage reporting configured following repository testing patterns:
+
+  - Enabled coverage collection with V8 provider and reports: text, lcov, json, html
+  - Scoped `collectCoverageFrom` to `actions/`, `app/`, `components/`, `context/`, `hooks/`, `lib/`, and `types/` (`*.ts, *.tsx`)
+  - Excluded tests, setup/mocks, migrations, and barrel `index` files
+  - Added `npm run test:coverage` script
+  - Initial baseline after enablement: ~33.7% statements, 45.5% functions, 67.6% branches, 33.7% lines
+
+- New unit tests to raise coverage in high-impact areas:
+  - `__tests__/hooks/use-session-forecast.test.ts` (forecast mapping to session time, error/no-data cases)
+  - `__tests__/hooks/use-data-fetcher.test.ts` (success, error, refetch/reset, skip toggling)
+
+### Changed
+
+- Coverage configuration excludes expanded to reduce low-signal noise:
+
+  - Excluded `types/**`, `app/**/page.tsx`, and `app/**/layout.tsx`
+  - Resulting coverage after tests and excludes: ~34.8% lines, 46.9% functions, 67.6% branches, 34.8% statements
 
 - Root-level `ARCHITECTURE.md`: Top-level architecture overview and index linking to directory architecture docs and `docs/` references
 - Profile page redirect: Users are now automatically redirected to their profile after logging a session
@@ -46,9 +78,75 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Enhanced button text wrapping to prevent overflow in wave type selector
 
 - Development convenience: `scripts/mock-last-week-community-data.sql` to generate last-week community data
+
   - Populates `check_ins` across key SD beaches with realistic values and forecast accuracy ratings
   - Adds `intel_posts` condition entries using new surf condition fields (`wave_height`, `wind_speed`, `wind_direction`, `water_temp`, `crowd_level`, `wave_types`, `forecast_accuracy`)
   - Creates confirmations and updates `confirmations_count` for recent intel
+
+- Plan Session E2E test validating save, redirect, and validation behavior
+
+  - Uses Playwright with reasonable load states and flexible checks
+  - References established testing guidance
+
+- Sign-up display name collection
+
+  - Added `Display Name` field to `components/auth/sign-up-form.tsx`
+  - Extended `context/auth-context.tsx` `signUp` to pass `options.data.full_name` to Supabase
+  - Profiles auto-seed `profiles.full_name` from user metadata via existing `createProfile`
+  - Updated E2E tests to fill/allow the new field when present
+
+- Password recovery flow
+  - New pages: `app/auth/forgot-password/page.tsx` and `app/auth/update-password/page.tsx`
+  - Forgot page sends reset link via `supabase.auth.resetPasswordForEmail` with `redirectTo` → `${NEXT_PUBLIC_SITE_URL}/auth/update-password`
+  - Update page sets new password using `supabase.auth.updateUser({ password })`
+  - Added “Forgot password?” link to `components/auth/sign-in-form.tsx`
+
+### Added
+
+- Context-aware Optimal Times anchored to user-selected time (±2h), with tide/wind/swell-aware scoring and 2-hour block aggregation. Labeled as "Best for Your Session Time" when applicable. Follows `app/ARCHITECTURE.md` API utilities and `hooks/ARCHITECTURE.md` data fetching patterns.
+
+- Normalized forecast storage and ingestion
+  - Tables: `marine_forecasts`, `tide_forecasts`, `sun_times` with RLS and indexes
+  - Migrations: `20250808000100_create_forecast_tables.sql`, `20250808000110_add_unique_constraints_forecasts.sql`
+  - Cron API route: `GET /api/cron/forecasts/refresh` (auth via `Authorization: Bearer CRON_SECRET_TOKEN` with fallback to `CRON_SECRET`)
+  - Services: `lib/services/ndbc-service.ts` (NDBC stations + latest obs), `lib/services/noaa-tide-service.ts` (NOAA Tides & Currents hourly predictions), `lib/utils/fetch-utils.ts` (timeout wrapper)
+  - UI: `components/forecast/spot-conditions-summary.tsx` and integration on `components/beach-detail.tsx`
+  - Actions/Hooks: `actions/forecast/forecast-actions.ts#getForecastWindow`, `hooks/use-beach-forecast.ts`
+  - API: `GET /api/forecasts/window` for normalized 24h window (marine/tide/sun) used by Spot Conditions summary
+
+### Changed
+
+- Cron refresh now uses service-role Supabase client to bypass RLS for scheduled upserts
+- `vercel.json` includes `/api/cron/forecasts/refresh` every 3h
+- Aliased DB `location` to `location_text` in actions selecting beach info
+- Open‑Meteo client marked deprecated; ingestion switched to NOAA/NDBC/CDIP pipeline
+- NDBC active stations source updated to `ndbcmapstations.json` and robust timestamp parsing for realtime2 files
+- NOAA tides `datagetter` begin/end date parameters corrected (YYYYMMDD), with diagnostics on failures
+- Beach detail now fetches normalized window via API using `useDataFetcher` (standard pattern) and conditionally renders the Spot Conditions summary; "Today's Overview" remains primary
+
+### Known Issues / Follow-ups
+
+- Initial Open‑Meteo marine/tide calls returned 0 rows (marine variable mismatch and tide coverage); replaced by NOAA/NDBC/CDIP
+- Current NOAA/NDBC seed shows 0 inserts for marine/tide on first run; next step is to log nearest station IDs and inspect responses from:
+  - NDBC: `activestations.json` and `data/realtime2/<station>.txt`
+  - NOAA T&C: nearest tide station and hourly `predictions` window
+- Sun times now computed locally via SunCalc; previously seeded via Open‑Meteo
+
+- Updated `scripts/load_beaches_with_meta.sql` to be schema-safe for current `public.beaches` table:
+
+  - Removed schema-altering statements and PostGIS setup from the loader
+  - Replaced TRUNCATE/MERGE with single-transaction CTE-driven update+insert upsert
+  - Upserts only `name`, `location`, `latitude`, `longitude`, and `description`
+  - Filters invalid coordinates and excludes known problematic entry (`204s`)
+  - Keeps case-insensitive unique index on `lower(name)`
+
+- Enhanced `app/api/session-planner/optimal-times/route.ts` scoring logic to include tide height/direction and swell period; introduced window filtering and fallback expansion.
+- Updated `components/session-forms/OptimalTimesSection.tsx` to render time ranges, add test ids, and context-aware label.
+
+### Fixed
+
+- Made Optimal Times recommendations relevant for afternoon/evening selections instead of generic early morning suggestions.
+- Replaced non-existent `Tide` icon with `Droplet` from `lucide-react` in Spot Conditions summary
 
 ### Changed
 
@@ -63,6 +161,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Landing page UX: Updated "Explore Features" button style to translucent on-image variant for better contrast (no solid white pill)
 - Landing page copy: Replaced inflated counts with honest language (e.g., "Join surfers near you", "Growing surf community")
 - Removed remaining numeric claims from landing sections (hero badge, social stats, CTA) and updated SEO copy to reflect realistic growth messaging
+
+## [2025.08.08] - Profile Edit Modal Deep Link
+
+### Changed
+
+- "Set Default Beach" now navigates to `/profile?edit=true`, which auto-opens the Edit Profile modal.
+- Centralized profile editing on `/profile` via `EditProfileModal`; removed legacy `/profile/edit` route and references.
+- Updated docs and tests to reflect the new deep link.
+
+- Plan Session form now requires start time in plan mode; improved validation toasts
+- Redirect occurs immediately on successful plan; invitations are sent in background
+- Added analytics activity events for attempts, success, and failure of planning
 
 ### Removed
 
@@ -198,6 +308,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Board creation authentication flow simplification
 - Supabase security linter warning: Recreated `public.enhanced_forecasts_with_quality` view with `WITH (security_invoker = true)` to remove definer semantics
 
+- Fixed issue where tapping Save on Plan Session did nothing and session was not saved
+
 ## [2025.01.16] - Community-Enhanced Surf Forecasts
 
 ### Added
@@ -286,3 +398,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 **Maintained by**: Development Team  
 **Last Updated**: January 15, 2025  
 **Next Review**: After reaching 50 active users
+
+### Documentation
+
+- Added `ARCHITECTURE.md` files for:
+  - `actions/` — server action patterns, security, testing
+  - `components/beach/` — review components data flow and UX
+  - `components/intel/` — intel feed/map/form and interactions
+  - `components/journal/` — calendar/analytics/export
+  - `components/landing-page/` — sections, SEO, and performance conventions

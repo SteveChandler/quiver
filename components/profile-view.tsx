@@ -27,7 +27,7 @@ import { FavoriteBeaches } from "@/components/favorite-beaches";
 import { UserAvatar } from "@/components/user-avatar";
 import { EditProfileModal } from "@/components/edit-profile-modal";
 import { useAuth } from "@/context/auth-context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getUserBoards } from "@/actions/board-actions";
 import { getUserSessions } from "@/actions/session-actions";
 import { getProfile } from "@/actions/profile-actions";
@@ -89,6 +89,7 @@ function TabLoadingSkeleton({ type }: { type: string }) {
 export function ProfileView() {
   const { user, isLoading: authLoading, refreshSession } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [boards, setBoards] = useState<Board[]>([]);
   const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -173,6 +174,13 @@ export function ProfileView() {
       setLoading(false);
     }
   }, [user, retryCount, authLoading]);
+
+  // Open edit modal if URL contains ?edit=true
+  useEffect(() => {
+    if (searchParams?.get("edit") === "true") {
+      setEditModalOpen(true);
+    }
+  }, [searchParams]);
 
   // Show loading state while checking authentication
   if (authLoading || (loading && !error)) {

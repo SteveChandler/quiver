@@ -249,6 +249,11 @@ test.describe("Unauthenticated User Flows", () => {
       const signUpForm = page.locator("form");
       if (await signUpForm.isVisible()) {
         // Look for required fields - use first() to avoid strict mode violations
+        const displayNameField = page
+          .getByLabel(/display name|name/i)
+          .or(page.locator("input#displayName, input[name='displayName']"))
+          .first();
+
         const emailField = page
           .getByLabel(/email/i)
           .or(page.locator("input[type='email']"))
@@ -279,6 +284,11 @@ test.describe("Unauthenticated User Flows", () => {
           const validationError = page.getByText(/required|invalid|error/i);
           if (await validationError.isVisible()) {
             console.log("Form validation working for empty fields");
+          }
+
+          // Fill display name if present
+          if (await displayNameField.isVisible()) {
+            await displayNameField.fill("Test User");
           }
 
           // Fill invalid email
@@ -337,7 +347,7 @@ test.describe("Unauthenticated User Flows", () => {
         })
         .first();
       if (await signInLink.isVisible()) {
-        await signInLink.click();
+        await signInLink.click({ force: true });
         await page.waitForTimeout(1000);
 
         // Should be on sign in page

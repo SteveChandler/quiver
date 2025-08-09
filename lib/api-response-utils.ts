@@ -110,6 +110,6 @@ export function createForecastUpdateResponse(
  * Validate cron authorization
  */
 export function validateCronAuth(authHeader: string | null): boolean {
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = process.env.CRON_SECRET_TOKEN || process.env.CRON_SECRET;
   return !cronSecret || authHeader === `Bearer ${cronSecret}`;
 }

@@ -111,7 +111,11 @@ GlobalSetup
 ```typescript
 // Authentication test pattern
 test("should protect authenticated routes", async ({ page }) => {
-  const protectedPages = ["/log-session", "/plan-session", "/profile/edit"];
+  const protectedPages = [
+    "/log-session",
+    "/plan-session",
+    "/profile?edit=true",
+  ];
 
   for (const pagePath of protectedPages) {
     await page.goto(pagePath);

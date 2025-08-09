@@ -283,7 +283,7 @@ test.describe("Navigation", () => {
   });
 
   test("should navigate to profile edit page", async ({ page }) => {
-    await page.goto("/profile/edit");
+    await page.goto("/profile?edit=true");
 
     // Should either show edit form or redirect for auth
     const hasEditForm = await page
