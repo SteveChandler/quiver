@@ -221,7 +221,7 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 ### ⏰ `/cron` - Scheduled Job Management
 
-**Authentication**: Cron-specific token validation  
+**Authentication**: Vercel Cron header or cron token  
 **Usage**: Automated data synchronization
 
 #### `/cron/enhanced-forecast-sync/route.ts`
@@ -239,6 +239,13 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
   - 2-second inter-batch delays
   - Timeout handling and recovery
 
+**Invocation & Security**:
+
+- Triggered exclusively via Vercel Cron as configured in `vercel.json`
+- Authorization uses centralized validator `validateCronRequest(request)` from `lib/api-response-utils.ts`
+  - Accepts `x-vercel-cron` header (added by Vercel) OR `Authorization: Bearer <CRON_SECRET>`
+  - Keep `CRON_SECRET`/`CRON_SECRET_TOKEN` in Vercel env if you need to trigger manually
+
 #### `/cron/smart-forecast-update/route.ts`
 
 - **Methods**: `POST`, `GET`
@@ -248,6 +255,10 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
   - Success/failure tracking
   - Duration monitoring
 - **Scheduling**: Designed for 6-hour update cycles
+
+**Security**:
+
+- Uses `validateCronRequest(request)` to allow Vercel Cron header or token
 
 ---
 
@@ -382,9 +393,16 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 - **Function**: Session buddy system
 - **Features**:
   - Email and user-based invitations
-  - Status tracking (pending, accepted, declined)
+  - Status tracking (pending, accepted, declined, revoked)
   - Invitation management
-- **Social Features**: Community building and session coordination
+  - Idempotency via optional `Idempotency-Key` header persisted on invitations
+  - In-app activity created on invite (`user_activities` → `session_invite.created`)
+  - Email via Resend when invitee has `email_session_invites` enabled
+  - Per-invitee uniqueness enforced: `unique(session_id, invitee_id)` and `unique(session_id, invitee_email)`
+  - Profile preferences extended: `inapp_session_invites`, `email_session_invites`, `digest_session_invites`
+  - Acceptance auto-adds participant (trigger)
+  - **Scope**: Notifications are only generated from plan-session tagging flow
+  - **Social Features**: Community building and session coordination
 
 #### `/session-planner/optimal-times/route.ts`
 

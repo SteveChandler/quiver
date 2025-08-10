@@ -586,7 +586,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
                 updateField={updateField}
               />
 
-              {/* Smart Gear Suggestions Section */}
+              {/* Smart Gear Suggestions Section (selection shouldn't submit form) */}
               <GearSuggestionsSection
                 formState={formState}
                 updateField={updateField}
@@ -594,7 +594,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
             </>
           )}
 
-          {/* Equipment Section - Fallback for logging mode or manual selection */}
+          {/* Equipment Section - Only for logging mode */}
           {!isPlanning && (
             <SimpleCardLayout
               title={

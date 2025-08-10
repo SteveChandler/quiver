@@ -39,6 +39,8 @@ const preferencesFormSchema = z.object({
   default_beach_id: z.string().optional(),
   notification_session_reminders: z.boolean().default(false),
   notification_community_replies: z.boolean().default(false),
+  inapp_session_invites: z.boolean().default(true),
+  email_session_invites: z.boolean().default(true),
 });
 
 type PreferencesFormValues = z.infer<typeof preferencesFormSchema>;
@@ -65,6 +67,8 @@ export function ProfilePreferences({
         profile?.notification_session_reminders || false,
       notification_community_replies:
         profile?.notification_community_replies || false,
+      inapp_session_invites: (profile as any)?.inapp_session_invites ?? true,
+      email_session_invites: (profile as any)?.email_session_invites ?? true,
     },
   });
 
@@ -77,6 +81,8 @@ export function ProfilePreferences({
         default_beach_id: data.default_beach_id,
         notification_session_reminders: data.notification_session_reminders,
         notification_community_replies: data.notification_community_replies,
+        inapp_session_invites: data.inapp_session_invites,
+        email_session_invites: data.email_session_invites,
       });
 
       if (!result.success) {
@@ -187,6 +193,52 @@ export function ProfilePreferences({
                       <FormDescription>
                         Get notified when someone responds to your posts or
                         reviews
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="inapp_session_invites"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        In‑app Session Invites
+                      </FormLabel>
+                      <FormDescription>
+                        Show session invitations in your activity feed
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email_session_invites"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        Email Session Invites
+                      </FormLabel>
+                      <FormDescription>
+                        Receive email when someone invites you to a surf session
                       </FormDescription>
                     </div>
                     <FormControl>

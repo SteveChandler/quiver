@@ -184,6 +184,7 @@ export function OptimalTimesSection({
           {placeholder ? (
             <div className="grid gap-3" data-testid="optimal-times-list">
               <Button
+                type="button"
                 variant="outline"
                 className="h-auto p-4 text-left justify-start relative"
                 data-testid="optimal-time-item"
@@ -270,6 +271,7 @@ export function OptimalTimesSection({
             </AlertDescription>
           </Alert>
           <Button
+            type="button"
             variant="outline"
             onClick={refetch}
             className="mt-3"
@@ -388,6 +390,7 @@ export function OptimalTimesSection({
 
               return (
                 <Button
+                  type="button"
                   key={timeSlot.time}
                   variant={isSelected ? "default" : "outline"}
                   className={cn(

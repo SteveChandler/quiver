@@ -1,4 +1,5 @@
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { validateCronRequest } from "@/lib/api-response-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CDIPService } from "@/lib/services/cdip-service";
 import {
@@ -15,9 +16,7 @@ export const revalidate = 0;
 
 export async function GET(request: Request) {
   try {
-    const auth = request.headers.get("authorization") || "";
-    const cronSecret = process.env.CRON_SECRET_TOKEN || process.env.CRON_SECRET;
-    if (cronSecret && auth !== `Bearer ${cronSecret}`) {
+    if (!validateCronRequest(request)) {
       return new Response("Unauthorized", { status: 401 });
     }
 

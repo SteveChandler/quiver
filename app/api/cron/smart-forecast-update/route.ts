@@ -3,7 +3,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   createForecastUpdateResponse,
-  validateCronAuth,
+  validateCronRequest,
 } from "@/lib/api-response-utils";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-service-utils";
 
@@ -24,10 +24,8 @@ export async function POST(request: NextRequest) {
   console.log("🚀 Starting smart forecast update cron job");
 
   try {
-    // Verify this is a legitimate cron request
-    const authHeader = request.headers.get("authorization");
-
-    if (!validateCronAuth(authHeader)) {
+    // Verify this is a legitimate cron request (Vercel Cron header or bearer secret)
+    if (!validateCronRequest(request)) {
       console.error("❌ Unauthorized cron request");
       return createErrorResponse("Unauthorized", null, 401);
     }

@@ -30,6 +30,7 @@ const mockSupabaseClient = {
     })),
     refreshSession: jest.fn(),
   },
+  rpc: jest.fn(() => Promise.resolve({ data: "activity-id", error: null })),
   from: jest.fn(() => ({
     select: jest.fn(() => ({
       eq: jest.fn(() => ({

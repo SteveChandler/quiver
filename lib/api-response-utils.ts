@@ -113,3 +113,21 @@ export function validateCronAuth(authHeader: string | null): boolean {
   const cronSecret = process.env.CRON_SECRET_TOKEN || process.env.CRON_SECRET;
   return !cronSecret || authHeader === `Bearer ${cronSecret}`;
 }
+
+/**
+ * Validate that a request originated from an approved cron source.
+ *
+ * Accepted sources:
+ * - Vercel Cron: presence of the `x-vercel-cron` header
+ * - Manual/External: Authorization header with `Bearer <CRON_SECRET>` or `CRON_SECRET_TOKEN`
+ */
+export function validateCronRequest(request: Request): boolean {
+  // Vercel adds this header for scheduled cron invocations
+  const vercelCronHeader = request.headers.get("x-vercel-cron");
+  if (vercelCronHeader) {
+    return true;
+  }
+
+  const authHeader = request.headers.get("authorization");
+  return validateCronAuth(authHeader);
+}

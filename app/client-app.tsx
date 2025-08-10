@@ -11,7 +11,9 @@ const HomeScreen = lazy(() =>
     default: module.HomeScreen,
   }))
 );
-const LandingPage = lazy(() => import("@/components/landing-page"));
+// Note: There is both `components/landing-page.tsx` and a `components/landing-page/` directory.
+// Explicitly import the .tsx file to avoid resolving the directory index (which has no default export).
+const LandingPage = lazy(() => import("@/components/landing-page.tsx"));
 
 // Performance-optimized loading component
 function ComponentLoadingFallback({ type }: { type: "home" | "landing" }) {

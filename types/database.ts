@@ -12,6 +12,9 @@ export type Profile = {
   default_beach_id: string | null;
   notification_session_reminders: boolean;
   notification_community_replies: boolean;
+  inapp_session_invites?: boolean; // added by migration
+  email_session_invites?: boolean; // added by migration
+  digest_session_invites?: boolean; // added by migration
   followers_count: number;
   following_count: number;
   created_at: string;
