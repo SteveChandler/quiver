@@ -232,6 +232,7 @@ export function PhotoSelectionSection({
             </div>
 
             <Button
+              type="button"
               variant="outline"
               size="sm"
               className="mt-4"
@@ -268,6 +269,7 @@ export function PhotoSelectionSection({
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium">Selected Photos</h4>
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 onClick={clearAllFiles}
@@ -289,6 +291,7 @@ export function PhotoSelectionSection({
                   </div>
 
                   <Button
+                    type="button"
                     variant="destructive"
                     size="sm"
                     className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"

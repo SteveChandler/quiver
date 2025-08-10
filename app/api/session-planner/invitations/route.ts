@@ -4,6 +4,8 @@ import {
   createSuccessResponse,
   createErrorResponse,
 } from "@/lib/api-response-utils";
+import { createActivityForInvite } from "@/lib/notifications";
+import { sendSessionInviteEmail } from "@/lib/mailer/sessionInviteEmail";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest) {
   try {
     const body: InvitationRequest = await request.json();
     const { sessionId, invitees, message } = body;
+    const idempotencyKey = request.headers.get("Idempotency-Key");
 
     if (!sessionId || !invitees || invitees.length === 0) {
       return createErrorResponse(
@@ -115,12 +118,11 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Check for existing invitation
+        // Check for existing invitation (per-invitee uniqueness)
         const { data: existingInvitation } = await supabase
           .from("session_invitations")
           .select("id")
           .eq("session_id", sessionId)
-          .eq("inviter_id", user.id)
           .eq(
             inviteeUserId ? "invitee_id" : "invitee_email",
             inviteeUserId || invitee.email
@@ -137,6 +139,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Create invitation record
+        const perInviteeIdempKey = idempotencyKey
+          ? `${idempotencyKey}:${inviteeUserId || invitee.email || "unknown"}`
+          : null;
+
         const invitationData = {
           session_id: sessionId,
           inviter_id: user.id,
@@ -145,6 +151,7 @@ export async function POST(request: NextRequest) {
           status: "pending" as const,
           message: message || null,
           created_at: new Date().toISOString(),
+          idempotency_key: perInviteeIdempKey,
         };
 
         const { data: newInvitation, error: invitationError } = await supabase
@@ -154,12 +161,22 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (invitationError) {
-          errors.push(
-            `Failed to invite ${invitee.email || invitee.name || "user"}: ${
-              invitationError.message
-            }`
-          );
-          continue;
+          // Unique violation: treat as already had
+          if ((invitationError as any).code === "23505") {
+            errors.push(
+              `Invitation already exists for ${
+                invitee.email || invitee.name || "user"
+              }`
+            );
+            continue;
+          } else {
+            errors.push(
+              `Failed to invite ${invitee.email || invitee.name || "user"}: ${
+                invitationError.message
+              }`
+            );
+            continue;
+          }
         }
 
         invitations.push({
@@ -175,12 +192,89 @@ export async function POST(request: NextRequest) {
 
         invitationsSent++;
 
-        // TODO: Send email notification here
-        // For now, we'll just create the database record
-        // In a real implementation, you'd integrate with a service like:
-        // - Resend.com
-        // - SendGrid
-        // - AWS SES
+        // In-app activity + email only for plan-session tagging flow and per invitee prefs
+        try {
+          let activityId: string | undefined;
+
+          if (inviteeUserId) {
+            const { data: prefs } = await supabase
+              .from("profiles")
+              .select("email, email_session_invites, inapp_session_invites")
+              .eq("id", inviteeUserId)
+              .single();
+
+            if (prefs?.inapp_session_invites !== false) {
+              activityId = await createActivityForInvite({
+                actorId: user.id,
+                recipientId: inviteeUserId,
+                sessionId: sessionId,
+                metadata: {
+                  beachName: session.beach_name,
+                  when: session.arrival_time,
+                  message: message || null,
+                },
+              });
+            }
+
+            if (prefs?.email && prefs.email_session_invites !== false) {
+              const appUrl =
+                process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+              try {
+                await sendSessionInviteEmail({
+                  toEmail: prefs.email,
+                  inviter: {
+                    id: user.id,
+                    name: user.user_metadata?.full_name,
+                    username: user.user_metadata?.user_name,
+                  },
+                  session: {
+                    id: session.id,
+                    arrival_time: session.arrival_time,
+                    beach_name: session.beach_name,
+                  },
+                  message: message || undefined,
+                  activityId,
+                  appUrl,
+                });
+              } catch (mailErr) {
+                console.warn(
+                  "Email invite skipped: RESEND not configured",
+                  mailErr
+                );
+              }
+            }
+          } else if (invitee.email) {
+            // Email-only invite (no in-app activity)
+            const appUrl =
+              process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+            try {
+              await sendSessionInviteEmail({
+                toEmail: invitee.email,
+                inviter: {
+                  id: user.id,
+                  name: user.user_metadata?.full_name,
+                  username: user.user_metadata?.user_name,
+                },
+                session: {
+                  id: session.id,
+                  arrival_time: session.arrival_time,
+                  beach_name: session.beach_name,
+                },
+                message: message || undefined,
+                activityId,
+                appUrl,
+              });
+            } catch (mailErr) {
+              console.warn(
+                "Email invite skipped: RESEND not configured",
+                mailErr
+              );
+            }
+          }
+        } catch (notifyErr) {
+          console.error("Invite activity/email error:", notifyErr);
+          // proceed without failing overall request
+        }
       } catch (error) {
         console.error("Error processing invitee:", error);
         errors.push(

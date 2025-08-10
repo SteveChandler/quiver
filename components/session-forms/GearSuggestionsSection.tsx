@@ -157,6 +157,7 @@ export function GearSuggestionsSection({
             </AlertDescription>
           </Alert>
           <Button
+            type="button"
             variant="outline"
             onClick={refetch}
             className="mt-3"
@@ -262,6 +263,7 @@ export function GearSuggestionsSection({
 
               return (
                 <Button
+                  type="button"
                   key={suggestion.board.id}
                   variant={isSelected ? "default" : "outline"}
                   className={cn(

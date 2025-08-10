@@ -65,10 +65,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Initial baseline after enablement: ~33.7% statements, 45.5% functions, 67.6% branches, 33.7% lines
 
 - New unit tests to raise coverage in high-impact areas:
+
   - `__tests__/hooks/use-session-forecast.test.ts` (forecast mapping to session time, error/no-data cases)
   - `__tests__/hooks/use-data-fetcher.test.ts` (success, error, refetch/reset, skip toggling)
 
+- Session invitations: in-app activity + email notifications from plan-session tagging
+  - Migration `20250810000020_session_invites_prefs_and_constraints.sql` adds: per-invitee uniqueness, `idempotency_key`, expanded status (`revoked`), and profile prefs (`inapp_session_invites`, `email_session_invites`, `digest_session_invites`)
+  - Mailer utilities and React email template for Resend
+  - Activity feed rendering for `session_invite.created`
+  - Profile preferences UI toggles for in-app and email session invites
+
 ### Changed
+
+- Cron execution is now Vercel-only. Removed GitHub Actions workflow for enhanced forecast sync and updated cron route auth:
+
+  - Introduced `validateCronRequest(request)` in `lib/api-response-utils.ts` to accept Vercel's `x-vercel-cron` header or a Bearer token (`CRON_SECRET`/`CRON_SECRET_TOKEN`).
+  - Updated `app/api/cron/enhanced-forecast-sync/route.ts` and `app/api/cron/smart-forecast-update/route.ts` to use the new validator.
+  - Documented invocation/auth in `app/api/ARCHITECTURE.md`.
 
 - Coverage configuration excludes expanded to reduce low-signal noise:
 
@@ -113,9 +126,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Updated E2E tests to fill/allow the new field when present
 
 - Password recovery flow
+
   - New pages: `app/auth/forgot-password/page.tsx` and `app/auth/update-password/page.tsx`
   - Forgot page sends reset link via `supabase.auth.resetPasswordForEmail` with `redirectTo` → `${NEXT_PUBLIC_SITE_URL}/auth/update-password`
   - Update page sets new password using `supabase.auth.updateUser({ password })`
+
+- `POST /api/session-planner/invitations` now respects idempotency, creates activity, and conditionally sends email per user prefs; inviter-based unique constraints dropped in favor of per-invitee uniques
   - Added “Forgot password?” link to `components/auth/sign-in-form.tsx`
 
 ### Added

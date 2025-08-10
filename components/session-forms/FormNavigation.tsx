@@ -28,6 +28,7 @@ export function FormNavigation({
   return (
     <div className="flex justify-between mt-4 pb-24">
       <Button
+        type="button"
         variant="outline"
         onClick={onBack}
         disabled={isFirstStep || loading}
@@ -40,7 +41,7 @@ export function FormNavigation({
           {loading ? "Saving..." : "Submit"}
         </Button>
       ) : (
-        <Button onClick={onNext} disabled={loading}>
+        <Button type="button" onClick={onNext} disabled={loading}>
           Next
         </Button>
       )}

@@ -175,6 +175,7 @@ export function GroupInvitationsSection({
               );
               return (
                 <Button
+                  type="button"
                   key={friend.id}
                   variant={isSelected ? "default" : "outline"}
                   size="sm"
@@ -255,6 +256,7 @@ export function GroupInvitationsSection({
               >
                 {friend.full_name || friend.email}
                 <Button
+                  type="button"
                   size="sm"
                   variant="ghost"
                   className="h-4 w-4 p-0 hover:bg-primary-foreground"
@@ -347,6 +349,7 @@ export function GroupInvitationsSection({
       {selectedFriends.length === 0 && validEmails.length === 0 && (
         <div className="grid grid-cols-2 gap-2">
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() =>
@@ -357,6 +360,7 @@ export function GroupInvitationsSection({
             Dawn Patrol Template
           </Button>
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() =>

@@ -14,6 +14,7 @@ import {
   MessageSquare,
   RefreshCw,
   UserPlus,
+  CalendarPlus,
 } from "lucide-react";
 import Link from "next/link";
 import type { ActivityFeedItem } from "@/types/database";
@@ -55,6 +56,8 @@ export function ActivityFeed({
         return <Star className="h-4 w-4 text-yellow-500" />;
       case "user_followed":
         return <UserPlus className="h-4 w-4 text-green-500" />;
+      case "session_invite.created":
+        return <CalendarPlus className="h-4 w-4 text-purple-500" />;
       case "session_liked":
         return <MessageSquare className="h-4 w-4 text-red-500" />;
       default:
@@ -90,6 +93,16 @@ export function ActivityFeed({
             <strong>{userName}</strong> reviewed a beach
             {metadata.overall_rating && (
               <span> - {metadata.overall_rating}/5 stars</span>
+            )}
+          </span>
+        );
+      case "session_invite.created":
+        return (
+          <span>
+            <strong>{userName}</strong> invited you to surf at{" "}
+            <strong>{metadata.beachName || "a beach"}</strong>
+            {metadata.when && (
+              <span> — {new Date(metadata.when).toLocaleString()}</span>
             )}
           </span>
         );

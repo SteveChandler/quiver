@@ -10,7 +10,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   createSuccessResponse,
   createErrorResponse,
-  validateCronAuth,
+  validateCronRequest,
   ForecastUpdateStats,
 } from "@/lib/api-response-utils";
 import { CDIPRateLimiter, NOAARateLimiter } from "@/lib/utils/rate-limiter";
@@ -52,9 +52,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       );
     }
 
-    // Validate cron authentication
-    const authHeader = request.headers.get("authorization");
-    if (!validateCronAuth(authHeader)) {
+    // Validate cron origin (Vercel Cron header or Bearer secret)
+    if (!validateCronRequest(request)) {
       return createErrorResponse(
         "Unauthorized",
         "Invalid cron authentication",
@@ -244,8 +243,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     }
 
     // Basic auth check for GET requests too
-    const authHeader = request.headers.get("authorization");
-    if (!validateCronAuth(authHeader)) {
+    if (!validateCronRequest(request)) {
       return createErrorResponse(
         "Unauthorized",
         "Invalid cron authentication",
