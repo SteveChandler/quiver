@@ -219,8 +219,37 @@ export async function POST(request: NextRequest) {
             if (prefs?.email && prefs.email_session_invites !== false) {
               const appUrl =
                 process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+              try {
+                await sendSessionInviteEmail({
+                  toEmail: prefs.email,
+                  inviter: {
+                    id: user.id,
+                    name: user.user_metadata?.full_name,
+                    username: user.user_metadata?.user_name,
+                  },
+                  session: {
+                    id: session.id,
+                    arrival_time: session.arrival_time,
+                    beach_name: session.beach_name,
+                  },
+                  message: message || undefined,
+                  activityId,
+                  appUrl,
+                });
+              } catch (mailErr) {
+                console.warn(
+                  "Email invite skipped: RESEND not configured",
+                  mailErr
+                );
+              }
+            }
+          } else if (invitee.email) {
+            // Email-only invite (no in-app activity)
+            const appUrl =
+              process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+            try {
               await sendSessionInviteEmail({
-                toEmail: prefs.email,
+                toEmail: invitee.email,
                 inviter: {
                   id: user.id,
                   name: user.user_metadata?.full_name,
@@ -235,27 +264,12 @@ export async function POST(request: NextRequest) {
                 activityId,
                 appUrl,
               });
+            } catch (mailErr) {
+              console.warn(
+                "Email invite skipped: RESEND not configured",
+                mailErr
+              );
             }
-          } else if (invitee.email) {
-            // Email-only invite (no in-app activity)
-            const appUrl =
-              process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-            await sendSessionInviteEmail({
-              toEmail: invitee.email,
-              inviter: {
-                id: user.id,
-                name: user.user_metadata?.full_name,
-                username: user.user_metadata?.user_name,
-              },
-              session: {
-                id: session.id,
-                arrival_time: session.arrival_time,
-                beach_name: session.beach_name,
-              },
-              message: message || undefined,
-              activityId,
-              appUrl,
-            });
           }
         } catch (notifyErr) {
           console.error("Invite activity/email error:", notifyErr);
