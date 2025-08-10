@@ -49,6 +49,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Integrated Vercel Web Analytics and Speed Insights in `app/layout.tsx` to collect page views and performance metrics in production. Follows App Router root layout pattern documented in `app/ARCHITECTURE.md`.
 
+- Google Analytics (GA4) integration:
+
+  - Added GA script and init via `next/script` in `app/layout.tsx`
+  - New `components/analytics/google-analytics.tsx` to track SPA route changes with `usePathname`
+  - Uses `NEXT_PUBLIC_GA_ID` with fallback to `G-JZNX7C7XKL`
+  - Enables Web Vitals reporting via existing `lib/utils/performance-utils.ts` when `gtag` is present
+
 - Jest coverage reporting configured following repository testing patterns:
 
   - Enabled coverage collection with V8 provider and reports: text, lcov, json, html

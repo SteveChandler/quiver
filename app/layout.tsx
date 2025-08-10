@@ -1,6 +1,8 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 import { AuthProvider } from "@/context/auth-context";
@@ -8,6 +10,9 @@ import { AppHeader } from "@/components/app-header";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import GoogleAnalytics from "@/components/analytics/google-analytics";
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL";
 
 // Optimize font loading with display swap for better performance
 const inter = Inter({
@@ -74,6 +79,24 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <head>
+        {/* Google Analytics (GA4) */}
+        <Script
+          id="ga-script"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script
+          id="ga-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);} 
+              gtag('js', new Date());
+              gtag('config', '${GA_ID}', { anonymize_ip: true, send_page_view: false });
+            `,
+          }}
+        />
         {/* Resource hints for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -152,6 +175,10 @@ export default function RootLayout({
             {children}
           </main>
         </AuthProvider>
+        {/* Track SPA route changes */}
+        <Suspense fallback={null}>
+          <GoogleAnalytics />
+        </Suspense>
         {/* Vercel Analytics & Speed Insights */}
         <Analytics />
         <SpeedInsights />
