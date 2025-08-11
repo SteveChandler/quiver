@@ -148,8 +148,17 @@ export function SessionCard({
         )}
       </div>
 
-      {/* Overall Rating */}
-      <StarRating rating={rating} size="md" />
+      {/* Planned session board info and conditional rating */}
+      {session?.status === "planned" && session?.board?.name && (
+        <div className="text-sm text-muted-foreground">
+          Board: {session.board.name}
+        </div>
+      )}
+
+      {/* Overall Rating - hide for planned sessions or when no rating */}
+      {session?.status !== "planned" && rating > 0 && (
+        <StarRating rating={rating} size="md" />
+      )}
 
       {/* Session Conditions - Only show if session data is available */}
       {session && (
@@ -163,7 +172,7 @@ export function SessionCard({
                 <Waves className="h-4 w-4 text-blue-500" />
               </div>
               <div className="space-y-1">
-                {session.wave_quality && (
+                {session.wave_quality && session?.status !== "planned" && (
                   <StarRating
                     rating={session.wave_quality}
                     size="sm"
@@ -186,24 +195,25 @@ export function SessionCard({
           )}
 
           {/* Crowd Level */}
-          {(session.crowd_level || session.crowd_rating) && (
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-1">
-                <Users className="h-4 w-4 text-orange-500" />
+          {(session.crowd_level || session.crowd_rating) &&
+            session?.status !== "planned" && (
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <Users className="h-4 w-4 text-orange-500" />
+                </div>
+                <div className="space-y-1">
+                  <StarRating
+                    rating={session.crowd_level || session.crowd_rating || 0}
+                    size="sm"
+                    color="text-orange-500"
+                  />
+                  <div className="text-xs text-muted-foreground">Crowd</div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <StarRating
-                  rating={session.crowd_level || session.crowd_rating || 0}
-                  size="sm"
-                  color="text-orange-500"
-                />
-                <div className="text-xs text-muted-foreground">Crowd</div>
-              </div>
-            </div>
-          )}
+            )}
 
           {/* Parking */}
-          {session.parking_ease && (
+          {session.parking_ease && session?.status !== "planned" && (
             <div className="text-center">
               <div className="flex items-center justify-center mb-1">
                 <Car className="h-4 w-4 text-green-500" />

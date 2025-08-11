@@ -28,13 +28,7 @@ import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { CalendarHeatmap } from "./calendar-heatmap";
 import { SessionAnalytics } from "./session-analytics";
 import { SessionAnnotationModal } from "./session-annotation-modal";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// Removed dropdown filter in favor of Completed/Planned tabs
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getUserSessions } from "@/actions/session-actions";
@@ -58,9 +52,9 @@ export function JournalView({ className }: JournalViewProps) {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [selectedSession, setSelectedSession] =
     useState<SessionWithDetails | null>(null);
-  const [sessionFilter, setSessionFilter] = useState<
-    "all" | "planned" | "completed"
-  >("all");
+  const [sessionFilter, setSessionFilter] = useState<"planned" | "completed">(
+    "completed"
+  );
   const [showAnnotationModal, setShowAnnotationModal] = useState(false);
   const [displayOptions, setDisplayOptions] = useState<JournalDisplayOptions>({
     viewMode: "list",
@@ -149,10 +143,7 @@ export function JournalView({ className }: JournalViewProps) {
 
   // Filter sessions based on current filter
   const filteredSessions =
-    sessions?.filter((session) => {
-      if (sessionFilter === "all") return true;
-      return session.status === sessionFilter;
-    }) || [];
+    sessions?.filter((session) => session.status === sessionFilter) || [];
 
   const completedSessions =
     sessions?.filter((session) => session.status === "completed") || [];
@@ -238,7 +229,7 @@ export function JournalView({ className }: JournalViewProps) {
             <div className="text-2xl font-bold">
               {analytics?.favoriteBeach || "None"}
             </div>
-            <p className="text-sm text-muted-foreground">Default Spot</p>
+            <p className="text-sm text-muted-foreground">Home Break</p>
           </CardContent>
         </Card>
       </div>
@@ -277,37 +268,23 @@ export function JournalView({ className }: JournalViewProps) {
                 Calendar
               </Button>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">
-                {totalSessions}{" "}
-                {sessionFilter === "all"
-                  ? "sessions"
-                  : `${sessionFilter} sessions`}
-              </Badge>
-              <Select
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary">{totalSessions} sessions</Badge>
+              <Tabs
                 value={sessionFilter}
                 onValueChange={(value) =>
-                  setSessionFilter(value as "all" | "planned" | "completed")
+                  setSessionFilter(value as "planned" | "completed")
                 }
               >
-                <SelectTrigger className="w-auto">
-                  <SelectValue>
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      Filter
-                    </div>
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sessions</SelectItem>
-                  <SelectItem value="completed">Completed Sessions</SelectItem>
-                  <SelectItem value="planned">Planned Sessions</SelectItem>
-                </SelectContent>
-              </Select>
+                <TabsList>
+                  <TabsTrigger value="completed">Completed</TabsTrigger>
+                  <TabsTrigger value="planned">Planned</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
           </div>
 
-          {/* Sessions Display */}
+          {/* Sessions Display - filtered by tab (Completed default, Planned on click) */}
           {viewMode === "list" ? (
             <div className="space-y-4">
               {filteredSessions.length > 0 ? (
@@ -349,9 +326,7 @@ export function JournalView({ className }: JournalViewProps) {
                     <p className="text-muted-foreground mb-4">
                       {sessionFilter === "planned"
                         ? "No planned sessions yet. Start planning your surf adventures!"
-                        : sessionFilter === "completed"
-                        ? "No completed sessions yet. Start logging your surf sessions!"
-                        : "No sessions yet. Start building your surf journal!"}
+                        : "No completed sessions yet. Start logging your surf sessions!"}
                     </p>
                     <Button asChild>
                       <Link

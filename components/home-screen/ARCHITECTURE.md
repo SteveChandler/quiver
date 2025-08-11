@@ -204,6 +204,46 @@ const { data: sessionsData, loading: sessionsLoading } =
 <TabsList className="grid grid-cols-3 w-full max-w-3xl mx-auto h-12 sm:h-14">
 ```
 
+## 🔎 Home Search Bar
+
+- Location: Centered container directly under the `Forecast | Nearby | Local Intel` tabs on the Home screen.
+- Component: `components/home-screen/beach-search-bar.tsx`
+- Behavior:
+  - Uses `useDataFetcher` with a memoized fetch function that calls `searchBeachesByName` for fuzzy/close matches (supports abbreviations like "OB", "PB").
+  - On success, calls `onSelect(beach)` which sets `selectedBeachOverride` in `HomeScreen`.
+  - On failure, shows an inline error: "No beach found. Try again." without altering current forecast.
+
+### State Flow
+
+```typescript
+HomeScreen
+  state: selectedBeachOverride: Beach | null
+  └─ <BeachSearchBar onSelect={setSelectedBeachOverride} />
+  └─ <ForecastTab overrideBeach={selectedBeachOverride} defaultBeach={defaultBeach} />
+
+// Precedence used inside ForecastTab
+effectiveBeach = overrideBeach || defaultBeach || popularBeach;
+```
+
+### Data Fetching Pattern
+
+```typescript
+const performSearch = useCallback(async () => {
+  return await searchBeachesByName(query);
+}, [query]);
+
+const { loading, refetch } = useDataFetcher(performSearch, {
+  immediate: false,
+  onSuccess: (beach) =>
+    beach ? onSelect(beach) : setError("No beach found. Try again."),
+});
+```
+
+### Error Handling UX
+
+- Inline message under the search bar for not-found or network errors
+- Does not change the current `effectiveBeach` unless a valid match is found
+
 ### **Loading State Hierarchy**
 
 ```typescript

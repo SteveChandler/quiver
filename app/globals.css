@@ -77,7 +77,8 @@
   /* Section containers - responsive widths */
   .centered-container {
     @apply w-full mx-auto px-0;
-    max-width: 100%;
+    /* Match the primary content width so all sections align exactly */
+    max-width: var(--home-centered-max, 1100px);
   }
 
   /* Allow sections to expand on larger screens */

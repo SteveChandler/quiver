@@ -25,9 +25,14 @@ import type { Profile, Forecast, Beach } from "@/types/database";
 interface ForecastTabProps {
   profile: Profile | null;
   defaultBeach?: Beach | null;
+  overrideBeach?: Beach | null;
 }
 
-export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
+export function ForecastTab({
+  profile,
+  defaultBeach,
+  overrideBeach,
+}: ForecastTabProps) {
   const router = useRouter();
   const [showAdjusted, setShowAdjusted] = useState(false);
 
@@ -67,7 +72,9 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
     { skip: !!defaultBeach?.id }
   );
 
-  const effectiveBeach = (defaultBeach || popularBeach) as Beach | null;
+  const effectiveBeach = (overrideBeach ||
+    defaultBeach ||
+    popularBeach) as Beach | null;
   const isFallback = !defaultBeach && !!popularBeach;
 
   // Get forecast for effective beach
@@ -118,6 +125,7 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
   const confidenceLevel = getConfidenceLevel(
     beachAccuracy?.overall_accuracy_score
   );
+  const ConfidenceIcon: any = confidenceLevel?.icon as any;
 
   const handleViewBeach = () => {
     if (effectiveBeach?.id) {
@@ -282,14 +290,11 @@ export function ForecastTab({ profile, defaultBeach }: ForecastTabProps) {
           </div>
 
           {/* Community Trust Level */}
-          {beachAccuracy && (
+          {beachAccuracy && confidenceLevel?.level !== "unknown" && (
             <div
               className={`flex items-center justify-between p-3 rounded-lg ${confidenceLevel.bg}`}
             >
               <div className="flex items-center space-x-2">
-                <confidenceLevel.icon
-                  className={`h-4 w-4 ${confidenceLevel.color}`}
-                />
                 <span className={`font-medium ${confidenceLevel.color}`}>
                   Community Trust: {confidenceLevel.level}
                 </span>

@@ -227,8 +227,8 @@ describe("JournalView", () => {
     expect(screen.getByText("2")).toBeInTheDocument(); // Total sessions
     expect(screen.getByText("4")).toBeInTheDocument(); // Total hours (displayed as just "4")
     expect(screen.getByText("3.5")).toBeInTheDocument(); // Average rating
-    // Check that default spot section exists (Test Beach appears in both stats and session cards)
-    expect(screen.getByText("Default Spot")).toBeInTheDocument();
+    // Check that home break section exists (Test Beach appears in both stats and session cards)
+    expect(screen.getByText("Home Break")).toBeInTheDocument();
   });
 
   it("displays loading state", () => {
@@ -304,12 +304,12 @@ describe("JournalView", () => {
     expect(insightsTab).toBeInTheDocument();
   });
 
-  it("shows filter button and allows filtering sessions", () => {
+  it("shows Completed/Planned filter tabs", () => {
     render(<JournalView />);
 
-    // Should show the filter dropdown
-    const filterButton = screen.getByRole("combobox");
-    expect(filterButton).toBeInTheDocument();
+    // Tabs should be present instead of a dropdown filter
+    expect(screen.getByRole("tab", { name: /Completed/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Planned/i })).toBeInTheDocument();
   });
 
   it("filters sessions correctly by status", () => {
@@ -346,8 +346,8 @@ describe("JournalView", () => {
 
     render(<JournalView />);
 
-    // Should show all sessions by default (2 sessions)
-    expect(screen.getByText("2 sessions")).toBeInTheDocument();
+    // By default, the Completed tab is active, so only 1 completed session shows
+    expect(screen.getByText("1 sessions")).toBeInTheDocument();
   });
 
   it("displays separate counts for completed and planned sessions", () => {
@@ -405,9 +405,11 @@ describe("JournalView", () => {
 
     render(<JournalView />);
 
-    // Should show general empty state message by default
+    // Default is Completed tab
     expect(
-      screen.getByText("No sessions yet. Start building your surf journal!")
+      screen.getByText(
+        "No completed sessions yet. Start logging your surf sessions!"
+      )
     ).toBeInTheDocument();
   });
 
@@ -456,9 +458,10 @@ describe("JournalView", () => {
     });
 
     render(<JournalView />);
-
     expect(
-      screen.getByText("No sessions yet. Start building your surf journal!")
+      screen.getByText(
+        "No completed sessions yet. Start logging your surf sessions!"
+      )
     ).toBeInTheDocument();
     expect(screen.getByText("Log Your First Session")).toBeInTheDocument();
   });

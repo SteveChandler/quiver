@@ -29,7 +29,7 @@ export function StarRating({
   const starSize = sizeClasses[size];
 
   return (
-    <div className={`flex items-center gap-1 ${className}`}>
+    <div className={`flex items-center gap-1 star-rating ${className}`}>
       <div className="flex">
         {Array(maxStars)
           .fill(0)

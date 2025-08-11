@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
+import { UserAvatarButton } from "@/components/social/user-avatar-button";
 import { StarRating } from "@/components/ui/star-rating";
 import { Loader2, MessageSquare, Trash2, Edit3, Calendar } from "lucide-react";
 import {
@@ -116,11 +117,13 @@ export function BeachReviewsList({
         <Card key={review.id}>
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
-              <UserAvatar
+              <UserAvatarButton
+                userId={review.user_id}
                 src={review.user.avatar_url}
                 name={review.user.full_name}
                 email={review.user.email}
                 size="lg"
+                className="shrink-0"
               />
 
               <div className="flex-1 space-y-3">

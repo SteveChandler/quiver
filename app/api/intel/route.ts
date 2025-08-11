@@ -156,6 +156,7 @@ export async function GET(request: NextRequest) {
       return {
         ...post,
         user: {
+          id: post.user_id,
           full_name: profile?.full_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
         },

@@ -134,11 +134,11 @@ describe("UserStats", () => {
       });
     });
 
-    it("displays default spot correctly (prioritizes profile favorite over session history)", async () => {
+    it("displays home break correctly (prioritizes profile favorite over session history)", async () => {
       render(<UserStats userId={mockUserId} />);
 
       await waitFor(() => {
-        expect(screen.getByText("Default Spot")).toBeInTheDocument();
+        expect(screen.getByText("Home Break")).toBeInTheDocument();
         expect(screen.getByText("Ocean Beach")).toBeInTheDocument(); // Shows profile favorite_spot
         expect(screen.getByText("From profile")).toBeInTheDocument(); // Indicates source
       });
@@ -162,7 +162,7 @@ describe("UserStats", () => {
       render(<UserStats userId={mockUserId} />);
 
       await waitFor(() => {
-        expect(screen.getByText("Default Spot")).toBeInTheDocument();
+        expect(screen.getByText("Home Break")).toBeInTheDocument();
         expect(screen.getByText("Malibu")).toBeInTheDocument(); // Shows most visited beach
         expect(screen.getByText("15 visits")).toBeInTheDocument(); // Shows session count
       });
@@ -269,7 +269,7 @@ describe("UserStats", () => {
       render(<UserStats userId={mockUserId} />);
 
       await waitFor(() => {
-        expect(screen.getByText("Default Spot")).toBeInTheDocument();
+        expect(screen.getByText("Home Break")).toBeInTheDocument();
         expect(screen.getByText("-")).toBeInTheDocument(); // null beach shows as dash
         expect(screen.getByText("No sessions yet")).toBeInTheDocument();
       });

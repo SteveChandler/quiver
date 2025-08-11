@@ -18,9 +18,16 @@
 
 - Vercel Hobby compliance: changed `vercel.json` cron for `/api/cron/forecasts/refresh` from every 3 hours (`0 */3 * * *`) to daily at 12:00 UTC (`0 12 * * *`). This staggers from the 06:00 UTC enhanced sync and avoids Hobby limit violations.
 
+- UI polish: Added bell icon to Notifications item in avatar dropdown (`components/app-header.tsx`) following `components/ARCHITECTURE.md` icon sizing/spacing patterns.
+
+- Fixed: `session_invitations` RLS blocked inbox queries by referencing `auth.users`. Replaced with JWT email claim in policies:
+  - SELECT: `invitee_id = auth.uid() OR invitee_email = (auth.jwt() ->> 'email')`
+  - UPDATE: same USING/WITH CHECK. Migration `20250811153000_fix_session_invitations_rls.sql`.
+
 ### Fixed
 
 - Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user’s actual position.
+- Hide all rating stars for planned sessions on profile and session cards so planned sessions don't display ratings.
 
 ### Added
 
@@ -32,10 +39,24 @@
   - Inline loader no longer declares ad‑hoc metadata columns; preference upserts handled in `scripts/load_beaches_with_meta.sql`
 
 - Beach preference backfill and calibration seed:
+
   - Migration `20250809000010_backfill_beach_preferences.sql` backfills new preference columns for all beaches (no NULLs remaining)
   - Computes aspect, offshore wind, swell window (by break type), wind tolerances, tide range, and `skill_level`; seeds `preference_model`
   - Inserts one `default_seed` row per beach into `beach_recommendation_calibration`
   - Idempotent via COALESCE/existence checks; includes validation preview queries
+
+- Home screen beach search under tabs:
+
+  - New `components/home-screen/beach-search-bar.tsx` centered container below tabs
+  - Fuzzy search via `searchBeachesByName` (close matches, abbreviations like OB/PB)
+  - Inline error handling: "No beach found. Try again."
+  - Forecast tab now accepts `overrideBeach` and updates when a search succeeds
+
+- Mock data scripts for reviews and intel (for lively demo data following `components/beach/ARCHITECTURE.md` and `components/intel/ARCHITECTURE.md` patterns):
+  - `scripts/mock-beach-reviews.sql` seeds realistic beach reviews across popular beaches using existing persona profiles; idempotent with unique `(beach_id, user_id)` constraint and randomized ratings/visit dates.
+  - `scripts/mock-intel-all-beaches.sql` seeds intel posts across many beaches, with surf condition fields and randomized confirmations; complements existing `scripts/mock-popular-beaches-intel.sql` and `scripts/mock-last-week-community-data.sql`.
+  - Both scripts include quick verification queries and are safe to re-run in Supabase SQL editor.
+  - `scripts/mock-solid-snake.sql` seeds the “Solid Snake” persona with a profile, board, planned and completed sessions, follows to Big Boss/Liquid Snake (if present), and two pending invitations for inbox testing; includes verification queries. Idempotent and safe to re-run.
 
 # Quiver Surf App - Changelog
 
@@ -134,6 +155,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - `POST /api/session-planner/invitations` now respects idempotency, creates activity, and conditionally sends email per user prefs; inviter-based unique constraints dropped in favor of per-invitee uniques
   - Added “Forgot password?” link to `components/auth/sign-in-form.tsx`
 
+### Changed
+
+- Profile Sessions UX: The profile Sessions tab now separates Planned and Completed sections while preserving the existing card look and feel. Planned sessions no longer display overall ratings and instead show the planned board when available. Implementation reuses `SessionCardWrapper`/`SessionCard` per `components/ARCHITECTURE.md` and keeps data fetching via `useDataFetcher`.
+
 ### Added
 
 - Context-aware Optimal Times anchored to user-selected time (±2h), with tide/wind/swell-aware scoring and 2-hour block aggregation. Labeled as "Best for Your Session Time" when applicable. Follows `app/ARCHITECTURE.md` API utilities and `hooks/ARCHITECTURE.md` data fetching patterns.
@@ -195,6 +220,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Landing page copy: Replaced inflated counts with honest language (e.g., "Join surfers near you", "Growing surf community")
 - Removed remaining numeric claims from landing sections (hero badge, social stats, CTA) and updated SEO copy to reflect realistic growth messaging
 
+### Fixed
+
+- Updated UI copy across profile and analytics components from "Default Spot" to "Home Break" for consistency; adjusted related validation messages and tests. Follows `components/ARCHITECTURE.md` wording conventions.
+- Nearby tab now limits display to 10 beaches for clarity and performance, still sorted nearest-first and using existing data fetching patterns.
+
 ## [2025.08.08] - Profile Edit Modal Deep Link
 
 ### Changed
@@ -209,6 +239,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Removed
 
+- Compact summary row from beach detail (normalized marine/tide/sun snippet and “Source: …” badge). The beach page now focuses on the enhanced forecast overview only. API `GET /api/forecasts/window` retained for future use.
 - **Dead Code Cleanup in Forecast Components**
 
   - Removed `tide-chart-example.tsx` (134 lines) - Pure demo component with no usage
