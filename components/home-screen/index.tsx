@@ -8,6 +8,7 @@ import { useHomeData } from "./use-home-data";
 
 import { useCachedProfile } from "@/hooks/use-cached-profile";
 import type { Beach } from "@/types/database";
+import { BeachSearchBar } from "./beach-search-bar";
 
 // Lazy load heavy tab components
 const ForecastTab = lazy(() =>
@@ -33,6 +34,8 @@ function TabSkeleton() {
 
 export function HomeScreen() {
   const [activeTab, setActiveTab] = useState("forecast");
+  const [selectedBeachOverride, setSelectedBeachOverride] =
+    useState<Beach | null>(null);
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
 
@@ -70,7 +73,7 @@ export function HomeScreen() {
             onValueChange={(value) => setActiveTab(value)}
             className="space-y-6"
           >
-            <TabsList className="grid grid-cols-3 w-full max-w-3xl mx-auto h-12 sm:h-14">
+            <TabsList className="grid grid-cols-3 w-full mx-auto h-12 sm:h-14">
               <TabsTrigger value="forecast" className="text-sm sm:text-base">
                 Forecast
               </TabsTrigger>
@@ -84,7 +87,16 @@ export function HomeScreen() {
 
             <TabsContent value="forecast">
               <Suspense fallback={<TabSkeleton />}>
-                <ForecastTab profile={profile} defaultBeach={defaultBeach} />
+                {/* Centered Search Bar under the tabs */}
+                <BeachSearchBar
+                  onSelect={(b) => setSelectedBeachOverride(b)}
+                  className="mb-4"
+                />
+                <ForecastTab
+                  profile={profile}
+                  defaultBeach={defaultBeach}
+                  overrideBeach={selectedBeachOverride}
+                />
               </Suspense>
             </TabsContent>
 

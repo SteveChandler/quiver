@@ -59,12 +59,14 @@ export function RecentSessionsList({
                         : "No date"}
                     </div>
                   </div>
-                  <StarRating
-                    rating={session.rating}
-                    max={5}
-                    readonly
-                    size="sm"
-                  />
+                  {session.status !== "planned" && !!session.rating && (
+                    <StarRating
+                      rating={session.rating}
+                      max={5}
+                      readonly
+                      size="sm"
+                    />
+                  )}
                 </div>
 
                 {session.board && (

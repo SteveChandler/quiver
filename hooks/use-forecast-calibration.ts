@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { HelpCircle, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import {
@@ -166,14 +167,36 @@ export function useForecastCalibration({
 
   // Get confidence level based on accuracy score
   const getConfidenceLevel = useCallback((score?: number | null) => {
-    if (!score) return { level: "unknown", color: "gray", icon: "❓" };
+    if (!score) {
+      return {
+        level: "unknown",
+        color: "text-gray-600",
+        bg: "bg-gray-50 border border-gray-200",
+        icon: HelpCircle,
+      } as const;
+    }
 
     if (score >= 85) {
-      return { level: "high", color: "green", icon: "✅" };
+      return {
+        level: "high",
+        color: "text-green-600",
+        bg: "bg-green-50 border border-green-200",
+        icon: CheckCircle,
+      } as const;
     } else if (score >= 70) {
-      return { level: "medium", color: "yellow", icon: "⚠️" };
+      return {
+        level: "medium",
+        color: "text-yellow-600",
+        bg: "bg-yellow-50 border border-yellow-200",
+        icon: AlertTriangle,
+      } as const;
     } else {
-      return { level: "low", color: "red", icon: "❌" };
+      return {
+        level: "low",
+        color: "text-red-600",
+        bg: "bg-red-50 border border-red-200",
+        icon: XCircle,
+      } as const;
     }
   }, []);
 

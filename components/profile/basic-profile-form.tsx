@@ -50,7 +50,7 @@ const profileFormSchema = z.object({
     .optional(),
   favorite_spot: z
     .string()
-    .max(100, "Default spot must be less than 100 characters")
+    .max(100, "Home Break must be less than 100 characters")
     .optional(),
   instagram: z
     .string()
@@ -429,9 +429,9 @@ export function BasicProfileForm({
                 name="favorite_spot"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Default Surf Spot</FormLabel>
+                    <FormLabel>Home Break</FormLabel>
                     <FormControl>
-                      <Input placeholder="Your default surf spot" {...field} />
+                      <Input placeholder="Your home break" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

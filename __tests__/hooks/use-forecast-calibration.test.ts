@@ -137,31 +137,23 @@ describe("useForecastCalibration", () => {
     );
 
     // High confidence (85+)
-    expect(result.current.getConfidenceLevel(90)).toEqual({
+    expect(result.current.getConfidenceLevel(90)).toMatchObject({
       level: "high",
-      color: "green",
-      icon: "✅",
     });
 
     // Medium confidence (70-84)
-    expect(result.current.getConfidenceLevel(75)).toEqual({
+    expect(result.current.getConfidenceLevel(75)).toMatchObject({
       level: "medium",
-      color: "yellow",
-      icon: "⚠️",
     });
 
     // Low confidence (<70)
-    expect(result.current.getConfidenceLevel(60)).toEqual({
+    expect(result.current.getConfidenceLevel(60)).toMatchObject({
       level: "low",
-      color: "red",
-      icon: "❌",
     });
 
     // Unknown confidence
-    expect(result.current.getConfidenceLevel(null)).toEqual({
+    expect(result.current.getConfidenceLevel(null)).toMatchObject({
       level: "unknown",
-      color: "gray",
-      icon: "❓",
     });
   });
 

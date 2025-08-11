@@ -48,10 +48,16 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
     return beaches;
   }, [nearbyData, beaches]);
 
+  // Limit to top 10 nearby beaches for UI clarity and performance
+  const limitedBeaches = useMemo<Beach[]>(
+    () => displayBeaches.slice(0, 10),
+    [displayBeaches]
+  );
+
   // Memoize the beach IDs to ensure stable dependencies
   const beachIds = useMemo(
-    () => displayBeaches.map((beach) => beach.id),
-    [displayBeaches]
+    () => limitedBeaches.map((beach) => beach.id),
+    [limitedBeaches]
   );
 
   const { reviewStats, loading: reviewsLoading } =
@@ -65,7 +71,7 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
     );
   }
 
-  if (displayBeaches.length === 0) {
+  if (limitedBeaches.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         No beaches found nearby
@@ -74,7 +80,7 @@ export function NearbyTab({ beaches, loading }: NearbyTabProps) {
   }
 
   const beachCardData = prepareMultipleBeachCardData(
-    displayBeaches,
+    limitedBeaches,
     userLocation || undefined,
     reviewStats,
     "BEACH_CARD_NEARBY"

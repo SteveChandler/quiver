@@ -304,11 +304,11 @@ export function ProfileView() {
                           )}
                         </div>
 
-                        {/* Default Spot */}
+                        {/* Home Break */}
                         {profile?.favorite_spot && (
                           <div className="text-xs font-open-sans pt-0.5">
                             <span className="text-muted-foreground">
-                              Default spot:{" "}
+                              Home Break{" "}
                             </span>
                             <span className="font-medium text-ocean-blue">
                               {profile.favorite_spot}

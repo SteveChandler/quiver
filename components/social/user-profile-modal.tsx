@@ -170,11 +170,11 @@ export function UserProfileModal({
                       )}
                     </div>
 
-                    {/* Default Spot */}
+                    {/* Home Break */}
                     {profile.favorite_spot && (
                       <div className="text-sm mt-2">
                         <span className="text-muted-foreground">
-                          Default spot:{" "}
+                          Home Break{" "}
                         </span>
                         <span>{profile.favorite_spot}</span>
                       </div>
