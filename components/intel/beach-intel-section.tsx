@@ -27,6 +27,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";
+import { UserAvatarButton } from "@/components/social/user-avatar-button";
 import {
   getIntelTagConfig,
   getConfidenceColor,
@@ -288,12 +289,22 @@ function IntelPostCard({
     <div className="bg-white/70 rounded-xl border border-blue-100/80 p-4 transition-all duration-200 hover:bg-white/90 hover:shadow-md">
       <div className="flex items-start gap-3">
         {/* User Avatar */}
-        <UserAvatar
-          src={post.user?.avatar_url}
-          name={post.user?.full_name}
-          size="sm"
-          className="ring-2 ring-white shadow-sm"
-        />
+        {post.user?.id ? (
+          <UserAvatarButton
+            userId={post.user.id}
+            src={post.user?.avatar_url}
+            name={post.user?.full_name}
+            size="sm"
+            className="ring-2 ring-white shadow-sm"
+          />
+        ) : (
+          <UserAvatar
+            src={post.user?.avatar_url}
+            name={post.user?.full_name}
+            size="sm"
+            className="ring-2 ring-white shadow-sm"
+          />
+        )}
 
         <div className="flex-1 min-w-0">
           {/* Header */}

@@ -379,6 +379,7 @@ export type IntelPostConfirmation = {
 
 export type IntelPostWithUser = IntelPost & {
   user: {
+    id: string;
     full_name: string;
     avatar_url: string | null;
   };

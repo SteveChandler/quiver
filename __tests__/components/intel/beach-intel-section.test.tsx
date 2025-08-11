@@ -23,6 +23,14 @@ jest.mock("@/components/intel/intel-post-form", () => ({
       </div>
     ) : null,
 }));
+// Render a simple button to validate we pass userId into the clickable avatar
+jest.mock("@/components/social/user-avatar-button", () => ({
+  UserAvatarButton: ({ userId, name }: any) => (
+    <button data-testid="user-avatar-button" data-user-id={userId}>
+      {name}
+    </button>
+  ),
+}));
 jest.mock("@/components/user-avatar", () => ({
   UserAvatar: ({ name }: any) => <div data-testid="user-avatar">{name}</div>,
 }));
@@ -59,6 +67,7 @@ const mockIntelPost = {
   is_active: true,
   updated_at: "2024-01-15T10:00:00Z",
   user: {
+    id: "user456",
     full_name: "surfer123",
     avatar_url: null,
   },
@@ -205,6 +214,9 @@ describe("BeachIntelSection", () => {
       expect(screen.getByText(mockIntelPost.description)).toBeInTheDocument();
       expect(screen.getByText("Conditions")).toBeInTheDocument(); // Tag label
       expect(screen.getByText("3")).toBeInTheDocument(); // Confirmations count
+      // Clickable avatar present with correct user id
+      const avatarBtn = screen.getByTestId("user-avatar-button");
+      expect(avatarBtn).toHaveAttribute("data-user-id", mockIntelPost.user_id);
     });
 
     it("shows post count badge when posts exist", () => {

@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
-import { Menu, X, Loader2, User, LogOut } from "lucide-react";
+import { Menu, X, Loader2, User, LogOut, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useUserProfile } from "@/hooks/use-user-profile";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { Badge } from "@/components/ui/badge";
+// no notifications bell; link in avatar menu instead
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +33,36 @@ export function AppHeader() {
     userId: user?.id,
     enabled: !!user,
   });
+
+  // Notifications are accessible via avatar dropdown → Notifications (/inbox)
+
+  // Unread notification count (pending invitations)
+  const fetchNotificationsCount = useCallback(async () => {
+    if (!user) return 0;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch(
+        "/api/session-planner/invitations?type=received",
+        {
+          cache: "no-store",
+          signal: controller.signal,
+        }
+      );
+      if (!res.ok) return 0;
+      const json = await res.json();
+      const list: any[] = json?.data?.invitations || [];
+      return list.filter((i) => i.status === "pending").length;
+    } catch {
+      return 0;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }, [user]);
+
+  const { data: unreadCount = 0 } = useDataFetcher<number>(
+    fetchNotificationsCount
+  );
 
   // Navigation items - different for authenticated vs unauthenticated users
   const navItems: { name: string; href: string; icon: null }[] = user
@@ -134,6 +167,20 @@ export function AppHeader() {
                   <Link href="/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/inbox"
+                    className="cursor-pointer flex items-center"
+                  >
+                    <Bell className="mr-2 h-4 w-4" />
+                    <span>Notifications</span>
+                    {unreadCount > 0 && (
+                      <Badge variant="secondary" className="ml-2 h-5 px-2">
+                        {unreadCount}
+                      </Badge>
+                    )}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

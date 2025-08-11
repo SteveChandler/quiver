@@ -355,59 +355,94 @@ export async function GET(request: NextRequest) {
       return createSuccessResponse(friends);
     }
 
-    let query = supabase.from("session_invitations").select(`
-        *,
-        session:sessions(
-          id,
-          beach_name,
-          beach_id,
-          arrival_time,
-          status,
-          notes
-        ),
-        inviter:profiles!session_invitations_inviter_id_fkey(
-          id,
-          full_name,
-          avatar_url,
-          email
-        ),
-        invitee:profiles!session_invitations_invitee_id_fkey(
-          id,
-          full_name,
-          avatar_url,
-          email
-        )
-      `);
-
+    let invitations: any[] = [];
     if (type === "sent") {
-      query = query.eq("inviter_id", user.id);
+      const selectFields = `
+        id,
+        status,
+        message,
+        created_at,
+        session:sessions(id, beach_name, arrival_time),
+        inviter:profiles!session_invitations_inviter_id_fkey(id, full_name, email, avatar_url)
+      `;
+      const { data, error } = await supabase
+        .from("session_invitations")
+        .select(selectFields)
+        .eq("inviter_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Error fetching sent invitations:", error);
+        return createErrorResponse(
+          "Failed to fetch invitations",
+          error.message
+        );
+      }
+      invitations = data || [];
     } else {
-      // Received invitations - check both user ID and email
-      query = query.or(
-        `invitee_id.eq.${user.id},invitee_email.eq.${user.email}`
+      // Received: fetch by ID, and separately by email if present; then merge
+      const selectFields = `
+        id,
+        status,
+        message,
+        created_at,
+        session:sessions(id, beach_name, arrival_time),
+        inviter:profiles!session_invitations_inviter_id_fkey(id, full_name, email, avatar_url)
+      `;
+      const base = supabase.from("session_invitations").select(selectFields);
+      const filters: any[] = [];
+      const byId = base
+        .eq("invitee_id", user.id)
+        .order("created_at", { ascending: false });
+      filters.push(byId);
+
+      const emailVal = user.email;
+      if (emailVal && typeof emailVal === "string" && emailVal.length > 0) {
+        const byEmail = supabase
+          .from("session_invitations")
+          .select("*")
+          .eq("invitee_email", emailVal)
+          .order("created_at", { ascending: false });
+        filters.push(byEmail);
+      }
+
+      // Execute sequentially to keep it simple and robust
+      const { data: dataById, error: errId } = await byId;
+      if (errId) {
+        console.error("Error fetching invitations by id:", errId);
+      }
+      const listById = Array.isArray(dataById) ? dataById : [];
+
+      let listByEmail: any[] = [];
+      if (filters.length > 1) {
+        const { data: dataByEmail, error: errEmail } =
+          await (filters[1] as any);
+        if (errEmail) {
+          console.error("Error fetching invitations by email:", errEmail);
+        }
+        listByEmail = Array.isArray(dataByEmail) ? dataByEmail : [];
+      }
+
+      invitations = [...listById, ...listByEmail].reduce(
+        (acc: any[], row: any) => {
+          if (!acc.find((r) => r.id === row.id)) acc.push(row);
+          return acc;
+        },
+        []
       );
+
+      if (sessionId) {
+        invitations = invitations.filter((inv) => inv.session_id === sessionId);
+      }
     }
 
-    if (sessionId) {
-      query = query.eq("session_id", sessionId);
-    }
-
-    query = query.order("created_at", { ascending: false });
-
-    const { data: invitations, error: invitationsError } = await query;
-
-    if (invitationsError) {
-      console.error("Error fetching invitations:", invitationsError);
-      return createErrorResponse(
-        "Failed to fetch invitations",
-        invitationsError.message
-      );
-    }
-
-    return createSuccessResponse({
-      type,
-      invitations: invitations || [],
-    });
+    return createSuccessResponse(
+      {
+        type,
+        invitations: Array.isArray(invitations) ? invitations : [],
+      },
+      undefined,
+      200
+    );
   } catch (error) {
     console.error("Error in GET /api/session-planner/invitations:", error);
     return createErrorResponse(

@@ -18,6 +18,12 @@
 
 - Vercel Hobby compliance: changed `vercel.json` cron for `/api/cron/forecasts/refresh` from every 3 hours (`0 */3 * * *`) to daily at 12:00 UTC (`0 12 * * *`). This staggers from the 06:00 UTC enhanced sync and avoids Hobby limit violations.
 
+- UI polish: Added bell icon to Notifications item in avatar dropdown (`components/app-header.tsx`) following `components/ARCHITECTURE.md` icon sizing/spacing patterns.
+
+- Fixed: `session_invitations` RLS blocked inbox queries by referencing `auth.users`. Replaced with JWT email claim in policies:
+  - SELECT: `invitee_id = auth.uid() OR invitee_email = (auth.jwt() ->> 'email')`
+  - UPDATE: same USING/WITH CHECK. Migration `20250811153000_fix_session_invitations_rls.sql`.
+
 ### Fixed
 
 - Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user’s actual position.
@@ -50,6 +56,7 @@
   - `scripts/mock-beach-reviews.sql` seeds realistic beach reviews across popular beaches using existing persona profiles; idempotent with unique `(beach_id, user_id)` constraint and randomized ratings/visit dates.
   - `scripts/mock-intel-all-beaches.sql` seeds intel posts across many beaches, with surf condition fields and randomized confirmations; complements existing `scripts/mock-popular-beaches-intel.sql` and `scripts/mock-last-week-community-data.sql`.
   - Both scripts include quick verification queries and are safe to re-run in Supabase SQL editor.
+  - `scripts/mock-solid-snake.sql` seeds the “Solid Snake” persona with a profile, board, planned and completed sessions, follows to Big Boss/Liquid Snake (if present), and two pending invitations for inbox testing; includes verification queries. Idempotent and safe to re-run.
 
 # Quiver Surf App - Changelog
 

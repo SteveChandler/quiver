@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
+import { UserAvatarButton } from "@/components/social/user-avatar-button";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
 import { useActivityFeed } from "@/hooks/use-activity-feed";
 import { formatDistanceToNow } from "date-fns";
@@ -201,11 +202,20 @@ export function ActivityFeed({
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <UserAvatar
-                    src={activity.user_avatar}
-                    name={activity.user_name}
-                    size="sm"
-                  />
+                  {activity.user_id ? (
+                    <UserAvatarButton
+                      userId={activity.user_id}
+                      src={activity.user_avatar}
+                      name={activity.user_name}
+                      size="sm"
+                    />
+                  ) : (
+                    <UserAvatar
+                      src={activity.user_avatar}
+                      name={activity.user_name}
+                      size="sm"
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       {renderActivityIcon(activity.activity_type)}

@@ -160,14 +160,14 @@ export function GroupInvitationsSection({
       <div className="flex items-center mb-3">
         <Users className="w-4 h-4 mr-2 text-primary" />
         <label className="block text-sm font-medium">
-          Invite Friends (Optional)
+          Invite from Following (Optional)
         </label>
       </div>
 
       {/* Friends from Following List */}
       {friends.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium mb-2">Your Surf Buddies</h4>
+          <h4 className="text-sm font-medium mb-2">People You Follow</h4>
           <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
             {friends.slice(0, 10).map((friend: Friend) => {
               const isSelected = selectedFriends.some(
