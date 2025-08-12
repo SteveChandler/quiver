@@ -84,6 +84,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Per-beach scoring weights (`w_wind`, `w_swell`, `w_tide`, `w_period`, `w_height`) stored on `public.beaches` with defaults 0.4/0.4/0.2/0/0, consumed by `v_beach_hourly_scores`. Migration `20250812162000_add_beach_scoring_weights.sql`.
 
+- Updated default weights to wind .30, tide .20, swell .25, period .15, height .10 and backfilled existing rows. Migration `20250812162500_update_beach_scoring_weight_defaults.sql`.
+
 - Integrated Vercel Web Analytics and Speed Insights in `app/layout.tsx` to collect page views and performance metrics in production. Follows App Router root layout pattern documented in `app/ARCHITECTURE.md`.
 
 - Google Analytics (GA4) integration:
