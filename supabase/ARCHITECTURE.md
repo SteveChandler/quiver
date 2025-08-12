@@ -414,7 +414,7 @@ Before any new migration:
 ## 🪟 Utility Views
 
 - `public.v_beach_hourly_scores`
-  - Computes per-hour surf suitability scores (0–100) for each beach using wind direction vs. offshore bearing, tide preference band, swell window inclusion with fade, and triangles around preferred period/height.
-  - Weights are configurable per beach via `beach_recommendation_calibration` (`w_wind`, `w_tide`, `w_swell`, `w_period`, `w_height`).
-  - Uses `hourly_forecast(beach_id, ts, wind_dir_deg, wind_kts, tide_ft, swell_dir_deg, period_s, height_ft, confidence_0_1)`.
+  - Computes per-hour surf suitability scores (0–100) for each beach using wind direction vs. offshore bearing, tide preference band, and swell window inclusion with fade.
+  - Inputs: `marine_forecasts(beach_id, ts, wind_direction_deg, wind_speed_ms, wave_direction_deg)` and `tide_forecasts(beach_id, ts, tide_height_m)`; preferences from `beaches` (`wind_offshore_deg`, `wind_cross_shore_ok_kt`, `preferred_tide_ft_min/max`, `swell_window_min/max`).
+  - Current weights: wind 0.4, swell 0.4, tide 0.2. Period/height scoring reserved for later when calibrated fields exist.
   - Introduced by migration `20250812160500_create_v_beach_hourly_scores.sql` with rollback `20250812160501_rollback_v_beach_hourly_scores.sql`.
