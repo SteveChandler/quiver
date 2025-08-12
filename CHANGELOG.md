@@ -1,5 +1,13 @@
 ### Added
 
+- Beach Details accordion with three sections following `components/ARCHITECTURE.md` patterns:
+  - Spot Overview (default open, persisted via localStorage) showing spot summary, amenities, hazards, surfer reviews, and best-of gallery
+  - Local Intel with real-time check-ins, accuracy voting, and Add Your Check-in
+  - Forecast & Tides with tide chart, forecast tables, and best times
+- New components: `components/beach-detail/spot-overview.tsx`, `components/beach-detail/beach-check-ins.tsx`, `components/beach-detail/forecast-and-tides.tsx`
+- New action: `actions/beach-media-actions.ts` for best-of gallery photos (session media by beach)
+- New hook: `hooks/use-local-storage-state.ts` to persist UI open/closed state
+
 - SEO baseline setup following App Router patterns (`app/ARCHITECTURE.md`, `components/seo/ARCHITECTURE.md`):
   - `app/robots.ts` with staging-aware noindex handling
   - `app/sitemap.ts` auto-generating sitemap for core routes and dynamic beach pages
@@ -67,6 +75,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+
+- Database function `public.cardinal_to_deg(text)` to map cardinal directions to degrees; migration `20250812160000_add_cardinal_to_deg_function.sql`.
 
 - Integrated Vercel Web Analytics and Speed Insights in `app/layout.tsx` to collect page views and performance metrics in production. Follows App Router root layout pattern documented in `app/ARCHITECTURE.md`.
 
@@ -202,6 +212,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Updated `components/session-forms/OptimalTimesSection.tsx` to render time ranges, add test ids, and context-aware label.
 
 ### Fixed
+
+### Removed
+
+- Dead code cleanup and tooling:
+
+  - Added `knip`, `ts-prune`, and `depcheck` with scripts: `dead:knip`, `dead:tsprune`, `dead:deps`, `dead:all`, `typecheck:strict-unused`
+  - Removed unused files flagged by analysis:
+    - `actions/beach-review-actions-optimized.ts`
+    - `actions/forecast/forecast-actions.ts` (superseded by normalized forecast APIs)
+    - `actions/setup-actions.ts`
+    - `app/map/enhanced-page.tsx`
+    - `hooks/use-beach-forecast.ts`, `hooks/use-enhanced-beach-data.ts`, `hooks/use-form-submission.ts`, `hooks/use-optimized-realtime.ts`
+    - `lib/auth/admin-wrapper.ts`, `lib/beach-update-config.ts`, `lib/client-fetch.ts`, `lib/constants.ts`, `lib/services/open-meteo-service.ts`
+    - Scripts: `clean-and-regenerate-enhanced-forecasts.mjs`, `cleanup-invalid-buoys.mjs`, `setup-enhanced-forecasts.mjs`, `update-enhanced-forecasts-real-data.mjs`, `update-ocean-beach-forecast.ts`
+  - Removed unused dependencies: `autoprefixer`, `file-saver`, `leaflet`, `node-fetch`, `uuid`, `@types/file-saver`, `@types/leaflet`
+  - Fixed duplicate export by making `components/ui/forecast-data-transparency.tsx` default-only export and updating imports/tests
+  - Ensured build and tests pass after removals
+
+- Playwright E2E suite consolidation (no coverage loss):
+
+  - Removed redundant specs: `e2e/end-to-end.spec.ts`, `e2e/realistic-user-scenarios.spec.ts`, `e2e/map-simplified.spec.ts`, `e2e/beach-card-interactions.spec.ts`, `e2e/session-planning-critical.spec.ts`, `e2e/plan-session-photo-upload.spec.ts`, `e2e/unauthenticated-user-flows.spec.ts`
+  - Kept umbrella `e2e/comprehensive.spec.ts` and focused domain specs
+  - Updated `e2e/ARCHITECTURE.md` to reflect lean, non-overlapping suite
 
 - Made Optimal Times recommendations relevant for afternoon/evening selections instead of generic early morning suggestions.
 - Replaced non-existent `Tide` icon with `Droplet` from `lucide-react` in Spot Conditions summary

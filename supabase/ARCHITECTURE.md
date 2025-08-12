@@ -400,3 +400,13 @@ Before any new migration:
 **Next Review**: After reaching 100 active users
 
 **Key Principles**: Performance-first, scalable, secure database evolution that supports the app's growth from 0 to 1,000+ users while maintaining data integrity and user experience.
+
+---
+
+## 🧩 Utility SQL Functions
+
+- `public.cardinal_to_deg(text)`
+  - Converts compass cardinal/ordinal directions (e.g., `N`, `ENE`, `SSW`) to degrees.
+  - Marked `IMMUTABLE`; returns `NULL` for unknown inputs after `trim/upper` normalization.
+  - Introduced by migration `20250812160000_add_cardinal_to_deg_function.sql` with rollback `20250812160001_rollback_cardinal_to_deg_function.sql`.
+  - Intended for use in views, reports, and data normalization queries where directional text must be mapped to numeric bearings.
