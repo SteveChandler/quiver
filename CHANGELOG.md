@@ -80,6 +80,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Database view `public.v_beach_hourly_scores` to compute per-hour beach suitability score (0–100) based on wind (vs offshore), tide band, and swell window; inputs from `marine_forecasts`, `tide_forecasts`, and `beaches`. Migration `20250812160500_create_v_beach_hourly_scores.sql`.
 
+- RPC `public.get_best_times(p_beach uuid, p_start timestamptz, p_end timestamptz, p_limit int)` to return top 2-hour windows with labels (`epic/good/fair/poor`) based on rolling averages from `v_beach_hourly_scores`. Migration `20250812161000_create_get_best_times.sql`.
+
 - Integrated Vercel Web Analytics and Speed Insights in `app/layout.tsx` to collect page views and performance metrics in production. Follows App Router root layout pattern documented in `app/ARCHITECTURE.md`.
 
 - Google Analytics (GA4) integration:

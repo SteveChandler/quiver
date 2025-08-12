@@ -418,3 +418,10 @@ Before any new migration:
   - Inputs: `marine_forecasts(beach_id, ts, wind_direction_deg, wind_speed_ms, wave_direction_deg)` and `tide_forecasts(beach_id, ts, tide_height_m)`; preferences from `beaches` (`wind_offshore_deg`, `wind_cross_shore_ok_kt`, `preferred_tide_ft_min/max`, `swell_window_min/max`).
   - Current weights: wind 0.4, swell 0.4, tide 0.2. Period/height scoring reserved for later when calibrated fields exist.
   - Introduced by migration `20250812160500_create_v_beach_hourly_scores.sql` with rollback `20250812160501_rollback_v_beach_hourly_scores.sql`.
+
+## 🧮 Utility RPCs
+
+- `public.get_best_times(p_beach uuid, p_start timestamptz, p_end timestamptz, p_limit int default 6)`
+  - Returns top-scoring 2-hour windows within the range using `v_beach_hourly_scores` rolling averages, labelled `epic/good/fair/poor`.
+  - Read-only (`stable`), executable by `anon`, `authenticated`, and `service_role`.
+  - Introduced by migration `20250812161000_create_get_best_times.sql` with rollback `20250812161001_rollback_get_best_times.sql`.
