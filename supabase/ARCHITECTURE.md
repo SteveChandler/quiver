@@ -410,3 +410,11 @@ Before any new migration:
   - Marked `IMMUTABLE`; returns `NULL` for unknown inputs after `trim/upper` normalization.
   - Introduced by migration `20250812160000_add_cardinal_to_deg_function.sql` with rollback `20250812160001_rollback_cardinal_to_deg_function.sql`.
   - Intended for use in views, reports, and data normalization queries where directional text must be mapped to numeric bearings.
+
+## 🪟 Utility Views
+
+- `public.v_beach_hourly_scores`
+  - Computes per-hour surf suitability scores (0–100) for each beach using wind direction vs. offshore bearing, tide preference band, swell window inclusion with fade, and triangles around preferred period/height.
+  - Weights are configurable per beach via `beach_recommendation_calibration` (`w_wind`, `w_tide`, `w_swell`, `w_period`, `w_height`).
+  - Uses `hourly_forecast(beach_id, ts, wind_dir_deg, wind_kts, tide_ft, swell_dir_deg, period_s, height_ft, confidence_0_1)`.
+  - Introduced by migration `20250812160500_create_v_beach_hourly_scores.sql` with rollback `20250812160501_rollback_v_beach_hourly_scores.sql`.

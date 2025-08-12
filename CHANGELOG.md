@@ -78,6 +78,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Database function `public.cardinal_to_deg(text)` to map cardinal directions to degrees; migration `20250812160000_add_cardinal_to_deg_function.sql`.
 
+- Database view `public.v_beach_hourly_scores` to compute per-hour beach suitability score (0–100) based on wind, tide, swell direction window, period, and height with beach-specific weights; migration `20250812160500_create_v_beach_hourly_scores.sql`.
+
 - Integrated Vercel Web Analytics and Speed Insights in `app/layout.tsx` to collect page views and performance metrics in production. Follows App Router root layout pattern documented in `app/ARCHITECTURE.md`.
 
 - Google Analytics (GA4) integration:
