@@ -8,9 +8,14 @@ import { Sun, Clock, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { fetchBestTimes } from "@/lib/bestTimes";
+import { fetchBestTimes, fetchBestTimesApi } from "@/lib/bestTimes";
 import { createClient } from "@/lib/supabase/client";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ForecastAndTidesProps {
   beach: Beach;
@@ -99,7 +104,17 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
       };
     };
 
-    // Primary: standout windows (RPC already filters >=55)
+    // Primary: use API (edge cached, prefers materialized view). Fallback to RPC if needed.
+    try {
+      const api = await fetchBestTimesApi(beach.id, 48, 6);
+      if (api.windows && api.windows.length > 0) {
+        return api.windows.map((w: any) => ({
+          label: `${formatTimeRange(w.start_ts, w.end_ts)} — ${w.grade} (${w.score})`,
+          score: w.score,
+        }));
+      }
+    } catch {}
+
     const primary = await fetchBestTimes(supabase as any, beach.id, 48, 6);
     if (primary.data && primary.data.length > 0) {
       const enriched = await Promise.all(
@@ -160,7 +175,15 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
         label: `${formatTimeRange(
           w.start.toISOString(),
           w.end.toISOString()
-        )} — ${w.score >= 85 ? "epic" : w.score >= 70 ? "good" : w.score >= 55 ? "fair" : "poor"} (${w.score})`,
+        )} — ${
+          w.score >= 85
+            ? "epic"
+            : w.score >= 70
+            ? "good"
+            : w.score >= 55
+            ? "fair"
+            : "poor"
+        } (${w.score})`,
         score: w.score,
         why,
       });
@@ -223,7 +246,14 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
                       {t.why && (
                         <TooltipContent side="top">
                           <div className="mb-1 text-xs text-muted-foreground">
-                            Why (peak hour: {new Date(t.why.ts_utc).toLocaleTimeString(undefined, { hour: "numeric", hour12: true }).replace(":00", "")}):
+                            Why (peak hour:{" "}
+                            {new Date(t.why.ts_utc)
+                              .toLocaleTimeString(undefined, {
+                                hour: "numeric",
+                                hour12: true,
+                              })
+                              .replace(":00", "")}
+                            ):
                           </div>
                           <FactorBars why={t.why} />
                         </TooltipContent>

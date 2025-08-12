@@ -86,6 +86,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Updated default weights to wind .30, tide .20, swell .25, period .15, height .10 and backfilled existing rows. Migration `20250812162500_update_beach_scoring_weight_defaults.sql`.
 
+- Materialized view `public.mv_best_times` with hourly pg_cron refresh and API `GET /api/recommendations/best-times` that prefers MV and sets edge cache (s-maxage=600, SWR=300). UI now calls the API first with RPC fallback.
+
 - Integrated Vercel Web Analytics and Speed Insights in `app/layout.tsx` to collect page views and performance metrics in production. Follows App Router root layout pattern documented in `app/ARCHITECTURE.md`.
 
 - Google Analytics (GA4) integration:
