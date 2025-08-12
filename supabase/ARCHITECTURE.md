@@ -425,3 +425,15 @@ Before any new migration:
   - Returns top-scoring 2-hour windows within the range using `v_beach_hourly_scores` rolling averages, labelled `epic/good/fair/poor`.
   - Read-only (`stable`), executable by `anon`, `authenticated`, and `service_role`.
   - Introduced by migration `20250812161000_create_get_best_times.sql` with rollback `20250812161001_rollback_get_best_times.sql`.
+
+## ⚖️ Scoring Weights (per beach)
+
+Weights stored on `public.beaches`:
+
+- `w_wind` (default 0.400)
+- `w_swell` (default 0.400)
+- `w_tide` (default 0.200)
+- `w_period` (default 0.000)
+- `w_height` (default 0.000)
+
+All weights are in [0, 1]. The view `public.v_beach_hourly_scores` reads these to compute `score_0_100`. Defaults are applied via `COALESCE` and can be tuned per-spot by admins (future UI). Introduced by migration `20250812162000_add_beach_scoring_weights.sql` with rollback `20250812162001_rollback_beach_scoring_weights.sql`.
