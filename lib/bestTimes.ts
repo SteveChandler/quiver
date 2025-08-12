@@ -12,10 +12,11 @@ export async function fetchBestTimes(
 ): Promise<{ data: GetBestTimesRow[] | null; error: PostgrestError | null }> {
   const start = new Date().toISOString();
   const end = new Date(Date.now() + hours * 3600 * 1000).toISOString();
-  return supabase.rpc("get_best_times", {
+  const { data, error } = await supabase.rpc("get_best_times", {
     p_beach: beachId,
     p_start: start,
     p_end: end,
     p_limit: limit,
-  }) as Promise<{ data: GetBestTimesRow[] | null; error: PostgrestError | null }>;
+  });
+  return { data: (data as GetBestTimesRow[] | null) ?? null, error };
 }
