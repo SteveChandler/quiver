@@ -545,9 +545,32 @@ export type Database = {
         >;
       };
     };
+    Functions: {
+      get_best_times: {
+        Args: {
+          p_beach: string;
+          p_start: string; // timestamptz ISO string
+          p_end: string; // timestamptz ISO string
+          p_limit?: number;
+        };
+        Returns: Array<{
+          start_ts: string; // timestamptz ISO string
+          end_ts: string; // timestamptz ISO string
+          label: string;
+          score: number;
+        }>;
+      };
+    };
     Enums: {
       session_status: SessionStatus;
       intel_post_tag: IntelPostTag;
     };
   };
+};
+
+export type GetBestTimesRow = {
+  start_ts: string;
+  end_ts: string;
+  label: string;
+  score: number;
 };
