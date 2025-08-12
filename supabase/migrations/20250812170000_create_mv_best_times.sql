@@ -64,7 +64,7 @@ BEGIN
     PERFORM cron.schedule(
       'refresh_mv_best_times_hourly',
       '7 * * * *',
-      $$SELECT public.refresh_mv_best_times();$$
+      'SELECT public.refresh_mv_best_times();'
     );
   END IF;
 END;
