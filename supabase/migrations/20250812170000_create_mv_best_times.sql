@@ -58,14 +58,18 @@ $$;
 -- pg_cron schedule (hourly at minute 7)
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM cron.job WHERE jobname = 'refresh_mv_best_times_hourly'
-  ) THEN
-    PERFORM cron.schedule(
-      'refresh_mv_best_times_hourly',
-      '7 * * * *',
-      'SELECT public.refresh_mv_best_times();'
-    );
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM cron.job WHERE jobname = 'refresh_mv_best_times_hourly'
+    ) THEN
+      PERFORM cron.schedule(
+        'refresh_mv_best_times_hourly',
+        '7 * * * *',
+        'SELECT public.refresh_mv_best_times();'
+      );
+    END IF;
+  ELSE
+    RAISE NOTICE 'pg_cron not installed; skipping schedule for mv_best_times';
   END IF;
 END;
 $$;
