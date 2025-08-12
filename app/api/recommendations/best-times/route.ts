@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     // Try MV first
     const mv = await supabase
       .from("mv_best_times")
-      .select("start_ts,end_ts,grade,score")
+      .select("start_ts,end_ts,grade,score,advanced_only")
       .eq("beach_id", beachId)
       .gte("start_ts", startIso)
       .lte("end_ts", endIso)
@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         end_ts: r.end_ts,
         grade: (r.label || "").split(" ")[0] || "",
         score: r.score,
+        advanced_only: false,
       }));
     }
 

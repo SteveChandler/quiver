@@ -109,7 +109,9 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
       const api = await fetchBestTimesApi(beach.id, 48, 6);
       if (api.windows && api.windows.length > 0) {
         return api.windows.map((w: any) => ({
-          label: `${formatTimeRange(w.start_ts, w.end_ts)} — ${w.grade} (${w.score})`,
+          label: `${formatTimeRange(w.start_ts, w.end_ts)} — ${w.grade} (${w.score})${
+            (w as any).advanced_only ? " · Advanced only" : ""
+          }`,
           score: w.score,
         }));
       }
