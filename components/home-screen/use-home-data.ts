@@ -37,14 +37,14 @@ export function useHomeData(): UseHomeDataReturn {
     loading: beachesLoading,
     error: beachesError,
     refetch: refetchBeaches,
-  } = useDataFetcher(fetchBeaches);
+  } = useDataFetcher(fetchBeaches, { initialData: [] as Beach[] });
 
   const {
     data: sessionsData,
     loading: sessionsLoading,
     error: sessionsError,
     refetch: refetchSessions,
-  } = useDataFetcher(fetchSessions);
+  } = useDataFetcher(fetchSessions, { initialData: [] as SessionWithDetails[] });
 
   const refetch = useCallback(() => {
     refetchBeaches();

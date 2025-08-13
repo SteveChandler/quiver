@@ -1,5 +1,11 @@
 ### Added
 
+- Recommendations v1 scaffold:
+
+  - Pure scorer in `lib/utils/recommendation-scorer.ts` using beach preference fields
+  - API `GET /api/v1/recommendations?lat&lon&time` returning nearby ranked spots
+  - DB table `spot_feedback` with RLS for user feedback
+
 - Beach Details accordion with three sections following `components/ARCHITECTURE.md` patterns:
   - Spot Overview (default open, persisted via localStorage) showing spot summary, amenities, hazards, surfer reviews, and best-of gallery
   - Local Intel with real-time check-ins, accuracy voting, and Add Your Check-in
@@ -17,6 +23,8 @@
 
 ### Changed
 
+- Forecast actions now read from `enhanced_forecasts` with explicit date window; removed dependency on deleted `ten_day_enhanced_forecasts` view to fix runtime errors on beach pages
+
 - Consolidated global metadata in `app/layout.tsx` to use `SEO_CONFIG` defaults and standardized title template
 - Updated `SEO_CONFIG` Open Graph image to use existing `public/images/buoy.png`
 - Converted Vitest-style tests to Jest-compatible mocks for check-in features (`__tests__/setup/vitest-shim.ts` added)
@@ -27,6 +35,8 @@
 - Vercel Hobby compliance: changed `vercel.json` cron for `/api/cron/forecasts/refresh` from every 3 hours (`0 */3 * * *`) to daily at 12:00 UTC (`0 12 * * *`). This staggers from the 06:00 UTC enhanced sync and avoids Hobby limit violations.
 
 - UI polish: Added bell icon to Notifications item in avatar dropdown (`components/app-header.tsx`) following `components/ARCHITECTURE.md` icon sizing/spacing patterns.
+
+- Local Intel section on beach pages now uses `components/intel/beach-intel-section.tsx` backed by `/api/intel` and `get_nearby_intel_posts` RPC. Removed check-ins view from this section to surface intel posts, confirmations, and tagging. Followed `hooks/ARCHITECTURE.md` data fetching with `useDataFetcher` via `useIntelData`.
 
 - Fixed: `session_invitations` RLS blocked inbox queries by referencing `auth.users`. Replaced with JWT email claim in policies:
   - SELECT: `invitee_id = auth.uid() OR invitee_email = (auth.jwt() ->> 'email')`
@@ -61,9 +71,18 @@
   - Forecast tab now accepts `overrideBeach` and updates when a search succeeds
 
 - Mock data scripts for reviews and intel (for lively demo data following `components/beach/ARCHITECTURE.md` and `components/intel/ARCHITECTURE.md` patterns):
+
   - `scripts/mock-beach-reviews.sql` seeds realistic beach reviews across popular beaches using existing persona profiles; idempotent with unique `(beach_id, user_id)` constraint and randomized ratings/visit dates.
   - `scripts/mock-intel-all-beaches.sql` seeds intel posts across many beaches, with surf condition fields and randomized confirmations; complements existing `scripts/mock-popular-beaches-intel.sql` and `scripts/mock-last-week-community-data.sql`.
   - Both scripts include quick verification queries and are safe to re-run in Supabase SQL editor.
+
+- Supabase migrations for intel and reviews are included and should be applied locally for populated content:
+  - `20250817120000_create_intel_and_reviews_tables.sql`
+  - `20250817160000_add_intel_api_functions.sql`
+  - `20250817130000_seed_mock_users.sql`
+  - `20250817140000_seed_intel_posts.sql`
+  - `20250817150000_seed_beach_reviews.sql`
+  - Optional: `20250817170000_seed_pacific_ocean_beach_data.sql` for PB/OB richness
   - `scripts/mock-solid-snake.sql` seeds the “Solid Snake” persona with a profile, board, planned and completed sessions, follows to Big Boss/Liquid Snake (if present), and two pending invitations for inbox testing; includes verification queries. Idempotent and safe to re-run.
 
 # Quiver Surf App - Changelog

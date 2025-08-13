@@ -221,6 +221,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
     fetchBest,
     {
       immediate: true,
+      initialData: [] as WindowWithWhy[],
     }
   );
 

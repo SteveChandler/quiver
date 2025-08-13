@@ -25,30 +25,38 @@ export async function getUserSessions(userId: string, limit?: number) {
   return withServerAction(async () => {
     const supabase = await createSupabaseServerClient();
 
-    let query = supabase
-      .from("sessions")
-      .select(
+    try {
+      let query = supabase
+        .from("sessions")
+        .select(
+          `
+          *,
+          beach:beaches(*),
+          board:boards(*),
+          user:profiles(*)
         `
-        *,
-        beach:beaches(*),
-        board:boards(*),
-        user:profiles(*)
-      `
-      )
-      .eq("user_id", userId)
-      .order("arrival_time", { ascending: false });
+        )
+        .eq("user_id", userId)
+        .order("arrival_time", { ascending: false });
 
-    if (limit) {
-      query = query.limit(limit);
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as SessionWithDetails[];
+    } catch (e) {
+      // Fallback to basic select when relationships are missing in local schema
+      let basic = supabase
+        .from("sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("arrival_time", { ascending: false });
+      if (limit) basic = basic.limit(limit);
+      const { data: basicData } = await basic;
+      return (basicData || []) as unknown as SessionWithDetails[];
     }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    return data as SessionWithDetails[];
   });
 }
 

@@ -25,7 +25,7 @@ import {
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { MapPin, MessageSquare, Waves, Star } from "lucide-react";
 import { SpotOverview } from "@/components/beach-detail/spot-overview";
-import { BeachCheckIns } from "@/components/beach-detail/beach-check-ins";
+// Replacing BeachCheckIns with BeachIntelSection in Local Intel section
 import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
 import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
 import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
@@ -104,6 +104,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
     refetch,
   } = useDataFetcher(fetchForecasts, {
     immediate: true,
+    initialData: [] as EnhancedForecastEntity[],
   });
 
   // Combined loading and error states
@@ -318,7 +319,12 @@ export function BeachDetail({ id }: BeachDetailProps) {
               </span>
             </AccordionTrigger>
             <AccordionContent>
-              <BeachCheckIns beachId={id} beachName={beach.name} />
+              <BeachIntelSection
+                beachId={id}
+                beachName={beach.name}
+                latitude={beach.latitude}
+                longitude={beach.longitude}
+              />
             </AccordionContent>
           </AccordionItem>
 

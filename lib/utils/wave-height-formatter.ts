@@ -58,3 +58,61 @@ export function getWaveHeightValue(
 ): number | undefined {
   return parseWaveHeight(waveHeight);
 }
+
+/**
+ * Convert various swell/height inputs to a display face height in feet.
+ * Rules (tuned for San Diego beaches):
+ * - If CDIP significant height is modest (<= 8ft), trust CDIP directly
+ * - If CDIP looks like an outlier vs model primary swell (cdip > 1.8x model),
+ *   prefer model primary swell scaled to face (≈1.2x)
+ * - Otherwise prefer model primary swell face if available; fallback to model Hs
+ * - Clamp to reasonable local range [0.5ft, 8ft] to avoid obvious spikes
+ */
+export function toFaceHeightFeet(params: {
+  cdipSigFt?: number | null;
+  cdipSwellFt?: number | null;
+  modelSwellM?: number | null;
+  modelHsM?: number | null;
+}): string | null {
+  const mToFt = (m?: number | null) =>
+    m == null || !isFinite(m) ? undefined : m * 3.28084;
+  const roundFt = (ft: number) => Math.round(ft * 10) / 10;
+  const clamp = (ft: number) => Math.min(8, Math.max(0.5, ft));
+
+  const cdipSig = params.cdipSigFt != null && isFinite(params.cdipSigFt)
+    ? (params.cdipSigFt as number)
+    : undefined;
+  const cdipSwell = params.cdipSwellFt != null && isFinite(params.cdipSwellFt)
+    ? (params.cdipSwellFt as number)
+    : undefined;
+  const modelSwell = mToFt(params.modelSwellM);
+  const modelHs = mToFt(params.modelHsM);
+
+  // Trust CDIP when it's within typical SD range
+  if (cdipSig !== undefined && cdipSig <= 8) {
+    // If we also have model swell and CDIP is a large outlier vs model, defer to model face
+    if (modelSwell !== undefined && cdipSig > modelSwell * 1.8) {
+      const face = clamp(modelSwell * 1.2);
+      return `${roundFt(face)} ft`;
+    }
+    return `${roundFt(clamp(cdipSig))} ft`;
+  }
+
+  // Prefer model primary swell → face
+  if (modelSwell !== undefined) {
+    const face = clamp(modelSwell * 1.2);
+    return `${roundFt(face)} ft`;
+  }
+
+  // CDIP swell face as fallback
+  if (cdipSwell !== undefined) {
+    return `${roundFt(clamp(cdipSwell * 1.1))} ft`;
+  }
+
+  // Model Hs as last resort
+  if (modelHs !== undefined) {
+    return `${roundFt(clamp(modelHs * 1.1))} ft`;
+    }
+
+  return null;
+}

@@ -69,7 +69,7 @@ export function ForecastTab({
 
   const { data: popularBeach, loading: popularLoading } = useDataFetcher(
     fetchPopularBeach,
-    { skip: !!defaultBeach?.id }
+    { skip: !!defaultBeach?.id, initialData: null }
   );
 
   const effectiveBeach = (overrideBeach ||
@@ -107,6 +107,7 @@ export function ForecastTab({
   } = useDataFetcher(fetchTodaysForecast, {
     // Skip until we know which beach to use
     skip: !effectiveBeach?.id,
+    initialData: null,
   });
 
   console.log("🏖️ ForecastTab useDataFetcher result:", {

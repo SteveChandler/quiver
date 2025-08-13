@@ -107,6 +107,20 @@ async function globalSetup(config: FullConfig) {
       return;
     }
 
+    // Seed test user via service-role-backed test endpoint (non-prod only)
+    try {
+      if (testEmail && testPassword) {
+        const seedUrl = new URL("/api/test/auth/seed-user", baseUrl).toString();
+        const resp = await page.request.post(seedUrl, {
+          data: { email: testEmail, password: testPassword },
+          headers: { "Content-Type": "application/json" },
+        });
+        console.log(`🔧 Seed user response: ${resp.status()}`);
+      }
+    } catch (seedErr) {
+      console.warn("⚠️  Seed user request failed (continuing):", seedErr);
+    }
+
     console.log("📝 Attempting to sign in with test credentials...");
 
     // Fill the form carefully with proper waits
@@ -134,37 +148,65 @@ async function globalSetup(config: FullConfig) {
       );
       console.log("✅ Authentication successful!");
     } catch (error) {
-      // Check if we're still on sign-in page (authentication failed)
-      const currentUrl = page.url();
-      if (currentUrl.includes("/auth/sign-in")) {
+      // Attempt signup fallback then retry sign-in once
+      try {
+        console.warn("⚠️  Authentication failed - attempting sign-up fallback...");
+        await page.goto(new URL("/auth/sign-up", baseUrl).toString());
+        await page.waitForLoadState("load");
+
+        const suEmail = page
+          .locator('input[type="email"], input[id="email"], input[name="email"]')
+          .first();
+        const suPassword = page
+          .locator('input[type="password"], input[id="password"], input[name="password"]')
+          .first();
+        const suSubmit = page
+          .locator('button[type="submit"]').filter({ hasText: /sign up/i });
+
+        if (
+          (await suEmail.isVisible().catch(() => false)) &&
+          (await suPassword.isVisible().catch(() => false))
+        ) {
+          await suEmail.fill(testEmail!);
+          await suPassword.fill(testPassword!);
+          await suSubmit.click();
+          // Give the app time to process sign-up; some setups auto-login or redirect
+          await page.waitForTimeout(2000);
+        }
+
+        // Retry sign-in once
+        await page.goto(signInUrl);
+        await page.waitForLoadState("load");
+        await emailField.fill(testEmail!);
+        await passwordField.fill(testPassword!);
+        await submitButton.click();
+        await page.waitForURL(
+          (url) => !url.pathname.startsWith("/auth"),
+          { timeout: 10000 }
+        );
+        console.log("✅ Authentication successful after sign-up fallback!");
+      } catch (signupErr) {
+        // Final fallback: create empty auth state
+        const currentUrl = page.url();
         console.warn(
-          "⚠️  Authentication failed - creating empty auth state for unauthenticated tests"
+          `⚠️  Authentication/sign-up failed, continuing unauthenticated. URL: ${currentUrl}`
         );
 
-        // Ensure .auth directory exists
         const authDir = path.join(__dirname, "..", ".auth");
         if (!fs.existsSync(authDir)) {
           fs.mkdirSync(authDir, { recursive: true });
           console.log("📁 Created .auth directory");
         }
 
-        // Create an empty auth state file
         const authFile = path.join(authDir, "user.json");
-        const emptyAuthState = {
-          cookies: [],
-          origins: [],
-        };
+        const emptyAuthState = { cookies: [], origins: [] };
         fs.writeFileSync(authFile, JSON.stringify(emptyAuthState, null, 2));
-        console.log(
-          `💾 Created empty authentication state for unauthenticated tests`
-        );
+        console.log(`💾 Created empty authentication state for unauthenticated tests`);
 
         console.log("🏁 Global setup completed for unauthenticated testing");
         await browser.close();
         return;
       }
-      // If we're somewhere else, assume success but log the location
-      console.log(`⚠️  Authentication completed, current URL: ${currentUrl}`);
     }
 
     // Ensure .auth directory exists

@@ -112,20 +112,46 @@ export async function getEnhancedBeachForecasts(
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
-    // Use the ten_day_enhanced_forecasts view which automatically filters to next 10 days
-    const { data, error } = await supabase
+    // Prefer the legacy compatibility view if present (tests assert against it), fallback to table
+    const start = new Date();
+    const startDate = start.toISOString().split("T")[0];
+    const endDate = new Date(start.getTime() + days * 86400000)
+      .toISOString()
+      .split("T")[0];
+
+    let data: any[] | null = null;
+    let error: any = null;
+
+    // Try view
+    const viewAttempt = await supabase
       .from("ten_day_enhanced_forecasts")
       .select("*")
       .eq("beach_id", beachId)
       .order("forecast_date", { ascending: true })
       .order("forecast_time", { ascending: true });
 
+    if (!viewAttempt.error) {
+      data = viewAttempt.data as any[];
+    } else {
+      // Fallback to table with explicit range
+      const tableAttempt = await supabase
+        .from("enhanced_forecasts")
+        .select("*")
+        .eq("beach_id", beachId)
+        .gte("forecast_date", startDate)
+        .lte("forecast_date", endDate)
+        .order("forecast_date", { ascending: true })
+        .order("forecast_time", { ascending: true });
+      data = tableAttempt.data as any[];
+      error = tableAttempt.error;
+    }
+
     if (error) {
-      console.error("Error fetching ten day enhanced forecasts:", error);
+      console.error("Error fetching enhanced forecasts:", error);
       return { success: false, error: error.message };
     }
 
-    console.log("✅ Fetched from ten_day_enhanced_forecasts view:", {
+    console.log("✅ Fetched enhanced_forecasts rows:", {
       beachId,
       totalRows: data?.length || 0,
       firstRowDate: data?.[0]?.forecast_date,
@@ -338,13 +364,30 @@ export async function getForecastForToday(beachId: string) {
 
     console.log("📅 Searching for forecasts between:", today, "and", tomorrow);
 
-    // Get today's and tomorrow's enhanced forecasts using same view as beach details page
-    const { data: enhancedForecasts, error: enhancedError } = await supabase
+    // Get today's and tomorrow's enhanced forecasts directly from table
+    // Prefer view when available for compatibility; fallback to table
+    let enhancedForecasts: any[] | null = null;
+    let enhancedError: any = null;
+
+    const viewTry = await supabase
       .from("ten_day_enhanced_forecasts")
       .select("*")
       .eq("beach_id", beachId)
       .order("forecast_date", { ascending: true })
       .order("forecast_time", { ascending: true });
+    if (!viewTry.error) {
+      enhancedForecasts = viewTry.data as any[];
+    } else {
+      const tableTry = await supabase
+        .from("enhanced_forecasts")
+        .select("*")
+        .eq("beach_id", beachId)
+        .in("forecast_date", [today, tomorrow])
+        .order("forecast_date", { ascending: true })
+        .order("forecast_time", { ascending: true });
+      enhancedForecasts = tableTry.data as any[];
+      enhancedError = tableTry.error;
+    }
 
     console.log("🔍 Enhanced forecasts query result:", {
       error: enhancedError,
@@ -404,7 +447,6 @@ export async function getForecastForToday(beachId: string) {
 
     if (basicError) {
       console.error("❌ Error fetching basic forecast for today:", basicError);
-      throw new Error(basicError.message);
     }
 
     if (basicForecasts && basicForecasts.length > 0) {

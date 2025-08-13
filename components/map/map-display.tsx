@@ -85,7 +85,7 @@ export function MapDisplay({
     data: fetchedWaveHeight,
     loading: waveHeightLoading,
     error: waveHeightError,
-  } = useDataFetcher(fetchWaveHeight);
+  } = useDataFetcher(fetchWaveHeight, { initialData: undefined });
 
   // Update wave height when data is fetched
   useEffect(() => {

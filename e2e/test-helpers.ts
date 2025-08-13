@@ -314,6 +314,69 @@ export async function waitForRealtimeUpdate(
 }
 
 /**
+ * Ensure the page is authenticated using TEST_USER_EMAIL/TEST_USER_PASSWORD.
+ * Returns true if authenticated, false if credentials are missing or login fails.
+ */
+export async function ensureAuthenticated(page: Page): Promise<boolean> {
+  try {
+    const testEmail = process.env.TEST_USER_EMAIL;
+    const testPassword = process.env.TEST_USER_PASSWORD;
+
+    // If creds are not provided, cannot authenticate
+    if (!testEmail || !testPassword) return false;
+
+    // If already authenticated, avoid re-login by checking for auth pages
+    const currentUrl = page.url();
+    if (!currentUrl.includes("/auth")) {
+      // Ping a protected page to verify; if redirect occurs, we'll handle below
+      await page.goto("/profile");
+      await page.waitForLoadState("load");
+    }
+
+    // If we are redirected to auth, perform sign in
+    if (page.url().includes("/auth")) {
+      await page.goto("/auth/sign-in");
+      await page.waitForLoadState("load");
+
+      const emailField = page
+        .locator('input[type="email"], input[id="email"], input[name="email"]')
+        .first();
+      const passwordField = page
+        .locator('input[type="password"], input[id="password"], input[name="password"]')
+        .first();
+      const submitButton = page
+        .locator('button[type="submit"]')
+        .filter({ hasText: /sign in/i });
+
+      if (!(await emailField.isVisible().catch(() => false))) return false;
+      if (!(await passwordField.isVisible().catch(() => false))) return false;
+
+      await emailField.fill(testEmail);
+      await passwordField.fill(testPassword);
+      await submitButton.click();
+
+      // Wait for redirect away from auth
+      try {
+        await page.waitForURL(
+          (url) => !url.pathname.startsWith("/auth"),
+          { timeout: 10000 }
+        );
+      } catch {
+        return false;
+      }
+    }
+
+    // Final sanity check: can we access a protected route without redirect?
+    await page.goto("/profile");
+    await page.waitForLoadState("load");
+    if (page.url().includes("/auth")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Board Management Helpers
  */
 export async function createTestBoard(page: Page, boardData = {}) {

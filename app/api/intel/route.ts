@@ -125,9 +125,9 @@ export async function GET(request: NextRequest) {
       .select("id, full_name, avatar_url")
       .in("id", userIds);
 
+    // If profile lookup fails (RLS or other), continue with fallback names from RPC
     if (profilesError) {
-      console.error("Error fetching profiles:", profilesError);
-      return handleApiError(profilesError, "Failed to fetch user profiles");
+      console.warn("Profiles lookup failed; continuing with fallback usernames from RPC", profilesError);
     }
 
     // Get user confirmations if authenticated
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
         ...post,
         user: {
           id: post.user_id,
-          full_name: profile?.full_name || "Anonymous",
+          full_name: profile?.full_name || (post as any).user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
         },
         user_confirmed: confirmationsSet.has(post.id),

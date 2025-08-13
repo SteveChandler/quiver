@@ -196,13 +196,9 @@ export async function getNearbyIntelPosts(
       .from("profiles")
       .select("id, full_name, avatar_url")
       .in("id", userIds);
-
+    // If profile lookup fails (RLS, etc.), continue with RPC fallback names
     if (profilesError) {
-      console.error("Error fetching profiles:", profilesError);
-      return {
-        success: false,
-        error: "Failed to fetch user profiles",
-      };
+      console.warn("Profiles lookup failed in getNearbyIntelPosts; using RPC fallback usernames", profilesError);
     }
 
     // Get user confirmations
@@ -224,7 +220,7 @@ export async function getNearbyIntelPosts(
       return {
         ...post,
         user: {
-          full_name: profile?.full_name || "Anonymous",
+          full_name: profile?.full_name || (post as any).user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
         },
         user_confirmed: confirmationsSet.has(post.id),
@@ -588,13 +584,8 @@ export async function getPublicIntelPosts(
       .from("profiles")
       .select("id, full_name, avatar_url")
       .in("id", userIds);
-
     if (profilesError) {
-      console.error("Error fetching profiles:", profilesError);
-      return {
-        success: false,
-        error: "Failed to fetch user profiles",
-      };
+      console.warn("Profiles lookup failed in getPublicIntelPosts; using RPC fallback usernames", profilesError);
     }
 
     // Combine data (no user confirmations for public access)
@@ -605,7 +596,7 @@ export async function getPublicIntelPosts(
       return {
         ...post,
         user: {
-          full_name: profile?.full_name || "Anonymous",
+          full_name: profile?.full_name || (post as any).user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
         },
         user_confirmed: false, // Public users can't confirm posts

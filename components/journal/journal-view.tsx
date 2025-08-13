@@ -76,7 +76,9 @@ export function JournalView({ className }: JournalViewProps) {
     loading: sessionsLoading,
     error: sessionsError,
     refetch: refetchSessions,
-  } = useDataFetcher(fetchUserSessions);
+  } = useDataFetcher(fetchUserSessions, {
+    initialData: [] as SessionWithDetails[],
+  });
 
   // Fetch analytics data
   const fetchAnalytics = useCallback(async () => {
@@ -106,7 +108,7 @@ export function JournalView({ className }: JournalViewProps) {
     loading: analyticsLoading,
     error: analyticsError,
     refetch: refetchAnalytics,
-  } = useDataFetcher(fetchAnalytics);
+  } = useDataFetcher(fetchAnalytics, { initialData: null });
 
   useEffect(() => {
     setDisplayOptions((prev) => ({ ...prev, viewMode }));
@@ -160,13 +162,25 @@ export function JournalView({ className }: JournalViewProps) {
     return <CenteredLoadingSpinner text="Loading your surf journal..." />;
   }
 
-  if (sessionsError || analyticsError) {
+  // If no sessions, show an inviting empty state instead of an error
+  const noSessions = (sessions || []).length === 0;
+  if (noSessions) {
     return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          {sessionsError || analyticsError || "Failed to load journal data"}
-        </AlertDescription>
-      </Alert>
+      <Card className="border-dashed">
+        <CardContent className="pt-6 text-center space-y-3">
+          <p className="text-muted-foreground">
+            You haven't logged any sessions yet.
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Button asChild>
+              <Link href="/log-session">Log your first session</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/plan-session">Plan a session</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 

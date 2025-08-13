@@ -3,6 +3,7 @@ import { Waves, Wind, Thermometer, Info } from "lucide-react";
 import { formatForecastTime } from "@/lib/utils";
 import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import type { Forecast } from "@/types/database";
 
 interface TodaysForecastProps {
@@ -35,9 +36,10 @@ function ModernForecastDisplay({ forecast }: { forecast: Forecast }) {
                 <Waves className="h-5 w-5 text-blue-600" />
                 <span className="font-medium text-gray-800">Wave Height</span>
               </div>
-              <span className="text-lg font-semibold text-blue-600">
-                {forecast.wave_height || "No data"}
-              </span>
+              <WaveHeightDisplay 
+                height={forecast.wave_height} 
+                className="text-lg font-semibold text-blue-600"
+              />
             </div>
           </div>
 

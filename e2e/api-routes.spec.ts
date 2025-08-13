@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { testApiEndpoint, handleAuthRedirect } from "./test-helpers";
+import { testApiEndpoint, handleAuthRedirect, ensureAuthenticated } from "./test-helpers";
 
 test.describe("API Routes", () => {
   test.describe("Authentication Endpoints", () => {
@@ -246,10 +246,8 @@ test.describe("API Routes", () => {
     });
 
     test("should get gear suggestions when authenticated", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping gear suggestions tests");
-      }
+      const authed = await ensureAuthenticated(page);
+      if (!authed) test.skip("Missing TEST_USER_EMAIL/TEST_USER_PASSWORD or login failed");
 
       const response = await testApiEndpoint(
         page,

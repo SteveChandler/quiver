@@ -37,7 +37,10 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
     return await getBestBeachPhotos(beach.id, 12);
   }, [beach.id]);
 
-  const { data: photos } = useDataFetcher(fetchPhotos, { immediate: true });
+  const { data: photos } = useDataFetcher(fetchPhotos, {
+    immediate: true,
+    initialData: [] as BestPhoto[],
+  });
   // Fetch latest calibration row to derive best swell window
   const fetchCalibration = useCallback(async () => {
     const { getLatestBeachCalibrationAction } = await import(
@@ -53,6 +56,7 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
 
   const { data: calibration } = useDataFetcher(fetchCalibration, {
     immediate: true,
+    initialData: null,
   });
 
   const calibratedSwellCardinal = calibration
