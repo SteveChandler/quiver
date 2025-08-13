@@ -43,10 +43,17 @@ export function WavePeriodDisplay({
     return period;
   };
 
+  const roundToOneDecimal = (value: string | null): string | null => {
+    if (!value) return null;
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    return `${Math.round(num * 10) / 10}`;
+  };
+
   const getPeriodQuality = (period: string | null) => {
     if (!period) return { quality: "unknown", color: "text-gray-500" };
 
-    const num = parseFloat(period);
+    const num = parseFloat(roundToOneDecimal(period) || "");
     if (isNaN(num)) return { quality: "unknown", color: "text-gray-500" };
 
     if (num >= 12) return { quality: "excellent", color: "text-green-600" };
@@ -69,7 +76,7 @@ export function WavePeriodDisplay({
         <div className="flex items-center gap-1">
           <Timer className={cn("h-4 w-4", periodQuality.color)} />
           <span className={cn("text-sm font-medium", periodQuality.color)}>
-            {formatPeriod(wavePeriod)}
+            {formatPeriod(roundToOneDecimal(wavePeriod))}
           </span>
         </div>
 
@@ -115,7 +122,7 @@ export function WavePeriodDisplay({
           )}
         >
           <div className={cn("text-lg font-bold", periodQuality.color)}>
-            {formatPeriod(wavePeriod)}
+            {formatPeriod(roundToOneDecimal(wavePeriod))}
           </div>
           <div className="text-sm text-muted-foreground">Period</div>
         </div>

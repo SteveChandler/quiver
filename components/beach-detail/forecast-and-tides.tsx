@@ -4,6 +4,10 @@ import { useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
+import {
+  MultiDayForecastTable,
+  SimplifiedForecastTable,
+} from "@/components/forecast/forecast-table";
 import { Sun, Clock, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
@@ -109,9 +113,9 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
       const api = await fetchBestTimesApi(beach.id, 48, 6);
       if (api.windows && api.windows.length > 0) {
         return api.windows.map((w: any) => ({
-          label: `${formatTimeRange(w.start_ts, w.end_ts)} — ${w.grade} (${w.score})${
-            (w as any).advanced_only ? " · Advanced only" : ""
-          }`,
+          label: `${formatTimeRange(w.start_ts, w.end_ts)} — ${w.grade} (${
+            w.score
+          })${(w as any).advanced_only ? " · Advanced only" : ""}`,
           score: w.score,
         }));
       }
@@ -132,20 +136,47 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
       return enriched;
     }
 
-    // Fallback: compute next three windows from view when no standout windows
+    // Fallback: compute top three windows from view for the rest of TODAY, daylight only
     const start = new Date();
-    const end = new Date(Date.now() + 12 * 3600 * 1000); // next 12h
+    const startDate = start.toISOString().slice(0, 10);
+    const endOfDay = new Date(start);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Fetch today's sunrise/sunset (UTC) from API to filter daylight
+    let sunriseUtc: string | null = null;
+    let sunsetUtc: string | null = null;
+    try {
+      const params = new URLSearchParams({
+        beachId: beach.id,
+        start: `${startDate}T00:00:00.000Z`,
+        end: `${startDate}T23:59:59.999Z`,
+      });
+      const res = await fetch(`/api/forecasts/window?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const json = await res.json();
+      const sun = (json?.data?.sun || [])[0];
+      sunriseUtc = sun?.sunrise_utc || null;
+      sunsetUtc = sun?.sunset_utc || null;
+    } catch {}
+
+    const dayStart = sunriseUtc
+      ? new Date(sunriseUtc)
+      : new Date(startDate + "T06:00:00.000Z");
+    const dayEnd = sunsetUtc
+      ? new Date(sunsetUtc)
+      : new Date(startDate + "T20:00:00.000Z");
     const { data: rows } = await (supabase as any)
       .from("v_beach_hourly_scores")
       .select("ts_utc,score_0_100")
       .eq("beach_id", beach.id)
-      .gte("ts_utc", start.toISOString())
-      .lte("ts_utc", end.toISOString())
+      .gte("ts_utc", dayStart.toISOString())
+      .lte("ts_utc", dayEnd.toISOString())
       .order("ts_utc", { ascending: true });
 
     if (!rows || rows.length === 0) return [] as WindowWithWhy[];
 
-    // Build rolling 2h windows (ts plus following hour) and take top 3
+    // Build rolling 2h windows (ts plus following hour) across daylight and take top 3 unconditionally
     const byTs: Record<string, number> = Object.fromEntries(
       rows.map((r: any) => [r.ts_utc, r.score_0_100])
     );
@@ -177,15 +208,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
         label: `${formatTimeRange(
           w.start.toISOString(),
           w.end.toISOString()
-        )} — ${
-          w.score >= 85
-            ? "epic"
-            : w.score >= 70
-            ? "good"
-            : w.score >= 55
-            ? "fair"
-            : "poor"
-        } (${w.score})`,
+        )} — ${w.score} score`,
         score: w.score,
         why,
       });
@@ -194,9 +217,12 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
     return enrichedFallback;
   }, [beach.id, today]);
 
-  const { data: bestWindows } = useDataFetcher(fetchBest, {
-    immediate: true,
-  });
+  const { data: bestWindows, loading: bestLoading } = useDataFetcher(
+    fetchBest,
+    {
+      immediate: true,
+    }
+  );
 
   const hasStandout = (bestWindows || []).some((w: any) => w.score >= 55);
 
@@ -288,6 +314,22 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
         allowToggleTransparency={true}
         highlightQualityVariations={true}
       />
+
+      {/* Also show simplified table plus a collapsed multi-day table */}
+      {forecasts && forecasts.length > 0 && (
+        <div className="space-y-4">
+          <SimplifiedForecastTable forecasts={forecasts} />
+
+          <details className="group">
+            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+              Show detailed multi-day forecast table
+            </summary>
+            <div className="mt-3">
+              <MultiDayForecastTable forecasts={forecasts} />
+            </div>
+          </details>
+        </div>
+      )}
     </div>
   );
 }

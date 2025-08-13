@@ -372,15 +372,23 @@ export class EnhancedForecastService {
     );
     return withRetry(async () => {
       try {
-        // Check if this is a Southern California beach that could benefit from CDIP data
-        console.log(`🔍 Looking for nearest CDIP station for ${beach.name}`);
-        const nearestStation = await this.cdipService.getNearestStation(
-          beach.latitude,
-          beach.longitude,
-          50 // 50km radius
-        );
+        // Prefer explicit override when present
+        let selectedStation: string | null = null;
+        if (beach.cdip_station) {
+          selectedStation = beach.cdip_station;
+          console.log(
+            `✅ Using CDIP override station ${selectedStation} for ${beach.name}`
+          );
+        } else {
+          console.log(`🔍 Looking for nearest CDIP station for ${beach.name}`);
+          selectedStation = await this.cdipService.getNearestStation(
+            beach.latitude,
+            beach.longitude,
+            50 // 50km radius
+          );
+        }
 
-        if (!nearestStation) {
+        if (!selectedStation) {
           console.warn(
             `❌ No nearby CDIP station found for ${beach.name} within 50km`
           );
@@ -388,22 +396,22 @@ export class EnhancedForecastService {
         }
 
         console.log(
-          `✅ Found nearest CDIP station ${nearestStation} for ${beach.name}`
+          `✅ Selected CDIP station ${selectedStation} for ${beach.name}`
         );
 
         // Fetch CDIP data for the nearest station
         console.log(
-          `🌊 Fetching CDIP data from station ${nearestStation} for ${beach.name}`
+          `🌊 Fetching CDIP data from station ${selectedStation} for ${beach.name}`
         );
-        const cdipData = await this.cdipService.fetchBuoyData(nearestStation);
+        const cdipData = await this.cdipService.fetchBuoyData(selectedStation);
 
         if (cdipData) {
           console.log(
-            `✅ Successfully fetched CDIP data for ${beach.name} from station ${nearestStation}`
+            `✅ Successfully fetched CDIP data for ${beach.name} from station ${selectedStation}`
           );
         } else {
           console.warn(
-            `❌ CDIP data fetch returned null for ${beach.name} from station ${nearestStation}`
+            `❌ CDIP data fetch returned null for ${beach.name} from station ${selectedStation}`
           );
         }
 
@@ -464,7 +472,21 @@ export class EnhancedForecastService {
     try {
       const supabase = await createSupabaseServiceRoleClient();
 
-      // Get nearby buoys with recent data
+      // If an override NDBC station is set, return it directly (if present in table)
+      if (beach.ndbc_station) {
+        const { data: overrideBuoy } = await supabase
+          .from("buoys")
+          .select("*")
+          .eq("buoy_uuid", beach.ndbc_station)
+          .eq("active", true)
+          .limit(1)
+          .maybeSingle();
+        if (overrideBuoy) {
+          return { ...overrideBuoy, distance: 0 } as any;
+        }
+      }
+
+      // Get nearby buoys with recent data (no coordinates in table; cannot distance-sort here reliably)
       const { data: buoys, error } = await supabase
         .from("buoys")
         .select("*")
@@ -476,47 +498,8 @@ export class EnhancedForecastService {
         return null;
       }
 
-      // Find the closest buoy
-      const buoysWithDistance = buoys
-        .map((buoy) => {
-          let buoyLat, buoyLng;
-
-          // Handle different coordinate formats
-          if (buoy.coordinates) {
-            try {
-              const coords = JSON.parse(buoy.coordinates);
-              if (coords.coordinates && Array.isArray(coords.coordinates)) {
-                buoyLng = coords.coordinates[0];
-                buoyLat = coords.coordinates[1];
-              }
-            } catch (e) {
-              const pointMatch = buoy.coordinates.match(/POINT\(([^)]+)\)/);
-              if (pointMatch) {
-                const parts = pointMatch[1].split(" ");
-                if (parts.length === 2) {
-                  buoyLng = parseFloat(parts[0]);
-                  buoyLat = parseFloat(parts[1]);
-                }
-              }
-            }
-          }
-
-          if (!buoyLat || !buoyLng) return null;
-
-          const distance = calculateDistance(
-            beach.latitude,
-            beach.longitude,
-            buoyLat,
-            buoyLng,
-            "km"
-          );
-
-          return { ...buoy, distance, lat: buoyLat, lng: buoyLng };
-        })
-        .filter(Boolean)
-        .sort((a, b) => a!.distance - b!.distance);
-
-      return buoysWithDistance[0] || null;
+      // Without coordinates, pick the first active with wave data as a coarse fallback
+      return buoys[0] || null;
     } catch (error) {
       console.error("Error fetching buoy data:", error);
       return null;
@@ -565,6 +548,29 @@ export class EnhancedForecastService {
   }): EnhancedForecastWithRawData[] {
     const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
+
+    // Local helpers for safe value formatting and sanity checks
+    const formatPeriodSeconds = (
+      value: number | string | null | undefined
+    ): string | null => {
+      if (value == null) return null;
+      const num = typeof value === "string" ? parseFloat(value) : value;
+      if (!isFinite(num)) return null;
+      // Reject obviously bad readings per product spec (<4s or >25s)
+      if (num < 4 || num > 25) return null;
+      const rounded = Math.round(num * 10) / 10;
+      return `${rounded}s`;
+    };
+
+    const formatWaveFeet = (
+      meters: number | null | undefined
+    ): string | null => {
+      if (meters == null) return null;
+      if (!isFinite(meters)) return null;
+      // Guard against absurd values; discard > 10m (≈ 32.8ft) as sensor/model glitch
+      if (meters < 0 || meters > 10) return null;
+      return this.metersToFeet(meters);
+    };
 
     // Determine the primary data source - prioritize CDIP for high-quality buoy data
     const primaryDataSource = cdipData
@@ -619,22 +625,30 @@ export class EnhancedForecastService {
         forecast_date: this.getNormalizedDateString(forecastTime),
         forecast_time: this.getNormalizedTimeString(forecastTime),
 
-        // Wave data prioritized: CDIP > NOAA Buoy > WaveWatch III
+        // Wave data prioritized for primary swell per spec: CDIP swell > model primary > combined/total
         wave_height:
-          useCDIPData && cdipPoint
-            ? this.metersToFeet(cdipPoint.significantWaveHeight)
-            : useBuoyData && buoyData.wave_height
-            ? this.metersToFeet(buoyData.wave_height)
-            : wavePoint
-            ? this.metersToFeet(wavePoint.significant_wave_height)
+          useCDIPData && cdipPoint?.swellHeight != null
+            ? formatWaveFeet(cdipPoint.swellHeight)
+            : wavePoint?.swell_1_height != null
+            ? formatWaveFeet(wavePoint.swell_1_height)
+            : useCDIPData && cdipPoint
+            ? formatWaveFeet(cdipPoint.significantWaveHeight)
+            : useBuoyData && buoyData.wave_height != null
+            ? formatWaveFeet(buoyData.wave_height)
+            : wavePoint?.significant_wave_height != null
+            ? formatWaveFeet(wavePoint.significant_wave_height)
             : null,
         wave_period:
-          useCDIPData && cdipPoint
-            ? `${cdipPoint.peakWavePeriod}s`
-            : useBuoyData && buoyData.wave_period
-            ? `${buoyData.wave_period}s`
-            : wavePoint
-            ? `${wavePoint.peak_wave_period}s`
+          useCDIPData && cdipPoint?.swellPeriod != null
+            ? formatPeriodSeconds(cdipPoint.swellPeriod)
+            : wavePoint?.swell_1_period != null
+            ? formatPeriodSeconds(wavePoint.swell_1_period)
+            : useCDIPData && cdipPoint?.peakWavePeriod != null
+            ? formatPeriodSeconds(cdipPoint.peakWavePeriod)
+            : useBuoyData && buoyData.wave_period != null
+            ? formatPeriodSeconds(buoyData.wave_period)
+            : wavePoint?.peak_wave_period != null
+            ? formatPeriodSeconds(wavePoint.peak_wave_period)
             : null,
         wave_direction:
           useCDIPData && cdipPoint
@@ -649,16 +663,16 @@ export class EnhancedForecastService {
 
         // Detailed swell information - prioritize CDIP when available
         swell_1_height:
-          useCDIPData && cdipPoint?.swellHeight
-            ? this.metersToFeet(cdipPoint.swellHeight)
-            : wavePoint
-            ? this.metersToFeet(wavePoint.swell_1_height)
+          useCDIPData && cdipPoint?.swellHeight != null
+            ? formatWaveFeet(cdipPoint.swellHeight)
+            : wavePoint?.swell_1_height != null
+            ? formatWaveFeet(wavePoint.swell_1_height)
             : null,
         swell_1_period:
-          useCDIPData && cdipPoint?.swellPeriod
-            ? `${cdipPoint.swellPeriod}s`
-            : wavePoint
-            ? `${wavePoint.swell_1_period}s`
+          useCDIPData && cdipPoint?.swellPeriod != null
+            ? formatPeriodSeconds(cdipPoint.swellPeriod)
+            : wavePoint?.swell_1_period != null
+            ? formatPeriodSeconds(wavePoint.swell_1_period)
             : null,
         swell_1_direction:
           useCDIPData && cdipPoint?.swellDirection
@@ -671,10 +685,14 @@ export class EnhancedForecastService {
               )
             : null,
 
-        swell_2_height: wavePoint
-          ? this.metersToFeet(wavePoint.swell_2_height)
-          : null,
-        swell_2_period: wavePoint ? `${wavePoint.swell_2_period}s` : null,
+        swell_2_height:
+          wavePoint?.swell_2_height != null
+            ? formatWaveFeet(wavePoint.swell_2_height)
+            : null,
+        swell_2_period:
+          wavePoint?.swell_2_period != null
+            ? formatPeriodSeconds(wavePoint.swell_2_period)
+            : null,
         swell_2_direction: wavePoint
           ? this.waveWatchService.getWaveDirectionText(
               wavePoint.swell_2_direction
@@ -736,21 +754,14 @@ export class EnhancedForecastService {
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
 
-        // Raw forecast data for debugging and analysis
+        // Raw forecast (compact) to satisfy DB constraint and avoid oversized JSON
         raw_forecast: {
-          cdip_data: cdipData,
-          noaa_data: {
-            wave_data: waveData,
-            tide_data: tideData,
-            weather_data: weatherData,
-            buoy_data: buoyData,
-          },
           data_sources: dataSources,
           quality_scores: {
             cdip: cdipData
               ? this.cdipService.getDataQualityScore(cdipData)
               : undefined,
-            noaa: waveData ? 75 : undefined, // Default NOAA quality score
+            noaa: waveData ? 75 : undefined,
             overall: confidenceScore,
           },
           fetch_timestamps: {
@@ -778,12 +789,17 @@ export class EnhancedForecastService {
     if (!cdipData?.data || cdipData.data.length === 0) return null;
 
     const now = new Date();
-    const hoursFromNow = (targetTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
+    const hoursFromNow =
+      (targetTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
     // Only use CDIP data for current conditions (within 6 hours)
     // Beyond that, NOAA forecasts are more appropriate
     if (hoursFromNow > 6) {
-      console.log(`📊 Target time ${targetTime.toISOString()} is ${hoursFromNow.toFixed(1)}h from now - using NOAA forecast instead of CDIP current conditions`);
+      console.log(
+        `📊 Target time ${targetTime.toISOString()} is ${hoursFromNow.toFixed(
+          1
+        )}h from now - using NOAA forecast instead of CDIP current conditions`
+      );
       return null;
     }
 
@@ -794,8 +810,12 @@ export class EnhancedForecastService {
     );
 
     const recentData = sortedData[0];
-    console.log(`🌊 Using CDIP current conditions for ${targetTime.toISOString()}: ${recentData.waveHeight}ft from ${recentData.timestamp}`);
-    
+    console.log(
+      `🌊 Using CDIP current conditions for ${targetTime.toISOString()}: ${
+        recentData.waveHeight
+      }ft from ${recentData.timestamp}`
+    );
+
     return recentData;
   }
 

@@ -10,7 +10,7 @@ interface ForecastDataTransparencyProps {
   className?: string;
 }
 
-export function ForecastDataTransparency({
+export default function ForecastDataTransparency({
   dataSource,
   className = "",
 }: ForecastDataTransparencyProps) {
@@ -78,5 +78,3 @@ export function ForecastDataTransparency({
     </Alert>
   );
 }
-
-export default ForecastDataTransparency;

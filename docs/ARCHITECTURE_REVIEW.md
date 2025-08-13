@@ -635,3 +635,50 @@ We have built an **exceptional product** with **world-class architecture**. Now 
 _**Status**: Technical Excellence ✅ COMPLETE | User Acquisition 🎯 **CRITICAL PRIORITY**_  
 _**Next Review**: After implementing social sharing features (2 weeks)_  
 _**Last Updated**: January 2025 - Growth-Focused Development Phase_
+
+---
+
+## Supabase Access (Remote → Local)
+
+Project ref: `vawdnbbgawichorsjiwe` (quiverDB). Do not commit tokens.
+
+Commands:
+
+```bash
+# Auth & link
+export SUPABASE_ACCESS_TOKEN="<YOUR_PAT>"
+supabase login --token "$SUPABASE_ACCESS_TOKEN"
+supabase link --project-ref vawdnbbgawichorsjiwe
+
+# Align local config (db.major_version = 15)
+# supabase/config.toml should have: [db] major_version = 15
+
+# Pull schema (preferred)
+supabase db pull
+# If pull errors with schemainspect/migra:
+supabase db pull --schema public
+
+# Direct dump fallback (avoids diff bugs)
+supabase db dump --schema public --file supabase/migrations/REMOTE_SCHEMA.sql
+
+# Reset local and start
+supabase db reset --local
+supabase start
+
+# Regenerate TS types (optional)
+npx supabase gen types typescript --project-id vawdnbbgawichorsjiwe > types/database.ts
+```
+
+Troubleshooting:
+
+- Wrong password / SCRAM: re-login with a fresh PAT, re-link project.
+- TypeError “dependent_on” during pull: use `--schema public` or use direct dump fallback.
+- Full local reset:
+
+```bash
+supabase stop
+# Remove lingering local containers/volumes/branches
+docker ps -a --format '{{.Names}}' | grep -E '^supabase-' | xargs -r docker rm -f
+docker volume ls --format '{{.Name}}' | grep -E '^supabase' | xargs -r docker volume rm -f
+rm -rf supabase/.branches supabase/.temp supabase/.shadow
+```

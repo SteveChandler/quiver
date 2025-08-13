@@ -259,7 +259,9 @@ export function ForecastDisplayWithTransparency({
                   className="space-y-3"
                 >
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Forecast Quality Overview</h4>
+                    <h4 className="font-medium">
+                      Forecast Quality Overview (next 10 days)
+                    </h4>
                     <Badge
                       variant={
                         qualityMetrics.qualityLevel === "high"
@@ -277,13 +279,15 @@ export function ForecastDisplayWithTransparency({
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-600">High Confidence:</span>
+                      <span className="text-gray-600">
+                        High-confidence windows:
+                      </span>
                       <span className="font-medium ml-2">
                         {qualityMetrics.highConfidencePercent}% high confidence
                       </span>
                     </div>
                     <div>
-                      <span className="text-gray-600">CDIP Data:</span>
+                      <span className="text-gray-600">CDIP Data usage:</span>
                       <span className="font-medium ml-2">
                         {qualityMetrics.cdipPercent}%
                       </span>

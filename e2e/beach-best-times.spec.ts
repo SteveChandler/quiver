@@ -8,7 +8,7 @@ test.setTimeout(60000);
 
 test("Beach page shows Best Times and renders chips", async ({ page }) => {
   await page.goto("/beach/c97ef837-7fb5-4881-8dfb-7d750a9f97a5");
-  await page.waitForLoadState("load");
+  await page.waitForLoadState("domcontentloaded");
 
   // Best Times section visible (allow extra time)
   const section = page.getByRole("heading", { name: /Best Times/i });
@@ -19,7 +19,9 @@ test("Beach page shows Best Times and renders chips", async ({ page }) => {
   await expect(chips.first()).toBeVisible({ timeout: 20000 });
 });
 
-test("Navigating away and back keeps Best Times functional", async ({ page }) => {
+test("Navigating away and back keeps Best Times functional", async ({
+  page,
+}) => {
   await page.goto("/");
   await page.waitForLoadState("load");
 

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { MultiDayForecastTable } from "@/components/forecast/forecast-table";
-import { ForecastDataTransparency } from "@/components/ui/forecast-data-transparency";
+import ForecastDataTransparency from "@/components/ui/forecast-data-transparency";
 import { ForecastDisplayWithTransparency } from "@/components/forecast/forecast-display-with-transparency";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 

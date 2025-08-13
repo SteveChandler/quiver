@@ -1,4 +1,8 @@
-import { angleDiff180, triangleScore, swellWindowScore } from "@/lib/utils/score-utils";
+import {
+  angleDiff180,
+  triangleScore,
+  swellWindowScore,
+} from "@/lib/utils/score-utils";
 
 describe("score-utils", () => {
   test("angleDiff180 basic and wrap-around", () => {
@@ -21,10 +25,10 @@ describe("score-utils", () => {
   test("swellWindowScore inside and fade", () => {
     // window 300..30 spans 90°, center ~345
     expect(swellWindowScore(345, 300, 30)).toBeCloseTo(1);
-    // 15° away beyond half span (45° half) should still be 1 (inside)
+    // On the edge or inside
     expect(swellWindowScore(0, 300, 30)).toBeCloseTo(1);
-    // 15° beyond window edge with 30° fade -> 0.5
-    expect(swellWindowScore(60, 300, 30)).toBeCloseTo(0.5);
+    // 15° beyond window edge (at 45°) with 30° fade -> 0.5
+    expect(swellWindowScore(45, 300, 30)).toBeCloseTo(0.5);
     // Far beyond fade -> 0
     expect(swellWindowScore(120, 300, 30)).toBeCloseTo(0);
   });

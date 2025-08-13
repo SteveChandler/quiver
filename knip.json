@@ -1,0 +1,49 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "actions/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "hooks/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "types/**/*.{ts,tsx}",
+    "context/**/*.{ts,tsx}",
+    "e2e/**/*.ts",
+    "__tests__/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,tsx,mjs}"
+  ],
+  "entry": [
+    "next.config.mjs",
+    "jest.config.js",
+    "app/**/page.tsx",
+    "app/**/layout.tsx",
+    "app/**/route.ts",
+    "app/api/**/*.{ts,tsx}",
+    "components/**/*.tsx"
+  ],
+  "ignoreDependencies": [
+    "@next/bundle-analyzer",
+    "webpack-bundle-analyzer",
+    "@lhci/cli"
+  ],
+  "ignore": [
+    "**/*.d.ts",
+    "**/index.{ts,tsx}",
+    "**/__tests__/**",
+    "**/setup/**",
+    "**/test-utils/**",
+    "**/migrations/**",
+    "types/**",
+    "e2e/**",
+    "playwright-report/**",
+    "public/**"
+  ],
+  "webpack": true,
+  "eslint": false,
+  "typescript": {
+    "tsConfigPath": "tsconfig.json"
+  },
+  "paths": {
+    "@/*": ["./*"]
+  }
+}

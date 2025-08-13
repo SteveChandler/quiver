@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -16,6 +16,19 @@ import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
+import { MapPin, MessageSquare, Waves, Star } from "lucide-react";
+import { SpotOverview } from "@/components/beach-detail/spot-overview";
+import { BeachCheckIns } from "@/components/beach-detail/beach-check-ins";
+import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
+import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
+import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
 
 interface BeachDetailProps {
   id: string;
@@ -25,6 +38,19 @@ export function BeachDetail({ id }: BeachDetailProps) {
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // Persisted accordion open/closed sections (Spot Overview default open)
+  const [openSections, setOpenSections] = useLocalStorageState<string[]>(
+    `quiver:beach:${id}:sections`,
+    ["forecast"]
+  );
+
+  // Ensure Forecast & Tides is open by default even if prior local storage has other sections
+  useEffect(() => {
+    if (!openSections.includes("forecast")) {
+      setOpenSections(["forecast", ...openSections]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
@@ -83,6 +109,34 @@ export function BeachDetail({ id }: BeachDetailProps) {
   // Combined loading and error states
   const loading = beachLoading || forecastsLoading;
   const error = beachError || forecastsError;
+
+  // Select the closest forecast time slot to "now" for today's overview
+  const currentForecast = useMemo(() => {
+    if (!forecasts || forecasts.length === 0) return null;
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const todays = forecasts.filter((f) => f.forecast_date === today);
+    if (todays.length === 0) {
+      // Fallback: use the first available forecast (already sorted)
+      return forecasts[0];
+    }
+
+    let nearest = todays[0];
+    let bestDiff = Number.POSITIVE_INFINITY;
+    for (const f of todays) {
+      const [h, m] = f.forecast_time.split(":").map(Number);
+      const minutes = h * 60 + m;
+      const diff = Math.abs(minutes - currentMinutes);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        nearest = f;
+      }
+    }
+
+    return nearest;
+  }, [forecasts]);
 
   // Process data for display
   const forecastsByDate: Record<string, EnhancedForecastEntity[]> = {};
@@ -143,6 +197,10 @@ export function BeachDetail({ id }: BeachDetailProps) {
     );
   }
 
+  const handleAccordionChange = (values: string | string[]) => {
+    setOpenSections(Array.isArray(values) ? values : [values]);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
       {/* Header */}
@@ -167,212 +225,130 @@ export function BeachDetail({ id }: BeachDetailProps) {
           {beach.name}
         </h1>
 
-        {/* Today's Overview (First Day) */}
+        {/* Today's Overview (compact metrics) */}
         {forecasts && forecasts.length > 0 && (
-          <Card className="rounded-2xl shadow-xl mb-8 bg-gradient-to-br from-white to-blue-50 border-ocean-blue/20 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-ocean-blue to-blue-600 text-white rounded-t-2xl">
+          <Card className="rounded-2xl shadow-xl mb-8 overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-ocean-blue to-blue-600 text-white">
               <CardTitle className="text-xl md:text-2xl font-roboto font-bold">
                 Today's Overview
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                <div className="bg-ocean-blue/10 p-3 rounded-lg border border-ocean-blue/20">
-                  <strong className="font-roboto text-ocean-blue">
-                    Wave Height:
-                  </strong>{" "}
-                  <span className="font-open-sans text-ocean-blue/80">
-                    {forecasts[0].wave_height || "N/A"}
-                  </span>
-                </div>
-                <div className="bg-ocean-blue/10 p-3 rounded-lg border border-ocean-blue/20">
-                  <strong className="font-roboto text-ocean-blue">
-                    Wave Period:
-                  </strong>{" "}
-                  <span className="font-open-sans text-ocean-blue/80">
-                    {forecasts[0].wave_period || "N/A"}
-                  </span>
-                </div>
-                <div className="bg-blue-50/70 p-3 rounded-lg border border-blue-200">
-                  <strong className="font-roboto text-blue-700">
-                    Water Temp:
-                  </strong>{" "}
-                  <span className="font-open-sans text-blue-600">
-                    {forecasts[0].water_temp}
-                  </span>
-                </div>
-                <div className="bg-blue-50/70 p-3 rounded-lg border border-blue-200">
-                  <strong className="font-roboto text-blue-700">
-                    Wind Speed:
-                  </strong>{" "}
-                  <span className="font-open-sans text-blue-600">
-                    {forecasts[0].wind_speed}
-                  </span>
-                </div>
-                <div className="bg-cyan-50/70 p-3 rounded-lg border border-cyan-200">
-                  <strong className="font-roboto text-cyan-700">
-                    Wind Dir:
-                  </strong>{" "}
-                  <span className="font-open-sans text-cyan-600">
-                    {forecasts[0].wind_direction}
-                  </span>
-                </div>
-                <div className="bg-cyan-50/70 p-3 rounded-lg border border-cyan-200">
-                  <strong className="font-roboto text-cyan-700">
-                    Condition:
-                  </strong>{" "}
-                  <span className="font-open-sans text-cyan-600">
-                    {forecasts[0].weather_condition}
-                  </span>
-                </div>
-                <div className="bg-teal-50/70 p-3 rounded-lg border border-teal-200">
-                  <strong className="font-roboto text-teal-700">
-                    Tide Status:
-                  </strong>{" "}
-                  <span className="font-open-sans text-teal-600">
-                    {forecasts[0].tide_status}
-                  </span>
-                </div>
-                <div className="bg-emerald-50/70 p-3 rounded-lg border border-emerald-200">
-                  <strong className="font-roboto text-emerald-700">
-                    Confidence:
-                  </strong>{" "}
-                  <span className="font-open-sans text-emerald-600">
-                    {Math.round(forecasts[0].confidence_score)}%
-                  </span>
-                </div>
+            <CardContent className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div className="bg-white/60 rounded-lg border p-3">
+                <strong className="text-ocean-blue">Wave Height:</strong>{" "}
+                <span className="text-ocean-blue/80">
+                  {currentForecast?.wave_height || "Data Unavailable"}
+                </span>
+              </div>
+              <div className="bg-white/60 rounded-lg border p-3">
+                <strong className="text-ocean-blue">Wave Period:</strong>{" "}
+                <span className="text-ocean-blue/80">
+                  {currentForecast?.wave_period || "Data Unavailable"}
+                </span>
+              </div>
+              <div className="bg-white/60 rounded-lg border p-3">
+                <strong className="text-blue-700">Water Temp:</strong>{" "}
+                <span className="text-blue-600">
+                  {currentForecast?.water_temp}
+                </span>
+              </div>
+              <div className="bg-white/60 rounded-lg border p-3">
+                <strong className="text-blue-700">Wind Speed:</strong>{" "}
+                <span className="text-blue-600">
+                  {currentForecast?.wind_speed}
+                </span>
+              </div>
+              <div className="bg-white/60 rounded-lg border p-3">
+                <strong className="text-cyan-700">Wind Dir:</strong>{" "}
+                <span className="text-cyan-600">
+                  {currentForecast?.wind_direction}
+                </span>
+              </div>
+              <div className="bg-white/60 rounded-lg border p-3">
+                <strong className="text-cyan-700">Condition:</strong>{" "}
+                <span className="text-cyan-600">
+                  {currentForecast?.weather_condition}
+                </span>
+              </div>
+              <div className="bg-white/60 rounded-lg border p-3">
+                <strong className="text-teal-700">Tide Status:</strong>{" "}
+                <span className="text-teal-600">
+                  {currentForecast?.tide_status}
+                </span>
+              </div>
+              <div className="bg-white/60 rounded-lg border p-3">
+                <strong className="text-emerald-700">
+                  Forecast window confidence:
+                </strong>{" "}
+                <span className="text-emerald-600">
+                  {currentForecast
+                    ? Math.round(currentForecast.confidence_score)
+                    : "–"}
+                  %
+                </span>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Local Intel Section */}
-        {beach && (
-          <BeachIntelSection
-            beachId={id}
-            beachName={beach.name}
-            latitude={beach.latitude}
-            longitude={beach.longitude}
-            className="mb-8"
-          />
-        )}
+        {/* Accordion Sections */}
+        <Accordion
+          type="multiple"
+          value={openSections}
+          onValueChange={handleAccordionChange}
+          className="space-y-4"
+        >
+          {/* Forecast & Tides */}
+          <AccordionItem value="forecast">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <Waves className="h-4 w-4" /> Forecast & Tides
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <ForecastAndTides beach={beach as Beach} forecasts={forecasts} />
+            </AccordionContent>
+          </AccordionItem>
 
-        {/* 5-Day Tide Chart */}
-        {forecasts && forecasts.length > 0 && (
-          <div className="mb-8">
-            <TideChart forecasts={forecasts} />
-          </div>
-        )}
+          {/* Local Intel */}
+          <AccordionItem value="intel">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" /> Local Intel
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <BeachCheckIns beachId={id} beachName={beach.name} />
+            </AccordionContent>
+          </AccordionItem>
 
-        {/* Daily Forecast Cards */}
-        <div className="space-y-6">
-          <h2 className="text-2xl md:text-3xl font-roboto font-bold bg-gradient-to-r from-ocean-blue to-blue-600 bg-clip-text text-transparent">
-            Daily Forecasts
-          </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {sortedDates.map((date) => {
-              const dayForecasts = forecastsByDate[date];
-              const representative = dayForecasts[0];
+          {/* Reviews */}
+          <AccordionItem value="reviews">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <Star className="h-4 w-4" /> Reviews
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-6">
+                <BeachReviewSummary beachId={beach.id} />
+                <BeachReviewsList beachId={beach.id} />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
 
-              if (!representative) return null;
-
-              const dateObj = new Date(date + "T12:00:00");
-              const dayName = dateObj.toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              });
-
-              return (
-                <Card
-                  key={date}
-                  className="rounded-2xl shadow-lg bg-gradient-to-br from-white to-blue-50/60 cursor-pointer transition-all hover:shadow-xl hover:scale-105 backdrop-blur-sm border-ocean-blue/20"
-                  onClick={() => {
-                    setSelectedDay(date);
-                    setIsModalOpen(true);
-                  }}
-                >
-                  <CardHeader className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-t-2xl">
-                    <CardTitle className="text-base md:text-lg font-roboto font-semibold">
-                      {dayName}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="text-sm font-open-sans">
-                        <strong className="font-roboto text-ocean-blue">
-                          Wave Height:
-                        </strong>{" "}
-                        <span className="text-ocean-blue/80">
-                          {representative.wave_height || "N/A"}
-                        </span>
-                      </div>
-                      <div className="text-sm font-open-sans">
-                        <strong className="font-roboto text-ocean-blue">
-                          Wave Period:
-                        </strong>{" "}
-                        <span className="text-ocean-blue/80">
-                          {representative.wave_period || "N/A"}
-                        </span>
-                      </div>
-                      <div className="text-sm font-open-sans">
-                        <strong className="font-roboto text-blue-700">
-                          Water Temp:
-                        </strong>{" "}
-                        <span className="text-blue-600">
-                          {representative.water_temp}
-                        </span>
-                      </div>
-                      <div className="text-sm font-open-sans">
-                        <strong className="font-roboto text-blue-700">
-                          Wind Speed:
-                        </strong>{" "}
-                        <span className="text-blue-600">
-                          {representative.wind_speed}
-                        </span>
-                      </div>
-                      <div className="text-sm font-open-sans">
-                        <strong className="font-roboto text-cyan-700">
-                          Wind Dir:
-                        </strong>{" "}
-                        <span className="text-cyan-600">
-                          {representative.wind_direction}
-                        </span>
-                      </div>
-                      <div className="text-sm font-open-sans">
-                        <strong className="font-roboto text-cyan-700">
-                          Condition:
-                        </strong>{" "}
-                        <span className="text-cyan-600">
-                          {representative.weather_condition}
-                        </span>
-                      </div>
-
-                      <div className="text-sm font-open-sans">
-                        <strong className="font-roboto text-emerald-700">
-                          Confidence:
-                        </strong>{" "}
-                        <span className="text-emerald-600">
-                          {Math.round(representative.confidence_score)}%
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      className="mt-3 text-xs font-open-sans text-muted-foreground bg-ocean-blue/5 p-2 rounded border border-ocean-blue/10 w-full hover:bg-ocean-blue/10 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent card click
-                        setSelectedDay(date);
-                        setIsModalOpen(true);
-                      }}
-                    >
-                      Click to see detailed swell information
-                    </button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
+          {/* Spot Overview (moved last) */}
+          <AccordionItem value="overview">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" /> Spot Overview
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <SpotOverview beach={beach as Beach} />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         {/* Forecast Accuracy Section */}
         {sessionSnapshots && sessionSnapshots.length > 0 && (

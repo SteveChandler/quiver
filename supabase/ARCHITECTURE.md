@@ -427,9 +427,11 @@ Before any new migration:
   - Introduced by migration `20250812161000_create_get_best_times.sql` with rollback `20250812161001_rollback_get_best_times.sql`.
 
 ## ⚖️ Scoring Weights (per beach)
+
 ## 🚀 Best Times Performance
 
 - `public.mv_best_times` (materialized view)
+
   - Precomputes rolling 2-hour windows for next 72h per beach.
   - Refreshed hourly via `pg_cron` job `refresh_mv_best_times_hourly` calling `public.refresh_mv_best_times()`.
   - Unique index on `(beach_id, start_ts)` enables concurrent refresh and fast lookup.

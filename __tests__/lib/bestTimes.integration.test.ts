@@ -10,8 +10,18 @@ function mockSupabaseRpc(returnData: any) {
 describe("fetchBestTimes integration", () => {
   test("returns windows sorted and preserves labels and scores", async () => {
     const sample = [
-      { start_ts: "2025-08-12T06:00:00.000Z", end_ts: "2025-08-12T08:00:00.000Z", label: "good (72)", score: 72 },
-      { start_ts: "2025-08-12T04:00:00.000Z", end_ts: "2025-08-12T06:00:00.000Z", label: "fair (60)", score: 60 },
+      {
+        start_ts: "2025-08-12T06:00:00.000Z",
+        end_ts: "2025-08-12T08:00:00.000Z",
+        label: "good (72)",
+        score: 72,
+      },
+      {
+        start_ts: "2025-08-12T04:00:00.000Z",
+        end_ts: "2025-08-12T06:00:00.000Z",
+        label: "fair (60)",
+        score: 60,
+      },
     ];
     const supabase = mockSupabaseRpc(sample);
     const { data, error } = await fetchBestTimes(supabase, "beach-uuid", 24, 6);

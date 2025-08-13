@@ -76,6 +76,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Local dev bootstrapping and data ingestion
+
+  - Baseline migrations for core tables: `profiles`, `beaches`, `sessions`, `boards`
+  - Forecast tables and uniques: `marine_forecasts`, `tide_forecasts`, `sun_times`
+  - Seed migration for mock, numeric-first forecast data (guarded/idempotent)
+  - Constraint fix: `sun_times.source` now allows 'computed' to match API behavior
+  - Local env wiring: `.env.local` points to Supabase local (127.0.0.1:54321)
+
+- Forecast API usage (documented and verified):
+
+  - `GET /api/forecasts/window?beachId=<uuid>&start=<iso>&end=<iso>` reads normalized window; auto-backfills tides (NOAA) and sun (computed) if missing
+  - `GET /api/cron/forecasts/refresh[?beachId=<uuid>]` ingests marine (NDBC→CDIP), tides (NOAA hourly), and sun (computed); accepts `x-vercel-cron: 1` locally or `Authorization: Bearer <CRON_SECRET>`
+
+- Local dataset loading
+
+  - Script run: `load_beaches_with_meta_fixed.sql` (no TRUNCATE) to insert 72 OC/SD/BAJA beaches
+  - Added mapping `lat/lon -> latitude/longitude` for API compatibility
+
+- Working application verification
+
+  - Health: `GET /api/health` → healthy
+  - Auth: created local user `dev@local.test` (confirmed), created matching `public.profiles` row
+  - Home renders; sessions table present (empty by default)
+
 - Database function `public.cardinal_to_deg(text)` to map cardinal directions to degrees; migration `20250812160000_add_cardinal_to_deg_function.sql`.
 
 - Database view `public.v_beach_hourly_scores` to compute per-hour beach suitability score (0–100) based on wind (vs offshore), tide band, and swell window; inputs from `marine_forecasts`, `tide_forecasts`, and `beaches`. Migration `20250812160500_create_v_beach_hourly_scores.sql`.

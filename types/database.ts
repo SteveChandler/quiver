@@ -48,6 +48,9 @@ export type Beach = {
   best_swell_cardinals?: string[] | null;
   best_wind_cardinals?: string[] | null;
   preference_model?: Record<string, any> | null;
+  // Station overrides (optional)
+  cdip_station?: string | null;
+  ndbc_station?: string | null;
   created_at: string;
   updated_at: string;
 };
