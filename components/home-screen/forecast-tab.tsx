@@ -164,7 +164,13 @@ export function ForecastTab({
     setShowAdjusted(!showAdjusted);
   };
 
-  if (popularLoading || forecastLoading || !effectiveBeach) {
+  // Keep showing skeleton until we have a beach and either a forecast or we've attempted a retry
+  if (
+    popularLoading ||
+    forecastLoading ||
+    !effectiveBeach ||
+    (!todaysForecast && !retryAttempted)
+  ) {
     return (
       <div className="space-y-4">
         <div className="animate-pulse">
@@ -175,7 +181,7 @@ export function ForecastTab({
     );
   }
 
-  if ((forecastError || !todaysForecast) && retryAttempted) {
+  if (!todaysForecast || forecastError) {
     return (
       <Card>
         <CardContent className="p-6 text-center">
