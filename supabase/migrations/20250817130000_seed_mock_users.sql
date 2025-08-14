@@ -4,6 +4,42 @@
 BEGIN;
 
 -- Clear existing mock users if any exist (keep real auth users)
+-- Remove mock users safely without violating FKs
+DELETE FROM public.boards b USING public.profiles p
+WHERE b.user_id = p.id AND p.full_name IN (
+    'Liquid Snake', 'Big Boss', 'Solid Snake', 'Riley "Rookie" Rodriguez', 
+    'Larry "Local" Thompson', 'Tina "Travel" Chen', 'Paul "PhotoPro" Martinez', 
+    'Dana "Dawn Patrol" Wilson'
+);
+
+DELETE FROM public.beach_review_likes l USING public.beach_reviews r, public.profiles p
+WHERE l.review_id = r.id AND r.user_id = p.id AND p.full_name IN (
+    'Liquid Snake', 'Big Boss', 'Solid Snake', 'Riley "Rookie" Rodriguez', 
+    'Larry "Local" Thompson', 'Tina "Travel" Chen', 'Paul "PhotoPro" Martinez', 
+    'Dana "Dawn Patrol" Wilson'
+);
+
+DELETE FROM public.beach_reviews r USING public.profiles p
+WHERE r.user_id = p.id AND p.full_name IN (
+    'Liquid Snake', 'Big Boss', 'Solid Snake', 'Riley "Rookie" Rodriguez', 
+    'Larry "Local" Thompson', 'Tina "Travel" Chen', 'Paul "PhotoPro" Martinez', 
+    'Dana "Dawn Patrol" Wilson'
+);
+
+DELETE FROM public.intel_post_confirmations c USING public.intel_posts ip, public.profiles p
+WHERE c.intel_post_id = ip.id AND ip.user_id = p.id AND p.full_name IN (
+    'Liquid Snake', 'Big Boss', 'Solid Snake', 'Riley "Rookie" Rodriguez', 
+    'Larry "Local" Thompson', 'Tina "Travel" Chen', 'Paul "PhotoPro" Martinez', 
+    'Dana "Dawn Patrol" Wilson'
+);
+
+DELETE FROM public.intel_posts ip USING public.profiles p
+WHERE ip.user_id = p.id AND p.full_name IN (
+    'Liquid Snake', 'Big Boss', 'Solid Snake', 'Riley "Rookie" Rodriguez', 
+    'Larry "Local" Thompson', 'Tina "Travel" Chen', 'Paul "PhotoPro" Martinez', 
+    'Dana "Dawn Patrol" Wilson'
+);
+
 DELETE FROM public.profiles 
 WHERE full_name IN (
     'Liquid Snake', 'Big Boss', 'Solid Snake', 'Riley "Rookie" Rodriguez', 

@@ -19,6 +19,11 @@ BEGIN
     -- Get array of user IDs
     SELECT ARRAY_AGG(id) INTO user_ids FROM public.profiles WHERE full_name LIKE '% %';
     
+    -- Only seed if we have enough mock users to reference
+    IF user_ids IS NULL OR array_length(user_ids, 1) < 10 THEN
+        RAISE NOTICE 'Skipping PB/OB intel/reviews seed: not enough mock users present (need >=10)';
+    ELSE
+    
     -- Add specific intel posts for Pacific Beach
     INSERT INTO public.intel_posts (
         user_id, beach_id, latitude, longitude, tag, title, description, 
@@ -113,7 +118,8 @@ BEGIN
     FROM public.beach_reviews br 
     WHERE br.beach_id IN (pacific_beach_id, ocean_beach_id)
       AND br.user_id != ALL(user_ids[1:5])
-    LIMIT 20;
+    LIMIT 20
+    ON CONFLICT (review_id, user_id) DO NOTHING;
 
     -- Add intel post confirmations  
     INSERT INTO public.intel_post_confirmations (intel_post_id, user_id, created_at)
@@ -121,7 +127,10 @@ BEGIN
     FROM public.intel_posts ip 
     WHERE ip.beach_id IN (pacific_beach_id, ocean_beach_id)
       AND ip.user_id != ALL(user_ids[1:8])
-    LIMIT 30;
+    LIMIT 30
+    ON CONFLICT (intel_post_id, user_id) DO NOTHING;
+
+    END IF;
 
 END $$;
 

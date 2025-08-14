@@ -203,11 +203,15 @@ $$;
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION get_nearby_intel_posts(DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, DOUBLE PRECISION, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_nearby_intel_posts(DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, DOUBLE PRECISION, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION get_nearby_intel_posts(DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, DOUBLE PRECISION, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION get_beach_reviews(UUID, INTEGER, INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_beach_reviews(UUID, INTEGER, INTEGER, INTEGER) TO service_role;
+GRANT EXECUTE ON FUNCTION get_beach_reviews(UUID, INTEGER, INTEGER, INTEGER) TO anon;
 GRANT EXECUTE ON FUNCTION get_beach_review_stats(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_beach_review_stats(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION get_beach_review_stats(UUID) TO anon;
 GRANT EXECUTE ON FUNCTION get_intel_confirmations(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_intel_confirmations(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION get_intel_confirmations(UUID) TO anon;
 
 COMMIT;

@@ -59,13 +59,6 @@ do $$ begin
   end if;
 end $$;
 
--- compatibility views used by legacy code/tests
-create or replace view public.current_enhanced_forecasts
-with (security_invoker = true) as
-select * from public.enhanced_forecasts
-where forecast_date >= current_date
-order by beach_id, forecast_date, forecast_time;
-
 create or replace view public.ten_day_enhanced_forecasts
 with (security_invoker = true) as
 select * from public.enhanced_forecasts

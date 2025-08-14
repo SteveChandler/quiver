@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +104,7 @@ export function ForecastTab({
     data: todaysForecast,
     loading: forecastLoading,
     error: forecastError,
+    refetch,
   } = useDataFetcher(fetchTodaysForecast, {
     // Skip until we know which beach to use
     skip: !effectiveBeach?.id,
@@ -116,6 +117,31 @@ export function ForecastTab({
     forecastError,
     willShowUnavailable: !!(forecastError || !todaysForecast),
   });
+
+  // Avoid flashing "Unavailable" on first load; retry once if we get null
+  const [retryAttempted, setRetryAttempted] = useState(false);
+  useEffect(() => {
+    if (
+      effectiveBeach?.id &&
+      !forecastLoading &&
+      !forecastError &&
+      !todaysForecast &&
+      !retryAttempted
+    ) {
+      setRetryAttempted(true);
+      const t = setTimeout(() => {
+        refetch();
+      }, 1000);
+      return () => clearTimeout(t);
+    }
+  }, [
+    effectiveBeach?.id,
+    forecastLoading,
+    forecastError,
+    todaysForecast,
+    retryAttempted,
+    refetch,
+  ]);
 
   // Get calibration data for the beach
   const { beachAccuracy, getConfidenceLevel, accuracyStats } =
@@ -138,7 +164,7 @@ export function ForecastTab({
     setShowAdjusted(!showAdjusted);
   };
 
-  if (forecastLoading) {
+  if (popularLoading || forecastLoading || !effectiveBeach) {
     return (
       <div className="space-y-4">
         <div className="animate-pulse">
@@ -149,19 +175,7 @@ export function ForecastTab({
     );
   }
 
-  // While determining a fallback beach
-  if (!effectiveBeach) {
-    return (
-      <div className="space-y-4">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (forecastError || !todaysForecast) {
+  if ((forecastError || !todaysForecast) && retryAttempted) {
     return (
       <Card>
         <CardContent className="p-6 text-center">

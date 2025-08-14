@@ -25,6 +25,10 @@
 
 - Forecast actions now read from `enhanced_forecasts` with explicit date window; removed dependency on deleted `ten_day_enhanced_forecasts` view to fix runtime errors on beach pages
 
+- Database cleanup: removed legacy `current_enhanced_forecasts` view. New migration `20250817180000_drop_current_enhanced_forecasts_view.sql` drops it; creation statements were deleted from `20250815093000_create_enhanced_forecasts.sql` and script migrations updated. App reads from `ten_day_enhanced_forecasts` or `enhanced_forecasts` only.
+
+- Intel API access: granted `anon` execute on `get_nearby_intel_posts`, `get_beach_reviews`, `get_beach_review_stats`, `get_intel_confirmations` so unauthenticated users can load Local Intel. Added migration `20250817181000_grant_intel_functions_to_anon.sql` and updated `20250817160000_add_intel_api_functions.sql`.
+
 - Consolidated global metadata in `app/layout.tsx` to use `SEO_CONFIG` defaults and standardized title template
 - Updated `SEO_CONFIG` Open Graph image to use existing `public/images/buoy.png`
 - Converted Vitest-style tests to Jest-compatible mocks for check-in features (`__tests__/setup/vitest-shim.ts` added)

@@ -460,6 +460,41 @@ export async function getForecastForToday(beachId: string) {
     }
 
     console.log("❌ No forecast data found for beach:", beachId);
+
+    // Attempt an on-demand refresh/generation as a last resort
+    try {
+      console.log("🛠️ Attempting on-demand enhanced forecast generation for", beachId);
+      const { updateBeachForecast } = await import(
+        "@/lib/utils/forecast-service-utils"
+      );
+      await updateBeachForecast(beachId);
+
+      // Re-query enhanced forecasts after generation
+      const { data: regenForecasts, error: regenError } = await supabase
+        .from("enhanced_forecasts")
+        .select("*")
+        .eq("beach_id", beachId)
+        .in("forecast_date", [today, tomorrow])
+        .order("forecast_date", { ascending: true })
+        .order("forecast_time", { ascending: true });
+
+      if (regenError) {
+        console.warn("Post-generation query error:", regenError);
+      }
+
+      if (regenForecasts && regenForecasts.length > 0) {
+        const currentForecast = getCurrentForecast(regenForecasts);
+        if (currentForecast) {
+          console.log(
+            `✅ Home page forecast after generation: ${currentForecast.forecast_date} ${currentForecast.forecast_time}`
+          );
+          return currentForecast as any;
+        }
+      }
+    } catch (genErr) {
+      console.warn("On-demand forecast generation failed:", genErr);
+    }
+
     return null;
   } catch (error) {
     console.error("Error in getForecastForToday:", error);
