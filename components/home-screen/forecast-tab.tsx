@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
@@ -282,9 +283,10 @@ export function ForecastTab({
           {/* Main forecast data */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-3 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">
-                {todaysForecast.wave_height || "N/A"}
-              </div>
+              <WaveHeightDisplay
+                height={todaysForecast.wave_height}
+                className="text-2xl font-bold text-blue-600"
+              />
               <div className="text-xs text-blue-500">Wave Height</div>
             </div>
 
