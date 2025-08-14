@@ -18,12 +18,11 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get("year");
     const month = searchParams.get("month");
 
-    if (!userId) {
-      return createSuccessResponse(
-        { error: "User ID is required" },
-        { status: 400 }
+    if (!userId)
+      return new Response(
+        JSON.stringify({ error: "User ID is required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
-    }
 
     const supabase = await createSupabaseServerClient();
 
@@ -33,32 +32,30 @@ export async function GET(request: NextRequest) {
       error: userError,
     } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      return createSuccessResponse(
-        { error: "Authentication required" },
-        { status: 401 }
+    if (userError || !user)
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
       );
-    }
 
     // Support "me" as userId for current user
     const targetUserId = userId === "me" ? user.id : userId;
 
     // Ensure user can only access their own analytics
     if (targetUserId !== user.id) {
-      return createSuccessResponse(
-        { error: "Unauthorized access to analytics data" },
-        { status: 403 }
+      return new Response(
+        JSON.stringify({ error: "Unauthorized access to analytics data" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
       );
     }
 
     if (type === "calendar") {
       // Calendar heatmap data
-      if (!year || !month) {
-        return createSuccessResponse(
-          { error: "Year and month are required for calendar data" },
-          { status: 400 }
+      if (!year || !month)
+        return new Response(
+          JSON.stringify({ error: "Year and month are required for calendar data" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
         );
-      }
 
       const calendarResult = await getCalendarHeatmapData(
         targetUserId,

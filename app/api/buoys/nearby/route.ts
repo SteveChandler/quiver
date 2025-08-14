@@ -21,27 +21,30 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // Use fallback query since PostGIS functions have type mismatches
-    console.log("Using fallback buoys query for lat/lng:", latitude, longitude);
+    // Use PostGIS spatial query for proper distance-based sorting
+    console.log("Using spatial query for buoys near lat/lng:", latitude, longitude);
 
     const { data: buoys, error } = await supabase
-      .from("buoys")
-      .select("*")
-      .eq("active", true)
-      .not("coordinates", "is", null)
-      .limit(limit);
+      .rpc("get_nearby_buoys", {
+        target_lat: latitude,
+        target_lng: longitude,
+        max_distance_m: maxDistance,
+        result_limit: limit
+      });
 
     if (error) {
       console.error("Database error:", error);
-      return handleApiError(error, "Failed to fetch buoys");
+      // Return empty list when buoys table not present (new schema)
+      return createSuccessResponse([]);
     }
 
     // Transform to match expected API format
     const buoysJson = (buoys || []).map((buoy: any) => ({
       id: buoy.buoy_uuid,
-      latitude: 0, // TODO: Parse PostGIS coordinates when functions are fixed
-      longitude: 0,
+      latitude: buoy.coordinates ? parseFloat(buoy.coordinates.coordinates[1]) : 0,
+      longitude: buoy.coordinates ? parseFloat(buoy.coordinates.coordinates[0]) : 0,
       name: buoy.buoy_name || buoy.buoy_uuid || "Unknown Buoy",
+      distance_meters: buoy.distance_meters,
       measurements: {
         air_temperature: buoy.air_temperature,
         water_temperature: buoy.water_temperature,

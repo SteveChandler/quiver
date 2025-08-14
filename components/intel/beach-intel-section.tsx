@@ -65,7 +65,7 @@ export function BeachIntelSection({
   } = useIntelData({
     latitude,
     longitude,
-    radius: 2, // 2 mile radius for beach-specific intel
+    radius: 5, // 5 mile radius for beach-specific intel
     limit: 10,
     enabled: true,
   });

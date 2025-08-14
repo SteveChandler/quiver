@@ -1,65 +1,51 @@
 # E2E Testing Directory Architecture
 
-## 🎯 **PURPOSE**
+## 🎯 PURPOSE
 
-The `/e2e` directory provides comprehensive end-to-end testing using Playwright, ensuring reliable testing of critical user flows, error detection, and comprehensive application validation across multiple browsers and devices.
+The `/e2e` directory provides comprehensive end-to-end testing using Playwright, ensuring reliable testing of critical user flows, error detection, and application validation.
 
-## 📁 **DIRECTORY STRUCTURE**
+## ✅ Current Suite (lean, non-overlapping)
 
-```
-e2e/
-├── README.md                              # E2E testing documentation
-├── README-Component-Tests.md              # Component testing with Playwright guide
-├── global-setup.ts                       # Test environment initialization
-├── playwright.config.ts                  # Playwright configuration (root level)
-├── test-helpers.ts                       # Core test utilities
-├── test-helpers-improved.ts              # Enhanced test utilities
-│
-├── Core Authentication & Navigation
-├── auth.spec.ts                          # Authentication flows
-├── navigation.spec.ts                    # Navigation and routing
-│
-├── Session Management
-├── session-logging.spec.ts               # Session creation and logging
-├── session-planning.spec.ts              # Session planning workflows
-├── session-planning-critical.spec.ts     # Critical session planning tests
-├── session-conversion-improved.spec.ts   # Planned to completed conversion
-├── sessions.spec.ts                      # General session functionality
-│
-├── User Interface & Interactions
-├── beach-card-interactions.spec.ts       # Beach card click behaviors
-├── beach-reviews.spec.ts                 # Review system testing
-├── beach-search-fallback.spec.ts         # Search fallback mechanisms
-├── component-interactions.spec.ts        # Complex component interactions
-├── comprehensive.spec.ts                 # Full application flows
-├── end-to-end.spec.ts                    # Complete user journeys
-│
-├── Feature-Specific Testing
-├── forecast-components.spec.ts           # Forecast display components
-├── forecast-loading-flows.spec.ts        # Forecast data loading
-├── forecast-transparency.spec.ts         # Forecast data transparency
-├── journal-experience.spec.ts            # User journal functionality
-├── landing-page.spec.ts                  # Marketing and landing pages
-├── map.spec.ts                           # Map and location features
-├── map-simplified.spec.ts                # Simplified map testing
-├── media-management.spec.ts              # Photo and media handling
-├── mobile-experience.spec.ts             # Mobile-specific features
-├── profile.spec.ts                       # User profile management
-├── quiver-management.spec.ts             # Surfboard collection
-├── social-features.spec.ts               # Social interactions
-│
-├── Performance & Quality
-├── error-detection.spec.ts               # Infinite loop and error detection
-├── page-performance.spec.ts              # Performance monitoring
-├── realistic-user-scenarios.spec.ts      # Real-world usage patterns
-│
-├── Advanced Features
-├── favorite-beach.spec.ts                # Beach favoriting system
-├── plan-session-photo-upload.spec.ts     # Photo integration in planning
-└── unauthenticated-*.spec.ts             # Public user flows
-```
+- Core flows
+  - `auth.spec.ts` – Authentication flows
+  - `navigation.spec.ts` – Routing and bottom navigation
+  - `comprehensive.spec.ts` – Single umbrella user journey (smoke)
+- Sessions
+  - `session-logging.spec.ts` – Logging workflows
+  - `session-planning.spec.ts` – Planning workflows
+  - `session-conversion-improved.spec.ts` – Planned → completed
+- Forecasts
+  - `forecast-transparency-loading.spec.ts` – Transparency + stale-data guarantees + loading/error resilience
+- Media
+  - `media-management.spec.ts` – Uploads, progress, gallery, errors
+- API
+  - `api-routes.spec.ts`, `api-session-invitations.spec.ts`
+- Experience
+  - `map.spec.ts`, `profile.spec.ts`, `beach-reviews.spec.ts`, `social-features.spec.ts`, `journal-experience.spec.ts`, `quiver-management.spec.ts`, `landing-page.spec.ts`
+- Quality
+  - `error-detection.spec.ts` – infinite loops, boundary errors
+  - `page-performance.spec.ts` – realistic thresholds
+- Public flows
+  - `unauthenticated-flows-refactored.spec.ts`
 
-## 🏗️ **ARCHITECTURE PATTERNS**
+## 🧹 Removed (redundant/overlapping)
+
+- `end-to-end.spec.ts` (covered by `comprehensive.spec.ts`)
+- `realistic-user-scenarios.spec.ts` (scenario overlaps with comprehensive + feature suites)
+- `map-simplified.spec.ts` (subset of `map.spec.ts`)
+- `beach-card-interactions.spec.ts` (folded into `map.spec.ts` and `beach-reviews.spec.ts`)
+- `session-planning-critical.spec.ts` (covered by `error-detection.spec.ts`)
+- `plan-session-photo-upload.spec.ts` (covered by `media-management.spec.ts`)
+- `unauthenticated-user-flows.spec.ts` (replaced by `unauthenticated-flows-refactored.spec.ts`)
+
+## 📏 Patterns
+- One file per domain; no duplicate assertions across suites
+- Flexible waits and status ranges per testing guidance
+- Mobile checks live in the domain files when needed
+
+## 🔁 Maintenance
+- Add new flows under their feature domain
+- Avoid new umbrella specs; extend `comprehensive.spec.ts` only for smoke journey coverage
 
 ### **Test Organization Strategy**
 

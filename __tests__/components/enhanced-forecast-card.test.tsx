@@ -39,15 +39,12 @@ jest.mock("@/components/forecast/forecast-table", () => ({
   ),
 }));
 
-// Mock the ForecastDataTransparency component
+// Mock the ForecastDataTransparency component (default export)
 jest.mock("@/components/ui/forecast-data-transparency", () => ({
-  ForecastDataTransparency: ({
-    overallConfidence,
-  }: {
-    overallConfidence: number;
-  }) => (
+  __esModule: true,
+  default: ({ overallConfidence }: { overallConfidence?: number }) => (
     <div data-testid="forecast-data-transparency">
-      <span>Overall Confidence: {overallConfidence}%</span>
+      <span>Overall Confidence: {overallConfidence ?? 0}%</span>
       <span>Data Quality</span>
     </div>
   ),

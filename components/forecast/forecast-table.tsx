@@ -4,6 +4,7 @@ import React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { Badge } from "@/components/ui/badge";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 
 // Generic forecast type that can accept both EnhancedForecast and EnhancedForecastEntity
 type ForecastData = EnhancedForecastEntity | any; // Allow any to support both types
@@ -272,7 +273,11 @@ function ForecastDayTable({
                   </td>
                   <td className="p-3">
                     <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-md font-bold text-center min-w-[60px] text-sm">
-                      {formatHeight(forecast.wave_height)}
+                      <WaveHeightDisplay 
+                        height={forecast.wave_height} 
+                        showTooltip={true}
+                        className="text-inherit"
+                      />
                     </div>
                   </td>
                   <td className="p-3">

@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import { invalidateProfileCache } from "@/hooks/use-user-profile";
@@ -58,7 +58,9 @@ export async function createProfile(userId: string) {
   }
 
   try {
+    // Use anon client for regular table access and service-role for admin auth lookup
     const supabase = await createSupabaseServerClient();
+    const supabaseAdmin = createSupabaseServiceRoleClient();
 
     // First check if profile already exists
     const { data: existingProfile, error: checkError } = await supabase
@@ -79,7 +81,7 @@ export async function createProfile(userId: string) {
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.admin.getUserById(userId);
+    } = await supabaseAdmin.auth.admin.getUserById(userId);
 
     if (userError) {
       throw new Error(`Could not get user data: ${userError.message}`);
@@ -89,24 +91,15 @@ export async function createProfile(userId: string) {
       throw new Error(`User with ID ${userId} not found in auth.users`);
     }
 
-    // Create new profile
+    // Create new profile - insert only fields guaranteed by current schema
+    const insertPayload: any = {
+      id: userId,
+      full_name: user.user_metadata?.full_name || "",
+    };
+
     const { data, error } = await supabase
       .from("profiles")
-      .insert({
-        id: userId,
-        full_name: user.user_metadata?.full_name || "",
-        email: user.email || "",
-        phone_number: user.phone || "",
-        avatar_url:
-          user.user_metadata?.avatar_url ||
-          "/placeholder.svg?height=200&width=200",
-        bio: "",
-        location: "",
-        experience_level: "",
-        favorite_spot: "",
-        instagram: "",
-        twitter: "",
-      })
+      .insert(insertPayload)
       .select()
       .single();
 

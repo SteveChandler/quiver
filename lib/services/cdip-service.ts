@@ -37,12 +37,20 @@ export class CDIPService {
     { data: CDIPBuoyData; timestamp: number }
   >();
   private readonly cacheTimeout = 30 * 60 * 1000; // 30 minutes
+  private readonly blacklist: Set<string>;
 
   constructor() {
     // Pre-populate station cache
     Object.values(CDIP_STATIONS).forEach((station) => {
       this.stationCache.set(station.id, station);
     });
+
+    // Support blacklist via env (comma separated), default to station 67 which is returning 404
+    const fromEnv = (process.env.CDIP_BLACKLIST || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const defaults = ["67"]; // San Pedro South ERDDAP endpoint frequently 404s
+    this.blacklist = new Set([...
+      new Set<string>([...defaults, ...fromEnv])
+    ]);
   }
 
   /**
@@ -51,6 +59,10 @@ export class CDIPService {
   async fetchBuoyData(stationId: string): Promise<CDIPBuoyData | null> {
     console.log(`🌊 CDIP fetchBuoyData called for station: ${stationId}`);
     try {
+      if (this.blacklist.has(String(stationId))) {
+        console.warn(`🚫 CDIP station ${stationId} is blacklisted. Skipping fetch.`);
+        return null;
+      }
       // Check if station exists
       const stationConfig = getStationConfig(stationId);
       if (!stationConfig) {
@@ -157,6 +169,9 @@ export class CDIPService {
       let minDistance = Infinity;
 
       for (const station of Object.values(CDIP_STATIONS)) {
+        if (this.blacklist.has(String(station.id))) {
+          continue; // skip bad stations
+        }
         const distance = calculateDistance(
           latitude,
           longitude,
@@ -187,7 +202,7 @@ export class CDIPService {
   }
 
   /**
-   * Fetch station metadata from CDIP
+   * Fetch station metadata from CDIP with retry logic
    */
   async fetchStationMetadata(
     stationId: string
@@ -198,9 +213,12 @@ export class CDIPService {
         return null;
       }
 
+      // Import retry client dynamically to avoid circular dependencies
+      const { apiClient } = await import("@/lib/utils/api-retry");
+
       const url = `${CDIP_API_CONFIG.baseUrl}?stn=${stationId}&param=meta&format=${CDIP_API_CONFIG.formats.json}`;
 
-      const response = await fetch(url, {
+      const response = await apiClient.fetchCDIPData(url, {
         headers: {
           "User-Agent": this.userAgent,
         },
@@ -369,6 +387,9 @@ export class CDIPService {
     stationId: string
   ): Promise<CDIPDataResponse | null> {
     try {
+      // Import retry client dynamically to avoid circular dependencies
+      const { apiClient } = await import("@/lib/utils/api-retry");
+      
       // Use ERDDAP API - construct the URL with wave data endpoint
       const endpoint = CDIP_API_CONFIG.endpoints.waveData.replace(
         "{stationId}",
@@ -378,7 +399,7 @@ export class CDIPService {
 
       console.log(`🌊 Fetching CDIP data from: ${url}`);
 
-      const response = await fetch(url, {
+      const response = await apiClient.fetchCDIPData(url, {
         headers: {
           "User-Agent": this.userAgent,
           Accept: "application/json",

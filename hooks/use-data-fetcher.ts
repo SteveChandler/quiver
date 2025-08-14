@@ -6,18 +6,19 @@ interface DataFetcherState<T> {
   error: string | null;
 }
 
-interface DataFetcherOptions {
+interface DataFetcherOptions<T = any> {
   immediate?: boolean;
   skip?: boolean;
   onSuccess?: (data: any) => void;
   onError?: (error: string) => void;
+  initialData?: T;
 }
 
 export function useDataFetcher<T>(
   fetchFn: () => Promise<T>,
-  options: DataFetcherOptions = {}
+  options: DataFetcherOptions<T> = {}
 ) {
-  const { immediate = true, skip = false, onSuccess, onError } = options;
+  const { immediate = true, skip = false, onSuccess, onError, initialData } = options;
 
   // Use ref to store the latest fetch function to avoid dependency issues
   const fetchFnRef = useRef(fetchFn);
@@ -30,7 +31,7 @@ export function useDataFetcher<T>(
   onErrorRef.current = onError;
 
   const [state, setState] = useState<DataFetcherState<T>>({
-    data: null,
+    data: (initialData as T | null) ?? null,
     loading: immediate && !skip,
     error: null,
   });

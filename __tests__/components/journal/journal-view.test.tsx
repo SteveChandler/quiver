@@ -246,7 +246,7 @@ describe("JournalView", () => {
     ).toBeInTheDocument();
   });
 
-  it("displays error state", () => {
+  it("displays empty-state CTA when sessions load returns no data", () => {
     (useDataFetcher as jest.Mock).mockImplementation((fetchFn) => {
       if (
         fetchFn.toString().includes("analytics") ||
@@ -261,16 +261,18 @@ describe("JournalView", () => {
       }
 
       return {
-        data: null,
+        data: [],
         loading: false,
-        error: "Failed to load sessions",
+        error: null,
         refetch: mockRefetch,
       };
     });
 
     render(<JournalView />);
-
-    expect(screen.getByText("Failed to load sessions")).toBeInTheDocument();
+    expect(
+      screen.getByText("You haven't logged any sessions yet.")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Log your first session")).toBeInTheDocument();
   });
 
   it("toggles between list and calendar view", () => {
@@ -393,7 +395,7 @@ describe("JournalView", () => {
     expect(completedCards).toHaveLength(2); // One for completed, one for planned
   });
 
-  it("shows contextual empty state messages based on filter", () => {
+  it("shows empty state CTA when no sessions exist", () => {
     (useDataFetcher as jest.Mock).mockImplementation((fetchFn) => {
       return {
         data: [],
@@ -405,11 +407,9 @@ describe("JournalView", () => {
 
     render(<JournalView />);
 
-    // Default is Completed tab
+    // Default is Completed tab -> our CTA should show instead of old copy
     expect(
-      screen.getByText(
-        "No completed sessions yet. Start logging your surf sessions!"
-      )
+      screen.getByText("You haven't logged any sessions yet.")
     ).toBeInTheDocument();
   });
 
@@ -435,7 +435,7 @@ describe("JournalView", () => {
     expect(screen.getByTestId("journal-view")).toBeInTheDocument();
   });
 
-  it("shows empty state when no sessions exist", () => {
+  it("shows CTA buttons in empty state", () => {
     (useDataFetcher as jest.Mock).mockImplementation((fetchFn) => {
       if (
         fetchFn.toString().includes("analytics") ||
@@ -459,11 +459,10 @@ describe("JournalView", () => {
 
     render(<JournalView />);
     expect(
-      screen.getByText(
-        "No completed sessions yet. Start logging your surf sessions!"
-      )
+      screen.getByText("You haven't logged any sessions yet.")
     ).toBeInTheDocument();
-    expect(screen.getByText("Log Your First Session")).toBeInTheDocument();
+    expect(screen.getByText("Log your first session")).toBeInTheDocument();
+    expect(screen.getByText("Plan a session")).toBeInTheDocument();
   });
 
   it("displays correct session counts and statistics", () => {

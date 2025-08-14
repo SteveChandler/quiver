@@ -72,7 +72,6 @@ ON enhanced_forecasts (beach_id, forecast_date);
 CREATE INDEX IF NOT EXISTS idx_enhanced_forecasts_confidence 
 ON enhanced_forecasts (confidence_score);
 
--- Create a function to clean up old forecast data (older than 1 day)
 CREATE OR REPLACE FUNCTION cleanup_old_enhanced_forecasts()
 RETURNS void AS $$
 BEGIN
@@ -82,12 +81,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create a view for current day forecasts (with SECURITY INVOKER)
-CREATE OR REPLACE VIEW current_enhanced_forecasts
-WITH (security_invoker = true) AS
-SELECT * FROM enhanced_forecasts
-WHERE forecast_date >= CURRENT_DATE
-ORDER BY beach_id, forecast_date, forecast_time;
+-- REMOVED: current_enhanced_forecasts view (unused)
 
 -- Create a view for next 10 days forecasts (with SECURITY INVOKER)
 CREATE OR REPLACE VIEW ten_day_enhanced_forecasts

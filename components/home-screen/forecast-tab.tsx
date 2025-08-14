@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
+import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
@@ -69,7 +70,7 @@ export function ForecastTab({
 
   const { data: popularBeach, loading: popularLoading } = useDataFetcher(
     fetchPopularBeach,
-    { skip: !!defaultBeach?.id }
+    { skip: !!defaultBeach?.id, initialData: null }
   );
 
   const effectiveBeach = (overrideBeach ||
@@ -104,9 +105,11 @@ export function ForecastTab({
     data: todaysForecast,
     loading: forecastLoading,
     error: forecastError,
+    refetch,
   } = useDataFetcher(fetchTodaysForecast, {
     // Skip until we know which beach to use
     skip: !effectiveBeach?.id,
+    initialData: null,
   });
 
   console.log("🏖️ ForecastTab useDataFetcher result:", {
@@ -115,6 +118,31 @@ export function ForecastTab({
     forecastError,
     willShowUnavailable: !!(forecastError || !todaysForecast),
   });
+
+  // Avoid flashing "Unavailable" on first load; retry once if we get null
+  const [retryAttempted, setRetryAttempted] = useState(false);
+  useEffect(() => {
+    if (
+      effectiveBeach?.id &&
+      !forecastLoading &&
+      !forecastError &&
+      !todaysForecast &&
+      !retryAttempted
+    ) {
+      setRetryAttempted(true);
+      const t = setTimeout(() => {
+        refetch();
+      }, 1000);
+      return () => clearTimeout(t);
+    }
+  }, [
+    effectiveBeach?.id,
+    forecastLoading,
+    forecastError,
+    todaysForecast,
+    retryAttempted,
+    refetch,
+  ]);
 
   // Get calibration data for the beach
   const { beachAccuracy, getConfidenceLevel, accuracyStats } =
@@ -137,7 +165,13 @@ export function ForecastTab({
     setShowAdjusted(!showAdjusted);
   };
 
-  if (forecastLoading) {
+  // Keep showing skeleton until we have a beach and either a forecast or we've attempted a retry
+  if (
+    popularLoading ||
+    forecastLoading ||
+    !effectiveBeach ||
+    (!todaysForecast && !retryAttempted)
+  ) {
     return (
       <div className="space-y-4">
         <div className="animate-pulse">
@@ -148,19 +182,7 @@ export function ForecastTab({
     );
   }
 
-  // While determining a fallback beach
-  if (!effectiveBeach) {
-    return (
-      <div className="space-y-4">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (forecastError || !todaysForecast) {
+  if (!todaysForecast || forecastError) {
     return (
       <Card>
         <CardContent className="p-6 text-center">
@@ -261,9 +283,10 @@ export function ForecastTab({
           {/* Main forecast data */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-3 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">
-                {todaysForecast.wave_height || "N/A"}
-              </div>
+              <WaveHeightDisplay
+                height={todaysForecast.wave_height}
+                className="text-lg font-bold text-blue-600"
+              />
               <div className="text-xs text-blue-500">Wave Height</div>
             </div>
 

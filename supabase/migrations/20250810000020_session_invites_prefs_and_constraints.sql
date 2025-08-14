@@ -60,9 +60,16 @@ begin
   end if;
 exception when others then null; end $$;
 
-create unique index if not exists idx_session_invitations_idempotency_key
-  on public.session_invitations (idempotency_key)
-  where idempotency_key is not null;
+do $$
+begin
+  if to_regclass('public.session_invitations') is not null then
+    create unique index if not exists idx_session_invitations_idempotency_key
+      on public.session_invitations (idempotency_key)
+      where idempotency_key is not null;
+  else
+    raise notice 'Skipping idempotency index: session_invitations missing';
+  end if;
+exception when others then null; end $$;
 
 -- 4) Add per-invitee unique constraints
 do $$

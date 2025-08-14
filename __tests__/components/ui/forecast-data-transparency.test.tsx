@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { ForecastDataTransparency } from "@/components/ui/forecast-data-transparency";
+import ForecastDataTransparency from "@/components/ui/forecast-data-transparency";
 
 describe("ForecastDataTransparency", () => {
   describe("with real NOAA data", () => {

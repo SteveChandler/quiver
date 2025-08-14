@@ -11,3 +11,42 @@ Key directories:
 - `app/`, `components/`, `hooks/`, `lib/`, `supabase/`, `types/`, `test-utils/`, `e2e/`
 
 Growth focus: social sharing, session photos, viral mechanics, community features.
+
+### Supabase Access (Remote → Local)
+
+Project ref: `vawdnbbgawichorsjiwe` (quiverDB). Do not commit tokens.
+
+```bash
+# Auth & link
+export SUPABASE_ACCESS_TOKEN="<YOUR_PAT>"
+supabase login --token "$SUPABASE_ACCESS_TOKEN"
+supabase link --project-ref vawdnbbgawichorsjiwe
+
+# Pull schema (preferred)
+supabase db pull
+# If pull errors:
+supabase db pull --schema public
+
+# Direct dump fallback
+supabase db dump --schema public --file supabase/migrations/REMOTE_SCHEMA.sql
+
+# Reset local and start
+supabase db reset --local
+supabase start
+
+# Regenerate types (optional)
+npx supabase gen types typescript --project-id vawdnbbgawichorsjiwe > types/database.ts
+```
+
+Troubleshooting:
+
+- SCRAM/WRONG PASSWORD: re-login with a fresh PAT and re-link.
+- schemainspect TypeError: use `--schema public` or direct dump fallback.
+- Full local reset:
+
+```bash
+supabase stop
+docker ps -a --format '{{.Names}}' | grep -E '^supabase-' | xargs -r docker rm -f
+docker volume ls --format '{{.Name}}' | grep -E '^supabase' | xargs -r docker volume rm -f
+rm -rf supabase/.branches supabase/.temp supabase/.shadow
+```

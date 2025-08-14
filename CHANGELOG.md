@@ -1,5 +1,19 @@
 ### Added
 
+- Recommendations v1 scaffold:
+
+  - Pure scorer in `lib/utils/recommendation-scorer.ts` using beach preference fields
+  - API `GET /api/v1/recommendations?lat&lon&time` returning nearby ranked spots
+  - DB table `spot_feedback` with RLS for user feedback
+
+- Beach Details accordion with three sections following `components/ARCHITECTURE.md` patterns:
+  - Spot Overview (default open, persisted via localStorage) showing spot summary, amenities, hazards, surfer reviews, and best-of gallery
+  - Local Intel with real-time check-ins, accuracy voting, and Add Your Check-in
+  - Forecast & Tides with tide chart, forecast tables, and best times
+- New components: `components/beach-detail/spot-overview.tsx`, `components/beach-detail/beach-check-ins.tsx`, `components/beach-detail/forecast-and-tides.tsx`
+- New action: `actions/beach-media-actions.ts` for best-of gallery photos (session media by beach)
+- New hook: `hooks/use-local-storage-state.ts` to persist UI open/closed state
+
 - SEO baseline setup following App Router patterns (`app/ARCHITECTURE.md`, `components/seo/ARCHITECTURE.md`):
   - `app/robots.ts` with staging-aware noindex handling
   - `app/sitemap.ts` auto-generating sitemap for core routes and dynamic beach pages
@@ -8,6 +22,12 @@
   - Environment setup for dev→prod flow using Vercel domains and env vars (see below)
 
 ### Changed
+
+- Forecast actions now read from `enhanced_forecasts` with explicit date window; removed dependency on deleted `ten_day_enhanced_forecasts` view to fix runtime errors on beach pages
+
+- Database cleanup: removed legacy `current_enhanced_forecasts` view. New migration `20250817180000_drop_current_enhanced_forecasts_view.sql` drops it; creation statements were deleted from `20250815093000_create_enhanced_forecasts.sql` and script migrations updated. App reads from `ten_day_enhanced_forecasts` or `enhanced_forecasts` only.
+
+- Intel API access: granted `anon` execute on `get_nearby_intel_posts`, `get_beach_reviews`, `get_beach_review_stats`, `get_intel_confirmations` so unauthenticated users can load Local Intel. Added migration `20250817181000_grant_intel_functions_to_anon.sql` and updated `20250817160000_add_intel_api_functions.sql`.
 
 - Consolidated global metadata in `app/layout.tsx` to use `SEO_CONFIG` defaults and standardized title template
 - Updated `SEO_CONFIG` Open Graph image to use existing `public/images/buoy.png`
@@ -19,6 +39,10 @@
 - Vercel Hobby compliance: changed `vercel.json` cron for `/api/cron/forecasts/refresh` from every 3 hours (`0 */3 * * *`) to daily at 12:00 UTC (`0 12 * * *`). This staggers from the 06:00 UTC enhanced sync and avoids Hobby limit violations.
 
 - UI polish: Added bell icon to Notifications item in avatar dropdown (`components/app-header.tsx`) following `components/ARCHITECTURE.md` icon sizing/spacing patterns.
+
+- Home screen Forecast tab now displays normalized face height using `WaveHeightDisplay`, matching Beach Detail. This ensures consistent, calibrated surf height across the app and adds an explanatory tooltip. Follows `components/ARCHITECTURE.md` DRY component usage. Also aligned font sizing with other metrics (consistent `text-lg`).
+
+- Local Intel section on beach pages now uses `components/intel/beach-intel-section.tsx` backed by `/api/intel` and `get_nearby_intel_posts` RPC. Removed check-ins view from this section to surface intel posts, confirmations, and tagging. Followed `hooks/ARCHITECTURE.md` data fetching with `useDataFetcher` via `useIntelData`.
 
 - Fixed: `session_invitations` RLS blocked inbox queries by referencing `auth.users`. Replaced with JWT email claim in policies:
   - SELECT: `invitee_id = auth.uid() OR invitee_email = (auth.jwt() ->> 'email')`
@@ -53,9 +77,18 @@
   - Forecast tab now accepts `overrideBeach` and updates when a search succeeds
 
 - Mock data scripts for reviews and intel (for lively demo data following `components/beach/ARCHITECTURE.md` and `components/intel/ARCHITECTURE.md` patterns):
+
   - `scripts/mock-beach-reviews.sql` seeds realistic beach reviews across popular beaches using existing persona profiles; idempotent with unique `(beach_id, user_id)` constraint and randomized ratings/visit dates.
   - `scripts/mock-intel-all-beaches.sql` seeds intel posts across many beaches, with surf condition fields and randomized confirmations; complements existing `scripts/mock-popular-beaches-intel.sql` and `scripts/mock-last-week-community-data.sql`.
   - Both scripts include quick verification queries and are safe to re-run in Supabase SQL editor.
+
+- Supabase migrations for intel and reviews are included and should be applied locally for populated content:
+  - `20250817120000_create_intel_and_reviews_tables.sql`
+  - `20250817160000_add_intel_api_functions.sql`
+  - `20250817130000_seed_mock_users.sql`
+  - `20250817140000_seed_intel_posts.sql`
+  - `20250817150000_seed_beach_reviews.sql`
+  - Optional: `20250817170000_seed_pacific_ocean_beach_data.sql` for PB/OB richness
   - `scripts/mock-solid-snake.sql` seeds the “Solid Snake” persona with a profile, board, planned and completed sessions, follows to Big Boss/Liquid Snake (if present), and two pending invitations for inbox testing; includes verification queries. Idempotent and safe to re-run.
 
 # Quiver Surf App - Changelog
@@ -67,6 +100,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+
+- Local dev bootstrapping and data ingestion
+
+  - Baseline migrations for core tables: `profiles`, `beaches`, `sessions`, `boards`
+  - Forecast tables and uniques: `marine_forecasts`, `tide_forecasts`, `sun_times`
+  - Seed migration for mock, numeric-first forecast data (guarded/idempotent)
+  - Constraint fix: `sun_times.source` now allows 'computed' to match API behavior
+  - Local env wiring: `.env.local` points to Supabase local (127.0.0.1:54321)
+
+- Forecast API usage (documented and verified):
+
+  - `GET /api/forecasts/window?beachId=<uuid>&start=<iso>&end=<iso>` reads normalized window; auto-backfills tides (NOAA) and sun (computed) if missing
+  - `GET /api/cron/forecasts/refresh[?beachId=<uuid>]` ingests marine (NDBC→CDIP), tides (NOAA hourly), and sun (computed); accepts `x-vercel-cron: 1` locally or `Authorization: Bearer <CRON_SECRET>`
+
+- Local dataset loading
+
+  - Script run: `load_beaches_with_meta_fixed.sql` (no TRUNCATE) to insert 72 OC/SD/BAJA beaches
+  - Added mapping `lat/lon -> latitude/longitude` for API compatibility
+
+- Working application verification
+
+  - Health: `GET /api/health` → healthy
+  - Auth: created local user `dev@local.test` (confirmed), created matching `public.profiles` row
+  - Home renders; sessions table present (empty by default)
+
+- Database function `public.cardinal_to_deg(text)` to map cardinal directions to degrees; migration `20250812160000_add_cardinal_to_deg_function.sql`.
+
+- Database view `public.v_beach_hourly_scores` to compute per-hour beach suitability score (0–100) based on wind (vs offshore), tide band, and swell window; inputs from `marine_forecasts`, `tide_forecasts`, and `beaches`. Migration `20250812160500_create_v_beach_hourly_scores.sql`.
+
+- RPC `public.get_best_times(p_beach uuid, p_start timestamptz, p_end timestamptz, p_limit int)` to return top 2-hour windows with labels (`epic/good/fair/poor`) based on rolling averages from `v_beach_hourly_scores`. Migration `20250812161000_create_get_best_times.sql`.
+
+- Per-beach scoring weights (`w_wind`, `w_swell`, `w_tide`, `w_period`, `w_height`) stored on `public.beaches` with defaults 0.4/0.4/0.2/0/0, consumed by `v_beach_hourly_scores`. Migration `20250812162000_add_beach_scoring_weights.sql`.
+
+- Updated default weights to wind .30, tide .20, swell .25, period .15, height .10 and backfilled existing rows. Migration `20250812162500_update_beach_scoring_weight_defaults.sql`.
+
+- Materialized view `public.mv_best_times` with hourly pg_cron refresh and API `GET /api/recommendations/best-times` that prefers MV and sets edge cache (s-maxage=600, SWR=300). UI now calls the API first with RPC fallback.
 
 - Integrated Vercel Web Analytics and Speed Insights in `app/layout.tsx` to collect page views and performance metrics in production. Follows App Router root layout pattern documented in `app/ARCHITECTURE.md`.
 
@@ -202,6 +271,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Updated `components/session-forms/OptimalTimesSection.tsx` to render time ranges, add test ids, and context-aware label.
 
 ### Fixed
+
+### Removed
+
+- Dead code cleanup and tooling:
+
+  - Added `knip`, `ts-prune`, and `depcheck` with scripts: `dead:knip`, `dead:tsprune`, `dead:deps`, `dead:all`, `typecheck:strict-unused`
+  - Removed unused files flagged by analysis:
+    - `actions/beach-review-actions-optimized.ts`
+    - `actions/forecast/forecast-actions.ts` (superseded by normalized forecast APIs)
+    - `actions/setup-actions.ts`
+    - `app/map/enhanced-page.tsx`
+    - `hooks/use-beach-forecast.ts`, `hooks/use-enhanced-beach-data.ts`, `hooks/use-form-submission.ts`, `hooks/use-optimized-realtime.ts`
+    - `lib/auth/admin-wrapper.ts`, `lib/beach-update-config.ts`, `lib/client-fetch.ts`, `lib/constants.ts`, `lib/services/open-meteo-service.ts`
+    - Scripts: `clean-and-regenerate-enhanced-forecasts.mjs`, `cleanup-invalid-buoys.mjs`, `setup-enhanced-forecasts.mjs`, `update-enhanced-forecasts-real-data.mjs`, `update-ocean-beach-forecast.ts`
+  - Removed unused dependencies: `autoprefixer`, `file-saver`, `leaflet`, `node-fetch`, `uuid`, `@types/file-saver`, `@types/leaflet`
+  - Fixed duplicate export by making `components/ui/forecast-data-transparency.tsx` default-only export and updating imports/tests
+  - Ensured build and tests pass after removals
+
+- Playwright E2E suite consolidation (no coverage loss):
+
+  - Removed redundant specs: `e2e/end-to-end.spec.ts`, `e2e/realistic-user-scenarios.spec.ts`, `e2e/map-simplified.spec.ts`, `e2e/beach-card-interactions.spec.ts`, `e2e/session-planning-critical.spec.ts`, `e2e/plan-session-photo-upload.spec.ts`, `e2e/unauthenticated-user-flows.spec.ts`
+  - Kept umbrella `e2e/comprehensive.spec.ts` and focused domain specs
+  - Updated `e2e/ARCHITECTURE.md` to reflect lean, non-overlapping suite
 
 - Made Optimal Times recommendations relevant for afternoon/evening selections instead of generic early morning suggestions.
 - Replaced non-existent `Tide` icon with `Droplet` from `lucide-react` in Spot Conditions summary

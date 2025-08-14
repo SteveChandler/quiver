@@ -21,44 +21,48 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // Use fallback query since PostGIS functions have type mismatches
+    // Use spatial query to find nearest buoy with conditions
     console.log(
-      "Using fallback conditions query for lat/lng:",
+      "Using spatial query for buoy conditions near lat/lng:",
       latitude,
       longitude
     );
 
     const { data: buoys, error } = await supabase
-      .from("buoys")
-      .select("*")
-      .eq("active", true)
-      .not("coordinates", "is", null)
-      .or(
-        "water_temperature.not.is.null,air_temperature.not.is.null,wave_height.not.is.null"
-      )
-      .order("updated_at", { ascending: false })
-      .limit(1);
+      .rpc("get_nearest_buoy_with_conditions", {
+        target_lat: latitude,
+        target_lng: longitude,
+        max_distance_m: 100000 // 100km radius
+      });
 
     if (error) {
       console.error("Database error:", error);
-      return handleApiError(error, "Failed to fetch buoy conditions");
+      // Graceful fallback when buoys table not present
+      return createSuccessResponse({
+        id: "mock",
+        latitude: latitude,
+        longitude: longitude,
+        name: "No Buoy Available",
+        measurements: { updated_at: null },
+      });
     }
 
-    if (!buoys || buoys.length === 0) {
+    if (!buoys) {
       return NextResponse.json(
         { error: "No active buoy found for location" },
         { status: 404 }
       );
     }
 
-    const buoy = buoys[0];
+    const buoy = buoys;
 
     // Transform to match Ruby controller JSON format
     const buoyJson = {
       id: buoy.buoy_uuid,
-      latitude: 0, // TODO: Parse PostGIS coordinates when functions are fixed
-      longitude: 0,
+      latitude: buoy.coordinates ? parseFloat(buoy.coordinates.coordinates[1]) : 0,
+      longitude: buoy.coordinates ? parseFloat(buoy.coordinates.coordinates[0]) : 0,
       name: buoy.buoy_name || buoy.buoy_uuid || "Unknown Buoy",
+      distance_meters: buoy.distance_meters,
       measurements: {
         air_temperature: buoy.air_temperature,
         water_temperature: buoy.water_temperature,

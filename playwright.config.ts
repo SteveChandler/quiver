@@ -36,14 +36,9 @@ export default defineConfig({
     /* Use saved authentication state */
     storageState: ".auth/user.json",
 
-    /* Set test mode flag for components to detect test environment */
+    /* Set test mode flag for components to detect test environment and allow API tests */
     extraHTTPHeaders: {
       "X-Test-Mode": "true",
-    },
-
-    // Enable API testing
-    extraHTTPHeaders: {
-      // Add any default headers for API testing
     },
   },
 
@@ -96,10 +91,10 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: "npm run dev -- --port 3000 --hostname 0.0.0.0",
-  //   url: "http://localhost:3000",
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120 * 1000,
-  // },
+  webServer: {
+    command: "npm run dev -- --port 3000 --hostname 0.0.0.0",
+    url: "http://localhost:3000",
+    reuseExistingServer: true,
+    timeout: 120 * 1000,
+  },
 });

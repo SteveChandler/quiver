@@ -48,6 +48,9 @@ export type Beach = {
   best_swell_cardinals?: string[] | null;
   best_wind_cardinals?: string[] | null;
   preference_model?: Record<string, any> | null;
+  // Station overrides (optional)
+  cdip_station?: string | null;
+  ndbc_station?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -545,9 +548,32 @@ export type Database = {
         >;
       };
     };
+    Functions: {
+      get_best_times: {
+        Args: {
+          p_beach: string;
+          p_start: string; // timestamptz ISO string
+          p_end: string; // timestamptz ISO string
+          p_limit?: number;
+        };
+        Returns: Array<{
+          start_ts: string; // timestamptz ISO string
+          end_ts: string; // timestamptz ISO string
+          label: string;
+          score: number;
+        }>;
+      };
+    };
     Enums: {
       session_status: SessionStatus;
       intel_post_tag: IntelPostTag;
     };
   };
+};
+
+export type GetBestTimesRow = {
+  start_ts: string;
+  end_ts: string;
+  label: string;
+  score: number;
 };

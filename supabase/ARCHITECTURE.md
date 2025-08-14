@@ -400,3 +400,53 @@ Before any new migration:
 **Next Review**: After reaching 100 active users
 
 **Key Principles**: Performance-first, scalable, secure database evolution that supports the app's growth from 0 to 1,000+ users while maintaining data integrity and user experience.
+
+---
+
+## 🧩 Utility SQL Functions
+
+- `public.cardinal_to_deg(text)`
+  - Converts compass cardinal/ordinal directions (e.g., `N`, `ENE`, `SSW`) to degrees.
+  - Marked `IMMUTABLE`; returns `NULL` for unknown inputs after `trim/upper` normalization.
+  - Introduced by migration `20250812160000_add_cardinal_to_deg_function.sql` with rollback `20250812160001_rollback_cardinal_to_deg_function.sql`.
+  - Intended for use in views, reports, and data normalization queries where directional text must be mapped to numeric bearings.
+
+## 🪟 Utility Views
+
+- `public.v_beach_hourly_scores`
+  - Computes per-hour surf suitability scores (0–100) for each beach using wind direction vs. offshore bearing, tide preference band, and swell window inclusion with fade.
+  - Inputs: `marine_forecasts(beach_id, ts, wind_direction_deg, wind_speed_ms, wave_direction_deg)` and `tide_forecasts(beach_id, ts, tide_height_m)`; preferences from `beaches` (`wind_offshore_deg`, `wind_cross_shore_ok_kt`, `preferred_tide_ft_min/max`, `swell_window_min/max`).
+  - Current weights: wind 0.4, swell 0.4, tide 0.2. Period/height scoring reserved for later when calibrated fields exist.
+  - Introduced by migration `20250812160500_create_v_beach_hourly_scores.sql` with rollback `20250812160501_rollback_v_beach_hourly_scores.sql`.
+
+## 🧮 Utility RPCs
+
+- `public.get_best_times(p_beach uuid, p_start timestamptz, p_end timestamptz, p_limit int default 6)`
+  - Returns top-scoring 2-hour windows within the range using `v_beach_hourly_scores` rolling averages, labelled `epic/good/fair/poor`.
+  - Read-only (`stable`), executable by `anon`, `authenticated`, and `service_role`.
+  - Introduced by migration `20250812161000_create_get_best_times.sql` with rollback `20250812161001_rollback_get_best_times.sql`.
+
+## ⚖️ Scoring Weights (per beach)
+
+## 🚀 Best Times Performance
+
+- `public.mv_best_times` (materialized view)
+
+  - Precomputes rolling 2-hour windows for next 72h per beach.
+  - Refreshed hourly via `pg_cron` job `refresh_mv_best_times_hourly` calling `public.refresh_mv_best_times()`.
+  - Unique index on `(beach_id, start_ts)` enables concurrent refresh and fast lookup.
+  - Introduced by `20250812170000_create_mv_best_times.sql` with rollback `20250812170001_rollback_mv_best_times.sql`.
+
+- API `GET /api/recommendations/best-times?beachId&hours&limit`
+  - Prefers MV; falls back to `get_best_times` RPC.
+  - Cache headers: `s-maxage=600, stale-while-revalidate=300`.
+
+Weights stored on `public.beaches`:
+
+- `w_wind` (default 0.400)
+- `w_swell` (default 0.250)
+- `w_tide` (default 0.200)
+- `w_period` (default 0.150)
+- `w_height` (default 0.100)
+
+All weights are in [0, 1]. The view `public.v_beach_hourly_scores` reads these to compute `score_0_100`. Defaults are applied via `COALESCE` and can be tuned per-spot by admins (future UI). Introduced by migration `20250812162000_add_beach_scoring_weights.sql` with rollback `20250812162001_rollback_beach_scoring_weights.sql`.

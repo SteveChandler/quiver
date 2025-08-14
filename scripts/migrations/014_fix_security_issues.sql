@@ -7,16 +7,9 @@
 -- 1. Fix Security Definer Views
 -- ================================================
 
--- Recreate enhanced forecast views with SECURITY INVOKER
-DROP VIEW IF EXISTS current_enhanced_forecasts;
 DROP VIEW IF EXISTS ten_day_enhanced_forecasts;
 
--- Create a view for current day forecasts (with SECURITY INVOKER)
-CREATE OR REPLACE VIEW current_enhanced_forecasts
-WITH (security_invoker = true) AS
-SELECT * FROM enhanced_forecasts
-WHERE forecast_date >= CURRENT_DATE
-ORDER BY beach_id, forecast_date, forecast_time;
+-- REMOVED: current_enhanced_forecasts view (unused)
 
 -- Create a view for next 10 days forecasts (with SECURITY INVOKER)
 CREATE OR REPLACE VIEW ten_day_enhanced_forecasts
@@ -34,10 +27,12 @@ ORDER BY beach_id, forecast_date, forecast_time;
 ALTER TABLE enhanced_forecasts ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies for enhanced_forecasts (public read access)
+DROP POLICY IF EXISTS "Anyone can view enhanced forecasts" ON enhanced_forecasts;
 CREATE POLICY "Anyone can view enhanced forecasts" ON enhanced_forecasts
     FOR SELECT USING (true);
 
 -- Admin/service role can insert/update/delete forecasts
+DROP POLICY IF EXISTS "Service role can manage enhanced forecasts" ON enhanced_forecasts;
 CREATE POLICY "Service role can manage enhanced forecasts" ON enhanced_forecasts
     FOR ALL USING (
         auth.jwt() ->> 'role' = 'service_role' OR
@@ -219,6 +214,22 @@ CREATE TABLE IF NOT EXISTS buoys (
     deactivated_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT buoys_buoy_uuid_kind_unique UNIQUE (buoy_uuid, kind)
 );
+
+-- Ensure buoys.coordinates exists in environments where the table predates this column
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'buoys'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'buoys' AND column_name = 'coordinates'
+        ) THEN
+            ALTER TABLE buoys ADD COLUMN coordinates GEOGRAPHY(POINT, 4326);
+        END IF;
+    END IF;
+END $$;
 
 -- Create comments table if it doesn't exist (based on usage in codebase)
 CREATE TABLE IF NOT EXISTS comments (
