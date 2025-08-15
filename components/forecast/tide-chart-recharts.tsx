@@ -146,7 +146,8 @@ const TideLabel = (props: any) => {
   const { payload, x, y, value } = props;
   if (!payload || value === undefined) return null;
 
-  const isHigh = payload.type === "high";
+  const t = (payload.type ?? "").toString().toLowerCase();
+  const isHigh = t === "high" || t === "h" || t === "HIGH";
   const labelY = isHigh ? y - 15 : y + 20; // Above for high, below for low
 
   return (
@@ -214,7 +215,7 @@ export function TideChart({
         .map((e) => ({
           t: +new Date(e.ts),
           h: toFt(e.height_m, e.height_ft),
-          type: e.type,
+          type: e.type === "HIGH" ? "HIGH" : "LOW",
         }))
         .filter((d) => Number.isFinite(d.h));
     } else if (data && data.length > 0) {
@@ -241,12 +242,28 @@ export function TideChart({
     // Prefer hourly for line; else synthesize from extrema
     let line: { t: number; h: number }[] = [];
     if (Array.isArray(hourly) && hourly.length) {
+      const seen = new Set<number>();
       line = hourly
         .map((d) => ({ t: +new Date(d.ts), h: toFt(d.height_m, d.height_ft) }))
-        .filter((d) => Number.isFinite(d.h))
-        .sort((a, b) => a.t - b.t);
+        .filter((d) => Number.isFinite(d.h) && Number.isFinite(d.t))
+        .sort((a, b) => a.t - b.t)
+        .filter((d) => {
+          if (seen.has(d.t)) return false;
+          seen.add(d.t);
+          return true;
+        });
     } else {
-      line = synthesizeFromExtrema(extrema.map((e) => ({ t: e.t, h: e.h })));
+      const seen = new Set<number>();
+      const ext = extrema
+        .filter((e) => Number.isFinite(e.t) && Number.isFinite(e.h))
+        .sort((a, b) => a.t - b.t)
+        .filter((e) => {
+          if (seen.has(e.t)) return false;
+          seen.add(e.t);
+          return true;
+        })
+        .map((e) => ({ t: e.t, h: e.h }));
+      line = synthesizeFromExtrema(ext);
     }
 
     if (line.length === 0) {
@@ -263,8 +280,8 @@ export function TideChart({
     const fiveDaysLater = new Date(firstT);
     fiveDaysLater.setDate(fiveDaysLater.getDate() + 5);
     const endT = fiveDaysLater.getTime();
-    const line5 = line.filter((p) => p.t <= endT);
-    const extrema5 = extrema.filter((p) => p.t <= endT);
+    const line5 = line.filter((p) => Number.isFinite(p.t) && p.t <= endT);
+    const extrema5 = extrema.filter((p) => Number.isFinite(p.t) && p.t <= endT);
 
     const allH = [...line5.map((d) => d.h), ...extrema5.map((d) => d.h)].filter(
       (n) => Number.isFinite(n)
@@ -326,6 +343,30 @@ export function TideChart({
     });
     if (issues.length) console.warn("Tide inversion detected:", issues);
   }, [extremaData]);
+
+  // Dev-only: log data sanity snapshot
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const hasNaNLine = lineData.some(
+      (d) => !Number.isFinite(d.t) || !Number.isFinite(d.h)
+    );
+    const hasNaNExt = extremaData.some(
+      (d) => !Number.isFinite(d.t) || !Number.isFinite(d.h)
+    );
+    const sortedAsc = lineData.every(
+      (d, i, arr) => i === 0 || d.t >= arr[i - 1].t
+    );
+    console.info("TideChart sanity:", {
+      lineCount: lineData.length,
+      extremaCount: extremaData.length,
+      yDomain,
+      hasNaNLine,
+      hasNaNExt,
+      sortedAsc,
+      sampleLine: lineData.slice(0, 4),
+      sampleExtrema: extremaData.slice(0, 4),
+    });
+  }, [lineData, extremaData, yDomain]);
 
   // Get current timestamp for "Now" line
   const nowTimestamp = Date.now();
