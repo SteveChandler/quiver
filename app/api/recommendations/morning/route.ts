@@ -7,6 +7,7 @@ import { sunForLatLon, isDark } from '@/lib/surf/sun';
 import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
 import { apiCache } from '@/lib/utils/request-cache';
 import { createAPIServerClient } from '@/lib/supabase/api-server-client';
+import { getMorningWindow } from '@/lib/time';
 
 const schema = z.object({
   lat: z.number(),
@@ -141,10 +142,6 @@ export async function POST(req: NextRequest) {
   apiCache.set(cacheKey, payload, 12 * 60 * 1000); // 12 minutes
   return NextResponse.json(payload);
 }
-
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { getMorningWindow } from '@/lib/time';
 
 const requestSchema = z.object({
   lat: z.number().min(-90).max(90),

@@ -1,8 +1,6 @@
 "use client";
 import { SessionFormWrapper } from "@/components/session-forms/SessionFormWrapper";
 import { BottomNavigation } from "@/components/bottom-navigation";
-import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo/meta";
 import { CoachCard } from "@/components/recommendations/coach-card";
 import { useEffect } from "react";
 import { useGeo } from "@/hooks/useGeo";
@@ -47,9 +45,4 @@ export default function PlanSessionPage() {
   );
 }
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Plan Your Surf Session | Quiver",
-  description:
-    "Plan the perfect surf session with forecast insights, gear picks, and group invites.",
-  path: "/plan-session",
-});
+// metadata for this client page is provided via app/plan-session/head.tsx
