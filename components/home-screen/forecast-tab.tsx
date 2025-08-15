@@ -287,7 +287,9 @@ export function ForecastTab({
                 height={todaysForecast.wave_height}
                 className="text-lg font-bold text-blue-600"
               />
-              <div className="text-xs text-blue-500">Wave Height</div>
+              <div className="text-xs text-blue-500 text-center">
+                Wave Height
+              </div>
             </div>
 
             <div className="text-center p-3 bg-green-50 rounded-lg">

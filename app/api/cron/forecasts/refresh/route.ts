@@ -10,6 +10,7 @@ import {
   getNearestTideStation,
   fetchHourlyTidePredictions,
 } from "@/lib/services/noaa-tide-service";
+import { NOAACOOPSService } from "@/lib/services/noaa-coops-service";
 import SunCalc from "suncalc";
 
 export const revalidate = 0;
@@ -118,11 +119,11 @@ export async function GET(request: Request) {
         console.warn("marine ingest error", b.name, e);
       }
 
-      // Tides from NOAA T&C hourly
+      // Tides from NOAA T&C hourly (with CO-OPS hilo fallback -> interpolated hourly)
       try {
         const start = new Date().toISOString();
         const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 3);
+        endDate.setDate(endDate.getDate() + 5);
         const end = endDate.toISOString();
         const st = await getNearestTideStation(b.latitude, b.longitude);
         if (st) {
@@ -131,14 +132,61 @@ export async function GET(request: Request) {
             beachId: b.id,
             stationId: st.id,
           });
-          const preds = await fetchHourlyTidePredictions(st.id, start, end);
-          const rows = preds.map((p) => ({
+          let preds = await fetchHourlyTidePredictions(st.id, start, end);
+          let rows = preds.map((p) => ({
             beach_id: b.id,
             ts: p.ts,
             tide_height_m: p.tide_height_m,
             tide_phase: p.tide_phase,
             source: "noaa",
           }));
+
+          // Fallback: if hourly predictions are empty, fetch CO-OPS hilo extremes and interpolate hourly
+          if (!rows.length) {
+            try {
+              const coops = new NOAACOOPSService();
+              const coopsStation = st.id; // use the same station id if numeric, else fallback mapping inside service
+              const coopsData = await coops.fetchCOOPSData(coopsStation, 5);
+              const tides = coopsData?.tides || [];
+              if (tides.length >= 2) {
+                // Build hourly timestamps from start..end and interpolate heights (ft -> m)
+                const startDt = new Date(start);
+                const endDt = new Date(end);
+                const hours: Date[] = [];
+                for (let t = new Date(startDt); t <= endDt; t.setHours(t.getHours() + 1)) {
+                  hours.push(new Date(t));
+                }
+                const toM = (ft: number) => (ft == null ? null : ft * 0.3048);
+                const interpHeightAt = (d: Date): number | null => {
+                  // find surrounding extremes
+                  const ts = d.getTime() / 1000;
+                  const sorted = [...tides].sort((a, b) => a.time - b.time);
+                  let prev = null as any;
+                  let next = null as any;
+                  for (const ti of sorted) {
+                    if (ti.time <= ts) prev = ti; else { next = ti; break; }
+                  }
+                  if (!prev || !next) return null;
+                  const alpha = (ts - prev.time) / (next.time - prev.time);
+                  const h = prev.height + (next.height - prev.height) * Math.max(0, Math.min(1, alpha));
+                  return Math.round((toM(h) ?? 0) * 1000) / 1000;
+                };
+                const interpRows = hours
+                  .map((d) => ({
+                    beach_id: b.id,
+                    ts: d.toISOString(),
+                    tide_height_m: interpHeightAt(d),
+                    tide_phase: null,
+                    source: "noaa_hilo_interpolated",
+                  }))
+                  .filter((r) => r.tide_height_m != null);
+                rows = interpRows;
+              }
+            } catch (fallbackErr) {
+              console.warn("CO-OPS fallback failed", { beach: b.name, beachId: b.id, stationId: st.id, fallbackErr });
+            }
+          }
+
           if (rows.length) {
             const { error } = await supabase
               .from("tide_forecasts")

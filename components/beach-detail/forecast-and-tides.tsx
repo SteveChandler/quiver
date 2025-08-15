@@ -119,7 +119,9 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
           score: w.score,
         }));
       }
-    } catch {}
+    } catch (e) {
+      console.warn("BestTimes API failed, falling back to RPC/view", e);
+    }
 
     const primary = await fetchBestTimes(supabase as any, beach.id, 48, 6);
     if (primary.data && primary.data.length > 0) {

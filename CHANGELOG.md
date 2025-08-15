@@ -41,6 +41,7 @@
 - UI polish: Added bell icon to Notifications item in avatar dropdown (`components/app-header.tsx`) following `components/ARCHITECTURE.md` icon sizing/spacing patterns.
 
 - Home screen Forecast tab now displays normalized face height using `WaveHeightDisplay`, matching Beach Detail. This ensures consistent, calibrated surf height across the app and adds an explanatory tooltip. Follows `components/ARCHITECTURE.md` DRY component usage. Also aligned font sizing with other metrics (consistent `text-lg`).
+- Beach list cards: rounded review average to one decimal place (e.g., 2.6) and corrected singular/plural review label for readability.
 
 - Local Intel section on beach pages now uses `components/intel/beach-intel-section.tsx` backed by `/api/intel` and `get_nearby_intel_posts` RPC. Removed check-ins view from this section to surface intel posts, confirmations, and tagging. Followed `hooks/ARCHITECTURE.md` data fetching with `useDataFetcher` via `useIntelData`.
 

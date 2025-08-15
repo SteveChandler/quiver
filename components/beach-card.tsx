@@ -91,9 +91,11 @@ export function BeachCard({
             onClick={handleReviewsClick}
           >
             <Star className="h-4 w-4 text-yellow-500 mr-1 fill-yellow-500" />
-            <span className="font-medium">{rating}</span>
+            <span className="font-medium">
+              {Number.isFinite(rating) ? (rating as number).toFixed(1) : "--"}
+            </span>
             <span className="text-muted-foreground text-sm ml-1">
-              ({reviewCount} reviews)
+              ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
             </span>
           </div>
           {id ? (
