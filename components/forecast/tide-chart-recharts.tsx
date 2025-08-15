@@ -266,9 +266,19 @@ export function TideChart({
     const line5 = line.filter((p) => p.t <= endT);
     const extrema5 = extrema.filter((p) => p.t <= endT);
 
-    const allH = [...line5.map((d) => d.h), ...extrema5.map((d) => d.h)];
-    const minH = Math.min(...allH);
-    const maxH = Math.max(...allH);
+    const allH = [...line5.map((d) => d.h), ...extrema5.map((d) => d.h)].filter(
+      (n) => Number.isFinite(n)
+    );
+    let minH = Math.min(...allH);
+    let maxH = Math.max(...allH);
+    if (!Number.isFinite(minH) || !Number.isFinite(maxH)) {
+      minH = -1;
+      maxH = 1;
+    }
+    if (minH === maxH) {
+      minH -= 0.5;
+      maxH += 0.5;
+    }
     const domain: [number, number] = [minH - 0.5, maxH + 0.5];
 
     // Day ticks from line points
@@ -331,7 +341,7 @@ export function TideChart({
   );
 
   // Filter ticks to show one per day (derived above from normalized data)
-  const getDayTicks = dayTicks;
+  const xTicks = dayTicks && dayTicks.length ? dayTicks : undefined;
 
   if (lineData.length === 0) {
     return (
@@ -389,7 +399,7 @@ export function TideChart({
                   type="number"
                   scale="time"
                   domain={["dataMin", "dataMax"]}
-                  ticks={getDayTicks}
+                  ticks={xTicks as any}
                   tickFormatter={formatXAxisTick}
                   interval={0}
                   axisLine={{ stroke: "#9CA3AF" }}
