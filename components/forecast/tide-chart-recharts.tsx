@@ -41,7 +41,12 @@ interface TideChartProps {
   data?: TideDataPoint[];
   forecasts?: EnhancedForecastEntity[];
   hourly?: { ts: string; height_m?: number; height_ft?: number }[];
-  events?: { ts: string; type: "HIGH" | "LOW"; height_m?: number; height_ft?: number }[];
+  events?: {
+    ts: string;
+    type: "HIGH" | "LOW";
+    height_m?: number;
+    height_ft?: number;
+  }[];
   className?: string;
   showNowLine?: boolean;
   isAnimationActive?: boolean;
@@ -176,20 +181,28 @@ export function TideChart({
 
   // Cosine-easing fallback between extrema
   const synthesizeFromExtrema = (ext: { t: number; h: number }[]) => {
-    const pts = [...ext].filter((p) => Number.isFinite(p.h)).sort((a, b) => a.t - b.t);
+    const pts = [...ext]
+      .filter((p) => Number.isFinite(p.h))
+      .sort((a, b) => a.t - b.t);
     if (pts.length < 2) return pts;
     const out: { t: number; h: number }[] = [];
     const step = 60 * 60 * 1000; // 1h
     for (let i = 0; i < pts.length - 1; i++) {
       const a = pts[i];
       const b = pts[i + 1];
+      const dt = b.t - a.t;
+      if (!(dt > 0)) {
+        // skip zero/negative intervals to avoid NaN
+        if (out.length === 0) out.push({ t: a.t, h: a.h });
+        continue;
+      }
       for (let t = a.t; t <= b.t; t += step) {
-        const u = (t - a.t) / (b.t - a.t);
-        const h = a.h + (b.h - a.h) * (1 - Math.cos(Math.PI * u)) / 2;
+        const u = (t - a.t) / dt;
+        const h = a.h + ((b.h - a.h) * (1 - Math.cos(Math.PI * u))) / 2;
         out.push({ t, h });
       }
     }
-    return out;
+    return out.length ? out : pts;
   };
 
   // Process and normalize to shared shapes: line[{t,h}], extrema[{t,h,type}]
@@ -198,7 +211,11 @@ export function TideChart({
     let extrema: { t: number; h: number; type: "HIGH" | "LOW" }[] = [];
     if (Array.isArray(events) && events.length) {
       extrema = events
-        .map((e) => ({ t: +new Date(e.ts), h: toFt(e.height_m, e.height_ft), type: e.type }))
+        .map((e) => ({
+          t: +new Date(e.ts),
+          h: toFt(e.height_m, e.height_ft),
+          type: e.type,
+        }))
         .filter((d) => Number.isFinite(d.h));
     } else if (data && data.length > 0) {
       extrema = data
@@ -214,7 +231,9 @@ export function TideChart({
         .map((e) => ({
           t: e.time.getTime(),
           h: toFt(undefined, e.height),
-          type: (e.type as string).toLowerCase().includes("high") ? "HIGH" : "LOW",
+          type: (e.type as string).toLowerCase().includes("high")
+            ? "HIGH"
+            : "LOW",
         }))
         .filter((d) => Number.isFinite(d.h));
     }
@@ -290,7 +309,10 @@ export function TideChart({
     byDay.forEach((v, k) => {
       const maxLow = Math.max(...(v.low.length ? v.low : [-Infinity]));
       const minHigh = Math.min(...(v.high.length ? v.high : [Infinity]));
-      if (maxLow >= minHigh) issues.push(`${k}: maxLow ${maxLow.toFixed(1)} ≥ minHigh ${minHigh.toFixed(1)}`);
+      if (maxLow >= minHigh)
+        issues.push(
+          `${k}: maxLow ${maxLow.toFixed(1)} ≥ minHigh ${minHigh.toFixed(1)}`
+        );
     });
     if (issues.length) console.warn("Tide inversion detected:", issues);
   }, [extremaData]);
