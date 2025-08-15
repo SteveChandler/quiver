@@ -31,21 +31,25 @@ export async function GET(request: NextRequest) {
     let rows = mv.data || [];
 
     if (!rows.length) {
-      // Fallback to RPC
+      // Fallback to RPC; degrade gracefully if RPC is missing
       const rpc = await supabase.rpc("get_best_times", {
         p_beach: beachId,
         p_start: startIso,
         p_end: endIso,
         p_limit: limit,
       });
-      if (rpc.error) throw rpc.error;
-      rows = (rpc.data || []).map((r: any) => ({
-        start_ts: r.start_ts,
-        end_ts: r.end_ts,
-        grade: (r.label || "").split(" ")[0] || "",
-        score: r.score,
-        advanced_only: false,
-      }));
+      if (!rpc.error) {
+        rows = (rpc.data || []).map((r: any) => ({
+          start_ts: r.start_ts,
+          end_ts: r.end_ts,
+          grade: (r.label || "").split(" ")[0] || "",
+          score: r.score,
+          advanced_only: false,
+        }));
+      } else {
+        console.warn("get_best_times RPC unavailable or failed", rpc.error);
+        rows = [];
+      }
     }
 
     const response = createSuccessResponse({ windows: rows });
