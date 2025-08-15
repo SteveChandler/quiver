@@ -327,6 +327,34 @@ const { profile, defaultBeach } = useCachedProfile();
 }
 ```
 
+### **Morning Recommendations Warmup**
+
+- On mount, when `useGeo` returns `{ lat, lon }`, the Home screen triggers a background `POST /api/recommendations/morning` with `{ lat, lon, radius_km: 25 }` to warm recommendations and cache sun times for nearby beaches. This has no UI dependency and is safe to cancel via `AbortController` on unmount.
+- Returned windows are non-overlapping and come from top-8 nearest beaches to reduce load.
+
+```typescript
+const { coords } = useGeo();
+useEffect(() => {
+  if (!coords) return;
+  const controller = new AbortController();
+  (async () => {
+    try {
+      await fetch("/api/recommendations/morning", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lat: coords.lat,
+          lon: coords.lon,
+          radius_km: 25,
+        }),
+        signal: controller.signal,
+      });
+    } catch {}
+  })();
+  return () => controller.abort();
+}, [coords]);
+```
+
 ### **Forecast Integration**
 
 ```typescript

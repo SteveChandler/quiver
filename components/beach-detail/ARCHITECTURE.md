@@ -119,6 +119,39 @@ const { beachAccuracy } = useForecastCalibration({
 />;
 ```
 
+### **Best Times + Why Breakdown (Forecast & Tides)**
+
+- The `Forecast & Tides` section may render an inline Best Times chip list driven by `mv_beach_hourly_scores` (preferred) or `v_beach_hourly_scores` when MV absent.
+- Primary path uses API `GET /api/recommendations/best-times` (materialized view preferred) with RPC fallback; if unavailable, client computes top 2h windows for daylight using `v_beach_hourly_scores`.
+- Each chip can show a tooltip with a “why” factor breakdown fetched from `mv_beach_hourly_scores` for the peak hour inside the window.
+
+```typescript
+type WindowWithWhy = {
+  label: string;
+  score: number;
+  why?: {
+    ts_utc: string;
+    wind: number;
+    tide: number;
+    swell: number;
+    period: number;
+    height: number;
+  } | null;
+};
+
+// Peak-hour breakdown
+const { data } = await supabase
+  .from("v_beach_hourly_scores")
+  .select(
+    "ts_utc, wind_score, tide_score, swell_dir_score, period_score, height_score, score_0_100"
+  )
+  .eq("beach_id", beach.id)
+  .gte("ts_utc", startIso)
+  .lt("ts_utc", endIso)
+  .order("score_0_100", { ascending: false })
+  .limit(1);
+```
+
 ### **Session Integration**
 
 ```typescript

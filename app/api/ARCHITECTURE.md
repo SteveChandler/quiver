@@ -571,3 +571,64 @@ import {
 - **Event-Driven Architecture**: Asynchronous processing patterns
 - **Advanced Caching**: Redis integration for high-performance caching
 - **API Gateway**: Centralized API management and routing
+
+---
+
+### 🌅 `/recommendations/morning` - Near-Term Session Picks
+
+#### `/recommendations/morning/route.ts`
+
+- **Methods**: `POST`, `GET`
+- **Function**: Returns the best near-term 2-hour surf windows around a user-provided location.
+- **Inputs**:
+  - `POST` JSON: `{ lat: number, lon: number, radius_km?: number = 25, tz?: string = 'America/Los_Angeles', horizon_hours?: number = 5 }`
+  - `GET` query: `lat`, `lon`, optional `radius_km`, `date_local`, `tz`, `horizon_hours` (validated via `zod`)
+- **Time Window Logic**:
+  - If current local time is dark: use tomorrow's sunrise → up to 5 hours or 11:00 local, whichever is earlier
+  - Else: from now (clamped to sunrise) → min(sunset, now + `horizon_hours`)
+- **Data Sources** (see `lib/surf/`):
+  - `getBeachesNear(lat, lon, radius_km)`
+  - `getMarineForecastRange(beachId, startUtc, endUtc)`
+  - `getTideForecastRange(beachId, startUtc, endUtc)`
+  - Warms `sun_times` via `getSunTimes(beachId, localDateStr, lat, lon)`
+- **Scoring**:
+  - Limits candidate beaches to top 8 by distance before scoring to reduce load
+  - Computes top windows per-beach using `topWindowsInRange` (120-minute windows)
+  - Sorts by `meanScore` descending; returns top 3 cards via `windowBlurbDetailed`
+  - Ensures non-overlapping windows in final selection to avoid double-booking
+- **Outputs**:
+  - `{ mode: 'tomorrow_morning' | 'next_windows', title, range_local: { start, end, tz }, picks: Card[] }`
+- **Usage**:
+  - Warmed on mount by `HomeScreen` and `PlanSessionPage` when `useGeo` yields coordinates
+- **Caching**:
+  - Thin in-memory cache via `apiCache` keyed by `geohash(lat,lon,4)|localDate|radius|horizon|tz`
+  - TTL ~12 minutes (10–15 min window) to avoid hammering DB while staying fresh
+- **SQL Precompute**:
+  - Materialized view `public.mv_beach_hourly_scores` pre-joins `marine_forecasts` and `tide_forecasts` at exact timestamps for rapid reads
+  - Columns: `beach_id, ts_utc, hs_m, tp_s, swell_dir_deg, wind_spd_kts, wind_dir_deg, tide_ft, score_0_100`
+  - Indexed by `(beach_id, ts_utc)`; refreshed via `public.refresh_mv_beach_hourly_scores()`
+  - Periodic refresh scheduled every ~2h with `refresh_mv_beach_hourly_scores_and_analyze()` (pg_cron when available)
+
+---
+
+### ⏰ `/cron/forecasts/refresh` - Forecast Table Refresh
+
+#### `/cron/forecasts/refresh/route.ts`
+
+- **Methods**: `GET`
+- **Authentication**: `validateCronRequest(request)` accepts `x-vercel-cron` or `Authorization: Bearer <CRON_SECRET>`
+- **Function**: Refreshes normalized forecast tables for all beaches (or a single beach via `?beachId=`)
+- **Pipeline**:
+  1. Beaches query: selects beaches with non-null `latitude/longitude`; optional filter by `beachId`
+  2. Marine (Observed + Short-Horizon Persistence):
+     - Primary: NDBC nearest station → latest observation upserted into `marine_forecasts` with `is_observed=true`
+     - Fallback: CDIP nearest station (≤80km) → last 24h observations (feet→meters) upserted, `is_observed=true`
+     - Persistence projection: carry-forward latest observed values hourly for the next 12h with source suffix `ndbc_persistence`/`cdip_persistence`, `is_observed=false`
+  3. Tides:
+     - Primary: NOAA Tides & Currents hourly predictions (start → +5 days) into `tide_forecasts`
+     - Fallback: If hourly empty, fetch CO-OPS hilo extremes and interpolate to hourly heights; source `noaa_hilo_interpolated`
+  4. Sun:
+     - Compute sunrise/sunset for the next 5 days using `SunCalc` and upsert into `sun_times` with `source='computed'`
+- **Upsert Keys**: `onConflict` by `(beach_id, ts, source)` for marine/tide; `(beach_id, date, source)` for sun
+- **Returns**: `{ totals: { marine, tides, sun, beaches } }`
+- **Notes**: No Open‑Meteo dependency; prioritizes observed data and fills short-term gaps to improve Best Times coverage

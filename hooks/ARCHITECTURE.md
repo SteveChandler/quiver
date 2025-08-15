@@ -22,7 +22,7 @@ hooks/
 ├── use-beach-reviews.ts             # Beach review system
 ├── use-beach-card-data.ts           # Beach card display optimization
 ├── use-enhanced-beach-data.ts       # Comprehensive beach information
-├── use-geolocation.ts               # User location services
+├── useGeo.ts                         # User location services (geolocation)
 │
 ├── Session Management
 ├── use-session-form.ts              # Session creation and editing
@@ -168,6 +168,22 @@ export function createLocationCacheKey(
   - Search query persistence
 
 #### **useBeachCardData** (Display Optimization)
+
+#### **useGeo** (Geolocation)
+
+- **Purpose**: Provide `{ coords: { lat, lon }, source, requestLocation }` to components.
+- **Features**:
+  - Permission-aware geolocation with graceful fallback
+  - Stable object identity for `coords` to avoid unnecessary rerenders
+  - Works with background warmups (e.g., morning recommendations)
+
+```typescript
+const { coords, source, requestLocation } = useGeo();
+useEffect(() => {
+  if (!coords) return;
+  // safe to use coords for background warmups
+}, [coords]);
+```
 
 - **Purpose**: Optimized beach card data processing
 - **Features**:

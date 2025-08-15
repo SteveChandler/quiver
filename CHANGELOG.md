@@ -42,6 +42,7 @@
 
 - Home screen Forecast tab now displays normalized face height using `WaveHeightDisplay`, matching Beach Detail. This ensures consistent, calibrated surf height across the app and adds an explanatory tooltip. Follows `components/ARCHITECTURE.md` DRY component usage. Also aligned font sizing with other metrics (consistent `text-lg`).
 - Beach list cards: rounded review average to one decimal place (e.g., 2.6) and corrected singular/plural review label for readability.
+- Forecast refresh: ingest multiple recent CDIP observations and add 12h short‑horizon persistence (cdip_persistence/ndbc_persistence, is_observed=false) to ensure hourly marine coverage without Open‑Meteo. Improves Best Times availability when observed data is sparse.
 
 - Local Intel section on beach pages now uses `components/intel/beach-intel-section.tsx` backed by `/api/intel` and `get_nearby_intel_posts` RPC. Removed check-ins view from this section to surface intel posts, confirmations, and tagging. Followed `hooks/ARCHITECTURE.md` data fetching with `useDataFetcher` via `useIntelData`.
 
@@ -91,6 +92,48 @@
   - `20250817150000_seed_beach_reviews.sql`
   - Optional: `20250817170000_seed_pacific_ocean_beach_data.sql` for PB/OB richness
   - `scripts/mock-solid-snake.sql` seeds the “Solid Snake” persona with a profile, board, planned and completed sessions, follows to Big Boss/Liquid Snake (if present), and two pending invitations for inbox testing; includes verification queries. Idempotent and safe to re-run.
+
+## [2025.08.20] - Morning Recommendations & Forecast Refresh Docs
+
+### Added
+
+- API: `POST /api/recommendations/morning` and `GET /api/recommendations/morning`
+
+  - Local-time aware morning/near-term window calculation (darkness → tomorrow sunrise; else now→min(sunset, horizon))
+  - Uses `getBeachesNear`, `getMarineForecastRange`, `getTideForecastRange`, and warms `sun_times` via `getSunTimes`
+  - Ranks 2‑hour windows with `topWindowsInRange`; returns top 3 cards via `windowBlurbDetailed`
+
+- New `lib/surf/ARCHITECTURE.md`
+  - Documents `data.ts`, `scoring.ts`, `sun.ts`, `windows.ts` and best‑times usage across APIs/UI
+- Database: materialized view `mv_beach_hourly_scores`, refresh function, and optional pg_cron schedule (~every 2h)
+
+### Changed
+
+- `app/api/ARCHITECTURE.md` updated with:
+
+  - `/api/recommendations/morning` endpoint details (methods, inputs, logic, outputs, usage)
+  - `/api/cron/forecasts/refresh` pipeline (NDBC/CDIP observed + 12h persistence, NOAA tides with CO‑OPS hilo interpolation fallback, SunCalc 5‑day cache)
+
+- `app/ARCHITECTURE.md` updated for `/plan-session`:
+
+  - Geolocation warm call to morning recommendations on mount; default `CoachCard` until user context is available
+
+- `components/home-screen/ARCHITECTURE.md`:
+
+  - Notes background warmup to `POST /api/recommendations/morning` when `useGeo` provides coords
+
+- `components/beach-detail/ARCHITECTURE.md`:
+
+  - Documents Best Times chip UX and “why” factor breakdown from `v_beach_hourly_scores`
+
+- `hooks/ARCHITECTURE.md`:
+
+  - Adds `useGeo` hook entry and aligns naming from `use-geolocation` → `useGeo`
+
+- Morning recommendations UI:
+  - Empty state text updated in `components/recommendations/coach-card.tsx` to: "No confident call for tomorrow morning yet. Check full forecast."
+  - API now ensures non-overlapping windows and limits candidates to top‑8 nearest beaches before scoring
+  - `app/api/ARCHITECTURE.md` updated: cache key, MV preference, non-overlap selection, and pg_cron schedule noted
 
 # Quiver Surf App - Changelog
 

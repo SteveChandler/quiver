@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, lazy, useCallback } from "react";
+import { useState, Suspense, lazy, useCallback, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { useAuth } from "@/context/auth-context";
@@ -9,6 +9,7 @@ import { useHomeData } from "./use-home-data";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
 import type { Beach } from "@/types/database";
 import { BeachSearchBar } from "./beach-search-bar";
+import { useGeo } from "@/hooks/useGeo";
 
 // Lazy load heavy tab components
 const ForecastTab = lazy(() =>
@@ -42,6 +43,29 @@ export function HomeScreen() {
   // Use cached profile hook to prevent flickering on navigation
   const { profile, defaultBeach, profileLoading, hasCachedData } =
     useCachedProfile();
+
+  const { coords, source, requestLocation } = useGeo();
+
+  useEffect(() => {
+    // On mount: get {lat, lon} and call morning recommendations
+    if (!coords) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        await fetch("/api/recommendations/morning", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lat: coords.lat,
+            lon: coords.lon,
+            radius_km: 25,
+          }),
+          signal: controller.signal,
+        });
+      } catch {}
+    })();
+    return () => controller.abort();
+  }, [coords]);
 
   console.log("🏠 HomeScreen Summary:", {
     hasUser: !!user,

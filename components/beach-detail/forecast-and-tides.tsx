@@ -12,8 +12,9 @@ import { Sun, Clock, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { fetchBestTimes, fetchBestTimesApi } from "@/lib/bestTimes";
-import { createClient } from "@/lib/supabase/client";
+import { getMarineForecastRange, getTideForecastRange } from "@/lib/surf/data";
+import { topWindowsInRange, windowBlurbDetailed } from "@/lib/surf/windows";
+import type { BeachMeta } from "@/lib/surf/scoring";
 import {
   Tooltip,
   TooltipContent,
