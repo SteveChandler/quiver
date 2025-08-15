@@ -55,6 +55,13 @@
 - Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user’s actual position.
 - Hide all rating stars for planned sessions on profile and session cards so planned sessions don't display ratings.
 
+- Tide chart extrema plotting fixed in `components/forecast/tide-chart-recharts.tsx`:
+  - Normalized hourly/extrema heights to feet with a single helper.
+  - Both the line and extrema use the same `yAxisId` and `dataKey` (`h`).
+  - Extrema dots now render at their own heights (not tied to line Y/index).
+  - Shared Y domain computed from both series with ±0.5 ft padding.
+  - Tooltip/labels show feet with one decimal. Follows `components/forecast/ARCHITECTURE.md` Recharts patterns.
+
 ### Added
 
 - Database utility script `scripts/load_beaches_inline.sql` updated to run atomically and dedupe by case-insensitive name, keeping NEW coordinates over existing ones. Adds `country` column if missing and enforces unique index on `lower(name)`. Suitable for Supabase SQL editor.
