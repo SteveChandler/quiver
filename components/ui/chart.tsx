@@ -284,10 +284,12 @@ const TideTooltipContent = React.forwardRef<
     });
   };
 
-  const tideType = data.type === "high" ? "High tide" : "Low tide";
+  const isHigh = (data.type ?? "").toString().toLowerCase().includes("high");
+  const valueH = Number.isFinite(data.h) ? data.h : data.height;
   const height =
-    typeof data.height === "number" ? data.height.toFixed(1) : data.height;
-  const time = formatTime(data.time);
+    typeof valueH === "number" ? valueH.toFixed(1) : valueH ?? "";
+  const valueT = data.t ?? data.time;
+  const time = valueT ? formatTime(valueT) : "—";
 
   return (
     <div
@@ -297,7 +299,7 @@ const TideTooltipContent = React.forwardRef<
         className
       )}
     >
-      <div className="font-medium">{tideType}</div>
+      <div className="font-medium">{isHigh ? "High tide" : "Low tide"}</div>
       <div className="grid gap-1">
         <div className="flex justify-between items-center">
           <span className="text-muted-foreground">Height:</span>

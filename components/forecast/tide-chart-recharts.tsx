@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
   ComposedChart,
   Area,
@@ -40,6 +40,8 @@ interface TideEvent {
 interface TideChartProps {
   data?: TideDataPoint[];
   forecasts?: EnhancedForecastEntity[];
+  hourly?: { ts: string; height_m?: number; height_ft?: number }[];
+  events?: { ts: string; type: "HIGH" | "LOW"; height_m?: number; height_ft?: number }[];
   className?: string;
   showNowLine?: boolean;
   isAnimationActive?: boolean;
@@ -158,6 +160,8 @@ const TideLabel = (props: any) => {
 export function TideChart({
   data,
   forecasts,
+  hourly,
+  events,
   className,
   showNowLine = true,
   isAnimationActive = process.env.NODE_ENV !== "production",
@@ -170,11 +174,33 @@ export function TideChart({
       ? (ft as number)
       : ((m ?? NaN) as number) * 3.28084;
 
+  // Cosine-easing fallback between extrema
+  const synthesizeFromExtrema = (ext: { t: number; h: number }[]) => {
+    const pts = [...ext].filter((p) => Number.isFinite(p.h)).sort((a, b) => a.t - b.t);
+    if (pts.length < 2) return pts;
+    const out: { t: number; h: number }[] = [];
+    const step = 60 * 60 * 1000; // 1h
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      for (let t = a.t; t <= b.t; t += step) {
+        const u = (t - a.t) / (b.t - a.t);
+        const h = a.h + (b.h - a.h) * (1 - Math.cos(Math.PI * u)) / 2;
+        out.push({ t, h });
+      }
+    }
+    return out;
+  };
+
   // Process and normalize to shared shapes: line[{t,h}], extrema[{t,h,type}]
   const normalized = useMemo(() => {
-    // Derive extrema from provided props
+    // Derive extrema from priority: events → data → forecasts
     let extrema: { t: number; h: number; type: "HIGH" | "LOW" }[] = [];
-    if (data && data.length > 0) {
+    if (Array.isArray(events) && events.length) {
+      extrema = events
+        .map((e) => ({ t: +new Date(e.ts), h: toFt(e.height_m, e.height_ft), type: e.type }))
+        .filter((d) => Number.isFinite(d.h));
+    } else if (data && data.length > 0) {
       extrema = data
         .map((d) => ({
           t: d.time.getTime(),
@@ -188,18 +214,21 @@ export function TideChart({
         .map((e) => ({
           t: e.time.getTime(),
           h: toFt(undefined, e.height),
-          type: (e.type as string).toLowerCase().includes("high")
-            ? "HIGH"
-            : "LOW",
+          type: (e.type as string).toLowerCase().includes("high") ? "HIGH" : "LOW",
         }))
         .filter((d) => Number.isFinite(d.h));
     }
 
-    // We don't currently have hourly predictions wired in this component.
-    // Draw the line by connecting extrema times/heights which still yields the correct visual trend.
-    const line = extrema
-      .map((e) => ({ t: e.t, h: e.h }))
-      .sort((a, b) => a.t - b.t);
+    // Prefer hourly for line; else synthesize from extrema
+    let line: { t: number; h: number }[] = [];
+    if (Array.isArray(hourly) && hourly.length) {
+      line = hourly
+        .map((d) => ({ t: +new Date(d.ts), h: toFt(d.height_m, d.height_ft) }))
+        .filter((d) => Number.isFinite(d.h))
+        .sort((a, b) => a.t - b.t);
+    } else {
+      line = synthesizeFromExtrema(extrema.map((e) => ({ t: e.t, h: e.h })));
+    }
 
     if (line.length === 0) {
       return {
@@ -236,7 +265,7 @@ export function TideChart({
     }
 
     return { line: line5, extrema: extrema5, domain, ticks };
-  }, [data, forecasts]);
+  }, [data, forecasts, hourly, events]);
 
   const {
     line: lineData,
@@ -244,6 +273,27 @@ export function TideChart({
     domain: yDomain,
     ticks: dayTicks,
   } = normalized;
+
+  // Dev-only: flag inversions where LOW >= HIGH within a day
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const byDay = new Map<string, { high: number[]; low: number[] }>();
+    extremaData.forEach((p) => {
+      const d = new Date(p.t);
+      d.setHours(0, 0, 0, 0);
+      const k = d.toISOString();
+      const v = byDay.get(k) ?? { high: [], low: [] };
+      (p.type === "HIGH" ? v.high : v.low).push(p.h);
+      byDay.set(k, v);
+    });
+    const issues: string[] = [];
+    byDay.forEach((v, k) => {
+      const maxLow = Math.max(...(v.low.length ? v.low : [-Infinity]));
+      const minHigh = Math.min(...(v.high.length ? v.high : [Infinity]));
+      if (maxLow >= minHigh) issues.push(`${k}: maxLow ${maxLow.toFixed(1)} ≥ minHigh ${minHigh.toFixed(1)}`);
+    });
+    if (issues.length) console.warn("Tide inversion detected:", issues);
+  }, [extremaData]);
 
   // Get current timestamp for "Now" line
   const nowTimestamp = Date.now();
