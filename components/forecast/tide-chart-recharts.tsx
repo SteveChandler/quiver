@@ -2,14 +2,12 @@
 
 import React, { useMemo, useEffect } from "react";
 import {
-  ComposedChart,
-  Area,
+  LineChart,
   Line,
-  Scatter,
   CartesianGrid,
   ResponsiveContainer,
-  LabelList,
   ReferenceLine,
+  ReferenceDot,
   XAxis,
   YAxis,
 } from "recharts";
@@ -215,7 +213,7 @@ export function TideChart({
         .map((e) => ({
           t: +new Date(e.ts),
           h: toFt(e.height_m, e.height_ft),
-          type: e.type === "HIGH" ? "HIGH" : "LOW",
+          type: (e.type === "HIGH" ? "HIGH" : "LOW") as "HIGH" | "LOW",
         }))
         .filter((d) => Number.isFinite(d.h));
     } else if (data && data.length > 0) {
@@ -223,7 +221,9 @@ export function TideChart({
         .map((d) => ({
           t: d.time.getTime(),
           h: toFt(undefined, d.height),
-          type: d.type.toLowerCase() === "high" ? "HIGH" : "LOW",
+          type: (d.type.toLowerCase() === "high" ? "HIGH" : "LOW") as
+            | "HIGH"
+            | "LOW",
         }))
         .filter((d) => Number.isFinite(d.h));
     } else if (forecasts && forecasts.length > 0) {
@@ -232,9 +232,9 @@ export function TideChart({
         .map((e) => ({
           t: e.time.getTime(),
           h: toFt(undefined, e.height),
-          type: (e.type as string).toLowerCase().includes("high")
+          type: ((e.type as string).toLowerCase().includes("high")
             ? "HIGH"
-            : "LOW",
+            : "LOW") as "HIGH" | "LOW",
         }))
         .filter((d) => Number.isFinite(d.h));
     }
@@ -384,7 +384,7 @@ export function TideChart({
   // Filter ticks to show one per day (derived above from normalized data)
   const xTicks = dayTicks && dayTicks.length ? dayTicks : undefined;
 
-  if (lineData.length === 0) {
+  if (lineData.length === 0 && extremaData.length === 0) {
     return (
       <Card className={className}>
         <CardHeader>
@@ -412,7 +412,7 @@ export function TideChart({
         >
           <ChartContainer config={chartConfig} className="aspect-[8/3] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
+              <LineChart
                 data={lineData}
                 margin={{ top: 50, right: 30, left: 30, bottom: 50 }}
               >
@@ -480,21 +480,6 @@ export function TideChart({
                   />
                 )}
 
-                {/* Area chart with zero baseline split */}
-                <Area
-                  yAxisId="y"
-                  type="monotone"
-                  dataKey="h"
-                  stroke="#0077B6"
-                  strokeWidth={2}
-                  fill="#0077B6"
-                  fillOpacity={0.1}
-                  dot={false}
-                  connectNulls={true}
-                  baseValue={0}
-                  isAnimationActive={isAnimationActive}
-                />
-
                 {/* Main line - clean and prominent */}
                 <Line
                   yAxisId="y"
@@ -512,39 +497,19 @@ export function TideChart({
                   isAnimationActive={isAnimationActive}
                 />
 
-                {/* High tide scatter points with labels above */}
-                <Scatter
-                  yAxisId="y"
-                  data={extremaData.filter((e) => e.type === "HIGH")}
-                  dataKey="h"
-                  fill="#FF7F11"
-                  stroke="#FFFFFF"
-                  strokeWidth={1}
-                  r={5}
-                  fillOpacity={0.9}
-                  isAnimationActive={isAnimationActive}
-                >
-                  <LabelList dataKey="h" content={TideLabel} position="top" />
-                </Scatter>
-
-                {/* Low tide scatter points with labels below */}
-                <Scatter
-                  yAxisId="y"
-                  data={extremaData.filter((e) => e.type === "LOW")}
-                  dataKey="h"
-                  fill="#6B7280"
-                  stroke="#FFFFFF"
-                  strokeWidth={1}
-                  r={5}
-                  fillOpacity={0.8}
-                  isAnimationActive={isAnimationActive}
-                >
-                  <LabelList
-                    dataKey="h"
-                    content={TideLabel}
-                    position="bottom"
+                {/* Extrema as reference dots on same axis */}
+                {extremaData.map((p) => (
+                  <ReferenceDot
+                    key={`${p.t}-${p.type}`}
+                    x={p.t}
+                    y={p.h}
+                    yAxisId="y"
+                    r={4}
+                    fill={p.type === "HIGH" ? "#FF7F11" : "#6B7280"}
+                    stroke="#FFFFFF"
+                    strokeWidth={1}
                   />
-                </Scatter>
+                ))}
 
                 {/* Enhanced, accessible tooltip */}
                 <ChartTooltip
@@ -563,7 +528,7 @@ export function TideChart({
                     });
                   }}
                 />
-              </ComposedChart>
+              </LineChart>
             </ResponsiveContainer>
           </ChartContainer>
         </div>
