@@ -70,7 +70,7 @@ export async function GET(request: Request) {
               is_observed: true,
             });
           } else {
-            console.warn("NDBC latest observation not available", {
+            console.info("NDBC latest observation not available", {
               beach: b.name,
               beachId: b.id,
               stationId: ndbc.id,
