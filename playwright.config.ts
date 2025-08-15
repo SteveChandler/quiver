@@ -3,6 +3,9 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
+const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+const VERCEL_BYPASS = process.env.VERCEL_BYPASS;
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 120 * 1000, // 2 minutes per test for performance issues
@@ -25,7 +28,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.BASE_URL || "http://localhost:3000",
+    baseURL: BASE_URL,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "retain-on-failure",
@@ -37,9 +40,14 @@ export default defineConfig({
     storageState: ".auth/user.json",
 
     /* Set test mode flag for components to detect test environment and allow API tests */
-    extraHTTPHeaders: {
-      "X-Test-Mode": "true",
-    },
+    extraHTTPHeaders: Object.fromEntries(
+      Object.entries({
+        "X-Test-Mode": "true",
+        ...(VERCEL_BYPASS && !BASE_URL.startsWith("http://localhost")
+          ? { "x-vercel-protection-bypass": VERCEL_BYPASS }
+          : {}),
+      })
+    ),
   },
 
   /* Configure projects for major browsers */
@@ -91,10 +99,12 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: {
-    command: "npm run dev -- --port 3000 --hostname 0.0.0.0",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 120 * 1000,
-  },
+  webServer: BASE_URL.startsWith("http://localhost")
+    ? {
+        command: "npm run dev -- --port 3000 --hostname 0.0.0.0",
+        url: "http://localhost:3000",
+        reuseExistingServer: true,
+        timeout: 120 * 1000,
+      }
+    : undefined,
 });

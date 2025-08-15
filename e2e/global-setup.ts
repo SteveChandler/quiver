@@ -17,11 +17,20 @@ async function globalSetup(config: FullConfig) {
   try {
     const baseUrl =
       process.env.BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const bypass = process.env.VERCEL_BYPASS;
     const signInUrl = new URL("/auth/sign-in", baseUrl).toString();
 
     // Check if we can access the sign-in page (indicates app is running)
     console.log("🌐 Navigating to sign-in page...");
-    await page.goto(signInUrl);
+    await page.goto(signInUrl, {
+      waitUntil: "load",
+      referer: baseUrl,
+    });
+    if (bypass && !baseUrl.startsWith("http://localhost")) {
+      await page.setExtraHTTPHeaders({
+        "x-vercel-protection-bypass": bypass,
+      });
+    }
     await page.waitForLoadState("load");
 
     // Check if sign-in form is available with more flexible selectors
