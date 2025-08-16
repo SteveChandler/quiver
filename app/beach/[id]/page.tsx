@@ -1,11 +1,9 @@
-import { Suspense } from "react";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { BeachDetail } from "@/components/beach-detail";
 import { getBeachById as fetchBeach } from "@/actions/beach/beach-query-actions";
 import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { getCoachPicksForBeach } from "@/actions/recommendations/coach-pick-actions";
 
 export default function BeachDetailPage({
   params,
@@ -14,9 +12,7 @@ export default function BeachDetailPage({
 }) {
   return (
     <>
-      <Suspense fallback={<div className="p-4">Loading beach details…</div>}>
-        <BeachDetail id={params.id} />
-      </Suspense>
+      <BeachDetail id={params.id} />
 
       <BottomNavigation />
     </>

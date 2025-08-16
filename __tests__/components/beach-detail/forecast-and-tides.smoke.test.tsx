@@ -34,12 +34,18 @@ jest.mock("@/components/forecast/tide-chart-recharts", () => ({
 
 describe("ForecastAndTides (smoke)", () => {
   it("renders without throwing and shows Coach Pick card", () => {
-    const beach = { id: "beach-uuid", name: "Test Beach" } as any;
+    const beach = {
+      id: "beach-uuid",
+      name: "Test Beach",
+      latitude: 32.7,
+      longitude: -117.2,
+    } as any;
     const forecasts: any[] = [];
 
     render(<ForecastAndTides beach={beach} forecasts={forecasts} />);
 
     // Coach Pick rendered (title text)
-    expect(screen.getByText(/Coach Pick/i)).toBeInTheDocument();
+    const matches = screen.getAllByText(/^Coach Pick$/i);
+    expect(matches.length).toBeGreaterThan(0);
   });
 });

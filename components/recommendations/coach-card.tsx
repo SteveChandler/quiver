@@ -67,22 +67,64 @@ export function CoachCard({
   }>({});
 
   const fetchRecs = useCallback(async () => {
-    // Only use beach-scoped picks; do not fall back to any global caches
-    const res = await fetch(
-      `/api/coach-picks?beachId=${encodeURIComponent(beachId!)}&radiusKm=80`
-    );
-    const json = await res.json();
-    if (!res.ok) throw new Error(json?.error || "Failed to fetch coach picks");
-    const picks = (json?.data?.picks || json?.picks || []).map((row: any) => ({
-      spotId: row.beach_id,
+    // Try beach-scoped picks first
+    try {
+      const res = await fetch(
+        `/api/coach-picks?beachId=${encodeURIComponent(beachId!)}&radiusKm=80`
+      );
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const picks = (json?.data?.picks || json?.picks || []).map(
+          (row: any) => ({
+            spotId: row.beach_id,
+            name: row.name,
+            distance_km: row.distance_km ?? null,
+            score: row.score ?? 0,
+            reasons: [],
+            rank: row.pick_rank,
+          })
+        ) as Recommendation[];
+        if (picks.length > 0) {
+          return { top_picks: picks, recommendations: picks };
+        }
+      }
+    } catch (e) {
+      // swallow and fall back
+    }
+
+    // Fallback: general recommendations by lat/lon
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+    });
+    const res2 = await fetch(`/api/v1/recommendations?${params.toString()}`);
+    const json2 = await res2.json().catch(() => ({}));
+    if (!res2.ok) {
+      const message =
+        json2?.error || json2?.message || "Failed to fetch recommendations";
+      throw new Error(message);
+    }
+    const picks2 = (json2?.top_picks || json2?.data?.top_picks || []) as any[];
+    const recs2 = (json2?.recommendations ||
+      json2?.data?.recommendations ||
+      []) as any[];
+    const mapRow = (row: any, idx?: number) => ({
+      spotId: row.spotId || row.beach_id,
       name: row.name,
       distance_km: row.distance_km ?? null,
       score: row.score ?? 0,
-      reasons: [],
-      rank: row.pick_rank,
-    })) as Recommendation[];
-    return { top_picks: picks, recommendations: picks };
-  }, [beachId]);
+      reasons: row.reasons || [],
+      rank: row.rank ?? (typeof idx === "number" ? idx + 1 : undefined),
+      wave: row.wave,
+      wind: row.wind,
+      tide: row.tide,
+    });
+    const top = picks2.length
+      ? picks2.map(mapRow)
+      : recs2.slice(0, 3).map(mapRow);
+    const all = recs2.length ? recs2.map(mapRow) : top;
+    return { top_picks: top, recommendations: all };
+  }, [beachId, lat, lon]);
 
   const {
     data: response,
@@ -147,7 +189,11 @@ export function CoachCard({
         </Button>
       </CardHeader>
       <CardContent>
-        {error && <div className="text-sm text-red-600">{error}</div>}
+        {error && (
+          <div className="text-sm text-red-600">
+            {error instanceof Error ? error.message : String(error)}
+          </div>
+        )}
         {!error && loading && (
           <div className="text-sm text-muted-foreground">
             Loading coach pick…
