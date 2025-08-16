@@ -52,6 +52,46 @@ export async function withAuthenticatedAction<T>(
   });
 }
 
+// New: Curried version that returns a callable authenticated action.
+// Enables: export const doThing = makeAuthenticatedAction(async (user, supabase, arg1, arg2) => { ... })
+// Then call: await doThing(arg1, arg2)
+export function makeAuthenticatedAction<
+  TArgs extends any[],
+  T
+>(
+  action: (
+    user: User,
+    supabase: ReturnType<typeof createSupabaseServerClient>,
+    ...args: TArgs
+  ) => Promise<T>
+) {
+  return async (...args: TArgs): Promise<ServerActionResponse<T>> => {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error) {
+        throw new Error(`Authentication error: ${error.message}`);
+      }
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      const data = await action(user, supabase, ...args);
+      return { success: true, data };
+    } catch (error: any) {
+      console.error("Server action error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  };
+}
+
 // Database operation with consistent error handling
 export async function withDatabaseOperation<T>(
   operation: (

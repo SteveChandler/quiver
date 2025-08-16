@@ -12,7 +12,7 @@ import {
 } from "@/types/forecast";
 
 // Mock fetch globally
-global.fetch = jest.fn();
+(global as any).fetch = jest.fn();
 
 // Mock the rate limiter
 jest.mock("@/lib/utils/rate-limiter", () => ({
@@ -74,7 +74,7 @@ jest.mock("@/lib/constants/cdip-stations", () => {
   };
 });
 
-describe.skip("CDIPService - DISABLED (API integration tests)", () => {
+describe.skip("CDIPService - API integration tests (mocked)", () => {
   let service: CDIPService;
   const mockFetch = global.fetch as jest.Mock;
 
@@ -106,7 +106,7 @@ describe.skip("CDIPService - DISABLED (API integration tests)", () => {
   beforeEach(() => {
     service = new CDIPService();
     jest.clearAllMocks();
-    mockFetch.mockClear();
+    mockFetch.mockReset();
 
     // Default to successful responses
     mockFetch.mockImplementation((url: string) => {

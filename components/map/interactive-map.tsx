@@ -219,11 +219,48 @@ export function InteractiveMap({
     async (latitude: number, longitude: number) => {
       if (!mapRef.current || !isMapReady) return;
       try {
-        // Use cached fetch for beaches
-        const response = await fetchNearbyBeaches.current(latitude, longitude);
-
-        // Extract the data array from the API response
-        let locations: Beach[] = response?.data || [];
+        // Use cached fetch for beaches; if it fails (e.g., legacy 401), fall back to public /api/beaches and client-side distance filter
+        let locations: Beach[] = [];
+        try {
+          const response = await fetchNearbyBeaches.current(
+            latitude,
+            longitude
+          );
+          locations = (response as any)?.data || [];
+        } catch (err) {
+          console.warn(
+            "Nearby beaches API failed; falling back to public beaches list",
+            err
+          );
+          try {
+            const res = await fetch("/api/beaches", {
+              headers: { Accept: "application/json" },
+            });
+            if (res.ok) {
+              const json = await res.json();
+              const all: Beach[] = json?.beaches || [];
+              // Filter by proximity to the map center (30 miles), sort by distance, then take top 20
+              const { calculateDistanceInMiles } = await import(
+                "@/lib/utils/distance-utils"
+              );
+              locations = all
+                .map((b) => ({
+                  ...b,
+                  _d: calculateDistanceInMiles(
+                    latitude,
+                    longitude,
+                    b.latitude,
+                    b.longitude
+                  ),
+                }))
+                .filter((b: any) => isFinite(b._d) && b._d <= 30)
+                .sort((a: any, b: any) => a._d - b._d)
+                .slice(0, 20);
+            }
+          } catch (fallbackErr) {
+            console.error("Fallback beaches list fetch failed", fallbackErr);
+          }
+        }
 
         // Limit to 20 beaches max
         locations = locations.slice(0, 20);

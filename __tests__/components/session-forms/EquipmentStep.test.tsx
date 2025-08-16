@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EquipmentStep } from "@/components/session-forms/EquipmentStep";
 
-describe.skip("EquipmentStep", () => {
+describe("EquipmentStep", () => {
   const boards = [
     {
       id: "b1",
@@ -26,14 +26,16 @@ describe.skip("EquipmentStep", () => {
         formState={formState}
         boards={boards}
         updateField={updateField}
-        onBoardsRefresh={vi.fn()}
+        onBoardsRefresh={jest.fn()}
       />
     );
 
     // Open select and pick the board
-    const trigger = screen.getByRole("button");
+    const trigger = screen.getByRole("combobox");
     await user.click(trigger);
-    await user.click(screen.getByText(/Fish/));
+    // Use role option which Radix exposes via ARIA roles in tests
+    const option = await screen.findByRole("option", { name: /Fish/i });
+    await user.click(option);
 
     expect(updateField).toHaveBeenCalledWith("selectedBoard", "b1");
     expect(updateField).toHaveBeenCalledWith("boardId", "b1");

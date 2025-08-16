@@ -1,12 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getNearbyBeaches } from "@/actions/beach-actions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { NextRequest } from "next/server";
+import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import {
   createSuccessResponse,
   createValidationError,
   handleApiError,
 } from "@/lib/api-utils";
-import { isAdmin } from "@/lib/auth/admin";
 
 // Matches Ruby LocationsController functionality
 export async function GET(request: NextRequest) {
@@ -21,15 +19,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Admin authentication check - only admins can access internal beach data APIs
-    const supabase = await createSupabaseServerClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !isAdmin(session.user)) {
-      return NextResponse.json({ 
-        error: "Unauthorized - Admin access required for internal APIs" 
-      }, { status: 401 });
-    }
-
+    // Public read-only access: return minimal location fields only
     const result = await getNearbyBeaches(latitude, longitude, maxDistance);
 
     if (result.success && result.data) {

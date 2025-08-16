@@ -24,6 +24,7 @@
 ### Changed
 
 - Coach Picks UI: visual refresh and desktop width
+
   - Styled `components/recommendations/coach-card.tsx` with primary-tinted header, subtle gradient, and color-coded score badges (emerald/amber/neutral).
   - Made the Coach Card stretch full width on desktop by changing `components/beach-detail/forecast-and-tides.tsx` to pass `className="w-full"`.
   - Ensured Top Picks list shows unique beaches (no duplicates). Deduplicates by `spotId`/`name` after distance filtering.
@@ -66,6 +67,8 @@
   - UPDATE: same USING/WITH CHECK. Migration `20250811153000_fix_session_invitations_rls.sql`.
 
 ### Fixed
+
+- Map page no longer fails to show nearby beach forecasts for non-admin users. Made `GET /api/beaches/nearby` public-read (minimal fields) and added a client-side fallback in `components/map/interactive-map.tsx` to filter from `/api/beaches` when needed, restoring Ocean Beach/Mission/Sunset markers and badges.
 
 - Coach Picks showing Orange County spots for San Diego beaches: enforced strict 30 km radius.
 
@@ -444,7 +447,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Test Suite Cleanup**
 - Local Intel UX: Intel post modal now shows nearest beach name instead of raw latitude/longitude
   - Removed `__tests__/components/session-forms/session-form-forecast-integration.test.tsx` - Tested non-existent forecast feedback functionality
-  - Removed `__tests__/components/forecast/forecast-feedback-form.test.tsx` - Disabled test already converted to Playwright
+  - Removed `__tests__/components/forecast/forecast-feedback-form.test.tsx.disabled` - Disabled Jest test replaced by Playwright E2E
+  - Re-enabled several previously skipped unit tests:
+    - `__tests__/context/auth-context.error-paths.test.tsx`
+    - `__tests__/actions/check-in-actions.test.ts` (submit/update/delete/getRecent/getStats)
+    - `__tests__/lib/cdip-service.test.ts` (mocked API interactions)
+    - `__tests__/components/session-forms/EquipmentStep.test.tsx`
+    - `__tests__/components/session-forms/OptimalTimesSection.test.tsx`
+  - Re-enabled middleware smoke tests in `__tests__/middleware.test.ts` to validate API pass-through and protected redirects
+  - Restored ForecastTab component test (renamed from `.disabled`) pending green run
   - Fixed Supabase mocking issues that caused test failures
   - All forecast tests now pass (359 tests, 23 test suites)
 - Removed `docs/README.md` (redundant with root `ARCHITECTURE.md` acting as primary index)
