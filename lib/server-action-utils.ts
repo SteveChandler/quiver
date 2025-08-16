@@ -52,9 +52,11 @@ export async function withAuthenticatedAction<T>(
   });
 }
 
+// TODO: Fix server action issues - temporarily commented out
 // New: Curried version that returns a callable authenticated action.
 // Enables: export const doThing = makeAuthenticatedAction(async (user, supabase, arg1, arg2) => { ... })
 // Then call: await doThing(arg1, arg2)
+/*
 export function makeAuthenticatedAction<
   TArgs extends any[],
   T
@@ -65,7 +67,8 @@ export function makeAuthenticatedAction<
     ...args: TArgs
   ) => Promise<T>
 ) {
-  return async (...args: TArgs): Promise<ServerActionResponse<T>> => {
+  const serverAction = async (...args: TArgs): Promise<ServerActionResponse<T>> => {
+    "use server";
     try {
       const supabase = await createSupabaseServerClient();
       const {
@@ -90,7 +93,10 @@ export function makeAuthenticatedAction<
       };
     }
   };
+  
+  return serverAction;
 }
+*/
 
 // Database operation with consistent error handling
 export async function withDatabaseOperation<T>(

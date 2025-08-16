@@ -55,6 +55,7 @@
   - `components/recommendations/coach-card.tsx` now prefers `/api/coach-picks` when `beachId` is provided; falls back to `/api/v1/recommendations?lat&lon` otherwise. Ensures SWR keys include `beachId` semantics and avoids cross-page reuse.
 
 - Home screen Forecast tab now displays normalized face height using `WaveHeightDisplay`, matching Beach Detail. This ensures consistent, calibrated surf height across the app and adds an explanatory tooltip. Follows `components/ARCHITECTURE.md` DRY component usage. Also aligned font sizing with other metrics (consistent `text-lg`).
+- KPI tiles on Home screen Forecast tab unified using new `components/ui/kpi-tile.tsx` for consistent centering and baseline alignment. Wave Height tile is now centered like the others, with number+unit kept in a single, non-wrapping row and baseline-aligned. Removes left bias from inline tooltip/icon.
 - Beach list cards: rounded review average to one decimal place (e.g., 2.6) and corrected singular/plural review label for readability.
 - Forecast refresh: ingest multiple recent CDIP observations and add 12h short‑horizon persistence (cdip_persistence/ndbc_persistence, is_observed=false) to ensure hourly marine coverage without Open‑Meteo.
 

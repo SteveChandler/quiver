@@ -273,35 +273,50 @@ export function InteractiveMap({
         // Fetch enhanced forecast data for each beach
         const beachForecastPromises = locations.map(async (beach) => {
           try {
+            console.log(`Fetching forecast for ${beach.name} (${beach.id})`);
             const response = await fetch(
               `/api/forecasts/update-enhanced?beachId=${beach.id}&days=2`
             );
 
             if (response.ok) {
               const data = await response.json();
+              console.log(`Forecast response for ${beach.name}:`, {
+                success: data.success,
+                forecastCount: data.data?.forecasts?.length || 0,
+                hasData: !!data.data
+              });
+              
               if (data.success && data.data?.forecasts?.length > 0) {
                 // Use time-aware selection to get the most appropriate forecast
                 const { getCurrentForecast } = await import(
                   "@/lib/utils/current-forecast-utils"
                 );
-                const currentForecast = getCurrentForecast<any>(
-                  data.data.forecasts
-                );
+                const currentForecast = getCurrentForecast(data.data.forecasts) as any;
 
-                if (currentForecast) {
+                console.log(`Current forecast for ${beach.name}:`, {
+                  hasCurrentForecast: !!currentForecast,
+                  waveHeight: currentForecast?.wave_height,
+                  forecastDate: currentForecast?.forecast_date,
+                  forecastTime: currentForecast?.forecast_time
+                });
+
+                if (currentForecast && currentForecast.wave_height) {
                   return {
                     beachId: beach.id,
-                    waveHeight: currentForecast.wave_height, // Keep as string/number, formatter will handle it
+                    waveHeight: currentForecast.wave_height,
                   };
                 }
               }
+            } else {
+              console.warn(`Forecast API returned ${response.status} for ${beach.name}`);
             }
           } catch (error) {
             console.warn(
-              `Failed to fetch forecast for beach ${beach.id}:`,
+              `Failed to fetch forecast for beach ${beach.name} (${beach.id}):`,
               error
             );
           }
+          console.log(`No forecast data for ${beach.name}`);
           return {
             beachId: beach.id,
             waveHeight: undefined,
