@@ -62,6 +62,12 @@
 
 ### Fixed
 
+- Coach Picks showing Orange County spots for San Diego beaches: enforced strict 30 km radius.
+
+  - DB: new migration `20250822120000_strict_radius_get_coach_picks.sql` removes region-id bypass; results now require `distance_km <= radius`.
+  - UI: `components/recommendations/coach-card.tsx` now filters picks to numeric `distance_km <= 30` only.
+  - Tests: added `__tests__/components/recommendations/coach-card.filtering.test.tsx` and `__tests__/api/coach-picks.radius.test.ts`.
+
 - Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user's actual position.
 - Hide all rating stars for planned sessions on profile and session cards so planned sessions don't display ratings.
 - Fixed invariant error on Beach Detail Forecast & Tides: added missing imports in `components/beach-detail/forecast-and-tides.tsx` for `createClient` and `fetchBestTimesApi/fetchBestTimes` following `hooks/ARCHITECTURE.md` and `lib/supabase/ARCHITECTURE.md` patterns.

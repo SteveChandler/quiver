@@ -84,9 +84,9 @@ export function CoachCard({
             rank: row.pick_rank,
           })
         ) as Recommendation[];
-        // filter to <= 30km when distance is provided
+        // Enforce strict distance filter: only numeric distances within 30 km
         const filtered = picks.filter(
-          (p) => typeof p.distance_km !== "number" || p.distance_km <= 30
+          (p) => typeof p.distance_km === "number" && p.distance_km <= 30
         );
         if (filtered.length > 0) {
           return { top_picks: filtered, recommendations: filtered };
@@ -125,9 +125,9 @@ export function CoachCard({
     });
     const top = (
       picks2.length ? picks2.map(mapRow) : recs2.slice(0, 3).map(mapRow)
-    ).filter((p) => typeof p.distance_km !== "number" || p.distance_km <= 30);
+    ).filter((p) => typeof p.distance_km === "number" && p.distance_km <= 30);
     const all = (recs2.length ? recs2.map(mapRow) : top).filter(
-      (p) => typeof p.distance_km !== "number" || p.distance_km <= 30
+      (p) => typeof p.distance_km === "number" && p.distance_km <= 30
     );
     return { top_picks: top, recommendations: all };
   }, [beachId, lat, lon]);
