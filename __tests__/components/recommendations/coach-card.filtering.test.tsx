@@ -62,8 +62,8 @@ describe("CoachCard filtering", () => {
       />
     );
 
-    // Only the near spot should appear in Top Picks listing
-    expect(screen.getByText("Near Spot")).toBeInTheDocument();
+    // Only the near spot should appear in Top Picks listing (can appear twice: header and list)
+    expect(screen.getAllByText("Near Spot").length).toBeGreaterThan(0);
     expect(screen.queryByText("Far Spot")).toBeNull();
     expect(screen.queryByText("Unknown Distance")).toBeNull();
   });

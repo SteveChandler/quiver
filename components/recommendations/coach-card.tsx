@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { cn } from "@/lib/utils";
 import {
   Collapsible,
   CollapsibleContent,
@@ -142,7 +143,16 @@ export function CoachCard({
     recommendations?: Recommendation[];
   }>(fetchRecs, {
     immediate: !initialResponse,
-    initialData: initialResponse || {},
+    initialData: initialResponse
+      ? {
+          top_picks: (initialResponse.top_picks || []).filter(
+            (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+          ),
+          recommendations: (initialResponse.recommendations || []).filter(
+            (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+          ),
+        }
+      : {},
   });
 
   const topPicks = response?.top_picks || [];
@@ -179,9 +189,16 @@ export function CoachCard({
   if (!error && !loading && !hasAny) return null;
 
   return (
-    <Card className={className}>
-      <CardHeader className="pb-3 flex items-center justify-between">
-        <CardTitle className="text-base">{title}</CardTitle>
+    <Card
+      className={
+        cn(
+          "w-full border-primary/10 bg-gradient-to-b from-background to-muted/30 shadow-sm",
+          className
+        )
+      }
+    >
+      <CardHeader className="pb-3 flex items-center justify-between bg-primary/5 rounded-t-md">
+        <CardTitle className="text-base text-primary">{title}</CardTitle>
         <Button
           variant="outline"
           size="sm"
@@ -210,17 +227,17 @@ export function CoachCard({
             {/* Top pick summary */}
             <div className="flex items-center justify-between">
               <div className="font-medium">{top.name}</div>
-              <Badge
-                variant={
-                  top.score >= 75
-                    ? "default"
-                    : top.score >= 50
-                    ? "secondary"
-                    : "outline"
-                }
-              >
-                {top.score}
-              </Badge>
+              {top.score >= 75 ? (
+                <Badge className="bg-emerald-600 text-white border-emerald-600">
+                  {top.score}
+                </Badge>
+              ) : top.score >= 50 ? (
+                <Badge className="bg-amber-500 text-white border-amber-500">
+                  {top.score}
+                </Badge>
+              ) : (
+                <Badge variant="outline">{top.score}</Badge>
+              )}
             </div>
 
             {/* Show top 3 picks if available */}
@@ -234,8 +251,11 @@ export function CoachCard({
                     key={pick.spotId}
                     className="flex items-center justify-between text-sm"
                   >
-                    <span>
-                      #{index + 1} {pick.name}
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1">
+                        #{index + 1}
+                      </span>
+                      {pick.name}
                     </span>
                     <Badge variant="outline">{pick.score}</Badge>
                   </div>

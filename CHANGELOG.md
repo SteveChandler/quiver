@@ -23,6 +23,10 @@
 
 ### Changed
 
+- Coach Picks UI: visual refresh and desktop width
+  - Styled `components/recommendations/coach-card.tsx` with primary-tinted header, subtle gradient, and color-coded score badges (emerald/amber/neutral).
+  - Made the Coach Card stretch full width on desktop by changing `components/beach-detail/forecast-and-tides.tsx` to pass `className="w-full"`.
+
 - Forecast actions now read from `enhanced_forecasts` with explicit date window; removed dependency on deleted `ten_day_enhanced_forecasts` view to fix runtime errors on beach pages
 
 - Database cleanup: removed legacy `current_enhanced_forecasts` view. New migration `20250817180000_drop_current_enhanced_forecasts_view.sql` drops it; creation statements were deleted from `20250815093000_create_enhanced_forecasts.sql` and script migrations updated. App reads from `ten_day_enhanced_forecasts` or `enhanced_forecasts` only.

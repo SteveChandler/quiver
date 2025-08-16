@@ -48,7 +48,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
           beachId={beach.id as string}
           lat={(beach as any).latitude as number}
           lon={(beach as any).longitude as number}
-          className="max-w-2xl"
+          className="w-full"
         />
       </div>
 
