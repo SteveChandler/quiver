@@ -219,51 +219,56 @@ export function InteractiveMap({
     async (latitude: number, longitude: number) => {
       if (!mapRef.current || !isMapReady) return;
       try {
-        // Use cached fetch for beaches; if it fails (e.g., legacy 401), fall back to public /api/beaches and client-side distance filter
+        console.log("populateLocations:", { latitude, longitude });
+        // Prefer public beaches list first (works even if nearby endpoint is gated),
+        // then optionally try the optimized nearby endpoint
         let locations: Beach[] = [];
         try {
-          const response = await fetchNearbyBeaches.current(
-            latitude,
-            longitude
-          );
-          locations = (response as any)?.data || [];
-        } catch (err) {
-          console.warn(
-            "Nearby beaches API failed; falling back to public beaches list",
-            err
-          );
+          const res = await fetch("/api/beaches", {
+            headers: { Accept: "application/json" },
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const all: Beach[] = json?.beaches || [];
+            const { calculateDistanceInMiles } = await import(
+              "@/lib/utils/distance-utils"
+            );
+            locations = all
+              .map((b) => ({
+                ...b,
+                _d: calculateDistanceInMiles(
+                  latitude,
+                  longitude,
+                  b.latitude,
+                  b.longitude
+                ),
+              }))
+              .filter((b: any) => isFinite(b._d) && b._d <= 30)
+              .sort((a: any, b: any) => a._d - b._d)
+              .slice(0, 20);
+            console.log("public beaches filtered:", locations.length);
+          }
+        } catch (fallbackErr) {
+          console.error("Public beaches list fetch failed", fallbackErr);
+        }
+
+        // If we still have no locations, attempt the nearby endpoint (cached)
+        if (locations.length === 0) {
           try {
-            const res = await fetch("/api/beaches", {
-              headers: { Accept: "application/json" },
-            });
-            if (res.ok) {
-              const json = await res.json();
-              const all: Beach[] = json?.beaches || [];
-              // Filter by proximity to the map center (30 miles), sort by distance, then take top 20
-              const { calculateDistanceInMiles } = await import(
-                "@/lib/utils/distance-utils"
-              );
-              locations = all
-                .map((b) => ({
-                  ...b,
-                  _d: calculateDistanceInMiles(
-                    latitude,
-                    longitude,
-                    b.latitude,
-                    b.longitude
-                  ),
-                }))
-                .filter((b: any) => isFinite(b._d) && b._d <= 30)
-                .sort((a: any, b: any) => a._d - b._d)
-                .slice(0, 20);
-            }
-          } catch (fallbackErr) {
-            console.error("Fallback beaches list fetch failed", fallbackErr);
+            const response = await fetchNearbyBeaches.current(
+              latitude,
+              longitude
+            );
+            locations = (response as any)?.data || [];
+            console.log("nearby beaches count:", locations.length);
+          } catch (err) {
+            console.warn("Nearby beaches API failed as well", err);
           }
         }
 
         // Limit to 20 beaches max
         locations = locations.slice(0, 20);
+        console.log("locations to render:", locations.length);
 
         // Fetch enhanced forecast data for each beach
         const beachForecastPromises = locations.map(async (beach) => {
@@ -279,7 +284,9 @@ export function InteractiveMap({
                 const { getCurrentForecast } = await import(
                   "@/lib/utils/current-forecast-utils"
                 );
-                const currentForecast = getCurrentForecast(data.data.forecasts);
+                const currentForecast = getCurrentForecast<any>(
+                  data.data.forecasts
+                );
 
                 if (currentForecast) {
                   return {
@@ -356,6 +363,7 @@ export function InteractiveMap({
 
           markersRef.current[markerId] = marker;
         });
+        console.log("markers added:", Object.keys(markersRef.current).length);
       } catch (e) {
         console.error("Error populating locations", e);
       }
