@@ -293,6 +293,9 @@ export function ForecastTab({
                   value={value}
                   unit={unit}
                   label={<span>Wave Height</span>}
+                  className="bg-blue-50"
+                  valueClassName="text-blue-600"
+                  labelClassName="text-blue-500"
                 />
               );
             })()}
@@ -314,6 +317,9 @@ export function ForecastTab({
                   value={value}
                   unit={unit}
                   label={<span>Wind Speed</span>}
+                  className="bg-green-50"
+                  valueClassName="text-green-600"
+                  labelClassName="text-green-500"
                 />
               );
             })()}
@@ -337,6 +343,9 @@ export function ForecastTab({
                   value={value}
                   unit={unit}
                   label={<span>Water Temp</span>}
+                  className="bg-cyan-50"
+                  valueClassName="text-cyan-600"
+                  labelClassName="text-cyan-500"
                 />
               );
             })()}
@@ -345,7 +354,14 @@ export function ForecastTab({
             {(() => {
               const num = Math.round(todaysForecast.confidence_score || 0);
               return (
-                <KpiTile value={num} unit="%" label={<span>Confidence</span>} />
+                <KpiTile
+                  value={num}
+                  unit="%"
+                  label={<span>Confidence</span>}
+                  className="bg-purple-50"
+                  valueClassName="text-purple-600"
+                  labelClassName="text-purple-500"
+                />
               );
             })()}
           </div>

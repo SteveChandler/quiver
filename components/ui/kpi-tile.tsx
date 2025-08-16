@@ -8,9 +8,11 @@ type KpiTileProps = {
   unit?: string;
   label: React.ReactNode;
   className?: string;
+  valueClassName?: string;
+  labelClassName?: string;
 };
 
-export function KpiTile({ value, unit, label, className }: KpiTileProps) {
+export function KpiTile({ value, unit, label, className, valueClassName, labelClassName }: KpiTileProps) {
   return (
     <div
       className={cn(
@@ -19,12 +21,10 @@ export function KpiTile({ value, unit, label, className }: KpiTileProps) {
       )}
     >
       <div className="flex items-baseline justify-center gap-1 font-semibold tabular-nums whitespace-nowrap">
-        <span className="text-2xl md:text-3xl leading-none">{value}</span>
-        {unit ? <span className="text-sm leading-none">{unit}</span> : null}
+        <span className={cn("text-2xl md:text-3xl leading-none", valueClassName)}>{value}</span>
+        {unit ? <span className={cn("text-sm leading-none", valueClassName)}>{unit}</span> : null}
       </div>
-      <div className="mt-1 text-xs text-muted-foreground text-center w-full">
-        {label}
-      </div>
+      <div className={cn("mt-1 text-xs text-muted-foreground text-center w-full", labelClassName)}>{label}</div>
     </div>
   );
 }
