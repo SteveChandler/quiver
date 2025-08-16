@@ -307,7 +307,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
               </span>
             </AccordionTrigger>
             <AccordionContent>
-              <ForecastAndTides beach={beach as Beach} forecasts={forecasts} />
+              <ForecastAndTides beach={beach as Beach} forecasts={forecasts || []} />
             </AccordionContent>
           </AccordionItem>
 

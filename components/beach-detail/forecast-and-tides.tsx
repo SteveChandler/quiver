@@ -26,7 +26,7 @@ import { fetchBestTimesApi, fetchBestTimes } from "@/lib/bestTimes";
 
 interface ForecastAndTidesProps {
   beach: Beach;
-  forecasts: EnhancedForecastEntity[];
+  forecasts: EnhancedForecastEntity[] | null;
 }
 
 function formatTimeRange(startIso: string, endIso: string): string {
@@ -78,16 +78,19 @@ function FactorBars({ why }: { why: NonNullable<WindowWithWhy["why"]> }) {
 }
 
 export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
+  // Ensure forecasts is always an array
+  const safeForecasts = forecasts || [];
+  
   const today = useMemo(() => {
-    if (!forecasts || forecasts.length === 0) {
+    if (safeForecasts.length === 0) {
       return new Date().toISOString().slice(0, 10);
     }
-    const forecastDate = forecasts[0]?.forecast_date;
+    const forecastDate = safeForecasts[0]?.forecast_date;
     if (!forecastDate) {
       return new Date().toISOString().slice(0, 10);
     }
     return forecastDate;
-  }, [forecasts]);
+  }, [safeForecasts]);
 
   const fetchBest = useCallback(async () => {
     const supabase = createClient();
@@ -307,10 +310,10 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
       </Card>
 
       {/* Tide Chart */}
-      {forecasts && forecasts.length > 0 && (
+      {safeForecasts.length > 0 && (
         <Card>
           <CardContent className="pt-6">
-            <TideChart forecasts={forecasts} />
+            <TideChart forecasts={safeForecasts} />
           </CardContent>
         </Card>
       )}
@@ -327,16 +330,16 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
       />
 
       {/* Also show simplified table plus a collapsed multi-day table */}
-      {forecasts && forecasts.length > 0 && (
+      {safeForecasts.length > 0 && (
         <div className="space-y-4">
-          <SimplifiedForecastTable forecasts={forecasts} />
+          <SimplifiedForecastTable forecasts={safeForecasts} />
 
           <details className="group">
             <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
               Show detailed multi-day forecast table
             </summary>
             <div className="mt-3">
-              <MultiDayForecastTable forecasts={forecasts} />
+              <MultiDayForecastTable forecasts={safeForecasts} />
             </div>
           </details>
         </div>
