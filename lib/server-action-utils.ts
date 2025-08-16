@@ -19,9 +19,12 @@ export async function withServerAction<T>(
     return { success: true, data };
   } catch (error) {
     console.error("Server action error:", error);
+    // Preserve legacy behavior: only surface message for real Error objects.
+    // For non-Error throws (e.g., strings), return a generic message so tests remain stable.
+    const message = error instanceof Error && error.message ? error.message : "Unknown error";
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: message,
     };
   }
 }

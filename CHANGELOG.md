@@ -202,6 +202,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Removed
+
+- Dead code cleanup (minor):
+  - Removed `app/plan-session/head.tsx` (App Router metadata handled via `page.tsx`/`generateMetadata`)
+  - Removed unused `actions/recommendations/coach-pick-actions.ts` (API route `GET /api/coach-picks` is the single source)
+
+### Changed
+
+- Development dependencies:
+  - Removed unused dev dependency `supabase`
+  - Added missing test dev dependencies: `@jest/globals`, `node-mocks-http`
+
 ### Added
 
 - Local dev bootstrapping and data ingestion
@@ -576,6 +588,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Supabase security linter warning: Recreated `public.enhanced_forecasts_with_quality` view with `WITH (security_invoker = true)` to remove definer semantics
 
 - Fixed issue where tapping Save on Plan Session did nothing and session was not saved
+  - Root cause: server action payload included "$undefined" for optional fields (e.g., `board_id`), causing Supabase insert to fail silently and return `{ success: false, error: "Unknown error" }`.
+  - Fix: added payload sanitization in `actions/session-actions.ts` to strip `undefined`/`"$undefined"`/empty UUIDs and set `user_id/profile_id/status` server-side; improved error message fallback in `lib/server-action-utils.ts`; revalidate `/profile` after creation to ensure immediate visibility.
 
 ## [2025.01.16] - Community-Enhanced Surf Forecasts
 
