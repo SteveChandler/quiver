@@ -90,6 +90,13 @@
   - Tooltip/labels show feet with one decimal. Follows `components/forecast/ARCHITECTURE.md` Recharts patterns.
   - Added regression test `__tests__/components/forecast/tide-chart-recharts.regression.test.tsx` that renders the real chart under `React.StrictMode` and exercises empty → loaded transitions to catch key/reconciliation issues.
 
+- Tide chart readability on small screens:
+
+  - `components/forecast/tide-chart-recharts.tsx` now uses `useIsMobile()` to adapt layout.
+  - Mobile aspect ratio changed to `aspect-[4/3]` (desktop remains `aspect-[8/3]`).
+  - Reduced chart margins, smaller tick fonts, fewer Y ticks, and auto-skipped X ticks on mobile.
+  - Slightly smaller extrema dots on mobile. Follows `components/forecast/ARCHITECTURE.md` responsive guidance.
+
 - React minified error #460 (Suspense/use promise blocked): Removed inline `Promise.then(...)` rendering in `app/beach/[id]/page.tsx` and moved fetch/await into an async server component `CoachCardSection` wrapped in `Suspense`. This aligns with `app/ARCHITECTURE.md` guidance for async work in server components and eliminates the Suspense crash.
 
 ### Added
