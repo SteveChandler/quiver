@@ -54,6 +54,7 @@
 
 - Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user’s actual position.
 - Hide all rating stars for planned sessions on profile and session cards so planned sessions don't display ratings.
+- Fixed invariant error on Beach Detail Forecast & Tides: added missing imports in `components/beach-detail/forecast-and-tides.tsx` for `createClient` and `fetchBestTimesApi/fetchBestTimes` following `hooks/ARCHITECTURE.md` and `lib/supabase/ARCHITECTURE.md` patterns.
 
 - Tide chart extrema plotting fixed in `components/forecast/tide-chart-recharts.tsx`:
   - Normalized hourly/extrema heights to feet with a single helper.

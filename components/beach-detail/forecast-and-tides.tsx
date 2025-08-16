@@ -21,6 +21,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { createClient } from "@/lib/supabase/client";
+import { fetchBestTimesApi, fetchBestTimes } from "@/lib/bestTimes";
 
 interface ForecastAndTidesProps {
   beach: Beach;
