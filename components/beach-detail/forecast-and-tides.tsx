@@ -79,9 +79,14 @@ function FactorBars({ why }: { why: NonNullable<WindowWithWhy["why"]> }) {
 
 export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
   const today = useMemo(() => {
-    return (
-      forecasts?.[0]?.forecast_date || new Date().toISOString().slice(0, 10)
-    );
+    if (!forecasts || forecasts.length === 0) {
+      return new Date().toISOString().slice(0, 10);
+    }
+    const forecastDate = forecasts[0]?.forecast_date;
+    if (!forecastDate) {
+      return new Date().toISOString().slice(0, 10);
+    }
+    return forecastDate;
   }, [forecasts]);
 
   const fetchBest = useCallback(async () => {
@@ -220,7 +225,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
     }
 
     return enrichedFallback;
-  }, [beach.id, today]);
+  }, [beach.id]);
 
   const { data: bestWindows, loading: bestLoading } = useDataFetcher(
     fetchBest,
