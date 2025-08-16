@@ -3,10 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
-import {
-  MultiDayForecastTable,
-  SimplifiedForecastTable,
-} from "@/components/forecast/forecast-table";
+// Removed multi-day and simplified tables per request
 import { Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
@@ -64,32 +61,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
         </Card>
       )}
 
-      {/* Forecast table/summary */}
-      <BeachesEnhancedForecast
-        beachId={beach.id}
-        beachName={beach.name}
-        showHeader={false}
-        showTransparency={true}
-        showQualitySummary={true}
-        allowToggleTransparency={true}
-        highlightQualityVariations={true}
-      />
-
-      {/* Also show simplified table plus a collapsed multi-day table */}
-      {safeForecasts.length > 0 && (
-        <div className="space-y-4">
-          <SimplifiedForecastTable forecasts={safeForecasts} />
-
-          <details className="group">
-            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
-              Show detailed multi-day forecast table
-            </summary>
-            <div className="mt-3">
-              <MultiDayForecastTable forecasts={safeForecasts} />
-            </div>
-          </details>
-        </div>
-      )}
+      {/* Removed multi-day forecast tables and detailed toggle */}
     </div>
   );
 }

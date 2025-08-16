@@ -70,7 +70,7 @@ export function CoachCard({
     // Try beach-scoped picks first
     try {
       const res = await fetch(
-        `/api/coach-picks?beachId=${encodeURIComponent(beachId!)}&radiusKm=80`
+        `/api/coach-picks?beachId=${encodeURIComponent(beachId!)}&radiusKm=30`
       );
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -84,8 +84,12 @@ export function CoachCard({
             rank: row.pick_rank,
           })
         ) as Recommendation[];
-        if (picks.length > 0) {
-          return { top_picks: picks, recommendations: picks };
+        // filter to <= 30km when distance is provided
+        const filtered = picks.filter(
+          (p) => typeof p.distance_km !== "number" || p.distance_km <= 30
+        );
+        if (filtered.length > 0) {
+          return { top_picks: filtered, recommendations: filtered };
         }
       }
     } catch (e) {
@@ -119,10 +123,12 @@ export function CoachCard({
       wind: row.wind,
       tide: row.tide,
     });
-    const top = picks2.length
-      ? picks2.map(mapRow)
-      : recs2.slice(0, 3).map(mapRow);
-    const all = recs2.length ? recs2.map(mapRow) : top;
+    const top = (
+      picks2.length ? picks2.map(mapRow) : recs2.slice(0, 3).map(mapRow)
+    ).filter((p) => typeof p.distance_km !== "number" || p.distance_km <= 30);
+    const all = (recs2.length ? recs2.map(mapRow) : top).filter(
+      (p) => typeof p.distance_km !== "number" || p.distance_km <= 30
+    );
     return { top_picks: top, recommendations: all };
   }, [beachId, lat, lon]);
 
