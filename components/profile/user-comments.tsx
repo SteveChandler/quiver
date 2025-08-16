@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, MessageSquare } from "lucide-react";
+import { Loader2, MessageSquare, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/types/database";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 
 type Comment = Database["public"]["Tables"]["comments"]["Row"] & {

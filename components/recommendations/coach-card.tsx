@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,31 +35,54 @@ type Recommendation = {
 };
 
 export function CoachCard({
+  beachId,
   lat,
   lon,
+  regionId,
   timeIso,
   title = "Coach Pick",
   className,
+  initialResponse,
 }: {
+  beachId?: string;
   lat: number;
   lon: number;
+  regionId?: string;
   timeIso?: string;
   title?: string;
   className?: string;
+  initialResponse?: {
+    top_picks?: Recommendation[];
+    recommendations?: Recommendation[];
+  };
 }) {
+  // Require valid beach context; avoid any leaked global state or fallbacks
+  const hasValidContext = Boolean(
+    beachId && Number.isFinite(lat) && Number.isFinite(lon)
+  );
+  if (!hasValidContext) return null;
   const [showExplanation, setShowExplanation] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<{
     [key: string]: boolean;
   }>({});
 
   const fetchRecs = useCallback(async () => {
-    const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
-    if (timeIso) params.set("time", timeIso);
-    const res = await fetch(`/api/v1/recommendations?${params.toString()}`);
+    // Only use beach-scoped picks; do not fall back to any global caches
+    const res = await fetch(
+      `/api/coach-picks?beachId=${encodeURIComponent(beachId!)}&radiusKm=80`
+    );
     const json = await res.json();
-    if (!res.ok) throw new Error(json?.error || "Failed to fetch recs");
-    return json.data || json;
-  }, [lat, lon, timeIso]);
+    if (!res.ok) throw new Error(json?.error || "Failed to fetch coach picks");
+    const picks = (json?.data?.picks || json?.picks || []).map((row: any) => ({
+      spotId: row.beach_id,
+      name: row.name,
+      distance_km: row.distance_km ?? null,
+      score: row.score ?? 0,
+      reasons: [],
+      rank: row.pick_rank,
+    })) as Recommendation[];
+    return { top_picks: picks, recommendations: picks };
+  }, [beachId]);
 
   const {
     data: response,
@@ -70,12 +93,13 @@ export function CoachCard({
     top_picks?: Recommendation[];
     recommendations?: Recommendation[];
   }>(fetchRecs, {
-    immediate: true,
-    initialData: {},
+    immediate: !initialResponse,
+    initialData: initialResponse || {},
   });
 
   const topPicks = response?.top_picks || [];
   const allRecs = response?.recommendations || [];
+  const hasAny = topPicks.length > 0 || allRecs.length > 0;
   const top = topPicks.length
     ? topPicks[0]
     : allRecs.length
@@ -102,6 +126,9 @@ export function CoachCard({
       console.error("Failed to submit feedback:", error);
     }
   };
+
+  // Hide the card if the RPC returned no results
+  if (!error && !loading && !hasAny) return null;
 
   return (
     <Card className={className}>
@@ -158,9 +185,7 @@ export function CoachCard({
                     <span>
                       #{index + 1} {pick.name}
                     </span>
-                    <Badge variant="outline" size="sm">
-                      {pick.score}
-                    </Badge>
+                    <Badge variant="outline">{pick.score}</Badge>
                   </div>
                 ))}
               </div>

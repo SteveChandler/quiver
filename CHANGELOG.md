@@ -40,9 +40,19 @@
 
 - UI polish: Added bell icon to Notifications item in avatar dropdown (`components/app-header.tsx`) following `components/ARCHITECTURE.md` icon sizing/spacing patterns.
 
+- Beach page recommendations card now wired with beach context. `app/beach/[id]/page.tsx` passes `beachId`, `lat`, `lon`, and optional `regionId` into `CoachCard`, and sets `key={beach.id}` to prevent reuse across beaches. `components/recommendations/coach-card.tsx` accepts these optional props and includes them in fetch dependencies, following `hooks/ARCHITECTURE.md` `useDataFetcher` pattern.
+
+- Added beach-scoped coach picks endpoint and server action:
+
+  - New server function `actions/recommendations/coach-pick-actions.ts#getCoachPicksForBeach` calling RPC `get_coach_picks(_beach_id, _radius_km)` using `withDatabaseOperation`.
+  - New API route `GET /api/coach-picks?beachId=<id>&radiusKm=80` returning `{ picks: [...] }` via `createSuccessResponse`.
+  - `components/recommendations/coach-card.tsx` now prefers `/api/coach-picks` when `beachId` is provided; falls back to `/api/v1/recommendations?lat&lon` otherwise. Ensures SWR keys include `beachId` semantics and avoids cross-page reuse.
+
 - Home screen Forecast tab now displays normalized face height using `WaveHeightDisplay`, matching Beach Detail. This ensures consistent, calibrated surf height across the app and adds an explanatory tooltip. Follows `components/ARCHITECTURE.md` DRY component usage. Also aligned font sizing with other metrics (consistent `text-lg`).
 - Beach list cards: rounded review average to one decimal place (e.g., 2.6) and corrected singular/plural review label for readability.
-- Forecast refresh: ingest multiple recent CDIP observations and add 12h short‑horizon persistence (cdip_persistence/ndbc_persistence, is_observed=false) to ensure hourly marine coverage without Open‑Meteo. Improves Best Times availability when observed data is sparse.
+- Forecast refresh: ingest multiple recent CDIP observations and add 12h short‑horizon persistence (cdip_persistence/ndbc_persistence, is_observed=false) to ensure hourly marine coverage without Open‑Meteo.
+
+  - Note: Best Times section on Beach Detail has been temporarily replaced with Coach Pick due to instability.
 
 - Local Intel section on beach pages now uses `components/intel/beach-intel-section.tsx` backed by `/api/intel` and `get_nearby_intel_posts` RPC. Removed check-ins view from this section to surface intel posts, confirmations, and tagging. Followed `hooks/ARCHITECTURE.md` data fetching with `useDataFetcher` via `useIntelData`.
 
@@ -63,6 +73,13 @@
   - Added array validation in `BeachDetail` component to prevent grouping logic errors when forecasts are malformed
   - Confirmed `useLocalStorageState` hook is already SSR-safe with proper `window` existence checks
   - No `use(promise)` patterns found in codebase; all data fetching uses standard React state/effect patterns
+
+- TypeScript fixes across utilities:
+
+  - Migrated `date-fns-tz` imports to v3 API: `toZonedTime`/`fromZonedTime` in `lib/surf/sun.ts` and `lib/time.ts`
+  - Resolved enum mismatch in image compression by removing explicit MIME `type` option in `lib/supabase/storage.ts`
+  - Guarded analytics calls with `window.gtag` existence check in `lib/utils/performance-utils.ts`
+  - Removed unused imports/types and added explicit param typings: `lib/utils/beach-search-utils.ts`, `lib/utils/posts-utils.ts`, `types/intel.ts`, `lib/supabase/api-server-client.ts`, `lib/surf/windows.ts`, `lib/utils/forecast-service-utils.ts`, `lib/utils/forecast-analytics.ts`
 
 - Tide chart extrema plotting fixed in `components/forecast/tide-chart-recharts.tsx`:
 

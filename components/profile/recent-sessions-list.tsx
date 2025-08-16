@@ -60,12 +60,7 @@ export function RecentSessionsList({
                     </div>
                   </div>
                   {session.status !== "planned" && !!session.rating && (
-                    <StarRating
-                      rating={session.rating}
-                      max={5}
-                      readonly
-                      size="sm"
-                    />
+                    <StarRating rating={session.rating} size="sm" />
                   )}
                 </div>
 

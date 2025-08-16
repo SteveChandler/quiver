@@ -2,21 +2,6 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
 
-// Mock Best Times API and RPC to avoid network/DB dependencies
-jest.mock("@/lib/bestTimes", () => ({
-  fetchBestTimesApi: jest.fn(async () => ({
-    windows: [
-      {
-        start_ts: new Date().toISOString(),
-        end_ts: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
-        grade: "Good",
-        score: 65,
-      },
-    ],
-  })),
-  fetchBestTimes: jest.fn(async () => ({ data: [], error: null })),
-}));
-
 // Stub Supabase client (unused when API path succeeds, but safe to mock)
 jest.mock("@/lib/supabase/client", () => ({
   createClient: jest.fn(() => ({
@@ -48,13 +33,13 @@ jest.mock("@/components/forecast/tide-chart-recharts", () => ({
 }));
 
 describe("ForecastAndTides (smoke)", () => {
-  it("renders without throwing and shows Best Times header", () => {
+  it("renders without throwing and shows Coach Pick card", () => {
     const beach = { id: "beach-uuid", name: "Test Beach" } as any;
     const forecasts: any[] = [];
 
     render(<ForecastAndTides beach={beach} forecasts={forecasts} />);
 
-    // Static header text from the component
-    expect(screen.getByText("Best Times")).toBeInTheDocument();
+    // Coach Pick rendered (title text)
+    expect(screen.getByText(/Coach Pick/i)).toBeInTheDocument();
   });
 });

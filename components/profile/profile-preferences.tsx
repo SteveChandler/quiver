@@ -122,7 +122,7 @@ export function ProfilePreferences({
             {/* Default Beach */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium">Default Settings</h3>
-              <FormField
+              <FormField<PreferencesFormValues>
                 control={form.control}
                 name="default_beach_id"
                 render={({ field }) => (
@@ -158,7 +158,7 @@ export function ProfilePreferences({
             <div className="space-y-4">
               <h3 className="text-sm font-medium">Notification Settings</h3>
 
-              <FormField
+              <FormField<PreferencesFormValues>
                 control={form.control}
                 name="notification_session_reminders"
                 render={({ field }) => (
@@ -181,7 +181,7 @@ export function ProfilePreferences({
                 )}
               />
 
-              <FormField
+              <FormField<PreferencesFormValues>
                 control={form.control}
                 name="notification_community_replies"
                 render={({ field }) => (
@@ -205,7 +205,7 @@ export function ProfilePreferences({
                 )}
               />
 
-              <FormField
+              <FormField<PreferencesFormValues>
                 control={form.control}
                 name="inapp_session_invites"
                 render={({ field }) => (
@@ -228,7 +228,7 @@ export function ProfilePreferences({
                 )}
               />
 
-              <FormField
+              <FormField<PreferencesFormValues>
                 control={form.control}
                 name="email_session_invites"
                 render={({ field }) => (
