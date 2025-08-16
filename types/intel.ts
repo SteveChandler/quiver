@@ -1,4 +1,4 @@
-import type { IntelPostTag, IntelPost, IntelPostWithUser } from "./database";
+import type { IntelPostTag, IntelPostWithUser } from "./database";
 
 export interface CreateIntelPostData {
   latitude: number;

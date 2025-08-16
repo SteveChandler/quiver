@@ -1,4 +1,4 @@
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { startOfDay, endOfDay, addHours, setHours, setMinutes, min } from 'date-fns';
 import * as SunCalc from 'suncalc';
 
@@ -16,8 +16,8 @@ export function startEndUtcForLocalDate(dateLocal: Date | string, tz: string): [
   const endOfDayLocal = endOfDay(date);
   
   // Convert to UTC
-  const startUtc = zonedTimeToUtc(startOfDayLocal, tz);
-  const endUtc = zonedTimeToUtc(endOfDayLocal, tz);
+  const startUtc = fromZonedTime(startOfDayLocal, tz);
+  const endUtc = fromZonedTime(endOfDayLocal, tz);
   
   return [startUtc, endUtc];
 }
@@ -45,7 +45,7 @@ export function getMorningWindow(
   const sunrise = sunTimes.sunrise;
   
   // Convert sunrise to local timezone
-  const sunriseLocal = utcToZonedTime(sunrise, tz);
+  const sunriseLocal = toZonedTime(sunrise, tz);
   
   // Calculate sunrise + horizon hours
   const sunrisePlusHorizon = addHours(sunriseLocal, horizonHours);
@@ -57,8 +57,8 @@ export function getMorningWindow(
   const endLocal = min([sunrisePlusHorizon, elevenAM]);
   
   // Convert to UTC
-  const startUtc = zonedTimeToUtc(sunriseLocal, tz);
-  const endUtc = zonedTimeToUtc(endLocal, tz);
+  const startUtc = fromZonedTime(sunriseLocal, tz);
+  const endUtc = fromZonedTime(endLocal, tz);
   
   return [startUtc, endUtc];
 }

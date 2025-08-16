@@ -1,6 +1,6 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import type { Beach } from "@/types/database";
+// Removed unused type import to satisfy TS6133
 
 /**
  * Get singleton instance of EnhancedForecastService

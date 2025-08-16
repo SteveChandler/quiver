@@ -1,4 +1,4 @@
-import { boardCall, computeHourScore, HourInputs, HourScoreBreakdown, BeachMeta, HourlyMarine, HourlyTide } from "./scoring";
+import { boardCall, computeHourScore, HourInputs, BeachMeta, HourlyMarine, HourlyTide } from "./scoring";
 
 export interface HourSample extends HourInputs {
   ts: string; // ISO timestamp (hourly)

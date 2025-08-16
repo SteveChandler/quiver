@@ -57,6 +57,7 @@
 - Fixed invariant error on Beach Detail Forecast & Tides: added missing imports in `components/beach-detail/forecast-and-tides.tsx` for `createClient` and `fetchBestTimesApi/fetchBestTimes` following `hooks/ARCHITECTURE.md` and `lib/supabase/ARCHITECTURE.md` patterns.
 - Stabilized `ForecastAndTides` hook dependencies: guarded `today` memo for empty forecasts and removed unused `today` from `fetchBest` deps to avoid unnecessary re-renders/refetch loops.
 - **React Suspense crash in Beach Details flow**: Fixed React Suspense error (minified React error #460) that occurred when client components used async patterns without proper boundaries:
+
   - Added Suspense boundary around `BeachDetail` component in `app/beach/[id]/page.tsx` to catch async rendering issues
   - Enhanced data guards in `ForecastAndTides` component to handle null/empty beach data and filter invalid forecast rows
   - Added array validation in `BeachDetail` component to prevent grouping logic errors when forecasts are malformed
@@ -64,11 +65,15 @@
   - No `use(promise)` patterns found in codebase; all data fetching uses standard React state/effect patterns
 
 - Tide chart extrema plotting fixed in `components/forecast/tide-chart-recharts.tsx`:
+
   - Normalized hourly/extrema heights to feet with a single helper.
   - Both the line and extrema use the same `yAxisId` and `dataKey` (`h`).
   - Extrema dots now render at their own heights (not tied to line Y/index).
   - Shared Y domain computed from both series with ±0.5 ft padding.
   - Tooltip/labels show feet with one decimal. Follows `components/forecast/ARCHITECTURE.md` Recharts patterns.
+  - Added regression test `__tests__/components/forecast/tide-chart-recharts.regression.test.tsx` that renders the real chart under `React.StrictMode` and exercises empty → loaded transitions to catch key/reconciliation issues.
+
+- React minified error #460 (Suspense/use promise blocked): Removed inline `Promise.then(...)` rendering in `app/beach/[id]/page.tsx` and moved fetch/await into an async server component `CoachCardSection` wrapped in `Suspense`. This aligns with `app/ARCHITECTURE.md` guidance for async work in server components and eliminates the Suspense crash.
 
 ### Added
 

@@ -440,6 +440,7 @@ export function TideChart({
 
                 {/* Zero baseline reference line - subtle */}
                 <ReferenceLine
+                  yAxisId="y"
                   y={0}
                   stroke="#D1D5DB"
                   strokeWidth={1}
@@ -485,6 +486,7 @@ export function TideChart({
                 {/* "Now" reference line - subtle */}
                 {showNowLine && (
                   <ReferenceLine
+                    yAxisId="y"
                     x={nowTimestamp}
                     stroke="#EF4444"
                     strokeWidth={1.5}
@@ -512,7 +514,10 @@ export function TideChart({
 
                 {/* Extrema as reference dots on same axis */}
                 {extremaData.map(
-                  (p: { t: number; h: number; type: "HIGH" | "LOW" }, index: number) => (
+                  (
+                    p: { t: number; h: number; type: "HIGH" | "LOW" },
+                    index: number
+                  ) => (
                     <ReferenceDot
                       key={`extrema-${index}-${p.t}-${p.type}`}
                       x={p.t}

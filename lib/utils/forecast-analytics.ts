@@ -64,7 +64,6 @@ export function calculateAccuracyScore(
   maxPenalty: number = 100
 ): number {
   const delta = Math.abs(forecast - actual);
-  const relativeError = actual === 0 ? 0 : (delta / actual) * 100;
 
   // Linear penalty based on delta and tolerance
   const penalty = Math.min(maxPenalty, (delta / tolerance) * 20);
