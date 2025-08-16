@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
-// Removed multi-day and simplified tables per request
+import { SimplifiedForecastTable } from "@/components/forecast/forecast-table";
 import { Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
@@ -61,7 +61,12 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
         </Card>
       )}
 
-      {/* Removed multi-day forecast tables and detailed toggle */}
+      {/* Simplified forecast table (kept); detailed multi-day table removed */}
+      {safeForecasts.length > 0 && (
+        <div className="space-y-4">
+          <SimplifiedForecastTable forecasts={safeForecasts} />
+        </div>
+      )}
     </div>
   );
 }
