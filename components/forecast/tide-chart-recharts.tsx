@@ -298,9 +298,11 @@ export function TideChart({
     }
     const domain: [number, number] = [minH - 0.5, maxH + 0.5];
 
-    // Day ticks from line points
+    // X-axis domain and day ticks from line points
     const seenDays = new Set<string>();
     const ticks: number[] = [];
+    let minT = Number.POSITIVE_INFINITY;
+    let maxT = Number.NEGATIVE_INFINITY;
     for (const p of line5) {
       const d = new Date(p.t);
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -308,9 +310,16 @@ export function TideChart({
         seenDays.add(key);
         ticks.push(p.t);
       }
+      if (p.t < minT) minT = p.t;
+      if (p.t > maxT) maxT = p.t;
     }
 
-    return { line: line5, extrema: extrema5, domain, ticks };
+    const xDomain: [number, number] =
+      Number.isFinite(minT) && Number.isFinite(maxT) && minT < maxT
+        ? [minT, maxT]
+        : [Date.now() - 12 * 3600 * 1000, Date.now() + 12 * 3600 * 1000];
+
+    return { line: line5, extrema: extrema5, domain, ticks, xDomain } as any;
   }, [data, forecasts, hourly, events]);
 
   const {
@@ -318,13 +327,14 @@ export function TideChart({
     extrema: extremaData,
     domain: yDomain,
     ticks: dayTicks,
+    xDomain,
   } = normalized;
 
   // Dev-only: flag inversions where LOW >= HIGH within a day
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
     const byDay = new Map<string, { high: number[]; low: number[] }>();
-    extremaData.forEach((p) => {
+    extremaData.forEach((p: { t: number; h: number; type: "HIGH" | "LOW" }) => {
       const d = new Date(p.t);
       d.setHours(0, 0, 0, 0);
       const k = d.toISOString();
@@ -348,13 +358,16 @@ export function TideChart({
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
     const hasNaNLine = lineData.some(
-      (d) => !Number.isFinite(d.t) || !Number.isFinite(d.h)
+      (d: { t: number; h: number }) =>
+        !Number.isFinite(d.t) || !Number.isFinite(d.h)
     );
     const hasNaNExt = extremaData.some(
-      (d) => !Number.isFinite(d.t) || !Number.isFinite(d.h)
+      (d: { t: number; h: number }) =>
+        !Number.isFinite(d.t) || !Number.isFinite(d.h)
     );
     const sortedAsc = lineData.every(
-      (d, i, arr) => i === 0 || d.t >= arr[i - 1].t
+      (d: { t: number }, i: number, arr: { t: number }[]) =>
+        i === 0 || d.t >= arr[i - 1].t
     );
     console.info("TideChart sanity:", {
       lineCount: lineData.length,
@@ -439,7 +452,7 @@ export function TideChart({
                   dataKey="t"
                   type="number"
                   scale="time"
-                  domain={["dataMin", "dataMax"]}
+                  domain={xDomain as any}
                   ticks={xTicks as any}
                   tickFormatter={formatXAxisTick}
                   interval={0}
@@ -498,18 +511,20 @@ export function TideChart({
                 />
 
                 {/* Extrema as reference dots on same axis */}
-                {extremaData.map((p) => (
-                  <ReferenceDot
-                    key={`${p.t}-${p.type}`}
-                    x={p.t}
-                    y={p.h}
-                    yAxisId="y"
-                    r={4}
-                    fill={p.type === "HIGH" ? "#FF7F11" : "#6B7280"}
-                    stroke="#FFFFFF"
-                    strokeWidth={1}
-                  />
-                ))}
+                {extremaData.map(
+                  (p: { t: number; h: number; type: "HIGH" | "LOW" }) => (
+                    <ReferenceDot
+                      key={`${p.t}-${p.type}`}
+                      x={p.t}
+                      y={p.h}
+                      yAxisId="y"
+                      r={4}
+                      fill={p.type === "HIGH" ? "#FF7F11" : "#6B7280"}
+                      stroke="#FFFFFF"
+                      strokeWidth={1}
+                    />
+                  )
+                )}
 
                 {/* Enhanced, accessible tooltip */}
                 <ChartTooltip
