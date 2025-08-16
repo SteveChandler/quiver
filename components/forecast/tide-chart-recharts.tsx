@@ -452,8 +452,8 @@ export function TideChart({
                   dataKey="t"
                   type="number"
                   scale="time"
-                  domain={xDomain as any}
-                  ticks={xTicks as any}
+                  domain={xDomain}
+                  ticks={xTicks}
                   tickFormatter={formatXAxisTick}
                   interval={0}
                   axisLine={{ stroke: "#9CA3AF" }}
@@ -512,9 +512,9 @@ export function TideChart({
 
                 {/* Extrema as reference dots on same axis */}
                 {extremaData.map(
-                  (p: { t: number; h: number; type: "HIGH" | "LOW" }) => (
+                  (p: { t: number; h: number; type: "HIGH" | "LOW" }, index: number) => (
                     <ReferenceDot
-                      key={`${p.t}-${p.type}`}
+                      key={`extrema-${index}-${p.t}-${p.type}`}
                       x={p.t}
                       y={p.h}
                       yAxisId="y"
