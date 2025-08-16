@@ -1,33 +1,39 @@
-import { BeachDetail } from "@/components/beach-detail";
+import { Suspense } from "react";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { BeachDetail } from "@/components/beach-detail";
+import { CoachCard } from "@/components/recommendations/coach-card";
+import { getBeachById as fetchBeach } from "@/actions/beach/beach-query-actions";
+import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { getBeachById } from "@/actions/beach/beach-query-actions";
-import { CoachCard } from "@/components/recommendations/coach-card";
-import { Suspense } from "react";
-import { getBeachById as fetchBeach } from "@/actions/beach/beach-query-actions";
+
+async function CoachCardSection({ id }: { id: string }) {
+  const res = await fetchBeach(id);
+  const lat = res?.data?.latitude ?? 32.7157;
+  const lon = res?.data?.longitude ?? -117.1611;
+  return (
+    <div className="px-4 pt-4">
+      <CoachCard lat={lat} lon={lon} className="max-w-2xl mx-auto" />
+    </div>
+  );
+}
 
 export default function BeachDetailPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const beachPromise = fetchBeach(params.id);
   return (
     <>
+      {/* @ts-expect-error Async Server Component */}
       <Suspense fallback={<div className="px-4 pt-4" />}>
-        {/* @ts-expect-error Async boundary */}
-        {beachPromise.then((res) => {
-          const lat = res?.data?.latitude ?? 32.7157;
-          const lon = res?.data?.longitude ?? -117.1611;
-          return (
-            <div className="px-4 pt-4">
-              <CoachCard lat={lat} lon={lon} className="max-w-2xl mx-auto" />
-            </div>
-          );
-        })}
+        <CoachCardSection id={params.id} />
       </Suspense>
-      <BeachDetail id={params.id} />
+
+      <Suspense fallback={<div className="p-4">Loading beach details…</div>}>
+        <BeachDetail id={params.id} />
+      </Suspense>
+
       <BottomNavigation />
     </>
   );

@@ -165,9 +165,10 @@ export function trackWebVitals() {
         // Send to analytics in production
         if (
           process.env.NODE_ENV === "production" &&
-          typeof gtag !== "undefined"
+          typeof window !== "undefined" &&
+          typeof (window as any).gtag === "function"
         ) {
-          gtag("event", metric.name, {
+          (window as any).gtag("event", metric.name, {
             event_category: "Web Vitals",
             event_label: metric.id,
             value: Math.round(

@@ -70,7 +70,7 @@ export async function GET(request: Request) {
               is_observed: true,
             });
           } else {
-            console.warn("NDBC latest observation not available", {
+            console.info("NDBC latest observation not available", {
               beach: b.name,
               beachId: b.id,
               stationId: ndbc.id,
@@ -85,21 +85,27 @@ export async function GET(request: Request) {
           );
           if (station) {
             const buoy = await cdip.fetchBuoyData(station);
-            const latest = buoy?.data?.[0];
-            if (latest) {
-              marineRows.push({
-                beach_id: b.id,
-                ts: latest.timestamp,
-                wave_height_m: latest.significantWaveHeight
-                  ? latest.significantWaveHeight * 0.3048
-                  : null,
-                wave_period_s: latest.peakWavePeriod ?? null,
-                wave_direction_deg: latest.peakWaveDirection ?? null,
-                wind_speed_ms: null,
-                wind_direction_deg: null,
-                source: "cdip",
-                is_observed: true,
-              });
+            const points = buoy?.data || [];
+            if (points.length > 0) {
+              // Upsert up to last 24 hours of observations to increase coverage
+              const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+              for (const p of points) {
+                const ts = new Date(p.timestamp).toISOString();
+                if (new Date(ts).getTime() < cutoffMs) continue;
+                marineRows.push({
+                  beach_id: b.id,
+                  ts,
+                  wave_height_m: p.significantWaveHeight
+                    ? p.significantWaveHeight * 0.3048
+                    : null,
+                  wave_period_s: p.peakWavePeriod ?? null,
+                  wave_direction_deg: p.peakWaveDirection ?? null,
+                  wind_speed_ms: null,
+                  wind_direction_deg: null,
+                  source: "cdip",
+                  is_observed: true,
+                });
+              }
             } else {
               console.warn("CDIP returned no recent data", {
                 beach: b.name,
@@ -114,6 +120,52 @@ export async function GET(request: Request) {
             .from("marine_forecasts")
             .upsert(marineRows, { onConflict: "beach_id,ts,source" });
           if (!error) totals.marine += marineRows.length;
+        }
+
+        // Short-horizon persistence projection (no Open-Meteo). Carry forward latest observed
+        try {
+          const latestObserved = await supabase
+            .from("marine_forecasts")
+            .select(
+              "ts,wave_height_m,wave_period_s,wave_direction_deg,source,is_observed"
+            )
+            .eq("beach_id", b.id)
+            .eq("is_observed", true)
+            .in("source", ["cdip", "ndbc"])
+            .order("ts", { ascending: false })
+            .limit(1)
+            .single();
+
+          const base = latestObserved.data as any | null;
+          if (base && base.ts && (base.wave_height_m || base.wave_period_s || base.wave_direction_deg)) {
+            const horizonHours = 12;
+            const start = new Date();
+            const roundedStart = new Date(Math.ceil(start.getTime() / 3600000) * 3600000);
+            const projections: any[] = [];
+            for (let h = 0; h <= horizonHours; h++) {
+              const t = new Date(roundedStart.getTime() + h * 3600000);
+              projections.push({
+                beach_id: b.id,
+                ts: t.toISOString(),
+                wave_height_m: base.wave_height_m ?? null,
+                wave_period_s: base.wave_period_s ?? null,
+                wave_direction_deg: base.wave_direction_deg ?? null,
+                wind_speed_ms: null,
+                wind_direction_deg: null,
+                source: base.source === "ndbc" ? "ndbc_persistence" : "cdip_persistence",
+                is_observed: false,
+              });
+            }
+
+            if (projections.length) {
+              const { error: pErr } = await supabase
+                .from("marine_forecasts")
+                .upsert(projections, { onConflict: "beach_id,ts,source" });
+              if (!pErr) totals.marine += projections.length;
+            }
+          }
+        } catch (projErr) {
+          console.warn("marine persistence projection failed", b.name, projErr);
         }
       } catch (e) {
         console.warn("marine ingest error", b.name, e);

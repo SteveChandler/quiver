@@ -1,4 +1,4 @@
-import { FALLBACK_POSTS, MockPost } from "@/lib/constants/mock-data";
+import { FALLBACK_POSTS } from "@/lib/constants/mock-data";
 
 export interface Post {
   id: string;

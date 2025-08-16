@@ -28,7 +28,7 @@ export function createAPIServerClient() {
         set(name, value, options) {
           cookieStore.set(name, value, options);
         },
-        remove(name, options) {
+        remove(name, _options) {
           cookieStore.delete(name);
         },
       },

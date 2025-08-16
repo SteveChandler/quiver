@@ -69,24 +69,24 @@ export async function searchBeachesByName(
       }
 
       // 4. Word-by-word matching for multi-word searches
-      const searchWords = normalizedSearch
+      const searchWords: string[] = normalizedSearch
         .split(" ")
-        .filter((word) => word.length > 0);
-      const nameWords = beachName.split(" ").filter((word) => word.length > 0);
-      const locationWords = beachLocation
+        .filter((word: string) => word.length > 0);
+      const nameWords: string[] = beachName.split(" ").filter((word: string) => word.length > 0);
+      const locationWords: string[] = beachLocation
         .split(" ")
-        .filter((word) => word.length > 0);
+        .filter((word: string) => word.length > 0);
 
       // Check if all search words are found in the beach name or location
-      const allWordsInName = searchWords.every((searchWord) =>
+      const allWordsInName = searchWords.every((searchWord: string) =>
         nameWords.some(
-          (nameWord) =>
+          (nameWord: string) =>
             nameWord.includes(searchWord) || searchWord.includes(nameWord)
         )
       );
-      const allWordsInLocation = searchWords.every((searchWord) =>
+      const allWordsInLocation = searchWords.every((searchWord: string) =>
         locationWords.some(
-          (locationWord) =>
+          (locationWord: string) =>
             locationWord.includes(searchWord) ||
             searchWord.includes(locationWord)
         )

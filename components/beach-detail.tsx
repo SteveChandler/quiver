@@ -139,38 +139,44 @@ export function BeachDetail({ id }: BeachDetailProps) {
     return nearest;
   }, [forecasts]);
 
-  // Process data for display
-  const forecastsByDate: Record<string, EnhancedForecastEntity[]> = {};
+  // Process data for display - memoized to prevent unnecessary recalculations
+  const forecastsByDate = useMemo(() => {
+    const grouped: Record<string, EnhancedForecastEntity[]> = {};
+    
+    if (forecasts && Array.isArray(forecasts) && forecasts.length > 0) {
+      console.log("📊 Processing forecasts:", {
+        totalForecasts: forecasts.length,
+        firstForecast: forecasts[0],
+      });
 
-  if (forecasts) {
-    console.log("📊 Processing forecasts:", {
-      totalForecasts: forecasts.length,
-      firstForecast: forecasts[0],
-    });
+      // Group forecasts by date
+      forecasts.forEach((forecast) => {
+        if (forecast && forecast.forecast_date) {
+          const date = forecast.forecast_date;
+          if (!grouped[date]) {
+            grouped[date] = [];
+          }
+          grouped[date].push(forecast);
+        }
+      });
 
-    // Group forecasts by date
-    forecasts.forEach((forecast) => {
-      const date = forecast.forecast_date;
-      if (!forecastsByDate[date]) {
-        forecastsByDate[date] = [];
-      }
-      forecastsByDate[date].push(forecast);
-    });
-
-    console.log("📅 Grouped forecasts by date:", {
-      dates: Object.keys(forecastsByDate),
-      forecastsPerDate: Object.entries(forecastsByDate).map(
-        ([date, forecasts]) => ({
-          date,
-          count: forecasts.length,
-          firstForecast: forecasts[0]?.wave_height,
-        })
-      ),
-    });
-  }
+      console.log("📅 Grouped forecasts by date:", {
+        dates: Object.keys(grouped),
+        forecastsPerDate: Object.entries(grouped).map(
+          ([date, forecasts]) => ({
+            date,
+            count: forecasts.length,
+            firstForecast: forecasts[0]?.wave_height,
+          })
+        ),
+      });
+    }
+    
+    return grouped;
+  }, [forecasts]);
 
   // Get the first day's forecast for overview
-  const sortedDates = Object.keys(forecastsByDate).sort();
+  const sortedDates = useMemo(() => Object.keys(forecastsByDate).sort(), [forecastsByDate]);
 
   if (loading) {
     return (
@@ -307,7 +313,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
               </span>
             </AccordionTrigger>
             <AccordionContent>
-              <ForecastAndTides beach={beach as Beach} forecasts={forecasts} />
+              <ForecastAndTides beach={beach as Beach} forecasts={forecasts || []} />
             </AccordionContent>
           </AccordionItem>
 

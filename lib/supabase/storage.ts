@@ -48,7 +48,6 @@ async function compressImage(file: File): Promise<File> {
       quality: 0.8,
       maxWidth: 1920,
       maxHeight: 1080,
-      type: "image/jpeg",
     });
 
     // Convert blob to File if needed

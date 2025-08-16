@@ -42,6 +42,7 @@
 
 - Home screen Forecast tab now displays normalized face height using `WaveHeightDisplay`, matching Beach Detail. This ensures consistent, calibrated surf height across the app and adds an explanatory tooltip. Follows `components/ARCHITECTURE.md` DRY component usage. Also aligned font sizing with other metrics (consistent `text-lg`).
 - Beach list cards: rounded review average to one decimal place (e.g., 2.6) and corrected singular/plural review label for readability.
+- Forecast refresh: ingest multiple recent CDIP observations and add 12h short‑horizon persistence (cdip_persistence/ndbc_persistence, is_observed=false) to ensure hourly marine coverage without Open‑Meteo. Improves Best Times availability when observed data is sparse.
 
 - Local Intel section on beach pages now uses `components/intel/beach-intel-section.tsx` backed by `/api/intel` and `get_nearby_intel_posts` RPC. Removed check-ins view from this section to surface intel posts, confirmations, and tagging. Followed `hooks/ARCHITECTURE.md` data fetching with `useDataFetcher` via `useIntelData`.
 
@@ -51,8 +52,28 @@
 
 ### Fixed
 
-- Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user’s actual position.
+- Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user's actual position.
 - Hide all rating stars for planned sessions on profile and session cards so planned sessions don't display ratings.
+- Fixed invariant error on Beach Detail Forecast & Tides: added missing imports in `components/beach-detail/forecast-and-tides.tsx` for `createClient` and `fetchBestTimesApi/fetchBestTimes` following `hooks/ARCHITECTURE.md` and `lib/supabase/ARCHITECTURE.md` patterns.
+- Stabilized `ForecastAndTides` hook dependencies: guarded `today` memo for empty forecasts and removed unused `today` from `fetchBest` deps to avoid unnecessary re-renders/refetch loops.
+- **React Suspense crash in Beach Details flow**: Fixed React Suspense error (minified React error #460) that occurred when client components used async patterns without proper boundaries:
+
+  - Added Suspense boundary around `BeachDetail` component in `app/beach/[id]/page.tsx` to catch async rendering issues
+  - Enhanced data guards in `ForecastAndTides` component to handle null/empty beach data and filter invalid forecast rows
+  - Added array validation in `BeachDetail` component to prevent grouping logic errors when forecasts are malformed
+  - Confirmed `useLocalStorageState` hook is already SSR-safe with proper `window` existence checks
+  - No `use(promise)` patterns found in codebase; all data fetching uses standard React state/effect patterns
+
+- Tide chart extrema plotting fixed in `components/forecast/tide-chart-recharts.tsx`:
+
+  - Normalized hourly/extrema heights to feet with a single helper.
+  - Both the line and extrema use the same `yAxisId` and `dataKey` (`h`).
+  - Extrema dots now render at their own heights (not tied to line Y/index).
+  - Shared Y domain computed from both series with ±0.5 ft padding.
+  - Tooltip/labels show feet with one decimal. Follows `components/forecast/ARCHITECTURE.md` Recharts patterns.
+  - Added regression test `__tests__/components/forecast/tide-chart-recharts.regression.test.tsx` that renders the real chart under `React.StrictMode` and exercises empty → loaded transitions to catch key/reconciliation issues.
+
+- React minified error #460 (Suspense/use promise blocked): Removed inline `Promise.then(...)` rendering in `app/beach/[id]/page.tsx` and moved fetch/await into an async server component `CoachCardSection` wrapped in `Suspense`. This aligns with `app/ARCHITECTURE.md` guidance for async work in server components and eliminates the Suspense crash.
 
 ### Added
 
@@ -91,6 +112,48 @@
   - `20250817150000_seed_beach_reviews.sql`
   - Optional: `20250817170000_seed_pacific_ocean_beach_data.sql` for PB/OB richness
   - `scripts/mock-solid-snake.sql` seeds the “Solid Snake” persona with a profile, board, planned and completed sessions, follows to Big Boss/Liquid Snake (if present), and two pending invitations for inbox testing; includes verification queries. Idempotent and safe to re-run.
+
+## [2025.08.20] - Morning Recommendations & Forecast Refresh Docs
+
+### Added
+
+- API: `POST /api/recommendations/morning` and `GET /api/recommendations/morning`
+
+  - Local-time aware morning/near-term window calculation (darkness → tomorrow sunrise; else now→min(sunset, horizon))
+  - Uses `getBeachesNear`, `getMarineForecastRange`, `getTideForecastRange`, and warms `sun_times` via `getSunTimes`
+  - Ranks 2‑hour windows with `topWindowsInRange`; returns top 3 cards via `windowBlurbDetailed`
+
+- New `lib/surf/ARCHITECTURE.md`
+  - Documents `data.ts`, `scoring.ts`, `sun.ts`, `windows.ts` and best‑times usage across APIs/UI
+- Database: materialized view `mv_beach_hourly_scores`, refresh function, and optional pg_cron schedule (~every 2h)
+
+### Changed
+
+- `app/api/ARCHITECTURE.md` updated with:
+
+  - `/api/recommendations/morning` endpoint details (methods, inputs, logic, outputs, usage)
+  - `/api/cron/forecasts/refresh` pipeline (NDBC/CDIP observed + 12h persistence, NOAA tides with CO‑OPS hilo interpolation fallback, SunCalc 5‑day cache)
+
+- `app/ARCHITECTURE.md` updated for `/plan-session`:
+
+  - Geolocation warm call to morning recommendations on mount; default `CoachCard` until user context is available
+
+- `components/home-screen/ARCHITECTURE.md`:
+
+  - Notes background warmup to `POST /api/recommendations/morning` when `useGeo` provides coords
+
+- `components/beach-detail/ARCHITECTURE.md`:
+
+  - Documents Best Times chip UX and “why” factor breakdown from `v_beach_hourly_scores`
+
+- `hooks/ARCHITECTURE.md`:
+
+  - Adds `useGeo` hook entry and aligns naming from `use-geolocation` → `useGeo`
+
+- Morning recommendations UI:
+  - Empty state text updated in `components/recommendations/coach-card.tsx` to: "No confident call for tomorrow morning yet. Check full forecast."
+  - API now ensures non-overlapping windows and limits candidates to top‑8 nearest beaches before scoring
+  - `app/api/ARCHITECTURE.md` updated: cache key, MV preference, non-overlap selection, and pg_cron schedule noted
 
 # Quiver Surf App - Changelog
 

@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 type Recommendation = {
   spotId: string;
@@ -44,7 +48,9 @@ export function CoachCard({
   className?: string;
 }) {
   const [showExplanation, setShowExplanation] = useState(false);
-  const [feedbackGiven, setFeedbackGiven] = useState<{[key: string]: boolean}>({});
+  const [feedbackGiven, setFeedbackGiven] = useState<{
+    [key: string]: boolean;
+  }>({});
 
   const fetchRecs = useCallback(async () => {
     const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
@@ -60,16 +66,27 @@ export function CoachCard({
     loading,
     error,
     refetch,
-  } = useDataFetcher<{top_picks?: Recommendation[], recommendations?: Recommendation[]}>(fetchRecs, {
+  } = useDataFetcher<{
+    top_picks?: Recommendation[];
+    recommendations?: Recommendation[];
+  }>(fetchRecs, {
     immediate: true,
     initialData: {},
   });
 
   const topPicks = response?.top_picks || [];
   const allRecs = response?.recommendations || [];
-  const top = topPicks.length ? topPicks[0] : (allRecs.length ? allRecs[0] : null);
+  const top = topPicks.length
+    ? topPicks[0]
+    : allRecs.length
+    ? allRecs[0]
+    : null;
 
-  const submitFeedback = async (spotId: string, accurate: boolean, reasons: string[] = []) => {
+  const submitFeedback = async (
+    spotId: string,
+    accurate: boolean,
+    reasons: string[] = []
+  ) => {
     try {
       await fetch("/api/v1/recommendations/feedback", {
         method: "POST",
@@ -80,7 +97,7 @@ export function CoachCard({
           reasons,
         }),
       });
-      setFeedbackGiven(prev => ({ ...prev, [spotId]: true }));
+      setFeedbackGiven((prev) => ({ ...prev, [spotId]: true }));
     } catch (error) {
       console.error("Failed to submit feedback:", error);
     }
@@ -114,7 +131,15 @@ export function CoachCard({
             {/* Top pick summary */}
             <div className="flex items-center justify-between">
               <div className="font-medium">{top.name}</div>
-              <Badge variant={top.score >= 75 ? "default" : top.score >= 50 ? "secondary" : "outline"}>
+              <Badge
+                variant={
+                  top.score >= 75
+                    ? "default"
+                    : top.score >= 50
+                    ? "secondary"
+                    : "outline"
+                }
+              >
                 {top.score}
               </Badge>
             </div>
@@ -122,21 +147,42 @@ export function CoachCard({
             {/* Show top 3 picks if available */}
             {topPicks.length > 1 && (
               <div className="space-y-1">
-                <div className="text-xs text-muted-foreground font-medium">Top Picks:</div>
+                <div className="text-xs text-muted-foreground font-medium">
+                  Top Picks:
+                </div>
                 {topPicks.slice(0, 3).map((pick, index) => (
-                  <div key={pick.spotId} className="flex items-center justify-between text-sm">
-                    <span>#{index + 1} {pick.name}</span>
-                    <Badge variant="outline" size="sm">{pick.score}</Badge>
+                  <div
+                    key={pick.spotId}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span>
+                      #{index + 1} {pick.name}
+                    </span>
+                    <Badge variant="outline" size="sm">
+                      {pick.score}
+                    </Badge>
                   </div>
                 ))}
               </div>
             )}
 
             {/* Collapsible explanation */}
-            <Collapsible open={showExplanation} onOpenChange={setShowExplanation}>
+            <Collapsible
+              open={showExplanation}
+              onOpenChange={setShowExplanation}
+            >
               <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground">
-                  Why this pick? {showExplanation ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 text-xs text-muted-foreground"
+                >
+                  Why this pick?{" "}
+                  {showExplanation ? (
+                    <ChevronUp className="ml-1 h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="ml-1 h-3 w-3" />
+                  )}
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2">
@@ -150,11 +196,15 @@ export function CoachCard({
                     <div className="grid grid-cols-3 gap-2 text-xs bg-muted p-2 rounded">
                       <div>
                         <div className="font-medium">Wave</div>
-                        <div>{top.wave.ht_ft}ft • {top.wave.period_s}s</div>
+                        <div>
+                          {top.wave.ht_ft}ft • {top.wave.period_s}s
+                        </div>
                       </div>
                       <div>
                         <div className="font-medium">Wind</div>
-                        <div>{top.wind?.kts}kts • {top.wind?.dir_deg}°</div>
+                        <div>
+                          {top.wind?.kts}kts • {top.wind?.dir_deg}°
+                        </div>
                       </div>
                       <div>
                         <div className="font-medium">Tide</div>
@@ -173,7 +223,9 @@ export function CoachCard({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => submitFeedback(top.spotId, true, ["accurate"])}
+                    onClick={() =>
+                      submitFeedback(top.spotId, true, ["accurate"])
+                    }
                     className="text-xs"
                   >
                     ✓ Accurate
@@ -181,21 +233,27 @@ export function CoachCard({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => submitFeedback(top.spotId, false, ["conditions_different"])}
+                    onClick={() =>
+                      submitFeedback(top.spotId, false, [
+                        "conditions_different",
+                      ])
+                    }
                     className="text-xs"
                   >
                     ✗ Off
                   </Button>
                 </>
               ) : (
-                <div className="text-xs text-muted-foreground">Thanks for the feedback!</div>
+                <div className="text-xs text-muted-foreground">
+                  Thanks for the feedback!
+                </div>
               )}
             </div>
           </div>
         )}
         {!error && !loading && !top && (
           <div className="text-sm text-muted-foreground">
-            No recommendations yet.
+            No confident call for tomorrow morning yet. Check full forecast.
           </div>
         )}
       </CardContent>

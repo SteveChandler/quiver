@@ -5,6 +5,8 @@ import {
   analyzeOptimalTimes,
   buildTwoHourBlocks,
 } from "@/app/api/session-planner/optimal-times/route";
+import { computeHourScoreBreakdown, computeHourScore, clamp01 } from '@/lib/surf/scoring';
+import { topMorningWindows, buildTwoHourWindows } from '@/lib/surf/windows';
 
 // Minimal mock forecast row factory
 function fc(time: string, attrs: Partial<any> = {}) {
@@ -88,4 +90,97 @@ describe("Optimal Times utilities", () => {
     expect(b.endTime).toBeDefined();
     expect(typeof b.score).toBe("number");
   });
+});
+
+describe('computeHourScore edge cases', () => {
+	const params = {
+		windOffshoreDeg: 270,
+		windCrossOkKts: 8,
+		swellWindowMinDeg: 220,
+		swellWindowMaxDeg: 280,
+		tidePreferredFtMin: 1,
+		tidePreferredFtMax: 3,
+	};
+
+	it('perfect offshore low wind → high windScore', () => {
+		const b = computeHourScoreBreakdown({
+			params,
+			waveDirectionDeg: 250,
+			windDirectionDeg: 270,
+			windSpeedMs: 1,
+			tideHeightM: 0.6,
+		});
+		expect(b.windScore).toBeGreaterThan(0.9);
+	});
+
+	it('strong onshore wind → low windScore', () => {
+		const b = computeHourScoreBreakdown({
+			params,
+			waveDirectionDeg: 250,
+			windDirectionDeg: 90, // onshore
+			windSpeedMs: 12, // ~23 kts
+			tideHeightM: 0.6,
+		});
+		expect(b.windScore).toBeLessThan(0.2);
+	});
+
+	it('outside swell window → low swell score', () => {
+		const b = computeHourScoreBreakdown({
+			params,
+			waveDirectionDeg: 150,
+			windDirectionDeg: 270,
+			windSpeedMs: 2,
+			tideHeightM: 0.6,
+		});
+		expect(b.swellDirScore).toBeLessThan(0.2);
+	});
+
+	it('tide outside band → lower tideScore', () => {
+		const centerFt = (params.tidePreferredFtMin + params.tidePreferredFtMax) / 2;
+		const ideal = computeHourScoreBreakdown({
+			params,
+			waveDirectionDeg: 250,
+			windDirectionDeg: 270,
+			windSpeedMs: 1,
+			tideHeightM: centerFt / 3.28084,
+		});
+		const far = computeHourScoreBreakdown({
+			params,
+			waveDirectionDeg: 250,
+			windDirectionDeg: 270,
+			windSpeedMs: 1,
+			tideHeightM: 6 / 3.28084,
+		});
+		expect(ideal.tideScore).toBeGreaterThan(far.tideScore);
+	});
+});
+
+describe('topMorningWindows non-overlap and limit', () => {
+	it('limits to ≤3 and avoids overlapping windows', () => {
+		const base = new Date('2025-08-15T12:00:00.000Z');
+		const hours = Array.from({ length: 10 }).map((_, i) => ({
+			ts: new Date(base.getTime() + i * 3600_000).toISOString(),
+			waveDirectionDeg: 250,
+			windDirectionDeg: 270,
+			windSpeedMs: 2,
+			tideHeightM: 0.6,
+			params: {
+				windOffshoreDeg: 270,
+				windCrossOkKts: 10,
+				swellWindowMinDeg: 220,
+				swellWindowMaxDeg: 280,
+				tidePreferredFtMin: 1,
+				tidePreferredFtMax: 3,
+			},
+		}));
+		const windows = topMorningWindows(hours, { tz: 'UTC', startHour: 12, endHour: 20, limit: 3 });
+		expect(windows.length).toBeLessThanOrEqual(3);
+		for (let i = 0; i < windows.length; i++) {
+			for (let j = i + 1; j < windows.length; j++) {
+				const a = windows[i];
+				const b = windows[j];
+				expect(new Date(a.endTs) <= new Date(b.startTs) || new Date(a.startTs) >= new Date(b.endTs)).toBe(true);
+			}
+		}
+	});
 });

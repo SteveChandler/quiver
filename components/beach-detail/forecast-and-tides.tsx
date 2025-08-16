@@ -12,18 +12,21 @@ import { Sun, Clock, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { fetchBestTimes, fetchBestTimesApi } from "@/lib/bestTimes";
-import { createClient } from "@/lib/supabase/client";
+import { getMarineForecastRange, getTideForecastRange } from "@/lib/surf/data";
+import { topWindowsInRange, windowBlurbDetailed } from "@/lib/surf/windows";
+import type { BeachMeta } from "@/lib/surf/scoring";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { createClient } from "@/lib/supabase/client";
+import { fetchBestTimesApi, fetchBestTimes } from "@/lib/bestTimes";
 
 interface ForecastAndTidesProps {
   beach: Beach;
-  forecasts: EnhancedForecastEntity[];
+  forecasts: EnhancedForecastEntity[] | null;
 }
 
 function formatTimeRange(startIso: string, endIso: string): string {
@@ -75,11 +78,24 @@ function FactorBars({ why }: { why: NonNullable<WindowWithWhy["why"]> }) {
 }
 
 export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
+  // Ensure forecasts is always an array
+  const safeForecasts = forecasts || [];
+  
+  // Early return if no beach data
+  if (!beach || !beach.id) {
+    return <div className="text-sm text-muted-foreground">Beach data unavailable</div>;
+  }
+  
   const today = useMemo(() => {
-    return (
-      forecasts?.[0]?.forecast_date || new Date().toISOString().slice(0, 10)
-    );
-  }, [forecasts]);
+    if (safeForecasts.length === 0) {
+      return new Date().toISOString().slice(0, 10);
+    }
+    const forecastDate = safeForecasts[0]?.forecast_date;
+    if (!forecastDate) {
+      return new Date().toISOString().slice(0, 10);
+    }
+    return forecastDate;
+  }, [safeForecasts]);
 
   const fetchBest = useCallback(async () => {
     const supabase = createClient();
@@ -180,10 +196,12 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
 
     // Build rolling 2h windows (ts plus following hour) across daylight and take top 3 unconditionally
     const byTs: Record<string, number> = Object.fromEntries(
-      rows.map((r: any) => [r.ts_utc, r.score_0_100])
+      rows.filter((r: any) => r && r.ts_utc != null && r.score_0_100 != null).map((r: any) => [r.ts_utc, r.score_0_100])
     );
     const tsList = rows
+      .filter((r: any) => r && r.ts_utc != null)
       .map((r: any) => new Date(r.ts_utc))
+      .filter((date) => !isNaN(date.getTime()))
       .sort((a, b) => +a - +b);
     const windows: Array<{ start: Date; end: Date; score: number }> = [];
 
@@ -217,7 +235,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
     }
 
     return enrichedFallback;
-  }, [beach.id, today]);
+  }, [beach.id]);
 
   const { data: bestWindows, loading: bestLoading } = useDataFetcher(
     fetchBest,
@@ -268,7 +286,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
                     ? (bestWindows as WindowWithWhy[]).slice(0, 4)
                     : (bestWindows as WindowWithWhy[]).slice(0, 3)
                   ).map((t, i) => (
-                    <Tooltip key={i}>
+                    <Tooltip key={`${t.label}-${t.score}-${i}`}>
                       <TooltipTrigger asChild>
                         <div className="px-3 py-1 rounded-full border text-sm cursor-default">
                           {t.label}
@@ -278,12 +296,12 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
                         <TooltipContent side="top">
                           <div className="mb-1 text-xs text-muted-foreground">
                             Why (peak hour:{" "}
-                            {new Date(t.why.ts_utc)
+                            {t.why.ts_utc ? new Date(t.why.ts_utc)
                               .toLocaleTimeString(undefined, {
                                 hour: "numeric",
                                 hour12: true,
                               })
-                              .replace(":00", "")}
+                              .replace(":00", "") : "N/A"}
                             ):
                           </div>
                           <FactorBars why={t.why} />
@@ -299,10 +317,10 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
       </Card>
 
       {/* Tide Chart */}
-      {forecasts && forecasts.length > 0 && (
+      {safeForecasts.length > 0 && (
         <Card>
           <CardContent className="pt-6">
-            <TideChart forecasts={forecasts} />
+            <TideChart forecasts={safeForecasts} />
           </CardContent>
         </Card>
       )}
@@ -319,16 +337,16 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
       />
 
       {/* Also show simplified table plus a collapsed multi-day table */}
-      {forecasts && forecasts.length > 0 && (
+      {safeForecasts.length > 0 && (
         <div className="space-y-4">
-          <SimplifiedForecastTable forecasts={forecasts} />
+          <SimplifiedForecastTable forecasts={safeForecasts} />
 
           <details className="group">
             <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
               Show detailed multi-day forecast table
             </summary>
             <div className="mt-3">
-              <MultiDayForecastTable forecasts={forecasts} />
+              <MultiDayForecastTable forecasts={safeForecasts} />
             </div>
           </details>
         </div>
