@@ -26,6 +26,7 @@
 - Coach Picks UI: visual refresh and desktop width
   - Styled `components/recommendations/coach-card.tsx` with primary-tinted header, subtle gradient, and color-coded score badges (emerald/amber/neutral).
   - Made the Coach Card stretch full width on desktop by changing `components/beach-detail/forecast-and-tides.tsx` to pass `className="w-full"`.
+  - Ensured Top Picks list shows unique beaches (no duplicates). Deduplicates by `spotId`/`name` after distance filtering.
 
 - Forecast actions now read from `enhanced_forecasts` with explicit date window; removed dependency on deleted `ten_day_enhanced_forecasts` view to fix runtime errors on beach pages
 

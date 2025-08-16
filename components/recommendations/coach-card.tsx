@@ -68,6 +68,16 @@ export function CoachCard({
   }>({});
 
   const fetchRecs = useCallback(async () => {
+    const uniqueBySpot = (items: Recommendation[]) => {
+      const seen = new Set<string>();
+      return items.filter((p) => {
+        const key = p.spotId || p.name;
+        if (!key) return false;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
     // Try beach-scoped picks first
     try {
       const res = await fetch(
@@ -89,8 +99,9 @@ export function CoachCard({
         const filtered = picks.filter(
           (p) => typeof p.distance_km === "number" && p.distance_km <= 30
         );
+        const deduped = uniqueBySpot(filtered);
         if (filtered.length > 0) {
-          return { top_picks: filtered, recommendations: filtered };
+          return { top_picks: deduped.slice(0, 3), recommendations: deduped };
         }
       }
     } catch (e) {
@@ -124,11 +135,19 @@ export function CoachCard({
       wind: row.wind,
       tide: row.tide,
     });
-    const top = (
-      picks2.length ? picks2.map(mapRow) : recs2.slice(0, 3).map(mapRow)
-    ).filter((p) => typeof p.distance_km === "number" && p.distance_km <= 30);
-    const all = (recs2.length ? recs2.map(mapRow) : top).filter(
-      (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+    const mappedTop = picks2.length
+      ? picks2.map(mapRow)
+      : recs2.slice(0, 3).map(mapRow);
+    const mappedAll = recs2.length ? recs2.map(mapRow) : mappedTop;
+    const top = uniqueBySpot(
+      mappedTop.filter(
+        (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+      )
+    );
+    const all = uniqueBySpot(
+      mappedAll.filter(
+        (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+      )
     );
     return { top_picks: top, recommendations: all };
   }, [beachId, lat, lon]);
@@ -145,12 +164,33 @@ export function CoachCard({
     immediate: !initialResponse,
     initialData: initialResponse
       ? {
-          top_picks: (initialResponse.top_picks || []).filter(
-            (p) => typeof p.distance_km === "number" && p.distance_km <= 30
-          ),
-          recommendations: (initialResponse.recommendations || []).filter(
-            (p) => typeof p.distance_km === "number" && p.distance_km <= 30
-          ),
+          top_picks: (() => {
+            const list = (initialResponse.top_picks || []) as Recommendation[];
+            const filtered = list.filter(
+              (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+            );
+            const seen = new Set<string>();
+            return filtered.filter((p) => {
+              const key = p.spotId || p.name;
+              if (!key || seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          })(),
+          recommendations: (() => {
+            const list = (initialResponse.recommendations ||
+              []) as Recommendation[];
+            const filtered = list.filter(
+              (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+            );
+            const seen = new Set<string>();
+            return filtered.filter((p) => {
+              const key = p.spotId || p.name;
+              if (!key || seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          })(),
         }
       : {},
   });
@@ -190,12 +230,10 @@ export function CoachCard({
 
   return (
     <Card
-      className={
-        cn(
-          "w-full border-primary/10 bg-gradient-to-b from-background to-muted/30 shadow-sm",
-          className
-        )
-      }
+      className={cn(
+        "w-full border-primary/10 bg-gradient-to-b from-background to-muted/30 shadow-sm",
+        className
+      )}
     >
       <CardHeader className="pb-3 flex items-center justify-between bg-primary/5 rounded-t-md">
         <CardTitle className="text-base text-primary">{title}</CardTitle>
