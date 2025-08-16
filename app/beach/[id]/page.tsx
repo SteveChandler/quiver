@@ -27,7 +27,9 @@ export default function BeachDetailPage({
           );
         })}
       </Suspense>
-      <BeachDetail id={params.id} />
+      <Suspense fallback={<div className="p-4">Loading beach details…</div>}>
+        <BeachDetail id={params.id} />
+      </Suspense>
       <BottomNavigation />
     </>
   );

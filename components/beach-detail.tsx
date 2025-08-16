@@ -143,7 +143,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
   const forecastsByDate = useMemo(() => {
     const grouped: Record<string, EnhancedForecastEntity[]> = {};
     
-    if (forecasts) {
+    if (forecasts && Array.isArray(forecasts) && forecasts.length > 0) {
       console.log("📊 Processing forecasts:", {
         totalForecasts: forecasts.length,
         firstForecast: forecasts[0],
@@ -151,11 +151,13 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
       // Group forecasts by date
       forecasts.forEach((forecast) => {
-        const date = forecast.forecast_date;
-        if (!grouped[date]) {
-          grouped[date] = [];
+        if (forecast && forecast.forecast_date) {
+          const date = forecast.forecast_date;
+          if (!grouped[date]) {
+            grouped[date] = [];
+          }
+          grouped[date].push(forecast);
         }
-        grouped[date].push(forecast);
       });
 
       console.log("📅 Grouped forecasts by date:", {

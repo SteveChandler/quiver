@@ -52,10 +52,16 @@
 
 ### Fixed
 
-- Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user’s actual position.
+- Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user's actual position.
 - Hide all rating stars for planned sessions on profile and session cards so planned sessions don't display ratings.
 - Fixed invariant error on Beach Detail Forecast & Tides: added missing imports in `components/beach-detail/forecast-and-tides.tsx` for `createClient` and `fetchBestTimesApi/fetchBestTimes` following `hooks/ARCHITECTURE.md` and `lib/supabase/ARCHITECTURE.md` patterns.
 - Stabilized `ForecastAndTides` hook dependencies: guarded `today` memo for empty forecasts and removed unused `today` from `fetchBest` deps to avoid unnecessary re-renders/refetch loops.
+- **React Suspense crash in Beach Details flow**: Fixed React Suspense error (minified React error #460) that occurred when client components used async patterns without proper boundaries:
+  - Added Suspense boundary around `BeachDetail` component in `app/beach/[id]/page.tsx` to catch async rendering issues
+  - Enhanced data guards in `ForecastAndTides` component to handle null/empty beach data and filter invalid forecast rows
+  - Added array validation in `BeachDetail` component to prevent grouping logic errors when forecasts are malformed
+  - Confirmed `useLocalStorageState` hook is already SSR-safe with proper `window` existence checks
+  - No `use(promise)` patterns found in codebase; all data fetching uses standard React state/effect patterns
 
 - Tide chart extrema plotting fixed in `components/forecast/tide-chart-recharts.tsx`:
   - Normalized hourly/extrema heights to feet with a single helper.

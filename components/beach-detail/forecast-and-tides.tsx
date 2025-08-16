@@ -81,6 +81,11 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
   // Ensure forecasts is always an array
   const safeForecasts = forecasts || [];
   
+  // Early return if no beach data
+  if (!beach || !beach.id) {
+    return <div className="text-sm text-muted-foreground">Beach data unavailable</div>;
+  }
+  
   const today = useMemo(() => {
     if (safeForecasts.length === 0) {
       return new Date().toISOString().slice(0, 10);
@@ -191,10 +196,12 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
 
     // Build rolling 2h windows (ts plus following hour) across daylight and take top 3 unconditionally
     const byTs: Record<string, number> = Object.fromEntries(
-      rows.map((r: any) => [r.ts_utc, r.score_0_100])
+      rows.filter((r: any) => r && r.ts_utc != null && r.score_0_100 != null).map((r: any) => [r.ts_utc, r.score_0_100])
     );
     const tsList = rows
+      .filter((r: any) => r && r.ts_utc != null)
       .map((r: any) => new Date(r.ts_utc))
+      .filter((date) => !isNaN(date.getTime()))
       .sort((a, b) => +a - +b);
     const windows: Array<{ start: Date; end: Date; score: number }> = [];
 
