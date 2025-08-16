@@ -276,7 +276,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
                     ? (bestWindows as WindowWithWhy[]).slice(0, 4)
                     : (bestWindows as WindowWithWhy[]).slice(0, 3)
                   ).map((t, i) => (
-                    <Tooltip key={i}>
+                    <Tooltip key={`${t.label}-${t.score}-${i}`}>
                       <TooltipTrigger asChild>
                         <div className="px-3 py-1 rounded-full border text-sm cursor-default">
                           {t.label}
@@ -286,12 +286,12 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
                         <TooltipContent side="top">
                           <div className="mb-1 text-xs text-muted-foreground">
                             Why (peak hour:{" "}
-                            {new Date(t.why.ts_utc)
+                            {t.why.ts_utc ? new Date(t.why.ts_utc)
                               .toLocaleTimeString(undefined, {
                                 hour: "numeric",
                                 hour12: true,
                               })
-                              .replace(":00", "")}
+                              .replace(":00", "") : "N/A"}
                             ):
                           </div>
                           <FactorBars why={t.why} />
