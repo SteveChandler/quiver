@@ -43,6 +43,7 @@ interface BeachIntelSectionProps {
   latitude: number;
   longitude: number;
   className?: string;
+  initialShowAll?: boolean;
 }
 
 export function BeachIntelSection({
@@ -51,9 +52,11 @@ export function BeachIntelSection({
   latitude,
   longitude,
   className = "",
+  initialShowAll = false,
 }: BeachIntelSectionProps) {
   const [showPostForm, setShowPostForm] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState<boolean>(initialShowAll);
   const { user } = useAuth();
 
   // Fetch intel data for this beach location
@@ -218,7 +221,7 @@ export function BeachIntelSection({
             </div>
           ) : (
             <div className="space-y-3">
-              {posts.slice(0, 3).map((post) => (
+              {posts.slice(0, showAll ? posts.length : 3).map((post) => (
                 <IntelPostCard
                   key={post.id}
                   post={post}
@@ -236,10 +239,17 @@ export function BeachIntelSection({
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => setShowAll((v) => !v)}
                     className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
                   >
-                    View all {posts.length} intel posts
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                    {showAll ? (
+                      <>Show less</>
+                    ) : (
+                      <>
+                        View all {posts.length} intel posts
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </>
+                    )}
                   </Button>
                 </div>
               )}

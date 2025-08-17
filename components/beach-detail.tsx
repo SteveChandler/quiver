@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ interface BeachDetailProps {
 
 export function BeachDetail({ id }: BeachDetailProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Persisted accordion open/closed sections (Spot Overview default open)
@@ -52,6 +53,29 @@ export function BeachDetail({ id }: BeachDetailProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Deep-link support to open Intel section and optional expand-all
+  useEffect(() => {
+    // Prefer query param, fallback to hash
+    const sectionParam = searchParams?.get("section");
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+
+    const wantsIntel = sectionParam === "intel" || hash === "#intel";
+    if (wantsIntel) {
+      // Ensure intel is open
+      if (!openSections.includes("intel")) {
+        setOpenSections([...(openSections || []), "intel"]);
+      }
+      // Scroll into view after next paint
+      setTimeout(() => {
+        const el = document.getElementById("intel-section");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 50);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
@@ -328,7 +352,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
           </AccordionItem>
 
           {/* Local Intel */}
-          <AccordionItem value="intel">
+          <AccordionItem value="intel" id="intel-section">
             <AccordionTrigger className="text-lg">
               <span className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" /> Local Intel
@@ -340,6 +364,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 beachName={beach.name}
                 latitude={beach.latitude}
                 longitude={beach.longitude}
+                initialShowAll={searchParams?.get("show") === "all"}
               />
             </AccordionContent>
           </AccordionItem>

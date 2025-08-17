@@ -76,6 +76,14 @@
 
 - Local Intel section on beach pages now uses `components/intel/beach-intel-section.tsx` backed by `/api/intel` and `get_nearby_intel_posts` RPC. Removed check-ins view from this section to surface intel posts, confirmations, and tagging. Followed `hooks/ARCHITECTURE.md` data fetching with `useDataFetcher` via `useIntelData`.
 
+- Local Intel deep link and inline expansion:
+
+  - Beach page supports `?section=intel` (and `#intel`) to auto-open and scroll to the Local Intel section.
+  - Added inline “View all” → “Show less” toggle to expand/collapse all intel posts without leaving the page.
+  - `components/beach-detail.tsx` reads query/hash via `useSearchParams` and passes `initialShowAll` when `show=all`.
+  - `components/intel/beach-intel-section.tsx` now accepts `initialShowAll` and renders all posts when requested.
+  - Follows `hooks/ARCHITECTURE.md` data fetching and `components/ARCHITECTURE.md` client-navigation patterns.
+
 - Fixed: `session_invitations` RLS blocked inbox queries by referencing `auth.users`. Replaced with JWT email claim in policies:
   - SELECT: `invitee_id = auth.uid() OR invitee_email = (auth.jwt() ->> 'email')`
   - UPDATE: same USING/WITH CHECK. Migration `20250811153000_fix_session_invitations_rls.sql`.
