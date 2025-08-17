@@ -156,16 +156,23 @@ export const reorderFavoriteBeaches = makeAuthenticatedAction(
 );
 
 // Fetch top-ranked favorite beach for a user
-export const getTopFavoriteBeach = withAuthenticatedAction(async (userId: string) => {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("favorite_beaches")
-    .select("rank, beaches(*)")
-    .eq("user_id", userId)
-    .order("rank", { ascending: true, nullsFirst: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  const beach = (data as any)?.beaches as Beach | null;
-  return beach || null;
-});
+export const getTopFavoriteBeach = makeAuthenticatedAction(
+  async (user, supabase, userId: string) => {
+    // Verify requester matches target user
+    if (user.id !== userId) {
+      throw new Error("Unauthorized access to favorite beaches");
+    }
+
+    const { data, error } = await supabase
+      .from("favorite_beaches")
+      .select("rank, beaches(*)")
+      .eq("user_id", userId)
+      .order("rank", { ascending: true, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    const beach = (data as any)?.beaches as Beach | null;
+    return beach || null;
+  }
+);

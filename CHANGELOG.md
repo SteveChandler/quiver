@@ -91,6 +91,8 @@
 ### Fixed
 
 - Map page no longer fails to show nearby beach forecasts for non-admin users. Made `GET /api/beaches/nearby` public-read (minimal fields) and added a client-side fallback in `components/map/interactive-map.tsx` to filter from `/api/beaches` when needed, restoring Ocean Beach/Mission/Sunset markers and badges.
+- Corrected `date-fns-tz` v3 import usage in `app/api/recommendations/morning/route.ts` (`toZonedTime`/`fromZonedTime`), fixing Vercel build import errors
+- Resolved Next.js "use server" export violation by exporting a server action function for `getTopFavoriteBeach` in `actions/beach/beach-favorite-actions.ts`
 
 - Coach Picks showing Orange County spots for San Diego beaches: enforced strict 30 km radius.
 
