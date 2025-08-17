@@ -219,6 +219,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Local dev bootstrapping and data ingestion
 
   - Baseline migrations for core tables: `profiles`, `beaches`, `sessions`, `boards`
+  - Seed script `scripts/mock-last-week-sessions-and-intel.sql` to generate 100 realistic sessions and ~30 intel posts across the last 7 days. Sessions are tied to nearest `enhanced_forecasts` rows and updated to `completed` to trigger `session_forecast_snapshots` per `supabase/migrations/028_forecast_calibration_tables.sql`. Safe to re-run; includes verification notices.
   - Forecast tables and uniques: `marine_forecasts`, `tide_forecasts`, `sun_times`
   - Seed migration for mock, numeric-first forecast data (guarded/idempotent)
   - Constraint fix: `sun_times.source` now allows 'computed' to match API behavior
