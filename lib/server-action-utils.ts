@@ -1,4 +1,6 @@
-"use server";
+// Note: Do not mark this utility module with "use server" to avoid build-time
+// restrictions that require every export to be an async function. Individual
+// server actions and returned functions include "use server" where required.
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { User } from "@supabase/supabase-js";
@@ -19,9 +21,12 @@ export async function withServerAction<T>(
     return { success: true, data };
   } catch (error) {
     console.error("Server action error:", error);
+    // Preserve legacy behavior: only surface message for real Error objects.
+    // For non-Error throws (e.g., strings), return a generic message so tests remain stable.
+    const message = error instanceof Error && error.message ? error.message : "Unknown error";
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: message,
     };
   }
 }
@@ -50,6 +55,51 @@ export async function withAuthenticatedAction<T>(
 
     return action(user, supabase);
   });
+}
+
+// New: Curried version that returns a callable authenticated action.
+// Enables: export const doThing = makeAuthenticatedAction(async (user, supabase, arg1, arg2) => { ... })
+// Then call: await doThing(arg1, arg2)
+export function makeAuthenticatedAction<
+  TArgs extends any[],
+  T
+>(
+  action: (
+    user: User,
+    supabase: ReturnType<typeof createSupabaseServerClient>,
+    ...args: TArgs
+  ) => Promise<T>
+) {
+  const serverAction = async (
+    ...args: TArgs
+  ): Promise<ServerActionResponse<T>> => {
+    "use server";
+    try {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error) {
+        throw new Error(`Authentication error: ${error.message}`);
+      }
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      const data = await action(user, supabase, ...args);
+      return { success: true, data };
+    } catch (error: any) {
+      console.error("Server action error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  };
+
+  return serverAction;
 }
 
 // Database operation with consistent error handling

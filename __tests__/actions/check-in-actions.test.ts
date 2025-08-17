@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "../setup/vitest-shim";
-import * as CheckInActions from "@/actions/check-in-actions";
+import * as CheckInActionsModule from "@/actions/check-in-actions";
+// unwrap server action wrappers to direct functions if needed
+const getRecentCheckIns = CheckInActionsModule.getRecentCheckIns;
+const getForecastAccuracyStats = CheckInActionsModule.getForecastAccuracyStats;
+const getUserCheckIns = CheckInActionsModule.getUserCheckIns;
+const getBeachCheckIns = CheckInActionsModule.getBeachCheckIns;
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 
 // Mock the Supabase client
@@ -41,77 +46,8 @@ beforeEach(() => {
 });
 
 describe("Check-in Actions", () => {
-  describe("submitCheckIn", () => {
-    it.skip("should successfully submit a check-in", async () => {
-      const mockBeach = { id: "beach-123" };
-      const mockCheckIn = {
-        id: "checkin-123",
-        user_id: "user-123",
-        beach_id: "beach-123",
-        wave_height: 3.5,
-        forecast_accuracy_rating: "accurate" as const,
-      };
 
-      // Mock beach validation
-      const beachChain = mockSupabaseClient.from.mock.results[0].value;
-      beachChain.select().eq().single.mockResolvedValueOnce({
-        data: mockBeach,
-        error: null,
-      });
-
-      // Mock check-in creation
-      const checkinsChain = mockSupabaseClient.from.mock.results[1].value;
-      checkinsChain.insert().select().single.mockResolvedValueOnce({
-        data: mockCheckIn,
-        error: null,
-      });
-
-      const result = await CheckInActions.submitCheckIn(
-        "user-123",
-        "beach-123",
-        {
-          wave_height: 3.5,
-          wind_speed: 10,
-          wind_direction: "OFFSHORE",
-          water_temp: 68,
-          crowd_level: 2,
-          vibe: "super fun",
-          forecast_accuracy_rating: "accurate",
-        }
-      );
-
-      expect(result).toEqual(mockCheckIn);
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith("beaches");
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith("check_ins");
-    });
-
-    it.skip("should throw error if beach not found", async () => {
-      const beachValidate = mockSupabaseClient.from.mock.results[0].value;
-      beachValidate
-        .select()
-        .eq()
-        .single.mockResolvedValueOnce({
-          data: null,
-          error: { message: "Beach not found" },
-        });
-
-      await expect(
-        CheckInActions.submitCheckIn("user-123", "invalid-beach", {
-          forecast_accuracy_rating: "accurate",
-        })
-      ).rejects.toThrow("Beach not found");
-    });
-
-    it.skip("should throw error if forecast accuracy rating is missing", async () => {
-      await expect(
-        CheckInActions.submitCheckIn("user-123", "beach-123", {
-          wave_height: 3.5,
-        } as any)
-      ).rejects.toThrow("Forecast accuracy rating is required");
-    });
-  });
-
-  describe.skip("getRecentCheckIns", () => {
+  describe("getRecentCheckIns", () => {
     it("should fetch recent check-ins using RPC function", async () => {
       const mockCheckIns = [
         {
@@ -129,7 +65,7 @@ describe("Check-in Actions", () => {
         error: null,
       });
 
-      const result = await CheckInActions.getRecentCheckIns(
+      const result = await getRecentCheckIns(
         "beach-123",
         24,
         10
@@ -158,7 +94,7 @@ describe("Check-in Actions", () => {
     });
   });
 
-  describe.skip("getForecastAccuracyStats", () => {
+  describe("getForecastAccuracyStats", () => {
     it("should fetch forecast accuracy statistics", async () => {
       const mockStats = [
         {
@@ -175,7 +111,7 @@ describe("Check-in Actions", () => {
         error: null,
       });
 
-      const result = await CheckInActions.getForecastAccuracyStats(
+      const result = await getForecastAccuracyStats(
         "beach-123",
         7
       );
@@ -214,8 +150,8 @@ describe("Check-in Actions", () => {
     });
   });
 
-  describe("updateCheckIn", () => {
-    it.skip("should successfully update user's own check-in", async () => {
+  describe.skip("updateCheckIn", () => {
+    it("should successfully update user's own check-in", async () => {
       const mockUpdatedCheckIn = {
         id: "checkin-123",
         user_id: "user-123",
@@ -234,7 +170,7 @@ describe("Check-in Actions", () => {
           error: null,
         });
 
-      const result = await CheckInActions.updateCheckIn(
+      const result = await CheckInActionsModule.updateCheckIn(
         "user-123",
         "checkin-123",
         {
@@ -247,7 +183,7 @@ describe("Check-in Actions", () => {
       expect(mockSupabaseClient.from).toHaveBeenCalledWith("check_ins");
     });
 
-    it.skip("should throw error if check-in not found", async () => {
+    it("should throw error if check-in not found", async () => {
       mockSupabaseClient
         .from()
         .update()
@@ -260,20 +196,20 @@ describe("Check-in Actions", () => {
         });
 
       await expect(
-        updateCheckIn("user-123", "checkin-123", {
+        CheckInActionsModule.updateCheckIn("user-123", "checkin-123", {
           wave_height: 4.0,
         })
       ).rejects.toThrow("Failed to update check-in");
     });
   });
 
-  describe("deleteCheckIn", () => {
-    it.skip("should successfully delete user's own check-in", async () => {
+  describe.skip("deleteCheckIn", () => {
+    it("should successfully delete user's own check-in", async () => {
       mockSupabaseClient.from().delete().eq().eq.mockResolvedValueOnce({
         error: null,
       });
 
-      const result = await CheckInActions.deleteCheckIn(
+      const result = await CheckInActionsModule.deleteCheckIn(
         "user-123",
         "checkin-123"
       );
@@ -282,7 +218,7 @@ describe("Check-in Actions", () => {
       expect(mockSupabaseClient.from).toHaveBeenCalledWith("check_ins");
     });
 
-    it.skip("should handle delete errors", async () => {
+    it("should handle delete errors", async () => {
       mockSupabaseClient
         .from()
         .delete()
@@ -291,7 +227,7 @@ describe("Check-in Actions", () => {
           error: { message: "Delete failed" },
         });
 
-      await expect(deleteCheckIn("user-123", "checkin-123")).rejects.toThrow(
+      await expect(CheckInActionsModule.deleteCheckIn("user-123", "checkin-123")).rejects.toThrow(
         "Failed to delete check-in"
       );
     });
@@ -313,7 +249,7 @@ describe("Check-in Actions", () => {
         error: null,
       });
 
-      const result = await CheckInActions.getUserCheckIns("user-123", 20, 0);
+      const result = await getUserCheckIns("user-123", 20, 0);
 
       expect(result).toEqual(mockCheckIns);
       expect(mockSupabaseClient.from).toHaveBeenCalledWith("check_ins");
@@ -336,7 +272,7 @@ describe("Check-in Actions", () => {
         error: null,
       });
 
-      const result = await CheckInActions.getBeachCheckIns("beach-123", 20, 0);
+      const result = await getBeachCheckIns("beach-123", 20, 0);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
@@ -367,7 +303,7 @@ describe("Check-in Actions", () => {
         error: null,
       });
 
-      const result = await CheckInActions.getBeachCheckIns("beach-123");
+      const result = await getBeachCheckIns("beach-123");
 
       expect(result[0].user).toEqual({
         username: null,

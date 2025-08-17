@@ -1,5 +1,10 @@
 ### Added
 
+- Post-signup verification modal on `auth/sign-up` using `components/ui/dialog`.
+
+  - In `components/auth/sign-up-form.tsx`, successful signup now shows a modal instructing users to verify their email and provides a CTA to go to `Sign In`.
+  - Aligns with `components/ARCHITECTURE.md` UI composition patterns.
+
 - Recommendations v1 scaffold:
 
   - Pure scorer in `lib/utils/recommendation-scorer.ts` using beach preference fields
@@ -23,6 +28,12 @@
 
 ### Changed
 
+- Coach Picks UI: visual refresh and desktop width
+
+  - Styled `components/recommendations/coach-card.tsx` with primary-tinted header, subtle gradient, and color-coded score badges (emerald/amber/neutral).
+  - Made the Coach Card stretch full width on desktop by changing `components/beach-detail/forecast-and-tides.tsx` to pass `className="w-full"`.
+  - Ensured Top Picks list shows unique beaches (no duplicates). Deduplicates by `spotId`/`name` after distance filtering.
+
 - Forecast actions now read from `enhanced_forecasts` with explicit date window; removed dependency on deleted `ten_day_enhanced_forecasts` view to fix runtime errors on beach pages
 
 - Database cleanup: removed legacy `current_enhanced_forecasts` view. New migration `20250817180000_drop_current_enhanced_forecasts_view.sql` drops it; creation statements were deleted from `20250815093000_create_enhanced_forecasts.sql` and script migrations updated. App reads from `ten_day_enhanced_forecasts` or `enhanced_forecasts` only.
@@ -40,17 +51,54 @@
 
 - UI polish: Added bell icon to Notifications item in avatar dropdown (`components/app-header.tsx`) following `components/ARCHITECTURE.md` icon sizing/spacing patterns.
 
+- Beach page recommendations card now wired with beach context. `app/beach/[id]/page.tsx` passes `beachId`, `lat`, `lon`, and optional `regionId` into `CoachCard`, and sets `key={beach.id}` to prevent reuse across beaches. `components/recommendations/coach-card.tsx` accepts these optional props and includes them in fetch dependencies, following `hooks/ARCHITECTURE.md` `useDataFetcher` pattern.
+
+- Favorites ranking and primary beach behavior:
+
+  - Migration `20250817120000_add_rank_to_favorite_beaches.sql` adds `rank` to `favorite_beaches` and backfills sequential ranks; index on `(user_id, rank)`.
+  - `actions/beach/beach-favorite-actions.ts`: favorites now ordered by `rank`; assign rank on add; new `reorderFavoriteBeaches` and `getTopFavoriteBeach` actions.
+  - `components/favorite-beaches.tsx`: added Move Up/Down buttons and Save Order to persist ranks.
+  - `components/beach-detail.tsx`: displays a Favorite button in quick actions area.
+  - `hooks/use-cached-profile.ts`: prefers the top-ranked favorite as `defaultBeach` before legacy `favorite_spot`/`default_beach_id`.
+
+- Added beach-scoped coach picks endpoint and server action:
+
+  - New server function `actions/recommendations/coach-pick-actions.ts#getCoachPicksForBeach` calling RPC `get_coach_picks(_beach_id, _radius_km)` using `withDatabaseOperation`.
+  - New API route `GET /api/coach-picks?beachId=<id>&radiusKm=80` returning `{ picks: [...] }` via `createSuccessResponse`.
+  - `components/recommendations/coach-card.tsx` now prefers `/api/coach-picks` when `beachId` is provided; falls back to `/api/v1/recommendations?lat&lon` otherwise. Ensures SWR keys include `beachId` semantics and avoids cross-page reuse.
+
 - Home screen Forecast tab now displays normalized face height using `WaveHeightDisplay`, matching Beach Detail. This ensures consistent, calibrated surf height across the app and adds an explanatory tooltip. Follows `components/ARCHITECTURE.md` DRY component usage. Also aligned font sizing with other metrics (consistent `text-lg`).
+- KPI tiles on Home screen Forecast tab unified using new `components/ui/kpi-tile.tsx` for consistent centering and baseline alignment. Wave Height tile is now centered like the others, with number+unit kept in a single, non-wrapping row and baseline-aligned. Removes left bias from inline tooltip/icon.
 - Beach list cards: rounded review average to one decimal place (e.g., 2.6) and corrected singular/plural review label for readability.
-- Forecast refresh: ingest multiple recent CDIP observations and add 12h short‑horizon persistence (cdip_persistence/ndbc_persistence, is_observed=false) to ensure hourly marine coverage without Open‑Meteo. Improves Best Times availability when observed data is sparse.
+- Forecast refresh: ingest multiple recent CDIP observations and add 12h short‑horizon persistence (cdip_persistence/ndbc_persistence, is_observed=false) to ensure hourly marine coverage without Open‑Meteo.
+
+  - Note: Best Times section on Beach Detail has been temporarily replaced with Coach Pick due to instability.
 
 - Local Intel section on beach pages now uses `components/intel/beach-intel-section.tsx` backed by `/api/intel` and `get_nearby_intel_posts` RPC. Removed check-ins view from this section to surface intel posts, confirmations, and tagging. Followed `hooks/ARCHITECTURE.md` data fetching with `useDataFetcher` via `useIntelData`.
+
+- Local Intel deep link and inline expansion:
+
+  - Beach page supports `?section=intel` (and `#intel`) to auto-open and scroll to the Local Intel section.
+  - Added inline “View all” → “Show less” toggle to expand/collapse all intel posts without leaving the page.
+  - `components/beach-detail.tsx` reads query/hash via `useSearchParams` and passes `initialShowAll` when `show=all`.
+  - `components/intel/beach-intel-section.tsx` now accepts `initialShowAll` and renders all posts when requested.
+  - Follows `hooks/ARCHITECTURE.md` data fetching and `components/ARCHITECTURE.md` client-navigation patterns.
 
 - Fixed: `session_invitations` RLS blocked inbox queries by referencing `auth.users`. Replaced with JWT email claim in policies:
   - SELECT: `invitee_id = auth.uid() OR invitee_email = (auth.jwt() ->> 'email')`
   - UPDATE: same USING/WITH CHECK. Migration `20250811153000_fix_session_invitations_rls.sql`.
 
 ### Fixed
+
+- Map page no longer fails to show nearby beach forecasts for non-admin users. Made `GET /api/beaches/nearby` public-read (minimal fields) and added a client-side fallback in `components/map/interactive-map.tsx` to filter from `/api/beaches` when needed, restoring Ocean Beach/Mission/Sunset markers and badges.
+- Corrected `date-fns-tz` v3 import usage in `app/api/recommendations/morning/route.ts` (`toZonedTime`/`fromZonedTime`), fixing Vercel build import errors
+- Resolved Next.js "use server" export violation by exporting a server action function for `getTopFavoriteBeach` in `actions/beach/beach-favorite-actions.ts`
+
+- Coach Picks showing Orange County spots for San Diego beaches: enforced strict 30 km radius.
+
+  - DB: new migration `20250822120000_strict_radius_get_coach_picks.sql` removes region-id bypass; results now require `distance_km <= radius`.
+  - UI: `components/recommendations/coach-card.tsx` now filters picks to numeric `distance_km <= 30` only.
+  - Tests: added `__tests__/components/recommendations/coach-card.filtering.test.tsx` and `__tests__/api/coach-picks.radius.test.ts`.
 
 - Nearby tab now shows beaches sorted by closest to the user (using `useGeolocation` + `getNearbyBeaches` with `useDataFetcher`). Replaces static ordering and hardcoded location; distances displayed reflect the user's actual position.
 - Hide all rating stars for planned sessions on profile and session cards so planned sessions don't display ratings.
@@ -64,6 +112,13 @@
   - Confirmed `useLocalStorageState` hook is already SSR-safe with proper `window` existence checks
   - No `use(promise)` patterns found in codebase; all data fetching uses standard React state/effect patterns
 
+- TypeScript fixes across utilities:
+
+  - Migrated `date-fns-tz` imports to v3 API: `toZonedTime`/`fromZonedTime` in `lib/surf/sun.ts` and `lib/time.ts`
+  - Resolved enum mismatch in image compression by removing explicit MIME `type` option in `lib/supabase/storage.ts`
+  - Guarded analytics calls with `window.gtag` existence check in `lib/utils/performance-utils.ts`
+  - Removed unused imports/types and added explicit param typings: `lib/utils/beach-search-utils.ts`, `lib/utils/posts-utils.ts`, `types/intel.ts`, `lib/supabase/api-server-client.ts`, `lib/surf/windows.ts`, `lib/utils/forecast-service-utils.ts`, `lib/utils/forecast-analytics.ts`
+
 - Tide chart extrema plotting fixed in `components/forecast/tide-chart-recharts.tsx`:
 
   - Normalized hourly/extrema heights to feet with a single helper.
@@ -72,6 +127,13 @@
   - Shared Y domain computed from both series with ±0.5 ft padding.
   - Tooltip/labels show feet with one decimal. Follows `components/forecast/ARCHITECTURE.md` Recharts patterns.
   - Added regression test `__tests__/components/forecast/tide-chart-recharts.regression.test.tsx` that renders the real chart under `React.StrictMode` and exercises empty → loaded transitions to catch key/reconciliation issues.
+
+- Tide chart readability on small screens:
+
+  - `components/forecast/tide-chart-recharts.tsx` now uses `useIsMobile()` to adapt layout.
+  - Mobile aspect ratio changed to `aspect-[4/3]` (desktop remains `aspect-[8/3]`).
+  - Reduced chart margins, smaller tick fonts, fewer Y ticks, and auto-skipped X ticks on mobile.
+  - Slightly smaller extrema dots on mobile. Follows `components/forecast/ARCHITECTURE.md` responsive guidance.
 
 - React minified error #460 (Suspense/use promise blocked): Removed inline `Promise.then(...)` rendering in `app/beach/[id]/page.tsx` and moved fetch/await into an async server component `CoachCardSection` wrapped in `Suspense`. This aligns with `app/ARCHITECTURE.md` guidance for async work in server components and eliminates the Suspense crash.
 
@@ -163,11 +225,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Map beach card review count no longer wraps on very small screens. Added responsive class `hidden sm:inline` to the review count text in `components/beach-card.tsx` so rating stays on a single line on devices < 360px.
+
+### Removed
+
+- Dead code cleanup (minor):
+  - Removed `app/plan-session/head.tsx` (App Router metadata handled via `page.tsx`/`generateMetadata`)
+  - Removed unused `actions/recommendations/coach-pick-actions.ts` (API route `GET /api/coach-picks` is the single source)
+
+### Changed
+
+- Profile: Updated "Explore beaches" empty-state link to navigate to `/map` instead of `/` in `components/favorite-beaches.tsx`. Added unit test `__tests__/components/favorite-beaches.test.tsx` to verify link target. Follows App Router internal navigation via `next/link` per `app/ARCHITECTURE.md`.
+- Development dependencies:
+  - Removed unused dev dependency `supabase`
+  - Added missing test dev dependencies: `@jest/globals`, `node-mocks-http`
+
 ### Added
 
 - Local dev bootstrapping and data ingestion
 
   - Baseline migrations for core tables: `profiles`, `beaches`, `sessions`, `boards`
+  - Seed script `scripts/mock-last-week-sessions-and-intel.sql` to generate 100 realistic sessions and ~30 intel posts across the last 7 days. Sessions are tied to nearest `enhanced_forecasts` rows and updated to `completed` to trigger `session_forecast_snapshots` per `supabase/migrations/028_forecast_calibration_tables.sql`. Safe to re-run; includes verification notices.
   - Forecast tables and uniques: `marine_forecasts`, `tide_forecasts`, `sun_times`
   - Seed migration for mock, numeric-first forecast data (guarded/idempotent)
   - Constraint fix: `sun_times.source` now allows 'computed' to match API behavior
@@ -409,7 +489,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Test Suite Cleanup**
 - Local Intel UX: Intel post modal now shows nearest beach name instead of raw latitude/longitude
   - Removed `__tests__/components/session-forms/session-form-forecast-integration.test.tsx` - Tested non-existent forecast feedback functionality
-  - Removed `__tests__/components/forecast/forecast-feedback-form.test.tsx` - Disabled test already converted to Playwright
+  - Removed `__tests__/components/forecast/forecast-feedback-form.test.tsx.disabled` - Disabled Jest test replaced by Playwright E2E
+  - Re-enabled several previously skipped unit tests:
+    - `__tests__/context/auth-context.error-paths.test.tsx`
+    - `__tests__/actions/check-in-actions.test.ts` (submit/update/delete/getRecent/getStats)
+    - `__tests__/lib/cdip-service.test.ts` (mocked API interactions)
+    - `__tests__/components/session-forms/EquipmentStep.test.tsx`
+    - `__tests__/components/session-forms/OptimalTimesSection.test.tsx`
+  - Re-enabled middleware smoke tests in `__tests__/middleware.test.ts` to validate API pass-through and protected redirects
+  - Restored ForecastTab component test (renamed from `.disabled`) pending green run
   - Fixed Supabase mocking issues that caused test failures
   - All forecast tests now pass (359 tests, 23 test suites)
 - Removed `docs/README.md` (redundant with root `ARCHITECTURE.md` acting as primary index)
@@ -529,6 +617,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Supabase security linter warning: Recreated `public.enhanced_forecasts_with_quality` view with `WITH (security_invoker = true)` to remove definer semantics
 
 - Fixed issue where tapping Save on Plan Session did nothing and session was not saved
+  - Root cause: server action payload included "$undefined" for optional fields (e.g., `board_id`), causing Supabase insert to fail silently and return `{ success: false, error: "Unknown error" }`.
+  - Fix: added payload sanitization in `actions/session-actions.ts` to strip `undefined`/`"$undefined"`/empty UUIDs and set `user_id/profile_id/status` server-side; improved error message fallback in `lib/server-action-utils.ts`; revalidate `/profile` after creation to ensure immediate visibility.
 
 ## [2025.01.16] - Community-Enhanced Surf Forecasts
 

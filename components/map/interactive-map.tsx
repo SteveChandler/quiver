@@ -219,45 +219,107 @@ export function InteractiveMap({
     async (latitude: number, longitude: number) => {
       if (!mapRef.current || !isMapReady) return;
       try {
-        // Use cached fetch for beaches
-        const response = await fetchNearbyBeaches.current(latitude, longitude);
+        console.log("populateLocations:", { latitude, longitude });
+        // Prefer nearby endpoint first (faster and already filtered), fallback to public list
+        let locations: Beach[] = [];
+        try {
+          const response = await fetchNearbyBeaches.current(latitude, longitude);
+          locations = (response as any)?.data || [];
+          console.log("nearby beaches count:", locations.length);
+        } catch (err) {
+          console.warn("Nearby beaches API failed", err);
+        }
 
-        // Extract the data array from the API response
-        let locations: Beach[] = response?.data || [];
+        // Fallback to public beaches list and filter by distance client-side
+        if (locations.length === 0) {
+          try {
+            const res = await fetch("/api/beaches", {
+              headers: { Accept: "application/json" },
+            });
+            if (res.ok) {
+              const json = await res.json();
+              const all: Beach[] = (json?.beaches || json?.data?.beaches) || [];
+              const { calculateDistanceInMiles } = await import(
+                "@/lib/utils/distance-utils"
+              );
+              locations = all
+                .map((b) => ({
+                  ...b,
+                  _d: calculateDistanceInMiles(
+                    latitude,
+                    longitude,
+                    b.latitude,
+                    b.longitude
+                  ),
+                }))
+                .filter((b: any) => isFinite(b._d) && b._d <= 30)
+                .sort((a: any, b: any) => a._d - b._d)
+                .slice(0, 20);
+              console.log("public beaches filtered:", locations.length);
+            }
+          } catch (fallbackErr) {
+            console.error("Public beaches list fetch failed", fallbackErr);
+          }
+        }
 
         // Limit to 20 beaches max
         locations = locations.slice(0, 20);
+        console.log("locations to render:", locations.length);
 
         // Fetch enhanced forecast data for each beach
         const beachForecastPromises = locations.map(async (beach) => {
           try {
+            console.log(`Fetching forecast for ${beach.name} (${beach.id})`);
             const response = await fetch(
               `/api/forecasts/update-enhanced?beachId=${beach.id}&days=2`
             );
 
             if (response.ok) {
               const data = await response.json();
-              if (data.success && data.data?.forecasts?.length > 0) {
+              console.log(`Forecast response for ${beach.name}:`, {
+                success: data.success,
+                forecastCount: data.data?.forecasts?.length || 0,
+                hasData: !!data.data
+              });
+              
+              // Support both shapes: {success, data:{forecasts}} and legacy {forecasts}
+              const forecasts = Array.isArray(data?.data?.forecasts)
+                ? data.data.forecasts
+                : Array.isArray(data?.forecasts)
+                ? data.forecasts
+                : [];
+
+              if ((data.success ?? true) && forecasts.length > 0) {
                 // Use time-aware selection to get the most appropriate forecast
                 const { getCurrentForecast } = await import(
                   "@/lib/utils/current-forecast-utils"
                 );
-                const currentForecast = getCurrentForecast(data.data.forecasts);
+                const currentForecast = getCurrentForecast(forecasts) as any;
 
-                if (currentForecast) {
+                console.log(`Current forecast for ${beach.name}:`, {
+                  hasCurrentForecast: !!currentForecast,
+                  waveHeight: currentForecast?.wave_height,
+                  forecastDate: currentForecast?.forecast_date,
+                  forecastTime: currentForecast?.forecast_time
+                });
+
+                if (currentForecast && currentForecast.wave_height) {
                   return {
                     beachId: beach.id,
-                    waveHeight: currentForecast.wave_height, // Keep as string/number, formatter will handle it
+                    waveHeight: currentForecast.wave_height,
                   };
                 }
               }
+            } else {
+              console.warn(`Forecast API returned ${response.status} for ${beach.name}`);
             }
           } catch (error) {
             console.warn(
-              `Failed to fetch forecast for beach ${beach.id}:`,
+              `Failed to fetch forecast for beach ${beach.name} (${beach.id}):`,
               error
             );
           }
+          console.log(`No forecast data for ${beach.name}`);
           return {
             beachId: beach.id,
             waveHeight: undefined,
@@ -319,6 +381,7 @@ export function InteractiveMap({
 
           markersRef.current[markerId] = marker;
         });
+        console.log("markers added:", Object.keys(markersRef.current).length);
       } catch (e) {
         console.error("Error populating locations", e);
       }

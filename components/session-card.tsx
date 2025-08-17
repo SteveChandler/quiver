@@ -4,7 +4,6 @@ import { UserAvatar } from "@/components/user-avatar";
 import { StarRating } from "@/components/ui/star-rating";
 import {
   MapPin,
-  Star,
   ThumbsUp,
   MessageSquare,
   Calendar,
@@ -13,7 +12,6 @@ import {
   Car,
   Thermometer,
   CalendarClock,
-  CheckCircle,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";

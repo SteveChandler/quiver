@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EnhancedForecastEntity } from "@/types/forecast";
+import { useIsMobile } from "@/components/ui/use-mobile";
 
 // Tide data structure
 export interface TideDataPoint {
@@ -171,6 +172,7 @@ export function TideChart({
   isAnimationActive = process.env.NODE_ENV !== "production",
 }: TideChartProps) {
   const chartConfig = getTideChartConfig();
+  const isMobile = useIsMobile();
 
   // Helpers per requirements
   const toFt = (m?: number, ft?: number) =>
@@ -423,11 +425,18 @@ export function TideChart({
           aria-label="5-day tide chart showing high and low tide heights over time"
           className="w-full"
         >
-          <ChartContainer config={chartConfig} className="aspect-[8/3] w-full">
+          <ChartContainer
+            config={chartConfig}
+            className={`w-full ${isMobile ? "aspect-[4/3]" : "aspect-[8/3]"}`}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={lineData}
-                margin={{ top: 50, right: 30, left: 30, bottom: 50 }}
+                margin={
+                  isMobile
+                    ? { top: 30, right: 20, left: 24, bottom: 36 }
+                    : { top: 50, right: 30, left: 30, bottom: 50 }
+                }
               >
                 {/* Minimal, subtle grid */}
                 <CartesianGrid
@@ -454,11 +463,12 @@ export function TideChart({
                   type="number"
                   scale="time"
                   domain={xDomain}
-                  ticks={xTicks}
+                  ticks={isMobile ? undefined : xTicks}
                   tickFormatter={formatXAxisTick}
-                  interval={0}
+                  interval={isMobile ? "preserveStartEnd" : 0}
                   axisLine={{ stroke: "#9CA3AF" }}
                   tickLine={{ stroke: "#9CA3AF" }}
+                  tick={{ fontSize: isMobile ? 10 : 12 }}
                   label={{
                     value: "Day",
                     position: "bottom",
@@ -471,9 +481,10 @@ export function TideChart({
                 <YAxis
                   yAxisId="y"
                   domain={yDomain}
-                  tickCount={7}
+                  tickCount={isMobile ? 5 : 7}
                   axisLine={{ stroke: "#9CA3AF" }}
                   tickLine={{ stroke: "#9CA3AF" }}
+                  tick={{ fontSize: isMobile ? 10 : 12 }}
                   label={{
                     value: "Tide (ft)",
                     angle: -90,
@@ -523,7 +534,7 @@ export function TideChart({
                       x={p.t}
                       y={p.h}
                       yAxisId="y"
-                      r={4}
+                      r={isMobile ? 3 : 4}
                       fill={p.type === "HIGH" ? "#FF7F11" : "#6B7280"}
                       stroke="#FFFFFF"
                       strokeWidth={1}

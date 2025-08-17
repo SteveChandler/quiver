@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
-import { WaveHeightDisplay } from "@/components/ui/wave-height-display";
+import { KpiTile } from "@/components/ui/kpi-tile";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
@@ -282,36 +282,88 @@ export function ForecastTab({
         <CardContent className="space-y-4">
           {/* Main forecast data */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-3 bg-blue-50 rounded-lg">
-              <WaveHeightDisplay
-                height={todaysForecast.wave_height}
-                className="text-lg font-bold text-blue-600"
-              />
-              <div className="text-xs text-blue-500 text-center">
-                Wave Height
-              </div>
-            </div>
+            {/* Wave Height */}
+            {(() => {
+              const raw = (todaysForecast.wave_height || "").toString();
+              const match = raw.match(/([\d.]+)/);
+              const value = match ? Number(match[1]).toFixed(1) : "—";
+              const unit = match ? "ft" : undefined;
+              return (
+                <KpiTile
+                  value={value}
+                  unit={unit}
+                  label={<span>Wave Height</span>}
+                  className="bg-blue-50"
+                  valueClassName="text-blue-600"
+                  labelClassName="text-blue-500"
+                />
+              );
+            })()}
 
-            <div className="text-center p-3 bg-green-50 rounded-lg">
-              <div className="text-lg font-bold text-green-600">
-                {todaysForecast.wind_speed || "N/A"}
-              </div>
-              <div className="text-xs text-green-500">Wind Speed</div>
-            </div>
+            {/* Wind Speed */}
+            {(() => {
+              const raw = (todaysForecast.wind_speed || "").toString();
+              const match = raw.match(/([\d.]+)/);
+              const value = match ? Number(match[1]).toFixed(0) : "—";
+              const unit = match
+                ? raw.toLowerCase().includes("mph")
+                  ? "mph"
+                  : raw.toLowerCase().includes("kts")
+                  ? "kts"
+                  : undefined
+                : undefined;
+              return (
+                <KpiTile
+                  value={value}
+                  unit={unit}
+                  label={<span>Wind Speed</span>}
+                  className="bg-green-50"
+                  valueClassName="text-green-600"
+                  labelClassName="text-green-500"
+                />
+              );
+            })()}
 
-            <div className="text-center p-3 bg-cyan-50 rounded-lg">
-              <div className="text-lg font-bold text-cyan-600">
-                {todaysForecast.water_temp || "N/A"}
-              </div>
-              <div className="text-xs text-cyan-500">Water Temp</div>
-            </div>
+            {/* Water Temp */}
+            {(() => {
+              const raw = (todaysForecast.water_temp || "").toString();
+              const match = raw.match(/([\d.]+)/);
+              const value = match ? Number(match[1]).toFixed(0) : "—";
+              const unit = match
+                ? raw.includes("°")
+                  ? raw.slice(raw.indexOf("°"))
+                  : raw.toLowerCase().includes("f")
+                  ? "°F"
+                  : raw.toLowerCase().includes("c")
+                  ? "°C"
+                  : undefined
+                : undefined;
+              return (
+                <KpiTile
+                  value={value}
+                  unit={unit}
+                  label={<span>Water Temp</span>}
+                  className="bg-cyan-50"
+                  valueClassName="text-cyan-600"
+                  labelClassName="text-cyan-500"
+                />
+              );
+            })()}
 
-            <div className="text-center p-3 bg-purple-50 rounded-lg">
-              <div className="text-lg font-bold text-purple-600">
-                {Math.round(todaysForecast.confidence_score || 0)}%
-              </div>
-              <div className="text-xs text-purple-500">Confidence</div>
-            </div>
+            {/* Confidence */}
+            {(() => {
+              const num = Math.round(todaysForecast.confidence_score || 0);
+              return (
+                <KpiTile
+                  value={num}
+                  unit="%"
+                  label={<span>Confidence</span>}
+                  className="bg-purple-50"
+                  valueClassName="text-purple-600"
+                  labelClassName="text-purple-500"
+                />
+              );
+            })()}
           </div>
 
           {/* Community Trust Level */}

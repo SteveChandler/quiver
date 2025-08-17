@@ -119,11 +119,11 @@ const { beachAccuracy } = useForecastCalibration({
 />;
 ```
 
-### **Best Times + Why Breakdown (Forecast & Tides)**
+### **Coach Pick (temporary replacement for Best Times)**
 
-- The `Forecast & Tides` section may render an inline Best Times chip list driven by `mv_beach_hourly_scores` (preferred) or `v_beach_hourly_scores` when MV absent.
-- Primary path uses API `GET /api/recommendations/best-times` (materialized view preferred) with RPC fallback; if unavailable, client computes top 2h windows for daylight using `v_beach_hourly_scores`.
-- Each chip can show a tooltip with a “why” factor breakdown fetched from `mv_beach_hourly_scores` for the peak hour inside the window.
+- The `Forecast & Tides` section currently shows `CoachCard` in place of the previous Best Times chip list.
+- Best Times fetching and UI have been removed here temporarily due to instability, to focus on actionable recommendations for growth.
+- When reinstating Best Times, follow the documented MV/RPC/why‑breakdown pattern previously described.
 
 ```typescript
 type WindowWithWhy = {

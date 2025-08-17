@@ -5,16 +5,16 @@
 import { middleware } from "@/middleware";
 
 // Setup mock variables at the module level
-const mockNext = jest.fn(() => ({ cookies: { set: jest.fn() } }));
-const mockRedirect = jest.fn(() => ({}));
+let mockNext: any;
+let mockRedirect: any;
 const mockURL = jest.fn(() => ({}));
-let mockSession = null;
+let mockUser: any = null;
 
 // Mock modules before importing middleware
 jest.mock("@supabase/ssr", () => ({
   createServerClient: jest.fn(() => ({
     auth: {
-      getSession: () => Promise.resolve({ data: { session: mockSession } }),
+      getUser: () => Promise.resolve({ data: { user: mockUser }, error: null }),
     },
   })),
 }));
@@ -22,17 +22,33 @@ jest.mock("@supabase/ssr", () => ({
 jest.mock("next/server", () => ({
   NextRequest: jest.fn(),
   NextResponse: {
-    next: mockNext,
-    redirect: mockRedirect,
+    get next() {
+      return mockNext;
+    },
+    get redirect() {
+      return mockRedirect;
+    },
   },
 }));
 
-// Use global.URL instead of mocking
-global.URL = mockURL as any;
+// Do not override global.URL; rely on Node's URL implementation
 
-// Skip middleware tests until we can resolve the initialization issues
-describe.skip("Middleware", () => {
-  test("skipped tests", () => {
-    expect(true).toBe(true);
+describe("Middleware", () => {
+  beforeEach(() => {
+    mockNext = jest.fn(() => ({ headers: new Headers(), cookies: { set: jest.fn(), delete: jest.fn() } }));
+    mockRedirect = jest.fn(() => ({}));
+    mockUser = null;
+  });
+
+  test("passes through for API routes", async () => {
+    const request: any = { nextUrl: { pathname: "/api/health" }, method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
+    await middleware(request);
+    expect(mockNext).toHaveBeenCalled();
+  });
+
+  test("redirects to sign-in for protected path when unauthenticated", async () => {
+    const request: any = { nextUrl: { pathname: "/profile" }, url: "http://localhost/profile", method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
   });
 });

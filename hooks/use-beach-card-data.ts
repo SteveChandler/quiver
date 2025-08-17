@@ -140,7 +140,7 @@ export function useBeachCardData(
         mapImageUrl,
         latitude: coords?.latitude,
         longitude: coords?.longitude,
-        coordinates: coords,
+        coordinates: coords || undefined,
       };
     });
   }, [

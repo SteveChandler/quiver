@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,8 @@ interface BeachIntelSectionProps {
   latitude: number;
   longitude: number;
   className?: string;
+  initialShowAll?: boolean;
+  navigateOnViewAll?: boolean; // when true, clicking View all navigates to beach page
 }
 
 export function BeachIntelSection({
@@ -51,9 +54,13 @@ export function BeachIntelSection({
   latitude,
   longitude,
   className = "",
+  initialShowAll = false,
+  navigateOnViewAll = true,
 }: BeachIntelSectionProps) {
+  const router = useRouter();
   const [showPostForm, setShowPostForm] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState<boolean>(initialShowAll);
   const { user } = useAuth();
 
   // Fetch intel data for this beach location
@@ -218,7 +225,7 @@ export function BeachIntelSection({
             </div>
           ) : (
             <div className="space-y-3">
-              {posts.slice(0, 3).map((post) => (
+              {posts.slice(0, showAll ? posts.length : 3).map((post) => (
                 <IntelPostCard
                   key={post.id}
                   post={post}
@@ -236,10 +243,23 @@ export function BeachIntelSection({
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => {
+                      if (!showAll && navigateOnViewAll) {
+                        router.push(`/beach/${beachId}?section=intel&show=all`);
+                        return;
+                      }
+                      setShowAll((v) => !v);
+                    }}
                     className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
                   >
-                    View all {posts.length} intel posts
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                    {showAll ? (
+                      <>Show less</>
+                    ) : (
+                      <>
+                        View all {posts.length} intel posts
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </>
+                    )}
                   </Button>
                 </div>
               )}

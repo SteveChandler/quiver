@@ -1,6 +1,6 @@
 "use server";
 
-import { withAuthenticatedAction } from "@/lib/server-action-utils";
+import { withAuthenticatedAction, makeAuthenticatedAction } from "@/lib/server-action-utils";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import {
   CheckIn,
@@ -11,9 +11,10 @@ import {
 /**
  * Submit a new surf condition check-in
  */
-export const submitCheckIn = withAuthenticatedAction(
+export const submitCheckIn = makeAuthenticatedAction(
   async (
-    userId: string,
+    user,
+    supabase,
     beachId: string,
     data: {
       wave_height?: number | null;
@@ -25,7 +26,6 @@ export const submitCheckIn = withAuthenticatedAction(
       forecast_accuracy_rating: "accurate" | "somewhat" | "inaccurate";
     }
   ) => {
-    const supabase = createAPIServerClient();
 
     // Validate required data
     if (!beachId) {
@@ -51,7 +51,7 @@ export const submitCheckIn = withAuthenticatedAction(
     const { data: checkIn, error } = await supabase
       .from("check_ins")
       .insert({
-        user_id: userId,
+        user_id: user.id,
         beach_id: beachId,
         checked_in_at: new Date().toISOString(),
         wave_height: data.wave_height,
@@ -133,9 +133,10 @@ export async function getForecastAccuracyStats(
 /**
  * Update an existing check-in (user can only update their own)
  */
-export const updateCheckIn = withAuthenticatedAction(
+export const updateCheckIn = makeAuthenticatedAction(
   async (
-    userId: string,
+    user,
+    supabase,
     checkInId: string,
     data: Partial<{
       wave_height: number | null;
@@ -147,14 +148,13 @@ export const updateCheckIn = withAuthenticatedAction(
       forecast_accuracy_rating: "accurate" | "somewhat" | "inaccurate";
     }>
   ) => {
-    const supabase = createAPIServerClient();
 
     // Update check-in (RLS ensures user can only update their own)
     const { data: checkIn, error } = await supabase
       .from("check_ins")
       .update(data)
       .eq("id", checkInId)
-      .eq("user_id", userId) // Extra safety check
+      .eq("user_id", user.id) // Extra safety check
       .select()
       .single();
 
@@ -174,16 +174,15 @@ export const updateCheckIn = withAuthenticatedAction(
 /**
  * Delete a check-in (user can only delete their own)
  */
-export const deleteCheckIn = withAuthenticatedAction(
-  async (userId: string, checkInId: string) => {
-    const supabase = createAPIServerClient();
+export const deleteCheckIn = makeAuthenticatedAction(
+  async (user, supabase, checkInId: string) => {
 
     // Delete check-in (RLS ensures user can only delete their own)
     const { error } = await supabase
       .from("check_ins")
       .delete()
       .eq("id", checkInId)
-      .eq("user_id", userId); // Extra safety check
+      .eq("user_id", user.id); // Extra safety check
 
     if (error) {
       console.error("Error deleting check-in:", error);

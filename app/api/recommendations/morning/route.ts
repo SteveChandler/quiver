@@ -4,7 +4,7 @@ import { topWindowsInRange } from '@/lib/surf/windows';
 import { windowBlurbDetailed } from '@/lib/surf/windows';
 import { getBeachesNear, getMarineForecastRange, getTideForecastRange, getSunTimes } from '@/lib/surf/data';
 import { sunForLatLon, isDark } from '@/lib/surf/sun';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { apiCache } from '@/lib/utils/request-cache';
 import { createAPIServerClient } from '@/lib/supabase/api-server-client';
 import { getMorningWindow } from '@/lib/time';
@@ -20,7 +20,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const { lat, lon, radius_km, tz = 'America/Los_Angeles', horizon_hours = 5 } = schema.parse(await req.json());
 
-  const nowLocal = utcToZonedTime(new Date(), tz);
+  const nowLocal = toZonedTime(new Date(), tz);
   const todayLocal = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate());
   const { sunriseLocal, sunsetLocal } = sunForLatLon(todayLocal, lat, lon, tz);
 
@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(cached);
   }
 
-  const startUtc = zonedTimeToUtc(startLocal, tz);
-  const endUtc   = zonedTimeToUtc(endLocal, tz);
+  const startUtc = fromZonedTime(startLocal, tz);
+  const endUtc   = fromZonedTime(endLocal, tz);
 
   const beaches = await getBeachesNear(lat, lon, radius_km);
   // Batching: cap candidates to top ~8 by distance before scoring to reduce load

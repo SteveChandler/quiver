@@ -1,6 +1,6 @@
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { BottomNavigation } from "@/components/bottom-navigation";
-import { getBeachById } from "@/actions/beach-actions";
+import { getBeachById } from "@/actions/beach/beach-query-actions";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";

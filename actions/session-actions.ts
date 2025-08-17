@@ -21,6 +21,29 @@ type SessionInput = Omit<
 >;
 type BoardInput = Omit<Board, "id" | "created_at" | "updated_at" | "user_id">;
 
+/**
+ * Remove fields that should not be persisted when they are effectively unset.
+ * - Strips keys with values of undefined or the Next.js serialized "$undefined"
+ * - Drops empty-string UUIDs for id fields like beach_id/board_id
+ * - Never forwards client-provided user_id/profile_id/status; these are set server-side
+ */
+function sanitizePayload<T extends Record<string, any>>(input: T): T {
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(input)) {
+    // Skip values that are not actually set
+    if (value === undefined || value === "$undefined") continue;
+
+    // Remove empty strings for known optional foreign keys
+    if ((key === "board_id" || key === "beach_id") && value === "") continue;
+
+    // Security: never trust client-sent ownership/status fields
+    if (key === "user_id" || key === "profile_id" || key === "status") continue;
+
+    cleaned[key] = value;
+  }
+  return cleaned as T;
+}
+
 export async function getUserSessions(userId: string, limit?: number) {
   return withServerAction(async () => {
     const supabase = await createSupabaseServerClient();
@@ -338,10 +361,11 @@ export async function createLoggedSession(data: SessionInput, userId: string) {
     }
 
     // Create the session with completed status
+    const cleaned = sanitizePayload(data);
     const { data: session, error } = await supabase
       .from("sessions")
       .insert({
-        ...data,
+        ...cleaned,
         user_id: user.id,
         profile_id: user.id, // Add profile_id to satisfy the constraint
         status: "completed",
@@ -354,6 +378,7 @@ export async function createLoggedSession(data: SessionInput, userId: string) {
     }
 
     revalidatePath("/sessions");
+    revalidatePath("/profile");
     return session;
   });
 }
@@ -369,10 +394,11 @@ export async function createPlannedSession(data: SessionInput, userId: string) {
     }
 
     // Create the session with planned status
+    const cleaned = sanitizePayload(data);
     const { data: session, error } = await supabase
       .from("sessions")
       .insert({
-        ...data,
+        ...cleaned,
         user_id: user.id,
         profile_id: user.id, // Add profile_id to satisfy the constraint
         status: "planned",
@@ -385,6 +411,7 @@ export async function createPlannedSession(data: SessionInput, userId: string) {
     }
 
     revalidatePath("/sessions");
+    revalidatePath("/profile");
     return session;
   });
 }

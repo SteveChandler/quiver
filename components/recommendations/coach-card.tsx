@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { cn } from "@/lib/utils";
 import {
   Collapsible,
   CollapsibleContent,
@@ -35,31 +36,121 @@ type Recommendation = {
 };
 
 export function CoachCard({
+  beachId,
   lat,
   lon,
+  regionId,
   timeIso,
   title = "Coach Pick",
   className,
+  initialResponse,
 }: {
+  beachId?: string;
   lat: number;
   lon: number;
+  regionId?: string;
   timeIso?: string;
   title?: string;
   className?: string;
+  initialResponse?: {
+    top_picks?: Recommendation[];
+    recommendations?: Recommendation[];
+  };
 }) {
+  // Require valid beach context; avoid any leaked global state or fallbacks
+  const hasValidContext = Boolean(
+    beachId && Number.isFinite(lat) && Number.isFinite(lon)
+  );
+  if (!hasValidContext) return null;
   const [showExplanation, setShowExplanation] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<{
     [key: string]: boolean;
   }>({});
 
   const fetchRecs = useCallback(async () => {
-    const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
-    if (timeIso) params.set("time", timeIso);
-    const res = await fetch(`/api/v1/recommendations?${params.toString()}`);
-    const json = await res.json();
-    if (!res.ok) throw new Error(json?.error || "Failed to fetch recs");
-    return json.data || json;
-  }, [lat, lon, timeIso]);
+    const uniqueBySpot = (items: Recommendation[]) => {
+      const seen = new Set<string>();
+      return items.filter((p) => {
+        const key = p.spotId || p.name;
+        if (!key) return false;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+    // Try beach-scoped picks first
+    try {
+      const res = await fetch(
+        `/api/coach-picks?beachId=${encodeURIComponent(beachId!)}&radiusKm=30`
+      );
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const picks = (json?.data?.picks || json?.picks || []).map(
+          (row: any) => ({
+            spotId: row.beach_id,
+            name: row.name,
+            distance_km: row.distance_km ?? null,
+            score: row.score ?? 0,
+            reasons: [],
+            rank: row.pick_rank,
+          })
+        ) as Recommendation[];
+        // Enforce strict distance filter: only numeric distances within 30 km
+        const filtered = picks.filter(
+          (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+        );
+        const deduped = uniqueBySpot(filtered);
+        if (filtered.length > 0) {
+          return { top_picks: deduped.slice(0, 3), recommendations: deduped };
+        }
+      }
+    } catch (e) {
+      // swallow and fall back
+    }
+
+    // Fallback: general recommendations by lat/lon
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+    });
+    const res2 = await fetch(`/api/v1/recommendations?${params.toString()}`);
+    const json2 = await res2.json().catch(() => ({}));
+    if (!res2.ok) {
+      const message =
+        json2?.error || json2?.message || "Failed to fetch recommendations";
+      throw new Error(message);
+    }
+    const picks2 = (json2?.top_picks || json2?.data?.top_picks || []) as any[];
+    const recs2 = (json2?.recommendations ||
+      json2?.data?.recommendations ||
+      []) as any[];
+    const mapRow = (row: any, idx?: number) => ({
+      spotId: row.spotId || row.beach_id,
+      name: row.name,
+      distance_km: row.distance_km ?? null,
+      score: row.score ?? 0,
+      reasons: row.reasons || [],
+      rank: row.rank ?? (typeof idx === "number" ? idx + 1 : undefined),
+      wave: row.wave,
+      wind: row.wind,
+      tide: row.tide,
+    });
+    const mappedTop = picks2.length
+      ? picks2.map(mapRow)
+      : recs2.slice(0, 3).map(mapRow);
+    const mappedAll = recs2.length ? recs2.map(mapRow) : mappedTop;
+    const top = uniqueBySpot(
+      mappedTop.filter(
+        (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+      )
+    );
+    const all = uniqueBySpot(
+      mappedAll.filter(
+        (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+      )
+    );
+    return { top_picks: top, recommendations: all };
+  }, [beachId, lat, lon]);
 
   const {
     data: response,
@@ -70,12 +161,43 @@ export function CoachCard({
     top_picks?: Recommendation[];
     recommendations?: Recommendation[];
   }>(fetchRecs, {
-    immediate: true,
-    initialData: {},
+    immediate: !initialResponse,
+    initialData: initialResponse
+      ? {
+          top_picks: (() => {
+            const list = (initialResponse.top_picks || []) as Recommendation[];
+            const filtered = list.filter(
+              (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+            );
+            const seen = new Set<string>();
+            return filtered.filter((p) => {
+              const key = p.spotId || p.name;
+              if (!key || seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          })(),
+          recommendations: (() => {
+            const list = (initialResponse.recommendations ||
+              []) as Recommendation[];
+            const filtered = list.filter(
+              (p) => typeof p.distance_km === "number" && p.distance_km <= 30
+            );
+            const seen = new Set<string>();
+            return filtered.filter((p) => {
+              const key = p.spotId || p.name;
+              if (!key || seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          })(),
+        }
+      : {},
   });
 
   const topPicks = response?.top_picks || [];
   const allRecs = response?.recommendations || [];
+  const hasAny = topPicks.length > 0 || allRecs.length > 0;
   const top = topPicks.length
     ? topPicks[0]
     : allRecs.length
@@ -103,10 +225,18 @@ export function CoachCard({
     }
   };
 
+  // Hide the card if the RPC returned no results
+  if (!error && !loading && !hasAny) return null;
+
   return (
-    <Card className={className}>
-      <CardHeader className="pb-3 flex items-center justify-between">
-        <CardTitle className="text-base">{title}</CardTitle>
+    <Card
+      className={cn(
+        "w-full border-primary/10 bg-gradient-to-b from-background to-muted/30 shadow-sm",
+        className
+      )}
+    >
+      <CardHeader className="pb-3 flex items-center justify-between bg-primary/5 rounded-t-md">
+        <CardTitle className="text-base text-primary">{title}</CardTitle>
         <Button
           variant="outline"
           size="sm"
@@ -120,7 +250,11 @@ export function CoachCard({
         </Button>
       </CardHeader>
       <CardContent>
-        {error && <div className="text-sm text-red-600">{error}</div>}
+        {error && (
+          <div className="text-sm text-red-600">
+            {error instanceof Error ? error.message : String(error)}
+          </div>
+        )}
         {!error && loading && (
           <div className="text-sm text-muted-foreground">
             Loading coach pick…
@@ -131,17 +265,17 @@ export function CoachCard({
             {/* Top pick summary */}
             <div className="flex items-center justify-between">
               <div className="font-medium">{top.name}</div>
-              <Badge
-                variant={
-                  top.score >= 75
-                    ? "default"
-                    : top.score >= 50
-                    ? "secondary"
-                    : "outline"
-                }
-              >
-                {top.score}
-              </Badge>
+              {top.score >= 75 ? (
+                <Badge className="bg-emerald-600 text-white border-emerald-600">
+                  {top.score}
+                </Badge>
+              ) : top.score >= 50 ? (
+                <Badge className="bg-amber-500 text-white border-amber-500">
+                  {top.score}
+                </Badge>
+              ) : (
+                <Badge variant="outline">{top.score}</Badge>
+              )}
             </div>
 
             {/* Show top 3 picks if available */}
@@ -155,12 +289,13 @@ export function CoachCard({
                     key={pick.spotId}
                     className="flex items-center justify-between text-sm"
                   >
-                    <span>
-                      #{index + 1} {pick.name}
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1">
+                        #{index + 1}
+                      </span>
+                      {pick.name}
                     </span>
-                    <Badge variant="outline" size="sm">
-                      {pick.score}
-                    </Badge>
+                    <Badge variant="outline">{pick.score}</Badge>
                   </div>
                 ))}
               </div>
