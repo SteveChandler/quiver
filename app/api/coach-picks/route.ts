@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

@@ -1,4 +1,6 @@
-"use server";
+// Note: Do not mark this utility module with "use server" to avoid build-time
+// restrictions that require every export to be an async function. Individual
+// server actions and returned functions include "use server" where required.
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { User } from "@supabase/supabase-js";
@@ -55,11 +57,9 @@ export async function withAuthenticatedAction<T>(
   });
 }
 
-// TODO: Fix server action issues - temporarily commented out
 // New: Curried version that returns a callable authenticated action.
 // Enables: export const doThing = makeAuthenticatedAction(async (user, supabase, arg1, arg2) => { ... })
 // Then call: await doThing(arg1, arg2)
-/*
 export function makeAuthenticatedAction<
   TArgs extends any[],
   T
@@ -70,7 +70,9 @@ export function makeAuthenticatedAction<
     ...args: TArgs
   ) => Promise<T>
 ) {
-  const serverAction = async (...args: TArgs): Promise<ServerActionResponse<T>> => {
+  const serverAction = async (
+    ...args: TArgs
+  ): Promise<ServerActionResponse<T>> => {
     "use server";
     try {
       const supabase = await createSupabaseServerClient();
@@ -96,10 +98,9 @@ export function makeAuthenticatedAction<
       };
     }
   };
-  
+
   return serverAction;
 }
-*/
 
 // Database operation with consistent error handling
 export async function withDatabaseOperation<T>(

@@ -77,6 +77,18 @@ export function useCachedProfile() {
 
       let defaultBeach: Beach | null = null;
 
+      // Prefer top-ranked favorite beach
+      try {
+        const { getTopFavoriteBeach } = await import("@/actions/beach-actions");
+        const topFav = await getTopFavoriteBeach(user.id);
+        if (topFav) {
+          defaultBeach = topFav as Beach;
+          console.log("✅ Using top-ranked favorite beach as default:", defaultBeach.name);
+        }
+      } catch (e) {
+        // Non-fatal
+      }
+
       // Find default beach using favorite_spot (legacy field)
       if (profile.favorite_spot) {
         console.log("🏖️ Looking up favorite_spot:", profile.favorite_spot);

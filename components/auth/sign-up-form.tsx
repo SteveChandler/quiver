@@ -19,6 +19,14 @@ import {
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function SignUpForm() {
   const [email, setEmail] = useState("");
@@ -27,6 +35,8 @@ export function SignUpForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [createdEmail, setCreatedEmail] = useState<string | null>(null);
   const router = useRouter();
   const { signUp } = useAuth();
 
@@ -52,7 +62,8 @@ export function SignUpForm() {
     try {
       setIsLoading(true);
       await signUp(email, password, displayName.trim());
-      router.push("/");
+      setCreatedEmail(email);
+      setShowVerifyModal(true);
     } catch (error) {
       console.error("Sign up error:", error);
       setError(
@@ -145,6 +156,28 @@ export function SignUpForm() {
           </Link>
         </p>
       </CardFooter>
+
+      {/* Post-signup verification modal */}
+      <Dialog open={showVerifyModal} onOpenChange={setShowVerifyModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify your email</DialogTitle>
+            <DialogDescription>
+              {createdEmail
+                ? `We sent a verification link to ${createdEmail}. Please check your inbox (and spam) to verify your account.`
+                : "We sent a verification link to your email. Please check your inbox (and spam) to verify your account."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => router.push("/auth/sign-in")}
+              className="w-full sm:w-auto"
+            >
+              Go to Sign In
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

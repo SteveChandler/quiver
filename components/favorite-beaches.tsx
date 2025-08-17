@@ -1,80 +1,133 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Heart, MapPin, Waves, Users, Car, Accessibility } from "lucide-react"
-import { getFavoriteBeaches, removeFavoriteBeach } from "@/actions/beach-actions"
-import { useAuth } from "@/context/auth-context"
-import Link from "next/link"
-import { toast } from "@/components/ui/use-toast"
-import type { Beach } from "@/types/database"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Loader2,
+  Heart,
+  MapPin,
+  Waves,
+  Users,
+  Car,
+  Accessibility,
+} from "lucide-react";
+import {
+  getFavoriteBeaches,
+  removeFavoriteBeach,
+  reorderFavoriteBeaches,
+} from "@/actions/beach-actions";
+import { useAuth } from "@/context/auth-context";
+import Link from "next/link";
+import { toast } from "@/components/ui/use-toast";
+import type { Beach } from "@/types/database";
 
 export function FavoriteBeaches() {
-  const { user } = useAuth()
-  const [beaches, setBeaches] = useState<Beach[]>([])
-  const [loading, setLoading] = useState(true)
-  const [removing, setRemoving] = useState<string | null>(null)
+  const { user } = useAuth();
+  const [beaches, setBeaches] = useState<Beach[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   useEffect(() => {
     async function loadFavoriteBeaches() {
-      if (!user) return
+      if (!user) return;
 
-      setLoading(true)
+      setLoading(true);
       try {
-        const result = await getFavoriteBeaches(user.id)
+        const result = await getFavoriteBeaches(user.id);
         if (result.success) {
-          setBeaches(result.data || [])
+          setBeaches(result.data || []);
         } else {
-          console.error("Error loading favorite beaches:", result.error)
+          console.error("Error loading favorite beaches:", result.error);
         }
       } catch (error) {
-        console.error("Error loading favorite beaches:", error)
+        console.error("Error loading favorite beaches:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    loadFavoriteBeaches()
-  }, [user])
+    loadFavoriteBeaches();
+  }, [user]);
 
   const handleRemoveFavorite = async (beachId: string) => {
-    if (!user) return
+    if (!user) return;
 
-    setRemoving(beachId)
+    setRemoving(beachId);
     try {
-      const result = await removeFavoriteBeach(user.id, beachId)
+      const result = await removeFavoriteBeach(user.id, beachId);
       if (result.success) {
-        setBeaches((prev) => prev.filter((beach) => beach.id !== beachId))
+        setBeaches((prev) => prev.filter((beach) => beach.id !== beachId));
         toast({
           title: "Beach removed",
           description: "Beach removed from favorites.",
-        })
+        });
       } else {
         toast({
           title: "Error",
           description: "Failed to remove beach from favorites.",
           variant: "destructive",
-        })
+        });
       }
     } catch (error) {
-      console.error("Error removing favorite beach:", error)
+      console.error("Error removing favorite beach:", error);
       toast({
         title: "Error",
         description: "Failed to remove beach from favorites.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setRemoving(null)
+      setRemoving(null);
     }
-  }
+  };
+
+  const moveBeach = (index: number, direction: -1 | 1) => {
+    setBeaches((prev) => {
+      const next = prev.slice();
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return prev;
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
+  };
+
+  const saveOrder = async () => {
+    if (!user) return;
+    setSavingOrder(true);
+    try {
+      const orderedIds = beaches.map((b) => b.id);
+      const result = await reorderFavoriteBeaches(user.id, orderedIds);
+      if (result?.success) {
+        toast({ title: "Order saved", description: "Favorites updated." });
+      } else {
+        throw new Error(result?.error || "Failed to save order");
+      }
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: "Failed to save order.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingOrder(false);
+    }
+  };
 
   if (loading) {
     return (
       <div className="flex justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-    )
+    );
   }
 
   if (beaches.length === 0) {
@@ -82,15 +135,29 @@ export function FavoriteBeaches() {
       <div className="text-center py-8 text-muted-foreground">
         <p>You don't have any favorite beaches yet.</p>
         <Button variant="link" asChild>
-          <Link href="/">Explore beaches</Link>
+          <Link href="/map">Explore beaches</Link>
         </Button>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-4">
-      {beaches.map((beach) => (
+      <div className="flex justify-end">
+        <Button
+          onClick={saveOrder}
+          disabled={savingOrder}
+          variant="secondary"
+          size="sm"
+        >
+          {savingOrder ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Save Order"
+          )}
+        </Button>
+      </div>
+      {beaches.map((beach, idx) => (
         <Card key={beach.id} className="overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">{beach.name}</CardTitle>
@@ -103,7 +170,9 @@ export function FavoriteBeaches() {
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="flex items-center">
                 <Waves className="h-4 w-4 mr-1 text-blue-500" />
-                <span>Wave Quality: {beach.wave_quality_rating?.toFixed(1)}/5</span>
+                <span>
+                  Wave Quality: {beach.wave_quality_rating?.toFixed(1)}/5
+                </span>
               </div>
               <div className="flex items-center">
                 <Users className="h-4 w-4 mr-1 text-orange-500" />
@@ -119,7 +188,25 @@ export function FavoriteBeaches() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between pt-2">
+          <CardFooter className="flex justify-between items-center gap-2 pt-2">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => moveBeach(idx, -1)}
+                disabled={idx === 0}
+              >
+                Move Up
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => moveBeach(idx, 1)}
+                disabled={idx === beaches.length - 1}
+              >
+                Move Down
+              </Button>
+            </div>
             <Button variant="outline" size="sm" asChild>
               <Link href={`/beach/${beach.id}`}>View Details</Link>
             </Button>
@@ -139,5 +226,5 @@ export function FavoriteBeaches() {
         </Card>
       ))}
     </div>
-  )
+  );
 }

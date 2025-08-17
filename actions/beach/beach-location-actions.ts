@@ -1,10 +1,7 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  calculateDistanceInMiles,
-  toRadians,
-} from "@/lib/utils/distance-utils";
+import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 
 export async function getNearbyBeaches(
@@ -85,4 +82,6 @@ export async function getNearbyBeaches(
   }
 }
 
-export { calculateDistanceInMiles, toRadians };
+// Do not re-export non-async utility values from a "use server" module; this
+// causes Next.js to error in production builds. Import from
+// "@/lib/utils/distance-utils" directly where needed.

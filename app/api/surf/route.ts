@@ -1,4 +1,5 @@
-export const dynamic = "force-dynamic";
+// Note: Avoid exporting module-level constants in some environments that treat
+// API modules as "use server" files and enforce function-only exports.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSurfForecast } from "./utils";
@@ -7,6 +8,8 @@ import {
   createValidationError,
   handleApiError,
 } from "@/lib/api-utils";
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {

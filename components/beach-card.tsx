@@ -94,7 +94,7 @@ export function BeachCard({
             <span className="font-medium">
               {Number.isFinite(rating) ? (rating as number).toFixed(1) : "--"}
             </span>
-            <span className="text-muted-foreground text-sm ml-1">
+            <span className="text-muted-foreground text-sm ml-1 hidden sm:inline">
               ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
             </span>
           </div>

@@ -220,49 +220,45 @@ export function InteractiveMap({
       if (!mapRef.current || !isMapReady) return;
       try {
         console.log("populateLocations:", { latitude, longitude });
-        // Prefer public beaches list first (works even if nearby endpoint is gated),
-        // then optionally try the optimized nearby endpoint
+        // Prefer nearby endpoint first (faster and already filtered), fallback to public list
         let locations: Beach[] = [];
         try {
-          const res = await fetch("/api/beaches", {
-            headers: { Accept: "application/json" },
-          });
-          if (res.ok) {
-            const json = await res.json();
-            const all: Beach[] = json?.beaches || [];
-            const { calculateDistanceInMiles } = await import(
-              "@/lib/utils/distance-utils"
-            );
-            locations = all
-              .map((b) => ({
-                ...b,
-                _d: calculateDistanceInMiles(
-                  latitude,
-                  longitude,
-                  b.latitude,
-                  b.longitude
-                ),
-              }))
-              .filter((b: any) => isFinite(b._d) && b._d <= 30)
-              .sort((a: any, b: any) => a._d - b._d)
-              .slice(0, 20);
-            console.log("public beaches filtered:", locations.length);
-          }
-        } catch (fallbackErr) {
-          console.error("Public beaches list fetch failed", fallbackErr);
+          const response = await fetchNearbyBeaches.current(latitude, longitude);
+          locations = (response as any)?.data || [];
+          console.log("nearby beaches count:", locations.length);
+        } catch (err) {
+          console.warn("Nearby beaches API failed", err);
         }
 
-        // If we still have no locations, attempt the nearby endpoint (cached)
+        // Fallback to public beaches list and filter by distance client-side
         if (locations.length === 0) {
           try {
-            const response = await fetchNearbyBeaches.current(
-              latitude,
-              longitude
-            );
-            locations = (response as any)?.data || [];
-            console.log("nearby beaches count:", locations.length);
-          } catch (err) {
-            console.warn("Nearby beaches API failed as well", err);
+            const res = await fetch("/api/beaches", {
+              headers: { Accept: "application/json" },
+            });
+            if (res.ok) {
+              const json = await res.json();
+              const all: Beach[] = (json?.beaches || json?.data?.beaches) || [];
+              const { calculateDistanceInMiles } = await import(
+                "@/lib/utils/distance-utils"
+              );
+              locations = all
+                .map((b) => ({
+                  ...b,
+                  _d: calculateDistanceInMiles(
+                    latitude,
+                    longitude,
+                    b.latitude,
+                    b.longitude
+                  ),
+                }))
+                .filter((b: any) => isFinite(b._d) && b._d <= 30)
+                .sort((a: any, b: any) => a._d - b._d)
+                .slice(0, 20);
+              console.log("public beaches filtered:", locations.length);
+            }
+          } catch (fallbackErr) {
+            console.error("Public beaches list fetch failed", fallbackErr);
           }
         }
 
@@ -286,12 +282,19 @@ export function InteractiveMap({
                 hasData: !!data.data
               });
               
-              if (data.success && data.data?.forecasts?.length > 0) {
+              // Support both shapes: {success, data:{forecasts}} and legacy {forecasts}
+              const forecasts = Array.isArray(data?.data?.forecasts)
+                ? data.data.forecasts
+                : Array.isArray(data?.forecasts)
+                ? data.forecasts
+                : [];
+
+              if ((data.success ?? true) && forecasts.length > 0) {
                 // Use time-aware selection to get the most appropriate forecast
                 const { getCurrentForecast } = await import(
                   "@/lib/utils/current-forecast-utils"
                 );
-                const currentForecast = getCurrentForecast(data.data.forecasts) as any;
+                const currentForecast = getCurrentForecast(forecasts) as any;
 
                 console.log(`Current forecast for ${beach.name}:`, {
                   hasCurrentForecast: !!currentForecast,

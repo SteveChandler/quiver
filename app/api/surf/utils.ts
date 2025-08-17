@@ -2,11 +2,7 @@ import {
   beachCoordinates,
   beachNames,
 } from "@/lib/constants/beach-coordinates";
-import {
-  getBeachForecasts,
-  getLatestBeachForecast,
-} from "@/actions/forecast-actions";
-import { getBeaches } from "@/actions/beach-actions";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 export interface Coordinates {
   lat: number;
@@ -55,12 +51,16 @@ async function getCachedBeaches() {
     return cachedBeaches;
   }
 
-  const allBeachesResult = await getBeaches();
-  if (!allBeachesResult.success || !allBeachesResult.data) {
+  const supabase = await createSupabaseServiceRoleClient();
+  const { data, error } = await supabase
+    .from("beaches")
+    .select("id,name,latitude,longitude")
+    .order("name");
+  if (error) {
     throw new Error("Failed to fetch beaches from database");
   }
 
-  cachedBeaches = allBeachesResult.data;
+  cachedBeaches = data || [];
   cacheTimestamp = now;
   return cachedBeaches;
 }
@@ -153,6 +153,7 @@ export function resolveBeach(input: string | Coordinates): Beach {
  */
 export async function fetchForecast(lat: number, lng: number): Promise<any> {
   try {
+    const supabase = await createSupabaseServiceRoleClient();
     // Use cached beaches to reduce database calls
     const allBeaches = await getCachedBeaches();
 
@@ -177,30 +178,34 @@ export async function fetchForecast(lat: number, lng: number): Promise<any> {
     }
 
     // Get forecast for the nearest beach
-    const forecastResult = await getBeachForecasts(nearestBeach.id);
+    const today = new Date().toISOString().split("T")[0];
+    const { data: forecasts, error: forecastsError } = await supabase
+      .from("forecasts")
+      .select("*")
+      .eq("beach_id", nearestBeach.id)
+      .gte("forecast_date", today)
+      .order("forecast_date", { ascending: true })
+      .order("forecast_time", { ascending: true })
+      .limit(50);
 
-    if (
-      !forecastResult.success ||
-      !forecastResult.data ||
-      forecastResult.data.length === 0
-    ) {
+    if (forecastsError || !forecasts || forecasts.length === 0) {
       // Try to get the most recent forecast (including past forecasts)
       console.log(
         `No current forecast data for ${nearestBeach.name}, trying latest available forecast`
       );
-      const latestForecastResult = await getLatestBeachForecast(
-        nearestBeach.id
-      );
+      const { data: latest, error: latestErr } = await supabase
+        .from("forecasts")
+        .select("*")
+        .eq("beach_id", nearestBeach.id)
+        .order("forecast_date", { ascending: false })
+        .order("forecast_time", { ascending: false })
+        .limit(1);
 
-      if (
-        latestForecastResult.success &&
-        latestForecastResult.data &&
-        latestForecastResult.data.length > 0
-      ) {
+      if (!latestErr && latest && latest.length > 0) {
         console.log(
-          `Using latest available forecast for ${nearestBeach.name} from ${latestForecastResult.data[0].forecast_date}`
+          `Using latest available forecast for ${nearestBeach.name} from ${latest[0].forecast_date}`
         );
-        return latestForecastResult.data[0];
+        return latest[0];
       }
 
       // Try to find a nearby beach with forecast data (optimized search)
@@ -223,18 +228,20 @@ export async function fetchForecast(lat: number, lng: number): Promise<any> {
         .slice(0, 5); // Only check 5 closest beaches
 
       for (const beach of nearbyBeaches) {
-        const nearbyForecastResult = await getLatestBeachForecast(beach.id);
-        if (
-          nearbyForecastResult.success &&
-          nearbyForecastResult.data &&
-          nearbyForecastResult.data.length > 0
-        ) {
+        const { data: nearLatest, error: nearErr } = await supabase
+          .from("forecasts")
+          .select("*")
+          .eq("beach_id", beach.id)
+          .order("forecast_date", { ascending: false })
+          .order("forecast_time", { ascending: false })
+          .limit(1);
+        if (!nearErr && nearLatest && nearLatest.length > 0) {
           console.log(
             `Using forecast from nearby ${beach.name} (${beach.distance.toFixed(
               1
             )} km away) from ${nearbyForecastResult.data[0].forecast_date}`
           );
-          return nearbyForecastResult.data[0];
+          return nearLatest[0];
         }
       }
 
@@ -247,7 +254,7 @@ export async function fetchForecast(lat: number, lng: number): Promise<any> {
       );
     }
 
-    return forecastResult.data[0]; // Use first forecast entry
+    return forecasts[0]; // Use first forecast entry
   } catch (error) {
     console.error("Error in fetchForecast:", error);
     throw error;

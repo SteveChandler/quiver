@@ -1,5 +1,10 @@
 ### Added
 
+- Post-signup verification modal on `auth/sign-up` using `components/ui/dialog`.
+
+  - In `components/auth/sign-up-form.tsx`, successful signup now shows a modal instructing users to verify their email and provides a CTA to go to `Sign In`.
+  - Aligns with `components/ARCHITECTURE.md` UI composition patterns.
+
 - Recommendations v1 scaffold:
 
   - Pure scorer in `lib/utils/recommendation-scorer.ts` using beach preference fields
@@ -48,6 +53,14 @@
 
 - Beach page recommendations card now wired with beach context. `app/beach/[id]/page.tsx` passes `beachId`, `lat`, `lon`, and optional `regionId` into `CoachCard`, and sets `key={beach.id}` to prevent reuse across beaches. `components/recommendations/coach-card.tsx` accepts these optional props and includes them in fetch dependencies, following `hooks/ARCHITECTURE.md` `useDataFetcher` pattern.
 
+- Favorites ranking and primary beach behavior:
+
+  - Migration `20250817120000_add_rank_to_favorite_beaches.sql` adds `rank` to `favorite_beaches` and backfills sequential ranks; index on `(user_id, rank)`.
+  - `actions/beach/beach-favorite-actions.ts`: favorites now ordered by `rank`; assign rank on add; new `reorderFavoriteBeaches` and `getTopFavoriteBeach` actions.
+  - `components/favorite-beaches.tsx`: added Move Up/Down buttons and Save Order to persist ranks.
+  - `components/beach-detail.tsx`: displays a Favorite button in quick actions area.
+  - `hooks/use-cached-profile.ts`: prefers the top-ranked favorite as `defaultBeach` before legacy `favorite_spot`/`default_beach_id`.
+
 - Added beach-scoped coach picks endpoint and server action:
 
   - New server function `actions/recommendations/coach-pick-actions.ts#getCoachPicksForBeach` calling RPC `get_coach_picks(_beach_id, _radius_km)` using `withDatabaseOperation`.
@@ -63,6 +76,14 @@
 
 - Local Intel section on beach pages now uses `components/intel/beach-intel-section.tsx` backed by `/api/intel` and `get_nearby_intel_posts` RPC. Removed check-ins view from this section to surface intel posts, confirmations, and tagging. Followed `hooks/ARCHITECTURE.md` data fetching with `useDataFetcher` via `useIntelData`.
 
+- Local Intel deep link and inline expansion:
+
+  - Beach page supports `?section=intel` (and `#intel`) to auto-open and scroll to the Local Intel section.
+  - Added inline “View all” → “Show less” toggle to expand/collapse all intel posts without leaving the page.
+  - `components/beach-detail.tsx` reads query/hash via `useSearchParams` and passes `initialShowAll` when `show=all`.
+  - `components/intel/beach-intel-section.tsx` now accepts `initialShowAll` and renders all posts when requested.
+  - Follows `hooks/ARCHITECTURE.md` data fetching and `components/ARCHITECTURE.md` client-navigation patterns.
+
 - Fixed: `session_invitations` RLS blocked inbox queries by referencing `auth.users`. Replaced with JWT email claim in policies:
   - SELECT: `invitee_id = auth.uid() OR invitee_email = (auth.jwt() ->> 'email')`
   - UPDATE: same USING/WITH CHECK. Migration `20250811153000_fix_session_invitations_rls.sql`.
@@ -70,6 +91,8 @@
 ### Fixed
 
 - Map page no longer fails to show nearby beach forecasts for non-admin users. Made `GET /api/beaches/nearby` public-read (minimal fields) and added a client-side fallback in `components/map/interactive-map.tsx` to filter from `/api/beaches` when needed, restoring Ocean Beach/Mission/Sunset markers and badges.
+- Corrected `date-fns-tz` v3 import usage in `app/api/recommendations/morning/route.ts` (`toZonedTime`/`fromZonedTime`), fixing Vercel build import errors
+- Resolved Next.js "use server" export violation by exporting a server action function for `getTopFavoriteBeach` in `actions/beach/beach-favorite-actions.ts`
 
 - Coach Picks showing Orange County spots for San Diego beaches: enforced strict 30 km radius.
 
@@ -202,6 +225,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Map beach card review count no longer wraps on very small screens. Added responsive class `hidden sm:inline` to the review count text in `components/beach-card.tsx` so rating stays on a single line on devices < 360px.
+
 ### Removed
 
 - Dead code cleanup (minor):
@@ -210,6 +237,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Profile: Updated "Explore beaches" empty-state link to navigate to `/map` instead of `/` in `components/favorite-beaches.tsx`. Added unit test `__tests__/components/favorite-beaches.test.tsx` to verify link target. Follows App Router internal navigation via `next/link` per `app/ARCHITECTURE.md`.
 - Development dependencies:
   - Removed unused dev dependency `supabase`
   - Added missing test dev dependencies: `@jest/globals`, `node-mocks-http`

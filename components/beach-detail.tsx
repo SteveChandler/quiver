@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { MapPin, MessageSquare, Waves, Star } from "lucide-react";
 import { SpotOverview } from "@/components/beach-detail/spot-overview";
+import { FavoriteButton } from "@/components/favorite-button";
 // Replacing BeachCheckIns with BeachIntelSection in Local Intel section
 import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
 import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
@@ -36,6 +37,7 @@ interface BeachDetailProps {
 
 export function BeachDetail({ id }: BeachDetailProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Persisted accordion open/closed sections (Spot Overview default open)
@@ -51,6 +53,39 @@ export function BeachDetail({ id }: BeachDetailProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Deep-link support to open Intel section and optional expand-all
+  useEffect(() => {
+    // Prefer query param, fallback to hash
+    const sectionParam = searchParams?.get("section");
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+
+    const wantsIntel = sectionParam === "intel" || hash === "#intel";
+    if (wantsIntel) {
+      // Ensure intel is open
+      if (!openSections.includes("intel")) {
+        setOpenSections([...(openSections || []), "intel"]);
+      }
+      // Scroll into view after layout settles, accounting for sticky header
+      const stickyOffset = 80; // px; header + spacing
+      setTimeout(() => {
+        const el =
+          document.getElementById("intel") ||
+          document.getElementById("intel-section");
+        if (el) {
+          try {
+            const url = new URL(window.location.href);
+            url.hash = "intel";
+            window.history.replaceState({}, "", url.toString());
+          } catch {}
+          const y =
+            el.getBoundingClientRect().top + window.scrollY - stickyOffset;
+          window.scrollTo({ top: y, behavior: "smooth" });
+        }
+      }, 120);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
@@ -142,7 +177,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
   // Process data for display - memoized to prevent unnecessary recalculations
   const forecastsByDate = useMemo(() => {
     const grouped: Record<string, EnhancedForecastEntity[]> = {};
-    
+
     if (forecasts && Array.isArray(forecasts) && forecasts.length > 0) {
       console.log("📊 Processing forecasts:", {
         totalForecasts: forecasts.length,
@@ -162,21 +197,22 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
       console.log("📅 Grouped forecasts by date:", {
         dates: Object.keys(grouped),
-        forecastsPerDate: Object.entries(grouped).map(
-          ([date, forecasts]) => ({
-            date,
-            count: forecasts.length,
-            firstForecast: forecasts[0]?.wave_height,
-          })
-        ),
+        forecastsPerDate: Object.entries(grouped).map(([date, forecasts]) => ({
+          date,
+          count: forecasts.length,
+          firstForecast: forecasts[0]?.wave_height,
+        })),
       });
     }
-    
+
     return grouped;
   }, [forecasts]);
 
   // Get the first day's forecast for overview
-  const sortedDates = useMemo(() => Object.keys(forecastsByDate).sort(), [forecastsByDate]);
+  const sortedDates = useMemo(
+    () => Object.keys(forecastsByDate).sort(),
+    [forecastsByDate]
+  );
 
   if (loading) {
     return (
@@ -231,6 +267,11 @@ export function BeachDetail({ id }: BeachDetailProps) {
         <h1 className="text-3xl md:text-4xl font-roboto font-extrabold mb-8 text-center bg-gradient-to-r from-ocean-blue to-blue-600 bg-clip-text text-transparent">
           {beach.name}
         </h1>
+
+        {/* Quick actions: Favorite */}
+        <div className="flex justify-end mb-4">
+          <FavoriteButton beachId={beach.id} variant="outline" size="sm" />
+        </div>
 
         {/* Today's Overview (compact metrics) */}
         {forecasts && forecasts.length > 0 && (
@@ -313,23 +354,28 @@ export function BeachDetail({ id }: BeachDetailProps) {
               </span>
             </AccordionTrigger>
             <AccordionContent>
-              <ForecastAndTides beach={beach as Beach} forecasts={forecasts || []} />
+              <ForecastAndTides
+                beach={beach as Beach}
+                forecasts={forecasts || []}
+              />
             </AccordionContent>
           </AccordionItem>
 
           {/* Local Intel */}
-          <AccordionItem value="intel">
+          <AccordionItem value="intel" id="intel-section">
             <AccordionTrigger className="text-lg">
               <span className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" /> Local Intel
               </span>
             </AccordionTrigger>
-            <AccordionContent>
+            <AccordionContent id="intel" className="scroll-mt-24">
               <BeachIntelSection
                 beachId={id}
                 beachName={beach.name}
                 latitude={beach.latitude}
                 longitude={beach.longitude}
+                navigateOnViewAll={false}
+                initialShowAll={searchParams?.get("show") === "all"}
               />
             </AccordionContent>
           </AccordionItem>
