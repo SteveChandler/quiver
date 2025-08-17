@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = createAPIServerClient();

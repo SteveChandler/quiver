@@ -7,6 +7,8 @@ import {
 } from "@/lib/services/noaa-tide-service";
 import SunCalc from "suncalc";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);

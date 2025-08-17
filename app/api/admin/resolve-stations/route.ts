@@ -4,6 +4,8 @@ import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { CDIPService } from "@/lib/services/cdip-service";
 import { getNearestNDBCStation } from "@/lib/services/ndbc-service";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
