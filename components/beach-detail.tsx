@@ -66,21 +66,23 @@ export function BeachDetail({ id }: BeachDetailProps) {
       if (!openSections.includes("intel")) {
         setOpenSections([...(openSections || []), "intel"]);
       }
-      // Scroll into view after next paint
+      // Scroll into view after layout settles, accounting for sticky header
+      const stickyOffset = 80; // px; header + spacing
       setTimeout(() => {
         const el =
           document.getElementById("intel") ||
           document.getElementById("intel-section");
         if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
-          // Ensure hash reflects the anchor for consistent behavior on reload/back
           try {
             const url = new URL(window.location.href);
             url.hash = "intel";
             window.history.replaceState({}, "", url.toString());
           } catch {}
+          const y =
+            el.getBoundingClientRect().top + window.scrollY - stickyOffset;
+          window.scrollTo({ top: y, behavior: "smooth" });
         }
-      }, 50);
+      }, 120);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
