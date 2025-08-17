@@ -11,4 +11,6 @@ export {
   getFavoriteBeaches,
   addFavoriteBeach,
   removeFavoriteBeach,
+  reorderFavoriteBeaches,
+  getTopFavoriteBeach,
 } from "./beach/beach-favorite-actions";

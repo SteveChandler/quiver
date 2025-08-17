@@ -53,6 +53,14 @@
 
 - Beach page recommendations card now wired with beach context. `app/beach/[id]/page.tsx` passes `beachId`, `lat`, `lon`, and optional `regionId` into `CoachCard`, and sets `key={beach.id}` to prevent reuse across beaches. `components/recommendations/coach-card.tsx` accepts these optional props and includes them in fetch dependencies, following `hooks/ARCHITECTURE.md` `useDataFetcher` pattern.
 
+- Favorites ranking and primary beach behavior:
+
+  - Migration `20250817120000_add_rank_to_favorite_beaches.sql` adds `rank` to `favorite_beaches` and backfills sequential ranks; index on `(user_id, rank)`.
+  - `actions/beach/beach-favorite-actions.ts`: favorites now ordered by `rank`; assign rank on add; new `reorderFavoriteBeaches` and `getTopFavoriteBeach` actions.
+  - `components/favorite-beaches.tsx`: added Move Up/Down buttons and Save Order to persist ranks.
+  - `components/beach-detail.tsx`: displays a Favorite button in quick actions area.
+  - `hooks/use-cached-profile.ts`: prefers the top-ranked favorite as `defaultBeach` before legacy `favorite_spot`/`default_beach_id`.
+
 - Added beach-scoped coach picks endpoint and server action:
 
   - New server function `actions/recommendations/coach-pick-actions.ts#getCoachPicksForBeach` calling RPC `get_coach_picks(_beach_id, _radius_km)` using `withDatabaseOperation`.
@@ -207,6 +215,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Map beach card review count no longer wraps on very small screens. Added responsive class `hidden sm:inline` to the review count text in `components/beach-card.tsx` so rating stays on a single line on devices < 360px.
+
 ### Removed
 
 - Dead code cleanup (minor):
@@ -215,6 +227,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Profile: Updated "Explore beaches" empty-state link to navigate to `/map` instead of `/` in `components/favorite-beaches.tsx`. Added unit test `__tests__/components/favorite-beaches.test.tsx` to verify link target. Follows App Router internal navigation via `next/link` per `app/ARCHITECTURE.md`.
 - Development dependencies:
   - Removed unused dev dependency `supabase`
   - Added missing test dev dependencies: `@jest/globals`, `node-mocks-http`

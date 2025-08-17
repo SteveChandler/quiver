@@ -25,6 +25,7 @@ import {
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { MapPin, MessageSquare, Waves, Star } from "lucide-react";
 import { SpotOverview } from "@/components/beach-detail/spot-overview";
+import { FavoriteButton } from "@/components/favorite-button";
 // Replacing BeachCheckIns with BeachIntelSection in Local Intel section
 import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
 import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
@@ -142,7 +143,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
   // Process data for display - memoized to prevent unnecessary recalculations
   const forecastsByDate = useMemo(() => {
     const grouped: Record<string, EnhancedForecastEntity[]> = {};
-    
+
     if (forecasts && Array.isArray(forecasts) && forecasts.length > 0) {
       console.log("📊 Processing forecasts:", {
         totalForecasts: forecasts.length,
@@ -162,21 +163,22 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
       console.log("📅 Grouped forecasts by date:", {
         dates: Object.keys(grouped),
-        forecastsPerDate: Object.entries(grouped).map(
-          ([date, forecasts]) => ({
-            date,
-            count: forecasts.length,
-            firstForecast: forecasts[0]?.wave_height,
-          })
-        ),
+        forecastsPerDate: Object.entries(grouped).map(([date, forecasts]) => ({
+          date,
+          count: forecasts.length,
+          firstForecast: forecasts[0]?.wave_height,
+        })),
       });
     }
-    
+
     return grouped;
   }, [forecasts]);
 
   // Get the first day's forecast for overview
-  const sortedDates = useMemo(() => Object.keys(forecastsByDate).sort(), [forecastsByDate]);
+  const sortedDates = useMemo(
+    () => Object.keys(forecastsByDate).sort(),
+    [forecastsByDate]
+  );
 
   if (loading) {
     return (
@@ -231,6 +233,11 @@ export function BeachDetail({ id }: BeachDetailProps) {
         <h1 className="text-3xl md:text-4xl font-roboto font-extrabold mb-8 text-center bg-gradient-to-r from-ocean-blue to-blue-600 bg-clip-text text-transparent">
           {beach.name}
         </h1>
+
+        {/* Quick actions: Favorite */}
+        <div className="flex justify-end mb-4">
+          <FavoriteButton beachId={beach.id} variant="outline" size="sm" />
+        </div>
 
         {/* Today's Overview (compact metrics) */}
         {forecasts && forecasts.length > 0 && (
@@ -313,7 +320,10 @@ export function BeachDetail({ id }: BeachDetailProps) {
               </span>
             </AccordionTrigger>
             <AccordionContent>
-              <ForecastAndTides beach={beach as Beach} forecasts={forecasts || []} />
+              <ForecastAndTides
+                beach={beach as Beach}
+                forecasts={forecasts || []}
+              />
             </AccordionContent>
           </AccordionItem>
 

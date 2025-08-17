@@ -55,6 +55,14 @@ export type Beach = {
   updated_at: string;
 };
 
+export type FavoriteBeach = {
+  id: string;
+  user_id: string;
+  beach_id: string;
+  rank?: number | null;
+  created_at: string;
+};
+
 export type Board = {
   id: string;
   user_id: string;
@@ -494,6 +502,11 @@ export type Database = {
         Row: Profile;
         Insert: Omit<Profile, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>;
+      };
+      favorite_beaches: {
+        Row: FavoriteBeach;
+        Insert: Omit<FavoriteBeach, "id" | "created_at">;
+        Update: Partial<Omit<FavoriteBeach, "id" | "created_at">>;
       };
       beach_reviews: {
         Row: BeachReview;
