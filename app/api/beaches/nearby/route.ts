@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
-import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
+// Import directly from util to avoid pulling a "use server" module here
+import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   createSuccessResponse,
   createValidationError,
@@ -19,24 +21,34 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Public read-only access: return minimal location fields only
-    const result = await getNearbyBeaches(latitude, longitude, maxDistance);
+    const supabase = await createSupabaseServerClient();
+    const { data: allBeaches, error: fallbackError } = await supabase
+      .from("beaches")
+      .select("id, name, latitude, longitude");
 
-    if (result.success && result.data) {
-      // Transform to match Ruby controller JSON format: { id, latitude, longitude, name }
-      const locationsJson = result.data.slice(0, limit).map((beach) => ({
-        id: beach.id,
-        latitude: beach.latitude,
-        longitude: beach.longitude,
-        name: beach.name,
+    if (fallbackError) throw fallbackError;
+
+    const filtered = (allBeaches || [])
+      .map((b: any) => ({
+        ...b,
+        distance: calculateDistanceInMiles(
+          latitude,
+          longitude,
+          b.latitude,
+          b.longitude
+        ),
+      }))
+      .filter((b: any) => isFinite(b.distance) && b.distance <= maxDistance)
+      .sort((a: any, b: any) => a.distance - b.distance)
+      .slice(0, limit)
+      .map((b: any) => ({
+        id: b.id,
+        latitude: b.latitude,
+        longitude: b.longitude,
+        name: b.name,
       }));
 
-      return createSuccessResponse(locationsJson);
-    } else {
-      return handleApiError(
-        new Error(result.error || "Failed to fetch nearby beaches")
-      );
-    }
+    return createSuccessResponse(filtered);
   } catch (error) {
     console.error("Error fetching nearby beaches:", error);
     return handleApiError(error, "Error fetching nearby beaches");

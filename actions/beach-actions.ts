@@ -3,8 +3,6 @@ export { getBeaches, getBeachById } from "./beach/beach-query-actions";
 
 export {
   getNearbyBeaches,
-  calculateDistanceInMiles,
-  toRadians,
 } from "./beach/beach-location-actions";
 
 export {
