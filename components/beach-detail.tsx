@@ -68,9 +68,17 @@ export function BeachDetail({ id }: BeachDetailProps) {
       }
       // Scroll into view after next paint
       setTimeout(() => {
-        const el = document.getElementById("intel-section");
+        const el =
+          document.getElementById("intel") ||
+          document.getElementById("intel-section");
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "start" });
+          // Ensure hash reflects the anchor for consistent behavior on reload/back
+          try {
+            const url = new URL(window.location.href);
+            url.hash = "intel";
+            window.history.replaceState({}, "", url.toString());
+          } catch {}
         }
       }, 50);
     }
@@ -358,7 +366,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 <MessageSquare className="h-4 w-4" /> Local Intel
               </span>
             </AccordionTrigger>
-            <AccordionContent>
+            <AccordionContent id="intel" className="scroll-mt-24">
               <BeachIntelSection
                 beachId={id}
                 beachName={beach.name}
