@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,7 @@ interface BeachIntelSectionProps {
   longitude: number;
   className?: string;
   initialShowAll?: boolean;
+  navigateOnViewAll?: boolean; // when true, clicking View all navigates to beach page
 }
 
 export function BeachIntelSection({
@@ -53,7 +55,9 @@ export function BeachIntelSection({
   longitude,
   className = "",
   initialShowAll = false,
+  navigateOnViewAll = true,
 }: BeachIntelSectionProps) {
+  const router = useRouter();
   const [showPostForm, setShowPostForm] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<boolean>(initialShowAll);
@@ -239,7 +243,13 @@ export function BeachIntelSection({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setShowAll((v) => !v)}
+                    onClick={() => {
+                      if (!showAll && navigateOnViewAll) {
+                        router.push(`/beach/${beachId}?section=intel&show=all`);
+                        return;
+                      }
+                      setShowAll((v) => !v);
+                    }}
                     className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
                   >
                     {showAll ? (

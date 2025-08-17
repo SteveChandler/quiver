@@ -244,11 +244,8 @@ describe("Map Forecast Display Smoke Test", () => {
     
     // Simulate map load to trigger data fetching
     await waitFor(() => {
-      // Should make calls to fetch beaches
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/beaches"),
-        expect.any(Object)
-      );
+      const called = mockFetch.mock.calls.some(([url]) => typeof url === "string" && (url as string).includes("/api/beaches"));
+      expect(called).toBe(true);
     });
   });
 

@@ -364,6 +364,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 beachName={beach.name}
                 latitude={beach.latitude}
                 longitude={beach.longitude}
+                navigateOnViewAll={false}
                 initialShowAll={searchParams?.get("show") === "all"}
               />
             </AccordionContent>

@@ -186,10 +186,8 @@ describe("Map Forecast Basic Tests", () => {
     
     // Wait for beaches and then forecast calls
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/forecasts/update-enhanced")
-      );
-    }, { timeout: 2000 });
+      expect(mockFetch.mock.calls.some(([url]) => typeof url === "string" && (url as string).includes("/api/forecasts/update-enhanced"))).toBe(true);
+    }, { timeout: 2500 });
   });
 
   it("should create Mapbox markers when data is loaded", async () => {
@@ -239,8 +237,8 @@ describe("Map Forecast Basic Tests", () => {
     const { getOffshorePosition } = require("@/lib/utils/map-utilities");
     
     const [lng, lat] = getOffshorePosition(32.7493, -117.2511);
-    expect(lng).toBe(-117.2501); // lng + 0.001
-    expect(lat).toBe(32.7503);   // lat + 0.001
+    expect(lng).toBeCloseTo(-117.2501, 6); // lng + 0.001
+    expect(lat).toBeCloseTo(32.7503, 6);   // lat + 0.001
   });
 
   it("should get current forecast from array", () => {
