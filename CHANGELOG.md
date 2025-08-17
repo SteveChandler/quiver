@@ -1,5 +1,10 @@
 ### Added
 
+- Post-signup verification modal on `auth/sign-up` using `components/ui/dialog`.
+
+  - In `components/auth/sign-up-form.tsx`, successful signup now shows a modal instructing users to verify their email and provides a CTA to go to `Sign In`.
+  - Aligns with `components/ARCHITECTURE.md` UI composition patterns.
+
 - Recommendations v1 scaffold:
 
   - Pure scorer in `lib/utils/recommendation-scorer.ts` using beach preference fields
