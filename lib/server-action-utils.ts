@@ -1,4 +1,6 @@
-"use server";
+// Note: Do not mark this utility module with "use server" to avoid build-time
+// restrictions that require every export to be an async function. Individual
+// server actions and returned functions include "use server" where required.
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { User } from "@supabase/supabase-js";
