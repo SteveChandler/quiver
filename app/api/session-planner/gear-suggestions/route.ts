@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createAPIServerClient, getAuthenticatedAPIClient } from "@/lib/supabase/api-server-client";
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -34,7 +34,7 @@ interface GearSuggestionsResponse {
   conditions: {
     waveHeight: number;
     windSpeed: number;
-    beachId: string;
+    beachId: string | null;
   };
   suggestions: BoardSuggestion[];
   analysisResults: {
@@ -64,14 +64,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = await createSupabaseServerClient();
-
-    // Get the current user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-    if (userError || !user) {
+    // Use API-specific Supabase client to ensure cookies are correctly read in API routes
+    const { supabase, user, error: authError } = await getAuthenticatedAPIClient();
+    if (authError || !supabase || !user) {
       return createErrorResponse("Authentication required", null, 401);
     }
 
