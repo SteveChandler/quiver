@@ -9,6 +9,8 @@
 **Business Status**: 🚨 **CRITICAL** - 0 active users despite comprehensive feature set  
 **Strategic Priority**: User acquisition and viral growth over technical perfection
 
+See also: `docs/DESIGN_PRINCIPLES.md` for the canonical design principles that underpin this review.
+
 ### ⭐ **Latest Major Achievements**
 
 #### **Complete Social Platform Implementation** (✅ COMPLETE)

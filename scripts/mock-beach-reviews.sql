@@ -9,21 +9,21 @@
 
 DO $$
 DECLARE
-  -- Persona user IDs (ensure these exist in auth.users and profiles)
-  liquid_snake_id UUID := '23233d36-97f9-4322-8b36-113c880b841f'::UUID;
-  big_boss_id UUID := '16b87cb1-34b6-434d-820c-0bc4e0927f5b'::UUID;
-  solid_snake_id UUID := '638edbd2-7fd3-49b5-8129-84456764df4c'::UUID;
-  rookie_riley_id UUID := '05f3d22c-a282-4252-bb54-64dcb74a83dd'::UUID;
-  local_larry_id UUID := '382c284f-e36d-43cd-8e44-0930544db459'::UUID;
-  travel_tina_id UUID := '701beae0-96aa-43d4-a29a-4353ead6ea24'::UUID;
-  photo_paul_id UUID := '31d78eb7-357e-444e-88cd-d728ebf4f1ae'::UUID;
-  dawn_dana_id UUID := '3958e9bb-acf8-45a1-ab20-7953ec1cb0e7'::UUID;
+  -- Dynamically resolve persona user IDs from profiles
+  liquid_snake_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Liquid Snake' LIMIT 1);
+  big_boss_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Big Boss' LIMIT 1);
+  solid_snake_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Solid Snake' LIMIT 1);
+  rookie_riley_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Riley "Rookie" Rodriguez' LIMIT 1);
+  local_larry_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Larry "Local" Thompson' LIMIT 1);
+  travel_tina_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Tina "Travel" Chen' LIMIT 1);
+  photo_paul_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Paul "PhotoPro" Martinez' LIMIT 1);
+  dawn_dana_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Dana "Dawn Patrol" Wilson' LIMIT 1);
 
-  users UUID[] := ARRAY[
-    liquid_snake_id, big_boss_id, solid_snake_id,
-    rookie_riley_id, local_larry_id, travel_tina_id,
-    photo_paul_id, dawn_dana_id
-  ];
+  -- Optional: include local test user if present
+  salid_email TEXT := 'salidfingers@duck.com';
+  salid_id UUID := (SELECT id FROM auth.users WHERE email = salid_email LIMIT 1);
+
+  users UUID[] := ARRAY[]::UUID[];
 
   b RECORD;
   u UUID;
@@ -34,6 +34,21 @@ DECLARE
   ov INT; wq INT; cd INT; pr INT; ac INT;
 BEGIN
   RAISE NOTICE 'Seeding beach reviews...';
+
+  -- Build users array from available persona IDs
+  IF liquid_snake_id IS NOT NULL THEN users := users || ARRAY[liquid_snake_id]; END IF;
+  IF big_boss_id IS NOT NULL THEN users := users || ARRAY[big_boss_id]; END IF;
+  IF solid_snake_id IS NOT NULL THEN users := users || ARRAY[solid_snake_id]; END IF;
+  IF rookie_riley_id IS NOT NULL THEN users := users || ARRAY[rookie_riley_id]; END IF;
+  IF local_larry_id IS NOT NULL THEN users := users || ARRAY[local_larry_id]; END IF;
+  IF travel_tina_id IS NOT NULL THEN users := users || ARRAY[travel_tina_id]; END IF;
+  IF photo_paul_id IS NOT NULL THEN users := users || ARRAY[photo_paul_id]; END IF;
+  IF dawn_dana_id IS NOT NULL THEN users := users || ARRAY[dawn_dana_id]; END IF;
+
+  -- Append test user if available
+  IF salid_id IS NOT NULL THEN
+    users := users || ARRAY[salid_id];
+  END IF;
 
   -- Ensure base tables present
   IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'beach_reviews') THEN

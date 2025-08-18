@@ -39,11 +39,13 @@ The `/e2e` directory provides comprehensive end-to-end testing using Playwright,
 - `unauthenticated-user-flows.spec.ts` (replaced by `unauthenticated-flows-refactored.spec.ts`)
 
 ## 📏 Patterns
+
 - One file per domain; no duplicate assertions across suites
 - Flexible waits and status ranges per testing guidance
 - Mobile checks live in the domain files when needed
 
 ## 🔁 Maintenance
+
 - Add new flows under their feature domain
 - Avoid new umbrella specs; extend `comprehensive.spec.ts` only for smoke journey coverage
 
@@ -481,6 +483,12 @@ export async function testResponsiveDesign(
 - **Performance Compliance**: All pages meet performance thresholds
 - **Cross-Browser Compatibility**: Tests pass on multiple browsers
 - **Mobile Responsiveness**: Mobile-specific interaction testing
+
+## MCP Integration (Cursor)
+
+- Use the Playwright MCP server configured in `.cursor/mcp.json` to run tests and open traces from Cursor.
+- Local parity: `npx playwright test` from the repo root.
+- Prefer `waitForLoadState("load")` and development-friendly thresholds documented above.
 
 ---
 

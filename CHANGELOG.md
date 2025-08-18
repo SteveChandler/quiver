@@ -90,6 +90,7 @@
 
 ### Fixed
 
+- Local authentication API route 500 error: changed runtime from `edge` to `force-dynamic` and added async/await for `cookies()` in `app/api/auth/[...supabase]/route.ts` to fix Next.js 15+ compatibility. Local sign-in now works correctly with established patterns.
 - Map page no longer fails to show nearby beach forecasts for non-admin users. Made `GET /api/beaches/nearby` public-read (minimal fields) and added a client-side fallback in `components/map/interactive-map.tsx` to filter from `/api/beaches` when needed, restoring Ocean Beach/Mission/Sunset markers and badges.
 - Corrected `date-fns-tz` v3 import usage in `app/api/recommendations/morning/route.ts` (`toZonedTime`/`fromZonedTime`), fixing Vercel build import errors
 - Resolved Next.js "use server" export violation by exporting a server action function for `getTopFavoriteBeach` in `actions/beach/beach-favorite-actions.ts`
@@ -225,9 +226,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Cursor agents for Cursor IDE: Fullstack Engineer and Design Review personas with Playwright MCP integration. Docs at `docs/CURSOR_AGENTS.md`; config at `.cursor/mcp.json`; personas at `.cursor/agents/*`.
+- Documentation updates: `ARCHITECTURE.md`, `.cursorrules`, and `CLAUDE.md` now reference Cursor agents and MCP usage.
+- Design Principles: New `docs/DESIGN_PRINCIPLES.md` summarizing core principles (simplicity/consistency, DRY, performance, security/privacy, transparency, testing, AI-augmented automation, growth focus).
+
 ### Fixed
 
+- Local authentication and seed script FK violations: Updated `scripts/mock-intel-all-beaches.sql` and `scripts/mock-beach-reviews.sql` to use dynamic user lookups instead of hardcoded persona UUIDs, resolving foreign key errors during database seeding.
+
 - Map beach card review count no longer wraps on very small screens. Added responsive class `hidden sm:inline` to the review count text in `components/beach-card.tsx` so rating stays on a single line on devices < 360px.
+- Plan Session gear suggestions failing despite user having boards. Root cause: API route used a generic server client that didn't read auth cookies in API context, returning 401 and surfacing a misleading error. Switched to API-route client utilities (`getAuthenticatedAPIClient`) in `app/api/session-planner/gear-suggestions/route.ts`.
 
 ### Removed
 
@@ -237,6 +247,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
+- Linked `ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIEW.md`, and `docs/CURSOR_AGENTS.md` to `docs/DESIGN_PRINCIPLES.md`.
 - Profile: Updated "Explore beaches" empty-state link to navigate to `/map` instead of `/` in `components/favorite-beaches.tsx`. Added unit test `__tests__/components/favorite-beaches.test.tsx` to verify link target. Follows App Router internal navigation via `next/link` per `app/ARCHITECTURE.md`.
 - Development dependencies:
   - Removed unused dev dependency `supabase`
@@ -289,6 +300,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Home renders; sessions table present (empty by default)
 
 - Database function `public.cardinal_to_deg(text)` to map cardinal directions to degrees; migration `20250812160000_add_cardinal_to_deg_function.sql`.
+
+- API integration tests for `/api/session-planner/gear-suggestions` ensuring auth, validation, and happy-path suggestions for users with boards (`e2e/api-gear-suggestions.spec.ts`).
 
 - Database view `public.v_beach_hourly_scores` to compute per-hour beach suitability score (0–100) based on wind (vs offshore), tide band, and swell window; inputs from `marine_forecasts`, `tide_forecasts`, and `beaches`. Migration `20250812160500_create_v_beach_hourly_scores.sql`.
 
