@@ -53,7 +53,14 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const beachId = searchParams.get("beachId");
-    const days = parseInt(searchParams.get("days") || "10");
+    const rawDays = searchParams.get("days");
+    let days = 10;
+    if (rawDays != null) {
+      const parsed = parseInt(rawDays as string, 10);
+      if (!Number.isNaN(parsed) && parsed > 0 && parsed <= 30) {
+        days = parsed;
+      }
+    }
 
     if (!beachId) {
       return createErrorResponse("Beach ID is required", null, 400);
@@ -64,7 +71,7 @@ export async function GET(request: NextRequest) {
     );
 
     // First, try to get existing forecasts
-    let data = await fetchBeachForecasts(beachId, days);
+    let data = (await fetchBeachForecasts(beachId, days)) || { forecasts: [] };
 
     // Check if data is stale or missing
     const hasData = data.forecasts && data.forecasts.length > 0;
@@ -90,11 +97,16 @@ export async function GET(request: NextRequest) {
       await updateBeachForecast(beachId);
 
       // Fetch the newly generated data
-      data = await fetchBeachForecasts(beachId, days);
+      data = (await fetchBeachForecasts(beachId, days)) || { forecasts: [] };
 
       // Verify we actually got fresh data
       if (!data.forecasts || data.forecasts.length === 0) {
-        throw new Error("Failed to generate fresh forecast data");
+        // Gracefully return empty data instead of throwing to allow clients to render placeholders
+        return createSuccessResponse({
+          beachId,
+          days,
+          forecasts: [],
+        });
       }
 
       console.log(

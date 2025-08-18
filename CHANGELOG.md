@@ -244,6 +244,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Dependencies for Open Graph/image generation and testing
+
+  - Runtime: `satori`, `@resvg/resvg-js`, `@vercel/og`, `zod`, `file-type`
+  - Dev: `vitest`, `msw`, `playwright` (Testing Library packages were already present)
+
+- Utility `lib/social-share-utils.ts` implementing Satori/ResVG OG image rendering
+
+  - `loadFonts()` with graceful fallback from `public/fonts`
+  - `formatSessionForShare()` for consistent strings (beach, date/time, waves)
+  - `getTemplate(session, variant)` returning React element with brand gradient and watermark
+  - `renderShareImage(session, variant)` returning `{ png, w, h }`
+
+- API: `GET /api/social/share/og` Node runtime route for share images
+
+  - Validates `sessionId`, `variant`, optional `t` signature via zod
+  - HMAC signature verification with `SOCIAL_SHARE_SECRET`
+  - Fetches session via Supabase service-role; enforces visibility/allow_sharing
+  - Returns PNG with long-lived CDN cache
+
 - Local dev bootstrapping and data ingestion
 
   - Baseline migrations for core tables: `profiles`, `beaches`, `sessions`, `boards`

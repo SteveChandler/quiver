@@ -73,10 +73,14 @@ global.fetch = jest.fn(() =>
 if (typeof Request === "undefined") {
   global.Request = class Request {
     constructor(url, options = {}) {
-      this.url = url;
+      this._url = url;
       this.method = options.method || "GET";
       this.headers = new Map(Object.entries(options.headers || {}));
       this.body = options.body || null;
+    }
+
+    get url() {
+      return this._url;
     }
 
     async json() {
@@ -96,6 +100,17 @@ if (typeof Response === "undefined") {
 
     async json() {
       return JSON.parse(this.body);
+    }
+
+    static json(body, options = {}) {
+      const str = typeof body === "string" ? body : JSON.stringify(body);
+      return new global.Response(str, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {}),
+        },
+      });
     }
   };
 }
