@@ -71,11 +71,8 @@ test.describe("Session Logging", () => {
   test("should show validation errors for required fields", async ({
     page,
   }) => {
-    // Skip if not authenticated
-    const authState = await handleAuthRedirect(page);
-    if (authState.isAuthPage) {
-      // Authentication is handled by global setup
-    }
+    // Check authentication
+    await handleAuthRedirect(page);
 
     // Try to submit form without filling required fields
     const submitButton = page
@@ -177,12 +174,7 @@ test.describe("Session Logging", () => {
     page,
   }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping beach selection tests");
-    }
+    await handleAuthRedirect(page);
 
     const beachField = page
       .getByLabel(/beach/i)
@@ -214,12 +206,7 @@ test.describe("Session Logging", () => {
 
   test("should handle board selection from user quiver", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping board selection tests");
-    }
+    await handleAuthRedirect(page);
 
     const boardField = page
       .getByLabel(/board/i)
@@ -242,12 +229,7 @@ test.describe("Session Logging", () => {
 
   test("should allow setting session duration", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping duration tests");
-    }
+    await handleAuthRedirect(page);
 
     // Look for duration field (could be separate start/end times or duration)
     const durationField = page
@@ -271,12 +253,7 @@ test.describe("Session Logging", () => {
     page,
   }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping rating tests");
-    }
+    await handleAuthRedirect(page);
 
     // Look for rating controls (stars, numbers, or quality selectors)
     const ratingStars = page.locator(
@@ -297,11 +274,8 @@ test.describe("Session Logging", () => {
   });
 
   test("should successfully submit session log", async ({ page }) => {
-    // Skip if not authenticated
-    const authState = await handleAuthRedirect(page);
-    if (authState.isAuthPage) {
-      test.skip("User not authenticated - skipping submission tests");
-    }
+    // Check authentication
+    await handleAuthRedirect(page);
 
     // Fill out minimum required fields
     const beachField = page
@@ -336,7 +310,7 @@ test.describe("Session Logging", () => {
         console.log(
           "Submit button still disabled - may need more required fields"
         );
-        test.skip("Form validation requires more fields than provided");
+        throw new Error("Form validation requires more fields than provided - test form data incomplete");
       } else {
         await safeClick(submitButton);
 
@@ -363,12 +337,7 @@ test.describe("Session Logging", () => {
 
   test("should handle form cancellation", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping cancellation tests");
-    }
+    await handleAuthRedirect(page);
 
     // Look for cancel button
     const cancelButton = page.getByRole("button", { name: /cancel|back/i });
@@ -388,12 +357,7 @@ test.describe("Session Logging", () => {
 
   test("should validate date field constraints", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping date validation tests");
-    }
+    await handleAuthRedirect(page);
 
     const dateField = page
       .getByLabel(/date/i)
@@ -431,10 +395,7 @@ test.describe("Session Logging", () => {
     test("should convert planned session to completed session", async ({
       page,
     }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping session conversion tests");
-      }
+      await handleAuthRedirect(page);
 
       // Create a planned session first
       try {
@@ -452,12 +413,10 @@ test.describe("Session Logging", () => {
           await journalTab.click();
           await page.waitForTimeout(2000);
 
-          // Look for planned sessions section
-          const plannedSessionsSection = page.getByText(
-            /planned|upcoming|future/i
-          );
-          if (await plannedSessionsSection.isVisible()) {
-            await plannedSessionsSection.click();
+          // Look for planned sessions tab specifically (avoid strict mode violation)
+          const plannedSessionsTab = page.getByRole("tab", { name: /planned/i });
+          if (await plannedSessionsTab.isVisible()) {
+            await plannedSessionsTab.click();
             await page.waitForTimeout(1000);
           }
 
@@ -536,11 +495,9 @@ test.describe("Session Logging", () => {
                   expect(hasSuccess).toBeTruthy();
 
                   // Session should move from planned to completed
-                  const completedSection = page.getByText(
-                    /completed|logged|journal/i
-                  );
-                  if (await completedSection.isVisible()) {
-                    await completedSection.click();
+                  const completedTab = page.getByRole("tab", { name: /completed|logged/i });
+                  if (await completedTab.isVisible()) {
+                    await completedTab.click();
                     await page.waitForTimeout(1000);
 
                     const convertedSession = page.getByText(
@@ -564,12 +521,7 @@ test.describe("Session Logging", () => {
     test("should preserve planned session data during conversion", async ({
       page,
     }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip(
-          "User not authenticated - skipping session data preservation tests"
-        );
-      }
+      await handleAuthRedirect(page);
 
       try {
         const plannedSessionData = {
@@ -633,12 +585,7 @@ test.describe("Session Logging", () => {
     });
 
     test("should allow canceling session conversion", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip(
-          "User not authenticated - skipping conversion cancellation tests"
-        );
-      }
+      await handleAuthRedirect(page);
 
       try {
         await createPlannedSession(page, {
@@ -691,12 +638,7 @@ test.describe("Session Logging", () => {
     });
 
     test("should validate conversion form", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip(
-          "User not authenticated - skipping conversion validation tests"
-        );
-      }
+      await handleAuthRedirect(page);
 
       try {
         await createPlannedSession(page, {
@@ -760,12 +702,7 @@ test.describe("Session Logging", () => {
     });
 
     test("should delete planned sessions", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip(
-          "User not authenticated - skipping planned session deletion tests"
-        );
-      }
+      await handleAuthRedirect(page);
 
       try {
         await createPlannedSession(page, {
@@ -824,12 +761,7 @@ test.describe("Session Logging", () => {
     });
 
     test("should edit planned sessions", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip(
-          "User not authenticated - skipping planned session editing tests"
-        );
-      }
+      await handleAuthRedirect(page);
 
       try {
         await createPlannedSession(page, {

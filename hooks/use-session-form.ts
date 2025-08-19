@@ -66,8 +66,8 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
   const [formState, setFormState] = useState<SessionFormState>({
     selectedBeach: "",
     selectedBeachId: "",
-    selectedDate: "",
-    selectedTime: "",
+    selectedDate: new Date().toISOString().split("T")[0], // Default to today
+    selectedTime: "06:00", // Default to dawn patrol time
     selectedBoard: "",
     boardId: undefined,
     duration: "60m", // Default to 1 hour

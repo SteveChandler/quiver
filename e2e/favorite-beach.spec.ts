@@ -36,10 +36,7 @@ test.describe("Favorite Beach Functionality", () => {
       const isGuest = await signInButton.isVisible().catch(() => false);
 
       if (isGuest) {
-        test.skip(
-          true,
-          "User not authenticated - skipping favorite beach tests"
-        );
+        throw new Error("User not authenticated - authentication setup failed");
       }
 
       // Wait for content to load
@@ -94,10 +91,7 @@ test.describe("Favorite Beach Functionality", () => {
       const isGuest = await signInButton.isVisible().catch(() => false);
 
       if (isGuest) {
-        test.skip(
-          true,
-          "User not authenticated - skipping search functionality tests"
-        );
+        throw new Error("User not authenticated - authentication setup failed");
       }
 
       // Wait for favorite beach to load

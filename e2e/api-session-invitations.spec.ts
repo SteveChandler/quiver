@@ -26,7 +26,7 @@ test.describe("Session Invitations API (integration)", () => {
     });
 
     // Flexible API expectations (auth may fail on CI without session)
-    expect([200, 400, 401, 403, 404, 405, 500]).toContain(res.status());
+    expect([200, 400, 401, 403, 404, 405]).toContain(res.status());
 
     // Repeat with same idempotency key should not 500
     const res2 = await request.post(`${base}/api/session-planner/invitations`, {

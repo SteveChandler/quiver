@@ -90,19 +90,32 @@ useEffect(() => {
 - Start with `docs/ARCHITECTURE_REVIEW.md` for system-wide context.
 - Cursor agents & MCP: see `docs/CURSOR_AGENTS.md`; MCP configuration lives in `.cursor/mcp.json`.
 
-### Critical Don’ts
+### Critical Don'ts
 
-- Don’t invent data fetching patterns (must use `useDataFetcher`).
-- Don’t skip `withAuthenticatedAction` for protected server actions.
-- Don’t bypass `lib/api-utils.ts` for API responses/errors.
-- Don’t reformat unrelated code or change indentation styles.
-- Don’t add monetization or non-growth features without direction.
+- Don't invent data fetching patterns (must use `useDataFetcher`).
+- Don't skip `withAuthenticatedAction` for protected server actions.
+- Don't bypass `lib/api-utils.ts` for API responses/errors.
+- Don't expect 500 errors in tests - they mask bugs and should trigger investigation.
+- Don't use test.skip() in E2E tests - they hide coverage gaps and should trigger investigation.
+- Don't reformat unrelated code or change indentation styles.
+- Don't add monetization or non-growth features without direction.
 
 ### Testing Expectations
 
 - Write/adjust tests when adding behavior: unit (utils), integration (server actions/API), component tests, and E2E for critical flows.
 - Follow existing testing patterns in `__tests__/` and `e2e/`.
 - Prefer pragmatic E2E waits (`waitForLoadState("load")`) and flexible API status assertions where applicable.
+- **NEVER expect 500 errors in tests** - they indicate bugs, not proper error handling. Use appropriate status codes:
+  - 400 = Bad Request (missing/invalid parameters)
+  - 401 = Unauthorized (authentication required)
+  - 403 = Forbidden (insufficient permissions)
+  - 404 = Not Found (resource doesn't exist)
+  - 405 = Method Not Allowed (wrong HTTP method)
+- **NEVER use test.skip() in E2E tests** - they hide coverage gaps and testing issues:
+  - Authentication failures should throw errors, not skip tests
+  - Missing test data should throw informative errors about setup requirements
+  - Missing UI features should throw errors indicating the feature may be broken
+  - Use proper error handling instead of silent skips
 
 ### Changelog
 

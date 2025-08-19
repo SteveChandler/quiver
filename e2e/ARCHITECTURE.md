@@ -327,8 +327,18 @@ const performanceThresholds = {
 ### **Flexible API Response Testing**
 
 ```typescript
-// Robust API status code handling
-const validStatusCodes = [200, 400, 401, 403, 404, 405, 500];
+// ❌ NEVER expect 500 errors - they indicate bugs, not proper error handling
+// { path: "/api/analytics/sessions", expectedStatus: 500 }, // WRONG!
+
+// ✅ Use appropriate status codes for error conditions
+const protectedEndpoints = [
+  { path: "/api/analytics/sessions", expectedStatus: 400 }, // Missing userId parameter
+  { path: "/api/boards", expectedStatus: 405 }, // Method not allowed for GET
+  { path: "/api/session-planner/invitations", expectedStatus: 401 }, // Requires auth
+];
+
+// ✅ Robust API status code handling (excluding 500 unless testing error boundaries)
+const validStatusCodes = [200, 400, 401, 403, 404, 405];
 expect(validStatusCodes.includes(response.status())).toBeTruthy();
 
 // Instead of exact status code matching
@@ -400,22 +410,50 @@ export default defineConfig({
 ### **Error Prevention Strategy**
 
 1. **Always Test Critical Paths**: No `.skip()` on critical user flows
-2. **Comprehensive Error Tracking**: Monitor React errors, infinite loops, API failures
-3. **Component-Level Testing**: Test specific components that have caused issues
-4. **API Failure Simulation**: Mock failures to ensure graceful degradation
+2. **Never Expect 500 Errors**: They indicate bugs that should be investigated, not normal error conditions
+3. **Never Use test.skip()**: Convert skips to proper error handling that reveals test environment issues
+4. **Comprehensive Error Tracking**: Monitor React errors, infinite loops, API failures
+5. **Component-Level Testing**: Test specific components that have caused issues
+6. **API Failure Simulation**: Mock failures to ensure graceful degradation
 
 ### **Reliable Test Patterns**
 
 ```typescript
+// ✅ Proper authentication handling - fail instead of skip
+await handleAuthRedirect(page); // Throws error if auth setup failed
+
+// ❌ Never skip for authentication issues
+// const authState = await handleAuthRedirect(page);
+// if (authState.isAuthPage) {
+//   test.skip("User not authenticated - skipping test"); // WRONG!
+// }
+
+// ✅ Proper missing data handling - informative errors
+if (!sessions.length) {
+  throw new Error(
+    "No sessions found for testing - ensure test environment has sample sessions"
+  );
+}
+
+// ❌ Never skip for missing data
+// if (!sessions.length) {
+//   test.skip(true, "No sessions available"); // WRONG!
+// }
+
+// ✅ Proper missing UI handling - catch bugs
+const addButton = page.getByRole("button", { name: /add/i });
+if (!(await addButton.isVisible())) {
+  throw new Error("Add button not found - feature may be broken or missing");
+}
+
+// ❌ Never skip for missing UI
+// if (!await addButton.isVisible()) {
+//   test.skip(true, "Add button not available"); // WRONG!
+// }
+
 // Use specific selectors to avoid strict mode violations
 page.locator('button[type="submit"]'); // ✅ Specific
 // page.locator('button').first();               // ❌ Generic
-
-// Handle multiple possible outcomes
-const authState = await handleAuthRedirect(page);
-if (authState.isAuthPage) {
-  test.skip("User not authenticated - skipping test");
-}
 
 // Use flexible waiting strategies
 await Promise.race([

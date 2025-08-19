@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { handleAuthRedirect } from "./test-helpers";
 
 test.describe("Page Performance", () => {
   const PERFORMANCE_THRESHOLDS = {
@@ -55,9 +56,7 @@ test.describe("Page Performance", () => {
   });
 
   test("should handle session form loading efficiently", async ({ page }) => {
-    if (page.url().includes("/auth")) {
-      test.skip("User not authenticated - skipping session form performance");
-    }
+    await handleAuthRedirect(page);
 
     const startTime = Date.now();
 

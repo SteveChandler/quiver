@@ -13,7 +13,7 @@ test("Beach page shows Coach Pick instead of Best Times", async ({ page }) => {
   // Coach Pick visible (allow extra time)
   const coachPick = page.getByText(/Coach Pick/i).first();
   const isVisible = await coachPick.isVisible().catch(() => false);
-  if (!isVisible) test.skip("Coach Pick not available in this env");
+  if (!isVisible) throw new Error("Coach Pick feature not available - feature may be broken or disabled");
   await expect(coachPick).toBeVisible({ timeout: 20000 });
 
   // Optional: top picks list may render
@@ -31,6 +31,6 @@ test("Navigating away and back keeps Coach Pick visible", async ({
 
   const coachPick = page.getByText(/Coach Pick/i).first();
   const isVisible = await coachPick.isVisible().catch(() => false);
-  if (!isVisible) test.skip("Coach Pick not available in this env");
+  if (!isVisible) throw new Error("Coach Pick feature not available - feature may be broken or disabled");
   await expect(coachPick).toBeVisible({ timeout: 20000 });
 });

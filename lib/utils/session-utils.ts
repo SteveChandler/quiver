@@ -62,13 +62,50 @@ export const formatSessionDate = (session: SessionWithDetails) => {
 
 // Helper function to get session map image URL
 export const getSessionMapImageUrl = (session: SessionWithDetails) => {
+  console.log('Session map image generation:', { 
+    sessionId: session.id, 
+    beachId: session.beach_id,
+    beachName: session.beach?.name || session.beach_name,
+    hasBeach: !!session.beach,
+    beachCoords: session.beach ? { lat: session.beach.latitude, lng: session.beach.longitude } : null
+  });
+  
   // Get beach coordinates using the unified resolution function
   const coords = session.beach ? resolveBeachCoordinates(session.beach) : null;
 
-  // Generate the map image URL
-  return getStaticMapImageUrl(coords?.latitude, coords?.longitude, {
+  // If no coordinates from beach object, try beach_name fallback
+  if (!coords && (session.beach?.name || session.beach_name)) {
+    const beachName = session.beach?.name || session.beach_name;
+    console.log(`No coordinates for beach: ${beachName}, trying hardcoded fallback`);
+    
+    // Use hardcoded coordinates for known beaches if available
+    try {
+      const { beachCoordinates } = require("@/lib/constants/beach-coordinates");
+      const beachNameLower = beachName.toLowerCase().trim();
+      const hardcodedCoords = beachCoordinates[beachNameLower];
+      
+      if (hardcodedCoords) {
+        console.log(`Found hardcoded coordinates for ${beachName}:`, hardcodedCoords);
+        return getStaticMapImageUrl(hardcodedCoords.lat, hardcodedCoords.lng, {
+          width: 500,
+          height: 350,
+          zoom: 12,
+          markerText: beachName,
+        });
+      }
+    } catch (error) {
+      console.warn("Could not load hardcoded beach coordinates:", error);
+    }
+  }
+
+  // Generate the map image URL with coordinates or fallback
+  const mapUrl = getStaticMapImageUrl(coords?.latitude, coords?.longitude, {
     width: 500,
     height: 350,
     zoom: 12,
+    markerText: session.beach?.name || session.beach_name || "Session Location",
   });
+  
+  console.log('Generated map URL:', mapUrl);
+  return mapUrl;
 };

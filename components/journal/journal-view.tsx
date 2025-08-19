@@ -86,13 +86,26 @@ export function JournalView({ className }: JournalViewProps) {
     try {
       console.log("🔍 Fetching analytics for user:", user.id);
       const response = await fetch(
-        `/api/analytics/sessions?userId=me&type=analytics`
+        `/api/analytics/sessions?userId=me&type=analytics`,
+        {
+          credentials: "include", // Ensure cookies are included
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
       console.log("📡 Analytics response status:", response.status);
 
       if (!response.ok) {
-        console.error("❌ Analytics response not OK:", response.statusText);
-        throw new Error("Failed to fetch analytics");
+        const errorData = await response.text();
+        console.error(
+          "❌ Analytics response not OK:",
+          response.status,
+          errorData
+        );
+        throw new Error(
+          `Failed to fetch analytics: ${response.status} ${errorData}`
+        );
       }
       const data = await response.json();
       console.log("📊 Analytics data received:", JSON.stringify(data, null, 2));

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { handleAuthRedirect } from "./test-helpers";
 
 test.describe("Surf Journal Experience", () => {
   test.beforeEach(async ({ page }) => {
@@ -50,11 +51,8 @@ test.describe("Surf Journal Experience", () => {
     await page.goto("/profile");
     await page.waitForTimeout(3000);
 
-    // Skip if not authenticated
-    if (page.url().includes("/auth")) {
-      test.skip();
-      return;
-    }
+    // Check authentication
+    await handleAuthRedirect(page);
 
     // Look for journal-related content
     const journalElements = [

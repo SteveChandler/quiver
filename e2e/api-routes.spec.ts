@@ -8,7 +8,7 @@ test.describe("API Routes", () => {
       const protectedEndpoints = [
         { path: "/api/boards", expectedStatus: 405 }, // Method not allowed for GET
         { path: "/api/plan-session", expectedStatus: 405 }, // Method not allowed for GET
-        { path: "/api/analytics/sessions", expectedStatus: 500 }, // Server error without auth
+        { path: "/api/analytics/sessions", expectedStatus: 400 }, // Missing userId parameter
         { path: "/api/session-planner/invitations", expectedStatus: 401 }, // Requires auth
         { path: "/api/session-planner/gear-suggestions", expectedStatus: 404 }, // May not exist
         { path: "/api/session-planner/optimal-times", expectedStatus: 404 }, // May not exist
@@ -24,7 +24,7 @@ test.describe("API Routes", () => {
         // Check that we got a valid response status for protected endpoints
 
         expect(
-          [200, 400, 401, 403, 404, 405, 500].includes(response.status)
+          [200, 400, 401, 403, 404, 405].includes(response.status)
         ).toBeTruthy();
       }
     });
@@ -70,10 +70,7 @@ test.describe("API Routes", () => {
 
   test.describe("Boards API", () => {
     test("should create board with valid data", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping boards API tests");
-      }
+      await handleAuthRedirect(page);
 
       const boardData = {
         name: "Test Board",
@@ -95,7 +92,7 @@ test.describe("API Routes", () => {
     });
 
     test("should validate board data", async ({ page }) => {
-      // Test missing required fields - expect 401 since we're not authenticated
+      // Test missing required fields - should get 400 for validation error
       const invalidBoardData = {
         description: "Missing required fields",
       };
@@ -103,12 +100,17 @@ test.describe("API Routes", () => {
       const response = await testApiEndpoint(page, "/api/boards", {
         method: "POST",
         body: invalidBoardData,
-        expectedStatus: 401, // Expect unauthorized since no auth
+        expectedStatus: 400, // Expect validation error for missing name
       });
 
-      expect(
-        [200, 400, 401, 403, 405, 500].includes(response.status)
-      ).toBeTruthy();
+      console.log(`Boards API returned status: ${response.status}, data:`, response.data);
+      if (response.status === 400) {
+        expect(response.data.error).toContain("name");
+      } else {
+        expect(
+          [401, 403].includes(response.status)
+        ).toBeTruthy();
+      }
     });
   });
 
@@ -125,10 +127,7 @@ test.describe("API Routes", () => {
     });
 
     test("should create intel post when authenticated", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping intel creation tests");
-      }
+      await handleAuthRedirect(page);
 
       const intelData = {
         content: "Great waves at the pier today!",
@@ -157,13 +156,12 @@ test.describe("API Routes", () => {
         "/api/buoys/conditions?latitude=32.7157&longitude=-117.1611",
         {
           method: "GET",
-          // In dev, DB may be offline → endpoint may return 500 via centralized handler
           expectedStatus: 200,
         }
       );
 
       // Accept flexible statuses locally
-      expect([200, 400, 401, 403, 404, 405, 500].includes(response.status)).toBeTruthy();
+      expect([200, 400, 401, 403, 404, 405].includes(response.status)).toBeTruthy();
 
       // When successful (200), the endpoint returns a single buoy object
       if (response.status === 200 && response.success) {
@@ -182,10 +180,10 @@ test.describe("API Routes", () => {
       );
 
       // Accept flexible statuses locally
-      expect([200, 400, 401, 403, 404, 405, 500].includes(response.status)).toBeTruthy();
+      expect([200, 400, 401, 403, 404, 405].includes(response.status)).toBeTruthy();
 
       if (response.status === 200 && response.success) {
-        expect(Array.isArray(response.data)).toBeTruthy();
+        expect(Array.isArray(response.data.data)).toBeTruthy();
       }
     });
   });
@@ -202,15 +200,12 @@ test.describe("API Routes", () => {
       );
 
       if (response.success) {
-        expect(Array.isArray(response.data)).toBeTruthy();
+        expect(Array.isArray(response.data.data)).toBeTruthy();
       }
     });
 
     test("should create beach when authenticated", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping beach creation tests");
-      }
+      await handleAuthRedirect(page);
 
       const beachData = {
         name: "Test Beach",
@@ -234,10 +229,7 @@ test.describe("API Routes", () => {
 
   test.describe("Session Planner API", () => {
     test("should get optimal times when authenticated", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping session planner tests");
-      }
+      await handleAuthRedirect(page);
 
       const response = await testApiEndpoint(
         page,
@@ -254,8 +246,7 @@ test.describe("API Routes", () => {
     });
 
     test("should get gear suggestions when authenticated", async ({ page }) => {
-      const authed = await ensureAuthenticated(page);
-      if (!authed) test.skip("Missing TEST_USER_EMAIL/TEST_USER_PASSWORD or login failed");
+      await ensureAuthenticated(page);
 
       const response = await testApiEndpoint(
         page,
@@ -267,7 +258,7 @@ test.describe("API Routes", () => {
       );
 
       // Just check that we get a reasonable response
-      expect([200, 400, 404, 500].includes(response.status)).toBeTruthy();
+      expect([200, 400, 404].includes(response.status)).toBeTruthy();
     });
   });
 
@@ -309,6 +300,80 @@ test.describe("API Routes", () => {
       // Check specific security header values
       expect(headers["x-content-type-options"]).toBe("nosniff");
       expect(headers["x-frame-options"]).toBe("DENY");
+    });
+  });
+
+  test.describe("Analytics API", () => {
+    test("should return analytics data when properly authenticated", async ({ page }) => {
+      await handleAuthRedirect(page);
+
+      // Test the analytics endpoint with proper parameters
+      const response = await testApiEndpoint(page, "/api/analytics/sessions?userId=me&type=analytics", {
+        method: "GET",
+        expectedStatus: 200,
+        authenticated: true,
+      });
+
+      if (response.success) {
+        // The API response is nested: response.data.data contains the analytics
+        const analyticsData = response.data.data;
+        expect(analyticsData.type).toBe("analytics");
+        expect(analyticsData.userId).toBeTruthy();
+        expect(typeof analyticsData.totalSessions).toBe("number");
+        expect(typeof analyticsData.totalHours).toBe("number");
+        expect(typeof analyticsData.averageRating).toBe("number");
+        expect(Array.isArray(analyticsData.monthlyStats)).toBe(true);
+        expect(Array.isArray(analyticsData.frequentBoards)).toBe(true);
+      }
+    });
+
+    test("should return calendar data when requested", async ({ page }) => {
+      await handleAuthRedirect(page);
+
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1;
+
+      // Test the calendar analytics endpoint
+      const response = await testApiEndpoint(page, `/api/analytics/sessions?userId=me&type=calendar&year=${currentYear}&month=${currentMonth}`, {
+        method: "GET",
+        expectedStatus: 200,
+        authenticated: true,
+      });
+
+      if (response.success) {
+        // The API response is nested: response.data.data contains the calendar data
+        const calendarData = response.data.data || response.data;
+        expect(calendarData.type).toBe("calendar");
+        expect(calendarData.year).toBe(currentYear);
+        expect(calendarData.month).toBe(currentMonth);
+        expect(Array.isArray(calendarData.data)).toBe(true);
+      }
+    });
+
+    test("should require userId parameter", async ({ page }) => {
+      await handleAuthRedirect(page);
+
+      // Test without userId parameter
+      const response = await testApiEndpoint(page, "/api/analytics/sessions", {
+        method: "GET",
+        expectedStatus: 400,
+        authenticated: true,
+      });
+
+      expect(response.success).toBeTruthy();
+    });
+
+    test("should require year and month for calendar type", async ({ page }) => {
+      await handleAuthRedirect(page);
+
+      // Test calendar type without year/month
+      const response = await testApiEndpoint(page, "/api/analytics/sessions?userId=me&type=calendar", {
+        method: "GET",
+        expectedStatus: 400,
+        authenticated: true,
+      });
+
+      expect(response.success).toBeTruthy();
     });
   });
 });

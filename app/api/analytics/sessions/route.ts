@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
         );
 
       const calendarResult = await getCalendarHeatmapData(
+        supabase,
         targetUserId,
         parseInt(year),
         parseInt(month)
@@ -77,16 +78,13 @@ export async function GET(request: NextRequest) {
       });
     } else {
       // Full analytics data
-      const analyticsResult = await getSessionAnalytics(targetUserId);
+      const analyticsResult = await getSessionAnalytics(supabase, targetUserId);
 
       if (!analyticsResult.success) {
         throw new Error(analyticsResult.error);
       }
 
-      return createSuccessResponse({
-        type: "analytics",
-        ...analyticsResult.data,
-      });
+      return createSuccessResponse(analyticsResult.data);
     }
   } catch (error) {
     console.error("Error fetching session analytics:", error);

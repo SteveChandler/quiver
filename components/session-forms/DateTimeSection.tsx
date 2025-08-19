@@ -56,6 +56,11 @@ export function DateTimeSection({
 
   // Memoize date constraints to prevent infinite re-renders
   const dateConstraints = useMemo(() => {
+    // Only calculate on client side to avoid hydration mismatches
+    if (typeof window === "undefined") {
+      return { min: undefined, max: undefined };
+    }
+
     const today = new Date().toISOString().split("T")[0];
     return {
       min: isPlanning ? today : undefined,
@@ -125,6 +130,7 @@ export function DateTimeSection({
               max={dateConstraints.max}
               min={dateConstraints.min}
               data-testid="session-date-input"
+              suppressHydrationWarning
             />
             {isPlanning && (
               <p className="text-xs text-muted-foreground mt-1">

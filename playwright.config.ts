@@ -16,9 +16,9 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Use more workers for better performance - adjust based on available cores */
-  workers: process.env.CI ? 5 : 10,
+  workers: process.env.CI ? 5 : 5,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [["dot"], ["html"]],
+  reporter: [["dot"], ["html", { open: "never" }]],
   /* Global setup for authentication */
   globalSetup: require.resolve("./e2e/global-setup"),
   //maxFailures: 1,

@@ -70,8 +70,7 @@ export async function getBeachSessionSnapshots(
           wave_quality
         ),
         user:profiles(
-          full_name,
-          avatar_url
+          full_name
         )
       `
       )

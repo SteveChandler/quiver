@@ -1,14 +1,13 @@
 import { test, expect } from "@playwright/test";
+import { handleAuthRedirect } from "./test-helpers";
 
 test.describe("Session Conversion (Improved)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("load");
 
-    // Skip if not authenticated
-    if (page.url().includes("/auth")) {
-      test.skip("User not authenticated - skipping session conversion tests");
-    }
+    // Check authentication status
+    await handleAuthRedirect(page);
   });
 
   test("should convert planned session to completed session with proper validation", async ({

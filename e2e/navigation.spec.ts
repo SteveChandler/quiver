@@ -164,8 +164,8 @@ test.describe("Navigation", () => {
       // At least verify we can still navigate
       expect(navFoundOnAnyPage).toBeTruthy();
     } else {
-      // Navigation might not be visible in test environment, skip gracefully
-      test.skip(true, "Bottom navigation not visible in test environment");
+      // Navigation not visible indicates UI issue
+      throw new Error("Bottom navigation not visible in test environment - check if navigation component is broken");
     }
   });
 

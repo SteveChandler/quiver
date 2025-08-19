@@ -260,6 +260,7 @@ export type BeachRecommendationCalibration = {
 
 // Analytics types for Surf Journal+
 export type SessionAnalytics = {
+  type?: string;
   userId: string;
   totalSessions: number;
   completedSessions: number;

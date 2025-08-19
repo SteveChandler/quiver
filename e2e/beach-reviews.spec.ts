@@ -146,8 +146,7 @@ test.describe("Beach Reviews System", () => {
       // Check if we're on a valid beach page first
       const isBeachNotFound = page.getByText(/not found|doesn't exist/i);
       if (await isBeachNotFound.isVisible().catch(() => false)) {
-        test.skip();
-        return;
+        throw new Error("Beach not found - ensure test is using valid beach ID");
       }
 
       const reviewsTab = page.getByRole("tab", { name: /reviews/i });
@@ -543,13 +542,12 @@ test.describe("Beach Reviews System", () => {
       expect(typeof hasRating).toBe("boolean");
     });
 
-    test.skip("should display review count", async ({ page }) => {
+    test("should display review count", async ({ page }) => {
       // First check if we're on a valid beach page
       const isBeachNotFound = page.getByText(/not found|doesn't exist/i);
       if (await isBeachNotFound.isVisible().catch(() => false)) {
-        // Beach doesn't exist, skip this test
-        test.skip();
-        return;
+        // Beach doesn't exist, this indicates test setup issue
+        throw new Error("Beach not found - ensure test is using valid beach ID");
       }
 
       // Look for review count with the actual text patterns used by the component
@@ -687,7 +685,7 @@ test.describe("Beach Reviews System", () => {
 
     test("should handle empty beach gracefully", async ({ page }) => {
       // Navigate to non-existent beach
-      await page.goto("/beach/non-existent-beach-id");
+      await page.goto("/beach/test-beach-id");
       await page.waitForTimeout(3000);
 
       // Should show appropriate error message, redirect, or loading state
@@ -695,9 +693,10 @@ test.describe("Beach Reviews System", () => {
         page.getByText(/not found|doesn't exist/i),
         page.getByText(/beach not found/i),
         page.getByText(/error|failed|problem/i),
+        page.getByText(/invalid.*uuid|invalid.*syntax/i), // Include UUID error messages
       ];
 
-      const redirected = !page.url().includes("non-existent-beach-id");
+      const redirected = !page.url().includes("test-beach-id");
       const backToMapButton = page.getByRole("button", {
         name: /back to map/i,
       });

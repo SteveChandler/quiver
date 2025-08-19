@@ -77,11 +77,21 @@ export function GearSuggestionsSection({
     });
 
     const response = await fetch(
-      `/api/session-planner/gear-suggestions?${params}`
+      `/api/session-planner/gear-suggestions?${params}`,
+      {
+        credentials: "include", // Ensure cookies are included
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
     );
 
     if (!response.ok) {
-      throw new Error("Failed to fetch gear suggestions");
+      const errorData = await response.text();
+      console.error("Gear suggestions API error:", response.status, errorData);
+      throw new Error(
+        `Failed to fetch gear suggestions: ${response.status} ${errorData}`
+      );
     }
 
     return response.json();

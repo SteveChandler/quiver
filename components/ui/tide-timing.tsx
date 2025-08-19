@@ -136,7 +136,8 @@ export function TideSchedule({ tides, className }: TideScheduleProps) {
     });
   };
 
-  const today = new Date();
+  // Only calculate on client side to avoid hydration mismatches
+  const today = typeof window !== "undefined" ? new Date() : new Date(0);
   const todaysTides = tides.filter((tide) => {
     const tideDate = new Date(tide.time * 1000);
     return tideDate.toDateString() === today.toDateString();
@@ -148,6 +149,11 @@ export function TideSchedule({ tides, className }: TideScheduleProps) {
   };
 
   const getTimeUntil = (timestamp: number) => {
+    // Only calculate on client side to avoid hydration mismatches
+    if (typeof window === "undefined") {
+      return "Loading...";
+    }
+
     const now = Date.now();
     const tideTime = timestamp * 1000;
     const diff = tideTime - now;

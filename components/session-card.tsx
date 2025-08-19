@@ -19,6 +19,9 @@ import { useState } from "react";
 import { useCommentCount } from "@/hooks/use-comment-count";
 import { useSessionLike } from "@/hooks/use-session-like";
 import { CommentsModal } from "@/components/comments-modal";
+import { ShareModal } from "@/components/share-modal";
+import { Share2 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { SessionWithDetails } from "@/types/database";
 
 interface SessionCardProps {
@@ -51,6 +54,8 @@ export function SessionCard({
   onUserClick,
 }: SessionCardProps) {
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // Use dynamic comment count if session ID is available
   const { commentCount: dynamicCommentCount, isLoading } = useCommentCount(
@@ -276,6 +281,19 @@ export function SessionCard({
           <MessageSquare className="h-4 w-4" />
           <span>{isLoading ? "..." : displayCommentCount}</span>
         </button>
+        {id && (
+          <button
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShareOpen(true);
+            }}
+          >
+            <Share2 className="h-4 w-4" />
+            <span>Share</span>
+          </button>
+        )}
       </div>
 
       {/* Comments Modal */}
@@ -285,6 +303,15 @@ export function SessionCard({
           beachName={beachName}
           isOpen={commentsModalOpen}
           onClose={() => setCommentsModalOpen(false)}
+        />
+      )}
+      {id && (
+        <ShareModal
+          sessionId={id}
+          defaultVariant={isMobile ? "story" : "square"}
+          isPublic={session?.is_public}
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
         />
       )}
     </CardContent>

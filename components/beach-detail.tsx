@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
@@ -30,6 +37,7 @@ import { FavoriteButton } from "@/components/favorite-button";
 import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
 import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
 import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
+import { BeachReviewForm } from "@/components/beach/beach-review-form";
 
 interface BeachDetailProps {
   id: string;
@@ -38,6 +46,8 @@ interface BeachDetailProps {
 export function BeachDetail({ id }: BeachDetailProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Persisted accordion open/closed sections (Spot Overview default open)
@@ -46,23 +56,16 @@ export function BeachDetail({ id }: BeachDetailProps) {
     ["forecast"]
   );
 
-  // Ensure Forecast & Tides is open by default even if prior local storage has other sections
-  useEffect(() => {
-    if (!openSections.includes("forecast")) {
-      setOpenSections(["forecast", ...openSections]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Deep-link support to open Intel section and optional expand-all
+  // Handle URL parameters and default section opening
   useEffect(() => {
     // Prefer query param, fallback to hash
     const sectionParam = searchParams?.get("section");
     const hash = typeof window !== "undefined" ? window.location.hash : "";
 
     const wantsIntel = sectionParam === "intel" || hash === "#intel";
+
     if (wantsIntel) {
-      // Ensure intel is open
+      // For intel deep-links, ensure intel is open (don't force forecast)
       if (!openSections.includes("intel")) {
         setOpenSections([...(openSections || []), "intel"]);
       }
@@ -83,12 +86,27 @@ export function BeachDetail({ id }: BeachDetailProps) {
           window.scrollTo({ top: y, behavior: "smooth" });
         }
       }, 120);
+    } else {
+      // Only set forecast as default if no specific section is requested
+      if (!openSections.includes("forecast")) {
+        setOpenSections(["forecast", ...openSections]);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
+
+  // Review handlers
+  const handleWriteReview = useCallback(() => {
+    setReviewDialogOpen(true);
+  }, []);
+
+  const handleReviewSuccess = useCallback(() => {
+    setReviewDialogOpen(false);
+    setReviewRefreshTrigger((prev) => prev + 1);
+  }, []);
 
   // Fetch beach information
   const fetchBeach = useCallback(async () => {
@@ -146,32 +164,26 @@ export function BeachDetail({ id }: BeachDetailProps) {
   const loading = beachLoading || forecastsLoading;
   const error = beachError || forecastsError;
 
-  // Select the closest forecast time slot to "now" for today's overview
+  // Select the best forecast using the same time-aware logic as home page
   const currentForecast = useMemo(() => {
     if (!forecasts || forecasts.length === 0) return null;
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    const todays = forecasts.filter((f) => f.forecast_date === today);
-    if (todays.length === 0) {
-      // Fallback: use the first available forecast (already sorted)
-      return forecasts[0];
-    }
+    // Use the same getCurrentForecast utility as the home page for consistency
+    const {
+      getCurrentForecast,
+    } = require("@/lib/utils/current-forecast-utils");
+    const selectedForecast = getCurrentForecast(forecasts);
 
-    let nearest = todays[0];
-    let bestDiff = Number.POSITIVE_INFINITY;
-    for (const f of todays) {
-      const [h, m] = f.forecast_time.split(":").map(Number);
-      const minutes = h * 60 + m;
-      const diff = Math.abs(minutes - currentMinutes);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        nearest = f;
-      }
-    }
+    console.log("🏖️ Beach Detail currentForecast selection:", {
+      totalForecasts: forecasts.length,
+      selectedTime: selectedForecast?.forecast_time,
+      selectedWaveHeight: selectedForecast?.wave_height,
+      firstForecastTime: forecasts[0]?.forecast_time,
+      firstForecastWaveHeight: forecasts[0]?.wave_height,
+      isClient: typeof window !== "undefined",
+    });
 
-    return nearest;
+    return selectedForecast;
   }, [forecasts]);
 
   // Process data for display - memoized to prevent unnecessary recalculations
@@ -389,8 +401,15 @@ export function BeachDetail({ id }: BeachDetailProps) {
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-6">
-                <BeachReviewSummary beachId={beach.id} />
-                <BeachReviewsList beachId={beach.id} />
+                <BeachReviewSummary
+                  beachId={beach.id}
+                  onWriteReview={handleWriteReview}
+                  refreshTrigger={reviewRefreshTrigger}
+                />
+                <BeachReviewsList
+                  beachId={beach.id}
+                  refreshTrigger={reviewRefreshTrigger}
+                />
               </div>
             </AccordionContent>
           </AccordionItem>
@@ -432,6 +451,22 @@ export function BeachDetail({ id }: BeachDetailProps) {
           }}
           selectedDate={selectedDay}
         />
+
+        {/* Review Form Dialog */}
+        <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Write a Review for {beach?.name}</DialogTitle>
+            </DialogHeader>
+            <BeachReviewForm
+              beachId={id}
+              beachName={beach?.name || ""}
+              onSuccess={handleReviewSuccess}
+              onCancel={() => setReviewDialogOpen(false)}
+              isInDialog={true}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
