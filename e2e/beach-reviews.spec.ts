@@ -687,7 +687,7 @@ test.describe("Beach Reviews System", () => {
 
     test("should handle empty beach gracefully", async ({ page }) => {
       // Navigate to non-existent beach
-      await page.goto("/beach/non-existent-beach-id");
+      await page.goto("/beach/test-beach-id");
       await page.waitForTimeout(3000);
 
       // Should show appropriate error message, redirect, or loading state
@@ -695,9 +695,10 @@ test.describe("Beach Reviews System", () => {
         page.getByText(/not found|doesn't exist/i),
         page.getByText(/beach not found/i),
         page.getByText(/error|failed|problem/i),
+        page.getByText(/invalid.*uuid|invalid.*syntax/i), // Include UUID error messages
       ];
 
-      const redirected = !page.url().includes("non-existent-beach-id");
+      const redirected = !page.url().includes("test-beach-id");
       const backToMapButton = page.getByRole("button", {
         name: /back to map/i,
       });

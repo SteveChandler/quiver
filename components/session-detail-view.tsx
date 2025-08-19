@@ -451,7 +451,10 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
         {/* Share CTA under header/hero */}
         {session && (
           <div className="flex justify-end mb-4">
-            <Button onClick={() => setShareOpen(true)}>
+            <Button
+              onClick={() => setShareOpen(true)}
+              data-testid="share-button"
+            >
               <Share2 className="mr-2 h-4 w-4" /> Share
             </Button>
           </div>

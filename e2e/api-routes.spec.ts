@@ -185,7 +185,7 @@ test.describe("API Routes", () => {
       expect([200, 400, 401, 403, 404, 405, 500].includes(response.status)).toBeTruthy();
 
       if (response.status === 200 && response.success) {
-        expect(Array.isArray(response.data)).toBeTruthy();
+        expect(Array.isArray(response.data.data)).toBeTruthy();
       }
     });
   });
@@ -202,7 +202,7 @@ test.describe("API Routes", () => {
       );
 
       if (response.success) {
-        expect(Array.isArray(response.data)).toBeTruthy();
+        expect(Array.isArray(response.data.data)).toBeTruthy();
       }
     });
 

@@ -5,6 +5,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { renderShareImage, type SessionData, type ShareVariant } from "@/lib/social-share-utils";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const Query = z.object({
   sessionId: z.string().uuid(),
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = createSupabaseServiceRoleClient();
 
-    // Fetch session with minimal fields needed for sharing and profile sharing flag
+    // Fetch session with minimal fields needed for sharing
     const { data: session, error } = await supabase
       .from("sessions")
       .select(
@@ -67,8 +68,7 @@ export async function GET(request: NextRequest) {
         status,
         is_public,
         wave_quality,
-        rating,
-        user:profiles(id, allow_sharing)
+        rating
       `
       )
       .eq("id", sessionId)
@@ -82,13 +82,12 @@ export async function GET(request: NextRequest) {
       return new Response("Not found", { status: 404 });
     }
 
-    // Visibility rules: public or owner allows sharing bypasses signature
+    // Visibility rules: public sessions can be shared
     const isPublic = (session as any).is_public === true;
-    const ownerAllowsSharing = Boolean((session as any).user?.allow_sharing === true);
-
     const signatureOk = verifySignature({ sessionId, variant }, t, process.env.SOCIAL_SHARE_SECRET);
 
-    if (!isPublic && !ownerAllowsSharing && !signatureOk) {
+    // Allow sharing for public sessions or valid signatures
+    if (!isPublic && !signatureOk) {
       return new Response("Forbidden", { status: 403 });
     }
 

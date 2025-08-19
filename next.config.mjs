@@ -162,34 +162,36 @@ const nextConfig = {
     externalDir: true,
   },
 
-  // Enable bundle analyzer in development
-  ...(process.env.ANALYZE === "true" && {
-    webpack: (config) => {
-      // Import bundle analyzer
-      const BundleAnalyzerPlugin = require("@next/bundle-analyzer")({
-        enabled: process.env.ANALYZE === "true",
+  // Webpack configuration for externals and bundle analyzer
+  webpack: (config) => {
+    // CRITICAL FIX: Configure externals for @resvg/resvg-js
+    config.externals = config.externals || [];
+    if (Array.isArray(config.externals)) {
+      config.externals.push({
+        "@resvg/resvg-js": "@resvg/resvg-js",
       });
+    }
 
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        // Optimize bundle size
-        "react/jsx-runtime.js": "react/jsx-runtime",
-      };
+    // Resolve alias optimizations
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      // Optimize bundle size
+      "react/jsx-runtime.js": "react/jsx-runtime",
+    };
 
-      // Add bundle analyzer
-      if (process.env.ANALYZE === "true") {
-        config.plugins.push(
-          new (require("webpack-bundle-analyzer").BundleAnalyzerPlugin)({
-            analyzerMode: "static",
-            openAnalyzer: false,
-            reportFilename: "bundle-analyzer-report.html",
-          })
-        );
-      }
+    // Add bundle analyzer in development
+    if (process.env.ANALYZE === "true") {
+      config.plugins.push(
+        new (require("webpack-bundle-analyzer").BundleAnalyzerPlugin)({
+          analyzerMode: "static",
+          openAnalyzer: false,
+          reportFilename: "bundle-analyzer-report.html",
+        })
+      );
+    }
 
-      return config;
-    },
-  }),
+    return config;
+  },
 
   // Add performance budgets
   onDemandEntries: {

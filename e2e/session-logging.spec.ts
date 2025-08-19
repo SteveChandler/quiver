@@ -452,12 +452,10 @@ test.describe("Session Logging", () => {
           await journalTab.click();
           await page.waitForTimeout(2000);
 
-          // Look for planned sessions section
-          const plannedSessionsSection = page.getByText(
-            /planned|upcoming|future/i
-          );
-          if (await plannedSessionsSection.isVisible()) {
-            await plannedSessionsSection.click();
+          // Look for planned sessions tab specifically (avoid strict mode violation)
+          const plannedSessionsTab = page.getByRole("tab", { name: /planned/i });
+          if (await plannedSessionsTab.isVisible()) {
+            await plannedSessionsTab.click();
             await page.waitForTimeout(1000);
           }
 
@@ -536,11 +534,9 @@ test.describe("Session Logging", () => {
                   expect(hasSuccess).toBeTruthy();
 
                   // Session should move from planned to completed
-                  const completedSection = page.getByText(
-                    /completed|logged|journal/i
-                  );
-                  if (await completedSection.isVisible()) {
-                    await completedSection.click();
+                  const completedTab = page.getByRole("tab", { name: /completed|logged/i });
+                  if (await completedTab.isVisible()) {
+                    await completedTab.click();
                     await page.waitForTimeout(1000);
 
                     const convertedSession = page.getByText(

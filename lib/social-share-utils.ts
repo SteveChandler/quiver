@@ -65,8 +65,16 @@ export async function loadFonts(): Promise<SatoriOptions["fonts"]> {
     })
   );
 
-  // Filter out any missing files; Satori can operate without custom fonts
-  return loaded.filter(Boolean) as SatoriOptions["fonts"];
+  const validFonts = loaded.filter(Boolean) as SatoriOptions["fonts"];
+  
+  // Ensure at least one font is available for Satori
+  if (validFonts.length === 0) {
+    console.warn("No custom fonts found, using system fallback approach");
+    // For development: return empty array and catch the error in renderShareImage
+    return [];
+  }
+  
+  return validFonts;
 }
 
 export function formatSessionForShare(session: SessionData): {
@@ -241,10 +249,34 @@ export async function renderShareImage(session: SessionData, variant: ShareVaria
   h: number;
 }> {
   const { w, h } = variant === "story" ? { w: 1080, h: 1920 } : { w: 1080, h: 1080 };
-  const fonts = await loadFonts();
-  const svg = await satori(getTemplate(session, variant), { width: w, height: h, fonts });
-  const png = new Resvg(svg, { fitTo: { mode: "width", value: w } }).render().asPng();
-  return { png, w, h };
+  
+  try {
+    const fonts = await loadFonts();
+    const satoriOptions: SatoriOptions = { width: w, height: h };
+    
+    // Only add fonts if we have valid ones
+    if (fonts.length > 0) {
+      satoriOptions.fonts = fonts;
+    }
+    
+    const svg = await satori(getTemplate(session, variant), satoriOptions);
+    const png = new Resvg(svg, { fitTo: { mode: "width", value: w } }).render().asPng();
+    return { png, w, h };
+  } catch (fontError) {
+    console.error("Font loading failed:", fontError);
+    // Fallback: generate simple error image
+    const errorSvg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100%" height="100%" fill="#0077B6"/>
+      <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" dominant-baseline="middle">
+        Image Generation Error
+      </text>
+      <text x="50%" y="60%" font-family="Arial, sans-serif" font-size="24" fill="white" text-anchor="middle" dominant-baseline="middle">
+        ${session.beachName}
+      </text>
+    </svg>`;
+    const png = new Resvg(errorSvg, { fitTo: { mode: "width", value: w } }).render().asPng();
+    return { png, w, h };
+  }
 }
 
 

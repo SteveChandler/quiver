@@ -40,6 +40,15 @@ interface OptimalTimesResponse {
 }
 
 /**
+ * Convert wind direction in degrees to compass direction
+ */
+function getWindDirection(degrees: number): string {
+  const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+  const index = Math.round(degrees / 22.5) % 16;
+  return directions[index];
+}
+
+/**
  * Analyzes forecast data to recommend optimal surf times
  * GET /api/session-planner/optimal-times?beachId=xxx&date=YYYY-MM-DD&selectedTime=HH:MM
  */
@@ -119,13 +128,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (!forecasts || forecasts.length === 0) {
-      // Fallback to basic forecasts if enhanced forecasts are not available
+      // Fallback to marine forecasts if enhanced forecasts are not available
       const { data: basicForecasts, error: basicError } = await supabase
-        .from("forecasts")
+        .from("marine_forecasts")
         .select("*")
         .eq("beach_id", beachId)
-        .eq("forecast_date", date)
-        .order("forecast_time", { ascending: true });
+        .gte("ts", `${date}T00:00:00.000Z`)
+        .lt("ts", `${date}T23:59:59.999Z`)
+        .order("ts", { ascending: true });
 
       console.log("📈 Basic Forecasts Fallback:", {
         forecasts: basicForecasts?.length || 0,
@@ -155,14 +165,21 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Convert basic forecasts to enhanced format
+      // Convert marine forecasts to enhanced format
       const enhancedFromBasic = basicForecasts.map((forecast) => ({
         ...forecast,
-        confidence_score: 0.7, // Default confidence for basic forecasts
+        forecast_time: forecast.ts, // Map timestamp to forecast_time
+        forecast_date: date,
+        beach_id: forecast.beach_id,
+        wave_height: forecast.wave_height_m ? (forecast.wave_height_m * 3.28084).toFixed(1) : '0', // Convert meters to feet
+        wind_speed: forecast.wind_speed_ms ? `${Math.round(forecast.wind_speed_ms * 2.237)} mph` : '0 mph', // Convert m/s to mph
+        wind_direction: forecast.wind_direction_deg ? getWindDirection(forecast.wind_direction_deg) : 'Variable',
+        confidence_score: 0.7, // Default confidence for marine forecasts
         tide_height: null,
         tide_type: null,
-        swell_direction: null,
-        swell_period: null,
+        swell_direction: forecast.wave_direction_deg,
+        swell_period: forecast.wave_period_s,
+        weather_condition: 'Unknown'
       }));
 
       const optimalTimes = analyzeOptimalTimes(enhancedFromBasic, selectedTime);
