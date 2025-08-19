@@ -55,11 +55,21 @@ export function CalendarHeatmap({
       const response = await fetch(
         `/api/analytics/sessions?userId=me&type=calendar&year=${currentDate.getFullYear()}&month=${
           currentDate.getMonth() + 1
-        }`
+        }`,
+        {
+          credentials: "include", // Ensure cookies are included
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch calendar data");
+        const errorData = await response.text();
+        console.error("Calendar API error:", response.status, errorData);
+        throw new Error(
+          `Failed to fetch calendar data: ${response.status} ${errorData}`
+        );
       }
 
       const result = await response.json();

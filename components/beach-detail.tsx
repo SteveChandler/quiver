@@ -56,23 +56,16 @@ export function BeachDetail({ id }: BeachDetailProps) {
     ["forecast"]
   );
 
-  // Ensure Forecast & Tides is open by default even if prior local storage has other sections
-  useEffect(() => {
-    if (!openSections.includes("forecast")) {
-      setOpenSections(["forecast", ...openSections]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Deep-link support to open Intel section and optional expand-all
+  // Handle URL parameters and default section opening
   useEffect(() => {
     // Prefer query param, fallback to hash
     const sectionParam = searchParams?.get("section");
     const hash = typeof window !== "undefined" ? window.location.hash : "";
 
     const wantsIntel = sectionParam === "intel" || hash === "#intel";
+
     if (wantsIntel) {
-      // Ensure intel is open
+      // For intel deep-links, ensure intel is open (don't force forecast)
       if (!openSections.includes("intel")) {
         setOpenSections([...(openSections || []), "intel"]);
       }
@@ -93,6 +86,11 @@ export function BeachDetail({ id }: BeachDetailProps) {
           window.scrollTo({ top: y, behavior: "smooth" });
         }
       }, 120);
+    } else {
+      // Only set forecast as default if no specific section is requested
+      if (!openSections.includes("forecast")) {
+        setOpenSections(["forecast", ...openSections]);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);

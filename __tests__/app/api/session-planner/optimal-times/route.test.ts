@@ -133,12 +133,21 @@ describe("/api/session-planner/optimal-times", () => {
               }),
             };
           }
-          if (table === "forecasts") {
+          if (table === "marine_forecasts") {
             return {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
+              gte: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
               order: jest.fn().mockResolvedValue({
-                data: mockForecasts,
+                data: mockForecasts.map(f => ({
+                  ...f,
+                  ts: f.forecast_time,
+                  wave_height_m: parseFloat(f.wave_height) / 3.28084, // Convert back to meters
+                  wind_speed_ms: parseInt(f.wind_speed) / 2.237, // Convert back to m/s
+                  wave_period_s: f.swell_period,
+                  wave_direction_deg: 180
+                })),
                 error: null,
               }),
             };

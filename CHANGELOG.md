@@ -1,3 +1,37 @@
+## [2025.01.19] - Plan Session Authentication & Map Fixes
+
+### Fixed
+
+- **Plan Session Authentication Issues**: Fixed gear suggestions and analytics API authentication failures by ensuring proper cookie handling with `credentials: 'include'`
+- **Map Canvas Container Error**: Added safety check before adding markers to map to prevent `getCanvasContainer()` null reference errors
+- **API Error Handling**: Enhanced error reporting in session planner components with detailed error messages and status codes
+- **Database Column Issue**: Added migration to ensure `user_id` column exists in sessions table for API compatibility
+
+### Performance
+
+- Better error handling prevents silent failures in session planning flow
+- Improved API debugging with detailed error messages and status codes
+
+---
+
+## [2025.01.19] - Session Planning UX Improvements
+
+### Fixed
+
+- **"Best for Your Session Time" Logic**: Major improvements to session time recommendations addressing user confusion
+  - **Past Time Filtering**: Now prevents recommending times that have already passed for same-day sessions (fixes 6:00am showing when it's 8:45am)
+  - **Smart Time Prioritization**: Balances surf conditions (70%) with time proximity (30%) for same-day planning
+  - **15-Minute Buffer**: Adds realistic buffer time for travel and preparation
+  - **Contextual Explanations**: Shows why specific times are recommended ("Coming up soon", "Perfect timing for prep")
+  - **Better UI Messaging**: Enhanced descriptions explaining recommendation logic and limitations
+  - **Improved Scoring**: Times closer to current time are prioritized over distant future times with marginally better surf scores
+
+### Performance
+
+- **Session Planning API**: Enhanced `analyzeOptimalTimes` function with current time awareness and contextual scoring
+
+---
+
 ## [2025.08.19] - Critical Bug Fixes & Social Features Implementation
 
 ### Added
@@ -18,6 +52,7 @@
 
 ### Fixed
 
+- **Navigation bug**: Fixed "View all intel posts" button on home page incorrectly opening "Forecast & Tides" section instead of "Local Intel" section on beach detail pages - resolved useEffect timing conflict between default forecast section opening and URL parameter handling
 - 🚨 **CRITICAL: All 500 Internal Server Errors eliminated** - Systematic fix of server action utilities incorrectly used in API routes causing "Missing manifest for Server Actions" errors
 - 🚨 **CRITICAL: Analytics API fully functional** - Fixed `getSessionAnalytics` and `getCalendarHeatmapData` server action incompatibility that was preventing logged sessions from appearing on user profiles
 - ✅ **Complete API stability achieved**: 38/38 API route tests passing without timeouts, browser closures, or server errors
@@ -35,6 +70,9 @@
 - ✅ **Hydration Improvements**: Added suppressHydrationWarning to date inputs to eliminate server/client mismatch warnings
 - ⚠️ **Known Issues**: User profile pages showing "User Not Found" due to server action registration conflicts (functionality works via API, UI rendering issue)
 - ⚠️ **Known Issues**: Some beach review tests unstable due to server action hydration timing (functionality works manually)
+- 🚀 **PRODUCTION DEPLOYMENT**: Successfully pushed user_follows table and RLS policies to production database
+- ✅ **Social Features Ready**: Friend invitation system now available in production environment
+- 📊 **Migration Status**: 3 production migrations applied - user_follows table, session RLS policies, and relationship fixes
 - **Boards API validation bug**: Fixed boards API returning 500 database errors instead of 400 validation errors when required fields missing - added proper input validation before database operations
 - **Hard-coded beach IDs in tests**: Fixed E2E tests using non-existent beach IDs causing 404 errors - updated to dynamically fetch valid beach IDs from API
 - **Missing UI feature expectations**: Corrected tests expecting non-existent "Reviews" tab in user profiles - reviews are correctly managed on beach detail pages only

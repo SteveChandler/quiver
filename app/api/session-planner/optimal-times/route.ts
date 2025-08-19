@@ -59,8 +59,20 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get("date");
     const selectedTime = searchParams.get("selectedTime");
     const beachName = searchParams.get("beachName");
+    
+    // Get current time for filtering past times
+    const now = new Date();
+    const currentTimeHour = now.getHours() + now.getMinutes() / 60;
+    const currentDate = now.toISOString().split("T")[0];
+    const isToday = date === currentDate;
 
-    console.log("🔍 Optimal Times Debug:", { beachId, date, selectedTime });
+    console.log("🔍 Optimal Times Debug:", { 
+      beachId, 
+      date, 
+      selectedTime, 
+      isToday, 
+      currentTimeHour: currentTimeHour.toFixed(2) 
+    });
 
     const supabase = await createSupabaseServerClient();
 
@@ -88,7 +100,7 @@ export async function GET(request: NextRequest) {
     if (!beachId) {
       // If we still don't have a beachId but we do have a selectedTime, return a synthetic suggestion
       if (selectedTime) {
-        const synthetic = buildSyntheticBlocks(selectedTime);
+        const synthetic = buildSyntheticBlocks(selectedTime, isToday ? currentTimeHour : null);
         return createSuccessResponse({
           beachId: "",
           date: date!,
@@ -147,7 +159,7 @@ export async function GET(request: NextRequest) {
       if (basicError || !basicForecasts || basicForecasts.length === 0) {
         // Graceful synthetic fallback if we have a selected time: generate neutral blocks around it
         if (selectedTime) {
-          const synthetic = buildSyntheticBlocks(selectedTime);
+          const synthetic = buildSyntheticBlocks(selectedTime, isToday ? currentTimeHour : null);
           return createSuccessResponse({
             beachId: beachId || "",
             date,
@@ -182,7 +194,7 @@ export async function GET(request: NextRequest) {
         weather_condition: 'Unknown'
       }));
 
-      const optimalTimes = analyzeOptimalTimes(enhancedFromBasic, selectedTime);
+      const optimalTimes = analyzeOptimalTimes(enhancedFromBasic, selectedTime, isToday ? currentTimeHour : null);
 
       return createSuccessResponse({
         beachId,
@@ -194,7 +206,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Analyze the forecast data to find optimal times
-    const optimalTimes = analyzeOptimalTimes(forecasts, selectedTime);
+    const optimalTimes = analyzeOptimalTimes(forecasts, selectedTime, isToday ? currentTimeHour : null);
 
     const response: OptimalTimesResponse = {
       beachId,
@@ -219,7 +231,8 @@ export async function GET(request: NextRequest) {
  */
 export function analyzeOptimalTimes(
   forecasts: any[],
-  selectedTime?: string | null
+  selectedTime?: string | null,
+  currentTimeHour?: number | null
 ): OptimalTimeSlot[] {
   // 1) If selectedTime is provided, compute within a tight ±2h window.
   // If too sparse, expand to ±4h. Otherwise, use all forecasts.
@@ -242,8 +255,20 @@ export function analyzeOptimalTimes(
     }
   }
 
+  // Filter out past times for same-day sessions
+  if (currentTimeHour !== null && currentTimeHour !== undefined) {
+    filteredForecasts = filteredForecasts.filter((forecast) => {
+      const forecastHour = parseTimeToHour(forecast.forecast_time);
+      if (forecastHour === null) return false;
+      
+      // Add 15-minute buffer to current time to account for travel/prep time
+      const minFutureTime = currentTimeHour + 0.25; // 15 minutes
+      return forecastHour >= minFutureTime;
+    });
+  }
+
   // 2) Score each forecast record using tide/wind/wave/period/confidence
-  const scored = filteredForecasts.map((f) => scoreForecast(f));
+  const scored = filteredForecasts.map((f) => scoreForecast(f, currentTimeHour));
 
   // If no selected time, keep legacy single-point ranking (top 6)
   if (!selectedTime) {
@@ -269,9 +294,30 @@ export function analyzeOptimalTimes(
     });
   }
 
-  // 4) Return up to top 4 blocks
-  const finalBlocks = (clamped.length > 0 ? clamped : blocks)
-    .sort((a, b) => b.score - a.score)
+  // 4) Return up to top 4 blocks with smart sorting
+  const candidates = clamped.length > 0 ? clamped : blocks;
+  
+  // For same-day sessions, balance score with time proximity to current time
+  const finalBlocks = candidates
+    .sort((a, b) => {
+      if (currentTimeHour !== null && currentTimeHour !== undefined) {
+        const aTime = parseTimeToHour(a.time) || 0;
+        const bTime = parseTimeToHour(b.time) || 0;
+        
+        // Time proximity score (closer to now = better)
+        const aProximity = Math.max(0, 120 - Math.abs(aTime - currentTimeHour) * 20); // Up to 6 hours away
+        const bProximity = Math.max(0, 120 - Math.abs(bTime - currentTimeHour) * 20);
+        
+        // Combine surf score (70%) with time proximity (30%)
+        const aWeighted = a.score * 0.7 + aProximity * 0.3;
+        const bWeighted = b.score * 0.7 + bProximity * 0.3;
+        
+        return bWeighted - aWeighted;
+      }
+      
+      // For future dates, sort purely by surf score
+      return b.score - a.score;
+    })
     .slice(0, 4);
   return finalBlocks;
 }
@@ -352,7 +398,7 @@ export function parseTimeToHour(timeStr: string): number | null {
 /**
  * Scores a single forecast row and returns an OptimalTimeSlot-compatible object
  */
-export function scoreForecast(forecast: any): OptimalTimeSlot {
+export function scoreForecast(forecast: any, currentTimeHour?: number | null): OptimalTimeSlot {
   const waveHeight = parseFloat(forecast.wave_height) || 0;
   const windSpeed =
     parseFloat(String(forecast.wind_speed)?.replace(/[^\d.]/g, "")) || 0;
@@ -474,6 +520,21 @@ export function scoreForecast(forecast: any): OptimalTimeSlot {
   if (score >= 70) rating = "excellent";
   else if (score >= 55) rating = "good";
   else if (score >= 40) rating = "fair";
+
+  // Add contextual reasoning for same-day sessions
+  if (currentTimeHour !== null && currentTimeHour !== undefined) {
+    const forecastHour = parseTimeToHour(forecast.forecast_time);
+    if (forecastHour !== null) {
+      const timeDiff = forecastHour - currentTimeHour;
+      if (timeDiff > 0 && timeDiff <= 2) {
+        reasons.unshift(`Coming up soon (${Math.round(timeDiff * 60)}min away)`);
+      } else if (timeDiff > 2 && timeDiff <= 4) {
+        reasons.unshift(`Perfect timing for session prep`);
+      } else if (timeDiff > 4) {
+        reasons.unshift(`Allows time for travel and preparation`);
+      }
+    }
+  }
 
   // Cap score at 100
   const finalScore = Math.min(Math.round(score), 100);
@@ -631,14 +692,33 @@ function toTimeString(hourFloat: number): string {
 /**
  * Build simple synthetic 2-hour blocks around a selected time when no data is available.
  */
-function buildSyntheticBlocks(selectedTime: string): OptimalTimeSlot[] {
+function buildSyntheticBlocks(selectedTime: string, currentTimeHour?: number | null): OptimalTimeSlot[] {
   const center = parseTimeToHour(selectedTime) ?? 12;
-  const start = toTimeString(center - 1);
-  const end = toTimeString(center + 1);
+  
+  // For same-day sessions, ensure we don't suggest past times
+  let adjustedCenter = center;
+  let reasons = ["No live forecast available; showing time centered around your selection"];
+  
+  if (currentTimeHour !== null && currentTimeHour !== undefined) {
+    const minFutureTime = currentTimeHour + 0.25; // 15 minutes buffer
+    if (center < minFutureTime) {
+      adjustedCenter = minFutureTime;
+      const minutesAway = Math.round((adjustedCenter - currentTimeHour) * 60);
+      reasons = [`Adjusted to next available time (${minutesAway}min from now)`, "No live forecast data available"];
+    } else {
+      const minutesAway = Math.round((center - currentTimeHour) * 60);
+      if (minutesAway < 120) {
+        reasons = [`Coming up in ${minutesAway}min`, "No live forecast data available"];
+      }
+    }
+  }
+  
+  const start = toTimeString(adjustedCenter - 1);
+  const end = toTimeString(adjustedCenter + 1);
 
   return [
     {
-      time: toTimeString(center),
+      time: toTimeString(adjustedCenter),
       startTime: start,
       endTime: end,
       score: 50,
@@ -654,9 +734,7 @@ function buildSyntheticBlocks(selectedTime: string): OptimalTimeSlot[] {
         swellPeriod: null,
       },
       rating: "fair",
-      reasons: [
-        "No live forecast available; showing time centered around your selection",
-      ],
+      reasons,
     },
   ];
 }

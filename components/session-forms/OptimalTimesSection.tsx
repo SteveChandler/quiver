@@ -78,11 +78,21 @@ export function OptimalTimesSection({
     }
 
     const response = await fetch(
-      `/api/session-planner/optimal-times?${params}`
+      `/api/session-planner/optimal-times?${params}`,
+      {
+        credentials: "include", // Ensure cookies are included
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
     );
 
     if (!response.ok) {
-      throw new Error("Failed to fetch optimal times");
+      const errorData = await response.text();
+      console.error("Optimal times API error:", response.status, errorData);
+      throw new Error(
+        `Failed to fetch optimal times: ${response.status} ${errorData}`
+      );
     }
 
     return response.json();
@@ -319,8 +329,9 @@ export function OptimalTimesSection({
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              No forecast data available for this date. You can still plan your
-              session by selecting a time manually.
+              {formState.selectedTime
+                ? `No alternative times found near ${formState.selectedTime}. This could mean your selected time is already optimal, or there's limited forecast data available.`
+                : "No forecast data available for this date. You can still plan your session by selecting a time manually."}
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -374,8 +385,9 @@ export function OptimalTimesSection({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground mb-4">
-          Based on tide, swell, wind and forecast confidence. Tap to select your
-          preferred time.
+          {formState.selectedTime
+            ? "Alternative times with better surf conditions. Times are prioritized by surf quality and proximity to your selected time."
+            : "Based on tide, swell, wind and forecast confidence. Tap to select your preferred time."}
         </p>
 
         <div className="grid gap-3" data-testid="optimal-times-list">
@@ -529,8 +541,10 @@ export function OptimalTimesSection({
 
         <div className="pt-3 border-t">
           <p className="text-xs text-muted-foreground">
-            💡 Scores are based on wave height, wind conditions, and forecast
-            confidence. Higher scores indicate better surfing conditions.
+            💡{" "}
+            {formState.selectedTime
+              ? "Recommendations balance surf conditions (70%) with time proximity (30%). Past times are automatically filtered out for today's sessions."
+              : "Scores are based on wave height, wind conditions, and forecast confidence. Higher scores indicate better surfing conditions."}
           </p>
         </div>
       </CardContent>
