@@ -26,6 +26,14 @@
   - **Better UI Messaging**: Enhanced descriptions explaining recommendation logic and limitations
   - **Improved Scoring**: Times closer to current time are prioritized over distant future times with marginally better surf scores
 
+### Fixed
+
+- **Session Display Issues**: Fixed "Unknown Beach" and missing map images in profile session cards
+  - **Enhanced Fallback Logic**: When beach relationships fail to load, system now manually resolves beach data using beach_id
+  - **Improved Map Generation**: Added hardcoded coordinate fallback for known beaches when database coordinates missing
+  - **Debug Logging**: Enhanced session map generation with comprehensive logging for troubleshooting
+  - **Graceful Degradation**: Better handling of missing beach data with informative placeholders
+
 ### Performance
 
 - **Session Planning API**: Enhanced `analyzeOptimalTimes` function with current time awareness and contextual scoring
