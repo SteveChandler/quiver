@@ -3,6 +3,7 @@
 ### Fixed
 
 - **Forecast Consistency**: Fixed wave height discrepancy between home page and beach detail page by ensuring both use the same time-aware forecast selection logic
+- **Wave Height Display Consistency**: Fixed additional wave height discrepancy where home page showed raw forecasts while beach detail page showed community-calibrated forecasts by default
 - Fixed syntax errors in favorite-button.tsx component that were causing JavaScript compilation errors
 - Fixed syntax errors in favorite-beaches.tsx component with malformed function declarations
 - Added proper error handling and user feedback for favorite beaches operations
@@ -16,6 +17,8 @@
 - Improved error messaging for favorite beaches functionality
 - Added toast notifications when favorite beach operations fail
 - Enhanced user feedback when server returns 500 errors for favorite beaches
+- **Home Page Forecasts**: Home page now shows community-calibrated forecasts by default when accuracy data is available, matching beach detail page behavior
+- Added visual indicator to distinguish between calibrated and raw forecast data on home page
 
 ### Added
 
