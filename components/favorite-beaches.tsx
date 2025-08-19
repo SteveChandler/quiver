@@ -47,9 +47,21 @@ export function FavoriteBeaches() {
           setBeaches(result.data || []);
         } else {
           console.error("Error loading favorite beaches:", result.error);
+          toast({
+            title: "Error",
+            description:
+              "Failed to load favorite beaches. Please refresh the page.",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         console.error("Error loading favorite beaches:", error);
+        toast({
+          title: "Error",
+          description:
+            "Failed to load favorite beaches. Please refresh the page.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
