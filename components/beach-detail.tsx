@@ -168,16 +168,22 @@ export function BeachDetail({ id }: BeachDetailProps) {
   const currentForecast = useMemo(() => {
     if (!forecasts || forecasts.length === 0) return null;
 
-    // Only calculate on client side to avoid hydration mismatches
-    if (typeof window === "undefined") {
-      return forecasts[0] || null;
-    }
-
     // Use the same getCurrentForecast utility as the home page for consistency
     const {
       getCurrentForecast,
     } = require("@/lib/utils/current-forecast-utils");
-    return getCurrentForecast(forecasts);
+    const selectedForecast = getCurrentForecast(forecasts);
+
+    console.log("🏖️ Beach Detail currentForecast selection:", {
+      totalForecasts: forecasts.length,
+      selectedTime: selectedForecast?.forecast_time,
+      selectedWaveHeight: selectedForecast?.wave_height,
+      firstForecastTime: forecasts[0]?.forecast_time,
+      firstForecastWaveHeight: forecasts[0]?.wave_height,
+      isClient: typeof window !== "undefined",
+    });
+
+    return selectedForecast;
   }, [forecasts]);
 
   // Process data for display - memoized to prevent unnecessary recalculations

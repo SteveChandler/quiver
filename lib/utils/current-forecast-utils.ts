@@ -71,13 +71,25 @@ export function getCurrentForecast<T extends ForecastTimeInfo>(
     }
   }
 
-  // Fallback: if we only have past forecasts, return the most recent one
+  // Fallback: if we only have past forecasts, return the most recent one from today
+  // If today has no forecasts, return the first forecast of the next available day
+  if (todaysForecasts.length > 0) {
+    // Return the last forecast of today (most recent)
+    const sortedTodaysForecasts = [...todaysForecasts].sort((a, b) => {
+      return a.forecast_time.localeCompare(b.forecast_time);
+    });
+    console.log(`🕘 No future forecasts today, returning most recent: ${sortedTodaysForecasts[sortedTodaysForecasts.length - 1].forecast_time}`);
+    return sortedTodaysForecasts[sortedTodaysForecasts.length - 1];
+  }
+
+  // If no today forecasts, return first forecast of next available day
   const allSorted = [...forecasts].sort((a, b) => {
     const dateCompare = a.forecast_date.localeCompare(b.forecast_date);
-    if (dateCompare !== 0) return -dateCompare; // Most recent date first
-    return -a.forecast_time.localeCompare(b.forecast_time); // Most recent time first
+    if (dateCompare !== 0) return dateCompare; // Earliest date first
+    return a.forecast_time.localeCompare(b.forecast_time); // Earliest time first
   });
 
+  console.log(`🔄 Fallback to earliest available forecast: ${allSorted[0]?.forecast_date} ${allSorted[0]?.forecast_time}`);
   return allSorted[0];
 }
 
