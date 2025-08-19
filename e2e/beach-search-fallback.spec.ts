@@ -44,8 +44,8 @@ test.describe("Beach Search Functionality", () => {
       // Should not crash the page
       await expect(page.locator("body")).toBeVisible();
     } else {
-      // No search input found, skip test
-      test.skip();
+      // No search input found, indicates missing feature
+      throw new Error("Search input not found - search functionality may be broken or missing");
     }
   });
 
@@ -64,8 +64,8 @@ test.describe("Beach Search Functionality", () => {
       // Page should remain functional after search
       await expect(page.locator("body")).toBeVisible();
     } else {
-      // No search functionality found, skip test
-      test.skip();
+      // No search functionality found, indicates missing feature
+      throw new Error("Search functionality not found - search feature may be broken or missing");
     }
   });
 

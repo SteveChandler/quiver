@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Map, CalendarDays, User } from "lucide-react";
+import { Home, Map, CalendarDays, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -32,6 +32,11 @@ export function BottomNavigation() {
       name: "Map",
       href: "/map",
       icon: Map,
+    },
+    {
+      name: "Discover",
+      href: "/discover",
+      icon: Users,
     },
     {
       name: "Profile",

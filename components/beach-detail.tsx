@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
@@ -30,6 +37,7 @@ import { FavoriteButton } from "@/components/favorite-button";
 import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
 import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
 import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
+import { BeachReviewForm } from "@/components/beach/beach-review-form";
 
 interface BeachDetailProps {
   id: string;
@@ -38,6 +46,8 @@ interface BeachDetailProps {
 export function BeachDetail({ id }: BeachDetailProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Persisted accordion open/closed sections (Spot Overview default open)
@@ -89,6 +99,16 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
+
+  // Review handlers
+  const handleWriteReview = useCallback(() => {
+    setReviewDialogOpen(true);
+  }, []);
+
+  const handleReviewSuccess = useCallback(() => {
+    setReviewDialogOpen(false);
+    setReviewRefreshTrigger((prev) => prev + 1);
+  }, []);
 
   // Fetch beach information
   const fetchBeach = useCallback(async () => {
@@ -149,6 +169,12 @@ export function BeachDetail({ id }: BeachDetailProps) {
   // Select the closest forecast time slot to "now" for today's overview
   const currentForecast = useMemo(() => {
     if (!forecasts || forecasts.length === 0) return null;
+
+    // Only calculate on client side to avoid hydration mismatches
+    if (typeof window === "undefined") {
+      return forecasts[0] || null;
+    }
+
     const now = new Date();
     const today = now.toISOString().split("T")[0];
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -389,8 +415,15 @@ export function BeachDetail({ id }: BeachDetailProps) {
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-6">
-                <BeachReviewSummary beachId={beach.id} />
-                <BeachReviewsList beachId={beach.id} />
+                <BeachReviewSummary
+                  beachId={beach.id}
+                  onWriteReview={handleWriteReview}
+                  refreshTrigger={reviewRefreshTrigger}
+                />
+                <BeachReviewsList
+                  beachId={beach.id}
+                  refreshTrigger={reviewRefreshTrigger}
+                />
               </div>
             </AccordionContent>
           </AccordionItem>
@@ -432,6 +465,22 @@ export function BeachDetail({ id }: BeachDetailProps) {
           }}
           selectedDate={selectedDay}
         />
+
+        {/* Review Form Dialog */}
+        <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Write a Review for {beach?.name}</DialogTitle>
+            </DialogHeader>
+            <BeachReviewForm
+              beachId={id}
+              beachName={beach?.name || ""}
+              onSuccess={handleReviewSuccess}
+              onCancel={() => setReviewDialogOpen(false)}
+              isInDialog={true}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

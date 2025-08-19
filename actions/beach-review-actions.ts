@@ -20,7 +20,7 @@ export async function getBeachReviews(beachId: string) {
       .select(
         `
         *,
-        user:profiles!user_id(full_name, avatar_url, email)
+        user:profiles!user_id(full_name)
       `
       )
       .eq("beach_id", beachId)
@@ -43,7 +43,7 @@ export async function getUserReviewForBeach(beachId: string, userId: string) {
       .select(
         `
         *,
-        user:profiles!user_id(full_name, avatar_url, email)
+        user:profiles!user_id(full_name)
       `
       )
       .eq("beach_id", beachId)
@@ -80,7 +80,7 @@ export async function createBeachReview(reviewData: {
       .select(
         `
         *,
-        user:profiles!user_id(full_name, avatar_url, email)
+        user:profiles!user_id(full_name)
       `
       )
       .single();
@@ -123,7 +123,7 @@ export async function updateBeachReview(
       .select(
         `
         *,
-        user:profiles!user_id(full_name, avatar_url, email)
+        user:profiles!user_id(full_name)
       `
       )
       .single();

@@ -331,9 +331,7 @@ export async function GET(request: NextRequest) {
           `
           following:profiles!user_follows_following_id_fkey(
             id,
-            full_name,
-            avatar_url,
-            email
+            full_name
           )
         `
         )
@@ -341,7 +339,7 @@ export async function GET(request: NextRequest) {
         .limit(50);
 
       if (followingError) {
-        console.error("Error fetching friends:", followingError);
+        console.error("Error getting user following:", followingError);
         return createErrorResponse(
           "Failed to fetch friends",
           followingError.message

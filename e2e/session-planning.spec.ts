@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { handleAuthRedirect } from "./test-helpers";
 
 // Re-enabled session planning tests with comprehensive error detection
 test.describe("Session Planning", () => {
@@ -51,12 +52,7 @@ test.describe("Session Planning", () => {
     }
 
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping session planning tests");
-    }
+    await handleAuthRedirect(page);
   });
 
   test("should display session planning form without React errors", async ({
@@ -159,20 +155,19 @@ test.describe("Session Planning", () => {
 
   test("should allow planning future sessions", async ({ page }) => {
     // Skip if we're on the sign-in page
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip(
-        "User not authenticated - skipping future session planning test"
-      );
-    }
+    await handleAuthRedirect(page);
 
-    // Fill out future session
+    // Fill out future session with a real beach from the database
     const beachField = page.locator('[data-testid="beach-search-input"]');
     if (await beachField.isVisible()) {
-      await beachField.fill("Malibu");
+      await beachField.fill("Blacks");
       await page.waitForTimeout(1000);
+      
+      // Click on the beach suggestion if it appears
+      const beachSuggestion = page.locator('text="Blacks"').first();
+      if (await beachSuggestion.isVisible()) {
+        await beachSuggestion.click();
+      }
     }
 
     const dateField = page.locator('[data-testid="session-date-input"]');
@@ -202,12 +197,7 @@ test.describe("Session Planning", () => {
     page,
   }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping forecast tests");
-    }
+    await handleAuthRedirect(page);
 
     // Fill in beach to trigger forecast
     const beachField = page.getByLabel(/beach/i);
@@ -231,12 +221,7 @@ test.describe("Session Planning", () => {
 
   test("should allow setting planned session duration", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping duration planning tests");
-    }
+    await handleAuthRedirect(page);
 
     const durationField = page.getByLabel(/duration/i);
     if (await durationField.isVisible()) {
@@ -247,12 +232,7 @@ test.describe("Session Planning", () => {
 
   test("should handle session planning notes and goals", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping notes tests");
-    }
+    await handleAuthRedirect(page);
 
     const notesField = page.getByLabel(/notes|goals/i);
     if (await notesField.isVisible()) {
@@ -263,12 +243,7 @@ test.describe("Session Planning", () => {
 
   test("should validate future date selection", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping date validation tests");
-    }
+    await handleAuthRedirect(page);
 
     const dateField = page.getByLabel(/date/i);
     if (await dateField.isVisible()) {
@@ -294,12 +269,7 @@ test.describe("Session Planning", () => {
     page,
   }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping conditions tests");
-    }
+    await handleAuthRedirect(page);
 
     // Fill in session details
     const beachField = page.getByLabel(/beach/i);
@@ -323,12 +293,7 @@ test.describe("Session Planning", () => {
 
   test("should successfully submit session plan", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping submission tests");
-    }
+    await handleAuthRedirect(page);
 
     // Fill out minimum required fields
     const beachField = page.getByLabel(/beach/i);
@@ -359,12 +324,7 @@ test.describe("Session Planning", () => {
 
   test("should integrate with weather and surf forecasts", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping forecast integration tests");
-    }
+    await handleAuthRedirect(page);
 
     const beachField = page.getByLabel(/beach/i);
     if (await beachField.isVisible()) {
@@ -388,12 +348,7 @@ test.describe("Session Planning", () => {
 
   test("should handle session reminders or notifications", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping reminder tests");
-    }
+    await handleAuthRedirect(page);
 
     // Look for reminder options
     const reminderCheckbox = page.getByLabel(/reminder|notify/i);
@@ -410,12 +365,7 @@ test.describe("Session Planning", () => {
 
   test("should allow comparing multiple beach options", async ({ page }) => {
     // Skip if not authenticated
-    if (
-      page.url().includes("/auth") ||
-      page.url() === new URL("/", page.url()).href
-    ) {
-      test.skip("User not authenticated - skipping beach comparison tests");
-    }
+    await handleAuthRedirect(page);
 
     // Look for comparison features
     const compareButton = page.getByRole("button", { name: /compare/i });

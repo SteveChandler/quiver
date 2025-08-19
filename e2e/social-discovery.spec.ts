@@ -14,11 +14,7 @@ test.describe("Social Discovery & Following", () => {
 
   test.describe("User Discovery Flow", () => {
     test("should discover users through session comments", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Navigate to session with comments", async () => {
         // Go to journal/sessions tab
@@ -34,9 +30,8 @@ test.describe("Social Discovery & Following", () => {
           await safeClick(sessionLink);
           await waitForPageLoad(page);
         } else {
-          // Skip if no sessions available
-          test.skip(true, "No sessions available for comment discovery testing");
-          return;
+          // No sessions available - this indicates test data setup issue
+          throw new Error("No sessions found for testing - ensure test environment has sample sessions");
         }
 
         // Verify we're on a session detail page
@@ -98,11 +93,7 @@ test.describe("Social Discovery & Following", () => {
     });
 
     test("should display activity feed with followed users content", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Navigate to activity feed", async () => {
         // Check if there's an activity feed section
@@ -145,11 +136,7 @@ test.describe("Social Discovery & Following", () => {
 
   test.describe("Following System", () => {
     test("should follow/unfollow users via profile pages", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Find another user to follow", async () => {
         // Try to find other users through various means
@@ -186,12 +173,10 @@ test.describe("Social Discovery & Following", () => {
               await safeClick(ownerProfile);
               await waitForPageLoad(page);
             } else {
-              test.skip(true, "Cannot find other users to test following functionality");
-              return;
+              throw new Error("Cannot find other users to test following functionality - ensure multiple test users exist");
             }
           } else {
-            test.skip(true, "No sessions or users found for following test");
-            return;
+            throw new Error("No sessions or users found for following test - ensure test data includes multiple users with sessions");
           }
         } else {
           await safeClick(userProfiles.first());
@@ -221,17 +206,13 @@ test.describe("Social Discovery & Following", () => {
           expect(stateChanged || hasFollowerCount).toBeTruthy();
         } else {
           console.log("Follow button not found - may be own profile or feature not implemented");
-          test.skip(true, "Follow button not available for testing");
+          throw new Error("Follow button not found - feature may be missing or user is viewing own profile");
         }
       });
     });
 
     test("should prevent users from following themselves", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Check own profile for self-follow prevention", async () => {
         await page.goto("/profile");
@@ -247,11 +228,7 @@ test.describe("Social Discovery & Following", () => {
     });
 
     test("should show following count and list", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Check following/followers display", async () => {
         await page.goto("/profile");
@@ -293,11 +270,7 @@ test.describe("Social Discovery & Following", () => {
 
   test.describe("Community Interaction", () => {
     test("should like and unlike sessions in community feed", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Find sessions to interact with", async () => {
         // Try home page first for community feed
@@ -358,11 +331,7 @@ test.describe("Social Discovery & Following", () => {
     });
 
     test("should navigate to user profiles from session cards", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Find session with user profile link", async () => {
         // Check journal for sessions
@@ -407,7 +376,7 @@ test.describe("Social Discovery & Following", () => {
             console.log("No user profile links found in session - single user testing limitation");
           }
         } else {
-          test.skip(true, "No sessions available for user profile navigation testing");
+          throw new Error("No sessions available for testing - ensure test data includes user sessions");
         }
       });
     });
@@ -415,11 +384,7 @@ test.describe("Social Discovery & Following", () => {
 
   test.describe("Activity Feed Functionality", () => {
     test("should display personalized activity feed", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Check for activity feed section", async () => {
         // Look for activity feed in profile or home
@@ -457,11 +422,7 @@ test.describe("Social Discovery & Following", () => {
     });
 
     test("should interact with activity feed items", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Navigate to activity feed items", async () => {
         // Look for clickable activity items
@@ -497,11 +458,7 @@ test.describe("Social Discovery & Following", () => {
 
   test.describe("Social Stats and Metrics", () => {
     test("should display accurate follower/following counts", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Verify social metrics display", async () => {
         await page.goto("/profile");

@@ -32,7 +32,7 @@ export async function waitForElementReady(
 }
 
 /**
- * Handle authentication redirects gracefully
+ * Handle authentication redirects and fail test if auth is required but missing
  */
 export async function handleAuthRedirect(page: Page) {
   await page.waitForTimeout(1000);
@@ -41,22 +41,30 @@ export async function handleAuthRedirect(page: Page) {
   const isAuthPage =
     currentUrl.includes("/auth") || currentUrl.includes("/sign");
 
+  // If we're on an auth page, this indicates auth setup failed
+  if (isAuthPage) {
+    throw new Error(
+      `Authentication setup failed - test was redirected to auth page: ${currentUrl}. ` +
+      `This suggests the global setup authentication didn't work properly.`
+    );
+  }
+
   try {
     const baseUrl = new URL(page.url()).origin;
     const homeUrl = baseUrl + "/";
 
     return {
-      isAuthPage,
-      isSignIn: currentUrl.includes("/sign-in"),
-      isSignUp: currentUrl.includes("/sign-up"),
+      isAuthPage: false,
+      isSignIn: false,
+      isSignUp: false,
       isHome: currentUrl === homeUrl || currentUrl === baseUrl,
     };
   } catch (error) {
     // Fallback if URL parsing fails
     return {
-      isAuthPage,
-      isSignIn: currentUrl.includes("/sign-in"),
-      isSignUp: currentUrl.includes("/sign-up"),
+      isAuthPage: false,
+      isSignIn: false,
+      isSignUp: false,
       isHome: currentUrl.endsWith("/") && !currentUrl.includes("/auth"),
     };
   }
@@ -264,7 +272,7 @@ export async function testApiEndpoint(
   } catch (error) {
     console.log(`API test error for ${endpoint}:`, error);
     return {
-      status: 500,
+      status: 0, // 0 indicates test framework error, not API response
       data: { error: error.message },
       success: false,
     };

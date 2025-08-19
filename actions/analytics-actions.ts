@@ -1,6 +1,5 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import type { SessionAnalytics, CalendarHeatmapData } from "@/types/database";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   format,
   startOfMonth,
@@ -11,13 +10,13 @@ import {
 
 /**
  * Get comprehensive session analytics for a user
+ * For use in API routes - pass authenticated supabase client and user ID
  */
-export async function getSessionAnalytics(userId: string) {
-  return withAuthenticatedAction(async (user, supabase) => {
-    // Verify user can access this data
-    if (user.id !== userId) {
-      throw new Error("Unauthorized access to analytics data");
-    }
+export async function getSessionAnalytics(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{ success: true; data: SessionAnalytics } | { success: false; error: string }> {
+  try {
 
     // Get all completed sessions for the user
     const { data: sessions, error: sessionsError } = await supabase
@@ -164,6 +163,7 @@ export async function getSessionAnalytics(userId: string) {
     };
 
     const analytics: SessionAnalytics = {
+      type: "analytics",
       userId,
       totalSessions: completedSessions.length,
       completedSessions: completedSessions.length,
@@ -184,23 +184,27 @@ export async function getSessionAnalytics(userId: string) {
       generatedAt: new Date().toISOString(),
     };
 
-    return analytics;
-  });
+    return { success: true, data: analytics };
+  } catch (error) {
+    console.error("Error getting session analytics:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get session analytics"
+    };
+  }
 }
 
 /**
  * Get calendar heatmap data for a specific month
+ * For use in API routes - pass authenticated supabase client and parameters
  */
 export async function getCalendarHeatmapData(
+  supabase: SupabaseClient,
   userId: string,
   year: number,
   month: number
-) {
-  return withAuthenticatedAction(async (user, supabase) => {
-    // Verify user can access this data
-    if (user.id !== userId) {
-      throw new Error("Unauthorized access to calendar data");
-    }
+): Promise<{ success: true; data: CalendarHeatmapData[] } | { success: false; error: string }> {
+  try {
 
     const monthStart = startOfMonth(new Date(year, month - 1));
     const monthEnd = endOfMonth(new Date(year, month - 1));
@@ -273,8 +277,14 @@ export async function getCalendarHeatmapData(
       });
     });
 
-    return calendarData;
-  });
+    return { success: true, data: calendarData };
+  } catch (error) {
+    console.error("Error getting calendar heatmap data:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get calendar data"
+    };
+  }
 }
 
 /**

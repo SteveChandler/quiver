@@ -15,11 +15,7 @@ test.describe("Local Intel System", () => {
   test.describe("Intel Creation Flow", () => {
     test("should create intel post from beach detail page", async ({ page }) => {
       // Handle potential authentication redirect
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Navigate to beach detail page", async () => {
         // Direct navigation to Ocean Beach for reliable testing
@@ -58,9 +54,8 @@ test.describe("Local Intel System", () => {
           console.log("Page content includes Local Intel:", pageContent.includes("Local Intel"));
           console.log("Available buttons:", await page.locator('button').allTextContents());
           
-          // Skip this test if Local Intel section is not found
-          test.skip(true, "Local Intel section not found - feature may not be available");
-          return;
+          // Local Intel section not found - this indicates feature is broken
+          throw new Error("Local Intel section not found - feature may be missing or broken");
         }
 
         // Click to expand the section
@@ -73,8 +68,7 @@ test.describe("Local Intel System", () => {
 
         const isAddIntelVisible = await addIntelButton.isVisible().catch(() => false);
         if (!isAddIntelVisible) {
-          test.skip(true, "Add Intel button not found - feature may be restricted or not implemented");
-          return;
+          throw new Error("Add Intel button not found - feature may be restricted or not implemented");
         }
 
         await safeClick(addIntelButton);
@@ -173,11 +167,7 @@ test.describe("Local Intel System", () => {
     });
 
     test("should handle intel validation and errors", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to a beach page
       await page.goto("/beach/af4f2f6c-d1cc-48b5-95cf-5193b6774547");
@@ -219,11 +209,7 @@ test.describe("Local Intel System", () => {
 
   test.describe("Intel Viewing and Interaction", () => {
     test("should view existing intel posts on beach page", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Navigate to beach with intel", async () => {
         // Go to Ocean Beach which should have intel posts
@@ -287,11 +273,7 @@ test.describe("Local Intel System", () => {
     });
 
     test("should display intel posts on map page", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       await test.step("Check for intel indicators on map", async () => {
         await page.goto("/map");
@@ -315,11 +297,7 @@ test.describe("Local Intel System", () => {
 
   test.describe("Intel Management", () => {
     test("should allow editing own intel posts", async ({ page }) => {
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       // This test will only pass if user has existing intel posts
       await page.goto("/profile");
@@ -361,11 +339,11 @@ test.describe("Local Intel System", () => {
           }
         } else {
           console.log("User has no intel posts to edit - skipping edit test");
-          test.skip(true, "No user intel posts found for editing");
+          throw new Error("No user intel posts found for editing - ensure test user has created intel posts");
         }
       } else {
         console.log("No intel tab found in profile - feature may not be implemented");
-        test.skip(true, "Intel management not found in profile");
+        throw new Error("Intel management not found in profile - feature may be missing or broken");
       }
     });
   });

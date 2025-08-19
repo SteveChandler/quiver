@@ -16,11 +16,7 @@ test.describe("Session Share Functionality", () => {
     await waitForPageLoad(page);
 
     // Handle potential authentication redirect
-    const authStatus = await handleAuthRedirect(page);
-    if (authStatus.isAuthPage) {
-      test.skip(authStatus.isAuthPage, "User not authenticated");
-      return;
-    }
+    await handleAuthRedirect(page);
 
     await test.step("Navigate to existing session", async () => {
       // Click journal/sessions tab if it exists
@@ -72,8 +68,7 @@ test.describe("Session Share Functionality", () => {
           await safeClick(newSessionLink);
           await waitForPageLoad(page);
         } else {
-          test.skip(true, "Could not create or find session for testing");
-          return;
+          throw new Error("Could not create or find session for testing - ensure test user has sessions or session creation works");
         }
       } else {
         await safeClick(sessionLink);
@@ -141,16 +136,11 @@ test.describe("Session Share Functionality", () => {
     await page.goto("/sessions/72a55690-3269-4261-94f7-6525433970d7");
     await waitForPageLoad(page);
 
-    const authStatus = await handleAuthRedirect(page);
-    if (authStatus.isAuthPage) {
-      test.skip(authStatus.isAuthPage, "User not authenticated");
-      return;
-    }
+    await handleAuthRedirect(page);
 
-    // If redirected away, skip
+    // If redirected away, this indicates session is not accessible
     if (!page.url().includes("/sessions/")) {
-      test.skip(true, "Session not accessible");
-      return;
+      throw new Error("Session not accessible - navigation to session detail failed");
     }
 
     await test.step("Test keyboard navigation", async () => {
@@ -180,15 +170,10 @@ test.describe("Session Share Functionality", () => {
     await page.goto("/sessions/72a55690-3269-4261-94f7-6525433970d7");
     await waitForPageLoad(page);
 
-    const authStatus = await handleAuthRedirect(page);
-    if (authStatus.isAuthPage) {
-      test.skip(authStatus.isAuthPage, "User not authenticated");
-      return;
-    }
+    await handleAuthRedirect(page);
 
     if (!page.url().includes("/sessions/")) {
-      test.skip(true, "Session not accessible");
-      return;
+      throw new Error("Session not accessible - navigation to session detail failed");
     }
 
     await test.step("Test error handling in share modal", async () => {

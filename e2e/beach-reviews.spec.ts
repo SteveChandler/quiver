@@ -146,8 +146,7 @@ test.describe("Beach Reviews System", () => {
       // Check if we're on a valid beach page first
       const isBeachNotFound = page.getByText(/not found|doesn't exist/i);
       if (await isBeachNotFound.isVisible().catch(() => false)) {
-        test.skip();
-        return;
+        throw new Error("Beach not found - ensure test is using valid beach ID");
       }
 
       const reviewsTab = page.getByRole("tab", { name: /reviews/i });
@@ -543,13 +542,12 @@ test.describe("Beach Reviews System", () => {
       expect(typeof hasRating).toBe("boolean");
     });
 
-    test.skip("should display review count", async ({ page }) => {
+    test("should display review count", async ({ page }) => {
       // First check if we're on a valid beach page
       const isBeachNotFound = page.getByText(/not found|doesn't exist/i);
       if (await isBeachNotFound.isVisible().catch(() => false)) {
-        // Beach doesn't exist, skip this test
-        test.skip();
-        return;
+        // Beach doesn't exist, this indicates test setup issue
+        throw new Error("Beach not found - ensure test is using valid beach ID");
       }
 
       // Look for review count with the actual text patterns used by the component

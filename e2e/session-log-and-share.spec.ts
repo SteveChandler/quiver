@@ -18,9 +18,8 @@ test.describe("Session Logging and Sharing Flow", () => {
       // Handle potential authentication redirect
       const authStatus = await handleAuthRedirect(page);
       if (authStatus.isAuthPage) {
-        // Skip test if not authenticated - should use global setup
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
+        // Test should fail if not authenticated - indicates global setup failed
+        throw new Error("User not authenticated - authentication setup failed");
       }
 
       // Step 2: Fill out session logging form
@@ -266,9 +265,8 @@ test.describe("Session Logging and Sharing Flow", () => {
               await page.goto(`/sessions/${sessionId}`);
               await waitForPageLoad(page);
             } else {
-              // Skip the test if we can't find any sessions
-              test.skip(true, "No sessions found to test sharing functionality");
-              return;
+              // No sessions found indicates test data setup issue
+              throw new Error("No sessions found to test sharing functionality - ensure test user has sessions");
             }
           }
         }
@@ -277,8 +275,7 @@ test.describe("Session Logging and Sharing Flow", () => {
         const currentUrl = page.url();
         if (!currentUrl.includes("/sessions/")) {
           console.log("Current URL after navigation:", currentUrl);
-          test.skip(true, "Could not navigate to session detail page");
-          return;
+          throw new Error("Could not navigate to session detail page - session navigation failed");
         }
         
         expect(page.url()).toContain("/sessions/");
@@ -463,11 +460,7 @@ test.describe("Session Logging and Sharing Flow", () => {
       await page.goto("/log-session");
       await waitForPageLoad(page);
 
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       // Try to navigate to an existing session or create a quick one
       await page.goto("/profile");
@@ -516,11 +509,7 @@ test.describe("Session Logging and Sharing Flow", () => {
       await page.goto("/profile");
       await waitForPageLoad(page);
 
-      const authStatus = await handleAuthRedirect(page);
-      if (authStatus.isAuthPage) {
-        test.skip(authStatus.isAuthPage, "User not authenticated");
-        return;
-      }
+      await handleAuthRedirect(page);
 
       // Try to access share functionality and verify error handling
       const journalTab = page.getByRole("tab", { name: /journal|sessions/i });
