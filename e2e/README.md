@@ -84,6 +84,14 @@ This directory contains comprehensive end-to-end tests for the Quiver surf appli
 - Validates network error recovery
 - Ensures no render loops during slow API responses
 
+### 🌊 Forecast Consistency Tests (`forecast-consistency.spec.ts`)
+
+- **Cross-page forecast consistency**: Verifies home page and beach detail page show identical forecast data
+- **Wave height consistency**: Ensures same wave height values across pages (critical regression test)
+- **Search result consistency**: Validates forecast data remains consistent through search navigation
+- **Multi-metric validation**: Tests wave height, wind speed, water temperature, and confidence scores
+- **Time-aware selection**: Verifies both pages use the same forecast time selection logic
+
 ### 👤 Profile Management Tests (`profile.spec.ts`)
 
 - Profile view display

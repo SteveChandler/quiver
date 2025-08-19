@@ -164,7 +164,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
   const loading = beachLoading || forecastsLoading;
   const error = beachError || forecastsError;
 
-  // Select the closest forecast time slot to "now" for today's overview
+  // Select the best forecast using the same time-aware logic as home page
   const currentForecast = useMemo(() => {
     if (!forecasts || forecasts.length === 0) return null;
 
@@ -173,29 +173,11 @@ export function BeachDetail({ id }: BeachDetailProps) {
       return forecasts[0] || null;
     }
 
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    const todays = forecasts.filter((f) => f.forecast_date === today);
-    if (todays.length === 0) {
-      // Fallback: use the first available forecast (already sorted)
-      return forecasts[0];
-    }
-
-    let nearest = todays[0];
-    let bestDiff = Number.POSITIVE_INFINITY;
-    for (const f of todays) {
-      const [h, m] = f.forecast_time.split(":").map(Number);
-      const minutes = h * 60 + m;
-      const diff = Math.abs(minutes - currentMinutes);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        nearest = f;
-      }
-    }
-
-    return nearest;
+    // Use the same getCurrentForecast utility as the home page for consistency
+    const {
+      getCurrentForecast,
+    } = require("@/lib/utils/current-forecast-utils");
+    return getCurrentForecast(forecasts);
   }, [forecasts]);
 
   // Process data for display - memoized to prevent unnecessary recalculations

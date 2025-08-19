@@ -1,7 +1,8 @@
-## [2025.01.19] - Favorite Beaches Bug Fixes
+## [2025.01.19] - Forecast Consistency & Bug Fixes
 
 ### Fixed
 
+- **Forecast Consistency**: Fixed wave height discrepancy between home page and beach detail page by ensuring both use the same time-aware forecast selection logic
 - Fixed syntax errors in favorite-button.tsx component that were causing JavaScript compilation errors
 - Fixed syntax errors in favorite-beaches.tsx component with malformed function declarations
 - Added proper error handling and user feedback for favorite beaches operations
@@ -10,9 +11,15 @@
 
 ### Changed
 
+- Updated getForecastForToday to use getCurrentForecast utility for time-aware forecast selection
+- Updated beach detail page to use the same forecast selection logic as home page
 - Improved error messaging for favorite beaches functionality
 - Added toast notifications when favorite beach operations fail
 - Enhanced user feedback when server returns 500 errors for favorite beaches
+
+### Added
+
+- **Forecast Consistency Test**: Added E2E test `forecast-consistency.spec.ts` to verify home page and beach detail page show identical forecast data (wave height, wind speed, water temperature, confidence score)
 
 ---
 

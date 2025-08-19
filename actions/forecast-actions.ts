@@ -410,13 +410,15 @@ export async function getForecastForToday(beachId: string) {
     }
 
     if (enhancedForecasts && enhancedForecasts.length > 0) {
-      // Use same logic as beach details page - take the first forecast from the sorted results
-      // The view already filters to next 10 days and sorts by date/time
-      const currentForecast = enhancedForecasts[0];
+      // Use time-aware selection to match beach detail page behavior
+      const { getCurrentForecast } = await import(
+        "@/lib/utils/current-forecast-utils"
+      );
+      const currentForecast = getCurrentForecast(enhancedForecasts);
 
       if (currentForecast) {
         console.log(
-          `✅ Home page forecast found: ${currentForecast.forecast_date} ${currentForecast.forecast_time}, tide: ${currentForecast.tide_status}, wind: ${currentForecast.wind_speed}`
+          `✅ Home page forecast found (time-aware): ${currentForecast.forecast_date} ${currentForecast.forecast_time}, tide: ${currentForecast.tide_status}, wind: ${currentForecast.wind_speed}`
         );
         return currentForecast;
       }
