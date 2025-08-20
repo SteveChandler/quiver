@@ -94,6 +94,7 @@ export function SignUpForm() {
               placeholder="e.g. Kelly"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+              autoComplete="name"
               required
             />
           </div>
@@ -105,18 +106,20 @@ export function SignUpForm() {
               placeholder="your.email@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+                      <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -125,6 +128,7 @@ export function SignUpForm() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
               required
             />
           </div>

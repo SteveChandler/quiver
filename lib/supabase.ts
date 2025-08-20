@@ -11,9 +11,32 @@ export const createBrowserClient = () => {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error("Supabase URL or Anon Key is missing");
+    // Return a mock client to prevent crashes but still function
+    return {
+      auth: {
+        getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+        getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+        signUp: () => Promise.reject(new Error("Supabase not configured")),
+        signInWithPassword: () => Promise.reject(new Error("Supabase not configured")),
+        signOut: () => Promise.reject(new Error("Supabase not configured")),
+      }
+    } as any;
   }
 
-  return createSupabaseBrowserClient(supabaseUrl, supabaseAnonKey);
+  return createSupabaseBrowserClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    },
+    global: {
+      headers: {
+        "x-application-name": "quiver-surf-app",
+      },
+    }
+  });
 };
 
 // Create a singleton instance for client components

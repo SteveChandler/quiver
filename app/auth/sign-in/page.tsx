@@ -1,6 +1,5 @@
 import { SignInForm } from "@/components/auth/sign-in-form";
 import type { Metadata } from "next";
-import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Sign In - Quiver",
@@ -25,9 +24,7 @@ export default function SignInPage() {
             </a>
           </p>
         </div>
-        <Suspense fallback={<div>Loading...</div>}>
-          <SignInForm />
-        </Suspense>
+        <SignInForm />
       </div>
     </div>
   );
