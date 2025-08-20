@@ -32,6 +32,7 @@ Primary references:
 
 - `docs/ARCHITECTURE_REVIEW.md` — PRIMARY reference for system architecture and current status
 - `docs/DRY_COMPONENT_USAGE.md` — Development patterns and DRY components
+- `docs/STYLE_GUIDE.md` — Brand, typography, color, iconography, motion, accessibility
 
 ### Design Principles
 

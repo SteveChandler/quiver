@@ -385,6 +385,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+- Documentation: `docs/STYLE_GUIDE.md` — comprehensive design style guide (brand voice, typography, colors mapped to CSS variables, iconography, motion using `lib/constants/animations.ts`, copy, accessibility). Cross-linked from `ARCHITECTURE.md` and `styles/ARCHITECTURE.md`.
+
 - Cursor agents for Cursor IDE: Fullstack Engineer and Design Review personas with Playwright MCP integration. Docs at `docs/CURSOR_AGENTS.md`; config at `.cursor/mcp.json`; personas at `.cursor/agents/*`.
 - Documentation updates: `ARCHITECTURE.md`, `.cursorrules`, and `CLAUDE.md` now reference Cursor agents and MCP usage.
 - Design Principles: New `docs/DESIGN_PRINCIPLES.md` summarizing core principles (simplicity/consistency, DRY, performance, security/privacy, transparency, testing, AI-augmented automation, growth focus).

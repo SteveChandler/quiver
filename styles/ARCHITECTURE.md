@@ -89,6 +89,10 @@ styles/
 --radius: 0.5rem;  # Global border radius for components
 ```
 
+### **Further Reading**
+
+- For brand voice, typography scale, color usage, iconography, motion, and accessibility, see `docs/STYLE_GUIDE.md`.
+
 ## 🔧 **Integration Points**
 
 ### **1. Tailwind CSS Configuration**
