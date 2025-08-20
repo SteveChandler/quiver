@@ -17,7 +17,8 @@ interface UseUserFollowReturn {
 export function useUserFollow(
   userId: string,
   initialFollowersCount = 0,
-  initialFollowingCount = 0
+  initialFollowingCount = 0,
+  onFollowersCountChange?: (newCount: number) => void
 ): UseUserFollowReturn {
   const { user } = useAuth();
   const [following, setFollowing] = useState(false);
@@ -58,8 +59,18 @@ export function useUserFollow(
             profileError
           );
         } else {
-          setFollowersCount(profile.followers_count || 0);
+          const newFollowersCount = profile.followers_count || 0;
+          setFollowersCount(newFollowersCount);
           setFollowingCount(profile.following_count || 0);
+          
+          // Notify parent component of initial follower count
+          if (onFollowersCountChange) {
+            try {
+              onFollowersCountChange(newFollowersCount);
+            } catch (error) {
+              console.error("Error in onFollowersCountChange callback:", error);
+            }
+          }
         }
 
         // Get user's follow status if authenticated
@@ -105,7 +116,18 @@ export function useUserFollow(
           filter: `following_id=eq.${userId}`,
         },
         (payload) => {
-          setFollowersCount((prev) => prev + 1);
+          setFollowersCount((prev) => {
+            const newCount = prev + 1;
+            // Notify parent component of follower count change
+            if (onFollowersCountChange) {
+              try {
+                onFollowersCountChange(newCount);
+              } catch (error) {
+                console.error("Error in onFollowersCountChange callback:", error);
+              }
+            }
+            return newCount;
+          });
           // If this is the current user's follow, update their following status
           if (user && payload.new.follower_id === user.id) {
             setFollowing(true);
@@ -121,7 +143,18 @@ export function useUserFollow(
           filter: `following_id=eq.${userId}`,
         },
         (payload) => {
-          setFollowersCount((prev) => Math.max(0, prev - 1));
+          setFollowersCount((prev) => {
+            const newCount = Math.max(0, prev - 1);
+            // Notify parent component of follower count change
+            if (onFollowersCountChange) {
+              try {
+                onFollowersCountChange(newCount);
+              } catch (error) {
+                console.error("Error in onFollowersCountChange callback:", error);
+              }
+            }
+            return newCount;
+          });
           // If this is the current user's follow being removed, update their following status
           if (user && payload.old.follower_id === user.id) {
             setFollowing(false);
@@ -133,7 +166,7 @@ export function useUserFollow(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, user, initialFollowersCount, initialFollowingCount]);
+  }, [userId, user, initialFollowersCount, initialFollowingCount, onFollowersCountChange]);
 
   const toggleFollow = async () => {
     if (!user) {
@@ -160,10 +193,32 @@ export function useUserFollow(
       // but optimistic updates provide better UX
       if (result.following) {
         setFollowing(true);
-        setFollowersCount((prev) => prev + 1);
+        setFollowersCount((prev) => {
+          const newCount = prev + 1;
+          // Notify parent component of optimistic follower count change
+          if (onFollowersCountChange) {
+            try {
+              onFollowersCountChange(newCount);
+            } catch (error) {
+              console.error("Error in onFollowersCountChange callback:", error);
+            }
+          }
+          return newCount;
+        });
       } else {
         setFollowing(false);
-        setFollowersCount((prev) => Math.max(0, prev - 1));
+        setFollowersCount((prev) => {
+          const newCount = Math.max(0, prev - 1);
+          // Notify parent component of optimistic follower count change
+          if (onFollowersCountChange) {
+            try {
+              onFollowersCountChange(newCount);
+            } catch (error) {
+              console.error("Error in onFollowersCountChange callback:", error);
+            }
+          }
+          return newCount;
+        });
       }
     } catch (error) {
       console.error("Error toggling follow:", error);

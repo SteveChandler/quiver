@@ -32,7 +32,7 @@ export async function waitForElementReady(
 }
 
 /**
- * Handle authentication redirects gracefully
+ * Handle authentication redirects and fail test if auth is required but missing
  */
 export async function handleAuthRedirect(page: Page) {
   await page.waitForTimeout(1000);
@@ -41,22 +41,30 @@ export async function handleAuthRedirect(page: Page) {
   const isAuthPage =
     currentUrl.includes("/auth") || currentUrl.includes("/sign");
 
+  // If we're on an auth page, this indicates auth setup failed
+  if (isAuthPage) {
+    throw new Error(
+      `Authentication setup failed - test was redirected to auth page: ${currentUrl}. ` +
+      `This suggests the global setup authentication didn't work properly.`
+    );
+  }
+
   try {
     const baseUrl = new URL(page.url()).origin;
     const homeUrl = baseUrl + "/";
 
     return {
-      isAuthPage,
-      isSignIn: currentUrl.includes("/sign-in"),
-      isSignUp: currentUrl.includes("/sign-up"),
+      isAuthPage: false,
+      isSignIn: false,
+      isSignUp: false,
       isHome: currentUrl === homeUrl || currentUrl === baseUrl,
     };
   } catch (error) {
     // Fallback if URL parsing fails
     return {
-      isAuthPage,
-      isSignIn: currentUrl.includes("/sign-in"),
-      isSignUp: currentUrl.includes("/sign-up"),
+      isAuthPage: false,
+      isSignIn: false,
+      isSignUp: false,
       isHome: currentUrl.endsWith("/") && !currentUrl.includes("/auth"),
     };
   }
@@ -264,7 +272,7 @@ export async function testApiEndpoint(
   } catch (error) {
     console.log(`API test error for ${endpoint}:`, error);
     return {
-      status: 500,
+      status: 0, // 0 indicates test framework error, not API response
       data: { error: error.message },
       success: false,
     };
@@ -484,4 +492,255 @@ export async function createPlannedSession(page: Page, sessionData = {}) {
   }
 
   return defaultSession;
+}
+
+/**
+ * Create a completed session for sharing tests
+ */
+export async function createCompletedSession(page: Page, sessionData = {}) {
+  const defaultSession = {
+    beach: "Test Beach",
+    date: new Date().toISOString().split("T")[0], // Today
+    time: "08:00",
+    duration: "90",
+    notes: "Completed test session for sharing",
+    status: "completed",
+    waveQuality: "4",
+    ...sessionData,
+  };
+
+  await page.goto("/log-session");
+  await waitForPageLoad(page);
+
+  // Handle auth redirect
+  const authStatus = await handleAuthRedirect(page);
+  if (authStatus.isAuthPage) {
+    throw new Error("User not authenticated for session logging");
+  }
+
+  // Fill out the session form with multiple fallback selectors
+  const beachInput = page
+    .getByLabel(/beach/i)
+    .or(page.getByPlaceholder(/beach/i))
+    .or(page.locator('input[name*="beach"]'))
+    .or(page.getByTestId("beach-selector"))
+    .or(page.locator('[data-testid="beach-selector"] input'))
+    .first();
+
+  if (await beachInput.isVisible()) {
+    await beachInput.click();
+    await beachInput.fill("Alfonsos"); // Use existing beach from database
+    await page.waitForTimeout(1000); // Allow for autocomplete to load
+    
+    // Try to select from autocomplete dropdown
+    const beachOption = page
+      .getByText("Alfonsos")
+      .or(page.locator('[role="option"]:has-text("Alfonsos")'))
+      .first();
+    
+    const optionVisible = await beachOption.isVisible().catch(() => false);
+    if (optionVisible) {
+      await beachOption.click();
+    } else {
+      // Fallback: press Enter or Tab to confirm
+      await page.keyboard.press("Enter");
+    }
+    await page.waitForTimeout(500);
+  }
+
+  const dateInput = page
+    .getByLabel(/date/i)
+    .or(page.locator('input[type="date"]'))
+    .first();
+
+  if (await dateInput.isVisible()) {
+    await dateInput.fill(defaultSession.date);
+  }
+
+  const timeInput = page
+    .getByLabel(/time/i)
+    .or(page.locator('input[type="time"]'))
+    .first();
+
+  if (await timeInput.isVisible()) {
+    await timeInput.fill(defaultSession.time);
+  }
+
+  const durationInput = page
+    .getByLabel(/duration/i)
+    .or(page.locator('input[name*="duration"]'))
+    .first();
+
+  if (await durationInput.isVisible()) {
+    await durationInput.fill(defaultSession.duration);
+  }
+
+  const notesInput = page
+    .getByLabel(/notes/i)
+    .or(page.locator('textarea[name*="notes"]'))
+    .first();
+
+  if (await notesInput.isVisible()) {
+    await notesInput.fill(defaultSession.notes);
+  }
+
+  // Set wave quality if available
+  const waveQualitySelect = page
+    .getByLabel(/wave.*quality/i)
+    .or(page.locator('select[name*="wave"]'))
+    .first();
+
+  if (await waveQualitySelect.isVisible()) {
+    await waveQualitySelect.selectOption(defaultSession.waveQuality);
+  }
+
+  // Set status to completed
+  const statusSelect = page
+    .getByLabel(/status/i)
+    .or(page.locator('select[name*="status"]'))
+    .first();
+
+  if (await statusSelect.isVisible()) {
+    await statusSelect.selectOption(defaultSession.status);
+  }
+
+  // Submit the form
+  const submitButton = page
+    .getByRole("button", { name: /log session|save session|submit/i })
+    .or(page.locator('button[type="submit"]'))
+    .first();
+
+  await waitForElementReady(submitButton);
+  await safeClick(submitButton);
+  await page.waitForTimeout(2000);
+
+  return defaultSession;
+}
+
+/**
+ * Navigate to the most recent session detail page
+ */
+export async function navigateToLatestSession(page: Page): Promise<string | null> {
+  await page.goto("/profile");
+  await waitForPageLoad(page);
+
+  // Click journal/sessions tab if it exists
+  const journalTab = page.getByRole("tab", { name: /journal|sessions/i });
+  if (await journalTab.isVisible()) {
+    await safeClick(journalTab);
+    await page.waitForTimeout(1000);
+  }
+
+  // Find the most recent session link
+  const sessionLink = page.locator('a[href*="/sessions/"]').first();
+  if (await sessionLink.isVisible()) {
+    const href = await sessionLink.getAttribute("href");
+    await safeClick(sessionLink);
+    await waitForPageLoad(page);
+    
+    // Extract session ID from href
+    if (href) {
+      const sessionId = href.split("/sessions/")[1]?.split("?")[0];
+      return sessionId || null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Open share modal for current session
+ */
+export async function openShareModal(page: Page) {
+  // Be more specific to avoid multiple share buttons (e.g., in modal and page)
+  const shareButton = page
+    .getByTestId("share-button")
+    .or(page.locator('button[data-testid="share-button"]'))
+    .or(page.getByRole("button", { name: /share/i }).first())
+    .first();
+
+  await expect(shareButton).toBeVisible();
+  await safeClick(shareButton);
+  await page.waitForTimeout(1000);
+
+  // Verify modal opened
+  const shareModal = page
+    .getByRole("dialog")
+    .or(page.getByTestId("share-modal"))
+    .or(page.locator('[role="dialog"]'))
+    .first();
+
+  await expect(shareModal).toBeVisible();
+  return shareModal;
+}
+
+/**
+ * Make session public if needed for sharing
+ */
+export async function ensureSessionIsPublic(page: Page) {
+  const makeShareableButton = page
+    .getByRole("button", { name: /make.*shareable|make.*public/i })
+    .first();
+
+  if (await makeShareableButton.isVisible()) {
+    await safeClick(makeShareableButton);
+    await page.waitForTimeout(2000);
+    
+    // Verify success
+    const successToast = page.getByText(/session.*shareable|session.*public|success/i);
+    const hasSuccessToast = await successToast.isVisible().catch(() => false);
+    return hasSuccessToast;
+  }
+  
+  return true; // Already public
+}
+
+/**
+ * Wait for share image to generate
+ */
+export async function waitForShareImageGeneration(page: Page, timeout = 10000) {
+  const imagePreview = page
+    .locator('img[alt*="share"]')
+    .or(page.locator('img[alt*="preview"]'))
+    .first();
+
+  // Wait for either image to appear or error state
+  try {
+    await imagePreview.waitFor({ state: "visible", timeout });
+    return { success: true, hasImage: true };
+  } catch {
+    // Check for error state
+    const errorMessage = page.getByText(/failed.*generate|error.*image/i);
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    return { success: !hasError, hasImage: false, hasError };
+  }
+}
+
+/**
+ * Test share modal variant switching
+ */
+export async function testVariantSwitching(page: Page) {
+  const storyTab = page.getByRole("tab", { name: /story/i });
+  const squareTab = page.getByRole("tab", { name: /square/i });
+
+  const results = {
+    storyTabVisible: await storyTab.isVisible().catch(() => false),
+    squareTabVisible: await squareTab.isVisible().catch(() => false),
+    switchedToSquare: false,
+    switchedToStory: false,
+  };
+
+  if (results.squareTabVisible) {
+    await safeClick(squareTab);
+    await page.waitForTimeout(1000);
+    results.switchedToSquare = true;
+  }
+
+  if (results.storyTabVisible) {
+    await safeClick(storyTab);
+    await page.waitForTimeout(1000);
+    results.switchedToStory = true;
+  }
+
+  return results;
 }

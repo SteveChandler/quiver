@@ -364,29 +364,15 @@ export async function getForecastForToday(beachId: string) {
 
     console.log("📅 Searching for forecasts between:", today, "and", tomorrow);
 
-    // Get today's and tomorrow's enhanced forecasts directly from table
-    // Prefer view when available for compatibility; fallback to table
+    // Use same data fetching logic as beach detail page to ensure consistency
+    const enhancedForecastResult = await getEnhancedBeachForecasts(beachId, 10);
     let enhancedForecasts: any[] | null = null;
     let enhancedError: any = null;
-
-    const viewTry = await supabase
-      .from("ten_day_enhanced_forecasts")
-      .select("*")
-      .eq("beach_id", beachId)
-      .order("forecast_date", { ascending: true })
-      .order("forecast_time", { ascending: true });
-    if (!viewTry.error) {
-      enhancedForecasts = viewTry.data as any[];
+    
+    if (enhancedForecastResult.success && enhancedForecastResult.data) {
+      enhancedForecasts = enhancedForecastResult.data;
     } else {
-      const tableTry = await supabase
-        .from("enhanced_forecasts")
-        .select("*")
-        .eq("beach_id", beachId)
-        .in("forecast_date", [today, tomorrow])
-        .order("forecast_date", { ascending: true })
-        .order("forecast_time", { ascending: true });
-      enhancedForecasts = tableTry.data as any[];
-      enhancedError = tableTry.error;
+      enhancedError = new Error(enhancedForecastResult.error || "Failed to fetch enhanced forecasts");
     }
 
     console.log("🔍 Enhanced forecasts query result:", {
@@ -410,14 +396,18 @@ export async function getForecastForToday(beachId: string) {
     }
 
     if (enhancedForecasts && enhancedForecasts.length > 0) {
-      // Use same logic as beach details page - take the first forecast from the sorted results
-      // The view already filters to next 10 days and sorts by date/time
-      const currentForecast = enhancedForecasts[0];
+      // Use time-aware selection to match beach detail page behavior
+      const { getCurrentForecast, formatCurrentTime } = await import(
+        "@/lib/utils/current-forecast-utils"
+      );
+      const currentForecast = getCurrentForecast(enhancedForecasts);
 
       if (currentForecast) {
         console.log(
-          `✅ Home page forecast found: ${currentForecast.forecast_date} ${currentForecast.forecast_time}, tide: ${currentForecast.tide_status}, wind: ${currentForecast.wind_speed}`
+          `✅ Home page forecast found (time-aware): ${currentForecast.forecast_date} ${currentForecast.forecast_time}, wave: ${currentForecast.wave_height}, tide: ${currentForecast.tide_status}, wind: ${currentForecast.wind_speed}`
         );
+        console.log(`🕐 Current time: ${formatCurrentTime()}, total forecasts: ${enhancedForecasts.length}`);
+        console.log(`📊 First forecast: ${enhancedForecasts[0]?.forecast_time} (${enhancedForecasts[0]?.wave_height})`);
         return currentForecast;
       }
     }

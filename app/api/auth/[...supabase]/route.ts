@@ -2,11 +2,11 @@ import { NextResponse, NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export const runtime = "edge";
+export const dynamic = 'force-dynamic';
 
 // GET = fetch current session
 export async function GET() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -82,11 +82,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log session info (without sensitive details)
-    console.log("API route: Sign-in result:", {
-      success: !error,
-      hasSession: !!data?.session,
-      userId: data?.session?.user?.id,
-    });
+    console.log("Sign-in successful for user:", data?.session?.user?.id);
 
     // Return the response with cookies set by the createServerClient
     return response;
@@ -104,7 +100,7 @@ export async function POST(request: NextRequest) {
 
 // DELETE = sign out (clears cookies)
 export async function DELETE() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

@@ -6,8 +6,12 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { CONTENT } from "@/lib/constants/features";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+import { useSearchParams } from "next/navigation";
+import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 
 export function CTASection() {
+  const searchParams = useSearchParams();
+  
   return (
     <section className="py-20 px-4 bg-gradient-to-br from-ocean-blue via-blue-600 to-blue-700 relative overflow-hidden">
       {/* Background Pattern */}
@@ -101,7 +105,7 @@ export function CTASection() {
             className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             asChild
           >
-            <Link href="/auth/sign-up">
+            <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
               Join the Community Free
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>

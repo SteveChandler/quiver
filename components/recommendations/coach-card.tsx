@@ -235,19 +235,22 @@ export function CoachCard({
         className
       )}
     >
-      <CardHeader className="pb-3 flex items-center justify-between bg-primary/5 rounded-t-md">
-        <CardTitle className="text-base text-primary">{title}</CardTitle>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refetch}
-          disabled={loading}
-        >
-          <RefreshCw
-            className={loading ? "h-4 w-4 mr-2 animate-spin" : "h-4 w-4 mr-2"}
-          />
-          Refresh
-        </Button>
+      <CardHeader className="pb-3 bg-primary/5 rounded-t-md">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg text-primary">{title}</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refetch}
+            disabled={loading}
+            className="min-w-[80px]"
+          >
+            <RefreshCw
+              className={loading ? "h-4 w-4 mr-2 animate-spin" : "h-4 w-4 mr-2"}
+            />
+            {loading ? "Loading..." : "Refresh"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {error && (
@@ -264,7 +267,7 @@ export function CoachCard({
           <div className="space-y-3">
             {/* Top pick summary */}
             <div className="flex items-center justify-between">
-              <div className="font-medium">{top.name}</div>
+              <div className="font-medium text-sm">{top.name}</div>
               {top.score >= 75 ? (
                 <Badge className="bg-emerald-600 text-white border-emerald-600">
                   {top.score}
@@ -280,7 +283,7 @@ export function CoachCard({
 
             {/* Show top 3 picks if available */}
             {topPicks.length > 1 && (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <div className="text-xs text-muted-foreground font-medium">
                   Top Picks:
                 </div>
@@ -290,10 +293,10 @@ export function CoachCard({
                     className="flex items-center justify-between text-sm"
                   >
                     <span className="inline-flex items-center gap-2">
-                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1">
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold px-1">
                         #{index + 1}
                       </span>
-                      {pick.name}
+                      <span className="text-sm">{pick.name}</span>
                     </span>
                     <Badge variant="outline">{pick.score}</Badge>
                   </div>
@@ -310,40 +313,44 @@ export function CoachCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-auto p-0 text-xs text-muted-foreground"
+                  className="h-auto p-1 text-sm text-muted-foreground hover:text-primary"
                 >
                   Why this pick?{" "}
                   {showExplanation ? (
-                    <ChevronUp className="ml-1 h-3 w-3" />
+                    <ChevronUp className="ml-1 h-4 w-4" />
                   ) : (
-                    <ChevronDown className="ml-1 h-3 w-3" />
+                    <ChevronDown className="ml-1 h-4 w-4" />
                   )}
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2">
-                <div className="space-y-2 text-xs">
+                <div className="space-y-2 text-sm">
                   <ul className="list-disc pl-4 text-muted-foreground space-y-1">
                     {top.reasons.map((r, i) => (
-                      <li key={i}>{r.replaceAll("_", " ")}</li>
+                      <li key={i} className="text-sm">
+                        {r.replaceAll("_", " ")}
+                      </li>
                     ))}
                   </ul>
                   {top.wave && (
-                    <div className="grid grid-cols-3 gap-2 text-xs bg-muted p-2 rounded">
+                    <div className="grid grid-cols-3 gap-2 text-sm bg-muted p-3 rounded">
                       <div>
                         <div className="font-medium">Wave</div>
-                        <div>
+                        <div className="text-xs text-muted-foreground">
                           {top.wave.ht_ft}ft • {top.wave.period_s}s
                         </div>
                       </div>
                       <div>
                         <div className="font-medium">Wind</div>
-                        <div>
+                        <div className="text-xs text-muted-foreground">
                           {top.wind?.kts}kts • {top.wind?.dir_deg}°
                         </div>
                       </div>
                       <div>
                         <div className="font-medium">Tide</div>
-                        <div>{top.tide?.height_ft}ft</div>
+                        <div className="text-xs text-muted-foreground">
+                          {top.tide?.height_ft}ft
+                        </div>
                       </div>
                     </div>
                   )}
@@ -352,7 +359,7 @@ export function CoachCard({
             </Collapsible>
 
             {/* Feedback buttons */}
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-2">
               {!feedbackGiven[top.spotId] ? (
                 <>
                   <Button
@@ -361,7 +368,7 @@ export function CoachCard({
                     onClick={() =>
                       submitFeedback(top.spotId, true, ["accurate"])
                     }
-                    className="text-xs"
+                    className="text-sm"
                   >
                     ✓ Accurate
                   </Button>
@@ -373,13 +380,13 @@ export function CoachCard({
                         "conditions_different",
                       ])
                     }
-                    className="text-xs"
+                    className="text-sm"
                   >
                     ✗ Off
                   </Button>
                 </>
               ) : (
-                <div className="text-xs text-muted-foreground">
+                <div className="text-sm text-muted-foreground">
                   Thanks for the feedback!
                 </div>
               )}

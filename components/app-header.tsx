@@ -6,7 +6,8 @@ import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
 import { Menu, X, Loader2, User, LogOut, Bell } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useUserProfile } from "@/hooks/use-user-profile";
@@ -27,6 +28,7 @@ export function AppHeader() {
   const { user, isLoading: authLoading, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Use shared profile loading hook
   const { profile, loading: profileLoading } = useUserProfile({
@@ -79,12 +81,17 @@ export function AppHeader() {
     return pathname.startsWith(href);
   };
 
+  // Helper function to preserve query parameters in navigation
+  const getPreservedHref = (href: string) => {
+    return preserveQueryParams(href, searchParams);
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center w-full">
         {/* Left side with logo - uses container padding */}
         <div className="container flex items-center pl-4">
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href={getPreservedHref("/")} className="flex items-center space-x-2">
             <Image
               src="/logo-word (2).png"
               alt="Quiver"
@@ -101,7 +108,7 @@ export function AppHeader() {
               {navItems.map((item) => (
                 <Link
                   key={item.name}
-                  href={item.href}
+                  href={getPreservedHref(item.href)}
                   className={cn(
                     "text-sm font-medium transition-colors hover:text-primary",
                     isActiveRoute(item.href)
@@ -202,12 +209,12 @@ export function AppHeader() {
             </DropdownMenu>
           ) : (
             <div className="flex items-center space-x-2">
-              <Link href="/auth/sign-in">
+              <Link href={getPreservedHref("/auth/sign-in")}>
                 <Button variant="ghost" size="sm">
                   Sign In
                 </Button>
               </Link>
-              <Link href="/auth/sign-up">
+              <Link href={getPreservedHref("/auth/sign-up")}>
                 <Button
                   size="sm"
                   className="bg-ocean-blue hover:bg-ocean-blue/90"
@@ -227,7 +234,7 @@ export function AppHeader() {
             {navItems.map((item) => (
               <Link
                 key={item.name}
-                href={item.href}
+                href={getPreservedHref(item.href)}
                 className={cn(
                   "block text-sm font-medium transition-colors hover:text-primary",
                   isActiveRoute(item.href)
@@ -244,7 +251,7 @@ export function AppHeader() {
             {!user && (
               <div className="space-y-2 pt-2 border-t">
                 <Link
-                  href="/auth/sign-in"
+                  href={getPreservedHref("/auth/sign-in")}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <Button variant="outline" size="sm" className="w-full">
@@ -252,7 +259,7 @@ export function AppHeader() {
                   </Button>
                 </Link>
                 <Link
-                  href="/auth/sign-up"
+                  href={getPreservedHref("/auth/sign-up")}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <Button

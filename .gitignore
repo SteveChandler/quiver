@@ -67,3 +67,5 @@ scripts/lighthouseRun.*
 scripts/performance-results.*
 lighthouse-results/
 .env.test
+# Playwright MCP testing artifacts
+.playwright-mcp/

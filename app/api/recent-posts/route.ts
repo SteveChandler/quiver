@@ -20,7 +20,7 @@ export async function GET() {
         likes_count,
         created_at,
         profile_id,
-        profiles!inner (
+        profiles!sessions_user_id_fkey (
           id,
           full_name,
           avatar_url

@@ -223,7 +223,10 @@ export function InteractiveMap({
         // Prefer nearby endpoint first (faster and already filtered), fallback to public list
         let locations: Beach[] = [];
         try {
-          const response = await fetchNearbyBeaches.current(latitude, longitude);
+          const response = await fetchNearbyBeaches.current(
+            latitude,
+            longitude
+          );
           locations = (response as any)?.data || [];
           console.log("nearby beaches count:", locations.length);
         } catch (err) {
@@ -238,7 +241,7 @@ export function InteractiveMap({
             });
             if (res.ok) {
               const json = await res.json();
-              const all: Beach[] = (json?.beaches || json?.data?.beaches) || [];
+              const all: Beach[] = json?.beaches || json?.data?.beaches || [];
               const { calculateDistanceInMiles } = await import(
                 "@/lib/utils/distance-utils"
               );
@@ -279,9 +282,9 @@ export function InteractiveMap({
               console.log(`Forecast response for ${beach.name}:`, {
                 success: data.success,
                 forecastCount: data.data?.forecasts?.length || 0,
-                hasData: !!data.data
+                hasData: !!data.data,
               });
-              
+
               // Support both shapes: {success, data:{forecasts}} and legacy {forecasts}
               const forecasts = Array.isArray(data?.data?.forecasts)
                 ? data.data.forecasts
@@ -300,7 +303,7 @@ export function InteractiveMap({
                   hasCurrentForecast: !!currentForecast,
                   waveHeight: currentForecast?.wave_height,
                   forecastDate: currentForecast?.forecast_date,
-                  forecastTime: currentForecast?.forecast_time
+                  forecastTime: currentForecast?.forecast_time,
                 });
 
                 if (currentForecast && currentForecast.wave_height) {
@@ -311,7 +314,9 @@ export function InteractiveMap({
                 }
               }
             } else {
-              console.warn(`Forecast API returned ${response.status} for ${beach.name}`);
+              console.warn(
+                `Forecast API returned ${response.status} for ${beach.name}`
+              );
             }
           } catch (error) {
             console.warn(
@@ -376,8 +381,12 @@ export function InteractiveMap({
                   waveHeight ? formatWaveHeight(waveHeight) : "No forecast data"
                 }`
               )
-            )
-            .addTo(mapRef.current!);
+            );
+
+          // Only add to map if map is ready and has a canvas container
+          if (mapRef.current && mapRef.current.getCanvasContainer()) {
+            marker.addTo(mapRef.current);
+          }
 
           markersRef.current[markerId] = marker;
         });

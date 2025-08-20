@@ -14,10 +14,7 @@ test.describe("Media/Photo Management", () => {
 
   test.describe("Photo Upload During Session Logging", () => {
     test("should upload photos during session creation", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping photo upload tests");
-      }
+      await handleAuthRedirect(page);
 
       await page.goto("/log-session");
       await page.waitForTimeout(2000);
@@ -96,10 +93,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should validate photo file types", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping photo validation tests");
-      }
+      await handleAuthRedirect(page);
 
       await page.goto("/log-session");
       await page.waitForTimeout(2000);
@@ -126,10 +120,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should handle large photo files", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping large file tests");
-      }
+      await handleAuthRedirect(page);
 
       await page.goto("/log-session");
       await page.waitForTimeout(2000);
@@ -163,10 +154,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should show photo upload progress", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping upload progress tests");
-      }
+      await handleAuthRedirect(page);
 
       await page.goto("/log-session");
       await page.waitForTimeout(2000);
@@ -205,10 +193,7 @@ test.describe("Media/Photo Management", () => {
 
   test.describe("Photo Gallery Viewing", () => {
     test("should display session photo gallery", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping gallery viewing tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to community feed to find sessions with photos
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -277,10 +262,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should navigate through multiple photos", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping photo navigation tests");
-      }
+      await handleAuthRedirect(page);
 
       // Look for session with multiple photos
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -343,12 +325,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should support keyboard navigation in gallery", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip(
-          "User not authenticated - skipping keyboard navigation tests"
-        );
-      }
+      await handleAuthRedirect(page);
 
       const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
@@ -380,10 +357,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should display photo metadata", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping photo metadata tests");
-      }
+      await handleAuthRedirect(page);
 
       const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
@@ -422,10 +396,7 @@ test.describe("Media/Photo Management", () => {
 
   test.describe("Photo Management", () => {
     test("should delete photos from sessions", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping photo deletion tests");
-      }
+      await handleAuthRedirect(page);
 
       // Go to own profile to find sessions with photos
       await page.goto("/profile");
@@ -488,10 +459,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should reorder photos in session", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping photo reordering tests");
-      }
+      await handleAuthRedirect(page);
 
       // This test checks if reordering functionality exists
       await page.goto("/profile");
@@ -536,10 +504,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should set photo as session cover", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping cover photo tests");
-      }
+      await handleAuthRedirect(page);
 
       await page.goto("/profile");
       await page.waitForTimeout(2000);
@@ -585,10 +550,7 @@ test.describe("Media/Photo Management", () => {
 
   test.describe("Image Optimization", () => {
     test("should compress large images automatically", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping compression tests");
-      }
+      await handleAuthRedirect(page);
 
       await page.goto("/log-session");
       await page.waitForTimeout(2000);
@@ -622,10 +584,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should generate thumbnails", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping thumbnail tests");
-      }
+      await handleAuthRedirect(page);
 
       // Look for existing sessions with photos to check thumbnails
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -659,10 +618,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should lazy load images", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping lazy loading tests");
-      }
+      await handleAuthRedirect(page);
 
       const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
@@ -693,10 +649,7 @@ test.describe("Media/Photo Management", () => {
       // Set mobile viewport
       await page.setViewportSize({ width: 375, height: 667 });
 
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping mobile photo tests");
-      }
+      await handleAuthRedirect(page);
 
       await page.goto("/log-session");
       await page.waitForTimeout(2000);
@@ -733,10 +686,7 @@ test.describe("Media/Photo Management", () => {
     test("should support mobile photo gallery", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
 
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping mobile gallery tests");
-      }
+      await handleAuthRedirect(page);
 
       const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
@@ -780,10 +730,7 @@ test.describe("Media/Photo Management", () => {
     test("should support swipe navigation on mobile", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
 
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping swipe navigation tests");
-      }
+      await handleAuthRedirect(page);
 
       const communityTab = page.getByRole("tab", { name: /local intel/i });
       if (await communityTab.isVisible()) {
@@ -832,10 +779,7 @@ test.describe("Media/Photo Management", () => {
 
   test.describe("Photo Error Handling", () => {
     test("should handle upload failures gracefully", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping upload failure tests");
-      }
+      await handleAuthRedirect(page);
 
       // Mock upload failure
       await page.route("**/api/media/**", (route) => route.abort());
@@ -868,10 +812,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should handle corrupted images", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping corrupted image tests");
-      }
+      await handleAuthRedirect(page);
 
       await page.goto("/log-session");
       await page.waitForTimeout(2000);
@@ -900,10 +841,7 @@ test.describe("Media/Photo Management", () => {
     });
 
     test("should handle storage quota exceeded", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping storage quota tests");
-      }
+      await handleAuthRedirect(page);
 
       // Mock storage quota error
       await page.route("**/api/media/**", (route) =>

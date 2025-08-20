@@ -11,6 +11,7 @@ import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import GoogleAnalytics from "@/components/analytics/google-analytics";
+import { Toaster } from "react-hot-toast";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL";
 
@@ -170,15 +171,29 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
         <AuthProvider>
-          <AppHeader />
+          <Suspense fallback={null}>
+            <AppHeader />
+          </Suspense>
           <main id="main-content" role="main">
-            {children}
+            <Suspense fallback={null}>{children}</Suspense>
           </main>
         </AuthProvider>
         {/* Track SPA route changes */}
         <Suspense fallback={null}>
           <GoogleAnalytics />
         </Suspense>
+        {/* Toast notifications */}
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: "hsl(var(--background))",
+              color: "hsl(var(--foreground))",
+              border: "1px solid hsl(var(--border))",
+            },
+          }}
+        />
         {/* Vercel Analytics & Speed Insights */}
         <Analytics />
         <SpeedInsights />

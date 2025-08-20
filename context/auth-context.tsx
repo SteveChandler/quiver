@@ -102,18 +102,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       initializingRef.current = true;
       setIsLoading(true);
 
-      // Set a reasonable timeout - much longer to handle slow connections
+      // Set a reasonable timeout for better UX - 8 seconds should be sufficient
       timeoutId = setTimeout(() => {
         if (mounted && initializingRef.current) {
           console.warn(
-            "AuthContext: Auth initialization timed out after 15s, proceeding as unauthenticated"
+            "AuthContext: Auth initialization timed out after 8s, proceeding as unauthenticated"
           );
           updateAuthState(null);
           setIsLoading(false);
           setIsInitialized(true);
           initializingRef.current = false;
         }
-      }, 15000); // 15 second timeout - much more reasonable
+      }, 8000); // 8 second timeout for better UX
 
       try {
         console.log("AuthContext: Starting initialization...");

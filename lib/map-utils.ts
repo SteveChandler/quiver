@@ -313,14 +313,15 @@ export function getStaticMapImageUrl(
     markerText?: string;
   } = {}
 ): string {
-  // If no coordinates, return placeholder
+  // If no coordinates, return enhanced placeholder with helpful message
   if (!latitude || !longitude) {
     console.warn("No coordinates provided for map image");
-    return generateMapPlaceholder(
+    return generateEnhancedMapPlaceholder(
       0,
       0,
       options.width || 300,
-      options.height || 120
+      options.height || 120,
+      options.markerText || "Location Unknown"
     );
   }
 

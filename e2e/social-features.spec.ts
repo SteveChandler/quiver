@@ -17,11 +17,8 @@ test.describe("Social Features", () => {
     test("should like and unlike sessions with real-time updates", async ({
       page,
     }) => {
-      // Skip if not authenticated
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping like tests");
-      }
+      // Check authentication
+      await handleAuthRedirect(page);
 
       // Navigate to community feed
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -83,10 +80,7 @@ test.describe("Social Features", () => {
     });
 
     test("should display like count accurately", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping like count tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to community feed
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -127,10 +121,7 @@ test.describe("Social Features", () => {
     });
 
     test("should prevent liking own sessions", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping own session like tests");
-      }
+      await handleAuthRedirect(page);
 
       // Create a test session first
       try {
@@ -174,10 +165,7 @@ test.describe("Social Features", () => {
 
   test.describe("Session Comments System", () => {
     test("should post comments on sessions", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping comment tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to community feed
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -248,10 +236,7 @@ test.describe("Social Features", () => {
     });
 
     test("should display comment count", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping comment count tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to community feed
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -293,10 +278,7 @@ test.describe("Social Features", () => {
 
   test.describe("User Interaction", () => {
     test("should navigate to user profile on click", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping user interaction tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to community feed
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -346,10 +328,7 @@ test.describe("Social Features", () => {
     });
 
     test("should display user information correctly", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping user info tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to community feed
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -406,10 +385,7 @@ test.describe("Social Features", () => {
 
   test.describe("Real-time Updates", () => {
     test("should update like counts in real-time", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping real-time tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to community feed
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -451,10 +427,7 @@ test.describe("Social Features", () => {
     });
 
     test("should update comment counts in real-time", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping real-time comment tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to community feed
       const communityTab = page.getByRole("tab", { name: /local intel/i });
@@ -522,10 +495,7 @@ test.describe("Social Features", () => {
 
   test.describe("Session Card Display", () => {
     test("should display session information correctly", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping session display tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to community feed
       const communityTab = page.getByRole("tab", { name: /local intel/i });

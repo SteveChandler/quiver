@@ -15,6 +15,7 @@ import {
   Edit,
   Trash2,
   Loader2,
+  Share2,
   CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
@@ -40,6 +41,8 @@ import { SessionComments } from "@/components/session-comments";
 import dynamic from "next/dynamic";
 import { MapImage } from "@/components/map-image";
 import { getSessionMapImageUrl } from "@/lib/utils/session-utils";
+import { ShareModal } from "@/components/share-modal";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Dynamically import SessionPhotoGallery to avoid SSR issues
 const SessionPhotoGallery = dynamic(
@@ -83,6 +86,8 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
   const [deleting, setDeleting] = useState(false);
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     async function loadSession() {
@@ -443,6 +448,18 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           </div>
         </div>
 
+        {/* Share CTA under header/hero */}
+        {session && (
+          <div className="flex justify-end mb-4">
+            <Button
+              onClick={() => setShareOpen(true)}
+              data-testid="share-button"
+            >
+              <Share2 className="mr-2 h-4 w-4" /> Share
+            </Button>
+          </div>
+        )}
+
         {/* Session Photos */}
         {!photosLoading && sessionPhotos.length > 0 && (
           <Card>
@@ -467,6 +484,20 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           </CardContent>
         </Card>
       </main>
+      {/* Share Modal */}
+      {session && (
+        <ShareModal
+          sessionId={session.id}
+          defaultVariant={isMobile ? "story" : "square"}
+          isPublic={session.is_public}
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          onMadePublic={() => {
+            // reflect locally
+            setSession({ ...session, is_public: true } as any);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -329,8 +329,8 @@ test.describe("Mobile Experience", () => {
     await page.setViewportSize({ width: 390, height: 844 });
   });
 
-  test.skip("should handle offline capabilities", async ({ page }) => {
-    // Skip offline test as it's unreliable and causes network errors
+  test("should handle offline capabilities", async ({ page }) => {
+    // Test offline capabilities - implement when offline support is ready
     await page.goto("/");
 
     // Simulate offline mode

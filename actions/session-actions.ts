@@ -70,7 +70,7 @@ export async function getUserSessions(userId: string, limit?: number) {
       if (error) throw error;
       return (data || []) as SessionWithDetails[];
     } catch (e) {
-      // Fallback to basic select when relationships are missing in local schema
+      // Enhanced fallback: manually resolve beach relationships when joins fail
       let basic = supabase
         .from("sessions")
         .select("*")
@@ -78,7 +78,36 @@ export async function getUserSessions(userId: string, limit?: number) {
         .order("arrival_time", { ascending: false });
       if (limit) basic = basic.limit(limit);
       const { data: basicData } = await basic;
-      return (basicData || []) as unknown as SessionWithDetails[];
+      
+      // Manually resolve beach data for each session
+      const enhancedSessions = await Promise.all(
+        (basicData || []).map(async (session) => {
+          let beach = null;
+          
+          // Try to fetch beach data if beach_id exists
+          if (session.beach_id) {
+            try {
+              const { data: beachData } = await supabase
+                .from("beaches")
+                .select("*")
+                .eq("id", session.beach_id)
+                .single();
+              beach = beachData;
+            } catch (beachError) {
+              console.warn("Could not fetch beach for session:", session.id, beachError);
+            }
+          }
+          
+          return {
+            ...session,
+            beach,
+            board: null, // Could enhance this too if needed
+            user: { full_name: "Anonymous Surfer", avatar_url: null },
+          };
+        })
+      );
+      
+      return enhancedSessions as SessionWithDetails[];
     }
   });
 }
@@ -568,7 +597,7 @@ export async function getAllSessions(limit = 20) {
   if (error) {
     console.error("Error fetching community sessions:", error);
 
-    // Fallback: get basic sessions without joins
+    // Enhanced fallback: get basic sessions and manually resolve relationships
     const { data: basicSessions, error: basicError } = await supabase
       .from("sessions")
       .select("*")
@@ -580,13 +609,35 @@ export async function getAllSessions(limit = 20) {
       throw new Error("Failed to fetch sessions");
     }
 
-    // Return basic sessions with minimal data
-    return (basicSessions || []).map((session) => ({
-      ...session,
-      beach: null,
-      board: null,
-      user: { full_name: "Anonymous Surfer", avatar_url: null },
-    }));
+    // Manually resolve beach data for each session
+    const enhancedSessions = await Promise.all(
+      (basicSessions || []).map(async (session) => {
+        let beach = null;
+        
+        // Try to fetch beach data if beach_id exists
+        if (session.beach_id) {
+          try {
+            const { data: beachData } = await supabase
+              .from("beaches")
+              .select("*")
+              .eq("id", session.beach_id)
+              .single();
+            beach = beachData;
+          } catch (beachError) {
+            console.warn("Could not fetch beach for session:", session.id, beachError);
+          }
+        }
+        
+        return {
+          ...session,
+          beach,
+          board: null,
+          user: { full_name: "Anonymous Surfer", avatar_url: null },
+        };
+      })
+    );
+    
+    return enhancedSessions;
   }
 
   return sessions || [];

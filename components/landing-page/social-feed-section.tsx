@@ -8,10 +8,13 @@ import SocialPostCard from "@/components/social-post-card";
 import { CONTENT } from "@/lib/constants/features";
 import { fetchRecentPosts, Post } from "@/lib/utils/posts-utils";
 import { Users, TrendingUp, Heart } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 
 export function SocialFeedSection() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -72,7 +75,7 @@ export function SocialFeedSection() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {posts.map((post, index) => (
-            <Link key={post.id} href="/auth/sign-up">
+            <Link key={post.id} href={preserveQueryParams("/auth/sign-up", searchParams)}>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -106,7 +109,7 @@ export function SocialFeedSection() {
           Want to share your next epic session?
         </p>
         <Link
-          href="/auth/sign-up"
+          href={preserveQueryParams("/auth/sign-up", searchParams)}
           className="inline-flex items-center gap-2 bg-ocean-blue text-white px-6 py-3 rounded-full font-semibold hover:bg-ocean-blue/90 transition-colors"
         >
           Join the Community

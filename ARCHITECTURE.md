@@ -32,6 +32,20 @@ Primary references:
 
 - `docs/ARCHITECTURE_REVIEW.md` — PRIMARY reference for system architecture and current status
 - `docs/DRY_COMPONENT_USAGE.md` — Development patterns and DRY components
+- `docs/STYLE_GUIDE.md` — Brand, typography, color, iconography, motion, accessibility
+
+### Design Principles
+
+See `docs/DESIGN_PRINCIPLES.md` for the canonical principles that govern implementation across the codebase. Highlights:
+
+- Simplicity & Consistency: standard React data fetching, centralized API utils, no business logic in render paths
+- DRY & Modularity: reusable form/layout components, small focused modules, shared utilities
+- Performance by Design: efficient fetching/rendering, indexed queries, fail-fast on stale data
+- Security & Privacy by Default: RLS on all tables, authenticated actions, least-privilege access
+- Transparency & Trust: forecast source indicators and confidence, contextual snapshots for sessions
+- Comprehensive Testing & QA: unit/integration/component/E2E with realistic thresholds
+- AI-Augmented Automation (aspirational): Playwright MCP and agent loops governed by human review
+- Growth-Driven Product Focus: social sharing, viral mechanics, community features
 
 ---
 
@@ -136,6 +150,14 @@ All feature decisions should ask: does this help users invite friends and share 
 4. Write/adjust tests (unit/integration/component/e2e) and ensure they pass.
 5. Update `CHANGELOG.md` (Added/Changed/Fixed/Performance) for all changes.
 6. Update directory architecture docs if introducing new patterns.
+
+---
+
+### AI Agents & MCP Integration
+
+- Agents: Fullstack Engineer and Design Review personas for Cursor
+- Docs: `docs/CURSOR_AGENTS.md`
+- MCP: Playwright server configured in `.cursor/mcp.json`
 
 ---
 

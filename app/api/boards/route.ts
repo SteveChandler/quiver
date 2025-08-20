@@ -24,10 +24,19 @@ export async function POST(request: NextRequest) {
       return createAuthError("Authentication required");
     }
 
+    // Validate required fields
+    if (!body.name || typeof body.name !== "string" || body.name.trim().length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Board name is required" },
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // Prepare the data to insert
     const insertData = {
       user_id: user.id,
       ...body,
+      name: body.name.trim(),
       session_count: 0,
     };
 

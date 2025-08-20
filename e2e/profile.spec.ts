@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { handleAuthRedirect } from "./test-helpers";
 
 test.describe("Profile Management", () => {
   test.describe("Profile View", () => {
@@ -21,11 +22,8 @@ test.describe("Profile Management", () => {
     });
 
     test("should show user content when authenticated", async ({ page }) => {
-      // Skip if redirected to auth
-      if (page.url().includes("/auth")) {
-        test.skip("User not authenticated");
-        return;
-      }
+      // Check authentication
+      await handleAuthRedirect(page);
 
       // Look for any profile-related content
       const profileElements = [
@@ -54,11 +52,8 @@ test.describe("Profile Management", () => {
     });
 
     test("should handle edit profile navigation", async ({ page }) => {
-      // Skip if redirected to auth
-      if (page.url().includes("/auth")) {
-        test.skip("User not authenticated");
-        return;
-      }
+      // Check authentication
+      await handleAuthRedirect(page);
 
       // Try to navigate to edit page
       await page.goto("/profile?edit=true");
@@ -91,11 +86,8 @@ test.describe("Profile Management", () => {
     test("should handle form interactions when authenticated", async ({
       page,
     }) => {
-      // Skip if redirected to auth
-      if (page.url().includes("/auth")) {
-        test.skip("User not authenticated");
-        return;
-      }
+      // Check authentication
+      await handleAuthRedirect(page);
 
       // Look for any form elements
       const formElements = [
@@ -120,11 +112,8 @@ test.describe("Profile Management", () => {
     });
 
     test("should handle save attempts when authenticated", async ({ page }) => {
-      // Skip if redirected to auth
-      if (page.url().includes("/auth")) {
-        test.skip("User not authenticated");
-        return;
-      }
+      // Check authentication
+      await handleAuthRedirect(page);
 
       // Look for save button
       const saveButton = page.getByRole("button").first();
@@ -143,11 +132,8 @@ test.describe("Profile Management", () => {
     });
 
     test("should handle navigation from edit page", async ({ page }) => {
-      // Skip if redirected to auth
-      if (page.url().includes("/auth")) {
-        test.skip("User not authenticated");
-        return;
-      }
+      // Check authentication
+      await handleAuthRedirect(page);
 
       // Try to navigate back to profile
       await page.goto("/profile");

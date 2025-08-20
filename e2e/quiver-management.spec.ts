@@ -14,10 +14,7 @@ test.describe("Board/Quiver Management", () => {
 
   test.describe("Board Creation", () => {
     test("should create a new board successfully", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board creation tests");
-      }
+      await handleAuthRedirect(page);
 
       // Navigate to quiver tab
       const quiverTab = page.getByRole("tab", { name: /quiver|boards/i });
@@ -91,10 +88,7 @@ test.describe("Board/Quiver Management", () => {
     });
 
     test("should validate required board fields", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board validation tests");
-      }
+      await handleAuthRedirect(page);
 
       const quiverTab = page.getByRole("tab", { name: /quiver|boards/i });
       if (await quiverTab.isVisible()) {
@@ -138,10 +132,7 @@ test.describe("Board/Quiver Management", () => {
     });
 
     test("should handle different board types", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board type tests");
-      }
+      await handleAuthRedirect(page);
 
       const boardTypes = ["shortboard", "longboard", "funboard", "fish"];
 
@@ -194,10 +185,7 @@ test.describe("Board/Quiver Management", () => {
     });
 
     test("should upload board photo", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board photo tests");
-      }
+      await handleAuthRedirect(page);
 
       const quiverTab = page.getByRole("tab", { name: /quiver|boards/i });
       if (await quiverTab.isVisible()) {
@@ -240,10 +228,7 @@ test.describe("Board/Quiver Management", () => {
 
   test.describe("Board Viewing and Management", () => {
     test("should display user's board collection", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board viewing tests");
-      }
+      await handleAuthRedirect(page);
 
       const quiverTab = page.getByRole("tab", { name: /quiver|boards/i });
       if (await quiverTab.isVisible()) {
@@ -283,10 +268,7 @@ test.describe("Board/Quiver Management", () => {
     });
 
     test("should show board details in cards", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board details tests");
-      }
+      await handleAuthRedirect(page);
 
       // First create a test board
       try {
@@ -330,10 +312,7 @@ test.describe("Board/Quiver Management", () => {
     });
 
     test("should filter boards by type", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board filter tests");
-      }
+      await handleAuthRedirect(page);
 
       const quiverTab = page.getByRole("tab", { name: /quiver|boards/i });
       if (await quiverTab.isVisible()) {
@@ -377,10 +356,7 @@ test.describe("Board/Quiver Management", () => {
 
   test.describe("Board Editing", () => {
     test("should edit existing board", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board editing tests");
-      }
+      await handleAuthRedirect(page);
 
       // Create a test board first
       try {
@@ -435,10 +411,7 @@ test.describe("Board/Quiver Management", () => {
     });
 
     test("should validate edit form", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping edit validation tests");
-      }
+      await handleAuthRedirect(page);
 
       // This test assumes there's at least one board to edit
       const quiverTab = page.getByRole("tab", { name: /quiver|boards/i });
@@ -482,10 +455,7 @@ test.describe("Board/Quiver Management", () => {
 
   test.describe("Board Deletion", () => {
     test("should delete board with confirmation", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board deletion tests");
-      }
+      await handleAuthRedirect(page);
 
       // Create a board to delete
       try {
@@ -544,12 +514,7 @@ test.describe("Board/Quiver Management", () => {
     test("should prevent deletion of board used in recent sessions", async ({
       page,
     }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip(
-          "User not authenticated - skipping deletion prevention tests"
-        );
-      }
+      await handleAuthRedirect(page);
 
       // This test would require creating a session with a specific board
       // For now, we'll just check that deletion has proper confirmation
@@ -581,12 +546,7 @@ test.describe("Board/Quiver Management", () => {
 
   test.describe("Board Selection in Sessions", () => {
     test("should show boards in session logging form", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip(
-          "User not authenticated - skipping session board selection tests"
-        );
-      }
+      await handleAuthRedirect(page);
 
       // Create a test board first
       try {
@@ -617,10 +577,7 @@ test.describe("Board/Quiver Management", () => {
     test("should allow board selection during session logging", async ({
       page,
     }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping board selection tests");
-      }
+      await handleAuthRedirect(page);
 
       await page.goto("/log-session");
       await page.waitForTimeout(2000);
@@ -647,10 +604,7 @@ test.describe("Board/Quiver Management", () => {
     });
 
     test("should handle no boards available", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping no boards tests");
-      }
+      await handleAuthRedirect(page);
 
       // This test assumes user has no boards or we can simulate that state
       await page.goto("/log-session");
@@ -683,10 +637,7 @@ test.describe("Board/Quiver Management", () => {
       // Set mobile viewport
       await page.setViewportSize({ width: 375, height: 667 });
 
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping mobile board tests");
-      }
+      await handleAuthRedirect(page);
 
       const quiverTab = page.getByRole("tab", { name: /quiver|boards/i });
       if (await quiverTab.isVisible()) {
@@ -736,10 +687,7 @@ test.describe("Board/Quiver Management", () => {
 
   test.describe("Board Management Error Handling", () => {
     test("should handle API errors gracefully", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping error handling tests");
-      }
+      await handleAuthRedirect(page);
 
       // Mock API error
       await page.route("**/api/boards**", (route) =>
@@ -774,10 +722,7 @@ test.describe("Board/Quiver Management", () => {
     });
 
     test("should validate form inputs", async ({ page }) => {
-      const authState = await handleAuthRedirect(page);
-      if (authState.isAuthPage) {
-        test.skip("User not authenticated - skipping form validation tests");
-      }
+      await handleAuthRedirect(page);
 
       const quiverTab = page.getByRole("tab", { name: /quiver|boards/i });
       if (await quiverTab.isVisible()) {

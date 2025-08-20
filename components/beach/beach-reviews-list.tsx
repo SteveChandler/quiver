@@ -119,9 +119,9 @@ export function BeachReviewsList({
             <div className="flex items-start gap-4">
               <UserAvatarButton
                 userId={review.user_id}
-                src={review.user.avatar_url}
+                src={undefined} // No avatar_url in profiles table yet
                 name={review.user.full_name}
-                email={review.user.email}
+                email={undefined} // No email in profiles table yet
                 size="lg"
                 className="shrink-0"
               />
