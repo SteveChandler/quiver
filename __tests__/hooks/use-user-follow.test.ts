@@ -396,6 +396,109 @@ describe("useUserFollow", () => {
     });
   });
 
+  describe("Callback functionality", () => {
+    it("should call onFollowersCountChange when follower count changes", async () => {
+      const mockCallback = jest.fn();
+      
+      mockChannel.on.mockImplementation((eventType, config, callback) => {
+        if (eventType === "postgres_changes" && config.event === "INSERT") {
+          // Simulate INSERT event
+          callback({ new: { follower_id: "user-3" } });
+        }
+        return mockChannel;
+      });
+
+      const { result } = renderHook(() => 
+        useUserFollow("user-2", 10, 5, mockCallback)
+      );
+
+      // Wait for real-time update
+      await waitFor(() => {
+        expect(mockCallback).toHaveBeenCalledWith(11); // Should call with new count
+      });
+    });
+
+    it("should call onFollowersCountChange when follower count decreases", async () => {
+      const mockCallback = jest.fn();
+      
+      mockChannel.on.mockImplementation((eventType, config, callback) => {
+        if (eventType === "postgres_changes" && config.event === "DELETE") {
+          // Simulate DELETE event
+          callback({ old: { follower_id: "user-3" } });
+        }
+        return mockChannel;
+      });
+
+      const { result } = renderHook(() => 
+        useUserFollow("user-2", 10, 5, mockCallback)
+      );
+
+      // Wait for real-time update
+      await waitFor(() => {
+        expect(mockCallback).toHaveBeenCalledWith(9); // Should call with new count
+      });
+    });
+
+    it("should call onFollowersCountChange during optimistic updates", async () => {
+      const mockCallback = jest.fn();
+      
+      toggleUserFollowMock.mockResolvedValue({
+        success: true,
+        following: true,
+        message: "Following user",
+      });
+
+      const { result } = renderHook(() => 
+        useUserFollow("user-2", 10, 5, mockCallback)
+      );
+
+      await act(async () => {
+        await result.current.toggleFollow();
+      });
+
+      expect(mockCallback).toHaveBeenCalledWith(11); // Should call with optimistic update
+    });
+
+    it("should not call callback when no callback provided", async () => {
+      mockChannel.on.mockImplementation((eventType, config, callback) => {
+        if (eventType === "postgres_changes" && config.event === "INSERT") {
+          callback({ new: { follower_id: "user-3" } });
+        }
+        return mockChannel;
+      });
+
+      // Should not throw when no callback provided
+      expect(() => {
+        renderHook(() => useUserFollow("user-2", 10, 5));
+      }).not.toThrow();
+    });
+
+    it("should handle callback errors gracefully", async () => {
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+      const mockCallback = jest.fn().mockImplementation(() => {
+        throw new Error("Callback error");
+      });
+      
+      mockChannel.on.mockImplementation((eventType, config, callback) => {
+        if (eventType === "postgres_changes" && config.event === "INSERT") {
+          callback({ new: { follower_id: "user-3" } });
+        }
+        return mockChannel;
+      });
+
+      const { result } = renderHook(() => 
+        useUserFollow("user-2", 10, 5, mockCallback)
+      );
+
+      // Should handle callback error gracefully
+      await waitFor(() => {
+        expect(result.current.followersCount).toBe(11); // Should still update state
+      });
+
+      consoleSpy.mockRestore();
+    });
+  });
+
   describe("Edge cases", () => {
     it("should handle PGRST116 error (no rows returned) gracefully", async () => {
       const mockProfile = {

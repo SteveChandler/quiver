@@ -24,6 +24,15 @@ export default function DiscoverPage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  // Update follower count for a specific user in search results
+  const updateUserFollowerCount = (userId: string, newCount: number) => {
+    setSearchResults((prev) =>
+      prev.map((user) =>
+        user.id === userId ? { ...user, followers_count: newCount } : user
+      )
+    );
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) return;
 
@@ -151,6 +160,9 @@ export default function DiscoverPage() {
                       initialFollowersCount={searchUser.followers_count || 0}
                       variant="default"
                       size="sm"
+                      onFollowersCountChange={(newCount) =>
+                        updateUserFollowerCount(searchUser.id, newCount)
+                      }
                     />
                   </div>
                 </div>
@@ -233,6 +245,9 @@ export default function DiscoverPage() {
                     initialFollowersCount={suggestedUser.followers_count || 0}
                     variant="default"
                     size="sm"
+                    onFollowersCountChange={(newCount) =>
+                      updateUserFollowerCount(suggestedUser.id, newCount)
+                    }
                   />
                 </div>
               ))}

@@ -1,3 +1,45 @@
+## [2025.01.16] - Follower Count Sync Fix & Test Coverage
+
+### Fixed
+
+- **Coach Pick Component Styling**: Fixed styling inconsistencies to match other cards
+
+  - Title now left-aligned instead of centered by restructuring CardHeader layout
+  - Updated text sizes throughout component (text-lg for title, text-sm for content)
+  - Enhanced refresh button with loading states and better visual feedback
+  - Improved reasoning arrow visibility with hover states and proper sizing
+  - Made spacing consistent with other card components in the app
+
+- **Follower Count Synchronization**: Fixed critical bug where discover page didn't update follower counts in real-time after following users
+  - Added `onFollowersCountChange` callback prop to FollowButton component
+  - Updated useUserFollow hook to notify parent components of follower count changes
+  - Modified discover page to sync search result follower counts via callback mechanism
+  - Now follower counts update immediately on discover page instead of requiring navigation to profile page
+
+### Added
+
+- **Comprehensive Test Coverage**: Added extensive unit tests for follower count functionality
+  - FollowButton component tests (23 tests) covering all behaviors, props, and error scenarios
+  - Discover page tests (17 tests) for search functionality and user interactions
+  - Enhanced useUserFollow hook tests (24 tests) including callback functionality validation
+  - Integration tests demonstrating and validating the exact Luna follower count sync issue
+  - Bug reproduction tests showing before/after behavior for improved debugging
+
+### Changed
+
+- Enhanced useUserFollow hook with optional callback parameter for follower count change notifications
+- Updated FollowButton interface to accept onFollowersCountChange callback prop
+- Improved discover page state management with dynamic follower count updates for search results
+- Added robust error handling for callback functions to prevent component crashes
+
+### Performance
+
+- Real-time follower count synchronization eliminates need for page refreshes to see updated counts
+- Optimistic updates combined with callback notifications provide immediate UI feedback
+- Efficient state management prevents unnecessary re-renders while maintaining data consistency
+
+---
+
 ## [2025.01.19] - Forecast Consistency & Bug Fixes
 
 ### Fixed
@@ -397,6 +439,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Map beach card review count no longer wraps on very small screens. Added responsive class `hidden sm:inline` to the review count text in `components/beach-card.tsx` so rating stays on a single line on devices < 360px.
 - Plan Session gear suggestions failing despite user having boards. Root cause: API route used a generic server client that didn't read auth cookies in API context, returning 401 and surfacing a misleading error. Switched to API-route client utilities (`getAuthenticatedAPIClient`) in `app/api/session-planner/gear-suggestions/route.ts`.
+
+- Supabase security linter errors resolved:
+  - Reconfigured `public.v_beach_hourly_scores` to `WITH (security_invoker = true)` and granted `SELECT` to `anon, authenticated` so underlying RLS applies (no definer rights).
+  - Enabled RLS and added least‑privilege policies:
+    - `public.beaches`: Public read-only (`USING (true)`), no writes.
+    - `public.beach_recommendation_calibration`: Public read-only (`USING (true)`), no writes.
+    - `public.beach_review_likes`: Authenticated read; insert/delete only when `user_id = auth.uid()`.
+  - Tightened GRANTs and revoked PUBLIC default privileges on affected tables.
 
 ### Removed
 

@@ -13,6 +13,7 @@ interface FollowButtonProps {
   size?: "sm" | "md" | "lg";
   showCounts?: boolean;
   className?: string;
+  onFollowersCountChange?: (newCount: number) => void;
 }
 
 export function FollowButton({
@@ -23,6 +24,7 @@ export function FollowButton({
   size = "md",
   showCounts = false,
   className = "",
+  onFollowersCountChange,
 }: FollowButtonProps) {
   const { user } = useAuth();
   const {
@@ -32,7 +34,12 @@ export function FollowButton({
     isLoading,
     toggleFollow,
     isToggling,
-  } = useUserFollow(userId, initialFollowersCount, initialFollowingCount);
+  } = useUserFollow(
+    userId,
+    initialFollowersCount,
+    initialFollowingCount,
+    onFollowersCountChange
+  );
 
   // Don't show button for self or unauthenticated users
   if (!user || user.id === userId) {
