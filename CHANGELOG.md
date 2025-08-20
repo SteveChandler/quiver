@@ -439,6 +439,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Map beach card review count no longer wraps on very small screens. Added responsive class `hidden sm:inline` to the review count text in `components/beach-card.tsx` so rating stays on a single line on devices < 360px.
 - Plan Session gear suggestions failing despite user having boards. Root cause: API route used a generic server client that didn't read auth cookies in API context, returning 401 and surfacing a misleading error. Switched to API-route client utilities (`getAuthenticatedAPIClient`) in `app/api/session-planner/gear-suggestions/route.ts`.
+- Vercel build export errors resolved:
+
+  - Wrapped `AppHeader` and root `children` in `<Suspense fallback={null}>` in `app/layout.tsx` to satisfy Next.js CSR bailout requirements for components using `useSearchParams`.
+  - Fixed ambiguous PostgREST embed in `app/api/recent-posts/route.ts` by selecting `profiles!sessions_user_id_fkey` explicitly, eliminating PGRST201 during prerender.
 
 - Supabase security linter errors resolved:
   - Reconfigured `public.v_beach_hourly_scores` to `WITH (security_invoker = true)` and granted `SELECT` to `anon, authenticated` so underlying RLS applies (no definer rights).

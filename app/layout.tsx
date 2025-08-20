@@ -171,9 +171,11 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
         <AuthProvider>
-          <AppHeader />
+          <Suspense fallback={null}>
+            <AppHeader />
+          </Suspense>
           <main id="main-content" role="main">
-            {children}
+            <Suspense fallback={null}>{children}</Suspense>
           </main>
         </AuthProvider>
         {/* Track SPA route changes */}
@@ -181,14 +183,14 @@ export default function RootLayout({
           <GoogleAnalytics />
         </Suspense>
         {/* Toast notifications */}
-        <Toaster 
+        <Toaster
           position="top-center"
           toastOptions={{
             duration: 3000,
             style: {
-              background: 'hsl(var(--background))',
-              color: 'hsl(var(--foreground))',
-              border: '1px solid hsl(var(--border))',
+              background: "hsl(var(--background))",
+              color: "hsl(var(--foreground))",
+              border: "1px solid hsl(var(--border))",
             },
           }}
         />
