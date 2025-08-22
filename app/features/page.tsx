@@ -44,10 +44,10 @@ export default function FeaturesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
-              Everything You Need to
+              {hero.title.split(" with Friends").join("")}
               <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 {" "}
-                Surf Together
+                with Friends
               </span>
             </motion.h1>
             <motion.p

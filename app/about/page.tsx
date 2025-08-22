@@ -55,12 +55,20 @@ export default function AboutPage() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
+              About Quiver
+            </motion.h1>
+            <motion.h2
+              className="text-2xl md:text-3xl font-roboto font-semibold text-gray-700 mb-6"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            >
               The Story Behind
               <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 {" "}
-                Quiver
+                Our Community
               </span>
-            </motion.h1>
+            </motion.h2>
             <motion.p
               className="text-xl md:text-2xl text-gray-600 mb-8 font-open-sans max-w-4xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
