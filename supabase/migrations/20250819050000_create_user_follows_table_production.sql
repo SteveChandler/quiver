@@ -4,8 +4,8 @@
 -- Create user_follows table if it doesn't exist
 CREATE TABLE IF NOT EXISTS public.user_follows (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    follower_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    following_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    follower_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    following_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     
     -- Ensure unique follow relationships

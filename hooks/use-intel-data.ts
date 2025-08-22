@@ -99,6 +99,13 @@ export function useIntelData({
   // Use the data fetcher hook
   const { data, loading, error, refetch } = useDataFetcher(fetchIntelData);
 
+  // Auto-refetch when coordinates change
+  useEffect(() => {
+    if (enabled && latitude && longitude) {
+      refetch();
+    }
+  }, [latitude, longitude, enabled, refetch]);
+
   // Auto-refresh functionality
   useEffect(() => {
     if (!autoRefresh || !enabled || loading) return;
