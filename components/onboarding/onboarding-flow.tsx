@@ -32,7 +32,7 @@ const ONBOARDING_STEPS = [
     id: "welcome",
     title: "Welcome to your surf community! 🏄‍♂️",
     description:
-      "Let's get you set up to find epic waves and amazing surf buddies",
+      "Thanks for hopping in early—Quiver is currently in alpha, which means you might hit a few rough edges while we tune things up. Your feedback is incredibly valuable and helps us prioritize fixes and features. Got ideas or found a bug? Tell us and we'll jump on it.",
     icon: Sparkles,
     color: "from-blue-500 to-cyan-500",
     action: "Get Started",
