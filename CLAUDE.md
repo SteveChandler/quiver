@@ -1,22 +1,67 @@
 ## Quiver – Claude Contributor Guide
 
-This repo is optimized for AI-assisted coding. Follow this guide to produce compliant, high‑quality edits that align with Quiver’s growth-first strategy.
+This repo is optimized for AI‑assisted coding. Follow this guide to produce compliant, high‑quality edits that align with Quiver’s **growth‑first** strategy.
 
 ### Mission
 
-- Prioritize user growth and viral mechanics over monetization. Focus on: social sharing, session photos, referrals/challenges/leaderboards, and community features.
+* Prioritize user growth and viral mechanics over monetization. Focus on: social sharing, session photos, referrals/challenges/leaderboards, and community features.
 
 ### Required Workflow
 
 1. Analyze the request and scan relevant `ARCHITECTURE.md` files first.
-2. Propose a concise Implementation Plan (use the repo’s plan template) and wait for approval.
+2. Propose a concise **Implementation Plan** (use the repo’s plan template) and wait for approval.
 3. Implement using established patterns (below). Keep code changes minimal and targeted.
 4. Validate: run tests/build where applicable; avoid introducing linter/type errors.
-5. Document: update `CHANGELOG.md` under Unreleased.
+5. Document: update `CHANGELOG.md` under **\[Unreleased]**.
+
+---
+
+### Tools & MCP (default: Playwright)
+
+* **Default tool:** Use **Playwright MCP** for browser automation, quick UI validation, smoke checks, and screenshots. Prefer MCP actions before shelling out to the Playwright CLI.
+* **Project MCP config:** The repository uses a project‑level MCP config at **`./.mcp.json`** so Claude Code can auto‑load Playwright MCP.
+
+  * If it’s missing locally, add it via CLI:
+
+    * `claude mcp add playwright 'npx @playwright/mcp@latest'`
+  * Or check in a config like:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    }
+  }
+}
+```
+
+* **Fallback:** When MCP isn’t available, use `Bash(npx playwright test <pattern>)`.
+
+### Common Commands
+
+* `npm run dev` – start app
+* `npm run build` – build
+* `npx tsc -p .` – typecheck
+* `npx playwright test` – run E2E
+* `npx playwright test path/to/spec.spec.ts` – focused E2E
+
+### Permissions
+
+* In Claude Code, use `/permissions` to **Always allow** Playwright MCP browser actions for this repo.
+* Local settings: ensure `.claude/settings.json` (or your local equivalent) allows common commands used by tests and dev tooling.
+
+### Working Style (Claude Code)
+
+* **Explore → Plan → Code → Commit**: First read relevant files, then propose a short plan, then implement.
+* **TDD Loop**: Write/commit a failing test, implement, iterate until green. Don’t modify tests unless the spec truly changes.
+
+---
 
 ### Core Patterns (must follow)
 
-- Data Fetching: Always use `useDataFetcher` with a memoized fetch function.
+* **Data Fetching:** Always use `useDataFetcher` with a memoized fetch function.
 
 ```tsx
 import { useCallback } from "react";
@@ -30,7 +75,7 @@ const fetchData = useCallback(async () => {
 const { data, loading, error, refetch } = useDataFetcher(fetchData);
 ```
 
-- Server Actions: Use authenticated wrappers from `lib/server-action-utils.ts`.
+* **Server Actions:** Use authenticated wrappers from `lib/server-action-utils.ts`.
 
 ```ts
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
@@ -48,7 +93,7 @@ export async function doProtectedThing(arg: string) {
 }
 ```
 
-- API Routes: Use centralized API utils from `lib/api-utils.ts`.
+* **API Routes:** Use centralized API utils from `lib/api-utils.ts`.
 
 ```ts
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
@@ -63,7 +108,7 @@ export async function GET() {
 }
 ```
 
-- Realtime Subscriptions (client): Create and clean up Supabase channels.
+* **Realtime Subscriptions (client):** Create and clean up Supabase channels.
 
 ```tsx
 useEffect(() => {
@@ -79,67 +124,73 @@ useEffect(() => {
 }, [supabase]);
 ```
 
+---
+
 ### Directory and Documentation Rules
 
-- Always read the directory’s `ARCHITECTURE.md` before editing:
-  - `app/ARCHITECTURE.md` – App Router, API route patterns
-  - `components/ARCHITECTURE.md`, `components/ui/ARCHITECTURE.md` – DRY component patterns
-  - `hooks/ARCHITECTURE.md` – `useDataFetcher` and hook patterns
-  - `lib/ARCHITECTURE.md` – utilities, services, server action wrappers
-  - `types/ARCHITECTURE.md`, `supabase/ARCHITECTURE.md`, `styles/ARCHITECTURE.md`, `test-utils/ARCHITECTURE.md`
-- Start with `docs/ARCHITECTURE_REVIEW.md` for system-wide context.
-- Cursor agents & MCP: see `docs/CURSOR_AGENTS.md`; MCP configuration lives in `.cursor/mcp.json`.
+* Always read the directory’s `ARCHITECTURE.md` before editing:
+
+  * `app/ARCHITECTURE.md` – App Router, API route patterns
+  * `components/ARCHITECTURE.md`, `components/ui/ARCHITECTURE.md` – DRY component patterns
+  * `hooks/ARCHITECTURE.md` – `useDataFetcher` and hook patterns
+  * `lib/ARCHITECTURE.md` – utilities, services, server action wrappers
+  * `types/ARCHITECTURE.md`, `supabase/ARCHITECTURE.md`, `styles/ARCHITECTURE.md`, `test-utils/ARCHITECTURE.md`
+* Start with `docs/ARCHITECTURE_REVIEW.md` for system‑wide context.
+* Agents & MCP: see `docs/CURSOR_AGENTS.md`; **MCP configuration** lives in **`.mcp.json` (Claude Code)** and **`.cursor/mcp.json` (Cursor)**.
 
 ### Critical Don'ts
 
-- Don't invent data fetching patterns (must use `useDataFetcher`).
-- Don't skip `withAuthenticatedAction` for protected server actions.
-- Don't bypass `lib/api-utils.ts` for API responses/errors.
-- Don't expect 500 errors in tests - they mask bugs and should trigger investigation.
-- Don't use test.skip() in E2E tests - they hide coverage gaps and should trigger investigation.
-- Don't reformat unrelated code or change indentation styles.
-- Don't add monetization or non-growth features without direction.
+* Don’t invent data fetching patterns (must use `useDataFetcher`).
+* Don’t skip `withAuthenticatedAction` for protected server actions.
+* Don’t bypass `lib/api-utils.ts` for API responses/errors.
+* Don’t expect 500 errors in tests—these mask bugs and should trigger investigation.
+* Don’t use `test.skip()` in E2E tests—this hides coverage gaps and should trigger investigation.
+* Don’t reformat unrelated code or change indentation styles.
+* Don’t add monetization or non‑growth features without direction.
 
 ### Testing Expectations
 
-- Write/adjust tests when adding behavior: unit (utils), integration (server actions/API), component tests, and E2E for critical flows.
-- Follow existing testing patterns in `__tests__/` and `e2e/`.
-- Prefer pragmatic E2E waits (`waitForLoadState("load")`) and flexible API status assertions where applicable.
-- **NEVER expect 500 errors in tests** - they indicate bugs, not proper error handling. Use appropriate status codes:
-  - 400 = Bad Request (missing/invalid parameters)
-  - 401 = Unauthorized (authentication required)
-  - 403 = Forbidden (insufficient permissions)
-  - 404 = Not Found (resource doesn't exist)
-  - 405 = Method Not Allowed (wrong HTTP method)
-- **NEVER use test.skip() in E2E tests** - they hide coverage gaps and testing issues:
-  - Authentication failures should throw errors, not skip tests
-  - Missing test data should throw informative errors about setup requirements
-  - Missing UI features should throw errors indicating the feature may be broken
-  - Use proper error handling instead of silent skips
+* Write/adjust tests when adding behavior: unit (utils), integration (server actions/API), component tests, and E2E for critical flows.
+* Follow existing testing patterns in `__tests__/` and `e2e/`.
+* Prefer pragmatic E2E waits (`waitForLoadState("load")`) and flexible API status assertions where applicable.
+* **NEVER expect 500 errors in tests** — they indicate bugs, not proper error handling. Use appropriate status codes:
+
+  * 400 = Bad Request (missing/invalid parameters)
+  * 401 = Unauthorized (authentication required)
+  * 403 = Forbidden (insufficient permissions)
+  * 404 = Not Found (resource doesn't exist)
+  * 405 = Method Not Allowed (wrong HTTP method)
+* **NEVER use `test.skip()` in E2E tests** — they hide coverage gaps and testing issues:
+
+  * Authentication failures should throw errors, not skip tests
+  * Missing test data should throw informative errors about setup requirements
+  * Missing UI features should throw errors indicating the feature may be broken
+  * Use proper error handling instead of silent skips
 
 ### Changelog
 
-- Update `CHANGELOG.md` under `[Unreleased]`:
-  - Add a brief bullet under the appropriate section (Added/Changed/Fixed/Performance/Removed).
-  - Keep entries concise and reference the patterns used when relevant.
+* Update `CHANGELOG.md` under **\[Unreleased]**:
+
+  * Add a brief bullet under the appropriate section (Added/Changed/Fixed/Performance/Removed).
+  * Keep entries concise and reference the patterns used when relevant.
 
 ### Code Style
 
-- TypeScript-first, explicit function signatures for public APIs, meaningful names.
-- Early returns, guard error cases first; no empty catches.
-- Minimal comments; explain “why” when non-obvious.
-- Preserve existing formatting and indentation exactly.
+* TypeScript‑first, explicit function signatures for public APIs, meaningful names.
+* Early returns, guard error cases first; no empty catches.
+* Minimal comments; explain **why** when non‑obvious.
+* Preserve existing formatting and indentation exactly.
 
 ### Growth Focus (what to prioritize)
 
-- Social sharing (session summaries), session photo integration, viral loops (referrals/challenges/leaderboards), and community features.
-- Forecast transparency improvements and adding forecast data to sessions where relevant.
+* Social sharing (session summaries), session photo integration, viral loops (referrals/challenges/leaderboards), and community features.
+* Forecast transparency improvements and adding forecast data to sessions where relevant.
 
 ### Quick Checklist (before submitting an edit)
 
-- Read the relevant `ARCHITECTURE.md` docs.
-- Present plan and get approval.
-- Use `useDataFetcher`, `withAuthenticatedAction`, and `lib/api-utils.ts` correctly.
-- Add cleanup for any realtime subscriptions.
-- Add/update tests when behavior changes.
-- Update `CHANGELOG.md`.
+* Read the relevant `ARCHITECTURE.md` docs.
+* Present plan and get approval.
+* Use `useDataFetcher`, `withAuthenticatedAction`, and `lib/api-utils.ts` correctly.
+* Add cleanup for any realtime subscriptions.
+* Add/update tests when behavior changes.
+* Update `CHANGELOG.md`.

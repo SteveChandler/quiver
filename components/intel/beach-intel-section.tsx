@@ -61,6 +61,7 @@ export function BeachIntelSection({
   const [showPostForm, setShowPostForm] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<boolean>(initialShowAll);
+  const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(new Set());
   const { user } = useAuth();
 
   // Fetch intel data for this beach location
@@ -87,6 +88,9 @@ export function BeachIntelSection({
         return;
       }
 
+      // Set loading state
+      setConfirmingPosts(prev => new Set(prev).add(postId));
+
       try {
         const result = isCurrentlyConfirmed
           ? await removeIntelPostConfirmation(postId)
@@ -103,7 +107,15 @@ export function BeachIntelSection({
           toast.error(result.error || "Failed to update vote");
         }
       } catch (error) {
+        console.error("Confirmation error:", error);
         toast.error("Failed to update vote");
+      } finally {
+        // Remove loading state
+        setConfirmingPosts(prev => {
+          const next = new Set(prev);
+          next.delete(postId);
+          return next;
+        });
       }
     },
     [user, refetch]
@@ -235,6 +247,7 @@ export function BeachIntelSection({
                   onToggleExpand={() =>
                     setExpandedPost(expandedPost === post.id ? null : post.id)
                   }
+                  isConfirming={confirmingPosts.has(post.id)}
                 />
               ))}
 
@@ -286,6 +299,7 @@ interface IntelPostCardProps {
   canConfirm: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  isConfirming: boolean;
 }
 
 function IntelPostCard({
@@ -294,6 +308,7 @@ function IntelPostCard({
   canConfirm,
   isExpanded,
   onToggleExpand,
+  isConfirming,
 }: IntelPostCardProps) {
   const tagConfig = getIntelTagConfig(post.tag);
   const timeAgo = formatDistanceToNow(new Date(post.created_at), {
@@ -382,20 +397,30 @@ function IntelPostCard({
                   variant="ghost"
                   size="sm"
                   onClick={() => onConfirm(post.id, post.user_has_confirmed)}
+                  disabled={isConfirming}
                   className={cn(
                     "h-7 px-2 text-xs transition-all duration-200",
                     post.user_has_confirmed
                       ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                      : "text-gray-600 hover:bg-blue-50 hover:text-blue-700"
+                      : "text-gray-600 hover:bg-blue-50 hover:text-blue-700",
+                    isConfirming && "opacity-50 cursor-wait"
                   )}
                 >
-                  <ThumbsUp
-                    className={cn(
-                      "h-3 w-3 mr-1 transition-transform duration-200",
-                      post.user_has_confirmed && "scale-110"
-                    )}
-                  />
-                  {post.user_has_confirmed ? "Confirmed" : "Confirm"}
+                  {isConfirming ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <ThumbsUp
+                      className={cn(
+                        "h-3 w-3 mr-1 transition-transform duration-200",
+                        post.user_has_confirmed && "scale-110"
+                      )}
+                    />
+                  )}
+                  {isConfirming
+                    ? "Processing..."
+                    : post.user_has_confirmed
+                    ? "Confirmed"
+                    : "Confirm"}
                 </Button>
               )}
             </div>
