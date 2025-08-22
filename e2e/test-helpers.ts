@@ -233,7 +233,7 @@ export async function testApiEndpoint(
   options: {
     method?: string;
     body?: any;
-    expectedStatus?: number;
+    expectedStatus?: number | number[];
     authenticated?: boolean;
   } = {}
 ) {
@@ -264,10 +264,14 @@ export async function testApiEndpoint(
 
     const responseData = await response.json().catch(() => null);
 
+    const isExpectedStatus = Array.isArray(expectedStatus) 
+      ? expectedStatus.includes(response.status())
+      : response.status() === expectedStatus;
+      
     return {
       status: response.status(),
       data: responseData,
-      success: response.status() === expectedStatus,
+      success: isExpectedStatus,
     };
   } catch (error) {
     console.log(`API test error for ${endpoint}:`, error);
