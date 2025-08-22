@@ -45,6 +45,8 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
 
+  // Favicon configuration - uses default favicon.ico
+
   // Open Graph optimizations for social sharing
   openGraph: {
     title: SEO_CONFIG.openGraph.title,
@@ -117,19 +119,6 @@ export default function RootLayout({
         <link rel="prefetch" href="/map" />
 
         {/* Preload critical resources for faster LCP */}
-        <link
-          rel="preload"
-          href="/placeholder-logo.png"
-          as="image"
-          type="image/png"
-        />
-
-        <link
-          rel="preload"
-          href="/logo-word (2).png"
-          as="image"
-          type="image/png"
-        />
 
         {/* Remove non-existent webpack chunk preload - these are dynamic */}
 

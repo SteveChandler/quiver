@@ -20,7 +20,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
       page,
     }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Verify page loads successfully
       await expect(page.locator("body")).toBeVisible();
@@ -41,7 +41,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
 
     test("should provide clear sign up pathway", async ({ page }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Look for sign up elements
       const signUpButton = page.getByRole("button", {
@@ -71,7 +71,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
       }
 
       // Should navigate to auth page or show sign up form
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Check for auth page or sign up form
       const isOnAuthPage =
@@ -88,7 +88,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
       page,
     }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Verify public content is accessible
       await expect(page.locator("body")).toBeVisible();
@@ -101,7 +101,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
 
       // Navigate to map page
       await page.goto("/map");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Should not be redirected to auth for public beach information
       const isRedirectedToAuth = page.url().includes("/auth");
@@ -135,7 +135,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
 
       for (const route of protectedRoutes) {
         await page.goto(route.path);
-        await page.waitForLoadState("networkidle");
+        await page.waitForLoadState("load");
 
         // Should be redirected to auth or home page
         const currentUrl = page.url();
@@ -154,7 +154,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
       page,
     }) => {
       await page.goto("/map");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Find beach information
       const beachCards = page.locator(
@@ -164,7 +164,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
 
       // Click on first beach
       await beachCards.first().click();
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Should see beach details (either new page or expanded card)
       const beachDetails = page.locator(
@@ -185,7 +185,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
       page,
     }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Look for forecast content on home page
       const forecastContent = page.locator(
@@ -207,7 +207,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
 
       // Navigate to map to see more forecast details
       await page.goto("/map");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Beach cards should show forecast previews
       const beachCard = page
@@ -235,7 +235,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
       page,
     }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Look for community/social content previews
       const communityTab = page.getByRole("tab", {
@@ -250,7 +250,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
 
       if (hasCommunityTab) {
         await communityTab.click();
-        await page.waitForLoadState("networkidle");
+        await page.waitForLoadState("load");
 
         // Should see community content or auth prompt
         const communityPosts = page.locator(".post, .session-card, .activity");
@@ -270,7 +270,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
   test.describe("Authentication Flow Discovery", () => {
     test("should find sign in options easily", async ({ page }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Look for sign in elements
       const signInButton = page.getByRole("button", {
@@ -298,7 +298,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
         await signInLink.first().click();
       }
 
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Should be on sign in page or see sign in form
       const isOnSignInPage =
@@ -315,7 +315,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
       page,
     }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Should be able to see value propositions
       const valueContent = page.locator("h1, h2, .hero, .feature");
@@ -326,7 +326,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
 
       for (const pagePath of publicPages) {
         await page.goto(pagePath);
-        await page.waitForLoadState("networkidle");
+        await page.waitForLoadState("load");
 
         // Should not be immediately redirected to auth
         const isRedirectedToAuth = page.url().includes("/auth");
@@ -341,7 +341,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
 
     test("should provide smooth onboarding experience", async ({ page }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Look for onboarding elements
       const getStartedButton = page.getByRole("button", {
@@ -361,7 +361,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
       // Test getting started flow
       if (hasGetStarted) {
         await getStartedButton.click();
-        await page.waitForLoadState("networkidle");
+        await page.waitForLoadState("load");
 
         // Should lead to registration or tutorial
         const isOnRegistration =
@@ -384,7 +384,7 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
       await page.setViewportSize({ width: 375, height: 667 });
 
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
 
       // Verify mobile layout
       await expect(page.locator("body")).toBeVisible();

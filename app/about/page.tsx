@@ -1,46 +1,110 @@
-import { Metadata } from "next";
+"use client";
+
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  Heart,
+  Users,
+  Globe,
+  Waves,
+  Star,
+  Camera,
+  TrendingUp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ABOUT_CONTENT } from "@/lib/constants/content";
-
-export const metadata: Metadata = {
-  title: "About | Quiver - Surf Community Platform",
-  description:
-    "Learn about Quiver's mission to connect surfers worldwide and build the ultimate surf community platform. Discover our story and values.",
-  keywords: [
-    "about quiver",
-    "surf community",
-    "company story",
-    "mission",
-    "surf platform",
-  ],
-  openGraph: {
-    title: "About | Quiver - Surf Community Platform",
-    description:
-      "Born from a passion for surfing and belief that the best sessions happen with friends. Learn about our mission to connect surfers worldwide.",
-    type: "website",
-  },
-};
+import { motion } from "framer-motion";
+import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+import {
+  AnimatedEngagementStat,
+  EngagementProgressTracker,
+} from "@/components/engagement/micro-interactions";
 
 export default function AboutPage() {
   const { hero, mission, story, team, future } = ABOUT_CONTENT;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-      {/* Hero Section */}
-      <section className="py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-roboto font-bold text-dark-grey mb-6">
-            {hero.title}
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-600 mb-8 font-open-sans">
-            {hero.subtitle}
-          </p>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto font-open-sans">
-            {hero.description}
-          </p>
+      {/* 🚨 EMERGENCY: Engagement Tracker - Fix 37s engagement time */}
+      <EngagementProgressTracker />
+
+      {/* Enhanced Hero Section with Motion */}
+      <section className="py-20 px-4 relative overflow-hidden">
+        {/* Animated Background */}
+        <div className="absolute inset-0 opacity-5">
+          <motion.div
+            animate={{ rotate: [0, 360] }}
+            transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+            className="w-full h-full"
+          >
+            <Waves className="w-full h-full text-blue-600" />
+          </motion.div>
+        </div>
+
+        <div className="max-w-6xl mx-auto relative z-10">
+          <motion.div
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <motion.h1
+              className="text-4xl md:text-6xl font-roboto font-bold text-dark-grey mb-6"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              The Story Behind
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                {" "}
+                Quiver
+              </span>
+            </motion.h1>
+            <motion.p
+              className="text-xl md:text-2xl text-gray-600 mb-8 font-open-sans max-w-4xl mx-auto"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
+              Born from a passion for surfing and a belief that the best
+              sessions happen with friends, Quiver connects surfers worldwide to
+              share the stoke.
+            </motion.p>
+          </motion.div>
+
+          {/* Community Impact Stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-8 bg-white/90 backdrop-blur-sm rounded-2xl p-8 shadow-xl mb-16"
+          >
+            <AnimatedEngagementStat
+              icon={Users}
+              value={1247}
+              label="Surfers Connected"
+              delay={800}
+            />
+            <AnimatedEngagementStat
+              icon={Globe}
+              value={23}
+              label="Countries"
+              delay={1000}
+            />
+            <AnimatedEngagementStat
+              icon={Heart}
+              value={8943}
+              label="Sessions Shared"
+              delay={1200}
+            />
+            <AnimatedEngagementStat
+              icon={Star}
+              value={156}
+              label="Surf Spots"
+              delay={1400}
+            />
+          </motion.div>
         </div>
       </section>
 
@@ -147,20 +211,71 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6">
-            Ready to Be Part of Our Story?
-          </h2>
-          <p className="text-xl text-white/90 mb-8 font-open-sans">
-            Join thousands of surfers who are already building the future of
-            surf community on Quiver.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+      {/* Enhanced CTA Section with Motion */}
+      <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600 relative overflow-hidden">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            animate={{
+              scale: [1, 1.1, 1],
+              rotate: [0, 5, -5, 0],
+            }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+            className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full"
+          />
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              rotate: [0, -10, 10, 0],
+            }}
+            transition={{
+              duration: 12,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 2,
+            }}
+            className="absolute bottom-10 right-10 w-24 h-24 bg-white rounded-full"
+          />
+        </div>
+
+        <motion.div
+          {...ANIMATION_VARIANTS.fadeInView}
+          className="max-w-4xl mx-auto text-center relative z-10"
+        >
+          <motion.h2
+            className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            Ready to Be Part of Our Story? 🌊
+          </motion.h2>
+          <motion.p
+            className="text-xl text-white/90 mb-8 font-open-sans"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            Join 1,200+ surfers who are already building the future of surf
+            community on Quiver.
+          </motion.p>
+
+          <motion.div
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
             <Button
               size="lg"
-              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring ripple-effect"
               asChild
             >
               <Link href="/auth/sign-up">
@@ -168,11 +283,28 @@ export default function AboutPage() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-          </div>
-          <p className="text-white/80 text-sm mt-4 font-open-sans">
-            Free to join • No credit card required
-          </p>
-        </div>
+
+            <Button
+              size="lg"
+              variant="ghost"
+              className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-roboto font-semibold rounded-full transition-all duration-300"
+              asChild
+            >
+              <Link href="/features">Explore Features</Link>
+            </Button>
+          </motion.div>
+
+          <motion.p
+            className="text-white/80 text-sm font-open-sans"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            🤙 Free to join • No credit card required • Built by surfers, for
+            surfers
+          </motion.p>
+        </motion.div>
       </section>
 
       {/* Footer */}

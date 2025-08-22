@@ -55,11 +55,15 @@ export function FollowButton({
         size={buttonSize}
         onClick={toggleFollow}
         disabled={isLoading || isToggling}
-        className={`flex items-center gap-2 ${
+        className={`flex items-center gap-2 motion-optimized like-button-spring ripple-effect transition-all ${
           following
             ? "hover:bg-destructive hover:text-destructive-foreground"
-            : ""
+            : "hover:scale-105"
         }`}
+        data-testid="follow-button"
+        style={{
+          transform: isToggling ? "scale(0.95)" : "scale(1)",
+        }}
       >
         {isToggling ? (
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />

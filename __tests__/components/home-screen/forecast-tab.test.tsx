@@ -137,7 +137,10 @@ describe("ForecastTab", () => {
       <ForecastTab profile={mockProfile} defaultBeach={mockDefaultBeach} />
     );
     expect(screen.getByText("Test Beach")).toBeInTheDocument();
-    expect(screen.getByText("Today's Forecast")).toBeInTheDocument();
+    // The component shows community-calibrated forecast by default when available
+    expect(
+      screen.getByText("Community-calibrated forecast (more accurate)")
+    ).toBeInTheDocument();
     // Wave height is normalized in KPI; ensure presence of the value fragment
     expect(screen.getByText(/4\.?0|4-6/)).toBeInTheDocument();
   });
@@ -147,10 +150,9 @@ describe("ForecastTab", () => {
     render(
       <ForecastTab profile={mockProfile} defaultBeach={mockDefaultBeach} />
     );
-    const toggleButton = screen.getByRole("button", { name: /show adjusted/i });
+    // The toggle button shows "Show Adjusted" when in compact mode
+    const toggleButton = screen.getByRole("button", { name: /Show Adjusted/i });
     await user.click(toggleButton);
-    expect(
-      screen.getByText(/Community-Adjusted Forecast/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Today's Forecast/i)).toBeInTheDocument();
   });
 });

@@ -58,3 +58,224 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Enhanced Motion System - Viral Growth Animations */
+@layer components {
+  /* Performance optimizations for GPU acceleration */
+  .motion-optimized {
+    will-change: transform, opacity;
+    transform: translateZ(0); /* Force GPU layer */
+  }
+
+  /* Like Button Spring Animations - Generated from Motion MCP */
+  .like-button-spring {
+    transition: transform 650ms
+      linear(
+        0,
+        0.1162,
+        0.3622,
+        0.6245,
+        0.8404,
+        0.9868,
+        1.0661,
+        1.0937,
+        1.0885,
+        1.0672,
+        1.042,
+        1.02,
+        1.0043,
+        0.9952,
+        0.9914,
+        0.9913,
+        0.993,
+        0.9954,
+        0.9976,
+        0.9993,
+        1.0003,
+        1
+      );
+  }
+
+  /* Heart Burst Animation - Enhanced spring physics */
+  .heart-burst {
+    transition: transform 650ms
+      linear(
+        0,
+        0.2479,
+        0.6994,
+        1.0499,
+        1.1969,
+        1.1808,
+        1.0933,
+        1.0099,
+        0.9653,
+        0.9591,
+        0.9742,
+        0.9928,
+        1.005,
+        1.0087,
+        1.0066,
+        1.0027,
+        0.9996,
+        0.9983,
+        0.9984,
+        0.9992,
+        0.9999,
+        1
+      );
+  }
+
+  /* Success Celebration Bounce */
+  .celebration-bounce {
+    transition: transform 800ms
+      linear(
+        0,
+        0.0012,
+        0.0048,
+        0.0109,
+        0.0194,
+        0.0303,
+        0.0436,
+        0.0594,
+        0.0776,
+        0.0982,
+        0.1212,
+        0.1466,
+        0.1745,
+        0.2048,
+        0.2375,
+        0.2726,
+        0.3102,
+        0.3502,
+        0.3926,
+        0.4374,
+        0.4847,
+        0.5344,
+        0.5865,
+        0.641,
+        0.698,
+        0.7573,
+        0.8191,
+        0.8834,
+        0.95,
+        0.9906,
+        0.9577,
+        0.9271,
+        0.8991,
+        0.8734,
+        0.8501,
+        0.8293,
+        0.8109,
+        0.795,
+        0.7814,
+        0.7703,
+        0.7616,
+        0.7553,
+        0.7514,
+        0.75,
+        0.751,
+        0.7544,
+        0.7603,
+        0.7685,
+        0.7792,
+        0.7923,
+        0.8078,
+        0.8258,
+        0.8462,
+        0.869,
+        0.8942,
+        0.9219,
+        0.9519,
+        0.9844,
+        0.9909,
+        0.976,
+        0.9635,
+        0.9535,
+        0.9459,
+        0.9407,
+        0.938,
+        0.9377,
+        0.9398,
+        0.9443,
+        0.9512,
+        0.9606,
+        0.9724,
+        0.9866,
+        0.9985,
+        0.9914,
+        0.9868,
+        0.9846,
+        0.9848,
+        0.9874,
+        0.9925,
+        1
+      );
+  }
+
+  /* Ripple Effect for Touch Feedback */
+  .ripple-effect {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ripple-effect::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.3;
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .ripple-effect:active::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  /* Session Card Hover Effects */
+  .session-card-hover {
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+  }
+
+  .session-card-hover:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Share Modal Flip Animation */
+  .share-flip-animation {
+    transition: transform 400ms ease-out;
+    transform-style: preserve-3d;
+  }
+
+  .share-flip-animation.sharing {
+    transform: rotateY(5deg) scale(1.05);
+  }
+
+  .share-flip-animation.shared {
+    transform: rotateY(0deg) scale(1);
+  }
+}
+
+/* Accessibility - Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .motion-optimized,
+  .like-button-spring,
+  .heart-burst,
+  .celebration-bounce,
+  .ripple-effect,
+  .session-card-hover,
+  .share-flip-animation {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .ripple-effect::before {
+    transition: none !important;
+  }
+}

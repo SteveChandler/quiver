@@ -20,7 +20,8 @@ export function preserveQueryParams(
     return href;
   }
 
-  const url = new URL(href, window.location.origin);
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  const url = new URL(href, origin);
   
   // Preserve specified parameters
   for (const param of preserveParams) {
@@ -41,7 +42,7 @@ export function usePreservedHref() {
     return (href: string) => href;
   }
 
-  const searchParams = new URLSearchParams(window.location.search);
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   
   return (href: string, preserveParams?: string[]) => 
     preserveQueryParams(href, searchParams as any, preserveParams);
@@ -53,7 +54,7 @@ export function usePreservedHref() {
 export function getVercelBypassToken(): string | null {
   if (typeof window === 'undefined') return null;
   
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   return params.get('x-vercel-protection-bypass');
 }
 
@@ -64,7 +65,8 @@ export function createProtectedUrl(href: string): string {
   const token = getVercelBypassToken();
   if (!token) return href;
   
-  const url = new URL(href, window.location.origin);
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  const url = new URL(href, origin);
   url.searchParams.set('x-vercel-protection-bypass', token);
   return url.pathname + url.search;
 }

@@ -33,7 +33,7 @@ export async function waitForElementReady(
  * Deterministic authentication state check
  */
 export async function getAuthState(page: Page) {
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("load");
 
   const currentUrl = page.url();
 

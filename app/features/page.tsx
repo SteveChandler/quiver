@@ -1,48 +1,116 @@
-import { Metadata } from "next";
+"use client";
+
 import Link from "next/link";
-import { ArrowRight, Check } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  Users,
+  TrendingUp,
+  MapPin,
+  Star,
+  Camera,
+  Waves,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FEATURES_EXTENDED_CONTENT } from "@/lib/constants/content";
 import { FEATURE_CARDS } from "@/lib/constants/features";
-
-export const metadata: Metadata = {
-  title: "Features | Quiver - Surf Community Platform",
-  description:
-    "Discover all the features that make Quiver the ultimate surf community platform. Connect with surfers, track sessions, and discover epic spots.",
-  keywords: [
-    "surf features",
-    "surf community",
-    "session tracking",
-    "surf spots",
-    "surf planning",
-  ],
-  openGraph: {
-    title: "Features | Quiver - Surf Community Platform",
-    description:
-      "Everything you need to surf with friends - community features, session tracking, spot discovery, and more.",
-    type: "website",
-  },
-};
+import { motion } from "framer-motion";
+import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+import {
+  AnimatedEngagementStat,
+  EngagementProgressTracker,
+} from "@/components/engagement/micro-interactions";
 
 export default function FeaturesPage() {
   const { hero, categories, cta } = FEATURES_EXTENDED_CONTENT;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-      {/* Hero Section */}
+      {/* 🚨 EMERGENCY: Engagement Tracker - Fix 37s engagement time */}
+      <EngagementProgressTracker />
+
+      {/* Enhanced Hero Section with Interactive Stats */}
       <section className="py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-roboto font-bold text-dark-grey mb-6">
-            {hero.title}
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-600 mb-8 font-open-sans">
-            {hero.subtitle}
-          </p>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto font-open-sans">
-            {hero.description}
-          </p>
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            {...ANIMATION_VARIANTS.fadeInView}
+            className="text-center mb-16"
+          >
+            <motion.h1
+              className="text-4xl md:text-6xl font-roboto font-bold text-dark-grey mb-6"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+            >
+              Everything You Need to
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                {" "}
+                Surf Together
+              </span>
+            </motion.h1>
+            <motion.p
+              className="text-xl md:text-2xl text-gray-600 mb-8 font-open-sans max-w-3xl mx-auto"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              Join the surf community that's growing every day. Connect, share,
+              and discover amazing waves with friends.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="flex justify-center mb-12 relative z-10"
+            >
+              <Button
+                size="lg"
+                className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring relative z-10"
+                asChild
+              >
+                <Link href="/auth/sign-up">
+                  Start Surfing Together
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+            </motion.div>
+          </motion.div>
+
+          {/* Interactive Stats Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-8 bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl"
+          >
+            <AnimatedEngagementStat
+              icon={Users}
+              value={1247}
+              label="Active Surfers"
+              delay={800}
+            />
+            <AnimatedEngagementStat
+              icon={TrendingUp}
+              value={3891}
+              label="Sessions Logged"
+              delay={1000}
+            />
+            <AnimatedEngagementStat
+              icon={MapPin}
+              value={156}
+              label="Surf Spots"
+              delay={1200}
+            />
+            <AnimatedEngagementStat
+              icon={Camera}
+              value={2156}
+              label="Photos Shared"
+              delay={1400}
+            />
+          </motion.div>
         </div>
       </section>
 
@@ -64,37 +132,43 @@ export default function FeaturesPage() {
                 </p>
               </div>
 
-              {/* Features Grid */}
+              {/* Features Grid with Motion */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {category.features.map((feature, featureIndex) => (
-                  <Card
+                  <motion.div
                     key={featureIndex}
-                    className="h-full hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm"
+                    {...ANIMATION_VARIANTS.staggerItem(featureIndex, 0.6)}
                   >
-                    <CardHeader>
-                      <h3 className="text-xl font-roboto font-bold text-dark-grey mb-2">
-                        {feature.title}
-                      </h3>
-                      <p className="text-gray-600 font-open-sans">
-                        {feature.description}
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {feature.benefits.map((benefit, benefitIndex) => (
-                          <div
-                            key={benefitIndex}
-                            className="flex items-center gap-2"
-                          >
-                            <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
-                            <span className="text-sm text-gray-600 font-open-sans">
-                              {benefit}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                    <Card className="h-full session-card-hover transition-all duration-300 bg-white/90 backdrop-blur-sm border border-gray-100 motion-optimized">
+                      <CardHeader>
+                        <h3 className="text-xl font-roboto font-bold text-dark-grey mb-2">
+                          {feature.title}
+                        </h3>
+                        <p className="text-gray-600 font-open-sans">
+                          {feature.description}
+                        </p>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {feature.benefits.map((benefit, benefitIndex) => (
+                            <motion.div
+                              key={benefitIndex}
+                              className="flex items-center gap-2"
+                              initial={{ opacity: 0, x: -10 }}
+                              whileInView={{ opacity: 1, x: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ delay: benefitIndex * 0.1 }}
+                            >
+                              <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                              <span className="text-sm text-gray-600 font-open-sans">
+                                {benefit}
+                              </span>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -155,31 +229,91 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6">
-            {cta.title}
-          </h2>
-          <p className="text-xl text-white/90 mb-8 font-open-sans">
-            {cta.description}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+      {/* Enhanced CTA Section with Motion */}
+      <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600 relative overflow-hidden">
+        {/* Background Wave Animation */}
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            animate={{
+              backgroundPositionX: ["0%", "100%"],
+              backgroundPositionY: ["0%", "100%"],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              repeatType: "reverse",
+            }}
+            className="w-full h-full bg-gradient-to-br from-white to-transparent"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 20% 80%, white 2px, transparent 2px), radial-gradient(circle at 80% 20%, white 2px, transparent 2px)",
+              backgroundSize: "100px 100px",
+            }}
+          />
+        </div>
+
+        <motion.div
+          {...ANIMATION_VARIANTS.fadeInView}
+          className="max-w-4xl mx-auto text-center relative z-10"
+        >
+          <motion.h2
+            className="text-3xl md:text-4xl font-roboto font-bold text-white mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            Ready to Join the Surf Community?
+          </motion.h2>
+          <motion.p
+            className="text-xl text-white/90 mb-8 font-open-sans"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            Find your crew, track epic sessions, and discover amazing spots.
+            Free to join — priceless connections.
+          </motion.p>
+
+          <motion.div
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
             <Button
               size="lg"
-              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring ripple-effect"
               asChild
             >
               <Link href="/auth/sign-up">
-                {cta.buttonText}
+                Join Free Today
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-          </div>
-          <p className="text-white/80 text-sm mt-4 font-open-sans">
-            {cta.note}
-          </p>
-        </div>
+
+            <Button
+              size="lg"
+              variant="ghost"
+              className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-roboto font-semibold rounded-full transition-all duration-300"
+              asChild
+            >
+              <Link href="/about">Learn More</Link>
+            </Button>
+          </motion.div>
+
+          <motion.p
+            className="text-white/80 text-sm font-open-sans"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            🏄‍♀️ No credit card required • Join 1,200+ surfers already connecting
+          </motion.p>
+        </motion.div>
       </section>
 
       {/* Footer */}

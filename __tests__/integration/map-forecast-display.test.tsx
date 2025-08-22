@@ -7,17 +7,19 @@ import { createMockBeaches } from "@/__tests__/setup/test-utils";
 const mockMapMarkers = new Map();
 
 jest.mock("next/dynamic", () => () => {
-  const InteractiveMapMock = ({ 
-    initialCenter, 
-    onLocationClick, 
-    onBeachSelect 
+  const InteractiveMapMock = ({
+    initialCenter,
+    onLocationClick,
+    onBeachSelect,
   }: any) => {
-    const [markers, setMarkers] = React.useState<Array<{
-      id: string;
-      name: string;
-      waveHeight: string | undefined;
-      position: [number, number];
-    }>>([]);
+    const [markers, setMarkers] = React.useState<
+      Array<{
+        id: string;
+        name: string;
+        waveHeight: string | undefined;
+        position: [number, number];
+      }>
+    >([]);
 
     // Simulate forecast loading and marker creation
     React.useEffect(() => {
@@ -28,15 +30,16 @@ jest.mock("next/dynamic", () => () => {
           const beachesResponse = await fetch("/api/beaches", {
             headers: { Accept: "application/json" },
           });
-          
+
           if (!beachesResponse.ok) {
             setMarkers([]);
             return;
           }
-          
+
           const beachesData = await beachesResponse.json();
-          const beaches = beachesData?.data?.beaches || beachesData?.beaches || [];
-          
+          const beaches =
+            beachesData?.data?.beaches || beachesData?.beaches || [];
+
           // Filter to nearby beaches (simplified)
           const nearbyBeaches = beaches.slice(0, 5);
 
@@ -47,7 +50,7 @@ jest.mock("next/dynamic", () => () => {
                 const response = await fetch(
                   `/api/forecasts/update-enhanced?beachId=${beach.id}&days=2`
                 );
-                
+
                 if (response.ok) {
                   const data = await response.json();
                   if (data.success && data.data?.forecasts?.length > 0) {
@@ -55,7 +58,10 @@ jest.mock("next/dynamic", () => () => {
                       id: beach.id,
                       name: beach.name,
                       waveHeight: data.data.forecasts[0].wave_height,
-                      position: [beach.latitude, beach.longitude] as [number, number],
+                      position: [beach.latitude, beach.longitude] as [
+                        number,
+                        number
+                      ],
                     };
                   }
                 }
@@ -85,7 +91,10 @@ jest.mock("next/dynamic", () => () => {
     }, []);
 
     return (
-      <div data-testid="interactive-map" data-center={JSON.stringify(initialCenter)}>
+      <div
+        data-testid="interactive-map"
+        data-center={JSON.stringify(initialCenter)}
+      >
         <div data-testid="map-markers">
           {markers.map((marker) => (
             <div
@@ -106,7 +115,7 @@ jest.mock("next/dynamic", () => () => {
       </div>
     );
   };
-  
+
   InteractiveMapMock.displayName = "InteractiveMap";
   return InteractiveMapMock;
 });
@@ -168,33 +177,39 @@ describe("Map Forecast Display Integration", () => {
   it("should display beaches with successful forecast data", async () => {
     // Mock successful forecast responses
     mockFetch.mockImplementation((url: string) => {
-      if (typeof url === "string" && url.includes("/api/forecasts/update-enhanced")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/forecasts/update-enhanced")
+      ) {
         const beachId = new URL(url).searchParams.get("beachId");
-        
+
         if (beachId === "d030911e-71ba-4678-8bbb-cd06a30f8c42") {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve(mockSuccessfulForecastResponse),
           } as Response);
         }
-        
+
         if (beachId === "6d65bfbd-454a-4767-a282-c8b46c7a86b9") {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({
-              ...mockSuccessfulForecastResponse,
-              data: {
-                forecasts: [{
-                  ...mockSuccessfulForecastResponse.data.forecasts[0],
-                  beach_id: beachId,
-                  wave_height: "2.4 ft",
-                }],
-              },
-            }),
+            json: () =>
+              Promise.resolve({
+                ...mockSuccessfulForecastResponse,
+                data: {
+                  forecasts: [
+                    {
+                      ...mockSuccessfulForecastResponse.data.forecasts[0],
+                      beach_id: beachId,
+                      wave_height: "2.4 ft",
+                    },
+                  ],
+                },
+              }),
           } as Response);
         }
       }
-      
+
       return Promise.reject(new Error("Unhandled fetch"));
     });
 
@@ -232,29 +247,39 @@ describe("Map Forecast Display Integration", () => {
         "beach-marker-6d65bfbd-454a-4767-a282-c8b46c7a86b9"
       );
       expect(missionBeachMarker).toBeInTheDocument();
-      expect(missionBeachMarker).toHaveAttribute("data-beach-name", "Mission Beach");
+      expect(missionBeachMarker).toHaveAttribute(
+        "data-beach-name",
+        "Mission Beach"
+      );
       expect(missionBeachMarker).toHaveAttribute("data-wave-height", "2.4 ft");
     });
 
     // Verify forecast API calls were made
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/forecasts/update-enhanced?beachId=d030911e-71ba-4678-8bbb-cd06a30f8c42")
+      expect.stringContaining(
+        "/api/forecasts/update-enhanced?beachId=d030911e-71ba-4678-8bbb-cd06a30f8c42"
+      )
     );
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/forecasts/update-enhanced?beachId=6d65bfbd-454a-4767-a282-c8b46c7a86b9")
+      expect.stringContaining(
+        "/api/forecasts/update-enhanced?beachId=6d65bfbd-454a-4767-a282-c8b46c7a86b9"
+      )
     );
-  });
+  }, 10000);
 
   it("should handle forecast fetch failures gracefully", async () => {
     // Mock failed forecast responses
     mockFetch.mockImplementation((url: string) => {
-      if (typeof url === "string" && url.includes("/api/forecasts/update-enhanced")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/forecasts/update-enhanced")
+      ) {
         return Promise.resolve({
           ok: false,
           status: 500,
         } as Response);
       }
-      
+
       return Promise.reject(new Error("Unhandled fetch"));
     });
 
@@ -298,13 +323,16 @@ describe("Map Forecast Display Integration", () => {
   it("should handle empty forecast responses", async () => {
     // Mock empty forecast responses
     mockFetch.mockImplementation((url: string) => {
-      if (typeof url === "string" && url.includes("/api/forecasts/update-enhanced")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/forecasts/update-enhanced")
+      ) {
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve(mockEmptyForecastResponse),
         } as Response);
       }
-      
+
       return Promise.reject(new Error("Unhandled fetch"));
     });
 
@@ -336,12 +364,12 @@ describe("Map Forecast Display Integration", () => {
 
   it("should display correct map center based on user location", () => {
     const customLocation = { lat: 33.0, lng: -117.0 };
-    
+
     render(<MapContent {...defaultProps} userLocation={customLocation} />);
 
     const mapElement = screen.getByTestId("interactive-map");
     const centerData = mapElement.getAttribute("data-center");
-    
+
     if (centerData) {
       const center = JSON.parse(centerData);
       expect(center[0]).toBe(customLocation.lat);
@@ -367,23 +395,26 @@ describe("Map Forecast Display Integration", () => {
   it("should handle mixed forecast success and failure", async () => {
     // Mock mixed responses - success for Ocean Beach, failure for Mission Beach
     mockFetch.mockImplementation((url: string) => {
-      if (typeof url === "string" && url.includes("/api/forecasts/update-enhanced")) {
+      if (
+        typeof url === "string" &&
+        url.includes("/api/forecasts/update-enhanced")
+      ) {
         const beachId = new URL(url).searchParams.get("beachId");
-        
+
         if (beachId === "d030911e-71ba-4678-8bbb-cd06a30f8c42") {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve(mockSuccessfulForecastResponse),
           } as Response);
         }
-        
+
         // Fail for Mission Beach
         return Promise.resolve({
           ok: false,
           status: 404,
         } as Response);
       }
-      
+
       return Promise.reject(new Error("Unhandled fetch"));
     });
 
@@ -401,12 +432,16 @@ describe("Map Forecast Display Integration", () => {
     // Wait for both markers to appear
     await waitFor(
       () => {
-        expect(screen.queryByTestId(
-          "beach-marker-d030911e-71ba-4678-8bbb-cd06a30f8c42"
-        )).toBeInTheDocument();
-        expect(screen.queryByTestId(
-          "beach-marker-6d65bfbd-454a-4767-a282-c8b46c7a86b9"
-        )).toBeInTheDocument();
+        expect(
+          screen.queryByTestId(
+            "beach-marker-d030911e-71ba-4678-8bbb-cd06a30f8c42"
+          )
+        ).toBeInTheDocument();
+        expect(
+          screen.queryByTestId(
+            "beach-marker-6d65bfbd-454a-4767-a282-c8b46c7a86b9"
+          )
+        ).toBeInTheDocument();
       },
       { timeout: 5000 }
     );

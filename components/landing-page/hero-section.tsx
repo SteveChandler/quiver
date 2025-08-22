@@ -15,6 +15,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { HERO_VIDEOS, CONTENT } from "@/lib/constants/features";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+import { InteractiveHeroDemo } from "./interactive-hero-demo";
 
 export function HeroSection() {
   const [showVideo, setShowVideo] = useState(true);
@@ -139,9 +140,19 @@ export function HeroSection() {
           {CONTENT.hero.subtitle}
         </motion.p>
 
+        {/* 🚨 EMERGENCY INTERACTIVE DEMO - Fix 74% bounce rate */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.8 }}
+          className="mb-10"
+        >
+          <InteractiveHeroDemo />
+        </motion.div>
+
         {/* Key Benefits Grid */}
         <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.35)}
+          {...ANIMATION_VARIANTS.heroText(0.6)}
           className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto"
         >
           {CONTENT.hero.benefits.map((benefit, index) => (
@@ -156,7 +167,7 @@ export function HeroSection() {
 
         {/* Enhanced CTA Section */}
         <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.4)}
+          {...ANIMATION_VARIANTS.heroText(0.8)}
           className="flex flex-col sm:flex-row gap-4 justify-center items-center"
         >
           {/* Primary CTA */}
@@ -187,7 +198,7 @@ export function HeroSection() {
 
         {/* Trust Signals */}
         <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.45)}
+          {...ANIMATION_VARIANTS.heroText(0.9)}
           className="flex flex-col sm:flex-row items-center justify-center gap-4 text-white/80 text-sm"
         >
           <div className="flex items-center gap-2">
@@ -203,7 +214,7 @@ export function HeroSection() {
 
         {/* Feature Icons */}
         <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.5)}
+          {...ANIMATION_VARIANTS.heroText(1.1)}
           className="flex justify-center items-center gap-8 mt-12 text-white/60"
         >
           <div className="flex items-center gap-2">

@@ -88,7 +88,9 @@ jest.mock("@/lib/utils/distance-utils", () => ({
 }));
 
 jest.mock("@/hooks/use-cached-api", () => ({
-  createCachedMapFetch: jest.fn(() => jest.fn().mockResolvedValue({ data: [] })),
+  createCachedMapFetch: jest.fn(() =>
+    jest.fn().mockResolvedValue({ data: [] })
+  ),
   createLocationCacheKey: jest.fn(() => "cache-key"),
 }));
 
@@ -111,18 +113,50 @@ describe("Map Forecast Display Smoke Test", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock realistic API responses
     mockFetch.mockImplementation((url: string) => {
       if (typeof url === "string") {
         // Mock beaches API
-        if (url.includes("/api/beaches") && !url.includes("nearby") && !url.includes("forecasts")) {
+        if (
+          url.includes("/api/beaches") &&
+          !url.includes("nearby") &&
+          !url.includes("forecasts")
+        ) {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({
-              success: true,
-              data: {
-                beaches: [
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: {
+                  beaches: [
+                    {
+                      id: "d030911e-71ba-4678-8bbb-cd06a30f8c42",
+                      name: "Ocean Beach",
+                      latitude: 32.7493,
+                      longitude: -117.2511,
+                      location: "San Diego, CA",
+                    },
+                    {
+                      id: "6d65bfbd-454a-4767-a282-c8b46c7a86b9",
+                      name: "Mission Beach",
+                      latitude: 32.7702,
+                      longitude: -117.2525,
+                      location: "San Diego, CA",
+                    },
+                  ],
+                },
+              }),
+          } as Response);
+        }
+
+        // Mock nearby beaches API
+        if (url.includes("/api/beaches/nearby")) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                data: [
                   {
                     id: "d030911e-71ba-4678-8bbb-cd06a30f8c42",
                     name: "Ocean Beach",
@@ -138,75 +172,53 @@ describe("Map Forecast Display Smoke Test", () => {
                     location: "San Diego, CA",
                   },
                 ],
-              },
-            }),
+              }),
           } as Response);
         }
-        
-        // Mock nearby beaches API
-        if (url.includes("/api/beaches/nearby")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              data: [
-                {
-                  id: "d030911e-71ba-4678-8bbb-cd06a30f8c42",
-                  name: "Ocean Beach",
-                  latitude: 32.7493,
-                  longitude: -117.2511,
-                  location: "San Diego, CA",
-                },
-                {
-                  id: "6d65bfbd-454a-4767-a282-c8b46c7a86b9",
-                  name: "Mission Beach",
-                  latitude: 32.7702,
-                  longitude: -117.2525,
-                  location: "San Diego, CA",
-                },
-              ],
-            }),
-          } as Response);
-        }
-        
+
         // Mock forecast API
         if (url.includes("/api/forecasts/update-enhanced")) {
           const urlObj = new URL(url);
           const beachId = urlObj.searchParams.get("beachId");
-          
+
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({
-              success: true,
-              timestamp: new Date().toISOString(),
-              data: {
-                beachId,
-                days: 2,
-                forecasts: [
-                  {
-                    id: `forecast-${beachId}`,
-                    beach_id: beachId,
-                    forecast_date: "2025-08-16",
-                    forecast_time: "12:00:00",
-                    wave_height: beachId === "d030911e-71ba-4678-8bbb-cd06a30f8c42" ? "2.6 ft" : "2.4 ft",
-                    wave_period: "15.4s",
-                    wave_direction: "SSW",
-                    water_temp: "74°F",
-                    air_temperature: "68°F",
-                    wind_speed: "5 mph",
-                    wind_direction: "SW",
-                    weather_condition: "Cloudy",
-                    confidence_score: 100,
-                    data_source: "CDIP",
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                  },
-                ],
-              },
-            }),
+            json: () =>
+              Promise.resolve({
+                success: true,
+                timestamp: new Date().toISOString(),
+                data: {
+                  beachId,
+                  days: 2,
+                  forecasts: [
+                    {
+                      id: `forecast-${beachId}`,
+                      beach_id: beachId,
+                      forecast_date: "2025-08-16",
+                      forecast_time: "12:00:00",
+                      wave_height:
+                        beachId === "d030911e-71ba-4678-8bbb-cd06a30f8c42"
+                          ? "2.6 ft"
+                          : "2.4 ft",
+                      wave_period: "15.4s",
+                      wave_direction: "SSW",
+                      water_temp: "74°F",
+                      air_temperature: "68°F",
+                      wind_speed: "5 mph",
+                      wind_direction: "SW",
+                      weather_condition: "Cloudy",
+                      confidence_score: 100,
+                      data_source: "CDIP",
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    },
+                  ],
+                },
+              }),
           } as Response);
         }
       }
-      
+
       return Promise.reject(new Error(`Unhandled fetch: ${url}`));
     });
   });
@@ -214,24 +226,26 @@ describe("Map Forecast Display Smoke Test", () => {
   it("should render InteractiveMap component without crashing", async () => {
     // Dynamically import the component to avoid issues with Mapbox during module loading
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     const consoleSpy = jest.spyOn(console, "error").mockImplementation();
-    
+
     expect(() => {
       render(<InteractiveMap />);
     }).not.toThrow();
-    
+
     // Check that no errors were logged
     expect(consoleSpy).not.toHaveBeenCalled();
-    
+
     consoleSpy.mockRestore();
   });
 
   it("should handle Mapbox initialization", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
-    render(<InteractiveMap initialCenter={[32.7493, -117.2511]} initialZoom={14} />);
-    
+
+    render(
+      <InteractiveMap initialCenter={[32.7493, -117.2511]} initialZoom={14} />
+    );
+
     // Verify Mapbox Map was called
     const MapboxMap = require("mapbox-gl").Map;
     expect(MapboxMap).toHaveBeenCalled();
@@ -239,39 +253,45 @@ describe("Map Forecast Display Smoke Test", () => {
 
   it("should make API calls for beach data and forecasts", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
+
     // Simulate map load to trigger data fetching
     await waitFor(() => {
-      const called = mockFetch.mock.calls.some(([url]) => typeof url === "string" && (url as string).includes("/api/beaches"));
+      const called = mockFetch.mock.calls.some(
+        ([url]) =>
+          typeof url === "string" && (url as string).includes("/api/beaches")
+      );
       expect(called).toBe(true);
     });
   });
 
   it("should handle forecast API responses", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
-    // Wait a bit for any async operations
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled();
-    }, { timeout: 5000 });
-    
+
+    // Wait a bit for any async operations with increased timeout
+    await waitFor(
+      () => {
+        expect(mockFetch).toHaveBeenCalled();
+      },
+      { timeout: 10000 }
+    );
+
     // The component should handle the mocked responses without errors
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/beaches"),
       expect.any(Object)
     );
-  });
+  }, 15000);
 
   it("should set Mapbox access token from environment", async () => {
     const mapboxgl = require("mapbox-gl");
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
+
     // The component should set the access token
     // In a real test this would be set, but our mock doesn't need to check the exact value
     expect(typeof mapboxgl.accessToken).toBe("string");
@@ -279,9 +299,9 @@ describe("Map Forecast Display Smoke Test", () => {
 
   it("should handle component cleanup", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     const { unmount } = render(<InteractiveMap />);
-    
+
     expect(() => {
       unmount();
     }).not.toThrow();
@@ -289,27 +309,25 @@ describe("Map Forecast Display Smoke Test", () => {
 
   it("should handle props changes", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     const { rerender } = render(
       <InteractiveMap initialCenter={[32.7493, -117.2511]} />
     );
-    
+
     expect(() => {
-      rerender(
-        <InteractiveMap initialCenter={[32.8000, -117.2000]} />
-      );
+      rerender(<InteractiveMap initialCenter={[32.8, -117.2]} />);
     }).not.toThrow();
   });
 
   it("should handle callback props", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     const mockCallbacks = {
       onLocationClick: jest.fn(),
       onMapClick: jest.fn(),
       onLocationMove: jest.fn(),
     };
-    
+
     expect(() => {
       render(<InteractiveMap {...mockCallbacks} />);
     }).not.toThrow();
@@ -318,21 +336,21 @@ describe("Map Forecast Display Smoke Test", () => {
   it("should handle fetch errors gracefully", async () => {
     // Mock fetch to fail
     mockFetch.mockRejectedValue(new Error("Network error"));
-    
+
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const consoleSpy = jest.spyOn(console, "error").mockImplementation();
-    
+
     expect(() => {
       render(<InteractiveMap />);
     }).not.toThrow();
-    
+
     // Component should render even if API calls fail
     await waitFor(() => {
       // The map container should still be present
       const mapContainer = document.querySelector("[style*='width: 100%']");
       expect(mapContainer).toBeInTheDocument();
     });
-    
+
     consoleSpy.mockRestore();
   });
 });

@@ -10,6 +10,11 @@ import { useCachedProfile } from "@/hooks/use-cached-profile";
 import type { Beach } from "@/types/database";
 import { BeachSearchBar } from "./beach-search-bar";
 import { useGeo } from "@/hooks/useGeo";
+import {
+  OnboardingFlow,
+  useOnboardingFlow,
+} from "@/components/onboarding/onboarding-flow";
+import { FloatingInteractionHint } from "@/components/engagement/micro-interactions";
 
 // Lazy load heavy tab components
 const ForecastTab = lazy(() =>
@@ -39,6 +44,14 @@ export function HomeScreen() {
     useState<Beach | null>(null);
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
+
+  // 🚨 EMERGENCY: Onboarding flow to fix 0% retention
+  const {
+    showOnboarding,
+    hasCompletedOnboarding,
+    completeOnboarding,
+    closeOnboarding,
+  } = useOnboardingFlow();
 
   // Use cached profile hook to prevent flickering on navigation
   const { profile, defaultBeach, profileLoading, hasCachedData } =
@@ -78,6 +91,24 @@ export function HomeScreen() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      {/* 🚨 EMERGENCY: Onboarding Flow - Fix 0% retention */}
+      <OnboardingFlow
+        isOpen={showOnboarding}
+        onClose={closeOnboarding}
+        onComplete={completeOnboarding}
+      />
+
+      {/* Note: EngagementProgressTracker removed - only needed for unauthenticated landing page visitors */}
+
+      {/* Interaction hints for new users */}
+      {!hasCompletedOnboarding && (
+        <FloatingInteractionHint
+          target="tabs"
+          hint="Try exploring different tabs to see forecasts and community intel!"
+          delay={5000}
+        />
+      )}
+
       {/* Main Content */}
       <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pt-6">
         {/* Welcome Section */}

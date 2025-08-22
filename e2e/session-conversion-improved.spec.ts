@@ -220,7 +220,7 @@ test.describe("Session Conversion (Improved)", () => {
     // In a real app, this would involve creating sessions as different users
 
     await page.goto("/log-session?convert=nonexistent-id");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     // Should handle invalid session ID gracefully - either show error or redirect
     const hasErrorMessage = await page
