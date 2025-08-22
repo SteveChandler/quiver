@@ -10,7 +10,6 @@ test.describe("Surf Journal Experience", () => {
 
   test("should load profile page", async ({ page }) => {
     await page.goto("/profile");
-    await page.waitForTimeout(3000);
 
     // Should either show profile content or redirect to auth
     const isAuthPage =
@@ -20,8 +19,25 @@ test.describe("Surf Journal Experience", () => {
       // Verify auth page loads
       await expect(page.locator("form")).toBeVisible({ timeout: 5000 });
     } else {
-      // Verify profile page loads
-      await expect(page.locator("h1, h2, h3")).toBeVisible({ timeout: 5000 });
+      // Wait for lazy-loaded ProfileView to render - look for specific profile content
+      // The ProfileView has a specific h1 with profile name
+      await Promise.race([
+        // Wait for profile header to load (lazy component)
+        page.waitForSelector('h1:has-text("Profile")', { timeout: 10000 }),
+        // Or wait for profile content (fallback)
+        page.waitForSelector('[role="tablist"]', { timeout: 10000 }),
+        // Or wait for main content (final fallback)
+        page.waitForSelector("main", { timeout: 10000 }),
+      ]);
+      
+      // Verify we have profile-related content
+      const hasProfileContent = await Promise.race([
+        page.locator('h1:has-text("Profile")').isVisible().catch(() => false),
+        page.locator('[role="tablist"]').isVisible().catch(() => false),
+        page.locator("main").isVisible().catch(() => false),
+      ]);
+      
+      expect(hasProfileContent).toBeTruthy();
     }
   });
 

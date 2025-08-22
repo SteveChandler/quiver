@@ -22,7 +22,7 @@ test.describe("Forecast Components", () => {
     test("handles high confidence forecast display", async ({ page }) => {
       // Look for elements indicating high confidence
       const confidenceIndicators = page.locator(
-        '[data-testid*="confidence"], text=/confidence/i'
+        '[data-testid*="confidence"], :has-text(/confidence/i)'
       );
 
       if ((await confidenceIndicators.count()) > 0) {

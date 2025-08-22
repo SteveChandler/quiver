@@ -117,7 +117,7 @@ export async function createIntelPost(
         full_name: profile?.full_name || "Anonymous",
         avatar_url: profile?.avatar_url || null,
       },
-      user_confirmed: false,
+      user_has_confirmed: false,
     };
 
     // Revalidate the home page to refresh the intel feed
@@ -266,7 +266,7 @@ export async function getNearbyIntelPosts(
           full_name: profile?.full_name || (post as any).user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
         },
-        user_confirmed: confirmationsSet.has(post.id),
+        user_has_confirmed: confirmationsSet.has(post.id),
       };
     });
 
@@ -388,12 +388,18 @@ export async function confirmIntelPost(
       };
     }
 
-    // Get updated confirmations count
+    // Get updated confirmations count - add a small delay to ensure trigger has executed
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const { data: updatedPost, error: updateError } = await supabase
       .from("intel_posts")
       .select("confirmations_count")
       .eq("id", intelPostId)
       .single();
+
+    if (updateError) {
+      console.warn("Could not fetch updated confirmations count:", updateError);
+    }
 
     // Revalidate the home page to refresh the intel feed
     revalidatePath("/");
@@ -402,7 +408,7 @@ export async function confirmIntelPost(
       success: true,
       data: {
         confirmed: true,
-        confirmations_count: updatedPost?.confirmations_count || 0,
+        confirmations_count: updatedPost?.confirmations_count || 1, // Fallback to at least 1 since we just added a confirmation
         confirmation_id: confirmation.id,
       },
     };
@@ -475,12 +481,18 @@ export async function removeIntelPostConfirmation(
       };
     }
 
-    // Get updated confirmations count
+    // Get updated confirmations count - add a small delay to ensure trigger has executed
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const { data: updatedPost, error: updateError } = await supabase
       .from("intel_posts")
       .select("confirmations_count")
       .eq("id", intelPostId)
       .single();
+
+    if (updateError) {
+      console.warn("Could not fetch updated confirmations count:", updateError);
+    }
 
     // Revalidate the home page to refresh the intel feed
     revalidatePath("/");
@@ -686,7 +698,7 @@ export async function getPublicIntelPosts(
           full_name: profile?.full_name || (post as any).user_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
         },
-        user_confirmed: false, // Public users can't confirm posts
+        user_has_confirmed: false, // Public users can't confirm posts
       };
     });
 
@@ -822,7 +834,7 @@ export async function getAllIntelPosts(
           full_name: profile?.full_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
         },
-        user_confirmed: user ? confirmationsSet.has(post.id) : false,
+        user_has_confirmed: user ? confirmationsSet.has(post.id) : false,
       };
     });
 

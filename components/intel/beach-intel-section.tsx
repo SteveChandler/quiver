@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +36,6 @@ import {
 } from "@/lib/constants/intel";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 import { getNearestBeachName } from "@/lib/utils/nearest-beach";
-import { useMemo } from "react";
 
 interface BeachIntelSectionProps {
   beachId: string;
@@ -61,6 +60,10 @@ export function BeachIntelSection({
   const [showPostForm, setShowPostForm] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<boolean>(initialShowAll);
+  const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(new Set());
+  const [optimisticUpdates, setOptimisticUpdates] = useState<
+    Record<string, { user_has_confirmed: boolean; confirmations_count: number }>
+  >({});
   const { user } = useAuth();
 
   // Fetch intel data for this beach location
@@ -77,9 +80,23 @@ export function BeachIntelSection({
     enabled: true,
   });
 
-  const posts = intelData?.posts || [];
+  // Apply optimistic updates to posts data
+  const posts = useMemo(() => {
+    const basePosts = intelData?.posts || [];
+    return basePosts.map(post => {
+      const optimisticUpdate = optimisticUpdates[post.id];
+      if (optimisticUpdate) {
+        return {
+          ...post,
+          user_has_confirmed: optimisticUpdate.user_has_confirmed,
+          confirmations_count: optimisticUpdate.confirmations_count,
+        };
+      }
+      return post;
+    });
+  }, [intelData?.posts, optimisticUpdates]);
 
-  // Handle intel post confirmation
+  // Handle intel post confirmation with optimistic updates
   const handleConfirmPost = useCallback(
     async (postId: string, isCurrentlyConfirmed: boolean) => {
       if (!user) {
@@ -87,7 +104,32 @@ export function BeachIntelSection({
         return;
       }
 
+      // Find the current post to get its current count
+      const currentPost = posts.find(post => post.id === postId);
+      if (!currentPost) {
+        toast.error("Post not found");
+        return;
+      }
+
+      // Set loading state
+      setConfirmingPosts(prev => new Set(prev).add(postId));
+
+      // Apply optimistic update immediately
+      const optimisticConfirmed = !isCurrentlyConfirmed;
+      const optimisticCount = isCurrentlyConfirmed
+        ? Math.max(0, currentPost.confirmations_count - 1)
+        : currentPost.confirmations_count + 1;
+
+      setOptimisticUpdates(prev => ({
+        ...prev,
+        [postId]: {
+          user_has_confirmed: optimisticConfirmed,
+          confirmations_count: optimisticCount,
+        },
+      }));
+
       try {
+        // Make the API call
         const result = isCurrentlyConfirmed
           ? await removeIntelPostConfirmation(postId)
           : await confirmIntelPost(postId);
@@ -98,15 +140,42 @@ export function BeachIntelSection({
               ? "Vote removed"
               : "Thanks for confirming this intel!"
           );
+          
+          // Clear optimistic update and refetch to get server state
+          setOptimisticUpdates(prev => {
+            const next = { ...prev };
+            delete next[postId];
+            return next;
+          });
           refetch();
         } else {
           toast.error(result.error || "Failed to update vote");
+          // Revert optimistic update on API error
+          setOptimisticUpdates(prev => {
+            const next = { ...prev };
+            delete next[postId];
+            return next;
+          });
         }
       } catch (error) {
+        console.error("Confirmation error:", error);
         toast.error("Failed to update vote");
+        // Revert optimistic update on API error
+        setOptimisticUpdates(prev => {
+          const next = { ...prev };
+          delete next[postId];
+          return next;
+        });
+      } finally {
+        // Remove loading state
+        setConfirmingPosts(prev => {
+          const next = new Set(prev);
+          next.delete(postId);
+          return next;
+        });
       }
     },
-    [user, refetch]
+    [user, posts, refetch]
   );
 
   const handlePostCreated = useCallback(() => {
@@ -235,6 +304,7 @@ export function BeachIntelSection({
                   onToggleExpand={() =>
                     setExpandedPost(expandedPost === post.id ? null : post.id)
                   }
+                  isConfirming={confirmingPosts.has(post.id)}
                 />
               ))}
 
@@ -286,6 +356,7 @@ interface IntelPostCardProps {
   canConfirm: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  isConfirming: boolean;
 }
 
 function IntelPostCard({
@@ -294,6 +365,7 @@ function IntelPostCard({
   canConfirm,
   isExpanded,
   onToggleExpand,
+  isConfirming,
 }: IntelPostCardProps) {
   const tagConfig = getIntelTagConfig(post.tag);
   const timeAgo = formatDistanceToNow(new Date(post.created_at), {
@@ -382,20 +454,30 @@ function IntelPostCard({
                   variant="ghost"
                   size="sm"
                   onClick={() => onConfirm(post.id, post.user_has_confirmed)}
+                  disabled={isConfirming}
                   className={cn(
                     "h-7 px-2 text-xs transition-all duration-200",
                     post.user_has_confirmed
                       ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                      : "text-gray-600 hover:bg-blue-50 hover:text-blue-700"
+                      : "text-gray-600 hover:bg-blue-50 hover:text-blue-700",
+                    isConfirming && "opacity-50 cursor-wait"
                   )}
                 >
-                  <ThumbsUp
-                    className={cn(
-                      "h-3 w-3 mr-1 transition-transform duration-200",
-                      post.user_has_confirmed && "scale-110"
-                    )}
-                  />
-                  {post.user_has_confirmed ? "Confirmed" : "Confirm"}
+                  {isConfirming ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <ThumbsUp
+                      className={cn(
+                        "h-3 w-3 mr-1 transition-transform duration-200",
+                        post.user_has_confirmed && "scale-110"
+                      )}
+                    />
+                  )}
+                  {isConfirming
+                    ? "Processing..."
+                    : post.user_has_confirmed
+                    ? "Confirmed"
+                    : "Confirm"}
                 </Button>
               )}
             </div>

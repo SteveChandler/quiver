@@ -45,6 +45,8 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
 
+  // Favicon configuration - uses default favicon.ico
+
   // Open Graph optimizations for social sharing
   openGraph: {
     title: SEO_CONFIG.openGraph.title,
@@ -117,19 +119,6 @@ export default function RootLayout({
         <link rel="prefetch" href="/map" />
 
         {/* Preload critical resources for faster LCP */}
-        <link
-          rel="preload"
-          href="/placeholder-logo.png"
-          as="image"
-          type="image/png"
-        />
-
-        <link
-          rel="preload"
-          href="/logo-word (2).png"
-          as="image"
-          type="image/png"
-        />
 
         {/* Remove non-existent webpack chunk preload - these are dynamic */}
 
@@ -140,7 +129,13 @@ export default function RootLayout({
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              /* Critical loading styles */
+              /* Critical loading spinner keyframes */
+              @keyframes spin { 
+                0% { transform: rotate(0deg); } 
+                100% { transform: rotate(360deg); } 
+              }
+              
+              /* Critical loading spinner class (not a Tailwind utility) */
               .loading-spinner { 
                 width: 20px; 
                 height: 20px; 
@@ -149,20 +144,8 @@ export default function RootLayout({
                 border-radius: 50%; 
                 animation: spin 1s linear infinite; 
               }
-              @keyframes spin { 
-                0% { transform: rotate(0deg); } 
-                100% { transform: rotate(360deg); } 
-              }
               
-              /* Critical layout styles */
-              .min-h-screen { min-height: 100vh; }
-              .flex { display: flex; }
-              .items-center { align-items: center; }
-              .justify-center { justify-content: center; }
-              .text-center { text-align: center; }
-              .space-y-4 > * + * { margin-top: 1rem; }
-              
-              /* Prevent layout shift */
+              /* Prevent layout shift for app-specific colors */
               .bg-background { background-color: hsl(var(--background)); }
               .text-muted-foreground { color: hsl(var(--muted-foreground)); }
             `,

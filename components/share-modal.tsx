@@ -28,7 +28,12 @@ interface ShareModalProps {
 }
 
 function buildShareUrl(sessionId: string, variant: Variant) {
-  const url = new URL("/api/social/share/og", window.location.origin);
+  // Handle SSR by using fallback origin
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "http://localhost:3000"; // fallback for SSR
+  const url = new URL("/api/social/share/og", origin);
   url.searchParams.set("sessionId", sessionId);
   url.searchParams.set("variant", variant);
   return url.toString();
@@ -241,7 +246,7 @@ export function ShareModal({
             </div>
           )}
 
-          <div className="relative w-full bg-muted rounded-md overflow-hidden">
+          <div className="relative w-full bg-muted rounded-md overflow-hidden motion-optimized">
             {(warming || !imgReady) && (
               <div className="absolute inset-0 flex items-center justify-center bg-muted/80 backdrop-blur-sm z-10">
                 <div className="flex flex-col items-center gap-2">
@@ -249,7 +254,10 @@ export function ShareModal({
                     className="h-6 w-6 animate-spin text-primary"
                     aria-hidden="true"
                   />
-                  <span className="text-sm text-muted-foreground font-medium">
+                  <span
+                    className="text-sm text-muted-foreground font-medium"
+                    aria-live="polite"
+                  >
                     {warming
                       ? "Generating your epic session..."
                       : "Loading preview..."}
@@ -261,10 +269,16 @@ export function ShareModal({
             <img
               src={imgUrl}
               alt={`Share preview for surf session in ${variant} format`}
-              className={`w-full ${
+              className={`w-full share-flip-animation ${
+                sharing
+                  ? "sharing"
+                  : imgReady && hasShownSuccessToast
+                  ? "shared"
+                  : ""
+              } ${
                 variant === "story" ? "aspect-[9/16]" : "aspect-square"
-              } object-contain transition-opacity duration-300 ${
-                imgReady ? "opacity-100" : "opacity-0"
+              } object-contain transition-all duration-500 ${
+                imgReady ? "opacity-100 scale-100" : "opacity-0 scale-95"
               }`}
               onLoad={() => {
                 setImgReady(true);
@@ -290,9 +304,14 @@ export function ShareModal({
                   <Button
                     onClick={shareImage}
                     disabled={sharing || !imgReady}
-                    className="flex-1"
+                    className={`flex-1 motion-optimized like-button-spring ripple-effect transition-all ${
+                      hasShownSuccessToast ? "celebration-bounce" : ""
+                    }`}
                     aria-label="Share session image"
                     data-testid="web-share-button"
+                    style={{
+                      transform: sharing ? "scale(0.95)" : "scale(1)",
+                    }}
                   >
                     {sharing ? (
                       <>
@@ -304,8 +323,15 @@ export function ShareModal({
                       </>
                     ) : (
                       <>
-                        <Share2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                        Share
+                        <Share2
+                          className={`mr-2 h-4 w-4 transition-transform ${
+                            hasShownSuccessToast
+                              ? "scale-110 text-green-500"
+                              : ""
+                          }`}
+                          aria-hidden="true"
+                        />
+                        {hasShownSuccessToast ? "Shared! 🤙" : "Share"}
                       </>
                     )}
                   </Button>
@@ -313,9 +339,14 @@ export function ShareModal({
                   <Button
                     onClick={downloadImage}
                     disabled={downloading || !imgReady}
-                    className="flex-1"
+                    className={`flex-1 motion-optimized like-button-spring ripple-effect transition-all ${
+                      hasShownSuccessToast ? "celebration-bounce" : ""
+                    }`}
                     aria-label="Download session image"
                     data-testid="download-button"
+                    style={{
+                      transform: downloading ? "scale(0.95)" : "scale(1)",
+                    }}
                   >
                     {downloading ? (
                       <>
@@ -327,8 +358,15 @@ export function ShareModal({
                       </>
                     ) : (
                       <>
-                        <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-                        Download
+                        <Download
+                          className={`mr-2 h-4 w-4 transition-transform ${
+                            hasShownSuccessToast
+                              ? "scale-110 text-green-500"
+                              : ""
+                          }`}
+                          aria-hidden="true"
+                        />
+                        {hasShownSuccessToast ? "Downloaded! 📸" : "Download"}
                       </>
                     )}
                   </Button>

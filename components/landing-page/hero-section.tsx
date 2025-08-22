@@ -15,6 +15,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { HERO_VIDEOS, CONTENT } from "@/lib/constants/features";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
+import { InteractiveHeroDemo } from "./interactive-hero-demo";
 
 export function HeroSection() {
   const [showVideo, setShowVideo] = useState(true);
@@ -59,21 +60,24 @@ export function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Optimized Background - Static Image for Fast LCP */}
+      {/* Optimized Background with Gradient Fallback */}
       <div className="absolute inset-0 w-full h-full">
+        {/* CSS Gradient Fallback - Always visible for fast render */}
+        <div className="absolute inset-0 bg-gradient-to-br from-ocean-blue via-blue-600 to-navy-blue" />
+
         {/* High-performance static background image */}
         <Image
-          src="/placeholder-logo.png" // Using existing logo as placeholder
+          src="/logoQuiver.png" // Using actual Quiver logo for hero background
           alt="Quiver - Ultimate Surf Community Platform"
           fill
           priority // Critical for LCP
           quality={85}
           className={`object-cover transition-opacity duration-500 ${
-            showVideo && isVideoLoaded ? "opacity-20" : "opacity-100"
+            showVideo && isVideoLoaded ? "opacity-20" : "opacity-60"
           }`}
           style={{ objectPosition: "center" }}
           placeholder="blur"
-          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
         />
 
         {/* Video Background - Only loads when requested */}
@@ -139,9 +143,19 @@ export function HeroSection() {
           {CONTENT.hero.subtitle}
         </motion.p>
 
+        {/* 🚨 EMERGENCY INTERACTIVE DEMO - Fix 74% bounce rate */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.8 }}
+          className="mb-10"
+        >
+          <InteractiveHeroDemo />
+        </motion.div>
+
         {/* Key Benefits Grid */}
         <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.35)}
+          {...ANIMATION_VARIANTS.heroText(0.6)}
           className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto"
         >
           {CONTENT.hero.benefits.map((benefit, index) => (
@@ -156,7 +170,7 @@ export function HeroSection() {
 
         {/* Enhanced CTA Section */}
         <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.4)}
+          {...ANIMATION_VARIANTS.heroText(0.8)}
           className="flex flex-col sm:flex-row gap-4 justify-center items-center"
         >
           {/* Primary CTA */}
@@ -187,7 +201,7 @@ export function HeroSection() {
 
         {/* Trust Signals */}
         <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.45)}
+          {...ANIMATION_VARIANTS.heroText(0.9)}
           className="flex flex-col sm:flex-row items-center justify-center gap-4 text-white/80 text-sm"
         >
           <div className="flex items-center gap-2">
@@ -203,7 +217,7 @@ export function HeroSection() {
 
         {/* Feature Icons */}
         <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.5)}
+          {...ANIMATION_VARIANTS.heroText(1.1)}
           className="flex justify-center items-center gap-8 mt-12 text-white/60"
         >
           <div className="flex items-center gap-2">

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Badge } from "@/components/ui/badge";
@@ -91,15 +91,11 @@ export function AppHeader() {
       <div className="flex h-16 items-center w-full">
         {/* Left side with logo - uses container padding */}
         <div className="container flex items-center pl-4">
-          <Link href={getPreservedHref("/")} className="flex items-center space-x-2">
-            <Image
-              src="/logo-word (2).png"
-              alt="Quiver"
-              width={120}
-              height={32}
-              className="h-8 w-auto"
-              priority
-            />
+          <Link
+            href={getPreservedHref("/")}
+            className="flex items-center space-x-2"
+          >
+            <div className="text-xl font-bold text-primary">Quiver</div>
           </Link>
 
           {/* Desktop Navigation - Only show if navItems exist */}

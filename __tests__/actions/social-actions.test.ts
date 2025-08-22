@@ -43,7 +43,15 @@ jest.mock("@/lib/supabase/server", () => ({
 
 jest.mock("@/lib/server-action-utils", () => ({
   withAuthenticatedAction: jest.fn((callback) => async (...args: any[]) => {
-    return callback(mockUser, mockSupabaseClient, ...args);
+    try {
+      const data = await callback(mockUser, mockSupabaseClient, ...args);
+      return { success: true, data };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      };
+    }
   }),
 }));
 

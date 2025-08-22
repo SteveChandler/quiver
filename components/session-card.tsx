@@ -87,7 +87,7 @@ export function SessionCard({
   };
 
   const cardContent = (
-    <CardContent className="p-4 space-y-4">
+    <CardContent className="p-4 space-y-4 motion-optimized session-card-hover">
       {/* Session Status Badge */}
       {session?.status === "planned" && (
         <div className="mb-2">
@@ -265,14 +265,38 @@ export function SessionCard({
       {/* Engagement */}
       <div className="flex items-center gap-4 pt-2">
         <button
-          className={`flex items-center gap-1 text-sm transition-colors ${
+          className={`flex items-center gap-1 text-sm transition-colors motion-optimized like-button-spring ripple-effect ${
             liked ? "text-primary" : "text-muted-foreground hover:text-primary"
-          } ${isToggling ? "opacity-50" : ""}`}
+          } ${isToggling ? "opacity-75" : ""} ${liked ? "heart-burst" : ""}`}
           onClick={handleLikeClick}
           disabled={isToggling}
+          data-testid="like-button"
+          aria-pressed={liked}
+          aria-label={`${
+            liked ? "Unlike" : "Like"
+          } this session. Currently has ${displayLikesCount} ${
+            displayLikesCount === 1 ? "like" : "likes"
+          }`}
+          style={{
+            transform: isToggling
+              ? liked
+                ? "scale(1.3) rotate(15deg)"
+                : "scale(0.95)"
+              : "scale(1)",
+          }}
         >
-          <ThumbsUp className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
-          <span>{displayLikesCount}</span>
+          <ThumbsUp
+            className={`h-4 w-4 transition-all duration-300 ${
+              liked ? "fill-current text-red-500" : ""
+            } ${isToggling && liked ? "animate-bounce" : ""}`}
+          />
+          <span
+            className={`transition-all duration-200 ${
+              isToggling ? "scale-110" : "scale-100"
+            }`}
+          >
+            {displayLikesCount}
+          </span>
         </button>
         <button
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"

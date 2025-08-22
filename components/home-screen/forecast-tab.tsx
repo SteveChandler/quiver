@@ -423,6 +423,7 @@ export function ForecastTab({
             {/* Local Intel for this beach */}
             <div className="mt-4">
               <BeachIntelSection
+                key={`intel-${effectiveBeach.id}`}
                 beachId={effectiveBeach.id}
                 beachName={effectiveBeach.name}
                 latitude={effectiveBeach.latitude}
