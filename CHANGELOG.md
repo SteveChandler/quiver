@@ -2,12 +2,12 @@
 
 ### Fixed
 
-- **Intel Confirmation Button Counter**: Fixed confirmation button not showing loading state or proper feedback
-  - Added loading state management with `isConfirming` state to prevent duplicate requests
-  - Implemented visual loading indicator with spinner icon during confirmation processing
-  - Added proper error handling with console logging for debugging failed confirmations
-  - Button now shows "Processing..." text and is disabled during async operations
-  - Improved user experience with immediate visual feedback when clicking confirmation buttons
+- **Intel Confirmation Display**: Fixed confirmation count and user confirmation state not updating in real-time
+  - Implemented optimistic updates that immediately show confirmation changes in the UI
+  - User confirmation state (`user_has_confirmed`) now toggles instantly when clicked
+  - Confirmation count displays the updated value immediately, then syncs with server
+  - If API call fails, optimistic updates are automatically reverted
+  - Improved user experience with immediate visual feedback instead of waiting for server response
 
 - **Production 500 Error**: Fixed unauthenticated `getAllSessions` server action causing deployment crashes
   - Wrapped `getAllSessions` action with `withAuthenticatedAction` to ensure proper authentication

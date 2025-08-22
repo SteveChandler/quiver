@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +36,6 @@ import {
 } from "@/lib/constants/intel";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 import { getNearestBeachName } from "@/lib/utils/nearest-beach";
-import { useMemo } from "react";
 
 interface BeachIntelSectionProps {
   beachId: string;
@@ -62,6 +61,9 @@ export function BeachIntelSection({
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<boolean>(initialShowAll);
   const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(new Set());
+  const [optimisticUpdates, setOptimisticUpdates] = useState<
+    Record<string, { user_has_confirmed: boolean; confirmations_count: number }>
+  >({});
   const { user } = useAuth();
 
   // Fetch intel data for this beach location
@@ -78,9 +80,23 @@ export function BeachIntelSection({
     enabled: true,
   });
 
-  const posts = intelData?.posts || [];
+  // Apply optimistic updates to posts data
+  const posts = useMemo(() => {
+    const basePosts = intelData?.posts || [];
+    return basePosts.map(post => {
+      const optimisticUpdate = optimisticUpdates[post.id];
+      if (optimisticUpdate) {
+        return {
+          ...post,
+          user_has_confirmed: optimisticUpdate.user_has_confirmed,
+          confirmations_count: optimisticUpdate.confirmations_count,
+        };
+      }
+      return post;
+    });
+  }, [intelData?.posts, optimisticUpdates]);
 
-  // Handle intel post confirmation
+  // Handle intel post confirmation with optimistic updates
   const handleConfirmPost = useCallback(
     async (postId: string, isCurrentlyConfirmed: boolean) => {
       if (!user) {
@@ -88,10 +104,32 @@ export function BeachIntelSection({
         return;
       }
 
+      // Find the current post to get its current count
+      const currentPost = posts.find(post => post.id === postId);
+      if (!currentPost) {
+        toast.error("Post not found");
+        return;
+      }
+
       // Set loading state
       setConfirmingPosts(prev => new Set(prev).add(postId));
 
+      // Apply optimistic update immediately
+      const optimisticConfirmed = !isCurrentlyConfirmed;
+      const optimisticCount = isCurrentlyConfirmed
+        ? Math.max(0, currentPost.confirmations_count - 1)
+        : currentPost.confirmations_count + 1;
+
+      setOptimisticUpdates(prev => ({
+        ...prev,
+        [postId]: {
+          user_has_confirmed: optimisticConfirmed,
+          confirmations_count: optimisticCount,
+        },
+      }));
+
       try {
+        // Make the API call
         const result = isCurrentlyConfirmed
           ? await removeIntelPostConfirmation(postId)
           : await confirmIntelPost(postId);
@@ -102,13 +140,32 @@ export function BeachIntelSection({
               ? "Vote removed"
               : "Thanks for confirming this intel!"
           );
+          
+          // Clear optimistic update and refetch to get server state
+          setOptimisticUpdates(prev => {
+            const next = { ...prev };
+            delete next[postId];
+            return next;
+          });
           refetch();
         } else {
           toast.error(result.error || "Failed to update vote");
+          // Revert optimistic update on API error
+          setOptimisticUpdates(prev => {
+            const next = { ...prev };
+            delete next[postId];
+            return next;
+          });
         }
       } catch (error) {
         console.error("Confirmation error:", error);
         toast.error("Failed to update vote");
+        // Revert optimistic update on API error
+        setOptimisticUpdates(prev => {
+          const next = { ...prev };
+          delete next[postId];
+          return next;
+        });
       } finally {
         // Remove loading state
         setConfirmingPosts(prev => {
@@ -118,7 +175,7 @@ export function BeachIntelSection({
         });
       }
     },
-    [user, refetch]
+    [user, posts, refetch]
   );
 
   const handlePostCreated = useCallback(() => {
