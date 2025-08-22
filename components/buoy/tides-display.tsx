@@ -48,7 +48,7 @@ export function TidesDisplay({
           >
             <span className="font-medium">{tide.name}</span>
             <span>
-              {tide.height}ft @ {formatTideTime(tide.time)}
+              {Math.round(tide.height * 10) / 10}ft @ {formatTideTime(tide.time)}
             </span>
           </div>
         ))}
@@ -74,7 +74,7 @@ export function TidesDisplay({
             className="flex justify-between items-center text-sm bg-gray-50 px-2 py-1 rounded"
           >
             <span className="font-medium">{tide.name}</span>
-            <span>{tide.height}ft</span>
+            <span>{Math.round(tide.height * 10) / 10}ft</span>
             <span className="text-right text-gray-600">
               {formatTideTime(tide.time)}
             </span>

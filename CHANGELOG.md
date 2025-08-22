@@ -7,6 +7,11 @@
   - **Solution**: Added React key `intel-${effectiveBeach.id}` to `BeachIntelSection` component to force remount when beach changes
   - **Result**: Both forecast and local intel now update correctly when searching for different beaches
   - **Component**: Enhanced `components/home-screen/forecast-tab.tsx` with proper key management for data synchronization
+- **Tide Height Floating Point Precision**: Fixed floating point precision issues displaying values like "4.797000000000001" instead of clean "4.8"
+  - **Root Cause**: JavaScript floating point arithmetic creating imprecise decimal display
+  - **Solution**: Added proper rounding to all tide height displays using `Math.round(value * 10) / 10` pattern
+  - **Components**: Enhanced tide chart Y-axis formatting, tide displays, and tide timing components
+  - **Result**: All tide heights now display as clean decimals (4.8 ft, 0.8 ft) instead of long floating point numbers
 
 ## [2025.01.24] - Comprehensive Security Compliance & Database Seeding
 

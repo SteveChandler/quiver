@@ -485,6 +485,7 @@ export function TideChart({
                   axisLine={{ stroke: "#9CA3AF" }}
                   tickLine={{ stroke: "#9CA3AF" }}
                   tick={{ fontSize: isMobile ? 10 : 12 }}
+                  tickFormatter={(value: number) => Math.round(value * 10) / 10}
                   label={{
                     value: "Tide (ft)",
                     angle: -90,
