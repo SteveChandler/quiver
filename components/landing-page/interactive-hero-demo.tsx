@@ -177,6 +177,9 @@ export function InteractiveHeroDemo({
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold text-white">
                 Live Surf Conditions
+                <span className="text-sm text-white/60 font-normal ml-2">
+                  (Demo)
+                </span>
               </h3>
               <span className="text-sm text-white/70">Updated now</span>
             </div>
@@ -237,6 +240,9 @@ export function InteractiveHeroDemo({
           >
             <h3 className="text-xl font-semibold text-white mb-4">
               Recent Sessions
+              <span className="text-sm text-white/60 font-normal ml-2">
+                (Demo)
+              </span>
             </h3>
             <div className="space-y-3">
               {DEMO_SESSIONS.map((session) => (
@@ -316,13 +322,31 @@ export function InteractiveHeroDemo({
           >
             <h3 className="text-xl font-semibold text-white mb-4">
               Growing Community
+              <span className="text-sm text-white/60 font-normal ml-2">
+                (Demo Data)
+              </span>
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {[
-                { label: "Active Surfers", value: 1247, icon: Users },
-                { label: "Sessions Logged", value: 3891, icon: Calendar },
-                { label: "Beach Reviews", value: 892, icon: Star },
-                { label: "Photos Shared", value: 2156, icon: Camera },
+                {
+                  label: "Active Surfers",
+                  value: 1247,
+                  icon: Users,
+                  demo: true,
+                },
+                {
+                  label: "Sessions Logged",
+                  value: 3891,
+                  icon: Calendar,
+                  demo: true,
+                },
+                { label: "Beach Reviews", value: 892, icon: Star, demo: true },
+                {
+                  label: "Photos Shared",
+                  value: 2156,
+                  icon: Camera,
+                  demo: true,
+                },
               ].map((stat, index) => (
                 <motion.div
                   key={stat.label}

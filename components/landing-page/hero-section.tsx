@@ -60,21 +60,24 @@ export function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Optimized Background - Static Image for Fast LCP */}
+      {/* Optimized Background with Gradient Fallback */}
       <div className="absolute inset-0 w-full h-full">
+        {/* CSS Gradient Fallback - Always visible for fast render */}
+        <div className="absolute inset-0 bg-gradient-to-br from-ocean-blue via-blue-600 to-navy-blue" />
+
         {/* High-performance static background image */}
         <Image
-          src="/placeholder-logo.png" // Using existing logo as placeholder
+          src="/logoQuiver.png" // Using actual Quiver logo for hero background
           alt="Quiver - Ultimate Surf Community Platform"
           fill
           priority // Critical for LCP
           quality={85}
           className={`object-cover transition-opacity duration-500 ${
-            showVideo && isVideoLoaded ? "opacity-20" : "opacity-100"
+            showVideo && isVideoLoaded ? "opacity-20" : "opacity-60"
           }`}
           style={{ objectPosition: "center" }}
           placeholder="blur"
-          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
         />
 
         {/* Video Background - Only loads when requested */}

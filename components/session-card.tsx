@@ -271,6 +271,12 @@ export function SessionCard({
           onClick={handleLikeClick}
           disabled={isToggling}
           data-testid="like-button"
+          aria-pressed={liked}
+          aria-label={`${
+            liked ? "Unlike" : "Like"
+          } this session. Currently has ${displayLikesCount} ${
+            displayLikesCount === 1 ? "like" : "likes"
+          }`}
           style={{
             transform: isToggling
               ? liked

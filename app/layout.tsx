@@ -129,7 +129,13 @@ export default function RootLayout({
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              /* Critical loading styles */
+              /* Critical loading spinner keyframes */
+              @keyframes spin { 
+                0% { transform: rotate(0deg); } 
+                100% { transform: rotate(360deg); } 
+              }
+              
+              /* Critical loading spinner class (not a Tailwind utility) */
               .loading-spinner { 
                 width: 20px; 
                 height: 20px; 
@@ -138,20 +144,8 @@ export default function RootLayout({
                 border-radius: 50%; 
                 animation: spin 1s linear infinite; 
               }
-              @keyframes spin { 
-                0% { transform: rotate(0deg); } 
-                100% { transform: rotate(360deg); } 
-              }
               
-              /* Critical layout styles */
-              .min-h-screen { min-height: 100vh; }
-              .flex { display: flex; }
-              .items-center { align-items: center; }
-              .justify-center { justify-content: center; }
-              .text-center { text-align: center; }
-              .space-y-4 > * + * { margin-top: 1rem; }
-              
-              /* Prevent layout shift */
+              /* Prevent layout shift for app-specific colors */
               .bg-background { background-color: hsl(var(--background)); }
               .text-muted-foreground { color: hsl(var(--muted-foreground)); }
             `,

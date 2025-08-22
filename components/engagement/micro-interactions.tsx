@@ -12,6 +12,7 @@ import {
   Clock,
   Star,
 } from "lucide-react";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 // Engagement tracking for analytics
 interface EngagementTracker {
@@ -33,6 +34,7 @@ export function FloatingInteractionHint({
 }) {
   const [show, setShow] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (dismissed) return;
@@ -60,12 +62,15 @@ export function FloatingInteractionHint({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.8, y: 10 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.8, y: -10 }}
-      className="fixed z-40 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg pointer-events-auto"
+      initial={
+        reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8, y: 10 }
+      }
+      animate={reducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+      exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8, y: -10 }}
+      transition={reducedMotion ? { duration: 0.01 } : undefined}
+      className="fixed z-40 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg pointer-events-auto sm:bottom-20"
       style={{
-        bottom: "100px",
+        bottom: "calc(env(safe-area-inset-bottom) + 80px)", // Avoid mobile bottom nav (typically 72px height)
         right: "20px",
         maxWidth: "250px",
       }}

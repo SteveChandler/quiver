@@ -14,7 +14,17 @@ import {
   Waves,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ENHANCED_ANIMATIONS, QUIVER_MOTION } from "@/lib/constants/animations";
+import {
+  useReducedMotion,
+  getMotionVariants,
+} from "@/hooks/use-reduced-motion";
 import { useRouter } from "next/navigation";
 
 const ONBOARDING_STEPS = [
@@ -76,6 +86,7 @@ export function OnboardingFlow({
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [isAnimating, setIsAnimating] = useState(false);
+  const reducedMotion = useReducedMotion();
   const router = useRouter();
 
   const currentStepData = ONBOARDING_STEPS[currentStep];
@@ -123,148 +134,173 @@ export function OnboardingFlow({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Get motion variants with reduced motion support
+  const motionVariants = getMotionVariants(
+    {
+      initial: { scale: 0.9, opacity: 0 },
+      animate: { scale: 1, opacity: 1 },
+      exit: { scale: 0.9, opacity: 0 },
+    },
+    reducedMotion
+      ? {
+          initial: { opacity: 0 },
+          animate: { opacity: 1 },
+          exit: { opacity: 0 },
+        }
+      : undefined
+  );
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
-        data-testid="onboarding-modal"
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent
+        className="w-full max-w-lg p-0 overflow-hidden"
+        aria-describedby={`onboarding-step-${currentStep}`}
       >
-        {/* Progress Bar */}
-        <div className="relative h-2 bg-gray-100">
-          <motion.div
-            className="h-full bg-gradient-to-r from-blue-500 to-purple-600"
-            initial={{ width: 0 }}
-            animate={{
-              width: `${((currentStep + 1) / ONBOARDING_STEPS.length) * 100}%`,
-            }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          />
-        </div>
-
-        {/* Step Content */}
-        <div className="p-8">
-          {/* Step Counter */}
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-sm font-medium text-gray-500">
-              Step {currentStep + 1} of {ONBOARDING_STEPS.length}
-            </span>
-            <button
-              onClick={handleSkip}
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              Skip tour
-            </button>
+        <DialogHeader className="sr-only">
+          <DialogTitle>
+            Onboarding Flow - Step {currentStep + 1} of{" "}
+            {ONBOARDING_STEPS.length}
+          </DialogTitle>
+        </DialogHeader>
+        <motion.div
+          {...motionVariants}
+          className="bg-white rounded-lg"
+          data-testid="onboarding-modal"
+        >
+          {/* Progress Bar */}
+          <div className="relative h-2 bg-gray-100">
+            <motion.div
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-600"
+              initial={{ width: 0 }}
+              animate={{
+                width: `${
+                  ((currentStep + 1) / ONBOARDING_STEPS.length) * 100
+                }%`,
+              }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
           </div>
 
-          {/* Step Icon & Content */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentStep}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4 }}
-              className="text-center mb-8"
-            >
-              {/* Animated Icon */}
-              <motion.div
-                className={`w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br ${currentStepData.color} flex items-center justify-center shadow-lg`}
-                initial={{ scale: 0.8 }}
-                animate={{
-                  scale: [0.8, 1.1, 1],
-                  rotate: [0, 5, -5, 0],
-                }}
-                transition={{
-                  scale: { duration: 0.6, ease: "easeOut" },
-                  rotate: { duration: 1, delay: 0.2 },
-                }}
+          {/* Step Content */}
+          <div className="p-8">
+            {/* Step Counter */}
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-sm font-medium text-gray-500">
+                Step {currentStep + 1} of {ONBOARDING_STEPS.length}
+              </span>
+              <button
+                onClick={handleSkip}
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
               >
-                <currentStepData.icon className="h-10 w-10 text-white" />
-              </motion.div>
-
-              {/* Title */}
-              <motion.h2
-                className="text-2xl font-bold text-gray-900 mb-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                {currentStepData.title}
-              </motion.h2>
-
-              {/* Description */}
-              <motion.p
-                className="text-gray-600 text-lg leading-relaxed"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-              >
-                {currentStepData.description}
-              </motion.p>
-
-              {/* Completion indicator for completed steps */}
-              {completedSteps.has(currentStep) && (
-                <motion.div
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="flex items-center justify-center gap-2 mt-4 text-green-600"
-                >
-                  <CheckCircle2 className="h-5 w-5" />
-                  <span className="text-sm font-medium">Complete!</span>
-                </motion.div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Navigation */}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              onClick={handlePrevious}
-              disabled={currentStep === 0 || isAnimating}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Previous
-            </Button>
-
-            <div className="flex items-center gap-2">
-              {ONBOARDING_STEPS.map((_, index) => (
-                <div
-                  key={index}
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    index <= currentStep ? "bg-blue-500" : "bg-gray-200"
-                  }`}
-                />
-              ))}
+                Skip tour
+              </button>
             </div>
 
-            <Button
-              onClick={handleNext}
-              disabled={isAnimating}
-              className={`motion-optimized like-button-spring ripple-effect flex items-center gap-2 px-6 py-3 font-semibold rounded-full transition-all duration-300 ${
-                currentStep === ONBOARDING_STEPS.length - 1
-                  ? "bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600"
-                  : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-              }`}
-              data-testid="onboarding-next"
-            >
-              {currentStepData.action}
-              <ArrowRight
-                className={`h-4 w-4 transition-transform ${
-                  isAnimating ? "translate-x-1" : ""
+            {/* Step Icon & Content */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentStep}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4 }}
+                className="text-center mb-8"
+              >
+                {/* Animated Icon */}
+                <motion.div
+                  className={`w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br ${currentStepData.color} flex items-center justify-center shadow-lg`}
+                  initial={{ scale: 0.8 }}
+                  animate={{
+                    scale: [0.8, 1.1, 1],
+                    rotate: [0, 5, -5, 0],
+                  }}
+                  transition={{
+                    scale: { duration: 0.6, ease: "easeOut" },
+                    rotate: { duration: 1, delay: 0.2 },
+                  }}
+                >
+                  <currentStepData.icon className="h-10 w-10 text-white" />
+                </motion.div>
+
+                {/* Title */}
+                <motion.h2
+                  className="text-2xl font-bold text-gray-900 mb-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  {currentStepData.title}
+                </motion.h2>
+
+                {/* Description */}
+                <motion.p
+                  className="text-gray-600 text-lg leading-relaxed"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  {currentStepData.description}
+                </motion.p>
+
+                {/* Completion indicator for completed steps */}
+                {completedSteps.has(currentStep) && (
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="flex items-center justify-center gap-2 mt-4 text-green-600"
+                  >
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="text-sm font-medium">Complete!</span>
+                  </motion.div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Navigation */}
+            <div className="flex items-center justify-between">
+              <Button
+                variant="ghost"
+                onClick={handlePrevious}
+                disabled={currentStep === 0 || isAnimating}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Previous
+              </Button>
+
+              <div className="flex items-center gap-2">
+                {ONBOARDING_STEPS.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                      index <= currentStep ? "bg-blue-500" : "bg-gray-200"
+                    }`}
+                  />
+                ))}
+              </div>
+
+              <Button
+                onClick={handleNext}
+                disabled={isAnimating}
+                className={`motion-optimized like-button-spring ripple-effect flex items-center gap-2 px-6 py-3 font-semibold rounded-full transition-all duration-300 ${
+                  currentStep === ONBOARDING_STEPS.length - 1
+                    ? "bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600"
+                    : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
                 }`}
-              />
-            </Button>
+                data-testid="onboarding-next"
+              >
+                {currentStepData.action}
+                <ArrowRight
+                  className={`h-4 w-4 transition-transform ${
+                    isAnimating ? "translate-x-1" : ""
+                  }`}
+                />
+              </Button>
+            </div>
           </div>
-        </div>
-      </motion.div>
-    </div>
+        </motion.div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

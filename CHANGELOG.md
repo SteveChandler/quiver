@@ -1,3 +1,80 @@
+## [2025.01.17] - Critical Motion & Accessibility Fixes
+
+### Fixed
+
+- **Hero Background Asset**: Fixed missing `/placeholder-logo.png` in hero section
+
+  - Replaced with actual `/logoQuiver.png` asset for proper LCP performance
+  - Added CSS gradient fallback (`bg-gradient-to-br from-ocean-blue via-blue-600 to-navy-blue`) for enhanced reliability
+  - Maintained optimized image loading with proper priority and blur data URL
+
+- **Tailwind CSS Anti-Pattern**: Removed inline Tailwind utility redefinitions from `app/layout.tsx`
+
+  - Eliminated `.flex`, `.items-center`, `.justify-center`, etc. redefinitions that risked override conflicts
+  - Preserved only custom keyframes (`@keyframes spin`) and app-specific color variables
+  - Improved CSS maintainability and prevented specificity issues
+
+- **Mobile Bottom Navigation Collision**: Fixed `FloatingInteractionHint` positioning
+  - Updated positioning to `calc(env(safe-area-inset-bottom) + 80px)` to respect mobile safe areas
+  - Added responsive class `sm:bottom-20` for desktop optimization
+  - Prevents collision with bottom navigation (typically 72px height)
+
+### Added
+
+- **Accessibility Compliance**: Enhanced onboarding modal with proper Dialog component
+
+  - Replaced custom overlay with shadcn Dialog system for focus trapping and keyboard handling
+  - Added proper ARIA attributes: `aria-describedby`, hidden `DialogTitle` for screen readers
+  - Maintains visual design while meeting WCAG accessibility standards
+
+- **Reduced Motion Support**: Comprehensive motion preference respect
+
+  - Created `useReducedMotion` hook that detects `prefers-reduced-motion: reduce`
+  - Added `getMotionVariants` utility for conditional animation variants
+  - Applied reduced motion to `OnboardingFlow` and `FloatingInteractionHint` components
+  - Provides instant transitions (0.01s duration) when motion is reduced
+
+- **Enhanced Interactive Button Semantics**: Improved screen reader support
+
+  - Added `aria-pressed` attributes to like and follow buttons for toggle state indication
+  - Enhanced `aria-label` with dynamic content: "Like this session. Currently has 12 likes"
+  - Follow buttons include follower count context in accessible labels
+  - Provides clear state feedback for assistive technologies
+
+- **Demo Data Transparency**: Clear labeling of example content
+
+  - Added "(Demo Data)" indicators to interactive hero demo community statistics
+  - Marked forecast and sessions sections with "(Demo)" labels
+  - Maintains honest growth messaging while providing clear interactive examples
+  - Supports user trust and prevents confusion about actual vs. example data
+
+- **Share Modal Accessibility**: Status update announcements
+  - Added `aria-live="polite"` to loading status text ("Generating your epic session..." / "Loading preview...")
+  - Screen readers now announce status changes during image generation
+  - Improves accessibility for users with visual impairments during loading states
+
+### Performance
+
+- **Motion Optimization**: GPU-accelerated animations with accessibility respect
+  - CSS `linear()` spring animations remain GPU-friendly
+  - Reduced motion users get instant feedback without animation overhead
+  - Maintains performance while expanding accessibility coverage
+
+### Architecture
+
+- **Accessibility-First Pattern Adoption**: Following established shadcn Dialog patterns
+
+  - Onboarding modal now uses proper focus management and escape handling
+  - ARIA landmarks and semantic HTML structure throughout
+  - Consistent with existing Dialog usage in `components/share-modal.tsx`
+
+- **Hook Pattern Compliance**: Following `hooks/ARCHITECTURE.md` patterns
+  - `useReducedMotion` follows established custom hook patterns
+  - Proper client-side detection with SSR safety
+  - Cleanup functions and modern browser API support with fallbacks
+
+---
+
 ## [2025.01.17] - Logo Refresh & Brand Enhancement
 
 ### Changed

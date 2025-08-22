@@ -61,6 +61,12 @@ export function FollowButton({
             : "hover:scale-105"
         }`}
         data-testid="follow-button"
+        aria-pressed={following}
+        aria-label={`${
+          following ? "Unfollow" : "Follow"
+        } this user. Currently has ${followersCount} ${
+          followersCount === 1 ? "follower" : "followers"
+        }`}
         style={{
           transform: isToggling ? "scale(0.95)" : "scale(1)",
         }}

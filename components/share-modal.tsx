@@ -254,7 +254,10 @@ export function ShareModal({
                     className="h-6 w-6 animate-spin text-primary"
                     aria-hidden="true"
                   />
-                  <span className="text-sm text-muted-foreground font-medium">
+                  <span
+                    className="text-sm text-muted-foreground font-medium"
+                    aria-live="polite"
+                  >
                     {warming
                       ? "Generating your epic session..."
                       : "Loading preview..."}
