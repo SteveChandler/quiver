@@ -10,6 +10,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 // import { getSuggestedUsers } from "@/actions/social-actions";
 import { FollowButton } from "@/components/social/follow-button";
 import { useAuth } from "@/context/auth-context";
+import { BottomNavigation } from "@/components/bottom-navigation";
 
 export default function DiscoverPage() {
   const { user } = useAuth();
@@ -59,13 +60,18 @@ export default function DiscoverPage() {
 
   if (!user) {
     return (
-      <div className="container py-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Discover Surfers</h1>
-          <p className="text-muted-foreground">
-            Sign in to discover and follow other surfers in your community.
-          </p>
+      <div>
+        <div className="container py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Discover Surfers</h1>
+            <p className="text-muted-foreground">
+              Sign in to discover and follow other surfers in your community.
+            </p>
+          </div>
         </div>
+        
+        {/* Bottom Navigation */}
+        <BottomNavigation />
       </div>
     );
   }
@@ -280,6 +286,9 @@ export default function DiscoverPage() {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </div>
   );
 }

@@ -1,3 +1,28 @@
+## [Unreleased]
+
+### Fixed
+
+- **Production 500 Error**: Fixed unauthenticated `getAllSessions` server action causing deployment crashes
+  - Wrapped `getAllSessions` action with `withAuthenticatedAction` to ensure proper authentication
+  - Resolves 500 errors on production deployment when loading home screen community data
+  - Maintains security by requiring authentication for all session data access
+
+- **Session User Data**: Fixed "Unknown" appearing in sessions when user data wasn't properly fetched
+  - Enhanced `getAllSessions` fallback to properly fetch user profile data from database
+  - Improved error handling and user data resolution in both successful and fallback scenarios
+  - Users now display proper names and avatars in community session feeds
+
+- **Intel Post Confirmation**: Fixed confirmation buttons not updating count or visual state
+  - Added timing delay to ensure database triggers execute before reading updated counts
+  - Fixed field name mismatch (`user_confirmed` vs `user_has_confirmed`) in all intel actions
+  - Improved error handling and fallback values for confirmation count display
+  - Confirmation buttons now properly reflect current state and update in real-time
+
+- **Discover Page Navigation**: Added missing bottom navigation menu to discover page
+  - Imported and added `BottomNavigation` component consistent with other pages
+  - Applied to both authenticated and unauthenticated states of the discover page
+  - Ensures consistent navigation experience across all main application pages
+
 ## [2025.01.17] - Critical Motion & Accessibility Fixes
 
 ### Fixed

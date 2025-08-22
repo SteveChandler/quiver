@@ -98,11 +98,28 @@ export async function getUserSessions(userId: string, limit?: number) {
             }
           }
           
+          // Try to fetch user data if user_id exists
+          let user = { full_name: "Anonymous Surfer", avatar_url: null };
+          if (session.user_id) {
+            try {
+              const { data: userData } = await supabase
+                .from("profiles")
+                .select("full_name, avatar_url")
+                .eq("id", session.user_id)
+                .single();
+              if (userData) {
+                user = userData;
+              }
+            } catch (userError) {
+              console.warn("Could not fetch user for session:", session.id, userError);
+            }
+          }
+          
           return {
             ...session,
             beach,
-            board: null, // Could enhance this too if needed
-            user: { full_name: "Anonymous Surfer", avatar_url: null },
+            board: null,
+            user,
           };
         })
       );
@@ -578,7 +595,7 @@ export async function getSessionsByBeach(beachId: string, limit = 10) {
  * Get all sessions for the community tab
  */
 export async function getAllSessions(limit = 20) {
-  const supabase = await createSupabaseServerClient();
+  return withAuthenticatedAction(async (user, supabase) => {
 
   // Get sessions with all related data using the correct schema
   const { data: sessions, error } = await supabase
@@ -628,11 +645,28 @@ export async function getAllSessions(limit = 20) {
           }
         }
         
+        // Try to fetch user data if user_id exists
+        let user = { full_name: "Anonymous Surfer", avatar_url: null };
+        if (session.user_id) {
+          try {
+            const { data: userData } = await supabase
+              .from("profiles")
+              .select("full_name, avatar_url")
+              .eq("id", session.user_id)
+              .single();
+            if (userData) {
+              user = userData;
+            }
+          } catch (userError) {
+            console.warn("Could not fetch user for session:", session.id, userError);
+          }
+        }
+        
         return {
           ...session,
           beach,
           board: null,
-          user: { full_name: "Anonymous Surfer", avatar_url: null },
+          user,
         };
       })
     );
@@ -641,6 +675,7 @@ export async function getAllSessions(limit = 20) {
   }
 
   return sessions || [];
+  });
 }
 
 /**
