@@ -75,7 +75,9 @@ function getDayLabel(dateString: string): string {
 function parseTideHeight(tideHeight: string | null): number {
   if (!tideHeight) return 0;
   const cleanHeight = tideHeight.replace(/ft|'|"/g, "").trim();
-  return parseFloat(cleanHeight) || 0;
+  const parsed = parseFloat(cleanHeight) || 0;
+  // Round to 1 decimal place to prevent floating point precision issues
+  return Math.round(parsed * 10) / 10;
 }
 
 // Extract tide events from forecast data
@@ -174,11 +176,14 @@ export function TideChart({
   const chartConfig = getTideChartConfig();
   const isMobile = useIsMobile();
 
-  // Helpers per requirements
-  const toFt = (m?: number, ft?: number) =>
-    Number.isFinite(ft as number)
+  // Helpers per requirements with proper rounding
+  const toFt = (m?: number, ft?: number) => {
+    const result = Number.isFinite(ft as number)
       ? (ft as number)
       : ((m ?? NaN) as number) * 3.28084;
+    // Round to 1 decimal place to prevent floating point precision issues
+    return Number.isFinite(result) ? Math.round(result * 10) / 10 : result;
+  };
 
   // Cosine-easing fallback between extrema
   const synthesizeFromExtrema = (ext: { t: number; h: number }[]) => {
@@ -298,7 +303,11 @@ export function TideChart({
       minH -= 0.5;
       maxH += 0.5;
     }
-    const domain: [number, number] = [minH - 0.5, maxH + 0.5];
+    // Round domain values to clean numbers to prevent floating point precision issues
+    const domain: [number, number] = [
+      Math.round((minH - 0.5) * 10) / 10,
+      Math.round((maxH + 0.5) * 10) / 10
+    ];
 
     // X-axis domain and day ticks from line points
     const seenDays = new Set<string>();
