@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Star } from "lucide-react";
+import { MapPin, Star, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { MapImage } from "@/components/map-image";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
+import { PHASE2_ANIMATIONS } from "@/lib/constants/animations";
 
 interface BeachCardProps {
   id?: string;
@@ -36,13 +39,16 @@ export function BeachCard({
   onReviewsClick,
   showForecastPreview = false,
 }: BeachCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  
   // Use shared forecast preview hook
   const {
     forecastPreview,
     loading: loadingForecast,
     error: forecastError,
   } = useForecastPreview({
-    enabled: showForecastPreview,
+    enabled: showForecastPreview || isExpanded,
     beachId: id,
   });
 
@@ -63,10 +69,31 @@ export function BeachCard({
       window.location.href = `/beach/${id}?tab=reviews`;
     }
   };
+  
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
 
   return (
-    <Card className="overflow-hidden" data-testid="beach-card">
-      <div className="relative h-48 cursor-pointer" onClick={handleMapClick}>
+    <motion.div
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      whileHover={{ 
+        scale: 1.02, 
+        y: -4,
+        boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
+        transition: { duration: 0.3 }
+      }}
+      whileTap={{ scale: 0.98 }}
+      layout
+    >
+      <Card className="overflow-hidden" data-testid="beach-card" data-beach-id={id}>
+        <motion.div 
+          className="relative h-48 cursor-pointer" 
+          onClick={handleMapClick}
+          whileHover={{ scale: 1.05 }}
+          transition={{ duration: 0.3 }}
+        >
         <MapImage
           src={imageUrl || "/placeholder.svg"}
           alt={name}
@@ -75,58 +102,126 @@ export function BeachCard({
           fill
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 p-3 text-white">
-          <h3 className="font-semibold text-lg">{name}</h3>
-          <div className="flex items-center text-sm">
-            <MapPin className="h-4 w-4 mr-1" />
-            <span>{distance}</span>
-          </div>
-        </div>
-      </div>
-      <CardContent className="p-3">
-        <div className="flex justify-between items-center">
-          <div
-            className="flex items-center cursor-pointer"
-            onClick={handleReviewsClick}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          <motion.div 
+            className="absolute bottom-0 left-0 p-3 text-white"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <Star className="h-4 w-4 text-yellow-500 mr-1 fill-yellow-500" />
-            <span className="font-medium">
-              {Number.isFinite(rating) ? (rating as number).toFixed(1) : "--"}
-            </span>
-            <span className="text-muted-foreground text-sm ml-1 hidden sm:inline">
-              ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
-            </span>
+            <h3 className="font-semibold text-lg">{name}</h3>
+            <div className="flex items-center text-sm">
+              <MapPin className="h-4 w-4 mr-1" />
+              <span>{distance}</span>
+            </div>
+          </motion.div>
+        </motion.div>
+        <CardContent className="p-3">
+          <div className="flex justify-between items-center">
+            <motion.div
+              className="flex items-center cursor-pointer"
+              onClick={handleReviewsClick}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Star className="h-4 w-4 text-yellow-500 mr-1 fill-yellow-500" />
+              <span className="font-medium">
+                {Number.isFinite(rating) ? (rating as number).toFixed(1) : "--"}
+              </span>
+              <span className="text-muted-foreground text-sm ml-1 hidden sm:inline">
+                ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
+              </span>
+            </motion.div>
+            
+            <div className="flex items-center gap-2">
+              {/* Expand/Collapse Button */}
+              <motion.button
+                onClick={toggleExpanded}
+                className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                aria-label={isExpanded ? "Collapse details" : "Expand details"}
+              >
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </motion.button>
+              
+              {id ? (
+                <Link
+                  href={`/beach/${id}`}
+                  className="text-primary text-sm font-medium"
+                >
+                  <motion.span
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    View Details
+                  </motion.span>
+                </Link>
+              ) : (
+                <motion.button
+                  onClick={onViewDetails}
+                  className="text-primary text-sm font-medium"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  View Details
+                </motion.button>
+              )}
+            </div>
           </div>
-          {id ? (
-            <Link
-              href={`/beach/${id}`}
-              className="text-primary text-sm font-medium"
-            >
-              View Details
-            </Link>
-          ) : (
-            <button
-              onClick={onViewDetails}
-              className="text-primary text-sm font-medium"
-            >
-              View Details
-            </button>
-          )}
-        </div>
 
-        {/* Forecast Preview */}
-        {showForecastPreview && (
-          <div className="mt-3 pt-3 border-t">
-            <ForecastPreview
-              forecastPreview={forecastPreview}
-              loading={loadingForecast}
-              error={forecastError}
-              variant="grid"
-            />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          {/* Expandable Forecast Preview */}
+          <AnimatePresence>
+            {(showForecastPreview || isExpanded) && (
+              <motion.div 
+                className="mt-3 pt-3 border-t" 
+                data-testid="expanded-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                style={{ overflow: "hidden" }}
+              >
+                <motion.div 
+                  className="forecast-info"
+                  initial={{ y: -10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.1, duration: 0.3 }}
+                >
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Current Conditions</h4>
+                  <ForecastPreview
+                    forecastPreview={forecastPreview}
+                    loading={loadingForecast}
+                    error={forecastError}
+                    variant="grid"
+                  />
+                </motion.div>
+                <motion.div 
+                  className="conditions-grid mt-3"
+                  initial={{ y: -10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.2, duration: 0.3 }}
+                >
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-blue-50 p-2 rounded">
+                      <div className="text-blue-600 font-medium">Wave Height</div>
+                      <div className="text-blue-800">{forecastPreview?.waveHeight || "N/A"}</div>
+                    </div>
+                    <div className="bg-green-50 p-2 rounded">
+                      <div className="text-green-600 font-medium">Wind Speed</div>
+                      <div className="text-green-800">{forecastPreview?.windSpeed || "N/A"}</div>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }

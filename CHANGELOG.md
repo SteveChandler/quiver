@@ -1,8 +1,70 @@
 ## [Unreleased]
 
+### Added
+
+- **Phase 2 Map Interactions Motion**: Complete implementation of enhanced beach discovery motion system
+
+  - Beach marker hover effects with 1.2x scale and enhanced shadows for clear visual feedback
+  - Selection animations with 1.4x scale, selection rings, and color transitions for selected beaches
+  - Forecast popup animations with smooth reveal motion and position-aware display
+  - Location selection excitement animations with scale and rotation effects during searches
+  - Staggered entrance effects for beach lists with 0.1s delays between items
+  - Hover interactions throughout with consistent 1.02x scale and lift effects
+  - Smooth filtering animations with layout transitions and opacity changes
+  - Enhanced beach cards with expandable content reveals and micro-interactions
+  - Motion-enhanced interactive elements across all map components
+  - Comprehensive accessibility support with keyboard navigation and reduced motion
+  - Performance monitoring ensuring 60fps during all map interactions
+  - **Test Coverage**: Complete Playwright test suite with 18 scenarios covering all motion interactions
+
+- **SessionWizard Component**: Modern wizard-style interface for session creation with enhanced UX
+
+  - Step-based navigation with visual progress indicators and completion states
+  - Comprehensive Phase 2 motion animations throughout all interactions
+  - Auto-save functionality with animated visual feedback and draft recovery
+  - Form validation with animated error states and success celebrations
+  - Mobile-optimized touch interactions and accessibility features
+  - Supports both "plan" and "log" modes with dynamic step configuration
+  - Uses existing `useSessionForm` hook and step components for consistency
+  - Provides alternative to legacy SessionForm while maintaining feature parity
+
+- **Phase 2 Motion System**: Extended animation constants with comprehensive Phase 2 motion specifications
+
+  - Added `PHASE2_ANIMATIONS` with Session Creation Wizard Motion, Beach Discovery & Map Motion, and Form Validation & Feedback Motion
+  - Added `PHASE2_EASING` with Material Design-inspired easing functions
+  - Added `ALL_MOTION` export combining all animation systems for unified access
+  - Enhanced timing system with wizard and validation-specific durations
+  - Follows established patterns from existing `ENHANCED_ANIMATIONS` and `MOTION_TIMING`
+
+- **Session Forms Index**: Created centralized export file for all session form components
+  - Export for new SessionWizard component alongside existing SessionForm
+  - Clean import paths for all step components and UI elements
+  - Supports gradual migration strategy with dual interface approach
+
+### Changed
+
+- **SessionFormWrapper Integration**: Updated to use new SessionWizard component as default interface
+  - All users accessing `/plan-session` and `/log-session` now get Phase 2 motion experience
+  - Maintains full backward compatibility and feature parity with legacy SessionForm
+  - Provides immediate enhanced UX with wizard flow and motion animations
+
 ### Fixed
 
+- **MCP Configuration**: Fixed Playwright MCP server configuration causing "failed" status
+
+  - Removed trailing dot from global MCP configuration in `~/.claude.json`
+  - Updated project-specific MCP configuration with proper headless and port settings
+  - Playwright MCP server now starts successfully for E2E testing automation
+  - Resolves MCP server management issues in Claude Code
+  - **Complete Fix**: Switched from stdio to HTTP transport configuration
+  - Global config now uses `"url": "http://localhost:3001/mcp"` instead of command-based stdio
+  - Project config updated to match HTTP transport method
+  - MCP server running successfully on port 3001
+  - **Schema Fix**: Added required `"type": "http"` field to both global and project MCP configurations
+  - Resolves "Does not adhere to MCP server configuration schema" validation error
+
 - **Intel Confirmation Display**: Fixed confirmation count and user confirmation state not updating in real-time
+
   - Implemented optimistic updates that immediately show confirmation changes in the UI
   - User confirmation state (`user_has_confirmed`) now toggles instantly when clicked
   - Confirmation count displays the updated value immediately, then syncs with server
@@ -10,16 +72,19 @@
   - Improved user experience with immediate visual feedback instead of waiting for server response
 
 - **Production 500 Error**: Fixed unauthenticated `getAllSessions` server action causing deployment crashes
+
   - Wrapped `getAllSessions` action with `withAuthenticatedAction` to ensure proper authentication
   - Resolves 500 errors on production deployment when loading home screen community data
   - Maintains security by requiring authentication for all session data access
 
 - **Session User Data**: Fixed "Unknown" appearing in sessions when user data wasn't properly fetched
+
   - Enhanced `getAllSessions` fallback to properly fetch user profile data from database
   - Improved error handling and user data resolution in both successful and fallback scenarios
   - Users now display proper names and avatars in community session feeds
 
 - **Intel Post Confirmation**: Fixed confirmation buttons not updating count or visual state
+
   - Added timing delay to ensure database triggers execute before reading updated counts
   - Fixed field name mismatch (`user_confirmed` vs `user_has_confirmed`) in all intel actions
   - Improved error handling and fallback values for confirmation count display
@@ -713,7 +778,7 @@ These motion enhancements directly address the catastrophic analytics data and p
 - Local Intel deep link and inline expansion:
 
   - Beach page supports `?section=intel` (and `#intel`) to auto-open and scroll to the Local Intel section.
-  - Added inline “View all” → “Show less” toggle to expand/collapse all intel posts without leaving the page.
+  - Added inline "View all" → "Show less" toggle to expand/collapse all intel posts without leaving the page.
   - `components/beach-detail.tsx` reads query/hash via `useSearchParams` and passes `initialShowAll` when `show=all`.
   - `components/intel/beach-intel-section.tsx` now accepts `initialShowAll` and renders all posts when requested.
   - Follows `hooks/ARCHITECTURE.md` data fetching and `components/ARCHITECTURE.md` client-navigation patterns.
@@ -808,7 +873,7 @@ These motion enhancements directly address the catastrophic analytics data and p
   - `20250817140000_seed_intel_posts.sql`
   - `20250817150000_seed_beach_reviews.sql`
   - Optional: `20250817170000_seed_pacific_ocean_beach_data.sql` for PB/OB richness
-  - `scripts/mock-solid-snake.sql` seeds the “Solid Snake” persona with a profile, board, planned and completed sessions, follows to Big Boss/Liquid Snake (if present), and two pending invitations for inbox testing; includes verification queries. Idempotent and safe to re-run.
+  - `scripts/mock-solid-snake.sql` seeds the "Solid Snake" persona with a profile, board, planned and completed sessions, follows to Big Boss/Liquid Snake (if present), and two pending invitations for inbox testing; includes verification queries. Idempotent and safe to re-run.
 
 ## [2025.08.20] - Morning Recommendations & Forecast Refresh Docs
 
@@ -841,7 +906,7 @@ These motion enhancements directly address the catastrophic analytics data and p
 
 - `components/beach-detail/ARCHITECTURE.md`:
 
-  - Documents Best Times chip UX and “why” factor breakdown from `v_beach_hourly_scores`
+  - Documents Best Times chip UX and "why" factor breakdown from `v_beach_hourly_scores`
 
 - `hooks/ARCHITECTURE.md`:
 
@@ -1046,7 +1111,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Update page sets new password using `supabase.auth.updateUser({ password })`
 
 - `POST /api/session-planner/invitations` now respects idempotency, creates activity, and conditionally sends email per user prefs; inviter-based unique constraints dropped in favor of per-invitee uniques
-  - Added “Forgot password?” link to `components/auth/sign-in-form.tsx`
+  - Added "Forgot password?" link to `components/auth/sign-in-form.tsx`
 
 ### Changed
 
@@ -1155,7 +1220,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Removed
 
-- Compact summary row from beach detail (normalized marine/tide/sun snippet and “Source: …” badge). The beach page now focuses on the enhanced forecast overview only. API `GET /api/forecasts/window` retained for future use.
+- Compact summary row from beach detail (normalized marine/tide/sun snippet and "Source: …" badge). The beach page now focuses on the enhanced forecast overview only. API `GET /api/forecasts/window` retained for future use.
 - **Dead Code Cleanup in Forecast Components**
 
   - Removed `tide-chart-example.tsx` (134 lines) - Pure demo component with no usage

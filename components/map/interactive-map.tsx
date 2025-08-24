@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import { debounce } from "lodash";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Beach } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
@@ -15,10 +16,11 @@ import {
   getWaveHeightValue,
 } from "@/lib/utils/wave-height-formatter";
 import {
-  getOffshorePosition,
+  getOptimalMarkerPosition,
   hasViewportChanged as checkViewportChanged,
 } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
+import { PHASE2_ANIMATIONS } from "@/lib/constants/animations";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -57,6 +59,8 @@ export function InteractiveMap({
   const [beachConditions, setBeachConditions] = useState<
     Record<string, { wave_height?: number | string }>
   >({});
+  const [selectedBeachId, setSelectedBeachId] = useState<string | null>(null);
+  const [hoveredBeachId, setHoveredBeachId] = useState<string | null>(null);
 
   const { user } = useAuth();
   const router = useRouter();
@@ -127,7 +131,7 @@ export function InteractiveMap({
 
   // Wave height formatting moved to utility function
 
-  // Create wave height badge element with wrapper for Mapbox positioning
+  // Create enhanced wave height badge element with motion capabilities
   const createWaveHeightBadge = (
     location: Beach,
     waveHeight?: number | string
@@ -135,15 +139,38 @@ export function InteractiveMap({
     try {
       const isFavorite = favoriteBeachIds.has(location.id);
       const waveText = formatWaveHeight(waveHeight);
+      const isSelected = selectedBeachId === location.id;
+      const isHovered = hoveredBeachId === location.id;
 
       // Create wrapper element that Mapbox will position
       const wrapper = document.createElement("div");
+      wrapper.setAttribute("data-testid", "beach-marker");
+      wrapper.setAttribute("data-beach-id", location.id);
       wrapper.style.cssText = `
         pointer-events: auto;
         display: flex;
         align-items: center;
         justify-content: center;
+        position: relative;
       `;
+
+      // Create selection ring for selected state
+      if (isSelected) {
+        const selectionRing = document.createElement("div");
+        selectionRing.setAttribute("data-testid", "selection-ring");
+        selectionRing.style.cssText = `
+          position: absolute;
+          top: -8px;
+          left: -8px;
+          right: -8px;
+          bottom: -8px;
+          border: 3px solid #0077B6;
+          border-radius: 50%;
+          pointer-events: none;
+          animation: pulse 2s infinite;
+        `;
+        wrapper.appendChild(selectionRing);
+      }
 
       // Create the actual badge element as a child
       const badge = document.createElement("div");
@@ -160,31 +187,51 @@ export function InteractiveMap({
         border: 2px solid white;
         user-select: none;
         transform-origin: center;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        transform: scale(${isSelected ? "1.4" : isHovered ? "1.2" : "1"});
         background: ${
           isFavorite
             ? "linear-gradient(to right, #3b82f6, #2563eb)"
+            : isSelected
+            ? "linear-gradient(to right, #0077B6, #005f8a)"
             : "linear-gradient(to right, #fbbf24, #f59e0b)"
+        };
+        box-shadow: ${
+          isSelected
+            ? "0 0 20px rgba(0,119,182,0.5), 0 8px 25px rgba(0, 0, 0, 0.3)"
+            : isHovered
+            ? "0 8px 20px rgba(0, 0, 0, 0.4)"
+            : "0 4px 12px rgba(0, 0, 0, 0.3)"
         };
       `;
       badge.innerHTML = waveText;
 
-      // Add hover effects to the badge only
+      // Enhanced hover effects with motion
       badge.addEventListener("mouseenter", () => {
-        badge.style.transform = "scale(1.05)";
-        badge.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.4)";
-      });
-      badge.addEventListener("mouseleave", () => {
-        badge.style.transform = "scale(1)";
-        badge.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.3)";
+        setHoveredBeachId(location.id);
       });
 
-      // Click handler on the badge
+      badge.addEventListener("mouseleave", () => {
+        setHoveredBeachId(null);
+      });
+
+      // Enhanced click handler with selection animation
       badge.addEventListener("click", async (e) => {
         e.stopPropagation();
         e.preventDefault();
-        // Navigate to beach detail page
-        router.push(`/beach/${location.id}`);
+
+        // Set selection state for animation
+        setSelectedBeachId(location.id);
+
+        // Trigger location click callback if provided
+        if (onLocationClick) {
+          onLocationClick(location);
+        }
+
+        // Animate selection and navigate after slight delay
+        setTimeout(() => {
+          router.push(`/beach/${location.id}`);
+        }, 400);
       });
 
       // Prevent any dragging or selection on the badge
@@ -359,29 +406,75 @@ export function InteractiveMap({
           // Use the enhanced forecast wave height
           const waveHeight = waveHeightMap.get(location.id);
 
-          // Create custom wave height badge
+          // Create custom wave height badge with current state
           const badgeElement = createWaveHeightBadge(location, waveHeight);
 
-          // Position slightly offshore
-          const [offsetLng, offsetLat] = getOffshorePosition(
+          // Position optimally at beach location
+          const [offsetLng, offsetLat] = getOptimalMarkerPosition(
             location.latitude,
-            location.longitude
+            location.longitude,
+            location.name
           );
+          
+
+          // Create enhanced popup with motion
+          const popupContent = `
+            <div class="forecast-popup-content" data-testid="forecast-popup">
+              <div class="text-center">
+                <h4 class="font-semibold text-gray-900 mb-2">${
+                  location.name
+                }</h4>
+                <div class="forecast-data space-y-1 text-sm">
+                  <div class="flex justify-between">
+                    <span class="text-gray-600">Wave Height:</span>
+                    <span class="font-medium">
+                      ${waveHeight ? formatWaveHeight(waveHeight) : "N/A"}
+                    </span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-600">Location:</span>
+                    <span class="font-medium text-xs">${
+                      location.location || "Unknown"
+                    }</span>
+                  </div>
+                </div>
+                <div class="mt-2 text-xs text-gray-500">
+                  Click marker for details
+                </div>
+              </div>
+            </div>
+          `;
+
+          const popup = new mapboxgl.Popup({
+            closeButton: false,
+            closeOnClick: false,
+            className: "forecast-popup-mapbox",
+            maxWidth: "200px",
+          }).setHTML(popupContent);
 
           const marker = new mapboxgl.Marker({
             element: badgeElement,
             draggable: false,
           })
             .setLngLat([offsetLng, offsetLat])
-            .setPopup(
-              new mapboxgl.Popup().setHTML(
-                `<b>${location.name}</b><br/>${
-                  location.location || ""
-                }<br/>Wave Height: ${
-                  waveHeight ? formatWaveHeight(waveHeight) : "No forecast data"
-                }`
-              )
-            );
+            .setPopup(popup);
+
+          // Add hover event listeners to marker element for popup control
+          badgeElement.addEventListener("mouseenter", () => {
+            const popup = marker.getPopup();
+            if (popup && mapRef.current) {
+              popup.addTo(mapRef.current);
+            }
+          });
+
+          badgeElement.addEventListener("mouseleave", () => {
+            setTimeout(() => {
+              const popup = marker.getPopup();
+              if (popup) {
+                popup.remove();
+              }
+            }, 150);
+          });
 
           // Only add to map if map is ready and has a canvas container
           if (mapRef.current && mapRef.current.getCanvasContainer()) {
@@ -467,6 +560,66 @@ export function InteractiveMap({
     }
   }, [isMapReady, populateLocations]);
 
+  // Update markers when selection state changes
+  useEffect(() => {
+    if (!isMapReady) return;
+
+    // Update all markers to reflect current selection state
+    Object.entries(markersRef.current).forEach(([markerId, marker]) => {
+      const beachId = markerId.replace("location-", "");
+      const element = marker.getElement();
+      const badge = element.querySelector('div[style*="padding"]');
+      const existingRing = element.querySelector(
+        '[data-testid="selection-ring"]'
+      );
+
+      if (selectedBeachId === beachId) {
+        // Add selection ring if not present
+        if (!existingRing && badge) {
+          const selectionRing = document.createElement("div");
+          selectionRing.setAttribute("data-testid", "selection-ring");
+          selectionRing.style.cssText = `
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
+            border: 3px solid #0077B6;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: pulse 2s infinite;
+          `;
+          element.appendChild(selectionRing);
+        }
+
+        // Update badge scale and background
+        if (badge) {
+          (badge as HTMLElement).style.transform = "scale(1.4)";
+          (badge as HTMLElement).style.background =
+            "linear-gradient(to right, #0077B6, #005f8a)";
+        }
+      } else {
+        // Remove selection ring if present
+        if (existingRing) {
+          existingRing.remove();
+        }
+
+        // Reset badge scale and background
+        if (badge) {
+          const isHovered = hoveredBeachId === beachId;
+          (badge as HTMLElement).style.transform = isHovered
+            ? "scale(1.2)"
+            : "scale(1)";
+
+          const isFavorite = favoriteBeachIds.has(beachId);
+          (badge as HTMLElement).style.background = isFavorite
+            ? "linear-gradient(to right, #3b82f6, #2563eb)"
+            : "linear-gradient(to right, #fbbf24, #f59e0b)";
+        }
+      }
+    });
+  }, [selectedBeachId, hoveredBeachId, favoriteBeachIds, isMapReady]);
+
   // Update map center when initialCenter prop changes
   useEffect(() => {
     if (isMapReady && mapRef.current && initialCenter) {
@@ -486,6 +639,47 @@ export function InteractiveMap({
       }
     }
   }, [isMapReady, initialCenter, populateLocations]);
+
+  // Add CSS for popup animations
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = `
+      .forecast-popup-mapbox .mapboxgl-popup-content {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        padding: 16px;
+        animation: popupFadeIn 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        transform-origin: bottom center;
+      }
+      
+      .forecast-popup-mapbox .mapboxgl-popup-tip {
+        border-top-color: white;
+      }
+      
+      @keyframes popupFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.9);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      
+      @media (prefers-reduced-motion: reduce) {
+        .forecast-popup-mapbox .mapboxgl-popup-content {
+          animation: none;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   return (
     <div

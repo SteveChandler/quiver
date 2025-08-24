@@ -117,6 +117,7 @@
     "@jest/globals": "^29.7.0",
     "@lhci/cli": "^0.14.0",
     "@next/bundle-analyzer": "^14.2.3",
+    "@playwright/mcp": "^0.0.34",
     "@playwright/test": "^1.52.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.7.0",
