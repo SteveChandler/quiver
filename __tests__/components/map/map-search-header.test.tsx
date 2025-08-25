@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { MapSearchHeader } from "@/components/map/map-search-header";
 
@@ -269,6 +270,49 @@ describe("MapSearchHeader", () => {
 
       rerender(<MapSearchHeader {...defaultProps} viewMode="list" />);
       expect(screen.getByRole("button", { name: /list/i })).toBeInTheDocument();
+    });
+  });
+
+  describe("Search results dropdown", () => {
+    it("shows listbox and allows selecting a result", async () => {
+      jest.useFakeTimers();
+      const onSearchChange = jest.fn();
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+      function Wrapper() {
+        const [query, setQuery] = useState("");
+        return (
+          <MapSearchHeader
+            {...defaultProps}
+            searchQuery={query}
+            onSearchChange={(val) => {
+              setQuery(val);
+              onSearchChange(val);
+            }}
+          />
+        );
+      }
+
+      render(<Wrapper />);
+
+      const searchInput = screen.getByPlaceholderText("Search beaches...");
+      await user.type(searchInput, "Ocean");
+
+      const listbox = screen.getByRole("listbox");
+      expect(listbox).toBeInTheDocument();
+
+      const option = screen.getByRole("option", { name: /Ocean Beach/ });
+      const optionButton = within(option).getByRole("button");
+      await user.click(optionButton);
+
+      expect(onSearchChange).toHaveBeenLastCalledWith("Ocean Beach");
+
+      act(() => {
+        jest.advanceTimersByTime(300);
+      });
+
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+      jest.useRealTimers();
     });
   });
 });
