@@ -149,7 +149,6 @@ export function InteractiveMap({
         display: flex;
         align-items: center;
         justify-content: center;
-        position: relative;
       `;
 
       // Create selection ring for selected state
@@ -447,7 +446,10 @@ export function InteractiveMap({
             draggable: false,
             anchor: "center",
           })
-            .setLngLat([location.longitude, location.latitude])
+            .setLngLat([
+              Number(location.longitude),
+              Number(location.latitude),
+            ])
             .setPopup(popup);
 
           // Add hover event listeners to control popup visibility
