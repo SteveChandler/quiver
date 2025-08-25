@@ -8,7 +8,6 @@ import Link from "next/link";
 import { MapImage } from "@/components/map-image";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
-import { PHASE2_ANIMATIONS } from "@/lib/constants/animations";
 
 interface BeachCardProps {
   id?: string;
@@ -40,7 +39,6 @@ export function BeachCard({
   showForecastPreview = false,
 }: BeachCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   
   // Use shared forecast preview hook
   const {
@@ -76,10 +74,8 @@ export function BeachCard({
 
   return (
     <motion.div
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      whileHover={{ 
-        scale: 1.02, 
+      whileHover={{
+        scale: 1.02,
         y: -4,
         boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
         transition: { duration: 0.3 }
@@ -141,6 +137,7 @@ export function BeachCard({
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                aria-expanded={isExpanded}
               >
                 {isExpanded ? (
                   <ChevronUp className="h-4 w-4" />
