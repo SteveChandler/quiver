@@ -15,10 +15,7 @@ import {
   formatWaveHeight,
   getWaveHeightValue,
 } from "@/lib/utils/wave-height-formatter";
-import {
-  getOptimalMarkerPosition,
-  hasViewportChanged as checkViewportChanged,
-} from "@/lib/utils/map-utilities";
+import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
 import { PHASE2_ANIMATIONS } from "@/lib/constants/animations";
 
@@ -46,7 +43,8 @@ export function InteractiveMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
-  const popupRef = useRef<mapboxgl.Popup | null>(null);
+  // Popup instance used for displaying click coordinates on the map
+  const mapClickPopupRef = useRef<mapboxgl.Popup | null>(null);
   const lastViewportRef = useRef<{
     lat: number;
     lng: number;
@@ -96,7 +94,7 @@ export function InteractiveMap({
   // Helper: full cleanup
   const cleanupMap = useCallback(() => {
     cleanupMarkers();
-    if (popupRef.current) popupRef.current.remove();
+    if (mapClickPopupRef.current) mapClickPopupRef.current.remove();
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
@@ -151,7 +149,6 @@ export function InteractiveMap({
         display: flex;
         align-items: center;
         justify-content: center;
-        position: relative;
       `;
 
       // Create selection ring for selected state
@@ -409,14 +406,6 @@ export function InteractiveMap({
           // Create custom wave height badge with current state
           const badgeElement = createWaveHeightBadge(location, waveHeight);
 
-          // Position optimally at beach location
-          const [offsetLng, offsetLat] = getOptimalMarkerPosition(
-            location.latitude,
-            location.longitude,
-            location.name
-          );
-          
-
           // Create enhanced popup with motion
           const popupContent = `
             <div class="forecast-popup-content" data-testid="forecast-popup">
@@ -455,25 +444,23 @@ export function InteractiveMap({
           const marker = new mapboxgl.Marker({
             element: badgeElement,
             draggable: false,
+            anchor: "center",
           })
-            .setLngLat([offsetLng, offsetLat])
+            .setLngLat([
+              Number(location.longitude),
+              Number(location.latitude),
+            ])
             .setPopup(popup);
 
-          // Add hover event listeners to marker element for popup control
+          // Add hover event listeners to control popup visibility
           badgeElement.addEventListener("mouseenter", () => {
-            const popup = marker.getPopup();
-            if (popup && mapRef.current) {
-              popup.addTo(mapRef.current);
+            if (mapRef.current) {
+              marker.getPopup()?.addTo(mapRef.current);
             }
           });
 
           badgeElement.addEventListener("mouseleave", () => {
-            setTimeout(() => {
-              const popup = marker.getPopup();
-              if (popup) {
-                popup.remove();
-              }
-            }, 150);
+            marker.getPopup()?.remove();
           });
 
           // Only add to map if map is ready and has a canvas container
@@ -536,10 +523,10 @@ export function InteractiveMap({
     // Map click
     map.on("click", async (e) => {
       onMapClick?.(e.lngLat);
-      if (!popupRef.current) {
-        popupRef.current = new mapboxgl.Popup();
+      if (!mapClickPopupRef.current) {
+        mapClickPopupRef.current = new mapboxgl.Popup();
       }
-      popupRef.current
+      mapClickPopupRef.current
         .setLngLat(e.lngLat)
         .setHTML(`${e.lngLat.lat.toFixed(4)}, ${e.lngLat.lng.toFixed(4)}`)
         .addTo(map);
