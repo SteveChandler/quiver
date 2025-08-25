@@ -15,10 +15,7 @@ import {
   formatWaveHeight,
   getWaveHeightValue,
 } from "@/lib/utils/wave-height-formatter";
-import {
-  getOptimalMarkerPosition,
-  hasViewportChanged as checkViewportChanged,
-} from "@/lib/utils/map-utilities";
+import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
 import { PHASE2_ANIMATIONS } from "@/lib/constants/animations";
 
@@ -410,14 +407,6 @@ export function InteractiveMap({
           // Create custom wave height badge with current state
           const badgeElement = createWaveHeightBadge(location, waveHeight);
 
-          // Position optimally at beach location
-          const [offsetLng, offsetLat] = getOptimalMarkerPosition(
-            location.latitude,
-            location.longitude,
-            location.name
-          );
-          
-
           // Create enhanced popup with motion
           const popupContent = `
             <div class="forecast-popup-content" data-testid="forecast-popup">
@@ -456,23 +445,20 @@ export function InteractiveMap({
           const marker = new mapboxgl.Marker({
             element: badgeElement,
             draggable: false,
+            anchor: "center",
           })
-            .setLngLat([offsetLng, offsetLat])
+            .setLngLat([location.longitude, location.latitude])
             .setPopup(popup);
 
           // Add hover event listeners to control popup visibility
           badgeElement.addEventListener("mouseenter", () => {
-            const popup = marker.getPopup();
-            if (popup && mapRef.current) {
-              popup.addTo(mapRef.current);
+            if (mapRef.current) {
+              marker.getPopup()?.addTo(mapRef.current);
             }
           });
 
           badgeElement.addEventListener("mouseleave", () => {
-            setTimeout(() => {
-              const popup = marker.getPopup();
-              popup?.remove();
-            }, 150);
+            marker.getPopup()?.remove();
           });
 
           // Only add to map if map is ready and has a canvas container
