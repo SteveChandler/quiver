@@ -26,9 +26,14 @@ Growth-focused engineer implementing features end-to-end while adhering to Quive
 
 Use Playwright MCP to run tests/trace during development:
 
+- **Use existing Playwright tests in your `e2e/` folder**
+- **Run them via MCP commands**
+- **Focus on the specific feature/component being tested**
+- **Provide clear pass/fail results**
 - Run focused specs for changed areas
 - Open traces when failures occur
 - Respect development thresholds/waits from `e2e/ARCHITECTURE.md`
+- Don't create complex Node.js test scripts - use MCP tools directly
 
 ## Guardrails
 

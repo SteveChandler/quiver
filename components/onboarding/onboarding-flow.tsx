@@ -25,7 +25,6 @@ import {
   useReducedMotion,
   getMotionVariants,
 } from "@/hooks/use-reduced-motion";
-import { useRouter } from "next/navigation";
 
 const ONBOARDING_STEPS = [
   {
@@ -87,7 +86,6 @@ export function OnboardingFlow({
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [isAnimating, setIsAnimating] = useState(false);
   const reducedMotion = useReducedMotion();
-  const router = useRouter();
 
   const currentStepData = ONBOARDING_STEPS[currentStep];
 
@@ -101,7 +99,6 @@ export function OnboardingFlow({
       // Complete onboarding
       setTimeout(() => {
         onComplete();
-        router.push("/sessions");
       }, 1000);
     } else {
       setTimeout(() => {
@@ -122,7 +119,6 @@ export function OnboardingFlow({
 
   const handleSkip = () => {
     onComplete();
-    router.push("/sessions");
   };
 
   // Reset when opened

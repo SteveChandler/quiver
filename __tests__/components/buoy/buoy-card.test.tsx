@@ -277,7 +277,7 @@ describe("BuoyCard", () => {
     it("should show status when enabled", () => {
       render(<BuoyCard {...defaultProps} showStatus={true} />);
 
-      expect(screen.getByText("12/31/2021")).toBeInTheDocument();
+      expect(screen.getByText("1/1/2022")).toBeInTheDocument();
     });
 
     it("should hide status when disabled", () => {

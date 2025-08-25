@@ -58,7 +58,7 @@ jest.mock("@/context/auth-context", () => ({
 
 // Use the actual implementation for utilities to see what's happening
 const mockCurrentForecast = jest.fn((forecasts) => {
-  console.log('getCurrentForecast mock called with:', forecasts);
+  console.log("getCurrentForecast mock called with:", forecasts);
   if (forecasts && forecasts.length > 0) {
     return forecasts[0];
   }
@@ -81,16 +81,22 @@ jest.mock("@/lib/utils/map-utilities", () => ({
 
 // Mock distance utils to work properly with dynamic import
 const mockCalculateDistance = jest.fn((lat1, lng1, lat2, lng2) => {
-  console.log('calculateDistanceInMiles called:', { lat1, lng1, lat2, lng2 });
+  console.log("calculateDistanceInMiles called:", { lat1, lng1, lat2, lng2 });
   return 5; // Always return a value within 30 miles
 });
 
-jest.mock("@/lib/utils/distance-utils", () => ({
-  calculateDistanceInMiles: mockCalculateDistance,
-}), { virtual: true });
+jest.mock(
+  "@/lib/utils/distance-utils",
+  () => ({
+    calculateDistanceInMiles: mockCalculateDistance,
+  }),
+  { virtual: true }
+);
 
 jest.mock("@/hooks/use-cached-api", () => ({
-  createCachedMapFetch: jest.fn(() => jest.fn().mockResolvedValue({ data: [] })),
+  createCachedMapFetch: jest.fn(() =>
+    jest.fn().mockResolvedValue({ data: [] })
+  ),
   createLocationCacheKey: jest.fn(() => "cache-key"),
 }));
 
@@ -112,57 +118,59 @@ describe("Map Forecast Display - Working Implementation Tests", () => {
     jest.clearAllMocks();
     apiCalls.length = 0;
     mockCurrentForecast.mockClear();
-    
+
     mockFetch.mockImplementation((url: string) => {
       apiCalls.push(url);
-      console.log('FETCH:', url);
-      
+      console.log("FETCH:", url);
+
       if (url.includes("/api/beaches") && !url.includes("forecasts")) {
-        console.log('RETURNING BEACHES');
+        console.log("RETURNING BEACHES");
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({
-            success: true,
-            beaches: [
-              {
-                id: "test-beach-1",
-                name: "Test Beach",
-                latitude: 32.7493,
-                longitude: -117.2511,
-              },
-            ],
-          }),
-        } as Response);
-      }
-      
-      if (url.includes("/api/forecasts/update-enhanced")) {
-        console.log('RETURNING FORECAST');
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({
-            success: true,
-            data: {
-              forecasts: [
+          json: () =>
+            Promise.resolve({
+              success: true,
+              beaches: [
                 {
-                  id: "test-forecast",
-                  beach_id: "test-beach-1",
-                  wave_height: "2.5 ft",
-                  forecast_date: "2025-08-16",
-                  forecast_time: "12:00:00",
+                  id: "test-beach-1",
+                  name: "Test Beach",
+                  latitude: 32.7493,
+                  longitude: -117.2511,
                 },
               ],
-            },
-          }),
+            }),
         } as Response);
       }
-      
+
+      if (url.includes("/api/forecasts/update-enhanced")) {
+        console.log("RETURNING FORECAST");
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: {
+                forecasts: [
+                  {
+                    id: "test-forecast",
+                    beach_id: "test-beach-1",
+                    wave_height: "2.5 ft",
+                    forecast_date: "2025-08-16",
+                    forecast_time: "12:00:00",
+                  },
+                ],
+              },
+            }),
+        } as Response);
+      }
+
       return Promise.reject(new Error(`Unhandled: ${url}`));
     });
   });
 
   it("should render the InteractiveMap component without errors", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     expect(() => {
       render(<InteractiveMap />);
     }).not.toThrow();
@@ -170,41 +178,59 @@ describe("Map Forecast Display - Working Implementation Tests", () => {
 
   it("should make beaches API calls on component mount", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
-    await waitFor(() => {
-      const beachCalls = apiCalls.filter(call => call.includes("/api/beaches"));
-      expect(beachCalls.length).toBeGreaterThan(0);
-    }, { timeout: 2000 });
+
+    await waitFor(
+      () => {
+        const beachCalls = apiCalls.filter((call) =>
+          call.includes("/api/beaches")
+        );
+        expect(beachCalls.length).toBeGreaterThan(0);
+      },
+      { timeout: 2000 }
+    );
   });
 
   it("should call forecast API for each beach after loading beaches", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
+
     // Wait for beaches to load first
-    await waitFor(() => {
-      const beachCalls = apiCalls.filter(call => call.includes("/api/beaches"));
-      expect(beachCalls.length).toBeGreaterThan(0);
-    }, { timeout: 2000 });
-    
+    await waitFor(
+      () => {
+        const beachCalls = apiCalls.filter((call) =>
+          call.includes("/api/beaches")
+        );
+        expect(beachCalls.length).toBeGreaterThan(0);
+      },
+      { timeout: 2000 }
+    );
+
     // Then wait for forecast calls
-    await waitFor(() => {
-      const forecastCalls = apiCalls.filter(call => call.includes("/api/forecasts"));
-      expect(forecastCalls.length).toBeGreaterThan(0);
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        const forecastCalls = apiCalls.filter((call) =>
+          call.includes("/api/forecasts")
+        );
+        expect(forecastCalls.length).toBeGreaterThan(0);
+      },
+      { timeout: 3000 }
+    );
   });
 
   it("should process forecast responses with getCurrentForecast utility", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
-    await waitFor(() => {
-      expect(mockCurrentForecast.mock.calls.length).toBeGreaterThan(0);
-    }, { timeout: 4000 });
+
+    await waitFor(
+      () => {
+        expect(mockCurrentForecast.mock.calls.length).toBeGreaterThan(0);
+      },
+      { timeout: 4000 }
+    );
 
     // Verify the forecast processing was called with correct data structure
     const forecastCalls = mockCurrentForecast.mock.calls;
@@ -214,38 +240,46 @@ describe("Map Forecast Display - Working Implementation Tests", () => {
         expect.objectContaining({
           wave_height: expect.any(String),
           beach_id: expect.any(String),
-        })
+        }),
       ])
     );
   });
 
   it("should create markers on the map after processing forecasts", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
-    await waitFor(() => {
-      const Marker = require("mapbox-gl").Marker;
-      expect(Marker).toHaveBeenCalled();
-    }, { timeout: 4000 });
+
+    await waitFor(
+      () => {
+        const Marker = require("mapbox-gl").Marker;
+        expect(Marker).toHaveBeenCalled();
+      },
+      { timeout: 4000 }
+    );
   });
 
   it("should handle the complete data flow: beaches → distance calculation → forecasts → markers", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
-    
+
     render(<InteractiveMap />);
-    
+
     // Wait for complete flow
-    await waitFor(() => {
-      expect(apiCalls.length).toBeGreaterThan(0);
-      expect(mockCalculateDistance.mock.calls.length).toBeGreaterThan(0);
-      expect(mockCurrentForecast.mock.calls.length).toBeGreaterThan(0);
-    }, { timeout: 4000 });
-    
+    await waitFor(
+      () => {
+        expect(apiCalls.length).toBeGreaterThan(0);
+        expect(mockCalculateDistance.mock.calls.length).toBeGreaterThan(0);
+        expect(mockCurrentForecast.mock.calls.length).toBeGreaterThan(0);
+      },
+      { timeout: 4000 }
+    );
+
     // Verify we had both types of API calls
-    const beachCalls = apiCalls.filter(call => call.includes("/api/beaches"));
-    const forecastCalls = apiCalls.filter(call => call.includes("/api/forecasts"));
-    
+    const beachCalls = apiCalls.filter((call) => call.includes("/api/beaches"));
+    const forecastCalls = apiCalls.filter((call) =>
+      call.includes("/api/forecasts")
+    );
+
     expect(beachCalls.length).toBeGreaterThan(0);
     expect(forecastCalls.length).toBeGreaterThan(0);
   });

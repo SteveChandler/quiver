@@ -276,9 +276,9 @@ describe("ForecastDisplayWithTransparency", () => {
       expect(
         screen.getByTestId("daily-transparency-breakdown")
       ).toBeInTheDocument();
-      expect(screen.getByText(/Jan 14:/)).toBeInTheDocument();
-      expect(screen.getByText(/High confidence/)).toBeInTheDocument();
       expect(screen.getByText(/Jan 15:/)).toBeInTheDocument();
+      expect(screen.getByText(/High confidence/)).toBeInTheDocument();
+      expect(screen.getByText(/Jan 16:/)).toBeInTheDocument();
       expect(screen.getByText(/Low confidence/)).toBeInTheDocument();
     });
   });

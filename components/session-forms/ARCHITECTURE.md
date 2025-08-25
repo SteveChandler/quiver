@@ -11,6 +11,8 @@ components/session-forms/
 ├── SessionForm.tsx               # Main container with business logic
 ├── SessionFormWrapper.tsx       # Auth wrapper and error boundaries
 ├── SessionFormHeader.tsx        # Mode-aware header component
+├── session-wizard.tsx           # 🆕 Phase 2 Wizard Component (Primary Interface)
+├── index.ts                     # 🆕 Component exports
 ├── ProgressIndicator.tsx        # Step progress visualization
 ├── FormNavigation.tsx           # Step navigation controls
 ├── DateTimeSection.tsx          # Date/time selection (dual mode)
@@ -81,7 +83,74 @@ const updateField = <K extends keyof SessionFormState>(
 
 ## 📊 **COMPONENT RESPONSIBILITIES**
 
-### **SessionForm** (Main Controller)
+### **SessionWizard** (🆕 Phase 2 Primary Interface)
+
+- **Purpose**: Modern wizard-style interface for session creation with enhanced UX
+- **Features**:
+  - Step-based navigation with visual progress
+  - Phase 2 motion animations throughout
+  - Auto-save functionality with visual feedback
+  - Form validation with animated error states
+  - Celebration animations on completion
+  - Mobile-optimized touch interactions
+  - Accessibility features (keyboard navigation, screen readers)
+
+**Key Architecture Patterns:**
+
+```typescript
+// Wizard step configuration
+interface WizardStep {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  component: React.ComponentType<WizardStepProps>;
+  validateStep?: (formState: SessionFormState) => string | null;
+}
+
+// Auto-save with animation feedback
+const useAutoSave = (formState: SessionFormState, delay: number = 2000) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  // Implements PHASE2_ANIMATIONS.sessionWizard.autoSave
+};
+```
+
+**Phase 2 Motion Integration:**
+
+```typescript
+// Step transitions with spring animation
+variants={PHASE2_ANIMATIONS.sessionWizard.stepTransition}
+initial="initial"
+animate="animate"
+exit="exit"
+
+// Progress bar with scale animation
+variants={PHASE2_ANIMATIONS.sessionWizard.progressBar}
+style={{ width: `${((currentStepIndex + 1) / steps.length) * 100}%` }}
+
+// Field focus states with scale and border color
+variants={PHASE2_ANIMATIONS.sessionWizard.fieldFocus}
+animate={isCurrent ? "focus" : "initial"}
+
+// Form validation with shake and color changes
+variants={PHASE2_ANIMATIONS.formValidation.error}
+```
+
+**Wizard Flow:**
+1. **DateTime Step**: Date/time selection with validation
+2. **Location Step**: Beach selection with search
+3. **Equipment Step**: Board selection with creation
+4. **Goals/Conditions Step**: Mode-specific content (planning vs logging)
+5. **Photos Step**: Media upload (logging mode only)
+
+**Success Metrics:**
+- Reduced form abandonment through step-by-step guidance
+- Enhanced user engagement with motion animations
+- Improved completion rates with auto-save functionality
+- Better mobile experience with touch-optimized interface
+
+### **SessionForm** (Legacy Main Controller)
 
 - **Purpose**: Orchestrates the entire session form experience
 - **Features**:
@@ -482,8 +551,43 @@ const handleSubmit = async (e: React.FormEvent) => {
 - Offline capability
 - Progressive web app features
 
+## 🚀 **PHASE 2 MIGRATION STRATEGY**
+
+### **Component Relationship**
+
+The **SessionWizard** component represents the modern Phase 2 interface that builds on the solid foundation of the existing **SessionForm** architecture:
+
+- **SessionWizard**: New primary interface with enhanced UX and Phase 2 motion
+- **SessionForm**: Legacy interface maintained for backward compatibility
+- **Shared Step Components**: Both interfaces use the same underlying step components
+- **Common State Management**: Both use `useSessionForm` hook for consistency
+
+### **Migration Path**
+
+```typescript
+// Phase 2: Introduce wizard as alternative interface
+import { SessionWizard } from "@/components/session-forms";
+
+// Gradual rollout with feature flag
+const useWizardInterface = user?.preferences?.useWizard ?? true;
+
+return useWizardInterface ? (
+  <SessionWizard initialMode={mode} />
+) : (
+  <SessionForm initialMode={mode} />
+);
+```
+
+### **Benefits of Dual Architecture**
+
+1. **Risk Mitigation**: Maintain proven SessionForm while introducing new features
+2. **A/B Testing**: Compare user engagement between interfaces
+3. **Gradual Migration**: Users can opt into new experience
+4. **Feature Parity**: Both interfaces provide identical functionality
+5. **Shared Components**: Minimize code duplication through reusable step components
+
 ---
 
 **Last Updated**: January 2025  
-**Status**: Production-ready with comprehensive session management  
-**Next Review**: After voice notes implementation
+**Status**: Production-ready with Phase 2 wizard interface and comprehensive session management  
+**Next Review**: After wizard A/B testing results and user feedback analysis
