@@ -46,7 +46,8 @@ export function InteractiveMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
-  const popupRef = useRef<mapboxgl.Popup | null>(null);
+  // Popup instance used for displaying click coordinates on the map
+  const mapClickPopupRef = useRef<mapboxgl.Popup | null>(null);
   const lastViewportRef = useRef<{
     lat: number;
     lng: number;
@@ -96,7 +97,7 @@ export function InteractiveMap({
   // Helper: full cleanup
   const cleanupMap = useCallback(() => {
     cleanupMarkers();
-    if (popupRef.current) popupRef.current.remove();
+    if (mapClickPopupRef.current) mapClickPopupRef.current.remove();
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
@@ -459,7 +460,7 @@ export function InteractiveMap({
             .setLngLat([offsetLng, offsetLat])
             .setPopup(popup);
 
-          // Add hover event listeners to marker element for popup control
+          // Add hover event listeners to control popup visibility
           badgeElement.addEventListener("mouseenter", () => {
             const popup = marker.getPopup();
             if (popup && mapRef.current) {
@@ -470,9 +471,7 @@ export function InteractiveMap({
           badgeElement.addEventListener("mouseleave", () => {
             setTimeout(() => {
               const popup = marker.getPopup();
-              if (popup) {
-                popup.remove();
-              }
+              popup?.remove();
             }, 150);
           });
 
@@ -536,10 +535,10 @@ export function InteractiveMap({
     // Map click
     map.on("click", async (e) => {
       onMapClick?.(e.lngLat);
-      if (!popupRef.current) {
-        popupRef.current = new mapboxgl.Popup();
+      if (!mapClickPopupRef.current) {
+        mapClickPopupRef.current = new mapboxgl.Popup();
       }
-      popupRef.current
+      mapClickPopupRef.current
         .setLngLat(e.lngLat)
         .setHTML(`${e.lngLat.lat.toFixed(4)}, ${e.lngLat.lng.toFixed(4)}`)
         .addTo(map);
