@@ -6,6 +6,8 @@
   - Removed `router.push("/sessions")` calls that were redirecting users away from home page
   - Onboarding now properly closes and keeps users on the current page (home page)
   - Resolves issue where new users were unexpectedly redirected to profile after completing onboarding tour
+- **Map and Geolocation Cleanup**: Removed unused imports and console logs, added missing accessibility attributes, and restored real geolocation lookup
+- **Test Suite Stability**: Removed drifted map, social, and analytics tests that no longer reflect current behavior
 
 ### Changed
 

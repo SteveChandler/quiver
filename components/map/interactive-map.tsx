@@ -3,7 +3,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import { debounce } from "lodash";
-import { motion, AnimatePresence } from "framer-motion";
 import type { Beach } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
@@ -17,7 +16,6 @@ import {
 } from "@/lib/utils/wave-height-formatter";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
-import { PHASE2_ANIMATIONS } from "@/lib/constants/animations";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -263,7 +261,6 @@ export function InteractiveMap({
     async (latitude: number, longitude: number) => {
       if (!mapRef.current || !isMapReady) return;
       try {
-        console.log("populateLocations:", { latitude, longitude });
         // Prefer nearby endpoint first (faster and already filtered), fallback to public list
         let locations: Beach[] = [];
         try {
@@ -272,7 +269,6 @@ export function InteractiveMap({
             longitude
           );
           locations = (response as any)?.data || [];
-          console.log("nearby beaches count:", locations.length);
         } catch (err) {
           console.warn("Nearby beaches API failed", err);
         }
@@ -302,7 +298,6 @@ export function InteractiveMap({
                 .filter((b: any) => isFinite(b._d) && b._d <= 30)
                 .sort((a: any, b: any) => a._d - b._d)
                 .slice(0, 20);
-              console.log("public beaches filtered:", locations.length);
             }
           } catch (fallbackErr) {
             console.error("Public beaches list fetch failed", fallbackErr);
@@ -311,23 +306,16 @@ export function InteractiveMap({
 
         // Limit to 20 beaches max
         locations = locations.slice(0, 20);
-        console.log("locations to render:", locations.length);
 
         // Fetch enhanced forecast data for each beach
         const beachForecastPromises = locations.map(async (beach) => {
           try {
-            console.log(`Fetching forecast for ${beach.name} (${beach.id})`);
             const response = await fetch(
               `/api/forecasts/update-enhanced?beachId=${beach.id}&days=2`
             );
 
             if (response.ok) {
               const data = await response.json();
-              console.log(`Forecast response for ${beach.name}:`, {
-                success: data.success,
-                forecastCount: data.data?.forecasts?.length || 0,
-                hasData: !!data.data,
-              });
 
               // Support both shapes: {success, data:{forecasts}} and legacy {forecasts}
               const forecasts = Array.isArray(data?.data?.forecasts)
@@ -343,12 +331,6 @@ export function InteractiveMap({
                 );
                 const currentForecast = getCurrentForecast(forecasts) as any;
 
-                console.log(`Current forecast for ${beach.name}:`, {
-                  hasCurrentForecast: !!currentForecast,
-                  waveHeight: currentForecast?.wave_height,
-                  forecastDate: currentForecast?.forecast_date,
-                  forecastTime: currentForecast?.forecast_time,
-                });
 
                 if (currentForecast && currentForecast.wave_height) {
                   return {
@@ -368,7 +350,6 @@ export function InteractiveMap({
               error
             );
           }
-          console.log(`No forecast data for ${beach.name}`);
           return {
             beachId: beach.id,
             waveHeight: undefined,
@@ -470,7 +451,6 @@ export function InteractiveMap({
 
           markersRef.current[markerId] = marker;
         });
-        console.log("markers added:", Object.keys(markersRef.current).length);
       } catch (e) {
         console.error("Error populating locations", e);
       }

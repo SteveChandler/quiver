@@ -103,7 +103,8 @@ export function MapSearchHeader({
           
           {/* Search Results Dropdown */}
           {showResults && searchResults.length > 0 && (
-            <motion.div
+            <motion.ul
+              role="listbox"
               className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-50"
               variants={searchResultsMotion}
               initial="initial"
@@ -111,23 +112,27 @@ export function MapSearchHeader({
               exit="initial"
             >
               {searchResults.map((result, index) => (
-                <motion.div
+                <motion.li
                   key={result.id}
-                  className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                  data-testid="search-result-item"
+                  role="option"
+                  className="border-b border-gray-100 last:border-b-0"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1, duration: 0.2 }}
-                  whileHover={{ backgroundColor: "#f9fafb", x: 4 }}
-                  onClick={() => handleLocationSelect(result)}
                 >
-                  <div className="font-medium text-gray-900">{result.name}</div>
-                  {result.location && (
-                    <div className="text-sm text-gray-500">{result.location}</div>
-                  )}
-                </motion.div>
+                  <button
+                    type="button"
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50"
+                    onClick={() => handleLocationSelect(result)}
+                  >
+                    <div className="font-medium text-gray-900">{result.name}</div>
+                    {result.location && (
+                      <div className="text-sm text-gray-500">{result.location}</div>
+                    )}
+                  </button>
+                </motion.li>
               ))}
-            </motion.div>
+            </motion.ul>
           )}
           
           {searchQuery && (
@@ -164,10 +169,11 @@ export function MapSearchHeader({
 
       {/* View Mode Toggle with Motion */}
       <div className="flex mt-3 bg-muted rounded-lg p-1">
-        <motion.div 
+        <motion.div
           className="flex-1"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          tabIndex={-1}
         >
           <Button
             variant={viewMode === "map" ? "default" : "ghost"}
@@ -179,10 +185,11 @@ export function MapSearchHeader({
             Map
           </Button>
         </motion.div>
-        <motion.div 
+        <motion.div
           className="flex-1"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          tabIndex={-1}
         >
           <Button
             variant={viewMode === "list" ? "default" : "ghost"}

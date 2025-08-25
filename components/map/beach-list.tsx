@@ -12,7 +12,6 @@ import {
   isLikelyOutOfAreaSearch,
 } from "@/lib/constants/coverage-areas";
 import { Info } from "lucide-react";
-import { PHASE2_ANIMATIONS } from "@/lib/constants/animations";
 import type { Beach } from "@/types/database";
 
 interface BeachListProps {
@@ -97,6 +96,7 @@ export function BeachList({
             <input
               type="text"
               placeholder="Filter beaches..."
+              aria-label="Filter beaches"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={filterValue}
               onChange={(e) => handleFilter(e.target.value)}
@@ -108,6 +108,7 @@ export function BeachList({
                 onClick={() => handleFilter("")}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
+                aria-label="Clear filter"
               >
                 ×
               </motion.button>

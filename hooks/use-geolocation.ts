@@ -12,12 +12,11 @@ interface GeolocationState {
 }
 
 export function useGeolocation() {
-  // Start with default location immediately to avoid loading state
   const [state, setState] = useState<GeolocationState>({
-    userLocation: { lat: OCEAN_BEACH_LAT, lng: OCEAN_BEACH_LNG },
+    userLocation: null,
     locationError: null,
-    usingDefaultLocation: true,
-    loading: false,
+    usingDefaultLocation: false,
+    loading: true,
   });
 
   const useDefaultLocation = useCallback(() => {
@@ -89,22 +88,9 @@ export function useGeolocation() {
     });
   }, [useDefaultLocation]);
 
-  // Get location on mount - force default location immediately in development
   useEffect(() => {
-    console.log("🗺️ Geolocation hook starting...");
-    
-    // Force default location immediately for all environments
-    console.log("🗺️ Using default Ocean Beach location immediately");
-    
-    // Call useDefaultLocation directly
-    setState((prev) => ({
-      ...prev,
-      usingDefaultLocation: true,
-      userLocation: { lat: OCEAN_BEACH_LAT, lng: OCEAN_BEACH_LNG },
-      locationError: null,
-      loading: false,
-    }));
-  }, []); // Empty dependency array to run only once
+    getUserLocation();
+  }, [getUserLocation]);
 
   return {
     ...state,

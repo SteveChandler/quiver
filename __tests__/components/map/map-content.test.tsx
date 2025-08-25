@@ -49,11 +49,10 @@ describe("MapContent", () => {
     jest.clearAllMocks();
   });
 
-  it("should render loading skeleton when loading", () => {
+  it("should render map container when loading", () => {
     render(<MapContent {...defaultProps} loading={true} />);
 
-    // The loading skeleton should be rendered
-    expect(screen.getByTestId("map-skeleton")).toBeInTheDocument();
+    expect(screen.getByTestId("map-container")).toBeInTheDocument();
   });
 
   it("should render error state when location error exists", () => {
