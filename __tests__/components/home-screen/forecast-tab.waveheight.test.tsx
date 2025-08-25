@@ -9,6 +9,11 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
+// Mock the forecast actions
+jest.mock("@/actions/forecast-actions", () => ({
+  getForecastForToday: jest.fn(),
+}));
+
 // Stub out BeachIntelSection to avoid invoking intel data hooks
 jest.mock("@/components/intel/beach-intel-section", () => ({
   BeachIntelSection: () => <div data-testid="beach-intel-section" />,
@@ -25,6 +30,9 @@ jest.mock("@/components/ui/tooltip", () => ({
 jest.mock("@/hooks/use-data-fetcher", () => ({
   useDataFetcher: jest.fn(),
 }));
+
+// Mock getForecastForToday
+const { getForecastForToday } = jest.requireMock("@/actions/forecast-actions");
 
 jest.mock("@/hooks/use-forecast-calibration", () => ({
   useForecastCalibration: () => ({
@@ -50,8 +58,15 @@ const mockProfile: Profile = {
   avatar_url: null,
   location: "San Diego, CA",
   bio: null,
-  instagram_handle: null,
+  instagram: null,
   favorite_spot: "beach-1",
+  experience_level: null,
+  phone_number: null,
+  default_beach_id: null,
+  notification_session_reminders: false,
+  notification_community_replies: false,
+  followers_count: 0,
+  following_count: 0,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
 };
@@ -59,14 +74,10 @@ const mockProfile: Profile = {
 const mockDefaultBeach: Beach = {
   id: "beach-1",
   name: "Test Beach",
-  city: "San Diego",
-  state: "CA",
-  country: "USA",
+  location_text: "San Diego, CA",
   latitude: 32.7157,
   longitude: -117.1611,
   description: "A test beach",
-  amenities: [],
-  hazards: [],
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
 };
@@ -74,9 +85,29 @@ const mockDefaultBeach: Beach = {
 describe("ForecastTab wave height normalization", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Mock getForecastForToday to return success
+    (getForecastForToday as jest.Mock).mockResolvedValue({
+      success: true,
+      data: null, // Will be overridden in individual tests
+    });
   });
 
   it("renders calibrated face height with explanatory tooltip content", async () => {
+    // Mock the forecast action to return the test data
+    (getForecastForToday as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {
+        wave_height: "4.2 ft",
+        wind_speed: "5 mph",
+        water_temp: "68°F",
+        confidence_score: 90,
+        beach_id: mockDefaultBeach.id,
+        forecast_date: "2025-08-14",
+        forecast_time: "09:00",
+      },
+    });
+
     (useDataFetcher as jest.Mock).mockReturnValue({
       data: {
         wave_height: "4.2 ft",
@@ -96,8 +127,8 @@ describe("ForecastTab wave height normalization", () => {
       <ForecastTab profile={mockProfile} defaultBeach={mockDefaultBeach} />
     );
 
-    // The value should render
-    const value = await screen.findByText("4.2 ft");
+    // The value should render (component processes "4.2 ft" to show "4.2" with "ft" as unit)
+    const value = await screen.findByText("4.2");
     expect(value).toBeInTheDocument();
 
     // Tooltip content is rendered by mocked Tooltip implementation
@@ -105,6 +136,20 @@ describe("ForecastTab wave height normalization", () => {
   });
 
   it("shows placeholder when wave height is missing", async () => {
+    // Mock the forecast action to return the test data
+    (getForecastForToday as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {
+        wave_height: null,
+        wind_speed: "5 mph",
+        water_temp: "68°F",
+        confidence_score: 50,
+        beach_id: mockDefaultBeach.id,
+        forecast_date: "2025-08-14",
+        forecast_time: "09:00",
+      },
+    });
+
     (useDataFetcher as jest.Mock).mockReturnValue({
       data: {
         wave_height: null,
@@ -124,6 +169,6 @@ describe("ForecastTab wave height normalization", () => {
       <ForecastTab profile={mockProfile} defaultBeach={mockDefaultBeach} />
     );
 
-    expect(await screen.findByText("--")).toBeInTheDocument();
+    expect(await screen.findByText("—")).toBeInTheDocument();
   });
 });

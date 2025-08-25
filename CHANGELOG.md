@@ -1,5 +1,20 @@
 ## [Unreleased]
 
+### Fixed
+
+- **Onboarding Navigation**: Fixed onboarding flow incorrectly navigating users to profile page instead of staying on home page
+  - Removed `router.push("/sessions")` calls that were redirecting users away from home page
+  - Onboarding now properly closes and keeps users on the current page (home page)
+  - Resolves issue where new users were unexpectedly redirected to profile after completing onboarding tour
+
+### Changed
+
+- **Test Infrastructure**: Enhanced forecast tab test mocks and data setup
+  - Added proper mocking for `getForecastForToday` action in forecast tab tests
+  - Updated test data to match actual component data flow patterns
+  - Improved test reliability by mocking forecast actions instead of just hooks
+  - Note: Some forecast tab tests still require additional investigation for full resolution
+
 ### Added
 
 - **Phase 2 Map Interactions Motion**: Complete implementation of enhanced beach discovery motion system

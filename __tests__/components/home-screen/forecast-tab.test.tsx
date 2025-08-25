@@ -7,6 +7,12 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import * as useIntelDataModule from "@/hooks/use-intel-data";
 import type { Profile, Beach, Forecast } from "@/types/database";
+import { getForecastForToday } from "@/actions/forecast-actions";
+
+// Mock the forecast actions
+jest.mock("@/actions/forecast-actions", () => ({
+  getForecastForToday: jest.fn(),
+}));
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(() => ({ push: jest.fn() })),
@@ -84,10 +90,18 @@ describe("ForecastTab", () => {
       push: mockPush,
     });
 
+    // Mock getForecastForToday to return the mock forecast data
+    (getForecastForToday as jest.Mock).mockResolvedValue({
+      success: true,
+      data: mockForecast,
+    });
+
+    // Mock useDataFetcher to return our test data
     (useDataFetcher as jest.Mock).mockReturnValue({
       data: mockForecast,
       loading: false,
       error: null,
+      refetch: jest.fn(),
     });
 
     // Provide minimal intel hook shape to avoid runtime errors in BeachIntelSection
@@ -100,7 +114,7 @@ describe("ForecastTab", () => {
       updateFilters: jest.fn(),
     });
 
-    (useForecastCalibration as jest.Mock).mockReturnValue({
+    (useForecastCalibration as jest.Mock).mockImplementation(() => ({
       beachAccuracy: mockBeachAccuracy,
       getConfidenceLevel: jest.fn((score) => {
         if (!score)
@@ -129,7 +143,7 @@ describe("ForecastTab", () => {
         last30Days: 8,
         last7Days: 3,
       },
-    });
+    }));
   });
 
   it("renders forecast tab with beach and forecast data", () => {
@@ -142,7 +156,7 @@ describe("ForecastTab", () => {
       screen.getByText("Community-calibrated forecast (more accurate)")
     ).toBeInTheDocument();
     // Wave height is normalized in KPI; ensure presence of the value fragment
-    expect(screen.getByText(/4\.?0|4-6/)).toBeInTheDocument();
+    expect(screen.getByText(/4\.?0/)).toBeInTheDocument();
   });
 
   it("toggles adjusted forecast view", async () => {
