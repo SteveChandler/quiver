@@ -263,7 +263,7 @@ export function IntelMap({
         lng: post.longitude.toString(),
         location: `${post.title} (Intel)`,
       });
-      router.push(`/plan-session?${searchParams.toString()}`);
+      router.push(`/sessions/new?mode=plan&${searchParams.toString()}`);
     },
     [router]
   );

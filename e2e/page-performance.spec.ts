@@ -60,7 +60,7 @@ test.describe("Page Performance", () => {
 
     const startTime = Date.now();
 
-    await page.goto("/log-session", { waitUntil: "networkidle" });
+    await page.goto("/sessions/new?mode=log", { waitUntil: "networkidle" });
 
     const loadTime = Date.now() - startTime;
     expect(loadTime).toBeLessThan(PERFORMANCE_THRESHOLDS.loadTime);
@@ -130,7 +130,7 @@ test.describe("Page Performance", () => {
   test("should handle rapid navigation without performance degradation", async ({
     page,
   }) => {
-    const pages = ["/", "/map", "/profile", "/log-session"];
+    const pages = ["/", "/map", "/profile", "/sessions/new?mode=log"];
     const navigationTimes: number[] = [];
 
     for (const pagePath of pages) {

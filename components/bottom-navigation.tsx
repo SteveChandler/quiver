@@ -13,7 +13,7 @@ export function BottomNavigation() {
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Hide navigation on session wizard pages to prevent interference with wizard footer
-  const isSessionWizard = pathname === '/sessions/new' || pathname === '/log-session' || pathname === '/plan-session';
+  const isSessionWizard = pathname === '/sessions/new';
   if (isSessionWizard) {
     return null;
   }

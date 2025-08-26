@@ -12,7 +12,7 @@ test.describe("Session Logging and Sharing Flow", () => {
   test.describe("Complete Flow: Log Session → Share", () => {
     test("should log a session and then share it successfully", async ({ page }) => {
       // Step 1: Navigate to log session page
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await waitForPageLoad(page);
 
       // Handle potential authentication redirect
@@ -210,7 +210,7 @@ test.describe("Session Logging and Sharing Flow", () => {
         const currentUrl = page.url();
         const isProfilePage = currentUrl.includes("/profile");
         const isSessionDetailPage = currentUrl.includes("/sessions/");
-        const isLogSessionPage = currentUrl.includes("/log-session");
+        const isLogSessionPage = currentUrl.includes("/sessions/new?mode=log");
         
         expect(hasSuccessToast || isProfilePage || isSessionDetailPage || isLogSessionPage).toBeTruthy();
         console.log("Session submission completed, current URL:", currentUrl);
@@ -457,7 +457,7 @@ test.describe("Session Logging and Sharing Flow", () => {
 
     test("should handle share modal accessibility features", async ({ page }) => {
       // Create a quick session first or use existing one
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await waitForPageLoad(page);
 
       await handleAuthRedirect(page);

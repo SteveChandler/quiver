@@ -403,23 +403,6 @@ export function ForecastTab({
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              <Button
-                onClick={() => router.push("/plan-session")}
-                className="flex-1 bg-ocean-blue hover:bg-ocean-blue/90"
-              >
-                Plan Session
-              </Button>
-              <Button
-                onClick={() => router.push("/log-session")}
-                variant="outline"
-                className="flex-1"
-              >
-                Log Session
-              </Button>
-            </div>
-
             {/* Local Intel for this beach */}
             <div className="mt-4">
               <BeachIntelSection
@@ -448,6 +431,7 @@ export function ForecastTab({
           </CardContent>
         </Card>
       )}
+
     </div>
   );
 }

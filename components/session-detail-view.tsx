@@ -147,7 +147,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
   const handleMarkAsCompleted = () => {
     if (session) {
       // Route to log-session page with prefill parameter
-      router.push(`/log-session?convert=${session.id}`);
+      router.push(`/sessions/new?mode=log&convert=${session.id}`);
     }
   };
 
@@ -238,7 +238,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             )}
 
             <Button size="icon" variant="ghost" asChild>
-              <Link href={`/log-session?edit=${session.id}`}>
+              <Link href={`/sessions/new?mode=log&edit=${session.id}`}>
                 <Edit className="h-5 w-5" />
               </Link>
             </Button>

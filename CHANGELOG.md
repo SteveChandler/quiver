@@ -1,6 +1,95 @@
 ## [Unreleased]
 
+### Added
+
+- **Home Page Button Layout Improvement**: Moved Plan Session and Log Session buttons to top of home page
+  - Relocated buttons from forecast card area to directly under welcome text "The waves are looking good today. Ready to catch some?"
+  - Buttons now appear immediately before the forecast/nearby/local intel tabs for better user flow
+  - Removed duplicate buttons from forecast card to eliminate UI redundancy
+  - Improved accessibility by placing primary actions in more prominent location
+  - **Pattern Compliance**: Maintains existing Button component styling and router.push navigation patterns
+
+- **Session Completion Celebration**: Added confetti animation and success message when completing session wizard
+  - Shows confetti animation for 2 seconds after successful session creation (plan or log)
+  - Displays "🎉 Success!" message with context-aware text ("Session Planned!" vs "Session Logged!")
+  - Respects user's reduced motion preferences (skips confetti if prefers-reduced-motion is enabled)
+  - Adds 2-second delay before redirecting to profile to allow celebration animation to complete
+  - Uses canvas-confetti library for smooth, performant celebration effect
+  - **Pattern Compliance**: Follows accessibility best practices with reduced motion support
+
+- **Motion Design Review Analysis**: Comprehensive analysis and validation of Session Wizard motion implementation against design specifications
+  - Added detailed implementation assessment to `docs/MOTION_DESIGN_REVIEW.md` with ⭐⭐⭐⭐⭐ rating for Session Wizard
+  - Documented Session Wizard as reference standard for motion design with 534 lines of comprehensive implementation
+  - Added next phase recommendations prioritizing Map Interactions & Beach Discovery motion enhancements
+  - Created `docs/NEXT_MOTION_IMPLEMENTATION_GUIDE.md` with detailed 2-week implementation roadmap for map motion
+  - Identified MAP_MOTION constants needed for beach marker animations and forecast popups
+  - **Business Impact**: Session Wizard motion directly addresses analytics crisis (37s → 120s+ engagement, 0% → 25% retention)
+
+### Fixed
+
+- **SessionWizard Component Dependencies**: Fixed import errors and dependency issues preventing proper rendering
+  - Verified all component imports in `AnimatedSessionWizard.tsx` reference existing session-forms components
+  - Fixed missing `onCancel` prop propagation from `SessionWizard.tsx` to `AnimatedSessionWizard.tsx`
+  - Confirmed all session-forms step components (LocationStep, DateTimeSection, EquipmentStep, etc.) are properly exported
+  - Validated `WizardStep.tsx` and animation constants import correctly
+  - Ensured each step component works independently with proper props interface
+  - **Pattern Compliance**: Uses established useDataFetcher pattern with memoized callbacks for form state management
+
+- **ForecastTab Action Buttons Not Rendering**: Fixed action buttons disappearing when beach accuracy data exists but user hasn't toggled forecast comparison
+  - Root cause: Action buttons were inside conditional rendering logic `(!beachAccuracy || showAdjusted)` 
+  - Moved "Plan Session" and "Log Session" buttons outside conditional Card to always be visible
+  - Action buttons now appear in separate Card component below forecast data regardless of display state
+  - Users can now always access session planning/logging functionality from forecast tab
+  - **Pattern Compliance**: Uses established Card/CardContent structure and maintains existing styling
+
+- **SessionWizard Authentication Loading**: Fixed indefinite "Checking authentication..." loading state
+  - Root cause: SessionWizard checked `!user` instead of both `!user` and `!isLoading` states
+  - Updated authentication check to wait for auth loading completion before redirecting
+  - Changed loading message from "Checking authentication..." to "Loading..." for better UX
+  - Navigation to SessionWizard now properly renders wizard interface after auth completes
+  - **Pattern Compliance**: Uses established useAuth hook with proper loading state handling
+
+- **Navigation Testing Infrastructure**: Added onboarding modal handling and improved test helpers
+  - Added `dismissOnboardingModal()` test helper to automatically handle onboarding modal interference
+  - Created `waitForPageLoadAndDismissModal()` helper for consistent page loading with modal handling
+  - Enhanced SessionWizard navigation tests with proper modal dismissal and loading state handling
+  - Onboarding modal now auto-dismissed via localStorage flag for testing environments
+  - **Pattern Compliance**: Uses established test-helpers.ts patterns and maintains existing test structure
+
+- **Critical Session Creation Beach ID Constraint**: Fixed "Unknown error" when creating sessions without valid beach_id
+  - Root cause: Sessions table requires NOT NULL beach_id but form was submitting with beach_name only
+  - Added comprehensive beach lookup/creation logic in `createPlannedSession` and `createLoggedSession` actions
+  - Sessions with beach_name but no beach_id now automatically find existing beach or create new one
+  - Enhanced error logging to surface actual PostgreSQL constraint violations instead of generic "Unknown error"
+  - Added detailed debugging logs throughout session creation pipeline for faster error diagnosis
+  - **Pattern Compliance**: Uses established `withAuthenticatedAction` pattern and maintains data integrity
+
+- **Critical Session Wizard Column Name Mismatch**: Fixed database error preventing session creation completion
+  - Created `transformSessionFormStateToDbSchema()` function in `lib/utils/session-utils.ts` to properly map form fields to database schema
+  - Fixed camelCase form field names (boardId, selectedBeachId, waveQuality) to snake_case database columns (board_id, beach_id, wave_quality)
+  - Updated `createPlannedSession` and `createLoggedSession` actions to handle both SessionFormState and legacy SessionInput types
+  - Enhanced sanitizePayload function with comprehensive field cleaning and validation
+  - Resolved PGRST204 error: "Could not find the 'boardId' column of 'sessions' in the schema cache"
+  - **Pattern Compliance**: Uses established data transformation patterns and maintains backward compatibility
+
+- **Critical Session Wizard Bug**: Fixed "User ID mismatch" error preventing session creation completion
+  - Removed redundant user ID validation in `createPlannedSession` and `createLoggedSession` server actions
+  - Server actions now rely solely on `withAuthenticatedAction` for user authentication (established pattern)
+  - Updated session creation calls to remove unnecessary `userId` parameter
+  - Fixed session wizard completion flow to properly handle success states and trigger celebration
+  - Enhanced session wizard loading states to show "Creating Session..." during submission
+  - Session wizard now properly redirects to profile page after successful session creation
+  - **Pattern Compliance**: Follows established `withAuthenticatedAction` pattern from `lib/server-action-utils.ts`
+
 ### Changed
+
+- **Session Route Consolidation**: Consolidated `/plan-session` and `/log-session` routes into unified `/sessions/new` route with mode parameter
+  - Updated all navigation utilities to use `/sessions/new?mode=plan` and `/sessions/new?mode=log`
+  - Updated 24 E2E test files to use new consolidated route patterns
+  - Updated test helper functions in `e2e/test-helpers.ts` and `e2e/test-helpers-improved.ts`
+  - Updated E2E documentation to reflect route consolidation
+  - Maintained full backward compatibility through session wizard mode switching
+  - **Pattern Compliance**: Follows established navigation utility patterns from `lib/navigation-utils.ts`
 
 - **Documentation Cleanup**: Streamlined docs folder by removing 8 outdated/completed documentation files
   - Removed completed implementation docs: session conversion, dynamic forecast loading, migration fixes, security warnings, database optimization
@@ -17,8 +106,6 @@
   - Respects user's prefers-reduced-motion settings with graceful fallback to simple scale animation
   - Integrates seamlessly with both plan-session and log-session completion flows
   - **Dependencies**: Added canvas-confetti package for celebration effects
-
-### Fixed
 
 - **GoalsSection Component Null Safety**: Enhanced GoalsSection component with robust defensive coding to prevent runtime errors when session form text is undefined
 

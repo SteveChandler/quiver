@@ -37,7 +37,7 @@ export function RecentSessionsList({
             <Button
               variant="outline"
               className="mt-2"
-              onClick={() => router.push("/log-session")}
+              onClick={() => router.push("/sessions/new?mode=log")}
             >
               Log Your First Session
             </Button>

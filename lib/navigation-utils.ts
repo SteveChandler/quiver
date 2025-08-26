@@ -103,12 +103,12 @@ export const appNavigation = {
   /**
    * Navigate to log session page
    */
-  toLogSession: (): string => "/log-session",
+  toLogSession: (): string => "/sessions/new?mode=log",
 
   /**
    * Navigate to plan session page
    */
-  toPlanSession: (): string => "/plan-session",
+  toPlanSession: (): string => "/sessions/new?mode=plan",
 
   /**
    * Navigate to map page

@@ -48,7 +48,7 @@ This directory contains comprehensive end-to-end tests for the Quiver surf appli
 
 #### React Infinite Loop Detection
 
-- Tests all critical pages (`/plan-session`, `/log-session`, `/profile`, `/`, `/map`) for infinite render loops
+- Tests all critical pages (`/sessions/new?mode=plan`, `/sessions/new?mode=log`, `/profile`, `/`, `/map`) for infinite render loops
 - Detects "Maximum update depth exceeded" errors
 - Catches "Too many re-renders" issues
 - Identifies hook dependency problems
@@ -204,8 +204,8 @@ npx playwright test --debug error-detection
 All major user flows are tested for stability:
 
 - Home page (`/`)
-- Plan Session (`/plan-session`) 🎯 **Previously broken**
-- Log Session (`/log-session`)
+- Plan Session (`/sessions/new?mode=plan`) 🎯 **Route consolidated**
+- Log Session (`/sessions/new?mode=log`)
 - Profile (`/profile`)
 - Map/Beach Discovery (`/map`)
 

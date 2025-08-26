@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { SessionWizard } from "@/components/session/wizard/SessionWizard";
@@ -17,6 +17,7 @@ export default function NewSessionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Get mode from URL params (default to 'plan')
   const mode = (searchParams.get("mode") as SessionFormMode) || "plan";
@@ -134,8 +135,35 @@ export default function NewSessionPage() {
         toast.success("Session logged successfully!");
       }
 
-      // Redirect to profile after successful creation
-      router.push("/profile");
+      // Show celebration with enhanced logging
+      console.log(`🎉 Session ${mode} completed successfully! Showing celebration...`);
+      setShowCelebration(true);
+      
+      // Trigger celebration with confetti
+      if (typeof window !== 'undefined') {
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        console.log(`Reduced motion preference: ${reduce}`);
+        if (!reduce) {
+          import('canvas-confetti').then(({ default: confetti }) => {
+            console.log('🎊 Launching confetti animation!');
+            confetti({
+              particleCount: 140,
+              spread: 70,
+              origin: { y: 0.6 }
+            });
+          }).catch((error) => {
+            console.error('Failed to load confetti:', error);
+          });
+        } else {
+          console.log('Confetti skipped due to reduced motion preference');
+        }
+      }
+
+      // Redirect to profile after extended celebration (5 seconds for better visibility)
+      setTimeout(() => {
+        console.log('🎉 Celebration complete, redirecting to profile...');
+        router.push("/profile");
+      }, 5000);
     } catch (error) {
       console.error("Error creating session:", error);
 
@@ -257,13 +285,30 @@ export default function NewSessionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
       <SessionWizard
         mode={mode}
         onComplete={handleSessionComplete}
         onCancel={handleCancel}
         className="min-h-screen"
       />
+      
+      {/* Celebration overlay with enhanced visibility */}
+      {showCelebration && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none bg-black/10">
+          <div className="text-center animate-in fade-in zoom-in duration-500 bg-white/95 backdrop-blur-sm rounded-2xl p-8 border-4 border-green-500 shadow-2xl">
+            <h2 className="text-6xl font-bold text-green-600 mb-4">
+              🎉 Success!
+            </h2>
+            <p className="text-2xl text-gray-700 font-semibold">
+              {mode === "plan" ? "Session Planned!" : "Session Logged!"}
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              Redirecting in 5 seconds...
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

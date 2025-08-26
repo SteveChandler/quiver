@@ -20,33 +20,11 @@ export function WizardStep({
   className 
 }: WizardStepProps) {
   
-  // Check for reduced motion preference
-  const prefersReducedMotion = typeof window !== 'undefined' && 
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!isActive) return null;
   
-  // Use simplified animations for users who prefer reduced motion
-  const stepMotion = prefersReducedMotion ? {
-    initial: { opacity: 0 },
-    animate: { opacity: 1 },
-    exit: { opacity: 0 },
-    transition: { duration: 0.15 }
-  } : motion;
-
   return (
-    <AnimatePresence mode="wait">
-      {isActive && (
-        <motion.div
-          key={stepId}
-          initial={stepMotion.initial}
-          animate={stepMotion.animate}
-          exit={stepMotion.exit}
-          transition={stepMotion.transition}
-          className={className}
-          data-testid={`wizard-step-${stepId}`}
-        >
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div className={className} data-testid={`wizard-step-${stepId}`}>
+      {children}
+    </div>
   );
 }

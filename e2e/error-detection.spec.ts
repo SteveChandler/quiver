@@ -43,7 +43,7 @@ test.describe("Error Detection & Prevention", () => {
   });
 
   test.describe("React Infinite Loop Detection", () => {
-    const pages = ["/plan-session", "/log-session", "/profile", "/", "/map"];
+    const pages = ["/sessions/new?mode=plan", "/sessions/new?mode=log", "/profile", "/", "/map"];
 
     for (const pagePath of pages) {
       test(`should not have infinite loops on ${pagePath}`, async ({
@@ -78,7 +78,7 @@ test.describe("Error Detection & Prevention", () => {
     test("should handle session planner API failures gracefully", async ({
       page,
     }) => {
-      await page.goto("/plan-session");
+      await page.goto("/sessions/new?mode=plan");
       await page.waitForTimeout(2000);
 
       // Just check page didn't crash - no console noise
@@ -111,7 +111,7 @@ test.describe("Error Detection & Prevention", () => {
     test("should not accumulate memory leaks during navigation", async ({
       page,
     }) => {
-      const pages = ["/", "/map", "/profile", "/plan-session"];
+      const pages = ["/", "/map", "/profile", "/sessions/new?mode=plan"];
 
       for (const pagePath of pages) {
         await page.goto(pagePath);
@@ -137,7 +137,7 @@ test.describe("Error Detection & Prevention", () => {
 
   test.describe("Hook Dependency Issues", () => {
     test("should not have useEffect dependency warnings", async ({ page }) => {
-      await page.goto("/plan-session");
+      await page.goto("/sessions/new?mode=plan");
       await page.waitForTimeout(2000);
 
       // Check for infinite loop specifically
