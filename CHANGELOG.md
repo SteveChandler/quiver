@@ -1,7 +1,50 @@
 ## [Unreleased]
 
+### Changed
+
+- **Documentation Cleanup**: Streamlined docs folder by removing 8 outdated/completed documentation files
+  - Removed completed implementation docs: session conversion, dynamic forecast loading, migration fixes, security warnings, database optimization
+  - Removed outdated planning docs: forecast calibration analysis, global surf spots plan, user feedback analysis
+  - Maintained all essential architecture, design, and technical reference documentation
+  - Reduced docs folder from 17 to 9 files (47% reduction) while preserving all current development needs
+  - Documentation now focuses on current growth-first strategy and implemented features
+
+### Added
+
+- **Session Completion Celebration**: Enhanced session wizard completion with canvas-confetti celebration and automatic profile navigation
+  - Replaced CompletionCelebration component with canvas-confetti integration for visual celebration effects
+  - Added automatic navigation to user profile after celebration (2s delay for full effect, 600ms for reduced motion)
+  - Respects user's prefers-reduced-motion settings with graceful fallback to simple scale animation
+  - Integrates seamlessly with both plan-session and log-session completion flows
+  - **Dependencies**: Added canvas-confetti package for celebration effects
+
 ### Fixed
 
+- **GoalsSection Component Null Safety**: Enhanced GoalsSection component with robust defensive coding to prevent runtime errors when session form text is undefined
+
+  - Added comprehensive null/undefined checking for `getFormText()` return value
+  - Implemented fallback object with default text values to prevent crashes  
+  - Added optional chaining and fallback values in template rendering (`safeText?.goals || "Session Goals"`)
+  - Enhanced error boundary with console warning for debugging undefined states
+  - **Root Cause**: Component was vulnerable to crashes when session form constants returned undefined data
+  - **Impact**: Fixes "Cannot read properties of undefined (reading 'goals')" error that blocked session planning flow
+
+- **Playwright MCP Authentication**: Fixed MCP server authentication issues causing "Session not found" errors
+
+  - Updated MCP server startup to use `--storage-state .auth/user.json` for proper authentication
+  - MCP server now uses the same authentication state as regular Playwright tests
+  - Resolves navigation failures to protected routes like `/sessions/new`
+  - MCP server properly handles authentication redirects and can access authenticated pages
+  - **Root Cause**: MCP server was trying to navigate to authenticated routes without auth state
+  - **Solution**: Start MCP server with `--storage-state` flag pointing to existing auth state file
+
+- **Session Wizard Navigation Interference**: Fixed session wizard footer buttons being covered by bottom navigation
+  - Updated `components/bottom-navigation.tsx` to hide navigation on session wizard routes: `/sessions/new`, `/log-session`, and `/plan-session`
+  - Removed redundant BottomNavigation components from `/log-session` and `/plan-session` pages to prevent duplicate rendering
+  - Enhanced `components/session/wizard/SessionWizard.tsx` footer with higher z-index (z-20) and mobile-friendly spacing (pb-6)
+  - Ensures Next/Back buttons are clickable and not covered by bottom navigation overlay across all session creation flows
+  - Added comprehensive E2E test to verify bottom navigation is hidden and buttons are functional
+  - **Validation**: Code review confirms proper z-index hierarchy (bottom-nav z-10 < session-wizard-footer z-20) prevents UI blocking
 - **Onboarding Navigation**: Fixed onboarding flow incorrectly navigating users to profile page instead of staying on home page
   - Removed `router.push("/sessions")` calls that were redirecting users away from home page
   - Onboarding now properly closes and keeps users on the current page (home page)
@@ -18,6 +61,36 @@
   - Note: Some forecast tab tests still require additional investigation for full resolution
 
 ### Added
+
+- **🧙‍♂️ Session Creation Wizard**: Comprehensive wizard-style interface for session creation with delightful motion animations
+
+  - **Step-Based Navigation**: 6-step wizard for plan mode, 6-step for log mode with visual progress tracking
+  - **Framer Motion Integration**: Smooth step transitions with spring animations and reduced motion support
+  - **Smart Form Validation**: Real-time validation with animated focus states and error feedback
+  - **Auto-save Functionality**: Draft persistence with visual feedback and localStorage backup
+  - **Contextual Guidance**: Helpful hints and tips for each step with smooth reveal animations
+  - **Completion Celebrations**: Delightful success animations with confetti and achievement badges
+  - **Dual Mode Support**: Handles both planned and logged sessions with appropriate step configurations
+  - **Accessibility First**: Full keyboard navigation, ARIA labels, and reduced motion compliance
+  - **Comprehensive Testing**: 50+ unit tests and 25+ E2E scenarios covering all interactions
+  - **Mobile Optimized**: Touch-friendly interactions with proper safe area handling
+
+- **Enhanced Motion System**: Extended animation constants with wizard-specific motion tokens
+
+  - **WIZARD_MOTION**: Step transitions, progress animations, focus states, hints, and celebrations
+  - **MOTION_TIMING**: Enhanced timing system with fast (0.18s), base (0.28s), slow (0.45s) durations
+  - **CSS Animations**: Comprehensive wizard-specific CSS classes with reduced motion support
+  - **Accessibility**: Full `prefers-reduced-motion` compliance with instant fallbacks
+
+- **Wizard Architecture**: Clean component hierarchy following established patterns
+
+  - **useSessionWizard**: Central hook managing step navigation, validation, and autosave
+  - **SessionWizard**: Main wizard container with progress tracking and step orchestration
+  - **WizardStep**: Animated step container with smooth transitions and accessibility
+  - **ProgressBar**: Interactive progress indicator with clickable step navigation
+  - **FieldFocus**: Animated focus states for form fields with validation feedback
+  - **GuidanceHint**: Contextual help system with smooth reveal animations
+  - **CompletionCelebration**: Success celebrations with confetti and achievement displays
 
 - **Phase 2 Map Interactions Motion**: Complete implementation of enhanced beach discovery motion system
 

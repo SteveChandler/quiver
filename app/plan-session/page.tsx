@@ -1,6 +1,5 @@
 "use client";
 import { SessionFormWrapper } from "@/components/session-forms/SessionFormWrapper";
-import { BottomNavigation } from "@/components/bottom-navigation";
 import { CoachCard } from "@/components/recommendations/coach-card";
 import { useEffect } from "react";
 import { useGeo } from "@/hooks/useGeo";
@@ -40,7 +39,7 @@ export default function PlanSessionPage() {
         />
       </div>
       <SessionFormWrapper initialMode="plan" />
-      <BottomNavigation />
+      {/* BottomNavigation is automatically hidden for /plan-session path */}
     </div>
   );
 }

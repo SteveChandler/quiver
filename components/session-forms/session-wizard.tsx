@@ -60,6 +60,7 @@ interface WizardStepProps {
   ) => void;
   boards: any[];
   beaches: any[];
+  mode: SessionFormMode;
   onNext: () => void;
   onPrev: () => void;
   isFirst: boolean;
@@ -115,7 +116,7 @@ const validateEquipmentStep = (formState: SessionFormState): string | null => {
 };
 
 // Step wrapper components that integrate with existing components
-const DateTimeStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField, onNext }) => (
+const DateTimeStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField, onNext, mode }) => (
   <motion.div
     className="space-y-6"
     variants={PHASE2_ANIMATIONS.sessionWizard.stepTransition}
@@ -135,7 +136,7 @@ const DateTimeStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField
   </motion.div>
 );
 
-const LocationStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField, beaches, onNext }) => (
+const LocationStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField, beaches, onNext, mode }) => (
   <motion.div
     className="space-y-6"
     variants={PHASE2_ANIMATIONS.sessionWizard.stepTransition}
@@ -156,7 +157,7 @@ const LocationStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField
   </motion.div>
 );
 
-const EquipmentStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField, boards, onNext }) => (
+const EquipmentStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField, boards, onNext, mode }) => (
   <motion.div
     className="space-y-6"
     variants={PHASE2_ANIMATIONS.sessionWizard.stepTransition}
@@ -177,7 +178,7 @@ const EquipmentStepWrapper: React.FC<WizardStepProps> = ({ formState, updateFiel
   </motion.div>
 );
 
-const GoalsStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField }) => (
+const GoalsStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField, mode }) => (
   <motion.div
     className="space-y-6"
     variants={PHASE2_ANIMATIONS.sessionWizard.stepTransition}
@@ -189,11 +190,11 @@ const GoalsStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField })
       <h3 className="text-xl font-semibold text-foreground">Set your goals</h3>
       <p className="text-muted-foreground">What do you want to achieve in this session?</p>
     </div>
-    <GoalsSection formState={formState} updateField={updateField} />
+    <GoalsSection formState={formState} updateField={updateField} mode={mode} />
   </motion.div>
 );
 
-const ConditionsStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField }) => (
+const ConditionsStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField, mode }) => (
   <motion.div
     className="space-y-6"
     variants={PHASE2_ANIMATIONS.sessionWizard.stepTransition}
@@ -209,7 +210,7 @@ const ConditionsStepWrapper: React.FC<WizardStepProps> = ({ formState, updateFie
   </motion.div>
 );
 
-const PhotoStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField }) => {
+const PhotoStepWrapper: React.FC<WizardStepProps> = ({ formState, updateField, mode }) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   return (
@@ -624,6 +625,7 @@ export function SessionWizard({
                 formState={formState}
                 updateField={updateField}
                 boards={boards}
+                mode={mode}
                 beaches={beaches}
                 onNext={handleNext}
                 onPrev={handlePrev}

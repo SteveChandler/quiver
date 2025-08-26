@@ -1,5 +1,4 @@
 import { SessionFormWrapper } from "@/components/session-forms/SessionFormWrapper";
-import { BottomNavigation } from "@/components/bottom-navigation";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
@@ -10,7 +9,7 @@ export default function LogSessionPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <SessionFormWrapper initialMode="log" />
-      <BottomNavigation />
+      {/* BottomNavigation is automatically hidden for /log-session path */}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
 import { SessionFormState } from "@/hooks/use-session-form";
 
 interface GoalsSectionProps {
-  mode: SessionFormMode;
+  mode?: SessionFormMode;
   formState: SessionFormState;
   updateField: <K extends keyof SessionFormState>(
     field: K,
@@ -25,8 +25,44 @@ export function GoalsSection({
   formState,
   updateField,
 }: GoalsSectionProps) {
-  const text = getFormText(mode);
-  const isPlanning = mode === "plan";
+  // Add fallback handling with proper defaults
+  const safeMode: SessionFormMode = mode || "plan";
+  const text = getFormText(safeMode);
+  
+  // Provide comprehensive fallback object with proper null safety
+  const defaultText = {
+    goals: "Session Goals",
+    notesPlaceholder: "Session notes...",
+    showPerformanceRating: false,
+    pageTitle: "Session",
+    pageDescription: "Session details",
+    location: "Location",
+    dateTime: "Date & Time", 
+    equipment: "Equipment",
+    notes: "Notes",
+    submitButton: "Submit",
+    successMessage: "Success!",
+    showInviteFriends: false,
+    showConditions: false,
+    showPhotos: false
+  };
+  
+  const safeText = text && typeof text === 'object' ? text : defaultText;
+  const isPlanning = safeMode === "plan";
+  
+  // Additional safety check - this should never happen with proper fallbacks
+  if (!safeText?.goals) {
+    console.warn('GoalsSection: safeText.goals is undefined, falling back to default');
+    return (
+      <div className="p-4 border rounded-lg">
+        <div className="flex items-center">
+          <Target className="w-5 h-5 mr-2 text-primary" />
+          Session Goals
+        </div>
+        <p className="text-muted-foreground mt-2">Loading goals section...</p>
+      </div>
+    );
+  }
 
   const handleGoalToggle = (goal: string) => {
     const currentNotes = formState.notes || "";
@@ -53,7 +89,7 @@ export function GoalsSection({
       title={
         <div className="flex items-center">
           <Target className="w-5 h-5 mr-2 text-primary" />
-          {text.goals}
+          {safeText?.goals || "Session Goals"}
         </div>
       }
     >

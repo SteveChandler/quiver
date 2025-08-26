@@ -50,6 +50,20 @@ This repo is optimized for AI‑assisted coding. Follow this guide to produce co
 ### Permissions
 
 * In Claude Code, use `/permissions` to **Always allow** Playwright MCP browser actions for this repo.
+* **Recommended MCP permissions for Claude Code:**
+  ```
+  mcp__playwright__browser_navigate
+  mcp__playwright__browser_snapshot
+  mcp__playwright__browser_take_screenshot
+  mcp__playwright__browser_click
+  mcp__playwright__browser_type
+  mcp__playwright__browser_wait_for
+  mcp__playwright__browser_evaluate
+  mcp__playwright__browser_console_messages
+  mcp__playwright__browser_network_requests
+  mcp__playwright__browser_close
+  mcp__playwright__browser_install
+  ```
 * Local settings: ensure `.claude/settings.json` (or your local equivalent) allows common commands used by tests and dev tooling.
 
 ### Working Style (Claude Code)
@@ -194,3 +208,5 @@ useEffect(() => {
 * Add cleanup for any realtime subscriptions.
 * Add/update tests when behavior changes.
 * Update `CHANGELOG.md`.
+
+- "Always validate with playwright mcp"
