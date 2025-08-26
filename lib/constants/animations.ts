@@ -185,7 +185,7 @@ export const PHASE2_ANIMATIONS = {
     }
   },
 
-  // Beach Discovery & Map Motion
+  // Beach Discovery & Map Motion - Enhanced for Priority 1
   mapDiscovery: {
     beachMarkerHover: {
       initial: { scale: 1 },
@@ -334,12 +334,100 @@ export const ENHANCED_MOTION_TIMING = {
   slow: 0.45 
 } as const;
 
+// MAP_MOTION - Priority 1: Geographic Expansion & Beach Discovery
+// Addresses 85% San Diego isolation problem with engaging map interactions
+export const MAP_MOTION = {
+  beachMarker: {
+    initial: { scale: 1, boxShadow: "0 0 0 rgba(0,119,182,0)" },
+    hover: { 
+      scale: 1.2,
+      boxShadow: "0 0 15px rgba(0,119,182,0.4)",
+      transition: { duration: 0.3, ease: "easeOut" }
+    },
+    selected: { 
+      scale: 1.4, 
+      boxShadow: "0 0 20px rgba(0,119,182,0.6)",
+      transition: { duration: 0.4, type: "spring", bounce: 0.3 }
+    },
+    pulse: {
+      scale: [1, 1.1, 1],
+      boxShadow: [
+        "0 0 0 rgba(0,119,182,0)",
+        "0 0 20px rgba(0,119,182,0.4)",
+        "0 0 0 rgba(0,119,182,0)"
+      ],
+      transition: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+    }
+  },
+  forecastPopup: {
+    initial: { y: 20, opacity: 0, scale: 0.9 },
+    animate: { y: 0, opacity: 1, scale: 1 },
+    exit: { y: -20, opacity: 0, scale: 0.9 },
+    transition: { type: "spring", bounce: 0.3, duration: 0.4 }
+  },
+  locationSearch: {
+    initial: { y: 10, opacity: 0 },
+    animate: { y: 0, opacity: 1 },
+    transition: { duration: 0.2, ease: "easeOut" }
+  },
+  searchResults: {
+    stagger: (index: number) => ({
+      initial: { y: 15, opacity: 0 },
+      animate: { y: 0, opacity: 1 },
+      transition: { duration: 0.3, delay: index * 0.05, ease: "easeOut" }
+    })
+  },
+  quickAction: {
+    rest: { scale: 1, y: 0 },
+    hover: { 
+      scale: 1.05, 
+      y: -2,
+      transition: { duration: 0.2, ease: "easeOut" }
+    },
+    pressed: { 
+      scale: 0.95,
+      transition: { duration: 0.1 }
+    },
+    success: {
+      scale: [1, 1.1, 1],
+      y: [0, -5, 0],
+      transition: { duration: 0.5, ease: "easeOut" }
+    }
+  },
+  mapZoom: {
+    initial: { scale: 1, opacity: 1 },
+    zooming: { 
+      scale: 1.1, 
+      opacity: 0.9,
+      transition: { duration: 0.3, ease: "easeOut" }
+    },
+    zoomed: { 
+      scale: 1, 
+      opacity: 1,
+      transition: { duration: 0.4, ease: "easeOut" }
+    }
+  },
+  beachDiscovery: {
+    newBeach: {
+      initial: { scale: 0.8, opacity: 0, rotate: -10 },
+      animate: { scale: 1, opacity: 1, rotate: 0 },
+      transition: { type: "spring", bounce: 0.4, duration: 0.6 }
+    },
+    celebration: {
+      scale: [1, 1.3, 1.1, 1],
+      rotate: [0, 20, -15, 0],
+      transition: { duration: 0.8, ease: "easeOut" }
+    }
+  }
+} as const;
+
 // Export everything together
 export const ALL_MOTION = {
   ...ANIMATION_VARIANTS,
   ...ENHANCED_ANIMATIONS,
   ...PHASE2_ANIMATIONS,
   wizard: WIZARD_MOTION,
+  map: MAP_MOTION,
   timing: { ...MOTION_TIMING, ...PHASE2_ANIMATIONS.timing },
   easing: PHASE2_EASING
 };
