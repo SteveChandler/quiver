@@ -91,6 +91,50 @@ Example prompts:
 - "List quick-win accessibility fixes on page Y"
 - "Run navigation spec and share findings"
 
+## Playwright MCP Enhanced Agent Workflows
+
+### Before MCP: Manual Testing Workflow
+
+```
+1. Developer implements feature
+2. Manually run: npx playwright test
+3. Read test output in terminal
+4. Debug failures by examining traces manually
+5. Fix issues and repeat cycle
+```
+
+### After MCP: AI-Driven Testing Workflow
+
+```
+1. Developer implements feature
+2. Ask agent: "Test the new session creation flow"
+3. Agent runs tests automatically and analyzes results
+4. Agent opens traces, diagnoses issues, suggests fixes
+5. Agent can even generate new tests for edge cases
+```
+
+### Key Enhancements for Quiver App
+
+#### 1. **Real-time Feature Validation**
+
+Instead of: "I think the session creation works"
+Agent can: "Let me test the session creation flow end-to-end right now"
+
+#### 2. **Intelligent Debugging**
+
+Instead of: Reading cryptic test failures
+Agent can: "I see the test failed because the beach selection dropdown isn't loading the Ocean Beach option. Let me check if the /api/beaches endpoint is working..."
+
+#### 3. **Cross-Device Testing Orchestration**
+
+Instead of: Manual device switching
+Agent can: "Let me test this on mobile, tablet, and desktop simultaneously"
+
+#### 4. **Performance Regression Detection**
+
+Instead of: Hoping nothing broke
+Agent can: "The landing page load time increased by 200ms - let me trace what changed"
+
 ## Governance & Quality Gates
 
 - Always adhere to the repo’s Mandatory Working Process (plans → approval)

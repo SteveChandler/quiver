@@ -132,7 +132,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         } catch (error) {
           console.error("Error loading planned session:", error);
           toast.error("Failed to load planned session data");
-          router.push("/log-session"); // Fallback to normal log session
+          router.push("/sessions/new?mode=log"); // Fallback to normal log session
         }
       };
 
@@ -280,8 +280,8 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     setLoading(true);
 
     try {
-      // Analytics: planning attempt (non-blocking)
-      void createActivity("session_planning_attempt", "session", "n/a", {
+      // Analytics: planning attempt (non-blocking)  
+      void createActivity("session_planning_attempt", "session", "", {
         beachId: formState.selectedBeachId || null,
         beachName: formState.selectedBeach || null,
         selectedDate: formState.selectedDate || null,

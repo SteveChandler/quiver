@@ -2,7 +2,23 @@
   "mcpServers": {
     "playwright": {
       "type": "sse",
-      "url": "http://localhost:3001/mcp"
+      "url": "http://localhost:3001/mcp",
+      "env": {
+        "PLAYWRIGHT_STORAGE_STATE": ".auth/user.json",
+        "X-Test-Mode": "true"
+      }
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=vawdnbbgawichorsjiwe"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "9cGTJ2mnmoH7QQQMgUCIdet3953HvHbl"
+      }
     }
   }
 }

@@ -9,7 +9,7 @@ import {
 test.describe("Session Logging", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to log session page
-    await page.goto("/log-session");
+    await page.goto("/sessions/new?mode=log");
 
     // Wait for page to load and handle potential auth redirect
     await waitForPageLoad(page);

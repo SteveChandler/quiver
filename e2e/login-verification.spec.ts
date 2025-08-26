@@ -16,7 +16,7 @@ test.describe("Login Functionality Verification", () => {
       }
     });
 
-    console.log(">ê COMPREHENSIVE LOGIN TEST");
+    console.log(">ï¿½ COMPREHENSIVE LOGIN TEST");
     console.log("Testing credentials: salidfingers@duck.com / SCquiver1!");
     
     // Step 1: Test API directly
@@ -108,9 +108,9 @@ test.describe("Login Functionality Verification", () => {
       const protectedPageUrl = page.url();
       console.log(`   Protected page URL: ${protectedPageUrl}`);
       
-      if (protectedPageUrl.includes("/log-session") && !protectedPageUrl.includes("/auth/sign-in")) {
+      if (protectedPageUrl.includes("/sessions/new?mode=log") && !protectedPageUrl.includes("/auth/sign-in")) {
         console.log("    Can access protected pages - authentication fully working");
-        console.log("\n<‰ CONCLUSION: Login functionality is working correctly!");
+        console.log("\n<ï¿½ CONCLUSION: Login functionality is working correctly!");
       } else {
         console.log("   L Cannot access protected pages - partial auth failure");
       }

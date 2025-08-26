@@ -5,8 +5,6 @@ import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 // Define paths that require authentication
 const protectedPaths = [
   "/profile",
-  "/log-session",
-  "/plan-session",
   "/sessions",
   "/dashboard",
 ];

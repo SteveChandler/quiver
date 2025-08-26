@@ -98,7 +98,7 @@ test.describe("Mobile Experience", () => {
   });
 
   test("should optimize form inputs for mobile", async ({ page }) => {
-    await page.goto("/log-session");
+    await page.goto("/sessions/new?mode=log");
     await expect(page.locator("body")).toBeVisible();
 
     // Test mobile-optimized form inputs
@@ -137,7 +137,7 @@ test.describe("Mobile Experience", () => {
   });
 
   test("should handle mobile date/time pickers", async ({ page }) => {
-    await page.goto("/log-session");
+    await page.goto("/sessions/new?mode=log");
     await expect(page.locator("body")).toBeVisible();
 
     const dateInput = page.locator("#session-date, [type='date']");
@@ -237,7 +237,7 @@ test.describe("Mobile Experience", () => {
   });
 
   test("should handle mobile keyboard interactions", async ({ page }) => {
-    await page.goto("/log-session");
+    await page.goto("/sessions/new?mode=log");
     await expect(page.locator("body")).toBeVisible();
 
     // Test notes textarea with mobile keyboard

@@ -8,7 +8,7 @@ import {
 
 test.describe("Social Friend Invitations", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/plan-session");
+    await page.goto("/sessions/new?mode=plan");
     await waitForPageLoad(page);
   });
 

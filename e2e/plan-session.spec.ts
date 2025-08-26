@@ -7,7 +7,7 @@ test.describe("Plan Session flow", () => {
 
   test("saves planned session and redirects to profile", async ({ page }) => {
     // Assumes global auth setup logs in a test user
-    await page.goto("/plan-session");
+    await page.goto("/sessions/new?mode=plan");
     await page.waitForLoadState("load");
 
     // Select beach
@@ -63,7 +63,7 @@ test.describe("Plan Session flow", () => {
   test("optimal times anchor around selected afternoon time", async ({
     page,
   }) => {
-    await page.goto("/plan-session");
+    await page.goto("/sessions/new?mode=plan");
     await page.waitForLoadState("load");
 
     const beachInput = page.getByTestId("beach-search-input");

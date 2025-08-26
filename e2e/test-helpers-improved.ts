@@ -169,7 +169,7 @@ export async function createPlannedSession(
     notes?: string;
   }
 ) {
-  await page.goto("/plan-session");
+  await page.goto("/sessions/new?mode=plan");
   await waitForPageLoad(page);
 
   const authState = await getAuthState(page);
@@ -237,7 +237,7 @@ export async function createCompletedSession(
     notes?: string;
   }
 ) {
-  await page.goto("/log-session");
+  await page.goto("/sessions/new?mode=log");
   await waitForPageLoad(page);
 
   const authState = await getAuthState(page);

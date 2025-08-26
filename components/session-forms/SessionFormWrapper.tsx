@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { SessionWizard } from "./session-wizard";
+import { SessionForm } from "./SessionForm";
 import { SessionFormMode } from "@/hooks/use-session-form";
 
 interface SessionFormWrapperProps {
@@ -9,7 +9,7 @@ interface SessionFormWrapperProps {
 }
 
 function SessionFormContent({ initialMode }: SessionFormWrapperProps) {
-  return <SessionWizard initialMode={initialMode} />;
+  return <SessionForm initialMode={initialMode} />;
 }
 
 export function SessionFormWrapper({

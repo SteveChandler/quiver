@@ -31,7 +31,7 @@ test.describe("Session Planning", () => {
       };
     });
 
-    await page.goto("/plan-session");
+    await page.goto("/sessions/new?mode=plan");
     await page.waitForTimeout(3000); // Give time for any issues to manifest
 
     // Check for infinite loops or critical React errors
@@ -314,7 +314,7 @@ test.describe("Session Planning", () => {
 
       // Should show success message or redirect
       const successMessage = page.getByText(/planned|success/i);
-      const isRedirected = !page.url().includes("/plan-session");
+      const isRedirected = !page.url().includes("/sessions/new?mode=plan");
 
       const hasSuccess = await successMessage.isVisible().catch(() => false);
 

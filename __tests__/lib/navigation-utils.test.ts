@@ -109,8 +109,8 @@ describe("Navigation Utils", () => {
         expect(appNavigation.toHome()).toBe("/");
         expect(appNavigation.toProfile()).toBe("/profile");
         expect(appNavigation.toSessions()).toBe("/sessions");
-        expect(appNavigation.toLogSession()).toBe("/log-session");
-        expect(appNavigation.toPlanSession()).toBe("/plan-session");
+        expect(appNavigation.toLogSession()).toBe("/sessions/new?mode=log");
+        expect(appNavigation.toPlanSession()).toBe("/sessions/new?mode=plan");
       });
     });
 
@@ -137,12 +137,12 @@ describe("Navigation Utils", () => {
 
       it("should navigate to log session", () => {
         appNavigation.navigateToLogSession(mockRouter);
-        expect(mockRouter.push).toHaveBeenCalledWith("/log-session");
+        expect(mockRouter.push).toHaveBeenCalledWith("/sessions/new?mode=log");
       });
 
       it("should navigate to plan session", () => {
         appNavigation.navigateToPlanSession(mockRouter);
-        expect(mockRouter.push).toHaveBeenCalledWith("/plan-session");
+        expect(mockRouter.push).toHaveBeenCalledWith("/sessions/new?mode=plan");
       });
     });
   });

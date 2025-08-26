@@ -171,7 +171,7 @@ test.describe("Navigation", () => {
 
   test("should navigate to session-related pages", async ({ page }) => {
     // Test direct navigation to log session page
-    await page.goto("/log-session");
+    await page.goto("/sessions/new?mode=log");
     await page.waitForTimeout(2000); // Give time for redirect
 
     // Should either show the form, redirect for auth, or show some content
@@ -204,7 +204,7 @@ test.describe("Navigation", () => {
     ).toBeTruthy();
 
     // Test direct navigation to plan session page
-    await page.goto("/plan-session");
+    await page.goto("/sessions/new?mode=plan");
     await page.waitForTimeout(2000); // Give time for redirect
 
     // Should either show the form, redirect for auth, or show some content

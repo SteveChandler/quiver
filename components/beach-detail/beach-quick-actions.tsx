@@ -17,7 +17,7 @@ export function BeachQuickActions({
     <div className="p-4 flex gap-2">
       <Link
         href={
-          isAuthenticated ? `/plan-session?beach=${beach.id}` : "/auth/sign-in"
+          isAuthenticated ? `/sessions/new?mode=plan&beach=${beach.id}` : "/auth/sign-in"
         }
         className="flex-1"
       >

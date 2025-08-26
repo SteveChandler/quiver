@@ -33,7 +33,7 @@ test.describe("Session Share Functionality", () => {
       const hasSession = await sessionLink.isVisible().catch(() => false);
       if (!hasSession) {
         // Create a session first
-        await page.goto("/log-session");
+        await page.goto("/sessions/new?mode=log");
         await waitForPageLoad(page);
         
         // Quick session creation (simplified)

@@ -114,8 +114,8 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="//maps.geoapify.com" />
 
         {/* Prefetch critical routes for faster navigation */}
-        <link rel="prefetch" href="/log-session" />
-        <link rel="prefetch" href="/plan-session" />
+        <link rel="prefetch" href="/sessions/new" />
+        {/* Consolidated into /sessions/new above */}
         <link rel="prefetch" href="/map" />
 
         {/* Preload critical resources for faster LCP */}
