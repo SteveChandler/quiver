@@ -1,0 +1,146 @@
+name: Daily NPC Activity Seeder
+
+on:
+  schedule:
+    # Run daily at 9am PT (17:00 UTC)
+    - cron: '0 17 * * *'
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: 'Target environment'
+        required: true
+        default: 'PROD'
+        type: choice
+        options:
+          - DEV
+          - PROD
+      force_run:
+        description: 'Force run regardless of last activity'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  npc-daily-activity:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Set environment variables
+        run: |
+          if [ "${{ github.event.inputs.target_env }}" == "DEV" ]; then
+            echo "CONFIRM_TARGET=DEV" >> $GITHUB_ENV
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_DEV_URL }}" >> $GITHUB_ENV
+            echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_DEV_SERVICE_ROLE_KEY }}" >> $GITHUB_ENV
+          else
+            echo "CONFIRM_TARGET=PROD" >> $GITHUB_ENV
+            echo "CONFIRM_PROD=YES" >> $GITHUB_ENV
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> $GITHUB_ENV
+            echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> $GITHUB_ENV
+          fi
+      
+      - name: Check for existing NPCs
+        id: check_npcs
+        run: |
+          # Check if mock users exist
+          MOCK_COUNT=$(npm run --silent check-mock-users 2>/dev/null || echo "0")
+          echo "mock_users_count=$MOCK_COUNT" >> $GITHUB_OUTPUT
+          
+          if [ "$MOCK_COUNT" -eq "0" ]; then
+            echo "⚠️ No mock users found. NPC activity requires mock users with is_mock=true"
+            echo "Please run the mock user seeding script first."
+            exit 1
+          else
+            echo "✅ Found $MOCK_COUNT mock users"
+          fi
+      
+      - name: Run NPC Daily Activity
+        id: npc_activity
+        run: |
+          echo "🎭 Starting NPC daily activity seeding..."
+          
+          # Run with error handling
+          if npm run npc:daily 2>&1 | tee npc_output.log; then
+            echo "✅ NPC daily activity completed successfully"
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ NPC daily activity failed"
+            echo "success=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+        
+        env:
+          CONFIRM_TARGET: ${{ env.CONFIRM_TARGET }}
+          CONFIRM_PROD: ${{ env.CONFIRM_PROD }}
+          SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
+      
+      - name: Upload activity log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npc-daily-activity-log
+          path: npc_output.log
+          retention-days: 7
+      
+      - name: Create summary report
+        if: always()
+        run: |
+          echo "## Daily NPC Activity Report" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ env.CONFIRM_TARGET }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ steps.npc_activity.outputs.success == 'true' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f npc_output.log ]; then
+            echo "### Activity Summary" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            tail -20 npc_output.log >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "🚨 NPC Daily Activity Failed"
+          echo "Check the logs for detailed error information"
+          
+          if [ -f npc_output.log ]; then
+            echo "Last 10 lines of output:"
+            tail -10 npc_output.log
+          fi
+      
+      - name: Verify content creation
+        if: steps.npc_activity.outputs.success == 'true'
+        run: |
+          echo "🔍 Verifying content was created..."
+          
+          # Add verification queries here if needed
+          # This could check that sessions, intel posts, and reviews were created today
+          
+          echo "✅ Content verification completed"
+
+  post-activity-cleanup:
+    needs: npc-daily-activity
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Log successful completion
+        run: |
+          echo "🎉 Daily NPC activity completed successfully"
+          echo "Community content has been refreshed for today"

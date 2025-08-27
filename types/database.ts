@@ -17,6 +17,7 @@ export type Profile = {
   digest_session_invites?: boolean; // added by migration
   followers_count: number;
   following_count: number;
+  is_mock: boolean; // added by migration - flag for mock/test users
   created_at: string;
   updated_at: string;
 };

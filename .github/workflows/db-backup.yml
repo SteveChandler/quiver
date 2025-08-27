@@ -1,0 +1,30 @@
+name: DB Backup
+on:
+  schedule: [{ cron: "0 9 * * *" }] # 2am PT; adjust as needed
+  workflow_dispatch: {}
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Dump database
+        env:
+          PGHOST: ${{ secrets.SUPABASE_DB_HOST }} # e.g. aws-0-us-west-1.pooler.supabase.com
+          PGPORT: ${{ secrets.SUPABASE_DB_PORT }} # 6543
+          PGDATABASE: ${{ secrets.SUPABASE_DB_NAME }} # postgres
+          PGUSER: ${{ secrets.SUPABASE_DB_USER }} # e.g. postgres.<projectref>
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          mkdir -p backups
+          ts=$(date -u +%Y%m%d_%H%M%S)
+          pg_dump --format=custom --no-owner --no-privileges -Z 9 -f "backups/quiver_${ts}.dump"
+          ls -lh backups/
+
+      - name: Upload artifact (30 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: quiver-db-backup
+          path: backups/
+          retention-days: 30

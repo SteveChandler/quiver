@@ -12,14 +12,12 @@ import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 
 export function MapView() {
-  console.warn("🗺️ MapView component is rendering!");
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
   const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
 
   // Custom hooks for state management
-  console.log("🔍 About to call useGeolocation hook...");
   const {
     userLocation,
     locationError,
@@ -28,9 +26,7 @@ export function MapView() {
     getUserLocation,
     useDefaultLocation,
   } = useGeolocation();
-  console.log("🔍 useGeolocation result:", { userLocation, locationError, usingDefaultLocation, locationLoading });
 
-  console.log("🔍 About to call useBeachSearch hook...");
   const {
     filteredBeaches,
     loading: beachLoading,
@@ -43,13 +39,10 @@ export function MapView() {
     clearSearch,
     setSelectedBeach,
   } = useBeachSearch();
-  console.log("🔍 useBeachSearch result:", { filteredBeaches: filteredBeaches?.length, beachLoading, searchQuery });
 
   // Load nearby beaches when user location is available - prevent duplicate calls
   useEffect(() => {
-    console.log("🔍 Load nearby beaches useEffect triggered with userLocation:", userLocation);
     if (!userLocation) {
-      console.log("🔍 No userLocation, returning early");
       return;
     }
 
@@ -60,12 +53,10 @@ export function MapView() {
       Math.abs(lastLocation.lat - userLocation.lat) < 0.001 &&
       Math.abs(lastLocation.lng - userLocation.lng) < 0.001
     ) {
-      console.log("🔍 Same location as before, not reloading beaches");
       return; // Same location, don't reload
     }
 
     // Update the last location and load nearby beaches
-    console.log("🔍 Loading nearby beaches for location:", userLocation);
     lastLocationRef.current = userLocation;
     loadNearbyBeaches(userLocation.lat, userLocation.lng);
   }, [userLocation, loadNearbyBeaches]);
