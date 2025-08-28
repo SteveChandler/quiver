@@ -13,6 +13,12 @@
 
 ### Fixed
 
+- **NPC Daily Activity Workflow**: Fixed GitHub Actions workflow failure by properly marking existing mock users with is_mock flag
+  - **Migration Applied**: Added `20250828000001_mark_mock_users_with_is_mock_flag.sql` to mark 31 existing mock users as is_mock = true
+  - **Workflow Compatibility**: NPC daily activity workflow can now find mock users via `WHERE is_mock = true` query  
+  - **Database Consistency**: Ensured existing mock users from migration `20250817130000` are properly flagged for automation workflows
+  - **Index Performance**: Added `idx_profiles_is_mock` index for efficient mock user queries
+
 - **Database Relationship and Schema Issues**: Fixed critical database query failures affecting app functionality
   - **Foreign Key Relationship Fix**: Corrected `sessions_user_id_fkey` reference to `sessions_profile_id_fkey` in `/app/api/recent-posts/route.ts` to match actual database schema
   - **SQL Function Parameter Update**: Updated `getBeachesNear` function in `/lib/surf/data.ts` to use corrected `get_nearby_beaches` function with proper parameter names (`lat`, `lng`, `max_distance_meters`)
