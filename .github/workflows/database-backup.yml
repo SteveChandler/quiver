@@ -2,71 +2,70 @@ name: Database Backup
 
 on:
   schedule:
-    # Run daily at 2 AM UTC
-    - cron: '0 2 * * *'
-  workflow_dispatch: # Allow manual triggers
+    - cron: '0 2 * * *'   # daily at 02:00 UTC
+  workflow_dispatch:
 
 jobs:
   backup:
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-latest  # or 'ubuntu-24.04' if you want to pin the image
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-    
-    - name: Setup Supabase CLI
-      uses: supabase/setup-cli@v1
-      with:
-        version: latest
-    
-    - name: Create backup directory
-      run: mkdir -p backups
-    
-    - name: Backup database schema
-      env:
-        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        PROJECT_REF: vawdnbbgawichorsjiwe
-      run: |
-        DATE=$(date +%Y%m%d_%H%M%S)
-        
-        # Link to project
-        supabase link --project-ref $PROJECT_REF --password $SUPABASE_DB_PASSWORD
-        
-        # Dump schema
-        supabase db dump --schema-only > backups/schema_$DATE.sql
-        
-        # Dump data (excluding large tables if needed)
-        supabase db dump --data-only > backups/data_$DATE.sql
-        
-        # Create combined backup
-        cat backups/schema_$DATE.sql backups/data_$DATE.sql > backups/full_backup_$DATE.sql
-        
-        # Compress the backup
-        gzip backups/full_backup_$DATE.sql
-        
-        # Keep only last 30 days of backups
-        find backups -name "*.sql.gz" -mtime +30 -delete
-    
-    - name: Upload backup to GitHub Artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: database-backup-${{ github.run_number }}
-        path: backups/*.sql.gz
-        retention-days: 30
-    
-    - name: Create backup report
-      run: |
-        echo "## Database Backup Report" > backup_report.md
-        echo "Date: $(date)" >> backup_report.md
-        echo "Project: vawdnbbgawichorsjiwe" >> backup_report.md
-        echo "" >> backup_report.md
-        echo "### Files Created:" >> backup_report.md
-        ls -lh backups/*.sql.gz | awk '{print "- " $9 " (" $5 ")"}' >> backup_report.md
-        
-    - name: Upload report
-      uses: actions/upload-artifact@v3
-      with:
-        name: backup-report-${{ github.run_number }}
-        path: backup_report.md
-        retention-days: 7
+      - name: Checkout repository
+        uses: actions/checkout@v5  # requires runner >= 2.327.1 (you have 2.328.0)
+        # if you need full history: with: { fetch-depth: 0 }
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Create backup directory
+        run: mkdir -p backups
+
+      - name: Backup database schema & data
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PROJECT_REF: vawdnbbgawichorsjiwe
+        run: |
+          set -euo pipefail
+          DATE=$(date +%Y%m%d_%H%M%S)
+
+          # Link non-interactively via env token
+          supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+          # Dump schema & data
+          supabase db dump --schema-only > "backups/schema_${DATE}.sql"
+          supabase db dump --data-only   > "backups/data_${DATE}.sql"
+
+          # Combine & compress
+          cat "backups/schema_${DATE}.sql" "backups/data_${DATE}.sql" > "backups/full_backup_${DATE}.sql"
+          gzip "backups/full_backup_${DATE}.sql"
+
+          # Keep only last 30 days
+          find backups -name "*.sql.gz" -mtime +30 -delete
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-backup-${{ github.run_number }}
+          path: backups/*.sql.gz
+          retention-days: 30
+
+      - name: Create backup report
+        run: |
+          {
+            echo "## Database Backup Report"
+            echo "Date: $(date)"
+            echo "Project: vawdnbbgawichorsjiwe"
+            echo
+            echo "### Files Created:"
+            ls -lh backups/*.sql.gz | awk '{print "- " $9 " (" $5 ")"}'
+          } > backup_report.md
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-report-${{ github.run_number }}
+          path: backup_report.md
+          retention-days: 7
