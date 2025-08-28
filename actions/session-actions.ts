@@ -99,7 +99,7 @@ export async function getUserSessions(userId: string, limit?: number) {
                 .single();
               beach = beachData;
             } catch (beachError) {
-              console.warn("Could not fetch beach for session:", session.id, beachError);
+              // Beach fetch failed, continue with null
             }
           }
           
@@ -116,7 +116,7 @@ export async function getUserSessions(userId: string, limit?: number) {
                 user = userData;
               }
             } catch (userError) {
-              console.warn("Could not fetch user for session:", session.id, userError);
+              // User fetch failed, continue with default
             }
           }
           
@@ -163,7 +163,6 @@ export async function getUserSessionsByDateRange(
 
     return { success: true, data: data as SessionWithDetails[] };
   } catch (error) {
-    console.error("Error fetching user sessions by date range:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -195,7 +194,6 @@ export async function getSessionById(id: string, userId: string) {
 
     return { success: true, data: data as SessionWithDetails };
   } catch (error) {
-    console.error("Error fetching session:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -227,7 +225,6 @@ export async function getPublicSessions(limit = 10) {
 
     return { success: true, data: data as SessionWithDetails[] };
   } catch (error) {
-    console.error("Error fetching public sessions:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -319,7 +316,6 @@ export async function updateSession(
     revalidatePath("/profile");
     return { success: true, data: data as Session };
   } catch (error) {
-    console.error("Error updating session:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -345,7 +341,6 @@ export async function updateSessionForm(
       .single();
 
     if (error) {
-      console.error("Error updating session:", error);
       throw new Error("Failed to update session");
     }
 
@@ -407,31 +402,24 @@ export async function deleteSession(id: string, userId: string) {
  */
 export async function createLoggedSession(data: SessionFormState | SessionInput) {
   return withAuthenticatedAction(async (user, supabase) => {
-    console.log("=== DEBUG: createLoggedSession ===");
-    console.log("Input data:", JSON.stringify(data, null, 2));
-    console.log("User ID:", user.id);
 
     // Transform SessionFormState to database schema if needed
     let sessionData: Partial<Session>;
     if ('selectedBeach' in data || 'selectedBeachId' in data || 'boardId' in data) {
       // This is SessionFormState, transform it
       sessionData = transformSessionFormStateToDbSchema(data as SessionFormState);
-      console.log("Transformed SessionFormState to DB schema:", JSON.stringify(sessionData, null, 2));
     } else {
       // This is already SessionInput, use as-is
       sessionData = data as SessionInput;
-      console.log("Using SessionInput as-is:", JSON.stringify(sessionData, null, 2));
     }
 
     // Create the session with completed status
     const cleaned = sanitizeSessionPayload(sessionData);
-    console.log("Cleaned payload:", JSON.stringify(cleaned, null, 2));
     
     // CRITICAL: Ensure we have a valid beach_id before creating session
     if (!cleaned.beach_id) {
       // If we have beach_name but no beach_id, try to find existing beach only
       if (cleaned.beach_name) {
-        console.log("No beach_id provided, looking up existing beach by name:", cleaned.beach_name);
         
         // Try to find existing beach by name (case-insensitive)
         const { data: existingBeach, error: lookupError } = await supabase
@@ -442,16 +430,13 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
           .single();
         
         if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          console.error("Error looking up beach:", lookupError);
           throw new Error(`Failed to lookup beach: ${lookupError.message}`);
         }
         
         if (existingBeach) {
-          console.log("Found existing beach:", existingBeach.id);
           cleaned.beach_id = existingBeach.id;
         } else {
           // Beach doesn't exist - require user to select from existing beaches
-          console.log("Beach not found in database:", cleaned.beach_name);
           throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
         }
       } else {
@@ -466,7 +451,6 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
       profile_id: user.id, // Add profile_id to satisfy the constraint
       status: "completed",
     };
-    console.log("Final payload for DB insert (with beach_id):", JSON.stringify(finalPayload, null, 2));
 
     const { data: session, error } = await supabase
       .from("sessions")
@@ -475,14 +459,6 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
       .single();
 
     if (error) {
-      console.error("=== DETAILED SESSION CREATION ERROR ===");
-      console.error("Error object:", error);
-      console.error("Error message:", error.message);
-      console.error("Error details:", error.details);
-      console.error("Error hint:", error.hint);
-      console.error("Error code:", error.code);
-      console.error("Final payload that caused error:", JSON.stringify(finalPayload, null, 2));
-      console.error("=== END ERROR DETAILS ===");
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
 
@@ -498,31 +474,24 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
  */
 export async function createPlannedSession(data: SessionFormState | SessionInput) {
   return withAuthenticatedAction(async (user, supabase) => {
-    console.log("=== DEBUG: createPlannedSession ===");
-    console.log("Input data:", JSON.stringify(data, null, 2));
-    console.log("User ID:", user.id);
 
     // Transform SessionFormState to database schema if needed
     let sessionData: Partial<Session>;
     if ('selectedBeach' in data || 'selectedBeachId' in data || 'boardId' in data) {
       // This is SessionFormState, transform it
       sessionData = transformSessionFormStateToDbSchema(data as SessionFormState);
-      console.log("Transformed SessionFormState to DB schema:", JSON.stringify(sessionData, null, 2));
     } else {
       // This is already SessionInput, use as-is
       sessionData = data as SessionInput;
-      console.log("Using SessionInput as-is:", JSON.stringify(sessionData, null, 2));
     }
 
     // Create the session with planned status
     const cleaned = sanitizeSessionPayload(sessionData);
-    console.log("Cleaned payload:", JSON.stringify(cleaned, null, 2));
     
     // CRITICAL: Ensure we have a valid beach_id before creating session
     if (!cleaned.beach_id) {
       // If we have beach_name but no beach_id, try to find existing beach only
       if (cleaned.beach_name) {
-        console.log("No beach_id provided, looking up existing beach by name:", cleaned.beach_name);
         
         // Try to find existing beach by name (case-insensitive)
         const { data: existingBeach, error: lookupError } = await supabase
@@ -533,16 +502,13 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
           .single();
         
         if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          console.error("Error looking up beach:", lookupError);
           throw new Error(`Failed to lookup beach: ${lookupError.message}`);
         }
         
         if (existingBeach) {
-          console.log("Found existing beach:", existingBeach.id);
           cleaned.beach_id = existingBeach.id;
         } else {
           // Beach doesn't exist - require user to select from existing beaches
-          console.log("Beach not found in database:", cleaned.beach_name);
           throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
         }
       } else {
@@ -557,7 +523,6 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
       profile_id: user.id, // Add profile_id to satisfy the constraint
       status: "planned",
     };
-    console.log("Final payload for DB insert (with beach_id):", JSON.stringify(finalPayload, null, 2));
 
     const { data: session, error } = await supabase
       .from("sessions")
@@ -566,14 +531,6 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
       .single();
 
     if (error) {
-      console.error("=== DETAILED SESSION CREATION ERROR ===");
-      console.error("Error object:", error);
-      console.error("Error message:", error.message);
-      console.error("Error details:", error.details);
-      console.error("Error hint:", error.hint);
-      console.error("Error code:", error.code);
-      console.error("Final payload that caused error:", JSON.stringify(finalPayload, null, 2));
-      console.error("=== END ERROR DETAILS ===");
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
 
@@ -599,7 +556,6 @@ export async function addBoard(data: BoardInput) {
       .single();
 
     if (error) {
-      console.error("Error adding board:", error);
       throw new Error("Failed to add board");
     }
 
@@ -652,7 +608,6 @@ export async function uploadSessionMedia(
     });
 
   if (uploadError) {
-    console.error("Error uploading file:", uploadError);
     throw new Error("Failed to upload file");
   }
 
@@ -668,7 +623,6 @@ export async function uploadSessionMedia(
     .single();
 
   if (mediaError) {
-    console.error("Error recording media:", mediaError);
     throw new Error("Failed to record media");
   }
 
@@ -704,7 +658,6 @@ export async function getSessionsByBeach(beachId: string, limit = 10) {
 
     return { success: true, data: data as SessionWithDetails[] };
   } catch (error) {
-    console.error("Error fetching beach sessions:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -733,7 +686,6 @@ export async function getAllSessions(limit = 20) {
     .limit(limit);
 
   if (error) {
-    console.error("Error fetching community sessions:", error);
 
     // Enhanced fallback: get basic sessions and manually resolve relationships
     const { data: basicSessions, error: basicError } = await supabase
@@ -743,7 +695,6 @@ export async function getAllSessions(limit = 20) {
       .limit(limit);
 
     if (basicError) {
-      console.error("Error with basic query:", basicError);
       throw new Error("Failed to fetch sessions");
     }
 
@@ -762,7 +713,7 @@ export async function getAllSessions(limit = 20) {
               .single();
             beach = beachData;
           } catch (beachError) {
-            console.warn("Could not fetch beach for session:", session.id, beachError);
+            // Beach fetch failed, continue with null
           }
         }
         
@@ -779,7 +730,7 @@ export async function getAllSessions(limit = 20) {
               user = userData;
             }
           } catch (userError) {
-            console.warn("Could not fetch user for session:", session.id, userError);
+            // User fetch failed, continue with default
           }
         }
         
