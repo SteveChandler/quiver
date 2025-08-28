@@ -34,14 +34,21 @@ export function preloadImage(src: string, sizes?: string) {
 export function preloadCriticalResources() {
   if (typeof window === "undefined") return;
 
-  // Preload critical images - using actual images from the app
+  // Preload critical hero image (actual file used in hero)
+  preloadImage("/logoQuiver.png", "100vw");
+  
+  // Preload critical images for LCP optimization
   preloadImage("/placeholder-logo.png", "(max-width: 768px) 100vw, 50vw");
-
-  // Preload other critical images if they exist
   preloadImage("/logo-word (2).png", "(max-width: 768px) 100vw, 50vw");
 
-  // Note: Inter font is loaded via Google Fonts, no need to preload custom files
-  // Only preload custom fonts if they exist
+  // Preconnect to critical third-party domains for faster resource loading
+  if (typeof window !== "undefined") {
+    const link = document.createElement("link");
+    link.rel = "preconnect";
+    link.href = "https://fonts.gstatic.com";
+    link.crossOrigin = "anonymous";
+    document.head.appendChild(link);
+  }
 }
 
 // Lazy load images with intersection observer

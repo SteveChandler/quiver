@@ -82,8 +82,8 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
     // Use hardcoded coordinates for known beaches if available
     try {
       const { beachCoordinates } = require("@/lib/constants/beach-coordinates");
-      const beachNameLower = beachName.toLowerCase().trim();
-      const hardcodedCoords = beachCoordinates[beachNameLower];
+      const beachNameLower = beachName?.toLowerCase().trim();
+      const hardcodedCoords = beachNameLower ? beachCoordinates[beachNameLower] : null;
       
       if (hardcodedCoords) {
         console.log(`Found hardcoded coordinates for ${beachName}:`, hardcodedCoords);
@@ -216,7 +216,7 @@ export function transformSessionFormStateToDbSchema(
   const cleaned: Partial<Session> = {};
   for (const [key, value] of Object.entries(dbData)) {
     if (value !== undefined && value !== null && value !== "") {
-      cleaned[key as keyof Session] = value;
+      (cleaned as any)[key] = value;
     }
   }
 

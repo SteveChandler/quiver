@@ -252,12 +252,11 @@ export async function renderShareImage(session: SessionData, variant: ShareVaria
   
   try {
     const fonts = await loadFonts();
-    const satoriOptions: SatoriOptions = { width: w, height: h };
-    
-    // Only add fonts if we have valid ones
-    if (fonts.length > 0) {
-      satoriOptions.fonts = fonts;
-    }
+    const satoriOptions: SatoriOptions = { 
+      width: w, 
+      height: h,
+      fonts: fonts.length > 0 ? fonts : []
+    };
     
     const svg = await satori(getTemplate(session, variant), satoriOptions);
     const png = new Resvg(svg, { fitTo: { mode: "width", value: w } }).render().asPng();

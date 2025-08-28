@@ -179,6 +179,8 @@ export interface UseSessionWizardReturn {
   loading: boolean;
   formState: SessionFormState;
   updateField: <K extends keyof SessionFormState>(field: K, value: SessionFormState[K]) => void;
+  errors: any;
+  reset: () => void;
   boards: any[];
   beaches: any[];
   refreshBoards: () => Promise<void>;
@@ -350,7 +352,7 @@ export function useSessionWizard(
         if (timestamp > dayAgo) {
           // Restore form state
           Object.entries(savedFormState).forEach(([key, value]) => {
-            updateField(key as keyof SessionFormState, value);
+            updateField(key as keyof SessionFormState, value as any);
           });
           
           // Restore step if valid
@@ -408,9 +410,18 @@ export function useSessionWizard(
     lastSavedAt,
     autosaveStatus,
     
-    // Form state (from useSessionForm)
-    ...sessionForm,
+    // Form state (from useSessionForm) - destructure to avoid conflicts
+    mode: sessionForm.mode,
+    setMode: sessionForm.setMode,
+    loading: sessionForm.loading,
+    formState: sessionForm.formState,
     updateField: enhancedUpdateField,
+    errors: sessionForm.errors,
+    reset: sessionForm.reset,
+    boards: sessionForm.boards,
+    beaches: sessionForm.beaches,
+    refreshBoards: sessionForm.refreshBoards,
+    isPlanning: sessionForm.isPlanning,
     
     // Analytics
     trackStepView,

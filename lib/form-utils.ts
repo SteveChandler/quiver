@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { UseFormReturn } from "react-hook-form";
+import { UseFormReturn, FieldValues } from "react-hook-form";
 import { toast } from "@/components/ui/use-toast";
 
 // Common form field validation schemas
@@ -28,7 +28,7 @@ export interface FormSubmissionOptions {
   resetOnSuccess?: boolean;
 }
 
-export async function handleFormSubmission<T>(
+export async function handleFormSubmission<T extends FieldValues>(
   form: UseFormReturn<T>,
   submitFn: (
     data: T

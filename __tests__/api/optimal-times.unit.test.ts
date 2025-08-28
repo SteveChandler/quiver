@@ -106,6 +106,7 @@ describe('computeHourScore edge cases', () => {
 		const b = computeHourScoreBreakdown({
 			params,
 			waveDirectionDeg: 250,
+			wavePeriodS: 12,
 			windDirectionDeg: 270,
 			windSpeedMs: 1,
 			tideHeightM: 0.6,
@@ -117,6 +118,7 @@ describe('computeHourScore edge cases', () => {
 		const b = computeHourScoreBreakdown({
 			params,
 			waveDirectionDeg: 250,
+			wavePeriodS: 12,
 			windDirectionDeg: 90, // onshore
 			windSpeedMs: 12, // ~23 kts
 			tideHeightM: 0.6,
@@ -128,6 +130,7 @@ describe('computeHourScore edge cases', () => {
 		const b = computeHourScoreBreakdown({
 			params,
 			waveDirectionDeg: 150,
+			wavePeriodS: 12,
 			windDirectionDeg: 270,
 			windSpeedMs: 2,
 			tideHeightM: 0.6,
@@ -140,6 +143,7 @@ describe('computeHourScore edge cases', () => {
 		const ideal = computeHourScoreBreakdown({
 			params,
 			waveDirectionDeg: 250,
+			wavePeriodS: 12,
 			windDirectionDeg: 270,
 			windSpeedMs: 1,
 			tideHeightM: centerFt / 3.28084,
@@ -147,6 +151,7 @@ describe('computeHourScore edge cases', () => {
 		const far = computeHourScoreBreakdown({
 			params,
 			waveDirectionDeg: 250,
+			wavePeriodS: 12,
 			windDirectionDeg: 270,
 			windSpeedMs: 1,
 			tideHeightM: 6 / 3.28084,
@@ -161,6 +166,7 @@ describe('topMorningWindows non-overlap and limit', () => {
 		const hours = Array.from({ length: 10 }).map((_, i) => ({
 			ts: new Date(base.getTime() + i * 3600_000).toISOString(),
 			waveDirectionDeg: 250,
+			wavePeriodS: 12,
 			windDirectionDeg: 270,
 			windSpeedMs: 2,
 			tideHeightM: 0.6,

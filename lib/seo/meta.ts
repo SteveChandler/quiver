@@ -35,7 +35,7 @@ export function buildPageMetadata({
   return {
     title,
     description,
-    keywords: keywords || SEO_CONFIG.keywords,
+    keywords: keywords || [...SEO_CONFIG.keywords],
     alternates: { canonical },
     openGraph: {
       title,

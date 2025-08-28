@@ -206,11 +206,11 @@ export function BeachCard({
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-blue-50 p-2 rounded">
                       <div className="text-blue-600 font-medium">Wave Height</div>
-                      <div className="text-blue-800">{forecastPreview?.waveHeight || "N/A"}</div>
+                      <div className="text-blue-800">{forecastPreview?.wave_height || "N/A"}</div>
                     </div>
                     <div className="bg-green-50 p-2 rounded">
                       <div className="text-green-600 font-medium">Wind Speed</div>
-                      <div className="text-green-800">{forecastPreview?.windSpeed || "N/A"}</div>
+                      <div className="text-green-800">{forecastPreview?.wind_speed || "N/A"}</div>
                     </div>
                   </div>
                 </motion.div>

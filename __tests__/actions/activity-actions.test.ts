@@ -196,8 +196,9 @@ describe("Activity Actions", () => {
       const result = await getUserActivities("user-1", undefined, 25, 0);
 
       expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
       expect(result.data).toHaveLength(1);
-      expect(result.data[0]).toEqual({
+      expect(result.data![0]).toEqual({
         id: "activity-1",
         user_id: "user-1",
         activity_type: "session_logged",
@@ -359,8 +360,9 @@ describe("Activity Actions", () => {
       const result = await getUserActivities("user-1");
 
       expect(result.success).toBe(true);
-      expect(result.data[0].user_name).toBeNull();
-      expect(result.data[0].user_avatar).toBeNull();
+      expect(result.data).toBeDefined();
+      expect(result.data![0].user_name).toBeNull();
+      expect(result.data![0].user_avatar).toBeNull();
     });
   });
 

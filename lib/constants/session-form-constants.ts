@@ -200,7 +200,7 @@ export function getSectionConfig(
   const config = FORM_SECTIONS[section];
 
   // Check if section should be shown for this mode
-  if (config.showOnlyFor && config.showOnlyFor !== mode) {
+  if ('showOnlyFor' in config && config.showOnlyFor && config.showOnlyFor !== mode) {
     return null;
   }
 

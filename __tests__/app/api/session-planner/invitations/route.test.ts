@@ -8,7 +8,7 @@ import {
   createMockRequest,
   createMockPatchRequest,
   setupMockSupabase,
-} from "../../../../setup/session-planner-test-utils";
+} from "../../../setup/session-planner-test-utils";
 
 jest.mock("@/lib/supabase/server");
 jest.mock("@/lib/api-response-utils", () => ({

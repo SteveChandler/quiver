@@ -78,16 +78,9 @@ export function useForecastCalibration({
               wind_speed: forecast.wind_speed,
               wind_direction: forecast.wind_direction,
               water_temp: forecast.water_temp,
-              air_temperature: forecast.air_temperature,
-              confidence_score: forecast.confidence_score,
-              data_source: forecast.data_source,
-              forecast_time: forecast.valid_time,
-              swell_1_height: forecast.swell_1_height,
-              swell_1_period: forecast.swell_1_period,
-              swell_1_direction: forecast.swell_1_direction,
-              swell_2_height: forecast.swell_2_height,
-              swell_2_period: forecast.swell_2_period,
-              swell_2_direction: forecast.swell_2_direction,
+              // Note: These properties don't exist in current Forecast schema
+              // air_temperature, confidence_score, data_source, swell properties
+              forecast_time: forecast.forecast_time,
             }
           : {};
 

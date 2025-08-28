@@ -103,13 +103,13 @@ export const CONTENT = {
   hero: {
     title: ["Your Surf Community", "Awaits"],
     subtitle:
-      "Connect with surfers, track epic sessions, and discover the best waves in your area. Join the community that's revolutionizing how we surf together.",
+      "Connect with surfers, track epic sessions, and discover the best waves in your area.",
     cta: "Join Free Today",
     secondaryCta: "Explore Features",
     benefits: [
       "🏄‍♀️ Connect with local surfers",
-      "📊 Track & share epic sessions",
-      "🌊 Get community-verified forecasts",
+      "📊 Track epic sessions",
+      "🌊 Community forecasts",
     ],
   },
   sections: {

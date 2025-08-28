@@ -133,13 +133,13 @@ export function InteractiveHeroDemo({
   if (!isVisible) return null;
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6 px-2 sm:px-4">
       {/* Demo Selection Tabs */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="flex justify-center gap-2 mb-6"
+        className="flex justify-center gap-1 sm:gap-2 mb-4 sm:mb-6 flex-wrap"
       >
         {[
           { id: "forecast", label: "🌊 Live Forecasts", icon: Waves },
@@ -150,12 +150,15 @@ export function InteractiveHeroDemo({
             key={tab.id}
             onClick={() => setActiveDemo(tab.id as typeof activeDemo)}
             variant={activeDemo === tab.id ? "default" : "ghost"}
-            className={`motion-optimized like-button-spring ripple-effect px-4 py-2 text-sm font-medium rounded-full transition-all duration-300 ${
+            className={`motion-optimized like-button-spring ripple-effect px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium rounded-full transition-all duration-300 ${
               activeDemo === tab.id
                 ? "bg-white/90 text-blue-600 shadow-lg"
                 : "bg-white/10 text-white hover:bg-white/20"
             }`}
             data-testid={`demo-tab-${tab.id}`}
+            aria-label={`View ${tab.label} demo`}
+            role="tab"
+            aria-selected={activeDemo === tab.id}
           >
             <tab.icon className="h-4 w-4 mr-2" />
             {tab.label}
@@ -172,19 +175,19 @@ export function InteractiveHeroDemo({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.4 }}
-            className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20"
+            className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-6 border border-white/20"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-white">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-base sm:text-xl font-semibold text-white">
                 Live Surf Conditions
-                <span className="text-sm text-white/60 font-normal ml-2">
+                <span className="text-xs sm:text-sm text-white/60 font-normal ml-1 sm:ml-2">
                   (Demo)
                 </span>
               </h3>
-              <span className="text-sm text-white/70">Updated now</span>
+              <span className="text-xs sm:text-sm text-white/70">Updated now</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4">
               {DEMO_BEACHES.map((beach, index) => (
                 <motion.div
                   key={beach.id}
@@ -193,33 +196,42 @@ export function InteractiveHeroDemo({
                     opacity: selectedBeach === index ? 1 : 0.7,
                     scale: selectedBeach === index ? 1.05 : 1,
                   }}
-                  className={`session-card-hover cursor-pointer p-4 rounded-lg border border-white/10 transition-all ${
+                  className={`session-card-hover cursor-pointer p-2 sm:p-4 rounded-lg border border-white/10 transition-all ${
                     selectedBeach === index
                       ? "bg-white/20 border-white/30"
                       : "bg-white/10 hover:bg-white/15"
                   }`}
                   onClick={() => setSelectedBeach(index)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View conditions for ${beach.name}: ${beach.waves}, ${beach.wind}, ${beach.conditions}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedBeach(index);
+                    }
+                  }}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-white">{beach.name}</h4>
+                    <h4 className="font-medium text-white text-sm sm:text-base truncate">{beach.name}</h4>
                     <div className={`w-3 h-3 rounded-full ${beach.color}`} />
                   </div>
-                  <div className="space-y-1 text-sm text-white/80">
-                    <div className="flex items-center gap-2">
-                      <Waves className="h-3 w-3" />
+                  <div className="space-y-1 text-xs sm:text-sm text-white/80">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <Waves className="h-2 w-2 sm:h-3 sm:w-3" />
                       <span>{beach.waves}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-3 w-3" />
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <Clock className="h-2 w-2 sm:h-3 sm:w-3" />
                       <span>{beach.wind}</span>
                     </div>
                     <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs font-medium">
+                      <span className="text-xs sm:text-sm font-medium">
                         {beach.conditions}
                       </span>
                       <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs">{beach.rating}</span>
+                        <Star className="h-2 w-2 sm:h-3 sm:w-3 fill-yellow-400 text-yellow-400" />
+                        <span className="text-xs sm:text-sm">{beach.rating}</span>
                       </div>
                     </div>
                   </div>
@@ -283,6 +295,7 @@ export function InteractiveHeroDemo({
                           : "text-white/70 hover:text-white"
                       }`}
                       data-testid="demo-like-button"
+                      aria-label={`${likedSessions.has(session.id) ? 'Unlike' : 'Like'} session by ${session.user}`}
                     >
                       <ThumbsUp
                         className={`h-4 w-4 transition-all ${
@@ -300,7 +313,10 @@ export function InteractiveHeroDemo({
                       <MessageSquare className="h-4 w-4" />
                       <span>{session.comments}</span>
                     </div>
-                    <button className="flex items-center gap-1 text-sm text-white/70 hover:text-white transition-colors">
+                    <button 
+                      className="flex items-center gap-1 text-sm text-white/70 hover:text-white transition-colors"
+                      aria-label={`Share session by ${session.user}`}
+                    >
                       <Share2 className="h-4 w-4" />
                       <span>Share</span>
                     </button>
@@ -391,15 +407,15 @@ export function InteractiveHeroDemo({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="text-center"
+        className="text-center px-2"
       >
-        <p className="text-white/80 text-sm mb-4">
+        <p className="text-white/80 text-xs sm:text-sm mb-3 sm:mb-4">
           👆 Click around to explore the app
         </p>
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Button
             size="lg"
-            className="bg-white/90 text-blue-600 hover:bg-white px-8 py-4 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring"
+            className="bg-white/90 text-blue-600 hover:bg-white px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 motion-optimized like-button-spring w-full sm:w-auto"
             asChild
           >
             <Link href="/auth/sign-up">Experience This Live</Link>

@@ -1,8 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { User } from "@supabase/supabase-js";
 
-// Matches Ruby AdminAuthenticationManagement functionality
-export interface AdminUser extends User {
+// Matches Ruby AdminAuthenticationManagement functionality  
+export interface AdminUser extends Omit<User, 'app_metadata' | 'user_metadata'> {
   user_metadata?: {
     role?: string;
     is_admin?: boolean;

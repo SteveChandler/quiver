@@ -4,31 +4,21 @@ import { HeroSection } from "@/components/landing-page/hero-section";
 import { Suspense, lazy, useState, useEffect } from "react";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 
-// Lazy load heavy sections to improve LCP
-const SocialFeedSection = lazy(() =>
-  import("@/components/landing-page/social-feed-section").then((m) => ({
-    default: m.SocialFeedSection,
-  }))
+// Aggressively lazy load non-critical sections to reduce initial bundle
+const SocialFeedSection = lazy(() => 
+  import("@/components/landing-page/social-feed-section").then(mod => ({ default: mod.SocialFeedSection }))
 );
-const ForecastSection = lazy(() =>
-  import("@/components/landing-page/forecast-section").then((m) => ({
-    default: m.ForecastSection,
-  }))
+const ForecastSection = lazy(() => 
+  import("@/components/landing-page/forecast-section").then(mod => ({ default: mod.ForecastSection }))
 );
-const FeaturesSection = lazy(() =>
-  import("@/components/landing-page/features-section").then((m) => ({
-    default: m.FeaturesSection,
-  }))
+const FeaturesSection = lazy(() => 
+  import("@/components/landing-page/features-section").then(mod => ({ default: mod.FeaturesSection }))
 );
-const CTASection = lazy(() =>
-  import("@/components/landing-page/cta-section").then((m) => ({
-    default: m.CTASection,
-  }))
+const CTASection = lazy(() => 
+  import("@/components/landing-page/cta-section").then(mod => ({ default: mod.CTASection }))
 );
-const FooterSection = lazy(() =>
-  import("@/components/landing-page/footer-section").then((m) => ({
-    default: m.FooterSection,
-  }))
+const FooterSection = lazy(() => 
+  import("@/components/landing-page/footer-section").then(mod => ({ default: mod.FooterSection }))
 );
 
 // Loading placeholder for sections
@@ -44,38 +34,47 @@ function SectionSkeleton({ height = "h-64" }: { height?: string }) {
   );
 }
 
-// Progressive loading component with intersection observer
+// Optimized progressive loading component
 function ProgressiveSection({
   children,
-  threshold = 0.1,
-  rootMargin = "100px",
+  height = "h-64"
 }: {
   children: React.ReactNode;
-  threshold?: number;
-  rootMargin?: string;
+  height?: string;
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const [ref, setRef] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!ref) return;
-
-    const observer = PerformanceUtils.createImageObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer?.unobserve(entry.target);
-        }
-      });
-    });
-
-    if (observer) {
-      observer.observe(ref);
-      return () => observer.disconnect();
+    if (!ref || typeof window === "undefined" || !("IntersectionObserver" in window)) {
+      setIsVisible(true); // Fallback for server-side or old browsers
+      return;
     }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { 
+        rootMargin: "150px", // Load earlier for smoother experience
+        threshold: 0.01 
+      }
+    );
+
+    observer.observe(ref);
+    return () => observer.disconnect();
   }, [ref]);
 
-  return <div ref={setRef}>{isVisible ? children : <SectionSkeleton />}</div>;
+  return (
+    <div ref={setRef}>
+      {isVisible ? children : <SectionSkeleton height={height} />}
+    </div>
+  );
 }
 
 export default function LandingPage() {
@@ -91,31 +90,31 @@ export default function LandingPage() {
 
       {/* Progressive loading sections - reduces initial bundle size */}
       <div className="space-y-0">
-        <ProgressiveSection>
+        <ProgressiveSection height="h-96">
           <Suspense fallback={<SectionSkeleton height="h-96" />}>
             <SocialFeedSection />
           </Suspense>
         </ProgressiveSection>
 
-        <ProgressiveSection>
+        <ProgressiveSection height="h-80">
           <Suspense fallback={<SectionSkeleton height="h-80" />}>
             <ForecastSection />
           </Suspense>
         </ProgressiveSection>
 
-        <ProgressiveSection>
+        <ProgressiveSection height="h-96">
           <Suspense fallback={<SectionSkeleton height="h-96" />}>
             <FeaturesSection />
           </Suspense>
         </ProgressiveSection>
 
-        <ProgressiveSection>
+        <ProgressiveSection height="h-64">
           <Suspense fallback={<SectionSkeleton height="h-64" />}>
             <CTASection />
           </Suspense>
         </ProgressiveSection>
 
-        <ProgressiveSection>
+        <ProgressiveSection height="h-48">
           <Suspense fallback={<SectionSkeleton height="h-48" />}>
             <FooterSection />
           </Suspense>

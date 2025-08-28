@@ -53,11 +53,13 @@ jest.mock("next/image", () => ({
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(() => ({
     user: null,
+    session: null,
     isLoading: false,
     isAuthenticated: false,
+    signUp: jest.fn(),
     signIn: jest.fn(),
     signOut: jest.fn(),
-    signUp: jest.fn(),
+    refreshSession: jest.fn(),
   })),
 }));
 
@@ -154,6 +156,11 @@ if (typeof Element !== "undefined") {
 
   // Polyfill for scrollIntoView (needed by Radix UI components)
   Element.prototype.scrollIntoView = jest.fn();
+}
+
+// Mock scrollTo to prevent jsdom warnings
+if (typeof window !== "undefined") {
+  window.scrollTo = jest.fn();
 }
 
 // Suppress console errors during tests

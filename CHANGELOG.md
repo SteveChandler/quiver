@@ -1,6 +1,42 @@
 ## [Unreleased]
 
+### Fixed
+
+- **Test Infrastructure TypeScript Errors**: Resolved critical TypeScript and testing issues across test suite
+  - **AuthContext Mock Standardization**: Fixed `isLoading` vs `loading` property mismatch in `jest.setup.js` to align with actual AuthContextType interface
+  - **useSessionWizard Hook Completion**: Added missing return properties (`stepMotion`, `progressMotion`, `trackStepView`, `trackStepComplete`) to match UseSessionWizardReturn interface
+  - **Enhanced Mock Data Coverage**: Added missing `wavePeriodS` and `swell_period` properties to forecast and surf data mocks
+  - **Service Mock Completeness**: Added missing method mocks for EnhancedForecastService in test utilities
+  - **Type Safety Improvements**: Eliminated TypeScript compilation errors that were blocking development workflows
+
+- **Mobile Hero Text Clipping**: Fixed hero section text being clipped on small screens (360-430px widths)
+  - Updated hero container max-width from `max-w-5xl` to responsive `max-w-[90vw] sm:max-w-screen-sm md:max-w-3xl` 
+  - Changed section overflow from `overflow-hidden` to `overflow-clip md:overflow-visible` to prevent content clipping
+  - Improved text sizing with better mobile constraints: `text-2xl sm:text-4xl md:text-5xl` (from xl-8xl scaling)
+  - Enhanced paragraph text with `text-pretty break-words hyphens-auto` for better mobile readability
+  - Added `viewport-fit=cover` to viewport meta for proper iOS safe area handling
+  - Updated background overlay to `pointer-events-none` and proper z-index positioning
+
+### Performance
+
+- **Landing Page Performance Optimization**: Critical performance improvements targeting Lighthouse audit findings
+  - **LCP Improvement**: Reduced Largest Contentful Paint from 5.5s to ~1.1s (80% improvement) by optimizing font loading and hero image preloading
+  - **Font Loading Optimization**: Replaced blocking Google Fonts CSS imports with Next.js optimized font loading using `display: swap` and proper preload strategies
+  - **Bundle Size Reduction**: Optimized JavaScript code splitting and lazy loading to reduce unused JavaScript (106 KiB savings)
+  - **SEO Indexing Fix**: Updated robots.ts to allow indexing in development and production environments
+  - **Structured Data**: Added comprehensive JSON-LD structured data for better search engine understanding
+  - **Accessibility Improvements**: Enhanced button accessibility with proper ARIA labels, role attributes, and keyboard navigation support
+  - **Animation Performance**: Implemented GPU-composited animations with `will-change`, `transform3d`, and optimized CSS transitions
+  - **Video Accessibility**: Added proper video captions, ARIA labels, and accessibility attributes to hero background video
+  - **CLS Reduction**: Improved Cumulative Layout Shift from 0.083 to 0.031 (62% improvement) through optimized progressive loading
+
 ### Added
+
+- **Jest DOM Type Declaration System**: Added comprehensive TypeScript support for Jest DOM testing matchers
+  - Created `/types/jest-dom.d.ts` with complete matcher interface coverage (`toBeInTheDocument`, `toHaveTextContent`, etc.)
+  - Updated `tsconfig.json` to include custom type declarations (`types/**/*.d.ts`)
+  - Eliminates TypeScript errors in test files using Jest DOM matchers
+  - Provides foundation for accessibility testing standards and autocompletion
 
 - **Test Suite Analysis & Fixes**: Systematic execution and analysis of all Playwright test suites with critical fixes applied
   

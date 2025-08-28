@@ -491,10 +491,11 @@ export class CDIPService {
     const stationConfig = getStationConfig(stationId);
 
     return {
-      stationId,
-      dataSource: "CDIP",
-      timestamp: new Date().toISOString(),
-      data: dataPoints,
+      parameter: "wave_height",
+      sensorId: stationId,
+      units: "meters", 
+      dataGaps: [],
+      data: dataPoints.map(dp => [dp.timestamp, dp.significantWaveHeight, dp.peakWavePeriod, dp.peakWaveDirection]) as Array<[string, number, number, number]>,
       metadata: {
         station_name: stationConfig?.name || `CDIP Station ${stationId}`,
         location: {
