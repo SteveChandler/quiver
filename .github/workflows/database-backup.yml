@@ -34,12 +34,8 @@ jobs:
           # Link non-interactively via env token
           supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
-          # Dump schema & data
-          supabase db dump --schema-only > "backups/schema_${DATE}.sql"
-          supabase db dump --data-only   > "backups/data_${DATE}.sql"
-
-          # Combine & compress
-          cat "backups/schema_${DATE}.sql" "backups/data_${DATE}.sql" > "backups/full_backup_${DATE}.sql"
+          # Dump schema & data into a single file
+          supabase db dump --file "backups/full_backup_${DATE}.sql"
           gzip "backups/full_backup_${DATE}.sql"
 
           # Keep only last 30 days

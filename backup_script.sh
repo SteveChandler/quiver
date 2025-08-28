@@ -16,12 +16,7 @@ echo "📁 Created backup directory: $BACKUP_DIR"
 
 # Backup all data using supabase CLI
 echo "💾 Backing up database schema and data..."
-supabase db dump --linked --data-only > "$BACKUP_DIR/quiver_data_backup_$DATE.sql"
-supabase db dump --linked --schema-only > "$BACKUP_DIR/quiver_schema_backup_$DATE.sql"
-
-# Create a combined backup file
-echo "🔗 Creating combined backup..."
-cat "$BACKUP_DIR/quiver_schema_backup_$DATE.sql" "$BACKUP_DIR/quiver_data_backup_$DATE.sql" > "$BACKUP_DIR/quiver_full_backup_$DATE.sql"
+supabase db dump --linked --file "$BACKUP_DIR/quiver_full_backup_$DATE.sql"
 
 # Compress the backup
 echo "🗜️ Compressing backup..."
