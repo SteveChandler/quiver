@@ -31,11 +31,13 @@ function logError(message: string, error?: any) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for API routes, static files, and other non-page requests
+  // Skip middleware for API routes, static files, auth routes, and other non-page requests
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico") ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/error") ||
     pathname.includes(".") // Skip any file with an extension
   ) {
     return NextResponse.next();

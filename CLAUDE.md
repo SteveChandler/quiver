@@ -252,3 +252,5 @@ useEffect(() => {
 - Update `CHANGELOG.md`.
 
 * "Always validate with playwright mcp"
+- When running playwright test always run a subset
+- update how to run playwright
