@@ -33,7 +33,7 @@ export async function getProfile(userId: string) {
       .maybeSingle();
 
     if (error) {
-      throw error;
+      throw new Error(error.message || "Failed to fetch profile");
     }
 
     // If no profile exists, create one
@@ -104,7 +104,7 @@ export async function createProfile(userId: string) {
       .single();
 
     if (error) {
-      throw error;
+      throw new Error(error.message || "Failed to create profile");
     }
 
     // Clear profile cache on both paths that use profiles
@@ -122,13 +122,15 @@ export async function createProfile(userId: string) {
 }
 
 export async function updateProfile(
-  profileData: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>
+  profileData: Partial<Omit<Profile, "id" | "created_at" | "updated_at">> | Partial<Omit<Profile, "id" | "created_at" | "updated_at">>[]
 ) {
   return withAuthenticatedAction(async (user, supabase) => {
+    // Handle case where data might be wrapped in an array (from certain Next.js action calls)
+    const updateData = Array.isArray(profileData) ? profileData[0] : profileData;
     const { data, error } = await supabase
       .from("profiles")
       .update({
-        ...profileData,
+        ...updateData,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)
@@ -136,7 +138,7 @@ export async function updateProfile(
       .single();
 
     if (error) {
-      throw error;
+      throw new Error(error.message || "Failed to update profile");
     }
 
     // Clear profile cache on both paths that use profiles

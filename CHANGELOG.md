@@ -13,6 +13,13 @@
 
 ### Fixed
 
+- **Profile Update Error Handling**: Fixed "Unknown error" responses when updating user profiles
+  - **Root Cause**: Supabase error objects were not being converted to Error instances, causing withServerAction to fall back to generic error message
+  - **Data Format Issue**: updateProfile function now handles both direct objects and array-wrapped data (from different Next.js action call patterns)
+  - **Server Actions Fix**: Updated profile-actions.ts to properly wrap Supabase errors in Error instances with descriptive messages
+  - **Enhanced Error Handling**: Improved server-action-utils.ts to handle various error types (Error objects, strings, objects with message property)
+  - **Better Debugging**: Added detailed error logging for unhandled error types to aid future debugging
+
 - **NPC Daily Activity Workflow**: Fixed GitHub Actions workflow failure by properly marking existing mock users with is_mock flag
   - **Migration Applied**: Added `20250828000001_mark_mock_users_with_is_mock_flag.sql` to mark 31 existing mock users as is_mock = true
   - **Workflow Compatibility**: NPC daily activity workflow can now find mock users via `WHERE is_mock = true` query  
