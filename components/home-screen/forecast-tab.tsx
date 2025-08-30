@@ -211,12 +211,12 @@ export function ForecastTab({
                 Showing popular beach forecast
               </p>
               <p className="text-xs text-muted-foreground">
-                Set your default beach in your profile to personalize your home
+                Set your home beach in your profile to personalize your home
                 feed.
               </p>
             </div>
             <Button onClick={() => router.push("/profile?edit=true")} size="sm">
-              Set Default Beach
+              Set Home Beach
             </Button>
           </CardContent>
         </Card>
@@ -294,8 +294,8 @@ export function ForecastTab({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Wave Height */}
               {(() => {
-                const raw = (todaysForecast.wave_height || "").toString();
-                const match = raw.match(/([\d.]+)/);
+                const raw = (todaysForecast?.wave_height || "").toString();
+                const match = raw && raw.match(/([\d.]+)/);
                 const value = match ? Number(match[1]).toFixed(1) : "—";
                 const unit = match ? "ft" : undefined;
                 return (
@@ -312,10 +312,10 @@ export function ForecastTab({
 
               {/* Wind Speed */}
               {(() => {
-                const raw = (todaysForecast.wind_speed || "").toString();
-                const match = raw.match(/([\d.]+)/);
+                const raw = (todaysForecast?.wind_speed || "").toString();
+                const match = raw && raw.match(/([\d.]+)/);
                 const value = match ? Number(match[1]).toFixed(0) : "—";
-                const unit = match
+                const unit = match && raw
                   ? raw.toLowerCase().includes("mph")
                     ? "mph"
                     : raw.toLowerCase().includes("kts")
@@ -336,10 +336,10 @@ export function ForecastTab({
 
               {/* Water Temp */}
               {(() => {
-                const raw = (todaysForecast.water_temp || "").toString();
-                const match = raw.match(/([\d.]+)/);
+                const raw = (todaysForecast?.water_temp || "").toString();
+                const match = raw && raw.match(/([\d.]+)/);
                 const value = match ? Number(match[1]).toFixed(0) : "—";
-                const unit = match
+                const unit = match && raw
                   ? raw.includes("°")
                     ? raw.slice(raw.indexOf("°"))
                     : raw.toLowerCase().includes("f")
@@ -362,7 +362,7 @@ export function ForecastTab({
 
               {/* Confidence */}
               {(() => {
-                const num = Math.round(todaysForecast.confidence_score || 0);
+                const num = Math.round(todaysForecast?.confidence_score || 0);
                 return (
                   <KpiTile
                     value={num}

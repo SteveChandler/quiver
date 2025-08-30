@@ -20,6 +20,16 @@ import {
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+// Optional XP tracking - imported dynamically to avoid circular dependency
+async function trackXPOptional(action: string, entityId?: string, entityType?: string) {
+  try {
+    const { trackXP } = await import("@/lib/gamification-actions");
+    await trackXP(action as any, entityId, entityType as any);
+  } catch (error) {
+    console.warn("XP tracking failed:", error);
+  }
+}
+
 type SessionInput = Omit<
   Session,
   "id" | "created_at" | "updated_at" | "user_id" | "profile_id"
@@ -462,6 +472,14 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
 
+    // Track XP for logging a completed session
+    try {
+      await trackXPOptional("plan_session", session.id, "session");
+    } catch (xpError) {
+      console.error("Failed to track XP for logged session:", xpError);
+      // Don't fail the session creation if XP tracking fails
+    }
+
     revalidatePath("/sessions");
     revalidatePath("/profile");
     return session;
@@ -534,6 +552,14 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
 
+    // Track XP for planning a session
+    try {
+      await trackXPOptional("plan_session", session.id, "session");
+    } catch (xpError) {
+      console.error("Failed to track XP for planned session:", xpError);
+      // Don't fail the session creation if XP tracking fails
+    }
+
     revalidatePath("/sessions");
     revalidatePath("/profile");
     return session;
@@ -557,6 +583,14 @@ export async function addBoard(data: BoardInput) {
 
     if (error) {
       throw new Error("Failed to add board");
+    }
+
+    // Track XP for adding a board
+    try {
+      await trackXPOptional("add_board", board.id, "board");
+    } catch (xpError) {
+      console.error("Failed to track XP for board addition:", xpError);
+      // Don't fail the board creation if XP tracking fails
     }
 
     revalidatePath("/quiver");

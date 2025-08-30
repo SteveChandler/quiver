@@ -93,7 +93,7 @@ export function useCachedProfile() {
       if (profile.favorite_spot) {
         console.log("🏖️ Looking up favorite_spot:", profile.favorite_spot);
 
-        const { getBeaches } = await import("@/actions/beach-actions");
+        const { getBeaches } = await import("@/actions/beach/beach-query-actions");
         const beachesResult = await getBeaches();
 
         if (beachesResult.success && beachesResult.data) {
@@ -114,8 +114,8 @@ export function useCachedProfile() {
 
       // Fallback to default_beach_id
       if (!defaultBeach && profile.default_beach_id) {
-        const { getBeach } = await import("@/actions/beach-actions");
-        const beachResult = await getBeach(profile.default_beach_id);
+        const { getBeachById } = await import("@/actions/beach-actions");
+        const beachResult = await getBeachById(profile.default_beach_id);
         if (beachResult.success && beachResult.data) {
           defaultBeach = beachResult.data;
           console.log("✅ Found default beach by ID:", defaultBeach.name);

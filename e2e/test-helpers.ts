@@ -794,3 +794,28 @@ export async function testVariantSwitching(page: Page) {
 
   return results;
 }
+
+/**
+ * Test User Management Helpers
+ */
+export async function setupTestUser(page: Page): Promise<string> {
+  // Use existing authentication if available
+  const authStatus = await handleAuthRedirect(page);
+  if (!authStatus.isAuthPage) {
+    // User is already authenticated, extract user ID
+    const response = await page.request.get('/api/profile');
+    if (response.ok()) {
+      const profile = await response.json();
+      return profile.id || 'authenticated-user';
+    }
+  }
+  
+  // Fallback for tests that need specific user setup
+  return 'test-user-' + Date.now();
+}
+
+export async function cleanupTestData(testUserId: string): Promise<void> {
+  // This is a placeholder for test data cleanup
+  // In a real implementation, you would clean up test data
+  console.log(`Cleanup test data for user: ${testUserId}`);
+}

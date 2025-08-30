@@ -119,22 +119,22 @@ export function ProfilePreferences({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
-            {/* Default Beach */}
+            {/* Home Beach */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">Default Settings</h3>
+              <h3 className="text-sm font-medium">Home Beach Settings</h3>
               <FormField<PreferencesFormValues>
                 control={form.control}
                 name="default_beach_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Default Beach</FormLabel>
+                    <FormLabel>Home Beach</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a default beach" />
+                          <SelectValue placeholder="Select your home beach" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -147,7 +147,7 @@ export function ProfilePreferences({
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      This beach will be pre-selected when logging new sessions
+                      This beach will be shown on your home screen and pre-selected when logging new sessions
                     </FormDescription>
                   </FormItem>
                 )}

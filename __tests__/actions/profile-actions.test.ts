@@ -54,6 +54,7 @@ jest.mock("@/lib/supabase/server", () => ({
 
 jest.mock("next/cache", () => ({
   revalidatePath: jest.fn(),
+  revalidateTag: jest.fn(),
 }));
 
 jest.mock("@/hooks/use-user-profile", () => ({
@@ -72,13 +73,24 @@ const mockProfile: Profile = {
   id: "user-123",
   full_name: "Test User",
   email: "test@example.com",
+  phone_number: null,
   bio: "Test bio",
   avatar_url: "https://example.com/avatar.jpg",
+  location: null,
+  experience_level: null,
   favorite_spot: "Malibu",
-  created_at: "2024-01-01T00:00:00.000Z",
-  updated_at: "2024-01-01T00:00:00.000Z",
+  instagram: null,
+  default_beach_id: null,
+  notification_session_reminders: true,
+  notification_community_replies: true,
+  inapp_session_invites: true,
+  email_session_invites: false,
+  digest_session_invites: false,
   followers_count: 10,
   following_count: 5,
+  is_mock: false,
+  created_at: "2024-01-01T00:00:00.000Z",
+  updated_at: "2024-01-01T00:00:00.000Z",
 };
 
 describe("Profile Actions", () => {
@@ -597,6 +609,8 @@ describe("Profile Actions", () => {
         boardCount: 3,
         averageRating: 7.0,
         favoriteSpot: "Malibu",
+        defaultBeachId: null,
+        defaultBeachName: null,
         mostVisitedBeach: "Pipeline",
         mostVisitedBeachCount: 15,
       });

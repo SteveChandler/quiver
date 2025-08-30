@@ -296,6 +296,13 @@ export interface CDIPDataResponse {
   units: string;
   dataGaps: any[];
   data: Array<[string, number, number, number]>; // [timestamp, waveHeight, period, direction]
+  metadata?: {
+    station_name: string;
+    location: {
+      latitude: number;
+      longitude: number;
+    };
+  };
 }
 
 export interface CDIPStationConfig {

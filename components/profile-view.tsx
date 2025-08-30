@@ -156,11 +156,19 @@ export function ProfileView() {
     console.log(
       "handleProfileUpdated called - reloading data and closing modal"
     );
-    // Reload the user data to get the updated profile
-    await loadUserData();
-    // Close the modal
-    setEditModalOpen(false);
-    console.log("Modal should now be closed");
+    try {
+      // Close the modal first to show immediate response
+      setEditModalOpen(false);
+      
+      // Reload the user data to get the updated profile
+      await loadUserData();
+      
+      console.log("Profile data reloaded and modal closed successfully");
+    } catch (error) {
+      console.error("Error during profile update callback:", error);
+      // Still close the modal even if reload fails
+      setEditModalOpen(false);
+    }
   };
 
   const handleRetry = () => {

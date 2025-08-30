@@ -2,6 +2,92 @@
 
 ### Fixed
 
+- **Critical Server Error in Profile Actions**: Fixed "use server" file export violation that was causing complete application failure
+  - **IIFE Export Issue**: Converted `fetchProfile` from IIFE result export to proper async function export, fixing "A 'use server' file can only export async functions, found object" error
+  - **Application Boot Fix**: Resolved server compilation failure that prevented the entire application from starting
+  - **Cache Function Parameter**: Updated `fetchProfile` to accept `userId` parameter for proper cache key generation
+  - **API Route Compatibility**: Ensured existing API route usage remains compatible with the function signature change
+
+- **Profile Cache Consistency Improvements**: Standardized profile fetching patterns for better cache management and consistency
+  - **Tagged Profile Fetching**: Created standardized `fetchProfile` function with Next.js cache tags for server components, enabling proper cache invalidation
+  - **Unified API Route Usage**: Updated client-side profile fetching to use `/api/profile` route consistently for better caching behavior
+  - **Cache Invalidation**: Verified `setHomeBeach` and `updateProfile` properly call `revalidateTag("profile")` for cache consistency
+  - **Schema Validation Cleanup**: Removed confusing `home_beach` field from profile validation schema, standardized on `default_beach_id`
+  - **Test Environment Compatibility**: Made cache implementation gracefully fallback in test environments where `unstable_cache` is not available
+
+- **Beach Selection Dropdown Critical Bug Fixes**: Fixed critical issues preventing beach selection from saving and persisting properly
+  - **Server Action Import Error**: Removed client-side `invalidateProfileCache` function call from server action `updateProfile` that was causing "function is not a function" errors during profile saves
+  - **Missing Function Import**: Fixed `getBeach` function import error in `useCachedProfile` hook by correcting import to `getBeachById` from beach-actions, resolving "getBeach is not a function" errors that prevented default beach loading
+  - **Profile Save Persistence**: Beach selection now properly saves to `default_beach_id` field in database and persists across page refreshes
+  - **Home Page Display**: Fixed home page to correctly show selected beach instead of "Set Default Beach" button after successful beach selection and profile save
+  - **Search Functionality**: Fixed beach dropdown search by implementing local filtering instead of server search to improve responsiveness
+  - **CommandItem Selection**: Fixed CommandItem value prop to use beach ID instead of name for proper selection handling
+  - **Profile Stats Display**: Fixed home beach display inconsistency by updating getUserStats to fetch default_beach_id and join with beaches table for proper beach name display
+
+- **Edit Profile Form Critical Issues**: Fixed multiple critical issues in the Edit Profile feature that were preventing proper functionality
+  - **Duplicate Home Beach Fields**: Removed duplicate "Home Break" text input field, keeping only the HomeBeachSelector dropdown to eliminate user confusion
+  - **Database Schema Alignment**: Verified avatar_url column exists in profiles table from migration 20250829030000_add_missing_profile_columns.sql
+  - **Avatar Storage Policies**: Created proper Storage bucket and RLS policies for avatar uploads with user-specific access controls
+  - **Form Submission Logic**: Validated existing form prevents double submissions with proper isSubmitting state management
+  - **Success/Error Handling**: Confirmed comprehensive toast notifications and error handling are already implemented
+  - **TypeScript Schema Consistency**: Ensured Profile type definition matches database schema with all required fields
+
+- **Home Beach "Set Home Beach" Critical Bug Fixes**: Fixed multiple critical issues preventing Set Home Beach functionality from working
+  - **React Component Update Warning**: Fixed "Cannot update a component while rendering" warning in HomeBeachSelector by using setTimeout for state updates
+  - **Null Safety**: Added comprehensive null safety guards in forecast-tab.tsx and home-beach-selector.tsx to prevent "Cannot read properties of null (reading 'slice')" crashes
+  - **Profile API Missing**: Created missing GET /api/profile endpoint for current user profile data fetching, fixing profile loading failures
+  - **Modal Success Handling**: Fixed EditProfileForm success handling using useEffect to prevent state management errors
+  - **Network Request Failures**: Fixed Supabase client import path causing 500 errors and preventing profile modal from opening
+  - **Home Page Content Display**: Resolved issues where home page showed neither Set Home Beach CTA nor forecast content due to profile loading failures
+
+### Added
+
+- **Unified Profile Write Action**: Enhanced profile actions with comprehensive validation and type safety
+  - **Zod Validation Schema**: Added comprehensive profileUpdateSchema with validation for all profile fields including length limits, format validation for URLs and UUIDs
+  - **setHomeBeach Function**: Added dedicated setHomeBeach action with beach existence validation for more secure home beach updates
+  - **Enhanced Cache Management**: Upgraded to use revalidateTag("profile") alongside path-based cache invalidation for better cache consistency
+  - **Type-Safe Updates**: All profile updates now use validated data to prevent invalid database writes
+  - **Error Handling**: Improved error messages with specific validation feedback for better user experience
+
+- **Home Beach Management System**: Complete overhaul of default beach selection with proper modal integration and UI consistency
+  - **HomeBeachSelector Component**: New reusable beach selection component with search, dropdown, and popular beach prioritization
+  - **Profile Modal Integration**: Added Home Beach selection to main Edit Profile modal with proper form integration
+  - **Modal Close Behavior**: Fixed modal not closing after successful profile updates with proper callback handling
+  - **Cache Invalidation**: Enhanced server action to properly clear all profile-related caches (home page, profile page, preferences)
+  - **UI Copy Consistency**: Updated all references from "Default Beach" to "Home Beach" across forecast tab and preferences
+  - **Form Integration**: Added HomeBeachSelector to EditProfileForm with proper validation and error handling
+  - **Component Testing**: Comprehensive test suite for HomeBeachSelector component covering all user interactions
+
+### Added
+
+- **Gamification System Complete Implementation**: Full database schema, server actions, UI components, and flow integrations for user engagement tracking
+  - **Database Schema**: Created 4 core tables (`user_xp`, `badge_definitions`, `user_badges`, `xp_events`) with proper constraints, indexes, and RLS policies
+  - **Badge System**: 23 themed badges across Global, Journal+, and Quiver categories with XP rewards (50-500 XP range)
+  - **Badge Icons**: Lightweight icon system using Lucide React + strategic emojis with smart renderer component
+  - **XP Tracking System**: Server actions for XP tracking, level progression (9 tiers: Kook → Quiver King/Queen), and badge unlock evaluation
+  - **UI Components**: Complete gamification UI including XP cards, badge galleries, toast notifications with confetti animations
+  - **Flow Integrations**: XP tracking integrated into session planning (+50 XP), board management (+30 XP), beach intel posting (+25-50 XP)
+  - **Profile Enhancement**: New gamification section showing user level, XP progress, badges, and upcoming achievements
+  - **XP Boosters**: Strategic UI prompts in Journal+ and Quiver tabs encouraging engagement-driving actions
+  - **Gamification Hooks**: Reusable React hooks for easy XP tracking integration (`useGamification`, `useSessionGamification`, etc.)
+  - **Growth-Focused Design**: XP events tracking supports 11 user actions driving engagement, retention, and viral sharing
+  - **Performance Optimized**: Proper indexing for XP lookups, badge queries, and analytics with scalable RLS policies
+
+### Fixed
+
+- **Home "Set Home Beach" Crash and Warning Issues**: Resolved critical null safety and state management issues in forecast display
+  - **Null Safety Guards**: Fixed `Cannot read properties of null (reading 'slice')` crash in forecast-tab.tsx KPI tile rendering
+  - **Render Cycle Warnings**: Eliminated "Cannot update a component while rendering a different component" warnings by moving state updates to useEffect
+  - **Controlled Component Stability**: Ensured stable defaults for form components, never passing null/undefined to controlled inputs
+  - **Modal Success Handling**: Fixed profile update modal flow with proper useEffect-based navigation and state management
+  - **Defensive Programming**: Added comprehensive null checks around string operations in forecast data parsing
+
+- **Profile Update System**: Fixed critical profile update failures on "Select Default Beach" functionality
+  - **Import Cycle Resolution**: Removed circular dependency between server action modules causing "Cannot redefine property: $$id" errors
+  - **Database Schema**: Added missing profile columns (`avatar_url`, `email`, `phone_number`, `bio`, `location`, `experience_level`, `instagram`, `updated_at`, `default_beach_id`, `notification_session_reminders`, `notification_community_replies`)
+  - **RLS Policies**: Enabled Row Level Security on profiles table with proper insert/update/select policies for authenticated users
+  - **Dynamic XP Tracking**: Refactored XP tracking to use dynamic imports, preventing server action registration conflicts
+  - **Auto-Update Triggers**: Added triggers for automatic `updated_at` column maintenance on profile changes
 - **Social Actions Test Suite**: Resolved critical issues in social actions testing framework
   - **Mock Implementation Corrections**: Fixed Supabase client mocking to properly simulate database operations with correct chaining methods
   - **Error Handling Pattern Alignment**: Updated test expectations from throw-based errors to `{ success: false, error }` objects to match `withAuthenticatedAction` wrapper behavior

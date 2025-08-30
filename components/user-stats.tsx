@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Waves, MapPin, Star, Calendar } from "lucide-react";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-states";
 import { getUserStats } from "@/actions/profile-actions";
+import { useProfile } from "@/lib/hooks/useProfile";
+import { useAuth } from "@/context/auth-context";
 
 interface UserStatsProps {
   userId: string;
@@ -15,13 +17,20 @@ interface UserStatsData {
   boardCount: number;
   averageRating: number;
   favoriteSpot: string | null;
+  defaultBeachId: string | null;
+  defaultBeachName: string | null;
   mostVisitedBeach: string | null;
   mostVisitedBeachCount: number;
 }
 
 export function UserStats({ userId }: UserStatsProps) {
+  const { user } = useAuth();
+  const { profile } = useProfile();
   const [stats, setStats] = useState<UserStatsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Check if this is the current user's stats
+  const isCurrentUser = user?.id === userId;
 
   useEffect(() => {
     async function loadStats() {
@@ -96,12 +105,16 @@ export function UserStats({ userId }: UserStatsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold truncate">
-            {stats.favoriteSpot || stats.mostVisitedBeach || "-"}
+            {isCurrentUser && profile?.default_beach_id 
+              ? stats?.defaultBeachName || "—"
+              : stats?.favoriteSpot || stats?.mostVisitedBeach || "—"}
           </div>
           <p className="text-xs text-muted-foreground">
-            {stats.favoriteSpot
+            {isCurrentUser && profile?.default_beach_id
               ? "From profile"
-              : stats.mostVisitedBeachCount
+              : stats?.favoriteSpot
+              ? "From profile"
+              : stats?.mostVisitedBeachCount
               ? `${stats.mostVisitedBeachCount} visits`
               : "No sessions yet"}
           </p>

@@ -1,5 +1,7 @@
 // Import Jest DOM matchers
 import "@testing-library/jest-dom";
+// Import whatwg-fetch for fetch polyfill
+import "whatwg-fetch";
 
 // Polyfill TextEncoder and TextDecoder
 if (typeof TextEncoder === "undefined") {
