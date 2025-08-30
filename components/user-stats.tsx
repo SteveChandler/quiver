@@ -8,6 +8,7 @@ import { getUserStats } from "@/actions/profile-actions";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { useAuth } from "@/context/auth-context";
 import { HomeBeachTile } from "@/components/profile/HomeBeachTile";
+import { GamificationSection } from "@/components/profile/gamification-section";
 
 interface UserStatsProps {
   userId: string;
@@ -61,65 +62,76 @@ export function UserStats({ userId }: UserStatsProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Sessions</CardTitle>
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.sessionCount}</div>
-          <p className="text-xs text-muted-foreground">Total sessions (all)</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Boards</CardTitle>
-          <Waves className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.boardCount}</div>
-          <p className="text-xs text-muted-foreground">Boards in quiver</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Rating</CardTitle>
-          <Star className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.averageRating || "-"}</div>
-          <p className="text-xs text-muted-foreground">
-            Average session rating
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Use HomeBeachTile for current user, or fallback card for others */}
-      {isCurrentUser ? (
-        <HomeBeachTile />
-      ) : (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Favorite Spot</CardTitle>
-            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Sessions</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold truncate">
-              {stats?.favoriteSpot || stats?.mostVisitedBeach || "—"}
-            </div>
+            <div className="text-2xl font-bold">{stats.sessionCount}</div>
+            <p className="text-xs text-muted-foreground">Total sessions (all)</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Boards</CardTitle>
+            <Waves className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.boardCount}</div>
+            <p className="text-xs text-muted-foreground">Boards in quiver</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Rating</CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.averageRating || "-"}</div>
             <p className="text-xs text-muted-foreground">
-              {stats?.favoriteSpot
-                ? "From profile"
-                : stats?.mostVisitedBeachCount
-                ? `${stats.mostVisitedBeachCount} visits`
-                : "No sessions yet"}
+              Average session rating
             </p>
           </CardContent>
         </Card>
-      )}
+
+        {/* Use HomeBeachTile for current user, or fallback card for others */}
+        {isCurrentUser ? (
+          <HomeBeachTile />
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Favorite Spot</CardTitle>
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold truncate">
+                {stats?.favoriteSpot || stats?.mostVisitedBeach || "—"}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {stats?.favoriteSpot
+                  ? "From profile"
+                  : stats?.mostVisitedBeachCount
+                  ? `${stats.mostVisitedBeachCount} visits`
+                  : "No sessions yet"}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Gamification Section - Show XP, badges, and achievements */}
+      <GamificationSection
+        user={{
+          id: userId,
+          display_name: profile?.full_name || undefined,
+        }}
+        isOwnProfile={isCurrentUser}
+      />
     </div>
   );
 }
