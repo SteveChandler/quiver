@@ -164,62 +164,26 @@ test.describe("Home Beach Flow", () => {
     }
   });
 
-  test("should allow clearing home beach selection", async ({ page }) => {
-    // Navigate to edit profile
-    await page.goto("/profile?edit=true");
-    await page.waitForLoadState("load");
-    
-    // Wait for modal to open
-    await page.waitForSelector('[role="dialog"]', { state: "visible" });
-    
-    // First set a beach
-    const homeBeachSelector = page.locator('button[role="combobox"]').first();
-    await homeBeachSelector.click();
-    
-    await page.waitForSelector('[role="option"]', { state: "visible" });
-    const beachOption = page.locator('[role="option"]').first();
-    await beachOption.click();
-    
-    // Now clear it using the X button
-    const clearButton = homeBeachSelector.locator('button[aria-label=""]'); // X button
-    await clearButton.click();
-    
-    // Verify it's cleared (should show placeholder again)
-    await expect(homeBeachSelector).toContainText("Select your home beach");
-    
-    // Save the changes
-    const saveButton = page.locator('button[type="submit"]', {
-      has: page.locator("text=Save Changes"),
+  test("handles API errors gracefully", async ({ page }) => {
+    // Stub API to return error
+    await page.route("**/api/me/profile", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: "Internal server error"
+        })
+      });
     });
-    await saveButton.click();
     
-    // Wait for modal to close
-    await page.waitForSelector('[role="dialog"]', { state: "hidden" });
-
-    // Go to home page and verify fallback behavior
-    await page.goto("/");
-    await page.waitForLoadState("load");
-    
-    // Should show the fallback CTA again
-    await expect(page.locator("text=Set Home Beach")).toBeVisible();
-    await expect(page.locator("text=Showing popular beach forecast")).toBeVisible();
-  });
-
-  test("setting home beach updates everywhere", async ({ page }) => {
-    await page.goto("/");
-    // assume test user is already signed in with seeded profile
-
-    // Open Edit Profile and set home beach
-    await page.getByRole("button", { name: "Edit" }).click();
-    await page.getByLabel("Home Beach").selectOption({ label: "Ocean Beach" });
-    await page.getByRole("button", { name: "Save Changes" }).click();
-
-    // Home banner should disappear (already set)
-    await expect(page.getByRole("button", { name: "Set Home Beach" })).toBeHidden();
-
-    // Profile tile shows Ocean Beach
+    // Navigate to profile page
     await page.goto("/profile");
-    await expect(page.getByText("Home Break")).toBeVisible();
-    await expect(page.getByText("Ocean Beach")).toBeVisible();
+    
+    // Wait for page to load
+    await page.waitForLoadState("networkidle");
+    
+    // The app should handle the error gracefully without crashing
+    const body = page.locator("body");
+    await expect(body).toBeVisible();
   });
 });

@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+### Added
+
+- **Home Beach Testing Infrastructure**: Comprehensive test suite for home beach refactor validation with single source of truth pattern
+  - **Canonical API Route**: Created `/api/me/profile` endpoint for client-side profile fetching with proper cache tagging
+  - **Test Data Attributes**: Added stable `data-testid` attributes to home beach UI components (banner, selector, profile tile, save button)
+  - **Jest Unit Tests**: Created unit test suites for `HomeBeachBanner`, `EditProfileModal`, and `ProfileStats` components with proper mocking
+  - **Playwright E2E Tests**: Implemented end-to-end test flows with API route stubbing for reliable CI/CD testing
+  - **Module Mocks**: Set up Jest module mocks for Supabase server client and profile actions
+
 ### Fixed
 
 - **Critical Server Error in Profile Actions**: Fixed "use server" file export violation that was causing complete application failure

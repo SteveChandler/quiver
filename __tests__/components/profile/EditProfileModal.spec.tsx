@@ -9,7 +9,31 @@ import { updateProfile, setHomeBeach } from "@/actions/profile-actions";
 // Mock the hooks and actions
 jest.mock("@/lib/hooks/useProfile");
 jest.mock("@/context/auth-context");
-jest.mock("@/actions/profile-actions");
+jest.mock("@/actions/profile-actions", () => ({
+  updateProfile: jest.fn(),
+  setHomeBeach: jest.fn(),
+}));
+
+// Mock image upload utilities
+jest.mock("@/lib/image-upload", () => ({
+  uploadImage: jest.fn().mockResolvedValue({ success: true, url: "test-url" }),
+  deleteImage: jest.fn().mockResolvedValue({ success: true }),
+}));
+
+// Mock toast utilities
+jest.mock("@/lib/utils/toast-utils", () => ({
+  toastUtils: {
+    profile: {
+      updated: jest.fn(),
+      updateFailed: jest.fn(),
+    }
+  }
+}));
+
+// Mock toast hook
+jest.mock("@/components/ui/use-toast", () => ({
+  toast: jest.fn(),
+}));
 jest.mock("@/components/home-beach-selector", () => ({
   HomeBeachSelector: ({ onValueChange, value, disabled }: any) => (
     <select

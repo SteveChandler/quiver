@@ -1,18 +1,21 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
-import { useProfile } from "@/lib/hooks/useProfile";
-import { setHomeBeach } from "@/actions/profile-actions";
 
 // Mock the hooks and actions
-jest.mock("@/lib/hooks/useProfile");
-jest.mock("@/actions/profile-actions");
+const mockSetHomeBeach = jest.fn();
+const mockMutate = jest.fn();
+const mockUseProfile = jest.fn();
 
-const mockUseProfile = useProfile as jest.MockedFunction<typeof useProfile>;
-const mockSetHomeBeach = setHomeBeach as jest.MockedFunction<typeof setHomeBeach>;
+jest.mock("@/lib/hooks/useProfile", () => ({
+  useProfile: () => mockUseProfile()
+}));
+
+jest.mock("@/actions/profile-actions", () => ({
+  setHomeBeach: (...args: any[]) => mockSetHomeBeach(...args),
+}));
 
 describe("HomeBeachBanner", () => {
-  const mockMutate = jest.fn();
   const selectedBeachId = "test-beach-123";
 
   beforeEach(() => {

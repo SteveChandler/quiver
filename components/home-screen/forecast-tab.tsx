@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
 import { KpiTile } from "@/components/ui/kpi-tile";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
+import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getForecastForToday } from "@/actions/forecast-actions";
@@ -203,23 +204,12 @@ export function ForecastTab({
 
   return (
     <div className="space-y-4">
+      {/* Show home beach banner when no beach is set or using fallback */}
       {isFallback && (
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between gap-3">
-            <div className="text-left">
-              <p className="text-sm font-medium">
-                Showing popular beach forecast
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Set your home beach in your profile to personalize your home
-                feed.
-              </p>
-            </div>
-            <Button onClick={() => router.push("/profile?edit=true")} size="sm">
-              Set Home Beach
-            </Button>
-          </CardContent>
-        </Card>
+        <HomeBeachBanner 
+          profile={profile}
+          selectedBeach={effectiveBeach}
+        />
       )}
       {/* Beach Header */}
       <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white">
