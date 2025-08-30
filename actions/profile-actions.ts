@@ -9,7 +9,7 @@ import { z } from "zod";
 // Unified profile update schema with permissive validation
 const profileUpdateSchema = z.object({
   full_name: z.string().min(1, "Name is required").max(100, "Name too long").optional(),
-  default_beach_id: z.string().uuid("Invalid beach ID").optional(),
+  home_beach_id: z.string().uuid("Invalid beach ID").optional(),
   favorite_spot: z.string().max(255, "Favorite spot name too long").optional(),
   bio: z.string().max(500, "Bio too long").optional(),
   skill_level: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
@@ -261,7 +261,7 @@ export async function setHomeBeach(beachId: string) {
     const { data, error } = await supabase
       .from("profiles")
       .update({
-        default_beach_id: beachId,
+        home_beach_id: beachId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)

@@ -80,7 +80,7 @@ const mockProfile: Profile = {
   experience_level: null,
   favorite_spot: "Malibu",
   instagram: null,
-  default_beach_id: null,
+  home_beach_id: null,
   notification_session_reminders: true,
   notification_community_replies: true,
   inapp_session_invites: true,

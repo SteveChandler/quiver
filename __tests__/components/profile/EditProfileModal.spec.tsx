@@ -72,7 +72,7 @@ describe("EditProfileModal", () => {
     full_name: "Test User",
     bio: "Test bio",
     location: "San Diego",
-    default_beach_id: null,
+    home_beach_id: null,
     avatar_url: null
   };
 
@@ -105,7 +105,7 @@ describe("EditProfileModal", () => {
 
     mockSetHomeBeach.mockResolvedValue({
       success: true,
-      data: { ...mockProfile, default_beach_id: "beach-1" }
+      data: { ...mockProfile, home_beach_id: "beach-1" }
     });
   });
 

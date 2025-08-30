@@ -156,7 +156,7 @@ const mockSessionWithDetails: SessionWithDetails = {
     experience_level: null,
     favorite_spot: null,
     instagram: null,
-    default_beach_id: null,
+    home_beach_id: null,
     notification_session_reminders: true,
     notification_community_replies: true,
     inapp_session_invites: true,

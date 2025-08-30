@@ -76,6 +76,7 @@ interface ComponentProps {
 - **`session-card.tsx`** - Session activity cards with social features
 - **`user-avatar.tsx`** - Consistent user avatar display
 - **`user-stats.tsx`** - User statistics and analytics display
+- **`home-beach-selector.tsx`** - Beach selection dropdown for home beach preference
 
 #### Interactive Features
 
@@ -283,6 +284,58 @@ interface ComponentProps {
 - **SEO Optimized**: Structured data, meta tags
 - **Conversion Focused**: A/B testing ready, analytics integration
 - **Responsive**: Mobile-first design principles
+
+---
+
+### 📁 **`/gamification`** - User Engagement & Progression System
+
+#### Core Components
+
+- **`user-xp-card.tsx`** - User experience points display with level progression
+- **`badge-gallery.tsx`** - Badge collection and achievement display  
+- **`badge-icon.tsx`** - Individual badge rendering with rarity styling
+- **`xp-toast-system.tsx`** - XP gain notifications and feedback
+- **`gamification-test-page.tsx`** - Testing interface for gamification features
+
+#### Features
+
+- **XP System**: Points awarded for session completion, streaks, community engagement
+- **Badge System**: Achievement unlocks with common/rare/epic/legendary tiers
+- **Level Progression**: Visual progression indicators and next level goals
+- **Social Recognition**: Public badge display and leaderboard integration
+- **Streak Tracking**: Daily/weekly/monthly session streaks with bonus XP
+
+#### XP Sources
+
+- Session completion (base XP)
+- First session milestone 
+- Streak achievements (3, 7, 30 days)
+- Social sharing and community contributions
+- Beach reviews and helpful content
+
+---
+
+### 📁 **`/home`** - Home Beach Personalization
+
+#### Components
+
+- **`HomeBeachBanner.tsx`** - Prompt to set home beach when unset
+- **`HomeBeachSelector.tsx`** - Beach selection dropdown (moved to root)
+- **`HomeBeachTile.tsx`** - Profile stats tile showing home beach (in `/profile`)
+
+#### Integration Points
+
+- **Home Screen**: Banner shows when no home beach is set
+- **Profile Page**: Tile displays current home beach or "—" if unset  
+- **Edit Profile**: Selector allows changing home beach preference
+- **Forecast Tab**: Uses home beach for personalized forecasts
+
+#### Data Flow
+
+- **Canonical Field**: `profiles.home_beach_id` (FK to beaches.id)
+- **API Endpoint**: `/api/me/profile` returns `{ id, home_beach_id }`
+- **Update Action**: `setHomeBeach(beachId)` via profile actions
+- **Cache Invalidation**: `revalidateTag("profile")` after updates
 
 ---
 

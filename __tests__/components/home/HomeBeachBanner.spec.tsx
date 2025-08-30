@@ -24,7 +24,7 @@ describe("HomeBeachBanner", () => {
       success: true,
       data: {
         id: "test-user-id",
-        default_beach_id: selectedBeachId,
+        home_beach_id: selectedBeachId,
         full_name: "Test User"
       }
     });
@@ -34,7 +34,7 @@ describe("HomeBeachBanner", () => {
     mockUseProfile.mockReturnValue({
       profile: { 
         id: "test-user-id", 
-        default_beach_id: null,
+        home_beach_id: null,
         full_name: "Test User"
       },
       loading: false,
@@ -54,7 +54,7 @@ describe("HomeBeachBanner", () => {
     mockUseProfile.mockReturnValue({
       profile: { 
         id: "test-user-id", 
-        default_beach_id: selectedBeachId,
+        home_beach_id: selectedBeachId,
         full_name: "Test User"
       },
       loading: false,
@@ -72,7 +72,7 @@ describe("HomeBeachBanner", () => {
     mockUseProfile.mockReturnValue({
       profile: { 
         id: "test-user-id", 
-        default_beach_id: null,
+        home_beach_id: null,
         full_name: "Test User"
       },
       loading: false,
@@ -99,14 +99,14 @@ describe("HomeBeachBanner", () => {
     mockSetHomeBeach.mockImplementation(() => new Promise(resolve => 
       setTimeout(() => resolve({
         success: true,
-        data: { id: "test-user-id", default_beach_id: selectedBeachId, full_name: "Test User" }
+        data: { id: "test-user-id", home_beach_id: selectedBeachId, full_name: "Test User" }
       }), 100)
     ));
 
     mockUseProfile.mockReturnValue({
       profile: { 
         id: "test-user-id", 
-        default_beach_id: null,
+        home_beach_id: null,
         full_name: "Test User"
       },
       loading: false,

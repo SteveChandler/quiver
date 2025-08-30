@@ -1,5 +1,16 @@
 ## [Unreleased]
 
+### Fixed
+
+- **Home Beach Feature Field Name Standardization**: Unified home beach field name across the entire application to ensure consistency
+  - **Database Migration**: Created migration to rename `default_beach_id` to `home_beach_id` for better semantic naming
+  - **Type System Updates**: Updated Profile type definition to use `home_beach_id` instead of `default_beach_id`
+  - **Component Integration**: Fixed HomeBeachTile to use canonical `home_beach_id` field consistently
+  - **Profile View Integration**: Replaced `favorite_spot` string display with proper HomeBeachTile component integration
+  - **Server Actions Consistency**: Updated `setHomeBeach` action and profile schemas to use `home_beach_id`
+  - **Test Suite Updates**: Fixed all test references to use the standardized field name
+  - **Home Beach Banner Logic**: Updated conditional logic to use correct field name for banner display
+
 ### Added
 
 - **Home Beach Testing Infrastructure**: Comprehensive test suite for home beach refactor validation with single source of truth pattern

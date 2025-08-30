@@ -25,7 +25,7 @@ export function HomeBeachBanner({ selectedBeachId }: HomeBeachBannerProps) {
   }
 
   // Hide banner if already set to this beach
-  if (profile?.default_beach_id === selectedBeachId) return null;
+  if (profile?.home_beach_id === selectedBeachId) return null;
 
   return (
     <div data-testid="home-beach-banner">

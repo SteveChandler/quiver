@@ -9,7 +9,7 @@ export type Profile = {
   experience_level: string | null;
   favorite_spot: string | null;
   instagram: string | null;
-  default_beach_id: string | null;
+  home_beach_id: string | null;
   notification_session_reminders: boolean;
   notification_community_replies: boolean;
   inapp_session_invites?: boolean; // added by migration

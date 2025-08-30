@@ -55,7 +55,7 @@ const profileFormSchema = z.object({
     .string()
     .max(100, "Instagram handle must be less than 100 characters")
     .optional(),
-  default_beach_id: z.string().optional(),
+  home_beach_id: z.string().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -68,7 +68,7 @@ interface EditProfileFormProps {
     experience_level?: string;
     instagram?: string;
     avatar_url?: string;
-    default_beach_id?: string;
+    home_beach_id?: string;
   };
   onSuccess?: () => void;
 }
@@ -95,7 +95,7 @@ export function EditProfileForm({
       location: initialData?.location || "",
       experience_level: initialData?.experience_level || "",
       instagram: initialData?.instagram || "",
-      default_beach_id: initialData?.default_beach_id || undefined,
+      home_beach_id: initialData?.home_beach_id || undefined,
     },
   });
 
@@ -112,7 +112,7 @@ export function EditProfileForm({
     if (!user) return;
     
     // If no change, return early
-    if (beachId === profile?.default_beach_id) return;
+    if (beachId === profile?.home_beach_id) return;
 
     if (!beachId) return; // Don't allow clearing home beach here
 
@@ -143,8 +143,8 @@ export function EditProfileForm({
 
     setIsSubmitting(true);
     try {
-      // Remove default_beach_id from the data since we handle it separately
-      const { default_beach_id, ...profileData } = data;
+      // Remove home_beach_id from the data since we handle it separately
+      const { home_beach_id, ...profileData } = data;
       
       const result = await updateProfile({
         ...profileData,
@@ -408,7 +408,7 @@ export function EditProfileForm({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Home Beach</label>
                 <HomeBeachSelector
-                  value={profile?.default_beach_id || undefined}
+                  value={profile?.home_beach_id || undefined}
                   onValueChange={handleHomeBeachChange}
                   placeholder="Select your home beach for forecasts"
                   disabled={homeBeachSaving}

@@ -26,8 +26,8 @@ export function HomeBeachTile({ beachLookup = {} }: HomeBeachTileProps) {
     );
   }
 
-  const homeName = profile?.default_beach_id 
-    ? beachLookup[profile.default_beach_id] || "—"
+  const homeName = profile?.home_beach_id 
+    ? beachLookup[profile.home_beach_id] || "—"
     : "—";
 
   return (
@@ -41,7 +41,7 @@ export function HomeBeachTile({ beachLookup = {} }: HomeBeachTileProps) {
           {homeName}
         </div>
         <p className="text-xs text-muted-foreground">
-          {profile?.default_beach_id ? "From profile" : "Not set"}
+          {profile?.home_beach_id ? "From profile" : "Not set"}
         </p>
       </CardContent>
     </Card>

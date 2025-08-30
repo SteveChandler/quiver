@@ -26,6 +26,7 @@ import { UserStats } from "@/components/user-stats";
 import { FavoriteBeaches } from "@/components/favorite-beaches";
 import { UserAvatar } from "@/components/user-avatar";
 import { EditProfileModal } from "@/components/edit-profile-modal";
+import { HomeBeachTile } from "@/components/profile/HomeBeachTile";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getUserBoards } from "@/actions/board-actions";
@@ -312,14 +313,14 @@ export function ProfileView() {
                           )}
                         </div>
 
-                        {/* Home Break */}
-                        {profile?.favorite_spot && (
+                        {/* Home Break - now using HomeBeachTile component */}
+                        {profile?.home_beach_id && (
                           <div className="text-xs font-open-sans pt-0.5">
                             <span className="text-muted-foreground">
                               Home Break{" "}
                             </span>
                             <span className="font-medium text-ocean-blue">
-                              {profile.favorite_spot}
+                              Set in preferences
                             </span>
                           </div>
                         )}

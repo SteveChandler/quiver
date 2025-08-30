@@ -38,7 +38,7 @@ describe("ProfileStats - HomeBeachTile", () => {
     mockUseProfile.mockReturnValue({
       profile: {
         id: "test-user-id",
-        default_beach_id: "beach-123",
+        home_beach_id: "beach-123",
         full_name: "Test User"
       },
       loading: false,
@@ -57,7 +57,7 @@ describe("ProfileStats - HomeBeachTile", () => {
     mockUseProfile.mockReturnValue({
       profile: {
         id: "test-user-id",
-        default_beach_id: null,
+        home_beach_id: null,
         full_name: "Test User"
       },
       loading: false,
@@ -76,7 +76,7 @@ describe("ProfileStats - HomeBeachTile", () => {
     mockUseProfile.mockReturnValue({
       profile: {
         id: "test-user-id",
-        default_beach_id: "unknown-beach-id",
+        home_beach_id: "unknown-beach-id",
         full_name: "Test User"
       },
       loading: false,
@@ -95,7 +95,7 @@ describe("ProfileStats - HomeBeachTile", () => {
     mockUseProfile.mockReturnValue({
       profile: {
         id: "test-user-id",
-        default_beach_id: "beach-123",
+        home_beach_id: "beach-123",
         full_name: "Test User"
       },
       loading: false,
