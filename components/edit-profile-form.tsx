@@ -119,8 +119,10 @@ export function EditProfileForm({
     setHomeBeachSaving(true);
     try {
       await setHomeBeach(beachId);
-      // Optimistically refetch profile
-      startTransition(() => mutate());
+      // Optimistically refetch profile if mutate function is available
+      if (typeof mutate === "function") {
+        startTransition(() => mutate());
+      }
       
       toast({
         title: "Home beach updated",
@@ -155,8 +157,10 @@ export function EditProfileForm({
         throw new Error(result.error || "Failed to update profile");
       }
 
-      // Refresh profile data
-      startTransition(() => mutate());
+      // Refresh profile data if mutate function is available
+      if (typeof mutate === "function") {
+        startTransition(() => mutate());
+      }
 
       toastUtils.profile.updated();
 
