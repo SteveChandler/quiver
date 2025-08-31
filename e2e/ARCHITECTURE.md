@@ -392,7 +392,7 @@ export default defineConfig({
   workers: process.env.CI ? 5 : 10, // Match CPU cores
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3002",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

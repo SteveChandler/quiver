@@ -15,11 +15,25 @@ const mockSupabase = {
 
 // Mock server action utils
 jest.mock('@/lib/server-action-utils', () => ({
-  makeAuthenticatedAction: (fn: any) => fn,
+  withAuthenticatedAction: (fn: any) => (async (...args: any[]) => {
+    try {
+      const result = await fn(mockUser, mockSupabase, ...args);
+      return { success: true, data: result };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }),
 }));
 
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: () => mockSupabase,
+}));
+
+// Mock RealtimeClient to avoid constructor error
+jest.mock('@supabase/realtime-js', () => ({
+  RealtimeClient: function() {
+    return {};
+  }
 }));
 
 const mockUser = {
@@ -52,7 +66,7 @@ describe('Gamification Actions', () => {
       // Mock XP event logging
       mockSupabase.insert.mockResolvedValueOnce({ data: null, error: null });
 
-      const result = await trackXP(mockUser, mockSupabase, 'plan_session');
+      const result = await trackXP('plan_session');
 
       expect(result.success).toBe(true);
       expect(result.data?.xp_gained).toBe(50);
@@ -77,7 +91,7 @@ describe('Gamification Actions', () => {
       mockSupabase.update.mockResolvedValueOnce({ data: null, error: null });
       mockSupabase.insert.mockResolvedValueOnce({ data: null, error: null });
 
-      const result = await trackXP(mockUser, mockSupabase, 'plan_session');
+      const result = await trackXP('plan_session');
 
       expect(result.success).toBe(true);
       expect(result.data?.xp_gained).toBe(50);
@@ -100,7 +114,7 @@ describe('Gamification Actions', () => {
       mockSupabase.update.mockResolvedValueOnce({ data: null, error: null });
       mockSupabase.insert.mockResolvedValueOnce({ data: null, error: null });
 
-      const result = await trackXP(mockUser, mockSupabase, 'plan_session');
+      const result = await trackXP('plan_session');
 
       expect(result.success).toBe(true);
       expect(result.data?.total_xp).toBe(140);
@@ -117,14 +131,14 @@ describe('Gamification Actions', () => {
         error: { message: 'Database connection failed' },
       });
 
-      const result = await trackXP(mockUser, mockSupabase, 'plan_session');
+      const result = await trackXP('plan_session');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Database connection failed');
     });
 
     test('should reject invalid XP actions', async () => {
-      const result = await trackXP(mockUser, mockSupabase, 'invalid_action' as any);
+      const result = await trackXP('invalid_action' as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Unknown XP action');
@@ -150,7 +164,7 @@ describe('Gamification Actions', () => {
         error: null,
       });
 
-      const result = await getUserXPStatus(mockUser, mockSupabase);
+      const result = await getUserXPStatus();
 
       expect(result.success).toBe(true);
       expect(result.data?.xp_total).toBe(150);
@@ -183,7 +197,7 @@ describe('Gamification Actions', () => {
         error: null,
       });
 
-      const result = await getUserBadges(mockUser, mockSupabase);
+      const result = await getUserBadges();
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1);
@@ -218,7 +232,7 @@ describe('Gamification Actions', () => {
         error: null,
       });
 
-      const result = await getAllBadgeDefinitions(mockUser, mockSupabase);
+      const result = await getAllBadgeDefinitions();
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2);

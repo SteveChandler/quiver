@@ -72,7 +72,7 @@ export function useCachedProfile() {
       console.log("✅ Profile loaded:", {
         id: profile.id,
         favoriteSpot: profile.favorite_spot,
-        defaultBeachId: profile.default_beach_id,
+        defaultBeachId: profile.home_beach_id,
       });
 
       let defaultBeach: Beach | null = null;
@@ -112,10 +112,10 @@ export function useCachedProfile() {
         }
       }
 
-      // Fallback to default_beach_id
-      if (!defaultBeach && profile.default_beach_id) {
+      // Fallback to home_beach_id
+      if (!defaultBeach && profile.home_beach_id) {
         const { getBeachById } = await import("@/actions/beach-actions");
-        const beachResult = await getBeachById(profile.default_beach_id);
+        const beachResult = await getBeachById(profile.home_beach_id);
         if (beachResult.success && beachResult.data) {
           defaultBeach = beachResult.data;
           console.log("✅ Found default beach by ID:", defaultBeach.name);

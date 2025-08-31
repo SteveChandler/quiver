@@ -1,6 +1,6 @@
 "use server";
 
-import { makeAuthenticatedAction } from "@/lib/server-action-utils";
+import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import type { User } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -92,13 +92,12 @@ function calculateLevel(totalXP: number): { level: number; title: string } {
 }
 
 // Track XP and update user level
-export const trackXP = makeAuthenticatedAction(async (
-  user: User,
-  supabase: ReturnType<typeof createSupabaseServerClient>,
+export async function trackXP(
   action: XPAction,
   relatedEntityId?: string,
   relatedEntityType?: 'session' | 'board' | 'intel_post' | 'review' | 'invite' | 'photo'
-): Promise<XPTrackingResult> => {
+) {
+  return withAuthenticatedAction(async (user, supabase) => {
   
   // Get XP value for action
   const xpGained = XP_ACTION_MAP[action];
@@ -156,22 +155,21 @@ export const trackXP = makeAuthenticatedAction(async (
   // Check for new badge unlocks
   const newBadges = await evaluateBadgeUnlocks(user.id, supabase);
 
-  return {
-    xp_gained: xpGained,
-    total_xp: newTotalXP,
-    previous_level: previousLevel,
-    new_level: newLevel,
-    level_up: levelUp,
-    level_title: levelTitle,
-    new_badges: newBadges,
-  };
-});
+    return {
+      xp_gained: xpGained,
+      total_xp: newTotalXP,
+      previous_level: previousLevel,
+      new_level: newLevel,
+      level_up: levelUp,
+      level_title: levelTitle,
+      new_badges: newBadges,
+    };
+  });
+}
 
 // Get user's current XP status
-export const getUserXPStatus = makeAuthenticatedAction(async (
-  user: User,
-  supabase: ReturnType<typeof createSupabaseServerClient>
-) => {
+export async function getUserXPStatus() {
+  return withAuthenticatedAction(async (user, supabase) => {
   await initializeUserXP(user.id, supabase);
   
   const { data, error } = await supabase
@@ -201,14 +199,15 @@ export const getUserXPStatus = makeAuthenticatedAction(async (
     xpToNext = nextLevelThreshold.xp_required - data.xp_total;
   }
 
-  return {
-    ...data,
-    level_title: title,
-    progress_to_next: progressToNext,
-    xp_to_next_level: xpToNext,
-    next_level_title: nextLevelThreshold?.title || "Max Level",
-  };
-});
+    return {
+      ...data,
+      level_title: title,
+      progress_to_next: progressToNext,
+      xp_to_next_level: xpToNext,
+      next_level_title: nextLevelThreshold?.title || "Max Level",
+    };
+  });
+}
 
 // Badge evaluation logic - determines which badges user should unlock
 async function evaluateBadgeUnlocks(
@@ -357,48 +356,46 @@ async function getUserStatsForBadges(
 }
 
 // Get user's badge collection
-export const getUserBadges = makeAuthenticatedAction(async (
-  user: User,
-  supabase: ReturnType<typeof createSupabaseServerClient>
-) => {
-  const { data, error } = await supabase
-    .from("user_badges")
-    .select(`
-      badge_slug,
-      unlocked_at,
-      context,
-      badge_definitions (
-        name,
-        description,
-        icon,
-        category,
-        xp_reward
-      )
-    `)
-    .eq("user_id", user.id)
-    .order("unlocked_at", { ascending: false });
+export async function getUserBadges() {
+  return withAuthenticatedAction(async (user, supabase) => {
+    const { data, error } = await supabase
+      .from("user_badges")
+      .select(`
+        badge_slug,
+        unlocked_at,
+        context,
+        badge_definitions (
+          name,
+          description,
+          icon,
+          category,
+          xp_reward
+        )
+      `)
+      .eq("user_id", user.id)
+      .order("unlocked_at", { ascending: false });
 
-  if (error) {
-    throw new Error(`Failed to fetch user badges: ${error.message}`);
-  }
+    if (error) {
+      throw new Error(`Failed to fetch user badges: ${error.message}`);
+    }
 
-  return data;
-});
+    return data;
+  });
+}
 
 // Get all badge definitions (for showing locked badges)
-export const getAllBadgeDefinitions = makeAuthenticatedAction(async (
-  user: User,
-  supabase: ReturnType<typeof createSupabaseServerClient>
-) => {
-  const { data, error } = await supabase
-    .from("badge_definitions")
-    .select("*")
-    .order("category", { ascending: true })
-    .order("badge_slug", { ascending: true });
+export async function getAllBadgeDefinitions() {
+  return withAuthenticatedAction(async (user, supabase) => {
+    const { data, error } = await supabase
+      .from("badge_definitions")
+      .select("*")
+      .order("category", { ascending: true })
+      .order("badge_slug", { ascending: true });
 
-  if (error) {
-    throw new Error(`Failed to fetch badge definitions: ${error.message}`);
-  }
+    if (error) {
+      throw new Error(`Failed to fetch badge definitions: ${error.message}`);
+    }
 
-  return data;
-});
+    return data;
+  });
+}

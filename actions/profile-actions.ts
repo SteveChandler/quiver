@@ -299,8 +299,8 @@ export async function getUserStats(userId: string) {
       .from("profiles")
       .select(`
         favorite_spot,
-        default_beach_id,
-        beaches!profiles_default_beach_id_fkey (
+        home_beach_id,
+        beaches!profiles_home_beach_id_fkey (
           id,
           name
         )
@@ -379,7 +379,7 @@ export async function getUserStats(userId: string) {
         boardCount: boardCount || 0,
         averageRating,
         favoriteSpot: profileData?.beaches?.name || profileData?.favorite_spot || null,
-        defaultBeachId: profileData?.default_beach_id || null,
+        defaultBeachId: profileData?.home_beach_id || null,
         defaultBeachName: profileData?.beaches?.name || null,
         mostVisitedBeach,
         mostVisitedBeachCount,

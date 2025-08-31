@@ -2,6 +2,36 @@
 
 ### Fixed
 
+- **SSR Hydration Error in Gamification System**: Fixed Server-Side Rendering hydration errors caused by static canvas-confetti import
+  - **Dynamic Import Pattern**: Converted static `import confetti from "canvas-confetti"` to SSR-safe dynamic import with window checks
+  - **Client-Side Only Loading**: Added proper browser environment detection to prevent server-side canvas API access
+  - **Error Handling**: Implemented graceful fallback when confetti library fails to load (non-critical feature)
+  - **Hydration Safety**: Eliminated React hydration mismatches by ensuring confetti only loads on client-side
+  - **Performance**: Maintained confetti animation functionality while fixing SSR compatibility issues
+
+- **XP Tracking Server Action Binding Issues**: Fixed potential "Cannot redefine property: $$id" errors in gamification system
+  - **Function Pattern Refactor**: Converted gamification functions from `makeAuthenticatedAction` to standard async functions with `withAuthenticatedAction` wrapper
+  - **Binding Issue Resolution**: Eliminated potential double-binding issues by using consistent server action patterns
+  - **XP Function Signatures**: Updated `trackXP`, `getUserXPStatus`, `getUserBadges`, and `getAllBadgeDefinitions` to use standard parameter patterns
+  - **Dynamic Import Compatibility**: Ensured XP tracking functions work correctly when dynamically imported from session and review actions
+  - **Test Validation**: Verified all existing tests continue to pass with the refactored server action patterns
+
+- **E2E Test Configuration Port Mismatch**: Fixed port configuration mismatch between dev server (3002) and E2E test configuration (3000)
+  - **Playwright Configuration**: Updated `playwright.config.ts` to use port 3002 as default BASE_URL instead of port 3000
+  - **WebServer Configuration**: Modified webServer config to use `PORT=3002` environment variable for consistency
+  - **Test File Updates**: Updated all hardcoded localhost URLs in E2E test files from port 3000 to port 3002
+  - **Environment Variables**: Updated `.env.local` NEXT_PUBLIC_SITE_URL to use port 3002 for consistency
+  - **Global Setup**: Fixed global-setup.ts default fallback URL to use port 3002
+  - **Validation**: Verified E2E tests now successfully connect to dev server on correct port
+
+- **CRITICAL: Missing Profile Columns Database Schema Fix**: Resolved production-blocking issue where essential profile columns were missing from the database schema
+  - **Migration Application**: Applied missing migration `20250829030000_add_missing_profile_columns.sql` to add avatar_url, email, phone_number, bio, location, experience_level, instagram, updated_at, and home_beach_id columns
+  - **Column Renaming**: Applied migration `20250830120000_rename_default_beach_id_to_home_beach_id.sql` to standardize column naming
+  - **Application Code Updates**: Updated all references from `default_beach_id` to `home_beach_id` in profile actions, cached profile hook, profile preferences component, and API routes
+  - **Foreign Key Constraints**: Verified proper UUID foreign key constraint to beaches table with correct indexing
+  - **RLS Policies**: Ensured Row Level Security policies are properly configured for profile access control
+  - **Backwards Compatibility**: Maintained backwards compatibility in API responses for existing client code
+
 - **Home Beach Feature Field Name Standardization**: Unified home beach field name across the entire application to ensure consistency
   - **Database Migration**: Created migration to rename `default_beach_id` to `home_beach_id` for better semantic naming
   - **Type System Updates**: Updated Profile type definition to use `home_beach_id` instead of `default_beach_id`

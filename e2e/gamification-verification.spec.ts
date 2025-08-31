@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Gamification System Verification', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the app
-    await page.goto('http://localhost:3000');
+    await page.goto('http://localhost:3002');
   });
 
   test('should display landing page and allow navigation', async ({ page }) => {
@@ -30,7 +30,7 @@ test.describe('Gamification System Verification', () => {
       }
     });
     
-    await page.goto('http://localhost:3000');
+    await page.goto('http://localhost:3002');
     await page.waitForLoadState('networkidle');
     
     // Check no database connection errors in console
@@ -45,7 +45,7 @@ test.describe('Gamification System Verification', () => {
 
   test('should load profile page with gamification section placeholder', async ({ page }) => {
     // Try to navigate to a profile page (may require auth)
-    await page.goto('http://localhost:3000/profile');
+    await page.goto('http://localhost:3002/profile');
     
     // Wait for either redirect to login or profile content
     await page.waitForLoadState('networkidle');
@@ -64,7 +64,7 @@ test.describe('Gamification System Verification', () => {
 
   test('should have XP tracking integrated in session creation flow', async ({ page }) => {
     // Navigate to session creation (may require auth)
-    await page.goto('http://localhost:3000/sessions/new');
+    await page.goto('http://localhost:3002/sessions/new');
     await page.waitForLoadState('networkidle');
     
     const currentUrl = page.url();
@@ -83,7 +83,7 @@ test.describe('Gamification System Verification', () => {
 
   test('should display gamification test page if available', async ({ page }) => {
     // Try to load the gamification test page directly
-    await page.goto('http://localhost:3000/test/gamification');
+    await page.goto('http://localhost:3002/test/gamification');
     await page.waitForLoadState('networkidle');
     
     // Check if test page exists or returns 404
@@ -107,7 +107,7 @@ test.describe('Gamification System Verification', () => {
       }
     });
     
-    await page.goto('http://localhost:3000');
+    await page.goto('http://localhost:3002');
     await page.waitForTimeout(2000);
     
     // Check for module not found errors related to gamification
@@ -124,7 +124,7 @@ test.describe('Gamification System Verification', () => {
 test.describe('Gamification UI Components', () => {
   test('should render XP toast system when triggered', async ({ page }) => {
     // Create a test page that triggers XP toast
-    await page.goto('http://localhost:3000');
+    await page.goto('http://localhost:3002');
     
     // Look for any toast container elements
     const toastContainer = page.locator('[role="alert"], .toast, [class*="toast"]');
@@ -138,7 +138,7 @@ test.describe('Gamification UI Components', () => {
 
   test('should have confetti animation capability', async ({ page }) => {
     // Check if confetti library is loaded
-    await page.goto('http://localhost:3000');
+    await page.goto('http://localhost:3002');
     
     // Evaluate if confetti is available in the window object
     const hasConfetti = await page.evaluate(() => {

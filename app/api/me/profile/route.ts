@@ -35,13 +35,14 @@ export async function GET(request: NextRequest) {
     // Return profile with specific fields for home beach functionality
     const response = {
       id: profileData.id,
-      home_beach_id: profileData.default_beach_id,
+      home_beach_id: profileData.home_beach_id,
       full_name: profileData.full_name,
       // Include other fields needed by the client
       bio: profileData.bio,
       location: profileData.location,
       avatar_url: profileData.avatar_url,
-      default_beach_id: profileData.default_beach_id,
+      // Keep default_beach_id for backwards compatibility
+      default_beach_id: profileData.home_beach_id,
     };
     
     return createSuccessResponse(response, {

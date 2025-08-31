@@ -4,12 +4,28 @@ import { useToast } from "@/components/ui/use-toast";
 import { BadgeIcon } from "@/components/gamification/badge-icon";
 import type { XPTrackingResult, BadgeUnlock } from "@/lib/gamification-actions";
 import { cn } from "@/lib/utils";
-import confetti from "canvas-confetti";
+// Removed static import to fix SSR hydration errors
+// import confetti from "canvas-confetti";
 import { Trophy, Zap, Star, Crown } from "lucide-react";
 
 interface XPToastProps {
   result: XPTrackingResult;
 }
+
+// SSR-safe confetti utility function
+const triggerConfetti = async (options: any) => {
+  // Only run on client-side to avoid SSR hydration errors
+  if (typeof window === "undefined") return;
+  
+  try {
+    // Dynamic import to avoid SSR issues
+    const confetti = (await import("canvas-confetti")).default;
+    confetti(options);
+  } catch (error) {
+    // Silently fail if confetti can't load - non-critical feature
+    console.warn("Failed to load confetti:", error);
+  }
+};
 
 export function useXPToastSystem() {
   const { toast } = useToast();
@@ -40,8 +56,8 @@ export function useXPToastSystem() {
   };
 
   const showLevelUpCelebration = (result: XPTrackingResult) => {
-    // Trigger confetti animation
-    confetti({
+    // Trigger confetti animation with SSR-safe loader
+    triggerConfetti({
       particleCount: 100,
       spread: 70,
       origin: { y: 0.6 },
@@ -68,8 +84,8 @@ export function useXPToastSystem() {
   };
 
   const showBadgeUnlockCelebrations = (badges: BadgeUnlock[]) => {
-    // Trigger confetti for badges
-    confetti({
+    // Trigger confetti for badges with SSR-safe loader
+    triggerConfetti({
       particleCount: 150,
       spread: 60,
       origin: { y: 0.7 },

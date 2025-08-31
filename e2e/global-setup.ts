@@ -16,7 +16,7 @@ async function globalSetup(config: FullConfig) {
 
   try {
     const baseUrl =
-      process.env.BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+      process.env.BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002";
     const bypass = process.env.VERCEL_BYPASS;
     const isLocal = baseUrl.startsWith("http://localhost");
     const devToken = process.env.DEV_AUTH_TOKEN || "dev-local-token";
