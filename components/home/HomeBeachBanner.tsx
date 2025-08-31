@@ -17,8 +17,10 @@ export function HomeBeachBanner({ selectedBeachId }: HomeBeachBannerProps) {
     setSaving(true);
     try {
       await setHomeBeach(selectedBeachId);
-      // optimistic refetch
-      startTransition(() => mutate());
+      // optimistic refetch if mutate function is available
+      if (typeof mutate === "function") {
+        startTransition(() => mutate());
+      }
     } finally {
       setSaving(false);
     }
