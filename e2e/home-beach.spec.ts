@@ -15,7 +15,6 @@ test.describe("Home Beach Flow", () => {
             data: {
               id: "test-user-123",
               home_beach_id: null,
-              default_beach_id: null,
               full_name: "Test User",
               bio: "Test user for E2E testing",
               location: "San Diego, CA",
@@ -35,7 +34,7 @@ test.describe("Home Beach Flow", () => {
           success: true,
           data: {
             id: "test-user-123",
-            default_beach_id: null,
+            home_beach_id: null,
             full_name: "Test User"
           }
         })
@@ -203,7 +202,6 @@ test.describe("Home Beach Flow", () => {
           data: {
             id: "test-user-123",
             home_beach_id: "beach-123",
-            default_beach_id: "beach-123",
             full_name: "Test User",
             bio: "Test user for E2E testing",
             location: "San Diego, CA",

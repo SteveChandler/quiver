@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, X, Camera } from "lucide-react";
-import { updateProfile } from "@/actions/profile-actions";
+import { updateProfile, setHomeBeach } from "@/actions/profile-actions";
 import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
 import { uploadImage, deleteImage } from "@/lib/image-upload";
@@ -88,9 +88,9 @@ export function EditProfileForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Local pending selection so UI reflects changes immediately without saving
-  const [pendingHomeBeachId, setPendingHomeBeachId] = useState<string | undefined>(
-    initialData?.home_beach_id || undefined
-  );
+  const [pendingHomeBeachId, setPendingHomeBeachId] = useState<
+    string | undefined
+  >(initialData?.home_beach_id || undefined);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -140,10 +140,23 @@ export function EditProfileForm({
         avatarUrl.trim() !== "" &&
         !avatarUrl.includes("placeholder.svg");
 
+      // Persist core profile fields excluding home_beach_id; handle it explicitly
+      const { home_beach_id, ...rest } = data;
+
       const result = await updateProfile({
-        ...data,
+        ...rest,
         ...(includeAvatar ? { avatar_url: avatarUrl.trim() } : {}),
       });
+
+      // If home_beach_id changed or is set, update it via dedicated action
+      if (typeof home_beach_id !== "undefined") {
+        try {
+          await setHomeBeach(home_beach_id);
+        } catch (e) {
+          console.error("Failed to set home beach:", e);
+          throw e;
+        }
+      }
 
       if (!result.success) {
         throw new Error(result.error || "Failed to update profile");
@@ -402,12 +415,17 @@ export function EditProfileForm({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Home Beach</label>
                 <HomeBeachSelector
-                  value={pendingHomeBeachId || form.watch("home_beach_id") || undefined}
+                  value={
+                    pendingHomeBeachId ||
+                    form.watch("home_beach_id") ||
+                    undefined
+                  }
                   onValueChange={handleHomeBeachChange}
                   placeholder="Select your home beach for forecasts"
                 />
                 <p className="text-sm text-muted-foreground">
-                  This beach will be shown on your home screen and pre-selected when logging sessions
+                  This beach will be shown on your home screen and pre-selected
+                  when logging sessions
                 </p>
                 {/* Saved on form submit */}
               </div>
@@ -428,7 +446,6 @@ export function EditProfileForm({
                   </FormItem>
                 )}
               />
-
             </div>
 
             {/* Social Media */}
@@ -458,7 +475,11 @@ export function EditProfileForm({
             >
               Cancel
             </Button>
-            <Button type="submit" data-testid="save-profile" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              data-testid="save-profile"
+              disabled={isSubmitting}
+            >
               {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}

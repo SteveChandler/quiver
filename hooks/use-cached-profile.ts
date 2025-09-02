@@ -97,31 +97,8 @@ export function useCachedProfile() {
         // Non-fatal
       }
 
-      // Find default beach using favorite_spot (legacy field)
-      if (profile.favorite_spot) {
-        console.log("🏖️ Looking up favorite_spot:", profile.favorite_spot);
-
-        const { getBeaches } = await import("@/actions/beach/beach-query-actions");
-        const beachesResult = await getBeaches();
-
-        if (beachesResult.success && beachesResult.data) {
-          const favoriteSpotLower = profile.favorite_spot.toLowerCase();
-          const matchingBeach = beachesResult.data.find(
-            (beach) =>
-              beach.name.toLowerCase() === favoriteSpotLower ||
-              beach.name.toLowerCase().includes(favoriteSpotLower) ||
-              favoriteSpotLower.includes(beach.name.toLowerCase())
-          );
-
-          if (matchingBeach) {
-            console.log("✅ Found home beach:", matchingBeach.name);
-            homeBeach = matchingBeach;
-          }
-        }
-      }
-
-      // Fallback to home_beach_id
-      if (!homeBeach && profile.home_beach_id) {
+      // Resolve strictly via home_beach_id
+      if (profile.home_beach_id) {
         const { getBeachById } = await import("@/actions/beach-actions");
         const beachResult = await getBeachById(profile.home_beach_id);
         if (beachResult.success && beachResult.data) {

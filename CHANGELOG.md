@@ -2,6 +2,21 @@
 
 ### Added
 
+- Migration to enforce `profiles.home_beach_id` with FK to `beaches(id)`, index, and update-own RLS policy
+
+### Changed
+
+- Edit Profile now persists Home Beach via UUID using `setHomeBeach` and binds selector to `beach.id`
+- `/api/me/profile` no longer returns legacy `default_beach_id`; clients use `home_beach_id`
+- `getUserStats` now resolves home beach name via `home_beach_id` without legacy FK join
+
+### Fixed
+
+- Home Beach not saving from Profile editor; selection now correctly updates `profiles.home_beach_id`
+- Removed all remaining references to `default_beach_id` and favorite_spot migration paths
+
+### Added
+
 - **Gamification Status Review Doc**: Added `docs/gamification-branch-status-review.md` summarizing current branch status, implemented components, gaps, and next steps for completing gamification integration.
 
 - **User Stats Auto-Refresh**: Implemented automatic refresh of user statistics when profile changes

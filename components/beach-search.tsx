@@ -311,46 +311,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     return null;
   };
 
-  // Helper: migrate favorite_spot to home_beach_id
-  const migrateFavoriteSpotToHomeBeach = async (
-    profile: any
-  ): Promise<string | null> => {
-    const existing = profile?.home_beach_id ?? profile?.default_beach_id;
-    if (existing || !profile?.favorite_spot) {
-      return existing || null;
-    }
-
-    try {
-      // Try to find a beach that matches the favorite_spot text
-      const result = await getBeaches();
-      if (result.success && result.data) {
-        const favoriteSpotText = profile.favorite_spot.toLowerCase().trim();
-        const matchingBeach = result.data.find(
-          (beach) =>
-            beach.name.toLowerCase().includes(favoriteSpotText) ||
-            favoriteSpotText.includes(beach.name.toLowerCase())
-        );
-
-        if (matchingBeach) {
-          console.log(
-            `Auto-migrating favorite spot "${profile.favorite_spot}" to beach ID:`,
-            matchingBeach.id
-          );
-          // Update the profile with the matched beach ID
-          try {
-            await updateProfile({ home_beach_id: matchingBeach.id });
-            return matchingBeach.id;
-          } catch (updateError) {
-            console.error("Failed to auto-update home beach:", updateError);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error during favorite spot migration:", error);
-    }
-
-    return null;
-  };
+  // Legacy migration removed: we now rely solely on home_beach_id with no backfill
 
   // Initialize component based on profile
   useEffect(() => {
@@ -358,13 +319,8 @@ export function BeachSearch({ profile }: BeachSearchProps) {
 
     const initializeComponent = async () => {
       try {
-        // Check if we have a profile with a home beach (or can migrate one)
-        let homeBeachId = profile?.home_beach_id ?? profile?.default_beach_id;
-
-        // Auto-migrate from favorite_spot if needed
-        if (!homeBeachId && profile?.favorite_spot) {
-          homeBeachId = await migrateFavoriteSpotToHomeBeach(profile);
-        }
+        // Check if we have a profile with a home beach only
+        const homeBeachId = profile?.home_beach_id || null;
 
         if (homeBeachId) {
           setIsWaitingForProfile(false);
@@ -377,9 +333,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
             setOriginalSearchQuery(beachResult.data.name);
 
             // Fetch enhanced forecast for the home beach
-            const enhancedForecast = await fetchEnhancedForecast(
-              homeBeachId
-            );
+            const enhancedForecast = await fetchEnhancedForecast(homeBeachId);
 
             if (enhancedForecast) {
               console.log(
@@ -408,10 +362,14 @@ export function BeachSearch({ profile }: BeachSearchProps) {
             );
 
             if (enhancedForecast) {
-              console.log(`✅ Using enhanced forecast for ${fallbackBeach.name}`);
+              console.log(
+                `✅ Using enhanced forecast for ${fallbackBeach.name}`
+              );
               setForecast(enhancedForecast);
             } else {
-              console.error(`❌ Enhanced forecast failed for ${fallbackBeach.name}`);
+              console.error(
+                `❌ Enhanced forecast failed for ${fallbackBeach.name}`
+              );
             }
           }
         }
@@ -688,9 +646,9 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 {beach.name}
               </h2>
               <div className="text-sm text-gray-600 mt-1">
-                {profile?.default_beach_id === beach.id ? (
+                {profile?.home_beach_id === beach.id ? (
                   `Showing surf conditions for your favorite beach: ${beach.name}`
-                ) : profile?.default_beach_id ? (
+                ) : profile?.home_beach_id ? (
                   `Showing surf conditions for ${beach.name}`
                 ) : (
                   <div className="space-y-2">

@@ -7,22 +7,24 @@ jest.mock("@/hooks/use-data-fetcher");
 jest.mock("@/actions/beach/beach-query-actions");
 jest.mock("@/lib/utils/beach-search-utils");
 
-const mockUseDataFetcher = useDataFetcher as jest.MockedFunction<typeof useDataFetcher>;
+const mockUseDataFetcher = useDataFetcher as jest.MockedFunction<
+  typeof useDataFetcher
+>;
 
 const mockBeaches = [
   {
-    id: "1",
+    id: "65809772-20bc-4009-b9b2-89c8ef3c4127",
     name: "Pacific Beach",
     location: "San Diego, CA",
     latitude: 32.7942,
     longitude: -117.2542,
   },
   {
-    id: "2", 
+    id: "2",
     name: "Ocean Beach",
-    location: "San Diego, CA", 
+    location: "San Diego, CA",
     latitude: 32.7507,
-    longitude: -117.2540,
+    longitude: -117.254,
   },
   {
     id: "3",
@@ -78,7 +80,7 @@ describe("HomeBeachSelector", () => {
   it("displays selected beach when value is provided", async () => {
     render(
       <HomeBeachSelector
-        value="1"
+        value="65809772-20bc-4009-b9b2-89c8ef3c4127"
         onValueChange={mockOnValueChange}
         placeholder="Select your home beach"
       />
@@ -99,10 +101,7 @@ describe("HomeBeachSelector", () => {
     });
 
     render(
-      <HomeBeachSelector
-        value={undefined}
-        onValueChange={mockOnValueChange}
-      />
+      <HomeBeachSelector value={undefined} onValueChange={mockOnValueChange} />
     );
 
     // Click to open the dropdown
@@ -113,10 +112,7 @@ describe("HomeBeachSelector", () => {
 
   it("opens dropdown and displays beach options", async () => {
     render(
-      <HomeBeachSelector
-        value={undefined}
-        onValueChange={mockOnValueChange}
-      />
+      <HomeBeachSelector value={undefined} onValueChange={mockOnValueChange} />
     );
 
     // Click to open the dropdown
@@ -131,10 +127,7 @@ describe("HomeBeachSelector", () => {
 
   it("calls onValueChange when beach is selected", async () => {
     render(
-      <HomeBeachSelector
-        value={undefined}
-        onValueChange={mockOnValueChange}
-      />
+      <HomeBeachSelector value={undefined} onValueChange={mockOnValueChange} />
     );
 
     // Open dropdown
@@ -147,13 +140,15 @@ describe("HomeBeachSelector", () => {
 
     fireEvent.click(screen.getByText("Pacific Beach"));
 
-    expect(mockOnValueChange).toHaveBeenCalledWith("1");
+    expect(mockOnValueChange).toHaveBeenCalledWith(
+      "65809772-20bc-4009-b9b2-89c8ef3c4127"
+    );
   });
 
   it("allows clearing the selection", async () => {
     render(
       <HomeBeachSelector
-        value="1"
+        value="65809772-20bc-4009-b9b2-89c8ef3c4127"
         onValueChange={mockOnValueChange}
       />
     );
@@ -207,10 +202,7 @@ describe("HomeBeachSelector", () => {
     } as any);
 
     render(
-      <HomeBeachSelector
-        value={undefined}
-        onValueChange={mockOnValueChange}
-      />
+      <HomeBeachSelector value={undefined} onValueChange={mockOnValueChange} />
     );
 
     // Open dropdown to see the error UI

@@ -315,11 +315,7 @@ export async function getUserStats(userId: string) {
       .from("profiles")
       .select(`
         favorite_spot,
-        home_beach_id,
-        beaches!profiles_default_beach_id_fkey (
-          id,
-          name
-        )
+        home_beach_id
       `)
       .eq("id", userId)
       .single();
@@ -369,6 +365,23 @@ export async function getUserStats(userId: string) {
       averageRating = Math.round((sum / qualityData.length) * 10) / 10; // Round to 1 decimal place
     }
 
+    // Optionally resolve home beach name via separate query
+    let homeBeachName: string | null = null;
+    try {
+      if (profileData?.home_beach_id) {
+        const { data: hb, error: hbErr } = await supabase
+          .from("beaches")
+          .select("id, name")
+          .eq("id", profileData.home_beach_id)
+          .single();
+        if (!hbErr && hb) {
+          homeBeachName = hb.name;
+        }
+      }
+    } catch (e) {
+      // Non-fatal
+    }
+
     // Get most visited beach
     let mostVisitedBeach = null;
     let mostVisitedBeachCount = 0;
@@ -394,10 +407,9 @@ export async function getUserStats(userId: string) {
         sessionCount: sessionCount || 0,
         boardCount: boardCount || 0,
         averageRating,
-        favoriteSpot:
-          profileData?.beaches?.name || profileData?.favorite_spot || null,
+        favoriteSpot: profileData?.favorite_spot || null,
         homeBeachId: profileData?.home_beach_id || null,
-        homeBeachName: profileData?.beaches?.name || null,
+        homeBeachName,
         mostVisitedBeach,
         mostVisitedBeachCount,
       },

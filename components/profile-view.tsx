@@ -23,7 +23,12 @@ import { FullPageLoader, AuthLoader } from "@/components/ui/loading-states";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { BoardCard } from "@/components/board-card";
 import { UserStats } from "@/components/user-stats";
-import { FavoriteBeaches } from "@/components/favorite-beaches";
+// Lazy load FavoriteBeaches to avoid eager importing server actions in E2E/SSR
+const FavoriteBeaches = lazy(() =>
+  import("@/components/favorite-beaches").then((m) => ({
+    default: m.FavoriteBeaches,
+  }))
+);
 import { UserAvatar } from "@/components/user-avatar";
 import { EditProfileModal } from "@/components/edit-profile-modal";
 import { useAuth } from "@/context/auth-context";
@@ -182,13 +187,13 @@ export function ProfileView() {
     try {
       // Close the modal first to show immediate response
       setEditModalOpen(false);
-      
+
       // Reload the user data to get the updated profile
       await loadUserData();
-      
+
       // Increment the stats refresh token to trigger UserStats refresh
-      setStatsRefreshToken(prev => prev + 1);
-      
+      setStatsRefreshToken((prev) => prev + 1);
+
       console.log("Profile data reloaded and modal closed successfully");
     } catch (error) {
       console.error("Error during profile update callback:", error);
@@ -341,7 +346,9 @@ export function ProfileView() {
                         {/* Home Break - display actual name when available */}
                         {profile?.home_beach_id && (
                           <div className="text-xs font-open-sans pt-0.5">
-                            <span className="text-muted-foreground">Home Break </span>
+                            <span className="text-muted-foreground">
+                              Home Break{" "}
+                            </span>
                             <span className="font-medium text-ocean-blue">
                               {homeBeachName || "Loading..."}
                             </span>
@@ -374,7 +381,12 @@ export function ProfileView() {
               className="max-w-6xl mx-auto px-4"
             >
               <div className="bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/50">
-                {user && <UserStats userId={user.id} refreshToken={statsRefreshToken} />}
+                {user && (
+                  <UserStats
+                    userId={user.id}
+                    refreshToken={statsRefreshToken}
+                  />
+                )}
               </div>
             </motion.section>
 
@@ -457,8 +469,9 @@ export function ProfileView() {
                         Add Beach
                       </Button>
                     </div>
-
-                    <FavoriteBeaches />
+                    <Suspense fallback={<TabLoadingSkeleton type="Beaches" />}>
+                      <FavoriteBeaches />
+                    </Suspense>
                   </TabsContent>
 
                   <TabsContent value="comments" className="p-6 space-y-4 m-0">

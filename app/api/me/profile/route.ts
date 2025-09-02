@@ -53,8 +53,6 @@ export async function GET(request: NextRequest, deps?: GetDeps) {
       bio: profileData.bio,
       location: profileData.location,
       avatar_url: profileData.avatar_url,
-      // Keep default_beach_id for backwards compatibility
-      default_beach_id: profileData.home_beach_id,
     };
     
     return createSuccessResponse(response);

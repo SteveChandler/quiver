@@ -54,7 +54,7 @@ describe("GET /api/me/profile", () => {
     expect(json.success).toBe(true);
     expect(json.data.id).toBe("u1");
     expect(json.data.home_beach_id).toBe("beach-123");
-    // Backwards compatibility field present
-    expect(json.data.default_beach_id).toBe("beach-123");
+    // No legacy field in response anymore
+    expect(json.data.default_beach_id).toBeUndefined();
   });
 });

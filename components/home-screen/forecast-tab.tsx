@@ -175,6 +175,10 @@ export function ForecastTab({
   ) {
     return (
       <div className="space-y-4">
+        {/* Ensure the Set Home Beach banner is available even while loading */}
+        {isFallback && effectiveBeach?.id && (
+          <HomeBeachBanner selectedBeachId={effectiveBeach.id} />
+        )}
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
           <div className="h-32 bg-gray-200 rounded"></div>
@@ -302,13 +306,14 @@ export function ForecastTab({
                 const raw = (todaysForecast?.wind_speed || "").toString();
                 const match = raw && raw.match(/([\d.]+)/);
                 const value = match ? Number(match[1]).toFixed(0) : "—";
-                const unit = match && raw
-                  ? raw.toLowerCase().includes("mph")
-                    ? "mph"
-                    : raw.toLowerCase().includes("kts")
-                    ? "kts"
-                    : undefined
-                  : undefined;
+                const unit =
+                  match && raw
+                    ? raw.toLowerCase().includes("mph")
+                      ? "mph"
+                      : raw.toLowerCase().includes("kts")
+                      ? "kts"
+                      : undefined
+                    : undefined;
                 return (
                   <KpiTile
                     value={value}
@@ -326,15 +331,16 @@ export function ForecastTab({
                 const raw = (todaysForecast?.water_temp || "").toString();
                 const match = raw && raw.match(/([\d.]+)/);
                 const value = match ? Number(match[1]).toFixed(0) : "—";
-                const unit = match && raw
-                  ? raw.includes("°")
-                    ? raw.slice(raw.indexOf("°"))
-                    : raw.toLowerCase().includes("f")
-                    ? "°F"
-                    : raw.toLowerCase().includes("c")
-                    ? "°C"
-                    : undefined
-                  : undefined;
+                const unit =
+                  match && raw
+                    ? raw.includes("°")
+                      ? raw.slice(raw.indexOf("°"))
+                      : raw.toLowerCase().includes("f")
+                      ? "°F"
+                      : raw.toLowerCase().includes("c")
+                      ? "°C"
+                      : undefined
+                    : undefined;
                 return (
                   <KpiTile
                     value={value}
@@ -418,7 +424,6 @@ export function ForecastTab({
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }
