@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { fetchProfile } from "@/actions/profile-actions";
+import { fetchProfile as defaultFetchProfile } from "@/actions/profile-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -8,12 +8,23 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * This route provides the canonical API for client-side profile fetching
  * and is tagged with "profile" for cache invalidation
  */
-export async function GET(request: NextRequest) {
+type GetDeps = {
+  fetchProfileFn?: typeof defaultFetchProfile;
+  getUserFn?: () => Promise<{ user: { id: string } | null; error: any }>;
+};
+
+export async function GET(request: NextRequest, deps?: GetDeps) {
   try {
-    const supabase = createSupabaseServerClient();
     
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get current user (allow DI for tests)
+    const getUser = deps?.getUserFn
+      ? deps.getUserFn
+      : async () => {
+          const supabase = createSupabaseServerClient();
+          const { data: { user }, error } = await supabase.auth.getUser();
+          return { user, error } as any;
+        };
+    const { user, error: authError } = await getUser();
     
     if (authError || !user) {
       return new Response(
@@ -23,6 +34,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get profile data using tagged fetch for better caching
+    const fetchProfile = deps?.fetchProfileFn || defaultFetchProfile;
     const profileData = await fetchProfile(user.id);
     
     if (!profileData) {
@@ -45,9 +57,7 @@ export async function GET(request: NextRequest) {
       default_beach_id: profileData.home_beach_id,
     };
     
-    return createSuccessResponse(response, {
-      "Cache-Control": "private, max-age=300", // 5 minute cache
-    });
+    return createSuccessResponse(response);
   } catch (error) {
     console.error("Error in GET /api/me/profile:", error);
     return handleApiError(error);

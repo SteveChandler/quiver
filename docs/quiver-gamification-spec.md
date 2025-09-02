@@ -1,6 +1,8 @@
 
 # 🏄 Quiver Gamification System
 
+Note: This is the original spec. For the up-to-date, canonical doc (status, schema, integration, tests, and next steps) see `docs/GAMIFICATION.md`.
+
 A complete spec for gamifying the Quiver app with XP, badges, levels, and UI enhancements.
 
 ---

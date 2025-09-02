@@ -1,70 +1,57 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { trackXP, getUserXPStatus, getUserBadges, getAllBadgeDefinitions } from '@/lib/gamification-actions';
+import { 
+  mockStates, 
+  mockBadgeDefinitions,
+  mockWithAuthenticatedAction,
+  createDefaultMockState,
+  expectXPTracked,
+  expectXPEventLogged,
+  type MockOperationTracker 
+} from '@/test-utils/gamification-test-helpers';
 
-// Mock Supabase client
-const mockSupabase = {
-  from: jest.fn().mockReturnThis(),
-  select: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  eq: jest.fn().mockReturnThis(),
-  single: jest.fn().mockReturnThis(),
-  order: jest.fn().mockReturnThis(),
-  in: jest.fn().mockReturnThis(),
-};
-
-// Mock server action utils
+// Mock the server action utils
 jest.mock('@/lib/server-action-utils', () => ({
-  withAuthenticatedAction: (fn: any) => (async (...args: any[]) => {
-    try {
-      const result = await fn(mockUser, mockSupabase, ...args);
-      return { success: true, data: result };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  }),
+  withAuthenticatedAction: jest.fn()
 }));
 
+// Mock Supabase server clients
 jest.mock('@/lib/supabase/server', () => ({
-  createSupabaseServerClient: () => mockSupabase,
+  createSupabaseServerClient: jest.fn(),
+  createSupabaseServiceRoleClient: jest.fn()
 }));
 
-// Mock RealtimeClient to avoid constructor error
+// Mock RealtimeClient to avoid constructor errors
 jest.mock('@supabase/realtime-js', () => ({
-  RealtimeClient: function() {
-    return {};
-  }
+  RealtimeClient: jest.fn().mockImplementation(() => ({
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    channel: jest.fn(() => ({
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn(),
+      unsubscribe: jest.fn()
+    }))
+  }))
 }));
 
-const mockUser = {
-  id: 'test-user-id',
-  email: 'test@example.com',
-};
+// Import mocked modules
+const { withAuthenticatedAction } = require('@/lib/server-action-utils');
 
 describe('Gamification Actions', () => {
+  let tracker: MockOperationTracker;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    tracker = { selects: [], inserts: [], updates: [] };
   });
 
   describe('trackXP', () => {
     test('should initialize user XP if not exists', async () => {
-      // Mock no existing XP record
-      mockSupabase.select.mockResolvedValueOnce({ data: null, error: null });
-      
-      // Mock successful initialization
-      mockSupabase.insert.mockResolvedValueOnce({ data: null, error: null });
-      
-      // Mock current XP fetch
-      mockSupabase.select.mockResolvedValueOnce({
-        data: { xp_total: 0, level: 1 },
-        error: null,
-      });
-      
-      // Mock successful XP update
-      mockSupabase.update.mockResolvedValueOnce({ data: null, error: null });
-      
-      // Mock XP event logging
-      mockSupabase.insert.mockResolvedValueOnce({ data: null, error: null });
+      // Setup: New user with no XP record
+      const mockState = mockStates.newUser();
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
 
       const result = await trackXP('plan_session');
 
@@ -72,47 +59,39 @@ describe('Gamification Actions', () => {
       expect(result.data?.xp_gained).toBe(50);
       expect(result.data?.total_xp).toBe(50);
       expect(result.data?.new_level).toBe(1);
+      expect(result.data?.level_title).toBe('Kook');
+      
+      // Verify XP was tracked and event logged
+      expectXPTracked(tracker, 50);
+      expectXPEventLogged(tracker, 'plan_session');
     });
 
-    test('should track XP for session planning', async () => {
-      // Mock existing XP record
-      mockSupabase.select.mockResolvedValueOnce({
-        data: { id: 'existing' },
-        error: null,
-      });
-      
-      // Mock current XP fetch
-      mockSupabase.select.mockResolvedValueOnce({
-        data: { xp_total: 50, level: 1 },
-        error: null,
-      });
-      
-      // Mock successful updates
-      mockSupabase.update.mockResolvedValueOnce({ data: null, error: null });
-      mockSupabase.insert.mockResolvedValueOnce({ data: null, error: null });
+    test('should track XP for existing user', async () => {
+      // Setup: Existing user with 50 XP
+      const mockState = mockStates.existingUser(50, 1);
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
 
       const result = await trackXP('plan_session');
 
       expect(result.success).toBe(true);
       expect(result.data?.xp_gained).toBe(50);
       expect(result.data?.total_xp).toBe(100);
+      expect(result.data?.new_level).toBe(2);
+      expect(result.data?.level_up).toBe(true);
+      expect(result.data?.level_title).toBe('Grom');
+      
+      expectXPTracked(tracker, 100);
+      expectXPEventLogged(tracker, 'plan_session');
     });
 
     test('should detect level up when threshold reached', async () => {
-      // Mock existing user
-      mockSupabase.select.mockResolvedValueOnce({
-        data: { id: 'existing' },
-        error: null,
-      });
-      
-      // Mock user at 90 XP (level 1), adding 50 XP should level up to level 2
-      mockSupabase.select.mockResolvedValueOnce({
-        data: { xp_total: 90, level: 1 },
-        error: null,
-      });
-      
-      mockSupabase.update.mockResolvedValueOnce({ data: null, error: null });
-      mockSupabase.insert.mockResolvedValueOnce({ data: null, error: null });
+      // Setup: User with 90 XP (near level up)
+      const mockState = mockStates.nearLevelUp();
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
 
       const result = await trackXP('plan_session');
 
@@ -122,14 +101,16 @@ describe('Gamification Actions', () => {
       expect(result.data?.new_level).toBe(2);
       expect(result.data?.level_up).toBe(true);
       expect(result.data?.level_title).toBe('Grom');
+      
+      expectXPTracked(tracker, 140);
     });
 
     test('should handle database errors gracefully', async () => {
-      // Mock database error
-      mockSupabase.select.mockResolvedValueOnce({
-        data: null,
-        error: { message: 'Database connection failed' },
-      });
+      // Setup: Database error scenario
+      const mockState = mockStates.databaseError('Database connection failed');
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
 
       const result = await trackXP('plan_session');
 
@@ -138,31 +119,52 @@ describe('Gamification Actions', () => {
     });
 
     test('should reject invalid XP actions', async () => {
+      // Setup: Normal state but invalid action
+      const mockState = mockStates.existingUser();
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
+
       const result = await trackXP('invalid_action' as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Unknown XP action');
     });
+
+    test('should award correct XP amounts for different actions', async () => {
+      const testCases = [
+        { action: 'plan_session', expectedXP: 50 },
+        { action: 'add_board', expectedXP: 30 },
+        { action: 'post_beach_intel', expectedXP: 50 },
+        { action: 'invite_friend', expectedXP: 100 },
+        { action: 'get_like_upvote', expectedXP: 10 }
+      ];
+
+      for (const { action, expectedXP } of testCases) {
+        // Reset tracker for each test
+        tracker = { selects: [], inserts: [], updates: [] };
+        
+        const mockState = mockStates.existingUser(0, 1);
+        (withAuthenticatedAction as jest.Mock).mockImplementation(
+          mockWithAuthenticatedAction(mockState, tracker)
+        );
+
+        const result = await trackXP(action as any);
+
+        expect(result.success).toBe(true);
+        expect(result.data?.xp_gained).toBe(expectedXP);
+        expectXPEventLogged(tracker, action);
+      }
+    });
   });
 
   describe('getUserXPStatus', () => {
     test('should return user XP status with progress calculation', async () => {
-      // Mock initialization check
-      mockSupabase.select.mockResolvedValueOnce({
-        data: { id: 'existing' },
-        error: null,
-      });
-      
-      // Mock XP status fetch
-      mockSupabase.select.mockResolvedValueOnce({
-        data: {
-          xp_total: 150,
-          level: 2,
-          created_at: '2025-01-01',
-          updated_at: '2025-01-15',
-        },
-        error: null,
-      });
+      // Setup: User with 150 XP (level 2)
+      const mockState = mockStates.existingUser(150, 2);
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
 
       const result = await getUserXPStatus();
 
@@ -172,30 +174,32 @@ describe('Gamification Actions', () => {
       expect(result.data?.level_title).toBe('Grom');
       expect(result.data?.progress_to_next).toBeGreaterThan(0);
       expect(result.data?.xp_to_next_level).toBeGreaterThan(0);
+      expect(result.data?.next_level_title).toBe('Paddler');
+    });
+
+    test('should initialize XP for new user', async () => {
+      // Setup: New user
+      const mockState = mockStates.newUser();
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
+
+      const result = await getUserXPStatus();
+
+      expect(result.success).toBe(true);
+      // Should have initialized the user
+      const initInserts = tracker.inserts.filter(i => i.table === 'user_xp');
+      expect(initInserts.length).toBe(1);
     });
   });
 
   describe('getUserBadges', () => {
     test('should return user badges with definitions', async () => {
-      const mockBadgeData = [
-        {
-          badge_slug: 'first_ride',
-          unlocked_at: '2025-01-01',
-          context: {},
-          badge_definitions: {
-            name: 'First Ride',
-            description: 'Complete your first surf session',
-            icon: 'Waves',
-            category: 'global',
-            xp_reward: 50,
-          },
-        },
-      ];
-
-      mockSupabase.select.mockResolvedValueOnce({
-        data: mockBadgeData,
-        error: null,
-      });
+      // Setup: User with badges
+      const mockState = mockStates.withBadges();
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
 
       const result = await getUserBadges();
 
@@ -204,45 +208,43 @@ describe('Gamification Actions', () => {
       expect(result.data?.[0].badge_slug).toBe('first_ride');
       expect(result.data?.[0].badge_definitions.name).toBe('First Ride');
     });
+
+    test('should return empty array for user with no badges', async () => {
+      // Setup: User with no badges
+      const mockState = mockStates.existingUser();
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
+
+      const result = await getUserBadges();
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
+    });
   });
 
   describe('getAllBadgeDefinitions', () => {
     test('should return all badge definitions ordered by category', async () => {
-      const mockBadgeDefinitions = [
-        {
-          badge_slug: 'first_ride',
-          name: 'First Ride',
-          description: 'Complete your first surf session',
-          icon: 'Waves',
-          category: 'global',
-          xp_reward: 50,
-        },
-        {
-          badge_slug: 'first_entry',
-          name: 'First Entry',
-          description: 'Log your first reflection',
-          icon: 'BookOpen',
-          category: 'journal',
-          xp_reward: 25,
-        },
-      ];
-
-      mockSupabase.select.mockResolvedValueOnce({
-        data: mockBadgeDefinitions,
-        error: null,
-      });
+      // Setup: Mock state with badge definitions
+      const mockState = createDefaultMockState();
+      mockState.badgeDefinitions = mockBadgeDefinitions;
+      
+      (withAuthenticatedAction as jest.Mock).mockImplementation(
+        mockWithAuthenticatedAction(mockState, tracker)
+      );
 
       const result = await getAllBadgeDefinitions();
 
       expect(result.success).toBe(true);
-      expect(result.data).toHaveLength(2);
+      expect(result.data).toHaveLength(3);
       expect(result.data?.[0].category).toBe('global');
-      expect(result.data?.[1].category).toBe('journal');
+      expect(result.data?.[1].category).toBe('quiver');
+      expect(result.data?.[2].category).toBe('journal');
     });
   });
 });
 
-describe('XP System Logic', () => {
+describe('XP System Logic Tests', () => {
   test('should have correct XP values for all actions', () => {
     const expectedXPValues = {
       plan_session: 50,
@@ -260,10 +262,11 @@ describe('XP System Logic', () => {
       submit_crowd_parking: 10,
     };
 
-    // These values should match the spec
+    // These values should match the gamification spec
     expect(expectedXPValues.plan_session).toBe(50);
     expect(expectedXPValues.invite_friend).toBe(100); // Highest XP for viral growth
     expect(expectedXPValues.get_like_upvote).toBe(10); // Encourages engagement
+    expect(expectedXPValues.post_beach_intel).toBe(50); // Community contribution
   });
 
   test('should have correct level progression thresholds', () => {
@@ -279,9 +282,34 @@ describe('XP System Logic', () => {
       { level: 9, title: 'Quiver King/Queen', xp: 4000 },
     ];
 
-    // Verify progression makes sense
+    // Verify progression makes sense for growth-focused gamification
     expect(expectedLevels).toHaveLength(9); // 9 tiers as per spec
     expect(expectedLevels[0].title).toBe('Kook'); // Beginner level
     expect(expectedLevels[8].title).toBe('Quiver King/Queen'); // Max level
+    
+    // Verify XP gaps increase (harder to level up at higher levels)
+    expect(expectedLevels[2].xp - expectedLevels[1].xp).toBe(200); // Level 2->3
+    expect(expectedLevels[8].xp - expectedLevels[7].xp).toBe(800); // Level 8->9
+  });
+
+  test('should prioritize growth-focused actions with higher XP rewards', () => {
+    const socialActions = {
+      invite_friend: 100,     // Viral growth
+      tag_friends_in_session: 20,  // Social engagement
+      get_like_upvote: 10,    // Community interaction
+    };
+    
+    const contentActions = {
+      post_beach_intel: 50,   // Community value
+      plan_session: 50,       // Core usage
+      write_reflection: 25,   // Engagement depth
+    };
+
+    // Verify social/viral actions are prioritized
+    expect(socialActions.invite_friend).toBeGreaterThan(contentActions.plan_session);
+    expect(socialActions.invite_friend).toBeGreaterThan(contentActions.post_beach_intel);
+    
+    // Community actions should be well-rewarded
+    expect(contentActions.post_beach_intel).toBe(contentActions.plan_session);
   });
 });

@@ -2,7 +2,7 @@
 
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import type { User } from "@supabase/supabase-js";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 // XP action mapping - defines XP values for each user action
 const XP_ACTION_MAP = {
@@ -244,6 +244,7 @@ async function evaluateBadgeUnlocks(
     { slug: 'tag_team', condition: stats.users_tagged >= 10 },
     { slug: 'sunrise_chaser', condition: stats.early_sessions >= 1 },
     { slug: 'dawn_patrol_legend', condition: stats.early_sessions >= 5 },
+    { slug: 'storm_chaser', condition: stats.swell_sessions >= 1 },
     
     // Journal badges  
     { slug: 'first_entry', condition: stats.reflection_count >= 1 },
@@ -318,41 +319,202 @@ async function evaluateBadgeUnlocks(
 
 // Helper function to get user stats needed for badge evaluation
 async function getUserStatsForBadges(
-  userId: string, 
+  userId: string,
   supabase: ReturnType<typeof createSupabaseServerClient>
 ) {
-  // This would need to be implemented based on your existing database structure
-  // For now, returning mock data structure - replace with actual queries
-  
-  const stats = {
-    session_count: 0,
-    board_count: 0,
-    intel_posts: 0,
-    group_sessions: 0,
-    beach_reviews: 0,
-    intel_likes: 0,
-    invites_sent: 0,
-    users_tagged: 0,
-    early_sessions: 0,
-    reflection_count: 0,
-    consecutive_days: 0,
-    board_tags: 0,
-    temp_records: 0,
-    wave_ratings: 0,
-    complete_entries: 0,
-    detailed_boards: 0,
-    board_session_uses: 0,
-    twin_fin_sessions: 0,
+  // Safe counter helper (returns 0 on any error)
+  const safeCount = async (
+    table: string,
+    apply: (q: any) => any
+  ): Promise<number> => {
+    try {
+      let q = supabase.from(table).select('*', { count: 'exact', head: true });
+      q = apply(q);
+      const { count, error } = await q;
+      if (error || typeof count !== 'number') return 0;
+      return count;
+    } catch {
+      return 0;
+    }
   };
 
-  // TODO: Implement actual database queries based on your schema
-  // Example queries you'd need:
-  // - Count sessions: SELECT COUNT(*) FROM sessions WHERE user_id = ?
-  // - Count boards: SELECT COUNT(*) FROM boards WHERE user_id = ?
-  // - Count intel posts: SELECT COUNT(*) FROM intel_posts WHERE user_id = ?
-  // etc.
+  // Sessions: totals and derived counts
+  const session_count = await safeCount('sessions', (q: any) => q.eq('user_id', userId));
+  const complete_entries = await safeCount('sessions', (q: any) => q.eq('user_id', userId).eq('status', 'completed'));
+  const board_tags = await safeCount('sessions', (q: any) => q.eq('user_id', userId).not('board_id', 'is', null));
+  const temp_records = await safeCount('sessions', (q: any) => q.eq('user_id', userId).not('water_temp', 'is', null));
+  const wave_ratings = await safeCount('sessions', (q: any) =>
+    q.eq('user_id', userId).or('wave_quality.not.is.null,rating.not.is.null'));
 
-  return stats;
+  // Reflection count: consider notes/rating/wave_quality as reflection markers
+  let reflection_count = 0;
+  // Swell sessions: naive heuristic using recorded wave_height >= ~8ft or notes mention swell
+  let swell_sessions = 0;
+  try {
+    const { data } = await supabase
+      .from('sessions')
+      .select('notes,wave_quality,rating,status,arrival_time,wave_height')
+      .eq('user_id', userId)
+      .limit(1000);
+    const sessions = (data || []);
+    reflection_count = sessions.filter(
+      (s: any) => (s?.notes && String(s.notes).trim().length > 0) || typeof s?.rating === 'number' || typeof s?.wave_quality === 'number'
+    ).length;
+    // Simple parse: extract first number from wave_height, treat as feet
+    const parseFeet = (v: any): number => {
+      if (!v) return 0;
+      const m = String(v).match(/(\d+(?:\.\d+)?)/);
+      if (!m) return 0;
+      return Number(m[1]);
+    };
+    swell_sessions = sessions.reduce((acc: number, s: any) => {
+      const h = parseFeet(s?.wave_height);
+      const noteFlag = typeof s?.notes === 'string' && /swell|storm|big|huge/i.test(s.notes);
+      return acc + ((h >= 8 || noteFlag) ? 1 : 0);
+    }, 0);
+  } catch {
+    reflection_count = 0;
+    swell_sessions = 0;
+  }
+
+  // Early sessions and consecutive days (client-side aggregation with cap)
+  let early_sessions = 0;
+  let consecutive_days = 0;
+  try {
+    const { data } = await supabase
+      .from('sessions')
+      .select('arrival_time,status')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .order('arrival_time', { ascending: false })
+      .limit(1000);
+
+    const completed = (data || []).filter((s: any) => s?.arrival_time);
+    // Count early sessions: before 6am local time
+    early_sessions = completed.reduce((acc: number, s: any) => {
+      const d = new Date(s.arrival_time);
+      const hour = d.getHours();
+      return acc + (hour < 6 ? 1 : 0);
+    }, 0);
+
+    // Compute max consecutive day streak (based on arrival date)
+    const dates = Array.from(
+      new Set(
+        completed.map((s: any) => new Date(s.arrival_time).toISOString().slice(0, 10))
+      )
+    ).sort();
+    let current = 0;
+    let best = 0;
+    for (let i = 0; i < dates.length; i++) {
+      if (i === 0) {
+        current = 1; best = 1; continue;
+      }
+      const prev = new Date(dates[i - 1]);
+      const curr = new Date(dates[i]);
+      const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) current += 1; else current = 1;
+      if (current > best) best = current;
+    }
+    consecutive_days = best || 0;
+  } catch {
+    early_sessions = 0;
+    consecutive_days = 0;
+  }
+
+  // Boards
+  const board_count = await safeCount('boards', (q: any) => q.eq('user_id', userId));
+  const detailed_boards = await safeCount('boards', (q: any) =>
+    q.eq('user_id', userId).or('dimensions.not.is.null,description.not.is.null,image_url.not.is.null'));
+  const board_session_uses = board_tags; // proxy: sessions with board_id present
+
+  // Twin fin sessions: find twin boards then count sessions using them
+  let twin_fin_sessions = 0;
+  try {
+    const { data: twinBoards } = await supabase
+      .from('boards')
+      .select('id,board_type')
+      .eq('user_id', userId)
+      .ilike('board_type', '%twin%');
+    const twinIds = (twinBoards || []).map((b: any) => b.id);
+    if (twinIds.length > 0) {
+      const { count } = await supabase
+        .from('sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .in('board_id', twinIds);
+      twin_fin_sessions = count || 0;
+    }
+  } catch {
+    twin_fin_sessions = 0;
+  }
+
+  // Intel posts & likes (confirmations)
+  const intel_posts = await safeCount('intel_posts', (q: any) => q.eq('user_id', userId));
+  let intel_likes = 0;
+  try {
+    const { data: posts } = await supabase
+      .from('intel_posts')
+      .select('confirmations_count')
+      .eq('user_id', userId)
+      .limit(1000);
+    intel_likes = (posts || []).reduce((sum: number, p: any) => sum + (p?.confirmations_count || 0), 0);
+  } catch {
+    intel_likes = 0;
+  }
+
+  // Beach reviews
+  const beach_reviews = await safeCount('beach_reviews', (q: any) => q.eq('user_id', userId));
+
+  // Invitations sent / group sessions
+  const invites_sent = await safeCount('session_invitations', (q: any) => q.eq('inviter_id', userId));
+  const group_sessions = await safeCount('session_invitations', (q: any) => q.eq('inviter_id', userId).eq('status', 'accepted'));
+
+  // Users tagged: distinct participants across your sessions
+  let users_tagged = 0;
+  try {
+    const { data: mySessions } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1000);
+    const sessionIds = (mySessions || []).map((s: any) => s.id);
+    if (sessionIds.length > 0) {
+      const { data: participants } = await supabase
+        .from('session_participants')
+        .select('user_id,session_id')
+        .in('session_id', sessionIds)
+        .limit(5000);
+      const unique = new Set<string>();
+      for (const p of participants || []) {
+        if (p?.user_id && p.user_id !== userId) unique.add(p.user_id);
+      }
+      users_tagged = unique.size;
+    }
+  } catch {
+    users_tagged = 0;
+  }
+
+  return {
+    session_count,
+    board_count,
+    intel_posts,
+    group_sessions,
+    beach_reviews,
+    intel_likes,
+    invites_sent,
+    users_tagged,
+    early_sessions,
+    reflection_count,
+    swell_sessions,
+    consecutive_days,
+    board_tags,
+    temp_records,
+    wave_ratings,
+    complete_entries,
+    detailed_boards,
+    board_session_uses,
+    twin_fin_sessions,
+  };
 }
 
 // Get user's badge collection
@@ -398,4 +560,93 @@ export async function getAllBadgeDefinitions() {
 
     return data;
   });
+}
+
+// Credit XP to content author when their content is liked/upvoted
+// This requires service-role access to write XP for another user
+export async function creditAuthorWithXP(
+  authorId: string,
+  contentType: 'session' | 'intel_post' | 'review',
+  contentId: string
+) {
+  // Use service-role client to bypass RLS for crediting another user
+  const supabase = createSupabaseServiceRoleClient();
+  
+  try {
+    // Check if we've already credited XP for this like (prevent duplicate XP)
+    const { data: existingEvent } = await supabase
+      .from("xp_events")
+      .select("id")
+      .eq("user_id", authorId)
+      .eq("action", "get_like_upvote")
+      .eq("related_entity_id", contentId)
+      .single();
+    
+    if (existingEvent) {
+      // Already credited, skip
+      return { success: true, message: "XP already credited" };
+    }
+    
+    // Initialize XP record if needed
+    await initializeUserXP(authorId, supabase);
+    
+    // Get current XP
+    const { data: currentXP, error: xpError } = await supabase
+      .from("user_xp")
+      .select("xp_total, level")
+      .eq("user_id", authorId)
+      .single();
+    
+    if (xpError || !currentXP) {
+      throw new Error(`Failed to fetch user XP: ${xpError?.message}`);
+    }
+    
+    const xpAmount = XP_ACTION_MAP.get_like_upvote;
+    const newTotal = currentXP.xp_total + xpAmount;
+    const newLevelInfo = calculateLevel(newTotal);
+    
+    // Update user XP
+    const { error: updateError } = await supabase
+      .from("user_xp")
+      .update({
+        xp_total: newTotal,
+        level: newLevelInfo.level,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", authorId);
+    
+    if (updateError) {
+      throw new Error(`Failed to update user XP: ${updateError.message}`);
+    }
+    
+    // Record XP event
+    const { error: eventError } = await supabase
+      .from("xp_events")
+      .insert({
+        user_id: authorId,
+        action: "get_like_upvote",
+        xp_amount: xpAmount,
+        related_entity_id: contentId,
+        related_entity_type: contentType,
+      });
+    
+    if (eventError) {
+      throw new Error(`Failed to record XP event: ${eventError.message}`);
+    }
+    
+    return {
+      success: true,
+      xp_gained: xpAmount,
+      total_xp: newTotal,
+      level_up: newLevelInfo.level > currentXP.level,
+      new_level: newLevelInfo.level,
+      level_title: newLevelInfo.title,
+    };
+  } catch (error) {
+    console.error("Error crediting author with XP:", error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : "Failed to credit XP" 
+    };
+  }
 }

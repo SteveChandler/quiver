@@ -294,13 +294,13 @@ export async function getUserStats(userId: string) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // Get user profile with default beach
+    // Get user profile with home beach
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select(`
         favorite_spot,
         home_beach_id,
-        beaches!profiles_home_beach_id_fkey (
+        beaches!profiles_default_beach_id_fkey (
           id,
           name
         )

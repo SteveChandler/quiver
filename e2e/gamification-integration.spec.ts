@@ -148,7 +148,7 @@ test.describe('Gamification Integration Tests', () => {
     console.log(`Toast container present: ${hasToastContainer}`);
     
     // Toast container should be present (even if hidden)
-    expect(hasToastContainer !== null).toBeTruthy();
+    expect(hasToastContainer).toBeTruthy();
   });
 
   test('should load confetti library for celebrations', async ({ page }) => {
@@ -170,7 +170,7 @@ test.describe('Gamification Integration Tests', () => {
     console.log(`Confetti available: ${confettiAvailable}`);
     
     // Confetti should be available or loadable
-    expect(confettiAvailable !== false).toBeTruthy();
+    expect(confettiAvailable).toBeTruthy();
   });
 });
 

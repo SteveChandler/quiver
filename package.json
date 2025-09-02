@@ -84,7 +84,6 @@
     "@types/lodash": "^4.17.17",
     "@types/suncalc": "^1.9.2",
     "@vercel/analytics": "1.5.0",
-    "@vercel/og": "^0.8.5",
     "@vercel/speed-insights": "1.2.0",
     "canvas-confetti": "^1.9.3",
     "class-variance-authority": "^0.7.1",
@@ -94,7 +93,6 @@
     "date-fns-tz": "^3.2.0",
     "dotenv": "^16.5.0",
     "embla-carousel-react": "8.5.1",
-    "file-type": "^21.0.0",
     "framer-motion": "^12.19.1",
     "image-conversion": "^2.1.1",
     "input-otp": "1.4.1",
@@ -106,7 +104,6 @@
     "react-day-picker": "^9.7.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "latest",
-    "react-hot-toast": "^2.6.0",
     "react-map-gl": "^8.0.4",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.0",
@@ -139,7 +136,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "knip": "^5.36.6",
     "lighthouse": "^12.2.1",
-    "msw": "^2.10.5",
     "node-mocks-http": "^1.14.0",
     "playwright": "^1.54.2",
     "postcss": "^8",
@@ -149,7 +145,6 @@
     "ts-prune": "^0.10.3",
     "tsx": "^4.20.5",
     "typescript": "^5.6.3",
-    "vitest": "^3.2.4",
     "webpack-bundle-analyzer": "^4.10.2"
   }
 }
