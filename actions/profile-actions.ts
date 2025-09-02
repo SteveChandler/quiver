@@ -378,9 +378,10 @@ export async function getUserStats(userId: string) {
         sessionCount: sessionCount || 0,
         boardCount: boardCount || 0,
         averageRating,
-        favoriteSpot: profileData?.beaches?.name || profileData?.favorite_spot || null,
-        defaultBeachId: profileData?.home_beach_id || null,
-        defaultBeachName: profileData?.beaches?.name || null,
+        favoriteSpot:
+          profileData?.beaches?.name || profileData?.favorite_spot || null,
+        homeBeachId: profileData?.home_beach_id || null,
+        homeBeachName: profileData?.beaches?.name || null,
         mostVisitedBeach,
         mostVisitedBeachCount,
       },

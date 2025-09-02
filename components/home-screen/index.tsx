@@ -57,7 +57,7 @@ export function HomeScreen() {
   } = useOnboardingFlow();
 
   // Use cached profile hook to prevent flickering on navigation
-  const { profile, defaultBeach, profileLoading, hasCachedData } =
+  const { profile, homeBeach, profileLoading, hasCachedData } =
     useCachedProfile();
 
   const { coords, source, requestLocation } = useGeo();
@@ -86,8 +86,8 @@ export function HomeScreen() {
   console.log("🏠 HomeScreen Summary:", {
     hasUser: !!user,
     hasProfile: !!profile,
-    hasDefaultBeach: !!defaultBeach,
-    defaultBeachName: defaultBeach?.name,
+    hasHomeBeach: !!homeBeach,
+    homeBeachName: homeBeach?.name,
     profileLoading,
     hasCachedData,
   });
@@ -171,7 +171,7 @@ export function HomeScreen() {
                 />
                 <ForecastTab
                   profile={profile}
-                  defaultBeach={defaultBeach}
+                  homeBeach={homeBeach}
                   overrideBeach={selectedBeachOverride}
                 />
               </Suspense>

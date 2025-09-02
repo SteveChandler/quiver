@@ -18,6 +18,8 @@ interface UserStatsData {
   boardCount: number;
   averageRating: number;
   favoriteSpot: string | null;
+  homeBeachId?: string | null;
+  homeBeachName?: string | null;
   mostVisitedBeach: string | null;
   mostVisitedBeachCount: number;
 }
@@ -106,10 +108,10 @@ export function UserStats({ userId }: UserStatsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold truncate" data-testid="home-break-value">
-              {stats?.defaultBeachName || "—"}
+              {stats?.homeBeachName || "—"}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats?.defaultBeachId ? "From profile" : "Not set"}
+              {stats?.homeBeachId ? "From profile" : "Not set"}
             </p>
           </CardContent>
         </Card>

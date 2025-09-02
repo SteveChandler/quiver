@@ -7,7 +7,10 @@ import type { Profile, Beach } from "@/types/database";
 
 interface CachedProfileData {
   profile: Profile | null;
-  defaultBeach: Beach | null;
+  homeBeach: Beach | null;
+  // Backward compat: older cache may store `defaultBeach`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultBeach?: any;
   timestamp: number;
 }
 
@@ -15,7 +18,7 @@ const CACHE_KEY = "quiver_profile_cache";
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Hook for managing cached profile and default beach data
+ * Hook for managing cached profile and home beach data
  * Persists data in localStorage to prevent flickering on navigation
  */
 export function useCachedProfile() {
@@ -35,9 +38,14 @@ export function useCachedProfile() {
         if (!isExpired) {
           console.log("🔄 Using cached profile data:", {
             hasProfile: !!parsedData.profile,
-            hasDefaultBeach: !!parsedData.defaultBeach,
+            hasHomeBeach: !!(parsedData.homeBeach || (parsedData as any).defaultBeach),
             age: Math.round((Date.now() - parsedData.timestamp) / 1000) + "s",
           });
+          // Backward compat: migrate defaultBeach -> homeBeach in-memory
+          if (!parsedData.homeBeach && (parsedData as any).defaultBeach) {
+            (parsedData as any).homeBeach = (parsedData as any).defaultBeach;
+            delete (parsedData as any).defaultBeach;
+          }
           setCachedData(parsedData);
         } else {
           console.log("⏰ Cached profile data expired, will refetch");
@@ -50,12 +58,12 @@ export function useCachedProfile() {
     }
   }, [user?.id]);
 
-  // Fetch profile and default beach data
+  // Fetch profile and home beach data
   const fetchProfileAndDefaultBeach = useCallback(async () => {
     if (!user?.id) {
       // Clear cache if no user
       localStorage.removeItem(CACHE_KEY);
-      return { profile: null, defaultBeach: null };
+      return { profile: null, homeBeach: null };
     }
 
     try {
@@ -65,25 +73,25 @@ export function useCachedProfile() {
 
       if (!profileResult.success || !profileResult.data) {
         console.log("❌ No profile found");
-        return { profile: null, defaultBeach: null };
+        return { profile: null, homeBeach: null };
       }
 
       const profile = profileResult.data;
       console.log("✅ Profile loaded:", {
         id: profile.id,
         favoriteSpot: profile.favorite_spot,
-        defaultBeachId: profile.home_beach_id,
+        homeBeachId: profile.home_beach_id,
       });
 
-      let defaultBeach: Beach | null = null;
+      let homeBeach: Beach | null = null;
 
       // Prefer top-ranked favorite beach
       try {
         const { getTopFavoriteBeach } = await import("@/actions/beach-actions");
         const topFav = await getTopFavoriteBeach(user.id);
         if (topFav) {
-          defaultBeach = topFav as Beach;
-          console.log("✅ Using top-ranked favorite beach as default:", defaultBeach.name);
+          homeBeach = topFav as Beach;
+          console.log("✅ Using top-ranked favorite beach as home beach:", homeBeach.name);
         }
       } catch (e) {
         // Non-fatal
@@ -106,23 +114,23 @@ export function useCachedProfile() {
           );
 
           if (matchingBeach) {
-            console.log("✅ Found default beach:", matchingBeach.name);
-            defaultBeach = matchingBeach;
+            console.log("✅ Found home beach:", matchingBeach.name);
+            homeBeach = matchingBeach;
           }
         }
       }
 
       // Fallback to home_beach_id
-      if (!defaultBeach && profile.home_beach_id) {
+      if (!homeBeach && profile.home_beach_id) {
         const { getBeachById } = await import("@/actions/beach-actions");
         const beachResult = await getBeachById(profile.home_beach_id);
         if (beachResult.success && beachResult.data) {
-          defaultBeach = beachResult.data;
-          console.log("✅ Found default beach by ID:", defaultBeach.name);
+          homeBeach = beachResult.data;
+          console.log("✅ Found home beach by ID:", homeBeach.name);
         }
       }
 
-      const result = { profile, defaultBeach };
+      const result = { profile, homeBeach };
 
       // Cache the result
       const cacheData: CachedProfileData = {
@@ -140,8 +148,8 @@ export function useCachedProfile() {
       setCachedData(cacheData);
       return result;
     } catch (error) {
-      console.error("Error fetching profile and default beach:", error);
-      return { profile: null, defaultBeach: null };
+      console.error("Error fetching profile and home beach:", error);
+      return { profile: null, homeBeach: null } as any;
     }
   }, [user?.id]);
 
@@ -157,8 +165,9 @@ export function useCachedProfile() {
 
   // Use cached data if available, otherwise use fresh data
   const profile = cachedData?.profile || freshData?.profile || null;
-  const defaultBeach =
-    cachedData?.defaultBeach || freshData?.defaultBeach || null;
+  const homeBeach =
+    (cachedData?.homeBeach || (cachedData as any)?.defaultBeach) ||
+    (freshData as any)?.homeBeach || null;
 
   // Clear cache function for when profile is updated
   const clearCache = useCallback(() => {
@@ -174,7 +183,7 @@ export function useCachedProfile() {
 
   return {
     profile,
-    defaultBeach,
+    homeBeach,
     profileLoading,
     profileError,
     refreshProfile,

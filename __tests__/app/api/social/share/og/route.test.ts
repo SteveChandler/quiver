@@ -1,3 +1,5 @@
+// Use lightweight mock for NextRequest/NextResponse to avoid constructor issues in Jest
+jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 import { NextRequest } from "next/server";
 import { GET, HEAD } from "@/app/api/social/share/og/route";
 

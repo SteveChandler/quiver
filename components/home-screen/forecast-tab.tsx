@@ -26,21 +26,21 @@ import type { Profile, Forecast, Beach } from "@/types/database";
 
 interface ForecastTabProps {
   profile: Profile | null;
-  defaultBeach?: Beach | null;
+  homeBeach?: Beach | null;
   overrideBeach?: Beach | null;
 }
 
 export function ForecastTab({
   profile,
-  defaultBeach,
+  homeBeach,
   overrideBeach,
 }: ForecastTabProps) {
   const router = useRouter();
   const [showAdjusted, setShowAdjusted] = useState(false);
 
-  // When no default beach is set, pick a popular beach to display instead
+  // When no home beach is set, pick a popular beach to display instead
   const fetchPopularBeach = useCallback(async () => {
-    if (defaultBeach?.id) {
+    if (homeBeach?.id) {
       return null;
     }
 
@@ -67,29 +67,29 @@ export function ForecastTab({
       )
       .find(Boolean);
     return (byIncludes as Beach) || beaches[0] || null;
-  }, [defaultBeach?.id]);
+  }, [homeBeach?.id]);
 
   const { data: popularBeach, loading: popularLoading } = useDataFetcher(
     fetchPopularBeach,
-    { skip: !!defaultBeach?.id, initialData: null }
+    { skip: !!homeBeach?.id, initialData: null }
   );
 
   const effectiveBeach = (overrideBeach ||
-    defaultBeach ||
+    homeBeach ||
     popularBeach) as Beach | null;
-  const isFallback = !defaultBeach && !!popularBeach;
+  const isFallback = !homeBeach && !!popularBeach;
 
   // Get forecast for effective beach
   const fetchTodaysForecast = useCallback(async () => {
     console.log("🌊 ForecastTab fetchTodaysForecast called:", {
-      hasDefaultBeach: !!defaultBeach,
+      hasHomeBeach: !!homeBeach,
       usingFallback: isFallback,
       beachId: effectiveBeach?.id,
       beachName: effectiveBeach?.name,
     });
 
     if (!effectiveBeach?.id) {
-      console.log("❌ No defaultBeach.id, returning null");
+      console.log("❌ No homeBeach.id, returning null");
       return null;
     }
 
@@ -100,7 +100,7 @@ export function ForecastTab({
     const result = await getForecastForToday(effectiveBeach.id);
     console.log("📊 getForecastForToday result:", result);
     return result;
-  }, [effectiveBeach?.id, isFallback, defaultBeach]);
+  }, [effectiveBeach?.id, isFallback, homeBeach]);
 
   const {
     data: todaysForecast,
@@ -205,11 +205,8 @@ export function ForecastTab({
   return (
     <div className="space-y-4">
       {/* Show home beach banner when no beach is set or using fallback */}
-      {isFallback && (
-        <HomeBeachBanner 
-          profile={profile}
-          selectedBeach={effectiveBeach}
-        />
+      {isFallback && effectiveBeach?.id && (
+        <HomeBeachBanner selectedBeachId={effectiveBeach.id} />
       )}
       {/* Beach Header */}
       <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white">

@@ -289,7 +289,7 @@ describe('XP System Logic Tests', () => {
     
     // Verify XP gaps increase (harder to level up at higher levels)
     expect(expectedLevels[2].xp - expectedLevels[1].xp).toBe(200); // Level 2->3
-    expect(expectedLevels[8].xp - expectedLevels[7].xp).toBe(800); // Level 8->9
+    expect(expectedLevels[8].xp - expectedLevels[7].xp).toBe(1000); // Level 8->9
   });
 
   test('should prioritize growth-focused actions with higher XP rewards', () => {

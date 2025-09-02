@@ -90,39 +90,46 @@ export function createGamificationSupabaseMock(
     from: jest.fn((tableName: string) => {
       const queryBuilder = {
         select: jest.fn((columns?: string) => {
-          const selectQuery = {
+          // internal helper to support chained order calls (thenable)
+          const makeThenable = (dataProducer: () => any) => {
+            return {
+              order: jest.fn(((...args: any[]) => Promise.resolve({ data: dataProducer(), error: null })) as any),
+              then: (onResolve: any) => Promise.resolve(onResolve({ data: dataProducer(), error: null })),
+            } as any;
+          };
+
+          // Base select query object
+          const selectQuery: any = {
             eq: jest.fn((column: string, value: any) => {
               tracker.selects.push({ table: tableName, filters: { [column]: value } });
-              
-              const eqQuery = {
+
+              // Track number of order calls per eq-chain
+              let eqOrderCount = 0;
+              const eqQuery: any = {
                 single: jest.fn(() => {
-                  // Return appropriate mock data based on table and filters
                   if (tableName === 'user_xp' && column === 'user_id') {
-                    return Promise.resolve({ 
-                      data: state.userXP,
-                      error: null 
-                    });
+                    return Promise.resolve({ data: state.userXP, error: null });
                   }
-                  
                   if (tableName === 'user_badges' && column === 'user_id') {
-                    return Promise.resolve({ 
-                      data: state.userBadges,
-                      error: null 
-                    });
+                    return Promise.resolve({ data: state.userBadges, error: null });
                   }
-                  
                   return Promise.resolve({ data: null, error: null });
                 }),
-                order: jest.fn(() => Promise.resolve({ 
-                  data: state.badgeDefinitions,
-                  error: null 
-                })),
-                limit: jest.fn(() => Promise.resolve({ 
-                  data: [],
-                  error: null 
-                }))
+                order: jest.fn(() => {
+                  eqOrderCount += 1;
+                  // For user_badges, a single order call should resolve the data
+                  if (tableName === 'user_badges') {
+                    return Promise.resolve({ data: state.userBadges, error: null });
+                  }
+                  // For others, allow up to two chained orders (badge_definitions)
+                  if (eqOrderCount === 1) {
+                    return eqQuery;
+                  }
+                  return Promise.resolve({ data: [], error: null });
+                }),
+                limit: jest.fn(() => Promise.resolve({ data: [], error: null })),
+                then: (onResolve: any) => Promise.resolve(onResolve({ data: [], error: null })),
               };
-              
               return eqQuery;
             }),
             in: jest.fn((column: string, values: any[]) => {
@@ -134,14 +141,19 @@ export function createGamificationSupabaseMock(
                 error: null 
               });
             }),
-            order: jest.fn(() => Promise.resolve({ 
-              data: state.badgeDefinitions,
-              error: null 
-            })),
-            limit: jest.fn(() => Promise.resolve({ 
-              data: state.xpEvents,
-              error: null 
-            }))
+            // Support double order on badge_definitions
+            order: (() => {
+              let selectOrderCount = 0;
+              return jest.fn(() => {
+                selectOrderCount += 1;
+                if (selectOrderCount === 1) {
+                  // return chain to allow second order call
+                  return selectQuery;
+                }
+                return Promise.resolve({ data: state.badgeDefinitions, error: null });
+              });
+            })(),
+            limit: jest.fn(() => Promise.resolve({ data: state.xpEvents, error: null }))
           };
           
           return selectQuery;
@@ -152,6 +164,23 @@ export function createGamificationSupabaseMock(
           insertCallIndex++;
           
           if (result.success) {
+            // Simulate state changes for certain tables
+            if (tableName === 'user_xp') {
+              state.userXP = state.userXP || {
+                xp_total: 0,
+                level: 1,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+            }
+            if (tableName === 'user_badges') {
+              // Push inserted badges into state for subsequent reads
+              if (Array.isArray(data)) {
+                state.userBadges = [...state.userBadges, ...data.map((d: any) => ({ ...d, unlocked_at: new Date().toISOString(), context: d.context || {}, badge_definitions: (state.badgeDefinitions || []).find((b: any) => b.badge_slug === d.badge_slug) }))];
+              } else {
+                state.userBadges = [...state.userBadges, { ...data, unlocked_at: new Date().toISOString(), context: data.context || {}, badge_definitions: (state.badgeDefinitions || []).find((b: any) => b.badge_slug === data.badge_slug) }];
+              }
+            }
             return Promise.resolve({ data: null, error: null });
           } else {
             return Promise.resolve({ 
@@ -167,6 +196,13 @@ export function createGamificationSupabaseMock(
             updateCallIndex++;
             
             if (result.success) {
+              if (tableName === 'user_xp') {
+                state.userXP = {
+                  ...(state.userXP || { xp_total: 0, level: 1, created_at: new Date().toISOString() }),
+                  ...data,
+                  updated_at: new Date().toISOString(),
+                } as any;
+              }
               return Promise.resolve({ data: null, error: null });
             } else {
               return Promise.resolve({ 
@@ -187,15 +223,17 @@ export function createGamificationSupabaseMock(
 
 // Mock the withAuthenticatedAction wrapper to use our controlled mock
 export function mockWithAuthenticatedAction(mockState: MockDatabaseState, tracker?: MockOperationTracker) {
-  return jest.fn((fn: any) => async (...args: any[]) => {
+  // Match the real API but keep jest.fn for compatibility with tests using mockImplementation
+  const impl = async (fn: any, ...args: any[]) => {
     try {
       const mockSupabase = createGamificationSupabaseMock(mockState, tracker);
       const result = await fn(mockGamificationUser, mockSupabase, ...args);
       return { success: true, data: result };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error?.message ?? String(error) };
     }
-  });
+  };
+  return jest.fn(impl);
 }
 
 // Preset mock states for common test scenarios

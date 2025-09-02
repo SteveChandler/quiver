@@ -1,6 +1,4 @@
 "use server";
-
-import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import type { User } from "@supabase/supabase-js";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
@@ -97,6 +95,7 @@ export async function trackXP(
   relatedEntityId?: string,
   relatedEntityType?: 'session' | 'board' | 'intel_post' | 'review' | 'invite' | 'photo'
 ) {
+  const { withAuthenticatedAction } = await import("@/lib/server-action-utils");
   return withAuthenticatedAction(async (user, supabase) => {
   
   // Get XP value for action
@@ -169,6 +168,7 @@ export async function trackXP(
 
 // Get user's current XP status
 export async function getUserXPStatus() {
+  const { withAuthenticatedAction } = await import("@/lib/server-action-utils");
   return withAuthenticatedAction(async (user, supabase) => {
   await initializeUserXP(user.id, supabase);
   
@@ -519,6 +519,7 @@ async function getUserStatsForBadges(
 
 // Get user's badge collection
 export async function getUserBadges() {
+  const { withAuthenticatedAction } = await import("@/lib/server-action-utils");
   return withAuthenticatedAction(async (user, supabase) => {
     const { data, error } = await supabase
       .from("user_badges")
@@ -547,6 +548,7 @@ export async function getUserBadges() {
 
 // Get all badge definitions (for showing locked badges)
 export async function getAllBadgeDefinitions() {
+  const { withAuthenticatedAction } = await import("@/lib/server-action-utils");
   return withAuthenticatedAction(async (user, supabase) => {
     const { data, error } = await supabase
       .from("badge_definitions")
