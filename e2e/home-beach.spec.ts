@@ -64,7 +64,7 @@ test.describe("Home Beach Flow", () => {
     await page.goto("/");
     
     // Wait for the page to load
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // Look for the home beach banner (may need to navigate to specific location)
     const bannerCount = await page.locator('[data-testid="home-beach-banner"]').count();
@@ -84,7 +84,7 @@ test.describe("Home Beach Flow", () => {
     await page.goto("/profile");
     
     // Wait for page to load
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // Look for edit profile functionality
     const editButton = page.locator('text="Edit Profile"').or(
@@ -121,8 +121,75 @@ test.describe("Home Beach Flow", () => {
       await saveButton.click();
       
       // Wait for completion
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
     }
+  });
+
+  test("retains home beach selection when edit modal is reopened", async ({ page }) => {
+    // Navigate to profile page
+    await page.goto("/profile");
+    
+    // Wait for page to load and profile to render
+    await page.waitForLoadState("load");
+    await page.waitForTimeout(2000); // Give time for profile to load
+    
+    // Look for edit button with flexible selector
+    const editButton = page.locator('text="Edit Profile"').or(
+      page.locator('[href*="edit"]')
+    ).or(
+      page.locator('button:has-text("Edit")')
+    ).first();
+    
+    // Check if edit button exists before trying to interact
+    if (await editButton.count() === 0) {
+      console.log("Edit button not found, skipping test");
+      return;
+    }
+    
+    await expect(editButton).toBeVisible();
+    await editButton.click();
+    
+    // Wait for the edit form to appear
+    await page.waitForSelector('[data-testid="home-beach-select"]', { 
+      state: "visible", 
+      timeout: 5000 
+    });
+    
+    // Select a beach
+    const beachSelect = page.locator('[data-testid="home-beach-select"]');
+    await expect(beachSelect).toBeVisible();
+    await beachSelect.click();
+    
+    const beachOption = page.locator('text="Ocean Beach"').first();
+    if (await beachOption.count() > 0) {
+      await beachOption.click();
+    }
+    
+    // Verify the selection is shown
+    await expect(beachSelect).toContainText("Ocean Beach");
+    
+    // Save the profile
+    const saveButton = page.locator('[data-testid="save-profile"]');
+    await expect(saveButton).toBeVisible();
+    await saveButton.click();
+    
+    // Wait for modal to close
+    await page.waitForTimeout(1000);
+    await page.waitForLoadState("load");
+    
+    // Reopen the edit modal
+    await editButton.click();
+    
+    // Wait for the edit form to appear again
+    await page.waitForSelector('[data-testid="home-beach-select"]', { 
+      state: "visible", 
+      timeout: 5000 
+    });
+    
+    // Verify the home beach selection is still shown
+    const beachSelectReopened = page.locator('[data-testid="home-beach-select"]');
+    await expect(beachSelectReopened).toBeVisible();
+    await expect(beachSelectReopened).toContainText("Ocean Beach");
   });
 
   test("displays home beach value in profile stats", async ({ page }) => {
@@ -150,7 +217,7 @@ test.describe("Home Beach Flow", () => {
     await page.goto("/profile");
     
     // Wait for page to load
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // Look for the home break value
     const homeBreakValue = page.locator('[data-testid="home-break-value"]');

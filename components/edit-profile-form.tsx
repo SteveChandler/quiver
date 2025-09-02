@@ -104,6 +104,14 @@ export function EditProfileForm({
     },
   });
 
+  // Update pendingHomeBeachId when initialData changes (e.g., when modal opens with fresh data)
+  useEffect(() => {
+    if (initialData?.home_beach_id) {
+      setPendingHomeBeachId(initialData.home_beach_id);
+      form.setValue("home_beach_id", initialData.home_beach_id);
+    }
+  }, [initialData?.home_beach_id, form]);
+
   // Handle success callback in useEffect to avoid state updates during render
   useEffect(() => {
     if (submitSuccess && onSuccess) {
@@ -120,7 +128,10 @@ export function EditProfileForm({
   }
 
   async function onSubmit(data: ProfileFormValues) {
-    if (!user) return;
+    if (!user) {
+      console.warn("EditProfileForm onSubmit: no user present in auth context");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -391,12 +402,7 @@ export function EditProfileForm({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Home Beach</label>
                 <HomeBeachSelector
-                  value={
-                    pendingHomeBeachId ??
-                    form.watch("home_beach_id") ||
-                    profile?.home_beach_id ||
-                    undefined
-                  }
+                  value={pendingHomeBeachId || form.watch("home_beach_id") || undefined}
                   onValueChange={handleHomeBeachChange}
                   placeholder="Select your home beach for forecasts"
                 />

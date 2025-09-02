@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "playwright": {
-      "type": "sse",
-      "url": "http://localhost:3001/mcp",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
       "env": {
         "PLAYWRIGHT_STORAGE_STATE": ".auth/user.json",
         "X-Test-Mode": "true"
@@ -22,4 +22,3 @@
     }
   }
 }
-

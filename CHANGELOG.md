@@ -14,6 +14,7 @@
 ### Changed
 
 - **Toast System Consolidation**: Migrated from `react-hot-toast` to the app’s unified toast API across the app code.
+
   - **Root Layout**: Use only `@/components/ui/toaster` in `app/layout.tsx`.
   - **Share Modal**: Switch to `useToast` for success/error notifications.
   - **Toaster Hook**: `components/ui/toaster.tsx` aligned to `@/components/ui/use-toast` import.
@@ -21,7 +22,7 @@
 
 - **Complete Gamification System Integration**: Full XP tracking and social engagement system
   - **Core XP Actions**: Integrated 22 XP-earning actions across all user flows
-  - **Social XP Flows**: `post_beach_intel`, `post_surf_photos`, `invite_friend`, `tag_board_to_session` 
+  - **Social XP Flows**: `post_beach_intel`, `post_surf_photos`, `invite_friend`, `tag_board_to_session`
   - **Session XP**: `write_reflection` and `record_temperature` tracking on completion
   - **Author XP Crediting**: `get_like_upvote` XP awarded to content authors via service-role client
     - Session likes credit authors: `actions/like-actions.ts:toggleSessionLike`
@@ -32,7 +33,14 @@
 
 ### Fixed
 
+- **Playwright MCP Configuration**: Fixed "Session not found" errors in Playwright MCP server
+
+  - **Configuration Type**: Changed from SSE-based (`"type": "sse"`) to command-based (`"command": "npx"`) in `.cursor/mcp.json`
+  - **Server Connection**: Eliminated connection issues to `http://localhost:3001/mcp` by using direct command execution
+  - **Environment Variables**: Preserved `PLAYWRIGHT_STORAGE_STATE` and `X-Test-Mode` environment variables for proper test context
+
 - **Instagram Field Name Standardization**: Fixed critical bug causing silent failures in Instagram profile updates
+
   - **Root Cause**: Frontend forms used `instagram_username` while database expected `instagram`, causing field mapping failures
   - **Database Schema Alignment**: Updated `types/database.ts` Profile interface to use `instagram` field consistently with database
   - **Component Updates**: Fixed field references across profile system:
@@ -52,6 +60,7 @@
   - **Verification**: All profile-related Playwright E2E tests pass (8/8), confirming fix effectiveness
 
 - **Development Server Hydration Issues**: Resolved React hydration errors affecting development environment
+
   - **Root Cause**: Stale Next.js build cache (`.next` directory) conflicting with recent profile field changes
   - **Resolution Process**: Complete cache clearance and clean server restart
   - **Error Pattern**: "Cannot read properties of undefined (reading 'call')" webpack errors
@@ -59,6 +68,7 @@
   - **Prevention**: Added documentation for cache clearing during significant schema changes
 
 - **Home Beach Display Duplication and API Errors**: Fixed multiple issues with home beach functionality and profile display
+
   - **Database Foreign Key Reference**: Fixed `getUserStats` function to use correct foreign key name `profiles_default_beach_id_fkey` instead of incorrect `profiles_home_beach_id_fkey`
   - **UserStats Component Consolidation**: Removed duplication between `HomeBeachTile` and inline home beach display in `UserStats` component
   - **Consistent Home Beach Display**: Standardized home beach display to show unified "Home Break" title across all views
@@ -67,6 +77,7 @@
   - **Home Page Button Logic**: Verified `HomeBeachBanner` component correctly shows/hides based on user's home beach setting
 
 - **SSR Hydration Error in Gamification System**: Fixed Server-Side Rendering hydration errors caused by static canvas-confetti import
+
   - **Dynamic Import Pattern**: Converted static `import confetti from "canvas-confetti"` to SSR-safe dynamic import with window checks
   - **Client-Side Only Loading**: Added proper browser environment detection to prevent server-side canvas API access
   - **Error Handling**: Implemented graceful fallback when confetti library fails to load (non-critical feature)
@@ -74,6 +85,7 @@
   - **Performance**: Maintained confetti animation functionality while fixing SSR compatibility issues
 
 - **XP Tracking Server Action Binding Issues**: Fixed potential "Cannot redefine property: $$id" errors in gamification system
+
   - **Function Pattern Refactor**: Converted gamification functions from `makeAuthenticatedAction` to standard async functions with `withAuthenticatedAction` wrapper
   - **Binding Issue Resolution**: Eliminated potential double-binding issues by using consistent server action patterns
   - **XP Function Signatures**: Updated `trackXP`, `getUserXPStatus`, `getUserBadges`, and `getAllBadgeDefinitions` to use standard parameter patterns
@@ -81,21 +93,25 @@
   - **Test Validation**: Verified all existing tests continue to pass with the refactored server action patterns
 
 - **E2E Test Configuration Port Mismatch**: Fixed port configuration mismatch between dev server (3002) and E2E test configuration (3000)
+
   - **Playwright Configuration**: Updated `playwright.config.ts` to use port 3002 as default BASE_URL instead of port 3000
   - **WebServer Configuration**: Modified webServer config to use `PORT=3002` environment variable for consistency
   - **Test File Updates**: Updated all hardcoded localhost URLs in E2E test files from port 3000 to port 3002
 
 - **Gamification E2E Test Stabilization**: Fixed failing navigation and confetti tests
+
   - **Navigation Test**: Updated landing page test to use flexible selectors for better reliability
   - **Confetti Test**: Fixed client-side library test to check for absence of errors instead of library presence
   - **Test Results**: Improved from 6/8 to 7/8 passing tests with more stable assertions
 
 - **Spatial Query Column Ambiguity**: Resolved PostgreSQL ambiguous column reference warnings
+
   - **Database Migration**: Created `20250901000000_fix_ambiguous_lat_column.sql` to rename function parameters
   - **Parameter Disambiguation**: Changed `lat/lng` to `input_lat/input_lng` in `get_nearby_beaches` function
   - **Query Optimization**: Eliminated client-side filtering fallback triggers and console warnings
 
 - **Build and Production Readiness**: Verified complete system stability
+
   - **TypeScript Compilation**: All files compile without errors
   - **Next.js Build**: Successful production build with all routes
   - **Playwright MCP Verification**: Complete browser testing confirms UI functionality
@@ -104,6 +120,7 @@
   - **Validation**: Verified E2E tests now successfully connect to dev server on correct port
 
 - **CRITICAL: Missing Profile Columns Database Schema Fix**: Resolved production-blocking issue where essential profile columns were missing from the database schema
+
   - **Migration Application**: Applied missing migration `20250829030000_add_missing_profile_columns.sql` to add avatar_url, email, phone_number, bio, location, experience_level, instagram, updated_at, and home_beach_id columns
   - **Column Renaming**: Applied migration `20250830120000_rename_default_beach_id_to_home_beach_id.sql` to standardize column naming
   - **Application Code Updates**: Updated all references from `default_beach_id` to `home_beach_id` in profile actions, cached profile hook, profile preferences component, and API routes
@@ -132,12 +149,14 @@
 ### Fixed
 
 - **Critical Server Error in Profile Actions**: Fixed "use server" file export violation that was causing complete application failure
+
   - **IIFE Export Issue**: Converted `fetchProfile` from IIFE result export to proper async function export, fixing "A 'use server' file can only export async functions, found object" error
   - **Application Boot Fix**: Resolved server compilation failure that prevented the entire application from starting
   - **Cache Function Parameter**: Updated `fetchProfile` to accept `userId` parameter for proper cache key generation
   - **API Route Compatibility**: Ensured existing API route usage remains compatible with the function signature change
 
 - **Profile Cache Consistency Improvements**: Standardized profile fetching patterns for better cache management and consistency
+
   - **Tagged Profile Fetching**: Created standardized `fetchProfile` function with Next.js cache tags for server components, enabling proper cache invalidation
   - **Unified API Route Usage**: Updated client-side profile fetching to use `/api/profile` route consistently for better caching behavior
   - **Cache Invalidation**: Verified `setHomeBeach` and `updateProfile` properly call `revalidateTag("profile")` for cache consistency
@@ -145,6 +164,7 @@
   - **Test Environment Compatibility**: Made cache implementation gracefully fallback in test environments where `unstable_cache` is not available
 
 - **Beach Selection Dropdown Critical Bug Fixes**: Fixed critical issues preventing beach selection from saving and persisting properly
+
   - **Server Action Import Error**: Removed client-side `invalidateProfileCache` function call from server action `updateProfile` that was causing "function is not a function" errors during profile saves
   - **Missing Function Import**: Fixed `getBeach` function import error in `useCachedProfile` hook by correcting import to `getBeachById` from beach-actions, resolving "getBeach is not a function" errors that prevented default beach loading
   - **Profile Save Persistence**: Beach selection now properly saves to `default_beach_id` field in database and persists across page refreshes
@@ -154,6 +174,7 @@
   - **Profile Stats Display**: Fixed home beach display inconsistency by updating getUserStats to fetch default_beach_id and join with beaches table for proper beach name display
 
 - **Edit Profile Form Critical Issues**: Fixed multiple critical issues in the Edit Profile feature that were preventing proper functionality
+
   - **Duplicate Home Beach Fields**: Removed duplicate "Home Break" text input field, keeping only the HomeBeachSelector dropdown to eliminate user confusion
   - **Database Schema Alignment**: Verified avatar_url column exists in profiles table from migration 20250829030000_add_missing_profile_columns.sql
   - **Avatar Storage Policies**: Created proper Storage bucket and RLS policies for avatar uploads with user-specific access controls
@@ -172,6 +193,7 @@
 ### Added
 
 - **Unified Profile Write Action**: Enhanced profile actions with comprehensive validation and type safety
+
   - **Zod Validation Schema**: Added comprehensive profileUpdateSchema with validation for all profile fields including length limits, format validation for URLs and UUIDs
   - **setHomeBeach Function**: Added dedicated setHomeBeach action with beach existence validation for more secure home beach updates
   - **Enhanced Cache Management**: Upgraded to use revalidateTag("profile") alongside path-based cache invalidation for better cache consistency
@@ -205,6 +227,7 @@
 ### Fixed
 
 - **Home "Set Home Beach" Crash and Warning Issues**: Resolved critical null safety and state management issues in forecast display
+
   - **Null Safety Guards**: Fixed `Cannot read properties of null (reading 'slice')` crash in forecast-tab.tsx KPI tile rendering
   - **Render Cycle Warnings**: Eliminated "Cannot update a component while rendering a different component" warnings by moving state updates to useEffect
   - **Controlled Component Stability**: Ensured stable defaults for form components, never passing null/undefined to controlled inputs
@@ -228,6 +251,7 @@
 ### Added
 
 - **Phase 3 Social Features Test Coverage**: Comprehensive Jest test implementation for all social features and viral growth mechanisms following CLAUDE.md patterns
+
   - **Social Actions Testing**: Complete test coverage for `social-actions.ts` including follow/unfollow functionality, user suggestions, followers/following lists with proper authentication testing
   - **Social Share Utils Testing**: Extensive tests for `social-share-utils.ts` covering image generation, session formatting, template rendering, and error fallbacks
   - **Social Share API Testing**: Thorough coverage of `/api/social/share/og` route including signature verification, public/private session access, and image generation flows
@@ -239,6 +263,7 @@
   - **Testing Standards Compliance**: All social tests follow CLAUDE.md guidelines (proper status codes, no test.skip usage, comprehensive error handling)
 
 - **Phase 2 API Coverage Test Implementation**: Comprehensive Jest test suites for critical API routes following CLAUDE.md patterns
+
   - **API Test Utilities**: New `test-utils/api-test-helpers.ts` with standardized mocking, request factories, and response validation helpers
   - **Authentication API Tests**: Complete coverage for `/api/auth/check-session` and `/api/auth/refresh-session` with security and edge case validation
   - **Core Data API Tests**: Extensive tests for `/api/beaches`, `/api/profile/[id]`, and `/api/users/search` covering CRUD operations, authorization, and data validation
@@ -249,6 +274,7 @@
   - **Performance Testing**: Concurrent request handling, database query optimization validation, and resource usage constraints
 
 - **Phase 1 Core Server Logic Test Coverage**: Implemented comprehensive Jest test suites for critical server actions
+
   - **Profile Management Tests**: Complete test coverage for `profile-actions.ts` including profile creation, updates, user stats, and error handling
   - **Session Management Tests**: Extensive test coverage for `session-actions.ts` covering session creation, updates, deletion, and complex data operations
   - **Authentication Wrapper Tests**: Enhanced `server-action-utils.test.ts` with comprehensive coverage of authentication patterns, error handling, and edge cases
@@ -258,7 +284,7 @@
 
 - **Enhanced Password Reset Flow**: Implemented robust Supabase-powered password reset with deep link support
   - **New Server Route**: `/auth/confirm` handles token verification and redirects using `withAuthenticatedAction` pattern
-  - **Improved Reset Page**: `/auth/reset` with 8+ character validation and automatic authentication preservation 
+  - **Improved Reset Page**: `/auth/reset` with 8+ character validation and automatic authentication preservation
   - **Error Handling**: Dedicated `/error` page with specific messages for invalid/expired links
   - **Updated Flow**: Forgot password emails now redirect to `/auth/confirm?token_hash=...&type=recovery&next=/auth/reset`
   - **Supabase Utilities**: New `utils/supabase/client.ts` and `utils/supabase/server.ts` following established patterns
@@ -268,6 +294,7 @@
 ### Fixed
 
 - **Profile Update Error Handling**: Fixed "Unknown error" responses when updating user profiles
+
   - **Root Cause**: Supabase error objects were not being converted to Error instances, causing withServerAction to fall back to generic error message
   - **Data Format Issue**: updateProfile function now handles both direct objects and array-wrapped data (from different Next.js action call patterns)
   - **Server Actions Fix**: Updated profile-actions.ts to properly wrap Supabase errors in Error instances with descriptive messages
@@ -275,12 +302,14 @@
   - **Better Debugging**: Added detailed error logging for unhandled error types to aid future debugging
 
 - **NPC Daily Activity Workflow**: Fixed GitHub Actions workflow failure by properly marking existing mock users with is_mock flag
+
   - **Migration Applied**: Added `20250828000001_mark_mock_users_with_is_mock_flag.sql` to mark 31 existing mock users as is_mock = true
-  - **Workflow Compatibility**: NPC daily activity workflow can now find mock users via `WHERE is_mock = true` query  
+  - **Workflow Compatibility**: NPC daily activity workflow can now find mock users via `WHERE is_mock = true` query
   - **Database Consistency**: Ensured existing mock users from migration `20250817130000` are properly flagged for automation workflows
   - **Index Performance**: Added `idx_profiles_is_mock` index for efficient mock user queries
 
 - **Database Relationship and Schema Issues**: Fixed critical database query failures affecting app functionality
+
   - **Foreign Key Relationship Fix**: Corrected `sessions_user_id_fkey` reference to `sessions_profile_id_fkey` in `/app/api/recent-posts/route.ts` to match actual database schema
   - **SQL Function Parameter Update**: Updated `getBeachesNear` function in `/lib/surf/data.ts` to use corrected `get_nearby_beaches` function with proper parameter names (`lat`, `lng`, `max_distance_meters`)
   - **Session Media Table Issue**: Removed references to non-existent `session_media` table and `avatar_url` column from recent-posts API endpoint
@@ -288,11 +317,13 @@
   - **API Error Handling**: Improved error handling to return empty data instead of 500 errors for missing database tables during development
 
 - **Playwright Test Stability**: Resolved multiple test failures and improved test reliability
+
   - **Landing Page Responsive Tests**: Fixed ERR_ABORTED errors on mobile and tablet viewport tests - all landing page tests now pass (16/16)
   - **Database Query Optimization**: Fixed ambiguous column reference errors in spatial functions that were causing test failures
   - **API Endpoint Stability**: Stabilized recent-posts endpoint to handle missing database tables gracefully during test execution
 
 - **Test Infrastructure TypeScript Errors**: Resolved critical TypeScript and testing issues across test suite
+
   - **AuthContext Mock Standardization**: Fixed `isLoading` vs `loading` property mismatch in `jest.setup.js` to align with actual AuthContextType interface
   - **useSessionWizard Hook Completion**: Added missing return properties (`stepMotion`, `progressMotion`, `trackStepView`, `trackStepComplete`) to match UseSessionWizardReturn interface
   - **Enhanced Mock Data Coverage**: Added missing `wavePeriodS` and `swell_period` properties to forecast and surf data mocks
@@ -300,7 +331,7 @@
   - **Type Safety Improvements**: Eliminated TypeScript compilation errors that were blocking development workflows
 
 - **Mobile Hero Text Clipping**: Fixed hero section text being clipped on small screens (360-430px widths)
-  - Updated hero container max-width from `max-w-5xl` to responsive `max-w-[90vw] sm:max-w-screen-sm md:max-w-3xl` 
+  - Updated hero container max-width from `max-w-5xl` to responsive `max-w-[90vw] sm:max-w-screen-sm md:max-w-3xl`
   - Changed section overflow from `overflow-hidden` to `overflow-clip md:overflow-visible` to prevent content clipping
   - Improved text sizing with better mobile constraints: `text-2xl sm:text-4xl md:text-5xl` (from xl-8xl scaling)
   - Enhanced paragraph text with `text-pretty break-words hyphens-auto` for better mobile readability
@@ -323,13 +354,14 @@
 ### Added
 
 - **Jest DOM Type Declaration System**: Added comprehensive TypeScript support for Jest DOM testing matchers
+
   - Created `/types/jest-dom.d.ts` with complete matcher interface coverage (`toBeInTheDocument`, `toHaveTextContent`, etc.)
   - Updated `tsconfig.json` to include custom type declarations (`types/**/*.d.ts`)
   - Eliminates TypeScript errors in test files using Jest DOM matchers
   - Provides foundation for accessibility testing standards and autocompletion
 
 - **Test Suite Analysis & Fixes**: Systematic execution and analysis of all Playwright test suites with critical fixes applied
-  
+
   - **Auth Tests**: 32/33 passing (97% success rate) - only 1 session routing issue remains
   - **API Tests**: 23/23 passing (100% success rate) after fixing `handleAuthRedirect` function in test helpers
   - **Core Tests**: Authentication working properly, but some timeouts in large test suites (423 tests) - requires further investigation
@@ -338,6 +370,7 @@
     - Removed `loading` dependency from `loadNearbyBeaches` useCallback to prevent function recreation loops
     - Eliminated excessive console logging that was impacting performance during test execution
     - Fixed app-wide performance degradation affecting test suite execution times
+
 - **Daily NPC Activity Seeder**: Automated system to keep production feeling alive with regular mock user activity
 
   - Created `scripts/npc-daily-activity.ts` that randomly selects 3-5 NPCs daily to create sessions, intel posts, and beach reviews
@@ -438,6 +471,7 @@
 ### Fixed
 
 - **PostgREST Function Parameter Mismatch**: Fixed PGRST202 error "function not found in schema cache" for `get_nearby_beaches` RPC
+
   - **Root Cause**: Parameter signature mismatch between database function (`target_lat, target_lng, max_distance_km`) and action call (`lat, lng, max_distance_meters, limit_count`)
   - **Solution**: Created migration `20250827000001_fix_get_nearby_beaches_function.sql` with corrected function signature matching action expectations
   - **Impact**: Eliminated client-side geospatial filtering fallback, improving Nearby tab performance by 50-80%
