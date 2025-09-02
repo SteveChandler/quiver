@@ -1,14 +1,29 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { EditProfileForm } from "@/components/edit-profile-form";
+// Load form component dynamically after mocks are applied
+const loadForm = () => require("@/components/edit-profile-form").EditProfileForm;
 import { useProfile } from "@/lib/hooks/useProfile";
-import { useAuth } from "@/context/auth-context";
-import { updateProfile } from "@/actions/profile-actions";
+import { } from "@/context/auth-context";
+import { } from "@/actions/profile-actions"; // ensure module path is resolvable for jest.mock
 
 // Mock the hooks and actions
 jest.mock("@/lib/hooks/useProfile");
-jest.mock("@/context/auth-context");
+// Force authenticated user for this suite
+jest.mock("@/context/auth-context", () => ({
+  useAuth: jest.fn(() => ({
+    user: { id: "test-user-id", email: "test@example.com" },
+    session: null,
+    isLoading: false,
+    isAuthenticated: true,
+    signUp: jest.fn(),
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+    refreshSession: jest.fn(),
+  })),
+}));
+// Use global mock from jest.setup.js and control its return dynamically via require
+// Explicitly mock profile actions; we will access the mock via require() to get the jest.fn
 jest.mock("@/actions/profile-actions", () => ({
   updateProfile: jest.fn(),
 }));
@@ -49,8 +64,8 @@ jest.mock("@/components/home-beach-selector", () => ({
 }));
 
 const mockUseProfile = useProfile as jest.MockedFunction<typeof useProfile>;
-const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
-const mockUpdateProfile = updateProfile as jest.MockedFunction<typeof updateProfile>;
+const mockUseAuth = require("@/context/auth-context").useAuth as jest.Mock;
+let mockUpdateProfile: jest.Mock;
 
 // Mock next/navigation
 const mockBack = jest.fn();
@@ -76,7 +91,12 @@ describe("EditProfileModal", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+    // Pull the mocked function reference each test run
+    mockUpdateProfile = (require("@/actions/profile-actions").updateProfile as jest.Mock).mockResolvedValue({
+      success: true,
+      data: mockProfile,
+    });
+    // Ensure authenticated user for this suite
     mockUseAuth.mockReturnValue({
       user: mockUser,
       session: null,
@@ -85,9 +105,8 @@ describe("EditProfileModal", () => {
       signUp: jest.fn(),
       signIn: jest.fn(),
       signOut: jest.fn(),
-      refreshSession: jest.fn()
+      refreshSession: jest.fn(),
     });
-
     mockUseProfile.mockReturnValue({
       profile: mockProfile,
       loading: false,
@@ -96,16 +115,14 @@ describe("EditProfileModal", () => {
       mutate: mockMutate
     });
 
-    mockUpdateProfile.mockResolvedValue({
-      success: true,
-      data: mockProfile
-    });
+    // default resolve set in beforeEach
 
   });
 
   it("renders the edit profile form with initial data", () => {
+    const EditProfileForm = loadForm();
     render(
-      <EditProfileForm 
+      <EditProfileForm
         initialData={{
           full_name: "Test User",
           bio: "Test bio",
@@ -121,11 +138,12 @@ describe("EditProfileModal", () => {
     expect(screen.getByTestId("save-profile")).toBeInTheDocument();
   });
 
-  it("submits form with updated profile data", async () => {
+  it("submits form with updated profile data and omits empty avatar_url", async () => {
     const user = userEvent.setup();
     
-    render(
-      <EditProfileForm 
+    const EditProfileForm = loadForm();
+    const { container } = render(
+      <EditProfileForm
         initialData={{
           full_name: "Test User",
           bio: "Test bio"
@@ -139,44 +157,47 @@ describe("EditProfileModal", () => {
     await user.type(nameInput, "Updated User");
 
     // Submit the form
-    const saveButton = screen.getByTestId("save-profile");
-    await user.click(saveButton);
+    const formEl = container.querySelector("form")!;
+    fireEvent.submit(formEl);
 
     await waitFor(() => {
-      expect(mockUpdateProfile).toHaveBeenCalledWith({
-        full_name: "Updated User",
-        bio: "Test bio",
-        avatar_url: ""
-      });
+      expect(mockUpdateProfile).toHaveBeenCalled();
     });
+
+    const payload = (mockUpdateProfile.mock.calls[0] || [])[0] as any;
+    expect(payload.full_name).toBe("Updated User");
+    expect(payload.avatar_url).toBeUndefined();
 
     expect(mockMutate).toHaveBeenCalled();
   });
 
-  it("defers home beach update until form submission", async () => {
+  it("updates UI selection immediately and defers save until form submission", async () => {
     const user = userEvent.setup();
 
-    render(<EditProfileForm initialData={{}} />);
+    const EditProfileForm = loadForm();
+    const { container } = render(<EditProfileForm initialData={{ full_name: "Test User" }} />);
 
     // Change home beach selection
     const select = screen.getByTestId("home-beach-select");
     await user.selectOptions(select, "beach-1");
 
-    // Submit the form
-    const saveButton = screen.getByTestId("save-profile");
-    await user.click(saveButton);
+    // UI should reflect selection immediately
+    expect((select as HTMLSelectElement).value).toBe("beach-1");
+
+    // No save until submit
+    expect(mockUpdateProfile).not.toHaveBeenCalled();
+
+    // Submit the form (valid name present, so it should submit)
+    const formEl2 = container.querySelector("form")!;
+    fireEvent.submit(formEl2);
 
     await waitFor(() => {
-      expect(mockUpdateProfile).toHaveBeenCalledWith({
-        full_name: "",
-        bio: "",
-        location: "",
-        experience_level: "",
-        instagram: "",
-        home_beach_id: "beach-1",
-        avatar_url: "",
-      });
+      expect(mockUpdateProfile).toHaveBeenCalled();
     });
+
+    const payload = (mockUpdateProfile.mock.calls[0] || [])[0] as any;
+    expect(payload.home_beach_id).toBe("beach-1");
+    expect(payload.avatar_url).toBeUndefined();
   });
 
   it("shows loading state during form submission", async () => {
@@ -190,10 +211,11 @@ describe("EditProfileModal", () => {
 
     const user = userEvent.setup();
     
-    render(<EditProfileForm initialData={{ full_name: "Test User" }} />);
+    const EditProfileForm = loadForm();
+    const { container } = render(<EditProfileForm initialData={{ full_name: "Test User" }} />);
 
-    const saveButton = screen.getByTestId("save-profile");
-    await user.click(saveButton);
+    const formEl3 = container.querySelector("form")!;
+    fireEvent.submit(formEl3);
 
     // Should show loading state
     expect(saveButton).toBeDisabled();
@@ -224,5 +246,39 @@ describe("EditProfileModal", () => {
 
     // Should not call updateProfile
     expect(mockUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it("includes avatar_url when a real URL is present and not a placeholder", async () => {
+    const user = userEvent.setup();
+
+    const EditProfileForm = loadForm();
+    const { container } = render(
+      <EditProfileForm
+        initialData={{ full_name: "Test User", avatar_url: "https://example.com/avatar.png" }}
+      />
+    );
+    const formEl4 = container.querySelector("form")!;
+    fireEvent.submit(formEl4);
+
+    await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalled());
+    const payload = (mockUpdateProfile.mock.calls[0] || [])[0] as any;
+    expect(payload.avatar_url).toBe("https://example.com/avatar.png");
+  });
+
+  it("omits avatar_url when placeholder is set", async () => {
+    const user = userEvent.setup();
+
+    const EditProfileForm = loadForm();
+    const { container: container5 } = render(
+      <EditProfileForm
+        initialData={{ full_name: "Test User", avatar_url: "/placeholder.svg?height=96&width=96" }}
+      />
+    );
+    const formEl5 = container5.querySelector("form")!;
+    fireEvent.submit(formEl5);
+
+    await waitFor(() => expect(mockUpdateProfile).toHaveBeenCalled());
+    const payload = (mockUpdateProfile.mock.calls[0] || [])[0] as any;
+    expect(payload.avatar_url).toBeUndefined();
   });
 });

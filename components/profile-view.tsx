@@ -99,6 +99,7 @@ export function ProfileView() {
   const [retryCount, setRetryCount] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [homeBeachName, setHomeBeachName] = useState<string | null>(null);
+  const [statsRefreshToken, setStatsRefreshToken] = useState(0);
 
   const loadUserData = async () => {
     if (!user) return;
@@ -184,6 +185,9 @@ export function ProfileView() {
       
       // Reload the user data to get the updated profile
       await loadUserData();
+      
+      // Increment the stats refresh token to trigger UserStats refresh
+      setStatsRefreshToken(prev => prev + 1);
       
       console.log("Profile data reloaded and modal closed successfully");
     } catch (error) {
@@ -370,7 +374,7 @@ export function ProfileView() {
               className="max-w-6xl mx-auto px-4"
             >
               <div className="bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/50">
-                {user && <UserStats userId={user.id} />}
+                {user && <UserStats userId={user.id} refreshToken={statsRefreshToken} />}
               </div>
             </motion.section>
 

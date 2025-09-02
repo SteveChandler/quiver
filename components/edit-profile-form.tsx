@@ -87,6 +87,11 @@ export function EditProfileForm({
   // Remove immediate update for home beach; save on form submit
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Local pending selection so UI reflects changes immediately without saving
+  const [pendingHomeBeachId, setPendingHomeBeachId] = useState<string | undefined>(
+    initialData?.home_beach_id || undefined
+  );
+
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -110,6 +115,7 @@ export function EditProfileForm({
 
   function handleHomeBeachChange(beachId: string | undefined) {
     // Update form state only; persist in onSubmit
+    setPendingHomeBeachId(beachId || undefined);
     form.setValue("home_beach_id", beachId || undefined, { shouldDirty: true });
   }
 
@@ -118,9 +124,14 @@ export function EditProfileForm({
 
     setIsSubmitting(true);
     try {
+      const includeAvatar =
+        !!avatarUrl &&
+        avatarUrl.trim() !== "" &&
+        !avatarUrl.includes("placeholder.svg");
+
       const result = await updateProfile({
         ...data,
-        avatar_url: avatarUrl,
+        ...(includeAvatar ? { avatar_url: avatarUrl.trim() } : {}),
       });
 
       if (!result.success) {
@@ -380,7 +391,12 @@ export function EditProfileForm({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Home Beach</label>
                 <HomeBeachSelector
-                  value={form.watch("home_beach_id") || profile?.home_beach_id || undefined}
+                  value={
+                    pendingHomeBeachId ??
+                    form.watch("home_beach_id") ||
+                    profile?.home_beach_id ||
+                    undefined
+                  }
                   onValueChange={handleHomeBeachChange}
                   placeholder="Select your home beach for forecasts"
                 />

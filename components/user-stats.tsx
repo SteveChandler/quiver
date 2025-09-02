@@ -11,6 +11,7 @@ import { GamificationSection } from "@/components/profile/gamification-section";
 
 interface UserStatsProps {
   userId: string;
+  refreshToken?: number;
 }
 
 interface UserStatsData {
@@ -24,7 +25,7 @@ interface UserStatsData {
   mostVisitedBeachCount: number;
 }
 
-export function UserStats({ userId }: UserStatsProps) {
+export function UserStats({ userId, refreshToken }: UserStatsProps) {
   const { user } = useAuth();
   const { profile } = useProfile();
   const [stats, setStats] = useState<UserStatsData | null>(null);
@@ -35,20 +36,24 @@ export function UserStats({ userId }: UserStatsProps) {
 
   useEffect(() => {
     async function loadStats() {
+      setLoading(true);
       try {
         const result = await getUserStats(userId);
         if (result.success && result.data) {
           setStats(result.data);
+        } else {
+          setStats(null);
         }
       } catch (error) {
         console.error("Error loading user stats:", error);
+        setStats(null);
       } finally {
         setLoading(false);
       }
     }
 
     loadStats();
-  }, [userId]);
+  }, [userId, refreshToken]);
 
   if (loading) {
     return <CenteredLoadingSpinner text="Loading stats..." />;

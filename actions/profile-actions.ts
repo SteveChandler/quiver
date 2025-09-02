@@ -14,7 +14,11 @@ const profileUpdateSchema = z.object({
   bio: z.string().max(500, "Bio too long").optional(),
   skill_level: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
   experience_years: z.number().int().min(0, "Experience years must be positive").max(100, "Experience years too high").optional(),
-  avatar_url: z.string().url("Invalid avatar URL").optional(),
+  avatar_url: z.union([
+    z.string().url("Invalid avatar URL"),
+    z.string().length(0), // Allow empty strings
+    z.null()
+  ]).optional(),
   website_url: z.string().url("Invalid website URL").optional(),
   instagram: z.string().max(30, "Instagram username too long").optional(),
   location: z.string().max(255, "Location too long").optional(),
@@ -215,9 +219,15 @@ export async function updateProfile(
       throw new Error(`Validation failed: ${validationResult.error.issues.map(i => i.message).join(", ")}`);
     }
 
+    // Handle empty strings for avatar_url by treating them as unset
+    const processedData = { ...validationResult.data };
+    if (processedData.avatar_url === "") {
+      delete processedData.avatar_url; // Remove empty string avatar_url from update
+    }
+
     // Field names match database, no mapping needed
     const dbPayload: Record<string, any> = {
-      ...validationResult.data,
+      ...processedData,
       updated_at: new Date().toISOString(),
     };
 

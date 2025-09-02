@@ -4,6 +4,13 @@
 
 - **Gamification Status Review Doc**: Added `docs/gamification-branch-status-review.md` summarizing current branch status, implemented components, gaps, and next steps for completing gamification integration.
 
+- **User Stats Auto-Refresh**: Implemented automatic refresh of user statistics when profile changes
+  - **Refresh Token Pattern**: Added lightweight refresh mechanism using state increment pattern
+  - **ProfileView Integration**: Added `statsRefreshToken` state that increments on profile updates
+  - **UserStats Enhancement**: Extended component to accept optional `refreshToken` prop and refresh data when it changes
+  - **No Page Reload Required**: Home Break card updates within 1-2 seconds after profile changes without manual page refresh
+  - **Backward Compatibility**: UserStats component works with or without refresh token, maintaining existing behavior
+
 ### Changed
 
 - **Toast System Consolidation**: Migrated from `react-hot-toast` to the app’s unified toast API across the app code.

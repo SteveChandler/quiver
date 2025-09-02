@@ -16,6 +16,8 @@ const customJestConfig = {
     "<rootDir>/.next/",
     "<rootDir>/test-utils/",
     "<rootDir>/e2e/",
+    // Ignore internal mock modules stored next to tests
+    "<rootDir>/__tests__/__mocks__/",
     "<rootDir>/__tests__/setup/",
   ],
   moduleNameMapper: {

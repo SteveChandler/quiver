@@ -117,7 +117,7 @@ export function BasicProfileForm({
         experience_level: data.experience_level,
         favorite_spot: data.favorite_spot,
         instagram: (data as any).instagram,
-        avatar_url: avatarUrl,
+        ...(avatarUrl && avatarUrl !== "" ? { avatar_url: avatarUrl } : {}),
       });
 
       if (!result.success) {

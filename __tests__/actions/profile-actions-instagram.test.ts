@@ -1,5 +1,11 @@
 import { updateProfile } from "@/actions/profile-actions";
 
+// Mock Next.js revalidation functions
+jest.mock("next/cache", () => ({
+  revalidateTag: jest.fn(),
+  revalidatePath: jest.fn(),
+}));
+
 // Mock server action utils to execute the callback with a fake user and supabase client
 jest.mock("@/lib/server-action-utils", () => {
   const single = jest.fn().mockResolvedValue({ data: { id: "user-1", instagram: "newhandle" }, error: null });
