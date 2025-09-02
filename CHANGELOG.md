@@ -25,6 +25,32 @@
 
 ### Fixed
 
+- **Instagram Field Name Standardization**: Fixed critical bug causing silent failures in Instagram profile updates
+  - **Root Cause**: Frontend forms used `instagram_username` while database expected `instagram`, causing field mapping failures
+  - **Database Schema Alignment**: Updated `types/database.ts` Profile interface to use `instagram` field consistently with database
+  - **Component Updates**: Fixed field references across profile system:
+    - `components/edit-profile-form.tsx`: Form schema and field validation
+    - `components/profile/basic-profile-form.tsx`: Basic profile editing
+    - `components/social/user-profile-modal.tsx`: Profile display modal
+    - `components/profile-view.tsx`: Main profile display component
+  - **Server Action Simplification**: Removed complex field mapping logic in `actions/profile-actions.ts`
+    - Eliminated `instagram_username` → `instagram` transformation
+    - Direct pass-through of field values to database
+    - Cleaner data flow with consistent naming
+  - **Test Coverage**: Updated comprehensive test suite:
+    - `__tests__/actions/profile-actions-instagram.test.ts`: Server action tests
+    - `__tests__/components/profile/EditProfileModal.spec.tsx`: Component tests
+    - `__tests__/lib/utils/session-utils.test.ts`: Utility function tests
+    - Added new field consistency validation tests
+  - **Verification**: All profile-related Playwright E2E tests pass (8/8), confirming fix effectiveness
+
+- **Development Server Hydration Issues**: Resolved React hydration errors affecting development environment
+  - **Root Cause**: Stale Next.js build cache (`.next` directory) conflicting with recent profile field changes
+  - **Resolution Process**: Complete cache clearance and clean server restart
+  - **Error Pattern**: "Cannot read properties of undefined (reading 'call')" webpack errors
+  - **Impact**: Development server now starts cleanly without hydration mismatches
+  - **Prevention**: Added documentation for cache clearing during significant schema changes
+
 - **Home Beach Display Duplication and API Errors**: Fixed multiple issues with home beach functionality and profile display
   - **Database Foreign Key Reference**: Fixed `getUserStats` function to use correct foreign key name `profiles_default_beach_id_fkey` instead of incorrect `profiles_home_beach_id_fkey`
   - **UserStats Component Consolidation**: Removed duplication between `HomeBeachTile` and inline home beach display in `UserStats` component

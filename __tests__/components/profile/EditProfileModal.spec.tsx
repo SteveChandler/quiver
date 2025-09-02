@@ -4,14 +4,13 @@ import userEvent from "@testing-library/user-event";
 import { EditProfileForm } from "@/components/edit-profile-form";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { useAuth } from "@/context/auth-context";
-import { updateProfile, setHomeBeach } from "@/actions/profile-actions";
+import { updateProfile } from "@/actions/profile-actions";
 
 // Mock the hooks and actions
 jest.mock("@/lib/hooks/useProfile");
 jest.mock("@/context/auth-context");
 jest.mock("@/actions/profile-actions", () => ({
   updateProfile: jest.fn(),
-  setHomeBeach: jest.fn(),
 }));
 
 // Mock image upload utilities
@@ -52,7 +51,6 @@ jest.mock("@/components/home-beach-selector", () => ({
 const mockUseProfile = useProfile as jest.MockedFunction<typeof useProfile>;
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockUpdateProfile = updateProfile as jest.MockedFunction<typeof updateProfile>;
-const mockSetHomeBeach = setHomeBeach as jest.MockedFunction<typeof setHomeBeach>;
 
 // Mock next/navigation
 const mockBack = jest.fn();
@@ -103,10 +101,6 @@ describe("EditProfileModal", () => {
       data: mockProfile
     });
 
-    mockSetHomeBeach.mockResolvedValue({
-      success: true,
-      data: { ...mockProfile, home_beach_id: "beach-1" }
-    });
   });
 
   it("renders the edit profile form with initial data", () => {
@@ -159,20 +153,30 @@ describe("EditProfileModal", () => {
     expect(mockMutate).toHaveBeenCalled();
   });
 
-  it("handles home beach change separately from form submission", async () => {
+  it("defers home beach update until form submission", async () => {
     const user = userEvent.setup();
-    
+
     render(<EditProfileForm initialData={{}} />);
 
     // Change home beach selection
     const select = screen.getByTestId("home-beach-select");
     await user.selectOptions(select, "beach-1");
 
-    await waitFor(() => {
-      expect(mockSetHomeBeach).toHaveBeenCalledWith("beach-1");
-    });
+    // Submit the form
+    const saveButton = screen.getByTestId("save-profile");
+    await user.click(saveButton);
 
-    expect(mockMutate).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockUpdateProfile).toHaveBeenCalledWith({
+        full_name: "",
+        bio: "",
+        location: "",
+        experience_level: "",
+        instagram: "",
+        home_beach_id: "beach-1",
+        avatar_url: "",
+      });
+    });
   });
 
   it("shows loading state during form submission", async () => {

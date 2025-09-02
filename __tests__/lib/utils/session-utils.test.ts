@@ -40,6 +40,7 @@ function makeSession(
       notification_community_replies: false,
       followers_count: 0,
       following_count: 0,
+      is_mock: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },

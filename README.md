@@ -5,6 +5,7 @@ Community-driven surf app (Next.js 14 + Supabase + Tailwind + shadcn/ui).
 For architecture, development standards, and navigation, see:
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — Top-level overview and index to detailed docs
+- [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) — Development troubleshooting guide
 
 Key directories:
 

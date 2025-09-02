@@ -66,7 +66,7 @@ interface ComponentProps {
 #### Form & Data Entry
 
 - **`add-board-dialog.tsx`** - Surfboard creation modal with validation
-- **`edit-profile-form.tsx`** - User profile editing with image upload
+- **`edit-profile-form.tsx`** - User profile editing with standardized field schema
 - **`edit-profile-modal.tsx`** - Modal wrapper for profile editing
 
 #### Content Display
@@ -385,19 +385,31 @@ interface ComponentProps {
 
 #### Components
 
-- **`basic-profile-form.tsx`** - Core profile information
+- **`basic-profile-form.tsx`** - Core profile information editing
 - **`profile-edit-form.tsx`** - Comprehensive profile editor
 - **`boards-manager.tsx`** - Surfboard collection management
 - **`profile-preferences.tsx`** - User preferences and settings
 - **`recent-sessions-list.tsx`** - Session history display
 - **`user-comments.tsx`** - User's comment history
+- **`HomeBeachTile.tsx`** - Home beach preference display tile
+
+#### Data Schema Consistency
+
+- **Instagram Field Standardization**: All profile components use consistent `instagram` field name
+  - **Database Schema**: `profiles.instagram` (VARCHAR)
+  - **Frontend Forms**: Form validation and display use `instagram` field
+  - **Server Actions**: Direct field mapping without transformation
+  - **Type Safety**: `Profile` interface uses `instagram: string | null`
+  - **Test Coverage**: Comprehensive test suite validates field consistency
 
 #### Features
 
-- **Avatar Management**: Image upload and cropping
-- **Equipment Tracking**: Surfboard collection
-- **Privacy Controls**: Granular visibility settings
-- **Social Integration**: Following, followers, activity
+- **Avatar Management**: Image upload and cropping with Supabase Storage
+- **Equipment Tracking**: Surfboard collection with detailed specifications
+- **Privacy Controls**: Granular visibility settings for profile information
+- **Social Integration**: Following, followers, activity streams
+- **Home Beach Integration**: Seamless beach preference management
+- **Form Validation**: Real-time validation with Zod schemas
 
 ---
 

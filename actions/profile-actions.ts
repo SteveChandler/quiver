@@ -16,7 +16,7 @@ const profileUpdateSchema = z.object({
   experience_years: z.number().int().min(0, "Experience years must be positive").max(100, "Experience years too high").optional(),
   avatar_url: z.string().url("Invalid avatar URL").optional(),
   website_url: z.string().url("Invalid website URL").optional(),
-  instagram_username: z.string().max(30, "Instagram username too long").optional(),
+  instagram: z.string().max(30, "Instagram username too long").optional(),
   location: z.string().max(255, "Location too long").optional(),
   board_types: z.array(z.string()).optional(),
   notifications_enabled: z.boolean().optional(),
@@ -62,7 +62,9 @@ export async function getProfile(userId: string) {
       return await createProfile(userId);
     }
 
-    return { success: true, data };
+    // Return data as is - field names now match
+    const mapped = data;
+    return { success: true, data: mapped };
   } catch (error) {
     console.error("Error fetching profile:", error);
     return {
@@ -213,12 +215,15 @@ export async function updateProfile(
       throw new Error(`Validation failed: ${validationResult.error.issues.map(i => i.message).join(", ")}`);
     }
 
+    // Field names match database, no mapping needed
+    const dbPayload: Record<string, any> = {
+      ...validationResult.data,
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from("profiles")
-      .update({
-        ...validationResult.data,
-        updated_at: new Date().toISOString(),
-      })
+      .update(dbPayload)
       .eq("id", user.id)
       .select()
       .single();
@@ -235,7 +240,8 @@ export async function updateProfile(
     revalidatePath("/"); // Home page uses profile data
     revalidatePath("/profile/preferences");
 
-    return data;
+    // Return data as is - field names now match
+    return data as any;
   });
 }
 
@@ -280,7 +286,7 @@ export async function setHomeBeach(beachId: string) {
     revalidatePath("/");
     revalidatePath("/profile/preferences");
 
-    return data;
+    return data as any;
   });
 }
 

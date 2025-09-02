@@ -26,12 +26,12 @@ import { UserStats } from "@/components/user-stats";
 import { FavoriteBeaches } from "@/components/favorite-beaches";
 import { UserAvatar } from "@/components/user-avatar";
 import { EditProfileModal } from "@/components/edit-profile-modal";
-import { HomeBeachTile } from "@/components/profile/HomeBeachTile";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getUserBoards } from "@/actions/board-actions";
 import { getUserSessions } from "@/actions/session-actions";
 import { getProfile } from "@/actions/profile-actions";
+import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -98,6 +98,7 @@ export function ProfileView() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [homeBeachName, setHomeBeachName] = useState<string | null>(null);
 
   const loadUserData = async () => {
     if (!user) return;
@@ -114,7 +115,6 @@ export function ProfileView() {
         profileResult.data
       ) {
         const profileData = profileResult.data as Profile;
-
         setProfile(profileData);
       } else {
         if (
@@ -152,6 +152,27 @@ export function ProfileView() {
       setLoading(false);
     }
   };
+
+  // Resolve home beach name when profile changes
+  useEffect(() => {
+    async function resolveHomeBeach() {
+      if (!profile?.home_beach_id) {
+        setHomeBeachName(null);
+        return;
+      }
+      try {
+        const result = await getBeachById(profile.home_beach_id);
+        if (result.success && result.data) {
+          setHomeBeachName(result.data.name);
+        } else {
+          setHomeBeachName(null);
+        }
+      } catch (e) {
+        setHomeBeachName(null);
+      }
+    }
+    resolveHomeBeach();
+  }, [profile?.home_beach_id]);
 
   const handleProfileUpdated = async () => {
     console.log(
@@ -313,14 +334,12 @@ export function ProfileView() {
                           )}
                         </div>
 
-                        {/* Home Break - now using HomeBeachTile component */}
+                        {/* Home Break - display actual name when available */}
                         {profile?.home_beach_id && (
                           <div className="text-xs font-open-sans pt-0.5">
-                            <span className="text-muted-foreground">
-                              Home Break{" "}
-                            </span>
+                            <span className="text-muted-foreground">Home Break </span>
                             <span className="font-medium text-ocean-blue">
-                              Set in preferences
+                              {homeBeachName || "Loading..."}
                             </span>
                           </div>
                         )}

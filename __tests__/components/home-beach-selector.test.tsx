@@ -46,6 +46,7 @@ describe("HomeBeachSelector", () => {
           loading: false,
           error: null,
           refetch: jest.fn(),
+          retry: jest.fn(),
         };
       }
       return {
@@ -53,6 +54,7 @@ describe("HomeBeachSelector", () => {
         loading: false,
         error: null,
         refetch: jest.fn(),
+        retry: jest.fn(),
       };
     });
   });
@@ -192,5 +194,30 @@ describe("HomeBeachSelector", () => {
 
     const container = screen.getByRole("combobox").closest("div");
     expect(container).toHaveClass("custom-class");
+  });
+
+  it("shows error state and retries when fetch fails", async () => {
+    const retryMock = jest.fn();
+    mockUseDataFetcher.mockReturnValue({
+      data: [],
+      loading: false,
+      error: "Failed to load beaches",
+      refetch: jest.fn(),
+      retry: retryMock,
+    } as any);
+
+    render(
+      <HomeBeachSelector
+        value={undefined}
+        onValueChange={mockOnValueChange}
+      />
+    );
+
+    // Open dropdown to see the error UI
+    fireEvent.click(screen.getByRole("combobox"));
+    expect(screen.getByText(/Error loading beaches/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(retryMock).toHaveBeenCalled();
   });
 });

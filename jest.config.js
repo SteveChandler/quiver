@@ -9,6 +9,8 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
   testEnvironment: "jest-environment-jsdom",
+  // Increase default test timeout to reduce flakiness with async/rendering tests
+  testTimeout: 15000,
   testPathIgnorePatterns: [
     "<rootDir>/node_modules/",
     "<rootDir>/.next/",

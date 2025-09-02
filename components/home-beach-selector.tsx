@@ -46,8 +46,10 @@ export function HomeBeachSelector({
   // Fetch all beaches for the initial dropdown options
   const fetchBeaches = useCallback(async () => {
     const result = await getBeaches();
-    if (!result.success || !result.data) return [];
-    
+    if (!result.success || !result.data) {
+      throw new Error(result.error || "Failed to load beaches");
+    }
+
     // Sort beaches by name and prioritize popular SD beaches
     const beaches = result.data as Beach[];
     const popularBeaches = [
@@ -74,7 +76,7 @@ export function HomeBeachSelector({
     });
   }, []);
 
-  const { data: allBeaches = [], loading: beachesLoading } = useDataFetcher(fetchBeaches);
+  const { data: allBeaches = [], loading: beachesLoading, error, retry } = useDataFetcher(fetchBeaches);
 
   // Filter beaches based on search locally instead of server search
   const filteredBeaches = React.useMemo(() => {
@@ -169,7 +171,14 @@ export function HomeBeachSelector({
               onValueChange={setSearchQuery}
             />
             <CommandEmpty>
-              No beaches found.
+              {error ? (
+                <div className="p-3 text-center flex flex-col items-center gap-2">
+                  <div className="text-sm text-destructive">Error loading beaches</div>
+                  <Button size="sm" variant="outline" onClick={retry}>Retry</Button>
+                </div>
+              ) : (
+                "No beaches found."
+              )}
             </CommandEmpty>
             <CommandGroup className="max-h-64 overflow-auto">
               {beachesLoading ? (

@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, X, Camera } from "lucide-react";
-import { updateProfile, setHomeBeach } from "@/actions/profile-actions";
+import { updateProfile } from "@/actions/profile-actions";
 import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
 import { uploadImage, deleteImage } from "@/lib/image-upload";
@@ -53,7 +53,7 @@ const profileFormSchema = z.object({
     .optional(),
   instagram: z
     .string()
-    .max(100, "Instagram handle must be less than 100 characters")
+    .max(30, "Instagram username must be less than 30 characters")
     .optional(),
   home_beach_id: z.string().optional(),
 });
@@ -84,7 +84,7 @@ export function EditProfileForm({
   const [avatarUrl, setAvatarUrl] = useState(initialData?.avatar_url || "");
   const [isUploading, setIsUploading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [homeBeachSaving, setHomeBeachSaving] = useState(false);
+  // Remove immediate update for home beach; save on form submit
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormValues>({
@@ -108,34 +108,9 @@ export function EditProfileForm({
     }
   }, [submitSuccess, onSuccess]);
 
-  async function handleHomeBeachChange(beachId: string | undefined) {
-    if (!user) return;
-    
-    // If no change, return early
-    if (beachId === profile?.home_beach_id) return;
-
-    if (!beachId) return; // Don't allow clearing home beach here
-
-    setHomeBeachSaving(true);
-    try {
-      await setHomeBeach(beachId);
-      // Optimistically refetch profile
-      startTransition(() => mutate());
-      
-      toast({
-        title: "Home beach updated",
-        description: "Your home beach has been updated successfully.",
-      });
-    } catch (error) {
-      console.error("Error updating home beach:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update home beach. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setHomeBeachSaving(false);
-    }
+  function handleHomeBeachChange(beachId: string | undefined) {
+    // Update form state only; persist in onSubmit
+    form.setValue("home_beach_id", beachId || undefined, { shouldDirty: true });
   }
 
   async function onSubmit(data: ProfileFormValues) {
@@ -143,11 +118,8 @@ export function EditProfileForm({
 
     setIsSubmitting(true);
     try {
-      // Remove home_beach_id from the data since we handle it separately
-      const { home_beach_id, ...profileData } = data;
-      
       const result = await updateProfile({
-        ...profileData,
+        ...data,
         avatar_url: avatarUrl,
       });
 
@@ -408,17 +380,14 @@ export function EditProfileForm({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Home Beach</label>
                 <HomeBeachSelector
-                  value={profile?.home_beach_id || undefined}
+                  value={form.watch("home_beach_id") || profile?.home_beach_id || undefined}
                   onValueChange={handleHomeBeachChange}
                   placeholder="Select your home beach for forecasts"
-                  disabled={homeBeachSaving}
                 />
                 <p className="text-sm text-muted-foreground">
                   This beach will be shown on your home screen and pre-selected when logging sessions
                 </p>
-                {homeBeachSaving && (
-                  <p className="text-sm text-blue-600">Saving...</p>
-                )}
+                {/* Saved on form submit */}
               </div>
 
               <FormField
