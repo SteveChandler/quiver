@@ -1,5 +1,7 @@
 // Import Jest DOM matchers
 import "@testing-library/jest-dom";
+// Import whatwg-fetch for fetch polyfill
+import "whatwg-fetch";
 
 // Polyfill TextEncoder and TextDecoder
 if (typeof TextEncoder === "undefined") {
@@ -61,6 +63,19 @@ jest.mock("@/context/auth-context", () => ({
     signOut: jest.fn(),
     refreshSession: jest.fn(),
   })),
+}));
+
+// Mock RealtimeClient globally to prevent initialization errors
+jest.mock('@supabase/realtime-js', () => ({
+  RealtimeClient: jest.fn().mockImplementation(() => ({
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    channel: jest.fn(() => ({
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn(),
+      unsubscribe: jest.fn()
+    }))
+  }))
 }));
 
 // Mock for server actions

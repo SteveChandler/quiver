@@ -8,12 +8,18 @@ import { uploadSessionMedia } from "@/actions/session-actions";
 import { updateSession } from "@/actions/session-actions";
 import { ShareModal } from "@/components/share-modal";
 import { useAuth } from "@/context/auth-context";
-import toast from "react-hot-toast";
 
 // Mock dependencies
 jest.mock("@/actions/session-actions");
 jest.mock("@/context/auth-context");
-jest.mock("react-hot-toast");
+
+// Mock toast functionality
+const mockToast = {
+  success: jest.fn(),
+  error: jest.fn(),
+  info: jest.fn(),
+  warning: jest.fn(),
+};
 
 // Mock file operations
 const mockFileReader = {
@@ -32,7 +38,6 @@ global.fetch = jest.fn();
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockUploadSessionMedia = uploadSessionMedia as jest.MockedFunction<typeof uploadSessionMedia>;
 const mockUpdateSession = updateSession as jest.MockedFunction<typeof updateSession>;
-const mockToast = toast as jest.Mocked<typeof toast>;
 const mockFetch = fetch as jest.MockedFunction<typeof fetch>;
 
 const mockUser = {

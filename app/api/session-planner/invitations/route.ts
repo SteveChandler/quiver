@@ -96,6 +96,15 @@ export async function POST(request: NextRequest) {
     const invitations: SessionInvitation[] = [];
     const errors: string[] = [];
     let invitationsSent = 0;
+    // Lazy import XP tracker to avoid module cost when not needed
+    const trackInviteXP = async (inviteId: string) => {
+      try {
+        const { trackXP } = await import("@/lib/gamification-actions");
+        await trackXP("invite_friend", inviteId, "invite");
+      } catch (err) {
+        console.warn("XP tracking failed for invite:", err);
+      }
+    };
 
     // Process each invitee
     for (const invitee of invitees) {
@@ -191,6 +200,9 @@ export async function POST(request: NextRequest) {
         });
 
         invitationsSent++;
+
+        // Track XP for each friend invited
+        trackInviteXP(newInvitation.id);
 
         // In-app activity + email only for plan-session tagging flow and per invitee prefs
         try {

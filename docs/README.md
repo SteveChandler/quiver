@@ -15,6 +15,7 @@ This directory contains the essential documentation for the Quiver surf app, foc
 - **`STYLE_GUIDE.md`** - Brand identity, UI/UX standards, and design tokens
 - **`DRY_COMPONENT_USAGE.md`** - DRY component patterns and usage examples
 - **`CURSOR_AGENTS.md`** - Development workflow and agent configurations
+- **`TROUBLESHOOTING.md`** - Development troubleshooting guide and common issues
 
 ### **Technical Reference**
 

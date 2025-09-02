@@ -31,6 +31,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getUserBoards } from "@/actions/board-actions";
 import { getUserSessions } from "@/actions/session-actions";
 import { getProfile } from "@/actions/profile-actions";
+import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -97,6 +98,8 @@ export function ProfileView() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [homeBeachName, setHomeBeachName] = useState<string | null>(null);
+  const [statsRefreshToken, setStatsRefreshToken] = useState(0);
 
   const loadUserData = async () => {
     if (!user) return;
@@ -113,7 +116,6 @@ export function ProfileView() {
         profileResult.data
       ) {
         const profileData = profileResult.data as Profile;
-
         setProfile(profileData);
       } else {
         if (
@@ -152,15 +154,47 @@ export function ProfileView() {
     }
   };
 
+  // Resolve home beach name when profile changes
+  useEffect(() => {
+    async function resolveHomeBeach() {
+      if (!profile?.home_beach_id) {
+        setHomeBeachName(null);
+        return;
+      }
+      try {
+        const result = await getBeachById(profile.home_beach_id);
+        if (result.success && result.data) {
+          setHomeBeachName(result.data.name);
+        } else {
+          setHomeBeachName(null);
+        }
+      } catch (e) {
+        setHomeBeachName(null);
+      }
+    }
+    resolveHomeBeach();
+  }, [profile?.home_beach_id]);
+
   const handleProfileUpdated = async () => {
     console.log(
       "handleProfileUpdated called - reloading data and closing modal"
     );
-    // Reload the user data to get the updated profile
-    await loadUserData();
-    // Close the modal
-    setEditModalOpen(false);
-    console.log("Modal should now be closed");
+    try {
+      // Close the modal first to show immediate response
+      setEditModalOpen(false);
+      
+      // Reload the user data to get the updated profile
+      await loadUserData();
+      
+      // Increment the stats refresh token to trigger UserStats refresh
+      setStatsRefreshToken(prev => prev + 1);
+      
+      console.log("Profile data reloaded and modal closed successfully");
+    } catch (error) {
+      console.error("Error during profile update callback:", error);
+      // Still close the modal even if reload fails
+      setEditModalOpen(false);
+    }
   };
 
   const handleRetry = () => {
@@ -304,14 +338,12 @@ export function ProfileView() {
                           )}
                         </div>
 
-                        {/* Home Break */}
-                        {profile?.favorite_spot && (
+                        {/* Home Break - display actual name when available */}
+                        {profile?.home_beach_id && (
                           <div className="text-xs font-open-sans pt-0.5">
-                            <span className="text-muted-foreground">
-                              Home Break{" "}
-                            </span>
+                            <span className="text-muted-foreground">Home Break </span>
                             <span className="font-medium text-ocean-blue">
-                              {profile.favorite_spot}
+                              {homeBeachName || "Loading..."}
                             </span>
                           </div>
                         )}
@@ -342,7 +374,7 @@ export function ProfileView() {
               className="max-w-6xl mx-auto px-4"
             >
               <div className="bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/50">
-                {user && <UserStats userId={user.id} />}
+                {user && <UserStats userId={user.id} refreshToken={statsRefreshToken} />}
               </div>
             </motion.section>
 

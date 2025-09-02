@@ -33,7 +33,7 @@ test.describe("Emergency Motion Implementation - Comprehensive Tests", () => {
       
       // If visible, it should be on landing page
       if (isVisible) {
-        expect(page.url()).toBe("http://localhost:3000/");
+        expect(page.url()).toBe("http://localhost:3002/");
       }
       
       // Navigate to authenticated area (will redirect to sign-in, but tracker shouldn't show)

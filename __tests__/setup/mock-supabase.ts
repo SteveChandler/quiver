@@ -106,5 +106,16 @@ export { mockSupabaseClient as supabase };
 export const createServerClient = jest.fn(() => mockSupabaseClient);
 export const createMiddlewareClient = jest.fn(() => mockSupabaseClient);
 
+// Mock RealtimeClient specifically
+export const RealtimeClient = jest.fn().mockImplementation(() => ({
+  connect: jest.fn(),
+  disconnect: jest.fn(),
+  channel: jest.fn(() => ({
+    on: jest.fn().mockReturnThis(),
+    subscribe: jest.fn(),
+    unsubscribe: jest.fn()
+  }))
+}));
+
 // Export for use in other test files
 export { mockSupabaseClient };

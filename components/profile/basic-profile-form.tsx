@@ -54,7 +54,7 @@ const profileFormSchema = z.object({
     .optional(),
   instagram: z
     .string()
-    .max(100, "Instagram handle must be less than 100 characters")
+    .max(30, "Instagram username must be less than 30 characters")
     .optional(),
 });
 
@@ -87,7 +87,7 @@ export function BasicProfileForm({
       location: profile?.location || "",
       experience_level: profile?.experience_level || "",
       favorite_spot: profile?.favorite_spot || "",
-      instagram: profile?.instagram || "",
+      instagram: (profile as any)?.instagram || "",
     },
   });
 
@@ -116,8 +116,8 @@ export function BasicProfileForm({
         location: data.location,
         experience_level: data.experience_level,
         favorite_spot: data.favorite_spot,
-        instagram: data.instagram,
-        avatar_url: avatarUrl,
+        instagram: (data as any).instagram,
+        ...(avatarUrl && avatarUrl !== "" ? { avatar_url: avatarUrl } : {}),
       });
 
       if (!result.success) {

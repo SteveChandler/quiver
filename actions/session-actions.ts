@@ -20,6 +20,16 @@ import {
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+// Optional XP tracking - imported dynamically to avoid circular dependency
+async function trackXPOptional(action: string, entityId?: string, entityType?: string) {
+  try {
+    const { trackXP } = await import("@/lib/gamification-actions");
+    await trackXP(action as any, entityId, entityType as any);
+  } catch (error) {
+    console.warn("XP tracking failed:", error);
+  }
+}
+
 type SessionInput = Omit<
   Session,
   "id" | "created_at" | "updated_at" | "user_id" | "profile_id"
@@ -250,10 +260,10 @@ export async function updateSession(
   const supabase = await createSupabaseServerClient();
 
   try {
-    // First, get the current session to check if board_id is changing
+    // First, get the current session to check if board_id/water_temp and arrays are changing
     const { data: currentSession, error: fetchError } = await supabase
       .from("sessions")
-      .select("board_id")
+      .select("board_id, water_temp, invitee_ids, goals")
       .eq("id", id)
       .eq("user_id", userId)
       .single();
@@ -309,7 +319,59 @@ export async function updateSession(
           })
           .eq("id", sessionData.board_id)
           .eq("user_id", userId);
+
+        // Track XP for tagging a board to a session (non-blocking)
+        try {
+          await trackXPOptional("tag_board_to_session", id, "session");
+        } catch (xpError) {
+          // Ignore XP errors
+        }
       }
+    }
+
+    // Track XP for recording water temperature (first-time record)
+    try {
+      const prevTemp = currentSession?.water_temp;
+      const newTemp = (sessionData as any)?.water_temp;
+      const hasNewTemp = typeof newTemp === 'string' && newTemp.trim().length > 0;
+      const hadNoTempBefore = !prevTemp || String(prevTemp).trim().length === 0;
+      if (hasNewTemp && hadNoTempBefore) {
+        await trackXPOptional("record_temperature", id, "session");
+      }
+    } catch (xpError) {
+      // Non-blocking
+    }
+
+    // Track XP for tagging friends (on first-time additions)
+    try {
+      if (Array.isArray((sessionData as any)?.invitee_ids)) {
+        const prev = Array.isArray((currentSession as any)?.invitee_ids)
+          ? new Set<string>((currentSession as any).invitee_ids)
+          : new Set<string>();
+        const next: string[] = (sessionData as any).invitee_ids || [];
+        const added = next.filter((uid) => uid && !prev.has(uid));
+        if (added.length > 0) {
+          await trackXPOptional("tag_friends_in_session", id, "session");
+        }
+      }
+    } catch (xpError) {
+      // Non-blocking
+    }
+
+    // Track XP for adding surf tags (treat changes in goals as tags)
+    try {
+      if (Array.isArray((sessionData as any)?.goals)) {
+        const prev = Array.isArray((currentSession as any)?.goals)
+          ? new Set<string>((currentSession as any).goals)
+          : new Set<string>();
+        const next: string[] = (sessionData as any).goals || [];
+        const added = next.filter((g) => g && !prev.has(g));
+        if (added.length > 0) {
+          await trackXPOptional("add_surf_tags", id, "session");
+        }
+      }
+    } catch (xpError) {
+      // Non-blocking
     }
 
     revalidatePath("/sessions");
@@ -462,6 +524,14 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
 
+    // Track XP for logging a completed session
+    try {
+      await trackXPOptional("plan_session", session.id, "session");
+    } catch (xpError) {
+      console.error("Failed to track XP for logged session:", xpError);
+      // Don't fail the session creation if XP tracking fails
+    }
+
     revalidatePath("/sessions");
     revalidatePath("/profile");
     return session;
@@ -534,6 +604,14 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
 
+    // Track XP for planning a session
+    try {
+      await trackXPOptional("plan_session", session.id, "session");
+    } catch (xpError) {
+      console.error("Failed to track XP for planned session:", xpError);
+      // Don't fail the session creation if XP tracking fails
+    }
+
     revalidatePath("/sessions");
     revalidatePath("/profile");
     return session;
@@ -557,6 +635,14 @@ export async function addBoard(data: BoardInput) {
 
     if (error) {
       throw new Error("Failed to add board");
+    }
+
+    // Track XP for adding a board
+    try {
+      await trackXPOptional("add_board", board.id, "board");
+    } catch (xpError) {
+      console.error("Failed to track XP for board addition:", xpError);
+      // Don't fail the board creation if XP tracking fails
     }
 
     revalidatePath("/quiver");
@@ -624,6 +710,13 @@ export async function uploadSessionMedia(
 
   if (mediaError) {
     throw new Error("Failed to record media");
+  }
+
+  // Track XP for posting surf photos (non-blocking)
+  try {
+    await trackXPOptional("post_surf_photos", media.id, "photo");
+  } catch (xpError) {
+    // Ignore XP errors
   }
 
   revalidatePath(`/sessions/${sessionId}`);
@@ -820,6 +913,26 @@ export async function updatePlannedSessionToCompleted(
 
     if (updateError) {
       throw updateError;
+    }
+
+    // Track XP for adding a reflection if notes/rating-like fields provided
+    try {
+      if ((completedData?.notes && completedData.notes.trim().length > 0) ||
+          typeof completedData?.rating === 'number' ||
+          typeof completedData?.wave_quality === 'number') {
+        await trackXPOptional("write_reflection", sessionId, "session");
+      }
+    } catch (xpError) {
+      // Non-blocking
+    }
+
+    // Track XP for recording water temperature when provided on completion
+    try {
+      if (completedData?.water_temp && String(completedData.water_temp).trim().length > 0) {
+        await trackXPOptional("record_temperature", sessionId, "session");
+      }
+    } catch (xpError) {
+      // Non-blocking
     }
 
     revalidatePath("/sessions");

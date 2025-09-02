@@ -10,7 +10,7 @@ test.describe("Session Invitations API (integration)", () => {
     const base =
       process.env.BASE_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||
-      "http://localhost:3000";
+      "http://localhost:3002";
 
     // Attempt posting with minimal valid shape; backend will enforce auth
     const res = await request.post(`${base}/api/session-planner/invitations`, {

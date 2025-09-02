@@ -36,7 +36,7 @@ import {
 import type { Beach, Profile } from "@/types/database";
 
 const preferencesFormSchema = z.object({
-  default_beach_id: z.string().optional(),
+  home_beach_id: z.string().optional(),
   notification_session_reminders: z.boolean().default(false),
   notification_community_replies: z.boolean().default(false),
   inapp_session_invites: z.boolean().default(true),
@@ -62,7 +62,7 @@ export function ProfilePreferences({
   const form = useForm<PreferencesFormValues>({
     resolver: zodResolver(preferencesFormSchema),
     defaultValues: {
-      default_beach_id: profile?.default_beach_id || "",
+      home_beach_id: profile?.home_beach_id || "",
       notification_session_reminders:
         profile?.notification_session_reminders || false,
       notification_community_replies:
@@ -78,7 +78,7 @@ export function ProfilePreferences({
     setIsSubmitting(true);
     try {
       const result = await updateProfile({
-        default_beach_id: data.default_beach_id,
+        home_beach_id: data.home_beach_id,
         notification_session_reminders: data.notification_session_reminders,
         notification_community_replies: data.notification_community_replies,
         inapp_session_invites: data.inapp_session_invites,
@@ -119,22 +119,22 @@ export function ProfilePreferences({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
-            {/* Default Beach */}
+            {/* Home Beach */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">Default Settings</h3>
+              <h3 className="text-sm font-medium">Home Beach Settings</h3>
               <FormField<PreferencesFormValues>
                 control={form.control}
-                name="default_beach_id"
+                name="home_beach_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Default Beach</FormLabel>
+                    <FormLabel>Home Beach</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a default beach" />
+                          <SelectValue placeholder="Select your home beach" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -147,7 +147,7 @@ export function ProfilePreferences({
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      This beach will be pre-selected when logging new sessions
+                      This beach will be shown on your home screen and pre-selected when logging new sessions
                     </FormDescription>
                   </FormItem>
                 )}

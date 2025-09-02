@@ -9,7 +9,7 @@ The home screen components create the main application dashboard with personaliz
 ```
 components/home-screen/
 ├── index.tsx           # Main HomeScreen container with tab management
-├── forecast-tab.tsx    # Personalized forecast for user's default beach
+├── forecast-tab.tsx    # Personalized forecast for user's home beach
 ├── nearby-tab.tsx      # Nearby beaches with ratings and distance
 ├── community-tab.tsx   # Local intel dashboard (replaces community feed)
 └── use-home-data.ts    # Shared data fetching hook
@@ -37,7 +37,7 @@ const ForecastTab = lazy(() =>
 
 // Suspense boundaries with loading states
 <Suspense fallback={<TabSkeleton />}>
-  <ForecastTab profile={profile} defaultBeach={defaultBeach} />
+  <ForecastTab profile={profile} homeBeach={homeBeach} />
 </Suspense>;
 ```
 
@@ -48,7 +48,7 @@ const ForecastTab = lazy(() =>
 const { beaches, sessions, loading } = useHomeData();
 
 // Cached profile data to prevent flickering
-const { profile, defaultBeach, profileLoading, hasCachedData } =
+const { profile, homeBeach, profileLoading, hasCachedData } =
   useCachedProfile();
 ```
 
@@ -72,7 +72,7 @@ const [activeTab, setActiveTab] = useState("forecast");
 
 // Lazy loading with error boundaries
 <Suspense fallback={<TabSkeleton />}>
-  <ForecastTab profile={profile} defaultBeach={defaultBeach} />
+  <ForecastTab profile={profile} homeBeach={homeBeach} />
 </Suspense>;
 
 // Welcome personalization
@@ -83,10 +83,10 @@ const [activeTab, setActiveTab] = useState("forecast");
 
 ### **ForecastTab** (Personalized Forecasts)
 
-- **Purpose**: Default beach forecast with community calibration
-- **Props**: `profile: Profile | null, defaultBeach: Beach | null`
+- **Purpose**: Home beach forecast with community calibration
+- **Props**: `profile: Profile | null, homeBeach: Beach | null`
 - **Features**:
-  - Personalized forecast for user's default beach
+  - Personalized forecast for user's home beach
   - Community-adjusted vs raw forecast toggle
   - Beach intel integration
   - Action buttons for session planning
@@ -96,18 +96,18 @@ const [activeTab, setActiveTab] = useState("forecast");
 ```typescript
 // Forecast fetching with skip logic
 const fetchTodaysForecast = useCallback(async () => {
-  if (!defaultBeach?.id) return null;
-  return await getForecastForToday(defaultBeach.id);
-}, [defaultBeach?.id]);
+  if (!homeBeach?.id) return null;
+  return await getForecastForToday(homeBeach.id);
+}, [homeBeach?.id]);
 
 // Community calibration integration
 const { beachAccuracy, getConfidenceLevel, accuracyStats } =
-  useForecastCalibration({ beachId: defaultBeach?.id });
+  useForecastCalibration({ beachId: homeBeach?.id });
 ```
 
 **Forecast States:**
 
-- **No Default Beach**: Prompt to set default beach
+- **No Home Beach**: Prompt to set home beach
 - **Forecast Loading**: Skeleton animation
 - **Forecast Available**: Full forecast display with adjustments
 - **Forecast Unavailable**: Error state with fallback actions
@@ -219,10 +219,10 @@ const { data: sessionsData, loading: sessionsLoading } =
 HomeScreen
   state: selectedBeachOverride: Beach | null
   └─ <BeachSearchBar onSelect={setSelectedBeachOverride} />
-  └─ <ForecastTab overrideBeach={selectedBeachOverride} defaultBeach={defaultBeach} />
+  └─ <ForecastTab overrideBeach={selectedBeachOverride} homeBeach={homeBeach} />
 
 // Precedence used inside ForecastTab
-effectiveBeach = overrideBeach || defaultBeach || popularBeach;
+effectiveBeach = overrideBeach || homeBeach || popularBeach;
 ```
 
 ### Data Fetching Pattern
@@ -304,10 +304,10 @@ const beachIds = useMemo(
 
 ```typescript
 // Profile caching to prevent flicker
-const { profile, defaultBeach, hasCachedData } = useCachedProfile();
+const { profile, homeBeach, hasCachedData } = useCachedProfile();
 
 // Skip unnecessary fetches
-const { skip: !defaultBeach?.id } // Skip forecast fetch without beach
+const { skip: !homeBeach?.id } // Skip forecast fetch without beach
 ```
 
 ## 🔄 **DATA INTEGRATION**
@@ -319,7 +319,7 @@ const { skip: !defaultBeach?.id } // Skip forecast fetch without beach
 const { user } = useAuth();
 
 // Profile data with caching
-const { profile, defaultBeach } = useCachedProfile();
+const { profile, homeBeach } = useCachedProfile();
 
 // Conditional rendering based on auth state
 {
@@ -360,13 +360,13 @@ useEffect(() => {
 ```typescript
 // Today's forecast with error handling
 const fetchTodaysForecast = useCallback(async () => {
-  if (!defaultBeach?.id) return null;
-  return await getForecastForToday(defaultBeach.id);
-}, [defaultBeach?.id]);
+  if (!homeBeach?.id) return null;
+  return await getForecastForToday(homeBeach.id);
+}, [homeBeach?.id]);
 
 // Community calibration
 const { beachAccuracy } = useForecastCalibration({
-  beachId: defaultBeach?.id,
+  beachId: homeBeach?.id,
 });
 ```
 

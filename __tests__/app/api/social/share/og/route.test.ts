@@ -1,3 +1,5 @@
+// Use lightweight mock for NextRequest/NextResponse to avoid constructor issues in Jest
+jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 import { NextRequest } from "next/server";
 import { GET, HEAD } from "@/app/api/social/share/og/route";
 
@@ -12,16 +14,13 @@ jest.mock("crypto", () => ({
   timingSafeEqual: jest.fn(),
 }));
 
-// Mock Supabase
+// Mock Supabase with stable chain objects so test configuration matches route usage
+const fromEqChain = { maybeSingle: jest.fn() } as any;
+const fromSelectChain = { eq: jest.fn(() => fromEqChain) } as any;
+const fromChain = { select: jest.fn(() => fromSelectChain) } as any;
 const mockSupabaseClient = {
-  from: jest.fn(() => ({
-    select: jest.fn(() => ({
-      eq: jest.fn(() => ({
-        maybeSingle: jest.fn(),
-      })),
-    })),
-  })),
-};
+  from: jest.fn(() => fromChain),
+} as any;
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() => mockSupabaseClient),

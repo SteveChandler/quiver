@@ -21,7 +21,7 @@ describe("Database Performance Optimization", () => {
         "idx_boards_user_id_fkey",
         "idx_comments_parent_comment_fkey",
         "idx_favorite_beaches_beach_id_fkey",
-        "idx_profiles_default_beach_id_fkey",
+        "idx_profiles_home_beach_id_fkey",
       ];
 
       // Validate index naming convention
@@ -129,8 +129,8 @@ describe("Database Performance Optimization", () => {
         },
         {
           table_name: "profiles",
-          constraint_name: "profiles_default_beach_id_fkey",
-          column_name: "default_beach_id",
+          constraint_name: "profiles_home_beach_id_fkey",
+          column_name: "home_beach_id",
           has_covering_index: true,
         },
       ];
@@ -166,7 +166,7 @@ describe("Database Performance Optimization", () => {
         },
         {
           table: "profiles",
-          indexColumn: "default_beach_id",
+          indexColumn: "home_beach_id",
           purpose: "profile defaults",
         },
       ];
@@ -217,7 +217,7 @@ describe("Migration Rollback Safety", () => {
       "DROP INDEX IF EXISTS idx_boards_user_id_fkey",
       "DROP INDEX IF EXISTS idx_comments_parent_comment_fkey",
       "DROP INDEX IF EXISTS idx_favorite_beaches_beach_id_fkey",
-      "DROP INDEX IF EXISTS idx_profiles_default_beach_id_fkey",
+      "DROP INDEX IF EXISTS idx_profiles_home_beach_id_fkey",
     ];
 
     // Verify that rollback steps are well-formed SQL

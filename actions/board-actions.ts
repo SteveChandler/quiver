@@ -9,6 +9,17 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Board } from "@/types/database";
 import { revalidatePath } from "next/cache";
 
+// Optional XP tracking - imported dynamically to avoid circular dependency
+async function trackXPOptional(action: string, entityId?: string, entityType?: string) {
+  try {
+    const { trackXP } = await import("@/lib/gamification-actions");
+    await trackXP(action as any, entityId, entityType as any);
+  } catch (error) {
+    // Non-blocking: log and continue
+    console.warn("XP tracking failed:", error);
+  }
+}
+
 export async function getUserBoards(userId: string) {
   return withDatabaseOperation<Board[]>(async (supabase) => {
     return supabase
@@ -76,6 +87,13 @@ export async function createBoard(
     if (error) {
       console.error("💥 Database error:", error);
       throw error;
+    }
+
+    // Track XP for adding a board (non-blocking)
+    try {
+      await trackXPOptional("add_board", (data as Board).id, "board");
+    } catch (xpError) {
+      // Do not fail the flow on XP issues
     }
 
     revalidatePath("/profile");

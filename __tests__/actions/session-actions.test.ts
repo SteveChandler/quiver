@@ -127,7 +127,6 @@ const mockSessionWithDetails: SessionWithDetails = {
     season: null,
     crowd_factor: null,
     photo_url: null,
-    is_active: true,
     msw_id: null,
   },
   board: {
@@ -141,10 +140,7 @@ const mockSessionWithDetails: SessionWithDetails = {
     thickness: 2.5,
     volume: 35.0,
     board_type: "shortboard",
-    fin_setup: "thruster",
-    construction: "epoxy",
     notes: "Great board",
-    is_active: true,
     session_count: 10,
     created_at: "2024-01-01T00:00:00.000Z",
     updated_at: "2024-01-01T00:00:00.000Z",
@@ -153,13 +149,24 @@ const mockSessionWithDetails: SessionWithDetails = {
     id: "user-123",
     full_name: "Test User",
     email: "test@example.com",
+    phone_number: null,
     bio: null,
     avatar_url: "https://example.com/avatar.jpg",
+    location: null,
+    experience_level: null,
     favorite_spot: null,
-    created_at: "2024-01-01T00:00:00.000Z",
-    updated_at: "2024-01-01T00:00:00.000Z",
+    instagram: null,
+    home_beach_id: null,
+    notification_session_reminders: true,
+    notification_community_replies: true,
+    inapp_session_invites: true,
+    email_session_invites: false,
+    digest_session_invites: false,
     followers_count: 0,
     following_count: 0,
+    is_mock: false,
+    created_at: "2024-01-01T00:00:00.000Z",
+    updated_at: "2024-01-01T00:00:00.000Z",
   },
 };
 
@@ -174,7 +181,6 @@ const mockBoard: Board = {
   thickness: 2.5,
   volume: 35.0,
   board_type: "shortboard",
-  fin_setup: "thruster",
   construction: "epoxy",
   notes: "Great board",
   is_active: true,
@@ -798,6 +804,7 @@ describe("Session Actions", () => {
       beach_name: "Test Beach",
       arrival_time: "2024-01-15T08:00:00.000Z",
       wave_quality: 8,
+      status: "completed" as const,
     };
 
     it("should create logged session successfully", async () => {
@@ -835,6 +842,7 @@ describe("Session Actions", () => {
         beach_name: "Test Beach",
         arrival_time: "2024-01-15T08:00:00.000Z",
         wave_quality: 8,
+        status: "completed" as const,
       };
 
       // Mock beach lookup
@@ -891,6 +899,7 @@ describe("Session Actions", () => {
         beach_name: "Nonexistent Beach",
         arrival_time: "2024-01-15T08:00:00.000Z",
         wave_quality: 8,
+        status: "completed" as const,
       };
 
       // Mock beach lookup returning no results
@@ -925,6 +934,7 @@ describe("Session Actions", () => {
       const inputWithoutBeach = {
         arrival_time: "2024-01-15T08:00:00.000Z",
         wave_quality: 8,
+        status: "completed" as const,
       };
 
       const result = await createLoggedSession(inputWithoutBeach);
@@ -975,6 +985,7 @@ describe("Session Actions", () => {
       beach_id: "beach-123",
       beach_name: "Test Beach",
       arrival_time: "2024-01-15T08:00:00.000Z",
+      status: "planned" as const,
     };
 
     it("should create planned session successfully", async () => {
@@ -1011,6 +1022,7 @@ describe("Session Actions", () => {
       const inputWithoutId = {
         beach_name: "Test Beach",
         arrival_time: "2024-01-15T08:00:00.000Z",
+        status: "planned" as const,
       };
 
       // Mock beach lookup

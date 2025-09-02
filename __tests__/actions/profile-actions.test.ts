@@ -1,794 +1,169 @@
-import {
-  getProfile,
-  createProfile,
-  updateProfile,
-  getUserStats,
-} from "@/actions/profile-actions";
-import type { Profile } from "@/types/database";
+import { updateProfile } from "@/actions/profile-actions";
 
-// Mock Supabase clients with flexible chaining
-const mockSupabaseClient = {
-  auth: {
-    getUser: jest.fn(),
-  },
-  from: jest.fn(),
-  rpc: jest.fn(),
-};
-
-// Helper function to create flexible mock chains
-const createMockChain = (finalResult: any) => {
-  const chainMethods = {
-    select: jest.fn((columns?: any, options?: any) => {
-      // Handle count queries with special options
-      if (options && options.count === "exact" && options.head === true) {
-        return {
-          eq: jest.fn(() => finalResult),
-        };
-      }
-      return chainMethods;
-    }),
-    eq: jest.fn(() => chainMethods),
-    maybeSingle: jest.fn(() => finalResult),
-    single: jest.fn(() => finalResult),
-    insert: jest.fn(() => chainMethods),
-    update: jest.fn(() => chainMethods),
-    limit: jest.fn(() => finalResult),
-  };
-  return chainMethods;
-};
-
-const mockSupabaseServiceRoleClient = {
-  auth: {
-    admin: {
-      getUserById: jest.fn(),
-    },
-  },
-};
-
-jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: jest.fn(() =>
-    Promise.resolve(mockSupabaseClient)
-  ),
-  createSupabaseServiceRoleClient: jest.fn(() => mockSupabaseServiceRoleClient),
-}));
-
+// Mock Next.js revalidation functions
 jest.mock("next/cache", () => ({
+  revalidateTag: jest.fn(),
   revalidatePath: jest.fn(),
 }));
 
-jest.mock("@/hooks/use-user-profile", () => ({
-  invalidateProfileCache: jest.fn(),
-}));
+// Mock server action utils to execute the callback with a fake user and supabase client
+jest.mock("@/lib/server-action-utils", () => {
+  const single = jest.fn().mockResolvedValue({ 
+    data: { 
+      id: "user-1", 
+      full_name: "Test User",
+      avatar_url: null 
+    }, 
+    error: null 
+  });
+  const select = jest.fn(() => ({ single }));
+  const eq = jest.fn(() => ({ select }));
+  const update = jest.fn((payload: any) => {
+    // expose last payload for assertions
+    // @ts-ignore
+    global.__lastUpdatePayload = payload;
+    return { eq } as any;
+  });
+  const from = jest.fn(() => ({ update }));
 
-const mockUser = {
-  id: "user-123",
-  email: "test@example.com",
-  user_metadata: {
-    full_name: "Test User",
-  },
-};
+  const fakeSupabase = { from } as any;
+  const fakeUser = { id: "user-1" } as any;
 
-const mockProfile: Profile = {
-  id: "user-123",
-  full_name: "Test User",
-  email: "test@example.com",
-  bio: "Test bio",
-  avatar_url: "https://example.com/avatar.jpg",
-  favorite_spot: "Malibu",
-  created_at: "2024-01-01T00:00:00.000Z",
-  updated_at: "2024-01-01T00:00:00.000Z",
-  followers_count: 10,
-  following_count: 5,
-};
+  return {
+    withAuthenticatedAction: (fn: any) => fn(fakeUser, fakeSupabase).then((data: any) => ({ success: true, data })),
+  };
+});
 
-describe("Profile Actions", () => {
+describe("updateProfile avatar_url validation", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    // Clear global payload before each test
+    // @ts-ignore
+    global.__lastUpdatePayload = undefined;
   });
 
-  describe("getProfile", () => {
-    it("should return profile successfully when found", async () => {
-      // Mock connection check (first query)
-      const mockConnectionResult = Promise.resolve({
-        data: [],
-        error: null,
-      });
-      const mockConnectionChain = createMockChain(mockConnectionResult);
+  it("should succeed when empty string is passed for avatar_url (after fix)", async () => {
+    const profileData = {
+      full_name: "Test User",
+      avatar_url: "" // Empty string should now be treated as unset
+    };
 
-      // Mock profile query (second query)
-      const mockProfileResult = Promise.resolve({
-        data: mockProfile,
-        error: null,
-      });
-      const mockProfileChain = createMockChain(mockProfileResult);
-
-      // Set up the mock to handle both calls
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockConnectionChain)
-        .mockReturnValueOnce(mockProfileChain);
-
-      const result = await getProfile("user-123");
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockProfile);
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith("profiles");
-    });
-
-    it("should return error when no user ID provided", async () => {
-      const result = await getProfile("");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("No user ID provided");
-    });
-
-    it("should handle database connection errors", async () => {
-      const mockConnectionError = Promise.reject(new Error("Connection failed"));
-      const mockChain = createMockChain(mockConnectionError);
-      
-      mockSupabaseClient.from.mockReturnValue(mockChain);
-
-      const result = await getProfile("user-123");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Database connection failed. Please try again later.");
-      expect(result.isConnectionError).toBe(true);
-    });
-
-    it("should create profile when none exists", async () => {
-      // Mock connection check success
-      const mockConnectionResult = Promise.resolve({
-        data: [],
-        error: null,
-      });
-      const mockConnectionChain = createMockChain(mockConnectionResult);
-
-      // Mock profile lookup returning null (no profile found)
-      const mockProfileLookupResult = Promise.resolve({
-        data: null,
-        error: null,
-      });
-      const mockProfileLookupChain = createMockChain(mockProfileLookupResult);
-
-      // Mock checking if profile exists in createProfile (returns null)
-      const mockCheckResult = Promise.resolve({
-        data: null,
-        error: null,
-      });
-      const mockCheckChain = createMockChain(mockCheckResult);
-
-      // Mock profile creation success
-      const mockCreateResult = Promise.resolve({
-        data: mockProfile,
-        error: null,
-      });
-      const mockCreateChain = createMockChain(mockCreateResult);
-
-      // Mock service role client for user lookup
-      mockSupabaseServiceRoleClient.auth.admin.getUserById.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      // Set up the from calls
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockConnectionChain) // Connection check
-        .mockReturnValueOnce(mockProfileLookupChain) // Profile lookup
-        .mockReturnValueOnce(mockCheckChain) // Check existing in createProfile
-        .mockReturnValueOnce(mockCreateChain); // Profile creation
-
-      const result = await getProfile("user-123");
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockProfile);
-      expect(mockSupabaseServiceRoleClient.auth.admin.getUserById).toHaveBeenCalledWith("user-123");
-    });
-
-    it("should handle database query errors", async () => {
-      // Mock connection check success
-      const mockConnectionCheck = jest.fn().mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      const mockSelectCount = jest.fn().mockReturnValue({
-        limit: () => mockConnectionCheck,
-      });
-
-      // Mock database error
-      const mockMaybeSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: { message: "Database query failed" },
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        maybeSingle: mockMaybeSingle,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({ select: mockSelectCount })
-        .mockReturnValueOnce({ select: mockSelect });
-
-      const result = await getProfile("user-123");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Database query failed");
-      expect(result.isConnectionError).toBe(false);
-    });
+    const result = await updateProfile(profileData as any);
+    
+    // After fix, empty strings should succeed
+    expect(result.success).toBe(true);
+    
+    // And the payload should not include avatar_url field (it's omitted)
+    // @ts-ignore
+    const payload = global.__lastUpdatePayload;
+    expect(payload.avatar_url).toBe(undefined);
   });
 
-  describe("createProfile", () => {
-    it("should create profile successfully", async () => {
-      // Mock checking if profile exists (returns null)
-      const mockCheckSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: null,
-      });
+  it("should succeed when valid URL is passed for avatar_url", async () => {
+    const profileData = {
+      full_name: "Test User",
+      avatar_url: "https://example.com/avatar.jpg"
+    };
 
-      const mockCheckEq = jest.fn().mockReturnValue({
-        maybeSingle: mockCheckSingle,
-      });
-
-      const mockCheckSelect = jest.fn().mockReturnValue({
-        eq: mockCheckEq,
-      });
-
-      // Mock profile creation
-      const mockCreateSingle = jest.fn().mockResolvedValue({
-        data: mockProfile,
-        error: null,
-      });
-
-      const mockCreateSelect = jest.fn().mockReturnValue({
-        single: mockCreateSingle,
-      });
-
-      const mockInsert = jest.fn().mockReturnValue({
-        select: mockCreateSelect,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({ select: mockCheckSelect })
-        .mockReturnValueOnce({ insert: mockInsert });
-
-      // Mock service role client
-      mockSupabaseServiceRoleClient.auth.admin.getUserById.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      const result = await createProfile("user-123");
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockProfile);
-      expect(mockInsert).toHaveBeenCalledWith({
-        id: "user-123",
-        full_name: "Test User",
-      });
-    });
-
-    it("should return error when no user ID provided", async () => {
-      const result = await createProfile("");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("No user ID provided");
-    });
-
-    it("should return existing profile if already exists", async () => {
-      // Mock finding existing profile
-      const mockCheckSingle = jest.fn().mockResolvedValue({
-        data: { id: "user-123" },
-        error: null,
-      });
-
-      const mockCheckEq = jest.fn().mockReturnValue({
-        maybeSingle: mockCheckSingle,
-      });
-
-      const mockCheckSelect = jest.fn().mockReturnValue({
-        eq: mockCheckEq,
-      });
-
-      // Mock the getProfile call that will be made
-      const mockGetProfileSingle = jest.fn().mockResolvedValue({
-        data: mockProfile,
-        error: null,
-      });
-
-      const mockGetProfileEq = jest.fn().mockReturnValue({
-        maybeSingle: mockGetProfileSingle,
-      });
-
-      const mockGetProfileSelect = jest.fn().mockReturnValue({
-        eq: mockGetProfileEq,
-      });
-
-      const mockConnectionCheck = jest.fn().mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      const mockSelectCount = jest.fn().mockReturnValue({
-        limit: () => mockConnectionCheck,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({ select: mockCheckSelect })
-        .mockReturnValueOnce({ select: mockSelectCount })
-        .mockReturnValueOnce({ select: mockGetProfileSelect });
-
-      const result = await createProfile("user-123");
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockProfile);
-    });
-
-    it("should handle user lookup errors", async () => {
-      // Mock no existing profile
-      const mockCheckSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: null,
-      });
-
-      const mockCheckEq = jest.fn().mockReturnValue({
-        maybeSingle: mockCheckSingle,
-      });
-
-      const mockCheckSelect = jest.fn().mockReturnValue({
-        eq: mockCheckEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: mockCheckSelect,
-      });
-
-      // Mock service role client error
-      mockSupabaseServiceRoleClient.auth.admin.getUserById.mockResolvedValue({
-        data: { user: null },
-        error: { message: "User not found" },
-      });
-
-      const result = await createProfile("user-123");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Could not get user data: User not found");
-    });
-
-    it("should handle profile creation errors", async () => {
-      // Mock no existing profile
-      const mockCheckSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: null,
-      });
-
-      const mockCheckEq = jest.fn().mockReturnValue({
-        maybeSingle: mockCheckSingle,
-      });
-
-      const mockCheckSelect = jest.fn().mockReturnValue({
-        eq: mockCheckEq,
-      });
-
-      // Mock profile creation error
-      const mockCreateSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: { message: "Creation failed" },
-      });
-
-      const mockCreateSelect = jest.fn().mockReturnValue({
-        single: mockCreateSingle,
-      });
-
-      const mockInsert = jest.fn().mockReturnValue({
-        select: mockCreateSelect,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({ select: mockCheckSelect })
-        .mockReturnValueOnce({ insert: mockInsert });
-
-      mockSupabaseServiceRoleClient.auth.admin.getUserById.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-
-      const result = await createProfile("user-123");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Creation failed");
-    });
+    const result = await updateProfile(profileData as any);
+    
+    expect(result.success).toBe(true);
+    
+    // @ts-ignore
+    const payload = global.__lastUpdatePayload;
+    expect(payload.avatar_url).toBe("https://example.com/avatar.jpg");
   });
 
-  describe("updateProfile", () => {
-    beforeEach(() => {
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: mockUser },
-        error: null,
-      });
-    });
+  it("should succeed when null is passed for avatar_url", async () => {
+    const profileData = {
+      full_name: "Test User",
+      avatar_url: null
+    };
 
-    it("should update profile successfully", async () => {
-      const updateData = { full_name: "Updated Name", bio: "Updated bio" };
-
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: { ...mockProfile, ...updateData },
-        error: null,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        select: mockSelect,
-      });
-
-      const mockUpdate = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        update: mockUpdate,
-      });
-
-      const result = await updateProfile(updateData);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual({ ...mockProfile, ...updateData });
-      expect(mockUpdate).toHaveBeenCalledWith({
-        ...updateData,
-        updated_at: expect.any(String),
-      });
-      expect(mockEq).toHaveBeenCalledWith("id", mockUser.id);
-    });
-
-    it("should handle array-wrapped data from Next.js", async () => {
-      const updateData = { full_name: "Updated Name" };
-      const wrappedData = [updateData];
-
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: { ...mockProfile, ...updateData },
-        error: null,
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        select: mockSelect,
-      });
-
-      const mockUpdate = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        update: mockUpdate,
-      });
-
-      const result = await updateProfile(wrappedData);
-
-      expect(result.success).toBe(true);
-      expect(mockUpdate).toHaveBeenCalledWith({
-        ...updateData,
-        updated_at: expect.any(String),
-      });
-    });
-
-    it("should handle authentication errors", async () => {
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: { message: "Not authenticated" },
-      });
-
-      const result = await updateProfile({ full_name: "Test" });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Authentication error: Not authenticated");
-    });
-
-    it("should handle update errors", async () => {
-      const mockSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: { message: "Update failed" },
-      });
-
-      const mockSelect = jest.fn().mockReturnValue({
-        single: mockSingle,
-      });
-
-      const mockEq = jest.fn().mockReturnValue({
-        select: mockSelect,
-      });
-
-      const mockUpdate = jest.fn().mockReturnValue({
-        eq: mockEq,
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        update: mockUpdate,
-      });
-
-      const result = await updateProfile({ full_name: "Test" });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Update failed");
-    });
-
-    it("should handle missing user (unauthenticated)", async () => {
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: null,
-      });
-
-      const result = await updateProfile({ full_name: "Test" });
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("User not authenticated");
-    });
+    const result = await updateProfile(profileData as any);
+    
+    expect(result.success).toBe(true);
+    
+    // @ts-ignore
+    const payload = global.__lastUpdatePayload;
+    expect(payload.avatar_url).toBe(null);
   });
 
-  describe("getUserStats", () => {
-    it("should return user stats successfully", async () => {
-      const mockProfile = { favorite_spot: "Malibu" };
-      const mockQualityData = [
-        { wave_quality: 8 },
-        { wave_quality: 6 },
-        { wave_quality: 7 },
-      ];
-      const mockBeachData = [
-        { beach_name: "Pipeline", visit_count: 15 }
-      ];
+  it("should succeed when undefined is passed for avatar_url", async () => {
+    const profileData = {
+      full_name: "Test User",
+      avatar_url: undefined
+    };
 
-      // Mock profile query
-      const mockProfileResult = Promise.resolve({
-        data: mockProfile,
-        error: null,
-      });
-      const mockProfileChain = createMockChain(mockProfileResult);
+    const result = await updateProfile(profileData as any);
+    
+    expect(result.success).toBe(true);
+    
+    // @ts-ignore
+    const payload = global.__lastUpdatePayload;
+    expect(payload.avatar_url).toBe(undefined);
+  });
 
-      // Mock session count query (uses count: "exact", head: true)
-      const mockSessionCountResult = Promise.resolve({
-        count: 25,
-        error: null,
-      });
-      const mockSessionCountChain = createMockChain(mockSessionCountResult);
+  it("should succeed when avatar_url field is omitted", async () => {
+    const profileData = {
+      full_name: "Test User"
+      // avatar_url field omitted entirely
+    };
 
-      // Mock board count query (uses count: "exact", head: true)
-      const mockBoardCountResult = Promise.resolve({
-        count: 3,
-        error: null,
-      });
-      const mockBoardCountChain = createMockChain(mockBoardCountResult);
+    const result = await updateProfile(profileData as any);
+    
+    expect(result.success).toBe(true);
+    
+    // @ts-ignore
+    const payload = global.__lastUpdatePayload;
+    expect(payload.avatar_url).toBe(undefined);
+  });
+});
 
-      // Mock wave quality query (no single(), just data array)
-      const mockQualityResult = Promise.resolve({
-        data: mockQualityData,
-        error: null,
-      });
-      const mockQualityChain = {
-        select: jest.fn(() => ({
-          eq: jest.fn(() => mockQualityResult),
-        })),
-      };
+describe("updateProfile empty string handling", () => {
+  beforeEach(() => {
+    // @ts-ignore
+    global.__lastUpdatePayload = undefined;
+  });
 
-      // Mock RPC call for most visited beach
-      mockSupabaseClient.rpc.mockResolvedValue({
-        data: mockBeachData,
-        error: null,
-      });
+  it("should treat empty string avatar_url as unset after fix", async () => {
+    const profileData = {
+      full_name: "Test User",
+      avatar_url: "" // Empty string should be treated as unset
+    };
 
-      // Set up all the from() calls in sequence
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockProfileChain) // profiles
-        .mockReturnValueOnce(mockSessionCountChain) // sessions count
-        .mockReturnValueOnce(mockBoardCountChain) // boards count
-        .mockReturnValueOnce(mockQualityChain); // wave quality
+    const result = await updateProfile(profileData as any);
+    
+    // After fix, this should succeed
+    expect(result.success).toBe(true);
+    
+    // And the payload should not include avatar_url field
+    // @ts-ignore
+    const payload = global.__lastUpdatePayload;
+    expect(payload.avatar_url).toBe(undefined);
+  });
 
-      const result = await getUserStats("user-123");
+  it("should handle multiple empty string fields correctly", async () => {
+    const profileData = {
+      full_name: "Test User",
+      avatar_url: "",
+      bio: "",
+      location: "",
+      instagram: ""
+    };
 
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual({
-        sessionCount: 25,
-        boardCount: 3,
-        averageRating: 7.0,
-        favoriteSpot: "Malibu",
-        mostVisitedBeach: "Pipeline",
-        mostVisitedBeachCount: 15,
-      });
-
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
-        "get_most_visited_beach",
-        { user_id: "user-123" }
-      );
-    });
-
-    it("should return error when no user ID provided", async () => {
-      const result = await getUserStats("");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("No user ID provided");
-    });
-
-    it("should handle profile query errors gracefully", async () => {
-      // Mock profile error but continue with other queries
-      const mockProfileResult = Promise.resolve({
-        data: null,
-        error: { message: "Profile not found" },
-      });
-      const mockProfileChain = createMockChain(mockProfileResult);
-
-      // Mock successful other queries
-      const mockSessionCountResult = Promise.resolve({
-        count: 10,
-        error: null,
-      });
-      const mockSessionCountChain = createMockChain(mockSessionCountResult);
-
-      const mockBoardCountResult = Promise.resolve({
-        count: 2,
-        error: null,
-      });
-      const mockBoardCountChain = createMockChain(mockBoardCountResult);
-
-      const mockQualityResult = Promise.resolve({
-        data: [],
-        error: null,
-      });
-      const mockQualityChain = {
-        select: jest.fn(() => ({
-          eq: jest.fn(() => mockQualityResult),
-        })),
-      };
-
-      mockSupabaseClient.rpc.mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockProfileChain)
-        .mockReturnValueOnce(mockSessionCountChain)
-        .mockReturnValueOnce(mockBoardCountChain)
-        .mockReturnValueOnce(mockQualityChain);
-
-      const result = await getUserStats("user-123");
-
-      expect(result.success).toBe(true);
-      expect(result.data.favoriteSpot).toBeNull();
-      expect(result.data.sessionCount).toBe(10);
-    });
-
-    it("should handle session count query errors", async () => {
-      const mockProfileResult = Promise.resolve({
-        data: { favorite_spot: "Test Beach" },
-        error: null,
-      });
-      const mockProfileChain = createMockChain(mockProfileResult);
-
-      const mockSessionCountResult = Promise.resolve({
-        count: null,
-        error: new Error("Sessions query failed"),
-      });
-      const mockSessionCountChain = createMockChain(mockSessionCountResult);
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockProfileChain)
-        .mockReturnValueOnce(mockSessionCountChain);
-
-      const result = await getUserStats("user-123");
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("Sessions query failed");
-    });
-
-    it("should calculate average rating correctly with mixed data", async () => {
-      const mockProfile = { favorite_spot: null };
-      const mockQualityData = [
-        { wave_quality: 8 },
-        { wave_quality: null }, // Should be treated as 0
-        { wave_quality: 6 },
-        { wave_quality: 10 },
-      ];
-
-      const mockProfileResult = Promise.resolve({
-        data: mockProfile,
-        error: null,
-      });
-      const mockProfileChain = createMockChain(mockProfileResult);
-
-      const mockSessionCountResult = Promise.resolve({
-        count: 4,
-        error: null,
-      });
-      const mockSessionCountChain = createMockChain(mockSessionCountResult);
-
-      const mockBoardCountResult = Promise.resolve({
-        count: 1,
-        error: null,
-      });
-      const mockBoardCountChain = createMockChain(mockBoardCountResult);
-
-      const mockQualityResult = Promise.resolve({
-        data: mockQualityData,
-        error: null,
-      });
-      const mockQualityChain = {
-        select: jest.fn(() => ({
-          eq: jest.fn(() => mockQualityResult),
-        })),
-      };
-
-      mockSupabaseClient.rpc.mockResolvedValue({
-        data: [],
-        error: null,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockProfileChain)
-        .mockReturnValueOnce(mockSessionCountChain)
-        .mockReturnValueOnce(mockBoardCountChain)
-        .mockReturnValueOnce(mockQualityChain);
-
-      const result = await getUserStats("user-123");
-
-      expect(result.success).toBe(true);
-      // Average should be (8 + 0 + 6 + 10) / 4 = 6.0
-      expect(result.data.averageRating).toBe(6.0);
-    });
-
-    it("should handle RPC function errors gracefully", async () => {
-      const mockProfile = { favorite_spot: "Test" };
-
-      const mockProfileResult = Promise.resolve({
-        data: mockProfile,
-        error: null,
-      });
-      const mockProfileChain = createMockChain(mockProfileResult);
-
-      const mockSessionCountResult = Promise.resolve({
-        count: 5,
-        error: null,
-      });
-      const mockSessionCountChain = createMockChain(mockSessionCountResult);
-
-      const mockBoardCountResult = Promise.resolve({
-        count: 2,
-        error: null,
-      });
-      const mockBoardCountChain = createMockChain(mockBoardCountResult);
-
-      const mockQualityResult = Promise.resolve({
-        data: [],
-        error: null,
-      });
-      const mockQualityChain = {
-        select: jest.fn(() => ({
-          eq: jest.fn(() => mockQualityResult),
-        })),
-      };
-
-      // Mock RPC error
-      mockSupabaseClient.rpc.mockResolvedValue({
-        data: null,
-        error: { message: "RPC failed" },
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockProfileChain)
-        .mockReturnValueOnce(mockSessionCountChain)
-        .mockReturnValueOnce(mockBoardCountChain)
-        .mockReturnValueOnce(mockQualityChain);
-
-      const result = await getUserStats("user-123");
-
-      expect(result.success).toBe(true);
-      expect(result.data.mostVisitedBeach).toBeNull();
-      expect(result.data.mostVisitedBeachCount).toBe(0);
-    });
+    const result = await updateProfile(profileData as any);
+    
+    expect(result.success).toBe(true);
+    
+    // @ts-ignore
+    const payload = global.__lastUpdatePayload;
+    
+    // avatar_url should be omitted when empty
+    expect(payload.avatar_url).toBe(undefined);
+    
+    // Other empty string fields should be preserved as empty strings
+    expect(payload.bio).toBe("");
+    expect(payload.location).toBe("");
+    expect(payload.instagram).toBe("");
   });
 });

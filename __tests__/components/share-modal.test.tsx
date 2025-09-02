@@ -3,13 +3,17 @@ import { ShareModal } from "@/components/share-modal";
 import { useAuth } from "@/context/auth-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { updateSession } from "@/actions/session-actions";
-import toast from "react-hot-toast";
+// Migrate to app toast system mock
+const mockToastHook = { toasts: [] as any[], toast: jest.fn(), dismiss: jest.fn() };
+jest.mock("@/components/ui/use-toast", () => ({
+  useToast: () => mockToastHook,
+}));
 
 // Mock dependencies
 jest.mock("@/context/auth-context");
 jest.mock("@/hooks/use-mobile");
 jest.mock("@/actions/session-actions");
-jest.mock("react-hot-toast");
+// No longer using react-hot-toast in component
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -40,7 +44,6 @@ Object.defineProperty(navigator, 'userAgent', {
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockUseIsMobile = useIsMobile as jest.MockedFunction<typeof useIsMobile>;
 const mockUpdateSession = updateSession as jest.MockedFunction<typeof updateSession>;
-const mockToast = toast as jest.Mocked<typeof toast>;
 const mockFetch = fetch as jest.MockedFunction<typeof fetch>;
 const mockNavigatorShare = navigator.share as jest.MockedFunction<typeof navigator.share>;
 
@@ -78,9 +81,8 @@ describe("ShareModal", () => {
     // Mock successful session update
     mockUpdateSession.mockResolvedValue({ success: true });
     
-    // Setup toast mocks
-    mockToast.success = jest.fn();
-    mockToast.error = jest.fn();
+    // Reset toast mock
+    mockToastHook.toast.mockReset();
   });
 
   describe("Rendering", () => {
@@ -211,7 +213,9 @@ describe("ShareModal", () => {
       fireEvent.click(makePublicButton);
       
       await waitFor(() => {
-        expect(mockToast.success).toHaveBeenCalledWith("Session is now shareable! 🏄‍♂️");
+        expect(mockToastHook.toast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Session is now shareable! 🏄‍♂️" })
+        );
       });
     });
 
@@ -224,7 +228,9 @@ describe("ShareModal", () => {
       fireEvent.click(makePublicButton);
       
       await waitFor(() => {
-        expect(mockToast.error).toHaveBeenCalledWith("Failed to make session shareable");
+        expect(mockToastHook.toast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Failed to make session shareable", variant: "destructive" })
+        );
       });
     });
 
@@ -237,7 +243,9 @@ describe("ShareModal", () => {
       fireEvent.click(makePublicButton);
       
       await waitFor(() => {
-        expect(mockToast.error).toHaveBeenCalledWith("Failed to make session shareable");
+        expect(mockToastHook.toast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Failed to make session shareable", variant: "destructive" })
+        );
       });
     });
 
@@ -269,7 +277,9 @@ describe("ShareModal", () => {
       fireEvent.load(image);
       
       await waitFor(() => {
-        expect(mockToast.success).toHaveBeenCalledWith("Your session image is ready! 🏄‍♂️");
+        expect(mockToastHook.toast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Your session image is ready! 🏄‍♂️" })
+        );
       });
     });
 
@@ -280,7 +290,9 @@ describe("ShareModal", () => {
       fireEvent.error(image);
       
       await waitFor(() => {
-        expect(mockToast.error).toHaveBeenCalledWith("Failed to generate image");
+        expect(mockToastHook.toast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Failed to generate image", variant: "destructive" })
+        );
       });
     });
 
@@ -355,7 +367,9 @@ describe("ShareModal", () => {
       });
       
       await waitFor(() => {
-        expect(mockToast.success).toHaveBeenCalledWith("Image downloaded! 📸");
+        expect(mockToastHook.toast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Image downloaded! 📸" })
+        );
       });
     });
 
@@ -375,7 +389,9 @@ describe("ShareModal", () => {
       });
       
       await waitFor(() => {
-        expect(mockToast.error).toHaveBeenCalledWith("Failed to download image");
+        expect(mockToastHook.toast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Failed to download image", variant: "destructive" })
+        );
       });
     });
 
@@ -458,7 +474,9 @@ describe("ShareModal", () => {
       });
       
       await waitFor(() => {
-        expect(mockToast.success).toHaveBeenCalledWith("Shared successfully! 🤙");
+        expect(mockToastHook.toast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Shared successfully! 🤙" })
+        );
       });
     });
 
@@ -479,7 +497,9 @@ describe("ShareModal", () => {
       });
       
       // Should not show error for cancellation
-      expect(mockToast.error).not.toHaveBeenCalled();
+      expect(mockToastHook.toast).not.toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Failed to share image" })
+      );
     });
 
     it("should handle share errors", async () => {
@@ -497,7 +517,9 @@ describe("ShareModal", () => {
       });
       
       await waitFor(() => {
-        expect(mockToast.error).toHaveBeenCalledWith("Failed to share image");
+        expect(mockToastHook.toast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Failed to share image", variant: "destructive" })
+        );
       });
     });
 
@@ -588,7 +610,7 @@ describe("ShareModal", () => {
       
       await waitFor(() => {
         // Should only show toast once
-        expect(mockToast.success).toHaveBeenCalledTimes(1);
+        expect(mockToastHook.toast).toHaveBeenCalledTimes(1);
       });
     });
   });

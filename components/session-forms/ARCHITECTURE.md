@@ -366,7 +366,7 @@ const getSmartDefaults = (): Partial<SessionFormState> => {
   return {
     sessionDate: new Date().toISOString().split("T")[0],
     sessionTime: getCurrentTimeRounded(),
-    beachId: user?.defaultBeachId || "",
+    beachId: user?.homeBeachId || "",
     boardId: user?.preferredBoardId || "",
   };
 };

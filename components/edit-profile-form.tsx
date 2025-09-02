@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -17,6 +17,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Card,
@@ -33,6 +34,8 @@ import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
 import { uploadImage, deleteImage } from "@/lib/image-upload";
 import { toast } from "@/components/ui/use-toast";
+import { HomeBeachSelector } from "@/components/home-beach-selector";
+import { useProfile } from "@/lib/hooks/useProfile";
 
 const profileFormSchema = z.object({
   full_name: z
@@ -48,14 +51,11 @@ const profileFormSchema = z.object({
     .string()
     .max(50, "Experience level must be less than 50 characters")
     .optional(),
-  favorite_spot: z
-    .string()
-    .max(100, "Home Break must be less than 100 characters")
-    .optional(),
   instagram: z
     .string()
-    .max(100, "Instagram handle must be less than 100 characters")
+    .max(30, "Instagram username must be less than 30 characters")
     .optional(),
+  home_beach_id: z.string().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -66,9 +66,9 @@ interface EditProfileFormProps {
     bio?: string;
     location?: string;
     experience_level?: string;
-    favorite_spot?: string;
     instagram?: string;
     avatar_url?: string;
+    home_beach_id?: string;
   };
   onSuccess?: () => void;
 }
@@ -79,10 +79,18 @@ export function EditProfileForm({
 }: EditProfileFormProps) {
   const { user } = useAuth();
   const router = useRouter();
+  const { profile, mutate } = useProfile();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(initialData?.avatar_url || "");
   const [isUploading, setIsUploading] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  // Remove immediate update for home beach; save on form submit
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Local pending selection so UI reflects changes immediately without saving
+  const [pendingHomeBeachId, setPendingHomeBeachId] = useState<string | undefined>(
+    initialData?.home_beach_id || undefined
+  );
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -91,29 +99,64 @@ export function EditProfileForm({
       bio: initialData?.bio || "",
       location: initialData?.location || "",
       experience_level: initialData?.experience_level || "",
-      favorite_spot: initialData?.favorite_spot || "",
       instagram: initialData?.instagram || "",
+      home_beach_id: initialData?.home_beach_id || undefined,
     },
   });
 
+  // Update pendingHomeBeachId when initialData changes (e.g., when modal opens with fresh data)
+  useEffect(() => {
+    if (initialData?.home_beach_id) {
+      setPendingHomeBeachId(initialData.home_beach_id);
+      form.setValue("home_beach_id", initialData.home_beach_id);
+    }
+  }, [initialData?.home_beach_id, form]);
+
+  // Handle success callback in useEffect to avoid state updates during render
+  useEffect(() => {
+    if (submitSuccess && onSuccess) {
+      // Reset success state and call callback
+      setSubmitSuccess(false);
+      onSuccess();
+    }
+  }, [submitSuccess, onSuccess]);
+
+  function handleHomeBeachChange(beachId: string | undefined) {
+    // Update form state only; persist in onSubmit
+    setPendingHomeBeachId(beachId || undefined);
+    form.setValue("home_beach_id", beachId || undefined, { shouldDirty: true });
+  }
+
   async function onSubmit(data: ProfileFormValues) {
-    if (!user) return;
+    if (!user) {
+      console.warn("EditProfileForm onSubmit: no user present in auth context");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
+      const includeAvatar =
+        !!avatarUrl &&
+        avatarUrl.trim() !== "" &&
+        !avatarUrl.includes("placeholder.svg");
+
       const result = await updateProfile({
         ...data,
-        avatar_url: avatarUrl,
+        ...(includeAvatar ? { avatar_url: avatarUrl.trim() } : {}),
       });
 
       if (!result.success) {
         throw new Error(result.error || "Failed to update profile");
       }
 
+      // Refresh profile data
+      startTransition(() => mutate());
+
       toastUtils.profile.updated();
 
       if (onSuccess) {
-        onSuccess();
+        // Set success state to trigger useEffect callback
+        setSubmitSuccess(true);
       } else {
         // Force a page refresh to clear all caches and ensure updated data is shown
         window.location.href = "/profile";
@@ -356,6 +399,19 @@ export function EditProfileForm({
             <div className="space-y-4">
               <h3 className="text-sm font-medium">Surf Information</h3>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Home Beach</label>
+                <HomeBeachSelector
+                  value={pendingHomeBeachId || form.watch("home_beach_id") || undefined}
+                  onValueChange={handleHomeBeachChange}
+                  placeholder="Select your home beach for forecasts"
+                />
+                <p className="text-sm text-muted-foreground">
+                  This beach will be shown on your home screen and pre-selected when logging sessions
+                </p>
+                {/* Saved on form submit */}
+              </div>
+
               <FormField
                 control={form.control}
                 name="experience_level"
@@ -373,19 +429,6 @@ export function EditProfileForm({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="favorite_spot"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Home Break</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Your home break" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             {/* Social Media */}
@@ -415,7 +458,7 @@ export function EditProfileForm({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" data-testid="save-profile" disabled={isSubmitting}>
               {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
