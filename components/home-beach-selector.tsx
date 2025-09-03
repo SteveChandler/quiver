@@ -34,6 +34,8 @@ interface HomeBeachSelectorProps {
   commitOnEnter?: boolean;
   // When true, closing the popover (blur) attempts to resolve the best match
   autoResolveOnClose?: boolean;
+  // Optional: bubble current typed text to parent for fallback saving
+  onTextChange?: (text: string) => void;
 }
 
 export function HomeBeachSelector({
@@ -44,6 +46,7 @@ export function HomeBeachSelector({
   disabled = false,
   commitOnEnter = true,
   autoResolveOnClose = true,
+  onTextChange,
 }: HomeBeachSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -228,7 +231,10 @@ export function HomeBeachSelector({
             <CommandInput
               placeholder="Search beaches..."
               value={searchQuery}
-              onValueChange={setSearchQuery}
+              onValueChange={(val) => {
+                setSearchQuery(val);
+                if (onTextChange) onTextChange(val);
+              }}
               onKeyDown={handleKeyDown}
             />
             <CommandEmpty>

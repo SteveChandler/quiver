@@ -219,8 +219,39 @@ export async function updateProfile(
       throw new Error(`Validation failed: ${validationResult.error.issues.map(i => i.message).join(", ")}`);
     }
 
+    // Start with validated, but allow passthrough keys to be inspected before DB update
+    const processedData: Record<string, any> = { ...validationResult.data };
+
+    // Server-side fallback: if client sent a typed beach name but not an ID, resolve best match
+    if (!processedData.home_beach_id && typeof (updateData as any)?.home_beach_text === "string") {
+      const text = ((updateData as any).home_beach_text as string).trim();
+      if (text.length > 0) {
+        const { data: candidates, error: beachError } = await supabase
+          .from("beaches")
+          .select("id,name")
+          .ilike("name", `%${text}%`)
+          .limit(25);
+
+        if (!beachError && candidates && candidates.length > 0) {
+          const lower = text.toLowerCase();
+          const exact = candidates.find((b) => b.name.toLowerCase() === lower);
+          const starts = candidates.find((b) => b.name.toLowerCase().startsWith(lower));
+          const contains = candidates[0];
+
+          const match = exact || starts || contains;
+          if (match) {
+            processedData.home_beach_id = match.id;
+          }
+        }
+      }
+    }
+
+    // Never attempt to update unknown column
+    if ("home_beach_text" in processedData) {
+      delete processedData.home_beach_text;
+    }
+
     // Handle empty strings for avatar_url by treating them as unset
-    const processedData = { ...validationResult.data };
     if (processedData.avatar_url === "") {
       delete processedData.avatar_url; // Remove empty string avatar_url from update
     }

@@ -24,6 +24,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Standardized profile API responses to `ProfileDTO` with `homeBeachName` and optional nested `home_beach`; added mapper in `lib/profile/fetchers.ts`
 - Replaced scattered `getBeachById` UI lookups with DTO fallback: prefer `homeBeachName`, then `profile.home_beach?.name`, then '—' across `app/user/[id]/page.tsx`, `components/social/user-profile-modal.tsx`, `components/user-stats.tsx`, and `components/profile-view.tsx`.
 - Clarified Surf Journal+ labels: quick stat now shows "Favorite Beach" (most visited via analytics) to differentiate from profile "Home Break" selection.
+- Replaced Home Beach dropdown with unified `BeachSelector` search in `components/edit-profile-form.tsx` and `components/profile/profile-preferences.tsx` for reliable typing-and-select behavior (matches session Location search pattern)
 
 ### Fixed
 
@@ -31,6 +32,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Instagram field name aligned between frontend and database
 - E2E/MCP configuration fixes; improved stability of tests and dev server
 - Spatial query ambiguity resolved; production build verified
+- Server-side fallback: `updateProfile` now resolves `home_beach_text` to a valid `home_beach_id` when no ID is provided
 
 ## [2025.09.02] - Development Update
 

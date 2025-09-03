@@ -34,7 +34,7 @@ import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
 import { uploadImage, deleteImage } from "@/lib/image-upload";
 import { toast } from "@/components/ui/use-toast";
-import { HomeBeachSelector } from "@/components/home-beach-selector";
+import { BeachSelector } from "@/components/BeachSelector";
 import { useProfile } from "@/lib/hooks/useProfile";
 
 const profileFormSchema = z.object({
@@ -84,6 +84,7 @@ export function EditProfileForm({
   const [avatarUrl, setAvatarUrl] = useState(initialData?.avatar_url || "");
   const [isUploading, setIsUploading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [homeBeachText, setHomeBeachText] = useState("");
   // Remove immediate update for home beach; save on form submit
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -128,6 +129,9 @@ export function EditProfileForm({
 
       const result = await updateProfile({
         ...data,
+        ...(homeBeachText && !data.home_beach_id
+          ? { home_beach_text: homeBeachText }
+          : {}),
         ...(includeAvatar ? { avatar_url: avatarUrl.trim() } : {}),
       });
 
@@ -387,16 +391,18 @@ export function EditProfileForm({
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Home Beach</label>
-                <FormField
-                  control={form.control}
-                  name="home_beach_id"
-                  render={({ field }) => (
-                    <HomeBeachSelector
-                      value={field.value ?? undefined}
-                      onValueChange={(val) => field.onChange(val ?? null)}
-                      placeholder="Select your home beach for forecasts"
-                    />
-                  )}
+                <BeachSelector
+                  initialValue={homeBeachText}
+                  onBeachSelected={(beach) => {
+                    // If a real beach was selected, set the id; else keep text fallback
+                    if (beach?.id) {
+                      form.setValue("home_beach_id", beach.id);
+                      setHomeBeachText(beach.name);
+                    } else {
+                      form.setValue("home_beach_id", null);
+                      setHomeBeachText(beach?.name || "");
+                    }
+                  }}
                 />
                 <p className="text-sm text-muted-foreground">
                   This beach will be shown on your home screen and pre-selected

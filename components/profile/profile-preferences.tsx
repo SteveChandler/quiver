@@ -26,13 +26,7 @@ import {
 } from "@/components/ui/form";
 import { toast } from "@/components/ui/use-toast";
 import { updateProfile } from "@/actions/profile-actions";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { BeachSelector } from "@/components/BeachSelector";
 import type { Beach, Profile } from "@/types/database";
 
 const preferencesFormSchema = z.object({
@@ -131,29 +125,15 @@ export function ProfilePreferences({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Home Beach</FormLabel>
-                    <Select
-                      onValueChange={(val) => {
+                    <BeachSelector
+                      initialValue={""}
+                      onBeachSelected={(beach) => {
                         console.debug("[HomeBeach/UI] change", {
-                          selectedId: val,
+                          selectedId: beach?.id,
                         });
-                        field.onChange(val || null);
+                        field.onChange(beach?.id || null);
                       }}
-                      value={field.value ?? ""}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your home beach" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="">None</SelectItem>
-                        {beaches.map((beach) => (
-                          <SelectItem key={beach.id} value={beach.id}>
-                            {beach.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     <FormDescription>
                       This beach will be shown on your home screen and
                       pre-selected when logging new sessions
