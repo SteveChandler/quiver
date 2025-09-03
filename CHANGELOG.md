@@ -23,6 +23,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - API endpoints `/api/profile` and `/api/profile/[id]` now include `homeBeachName` in response using joined query
 - Standardized profile API responses to `ProfileDTO` with `homeBeachName` and optional nested `home_beach`; added mapper in `lib/profile/fetchers.ts`
 - Replaced scattered `getBeachById` UI lookups with DTO fallback: prefer `homeBeachName`, then `profile.home_beach?.name`, then '—' across `app/user/[id]/page.tsx`, `components/social/user-profile-modal.tsx`, `components/user-stats.tsx`, and `components/profile-view.tsx`.
+- Clarified Surf Journal+ labels: quick stat now shows "Favorite Beach" (most visited via analytics) to differentiate from profile "Home Break" selection.
 
 ### Fixed
 

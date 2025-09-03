@@ -30,6 +30,10 @@ interface HomeBeachSelectorProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  // When true, pressing Enter commits the best match
+  commitOnEnter?: boolean;
+  // When true, closing the popover (blur) attempts to resolve the best match
+  autoResolveOnClose?: boolean;
 }
 
 export function HomeBeachSelector({
@@ -38,6 +42,8 @@ export function HomeBeachSelector({
   placeholder = "Select your home beach",
   className,
   disabled = false,
+  commitOnEnter = true,
+  autoResolveOnClose = true,
 }: HomeBeachSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,6 +117,27 @@ export function HomeBeachSelector({
     }
   }, [value, allBeaches]);
 
+  const resolveBestMatch = useCallback(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query || !allBeaches || allBeaches.length === 0) {
+      return null;
+    }
+
+    // exact match → startsWith → includes
+    const exact = allBeaches.find((b) => b.name.toLowerCase() === query);
+    if (exact) return exact;
+
+    const starts = allBeaches.find((b) =>
+      b.name.toLowerCase().startsWith(query)
+    );
+    if (starts) return starts;
+
+    const contains = allBeaches.find((b) =>
+      b.name.toLowerCase().includes(query)
+    );
+    return contains || null;
+  }, [searchQuery, allBeaches]);
+
   const handleSelect = (beach: Beach) => {
     setSelectedBeach(beach);
     console.debug("[HomeBeach/UI] change", { selectedId: beach.id });
@@ -124,6 +151,29 @@ export function HomeBeachSelector({
     console.debug("[HomeBeach/UI] change", { selectedId: undefined });
     onValueChange(undefined);
   };
+
+  // Commit best match when user presses Enter in the search box
+  const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
+    if (!commitOnEnter) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const match = resolveBestMatch();
+      if (match) {
+        handleSelect(match);
+      }
+    }
+  };
+
+  // When popover closes and we have a query but nothing selected, try to resolve
+  useEffect(() => {
+    if (!open && autoResolveOnClose && searchQuery.trim() && !selectedBeach) {
+      const match = resolveBestMatch();
+      if (match) {
+        handleSelect(match);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   return (
     <div className={className}>
@@ -179,6 +229,7 @@ export function HomeBeachSelector({
               placeholder="Search beaches..."
               value={searchQuery}
               onValueChange={setSearchQuery}
+              onKeyDown={handleKeyDown}
             />
             <CommandEmpty>
               {error ? (

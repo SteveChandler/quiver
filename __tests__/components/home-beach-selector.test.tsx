@@ -125,6 +125,26 @@ describe("HomeBeachSelector", () => {
     });
   });
 
+  it("commits best match when typing and pressing Enter", async () => {
+    render(
+      <HomeBeachSelector value={undefined} onValueChange={mockOnValueChange} />
+    );
+
+    // Open dropdown
+    fireEvent.click(screen.getByRole("combobox"));
+
+    // Type partial name and press Enter
+    const input = screen.getByPlaceholderText(/search beaches/i);
+    fireEvent.change(input, { target: { value: "Pacific" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(mockOnValueChange).toHaveBeenCalledWith(
+        "65809772-20bc-4009-b9b2-89c8ef3c4127"
+      );
+    });
+  });
+
   it("calls onValueChange when beach is selected", async () => {
     render(
       <HomeBeachSelector value={undefined} onValueChange={mockOnValueChange} />

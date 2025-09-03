@@ -256,7 +256,7 @@ export function JournalView({ className }: JournalViewProps) {
             <div className="text-2xl font-bold">
               {analytics?.favoriteBeach || "None"}
             </div>
-            <p className="text-sm text-muted-foreground">Home Break</p>
+            <p className="text-sm text-muted-foreground">Favorite Beach</p>
           </CardContent>
         </Card>
       </div>
