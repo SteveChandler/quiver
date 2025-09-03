@@ -334,7 +334,7 @@ interface ComponentProps {
 
 - **Canonical Field**: `profiles.home_beach_id` (FK to beaches.id)
 - **API Endpoint**: `/api/me/profile` returns `{ id, home_beach_id }`
-- **Update Action**: `setHomeBeach(beachId)` via profile actions
+- **Update Action**: `updateProfile({ home_beach_id })` via profile actions
 - **Cache Invalidation**: `revalidateTag("profile")` after updates
 
 ---

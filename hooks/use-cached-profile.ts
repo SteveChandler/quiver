@@ -79,23 +79,12 @@ export function useCachedProfile() {
       const profile = profileResult.data;
       console.log("✅ Profile loaded:", {
         id: profile.id,
-        favoriteSpot: profile.favorite_spot,
         homeBeachId: profile.home_beach_id,
       });
 
       let homeBeach: Beach | null = null;
 
-      // Prefer top-ranked favorite beach
-      try {
-        const { getTopFavoriteBeach } = await import("@/actions/beach-actions");
-        const topFav = await getTopFavoriteBeach(user.id);
-        if (topFav) {
-          homeBeach = topFav as Beach;
-          console.log("✅ Using top-ranked favorite beach as home beach:", homeBeach.name);
-        }
-      } catch (e) {
-        // Non-fatal
-      }
+      // No longer prefer top-ranked favorite beach; use home_beach_id only
 
       // Resolve strictly via home_beach_id
       if (profile.home_beach_id) {

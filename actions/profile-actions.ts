@@ -5,12 +5,12 @@ import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import type { Profile } from "@/types/database";
 import { z } from "zod";
+import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 
 // Unified profile update schema with permissive validation
 const profileUpdateSchema = z.object({
   full_name: z.string().min(1, "Name is required").max(100, "Name too long").optional(),
-  home_beach_id: z.string().uuid("Invalid beach ID").optional(),
-  favorite_spot: z.string().max(255, "Favorite spot name too long").optional(),
+  home_beach_id: z.string().uuid("Invalid beach ID").nullable().optional(),
   bio: z.string().max(500, "Bio too long").optional(),
   skill_level: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
   experience_years: z.number().int().min(0, "Experience years must be positive").max(100, "Experience years too high").optional(),
@@ -255,51 +255,6 @@ export async function updateProfile(
   });
 }
 
-export async function setHomeBeach(beachId: string) {
-  return withAuthenticatedAction(async (user, supabase) => {
-    // Validate beach ID format
-    const beachIdValidation = z.string().uuid("Invalid beach ID").safeParse(beachId);
-    if (!beachIdValidation.success) {
-      throw new Error("Invalid beach ID format");
-    }
-
-    // Verify beach exists
-    const { data: beach, error: beachError } = await supabase
-      .from("beaches")
-      .select("id, name")
-      .eq("id", beachId)
-      .single();
-
-    if (beachError || !beach) {
-      throw new Error("Beach not found");
-    }
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({
-        home_beach_id: beachId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(error.message || "Failed to set home beach");
-    }
-
-    // Use tag-based cache revalidation
-    revalidateTag("profile");
-    
-    // Clear specific paths that use profile data
-    revalidatePath("/profile");
-    revalidatePath("/");
-    revalidatePath("/profile/preferences");
-
-    return data as any;
-  });
-}
-
 
 
 export async function getUserStats(userId: string) {
@@ -310,20 +265,8 @@ export async function getUserStats(userId: string) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // Get user profile with home beach
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select(`
-        favorite_spot,
-        home_beach_id
-      `)
-      .eq("id", userId)
-      .single();
-
-    if (profileError) {
-      console.error("Error fetching profile for stats:", profileError);
-      // Continue execution even if profile fetch fails
-    }
+    // Get user profile with home beach (one query)
+    const { profile: profileData, homeBeachName } = await getProfileWithHomeBeachById(userId);
 
     // Get session count
     const { count: sessionCount, error: sessionError } = await supabase
@@ -365,22 +308,7 @@ export async function getUserStats(userId: string) {
       averageRating = Math.round((sum / qualityData.length) * 10) / 10; // Round to 1 decimal place
     }
 
-    // Optionally resolve home beach name via separate query
-    let homeBeachName: string | null = null;
-    try {
-      if (profileData?.home_beach_id) {
-        const { data: hb, error: hbErr } = await supabase
-          .from("beaches")
-          .select("id, name")
-          .eq("id", profileData.home_beach_id)
-          .single();
-        if (!hbErr && hb) {
-          homeBeachName = hb.name;
-        }
-      }
-    } catch (e) {
-      // Non-fatal
-    }
+    // homeBeachName already resolved by fetcher
 
     // Get most visited beach
     let mostVisitedBeach = null;
@@ -407,7 +335,6 @@ export async function getUserStats(userId: string) {
         sessionCount: sessionCount || 0,
         boardCount: boardCount || 0,
         averageRating,
-        favoriteSpot: profileData?.favorite_spot || null,
         homeBeachId: profileData?.home_beach_id || null,
         homeBeachName,
         mostVisitedBeach,

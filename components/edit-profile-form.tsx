@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, X, Camera } from "lucide-react";
-import { updateProfile, setHomeBeach } from "@/actions/profile-actions";
+import { updateProfile } from "@/actions/profile-actions";
 import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
 import { uploadImage, deleteImage } from "@/lib/image-upload";
@@ -55,7 +55,7 @@ const profileFormSchema = z.object({
     .string()
     .max(30, "Instagram username must be less than 30 characters")
     .optional(),
-  home_beach_id: z.string().optional(),
+  home_beach_id: z.string().uuid().nullable().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -87,11 +87,6 @@ export function EditProfileForm({
   // Remove immediate update for home beach; save on form submit
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Local pending selection so UI reflects changes immediately without saving
-  const [pendingHomeBeachId, setPendingHomeBeachId] = useState<
-    string | undefined
-  >(initialData?.home_beach_id || undefined);
-
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -100,17 +95,9 @@ export function EditProfileForm({
       location: initialData?.location || "",
       experience_level: initialData?.experience_level || "",
       instagram: initialData?.instagram || "",
-      home_beach_id: initialData?.home_beach_id || undefined,
+      home_beach_id: initialData?.home_beach_id ?? null,
     },
   });
-
-  // Update pendingHomeBeachId when initialData changes (e.g., when modal opens with fresh data)
-  useEffect(() => {
-    if (initialData?.home_beach_id) {
-      setPendingHomeBeachId(initialData.home_beach_id);
-      form.setValue("home_beach_id", initialData.home_beach_id);
-    }
-  }, [initialData?.home_beach_id, form]);
 
   // Handle success callback in useEffect to avoid state updates during render
   useEffect(() => {
@@ -121,11 +108,7 @@ export function EditProfileForm({
     }
   }, [submitSuccess, onSuccess]);
 
-  function handleHomeBeachChange(beachId: string | undefined) {
-    // Update form state only; persist in onSubmit
-    setPendingHomeBeachId(beachId || undefined);
-    form.setValue("home_beach_id", beachId || undefined, { shouldDirty: true });
-  }
+  // RHF controls the field directly; no shadow state
 
   async function onSubmit(data: ProfileFormValues) {
     if (!user) {
@@ -133,6 +116,9 @@ export function EditProfileForm({
       return;
     }
 
+    console.debug("[HomeBeach/UI] submit payload", {
+      home_beach_id: form.getValues("home_beach_id"),
+    });
     setIsSubmitting(true);
     try {
       const includeAvatar =
@@ -140,23 +126,10 @@ export function EditProfileForm({
         avatarUrl.trim() !== "" &&
         !avatarUrl.includes("placeholder.svg");
 
-      // Persist core profile fields excluding home_beach_id; handle it explicitly
-      const { home_beach_id, ...rest } = data;
-
       const result = await updateProfile({
-        ...rest,
+        ...data,
         ...(includeAvatar ? { avatar_url: avatarUrl.trim() } : {}),
       });
-
-      // If home_beach_id changed or is set, update it via dedicated action
-      if (typeof home_beach_id !== "undefined") {
-        try {
-          await setHomeBeach(home_beach_id);
-        } catch (e) {
-          console.error("Failed to set home beach:", e);
-          throw e;
-        }
-      }
 
       if (!result.success) {
         throw new Error(result.error || "Failed to update profile");
@@ -414,20 +387,21 @@ export function EditProfileForm({
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Home Beach</label>
-                <HomeBeachSelector
-                  value={
-                    pendingHomeBeachId ||
-                    form.watch("home_beach_id") ||
-                    undefined
-                  }
-                  onValueChange={handleHomeBeachChange}
-                  placeholder="Select your home beach for forecasts"
+                <FormField
+                  control={form.control}
+                  name="home_beach_id"
+                  render={({ field }) => (
+                    <HomeBeachSelector
+                      value={field.value ?? undefined}
+                      onValueChange={(val) => field.onChange(val ?? null)}
+                      placeholder="Select your home beach for forecasts"
+                    />
+                  )}
                 />
                 <p className="text-sm text-muted-foreground">
                   This beach will be shown on your home screen and pre-selected
                   when logging sessions
                 </p>
-                {/* Saved on form submit */}
               </div>
 
               <FormField

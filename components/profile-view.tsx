@@ -36,7 +36,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getUserBoards } from "@/actions/board-actions";
 import { getUserSessions } from "@/actions/session-actions";
 import { getProfile } from "@/actions/profile-actions";
-import { getBeachById } from "@/actions/beach/beach-query-actions";
+// Removed ad-hoc beach lookup; rely on DTO fields for home beach name
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -103,7 +103,7 @@ export function ProfileView() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [homeBeachName, setHomeBeachName] = useState<string | null>(null);
+  // No local beach name state; prefer DTO fields on profile
   const [statsRefreshToken, setStatsRefreshToken] = useState(0);
 
   const loadUserData = async () => {
@@ -159,26 +159,7 @@ export function ProfileView() {
     }
   };
 
-  // Resolve home beach name when profile changes
-  useEffect(() => {
-    async function resolveHomeBeach() {
-      if (!profile?.home_beach_id) {
-        setHomeBeachName(null);
-        return;
-      }
-      try {
-        const result = await getBeachById(profile.home_beach_id);
-        if (result.success && result.data) {
-          setHomeBeachName(result.data.name);
-        } else {
-          setHomeBeachName(null);
-        }
-      } catch (e) {
-        setHomeBeachName(null);
-      }
-    }
-    resolveHomeBeach();
-  }, [profile?.home_beach_id]);
+  // Removed effect; home beach name provided by API DTO or joined relation
 
   const handleProfileUpdated = async () => {
     console.log(
@@ -343,14 +324,14 @@ export function ProfileView() {
                           )}
                         </div>
 
-                        {/* Home Break - display actual name when available */}
-                        {profile?.home_beach_id && (
+                        {/* Home Break - prefer DTO name, fallback to joined relation */}
+                        {(profile?.homeBeachName ?? profile?.home_beach?.name) && (
                           <div className="text-xs font-open-sans pt-0.5">
                             <span className="text-muted-foreground">
                               Home Break{" "}
                             </span>
                             <span className="font-medium text-ocean-blue">
-                              {homeBeachName || "Loading..."}
+                              {profile?.homeBeachName ?? profile?.home_beach?.name ?? "—"}
                             </span>
                           </div>
                         )}

@@ -12,20 +12,24 @@ import { GamificationSection } from "@/components/profile/gamification-section";
 interface UserStatsProps {
   userId: string;
   refreshToken?: number;
+  getUserStatsFn?: typeof getUserStats;
 }
 
 interface UserStatsData {
   sessionCount: number;
   boardCount: number;
   averageRating: number;
-  favoriteSpot: string | null;
   homeBeachId?: string | null;
   homeBeachName?: string | null;
   mostVisitedBeach: string | null;
   mostVisitedBeachCount: number;
 }
 
-export function UserStats({ userId, refreshToken }: UserStatsProps) {
+export function UserStats({
+  userId,
+  refreshToken,
+  getUserStatsFn,
+}: UserStatsProps) {
   const { user } = useAuth();
   const { profile } = useProfile();
   const [stats, setStats] = useState<UserStatsData | null>(null);
@@ -38,7 +42,8 @@ export function UserStats({ userId, refreshToken }: UserStatsProps) {
     async function loadStats() {
       setLoading(true);
       try {
-        const result = await getUserStats(userId);
+        const fetchStats = getUserStatsFn || getUserStats;
+        const result = await fetchStats(userId);
         if (result.success && result.data) {
           setStats(result.data);
         } else {
@@ -77,7 +82,9 @@ export function UserStats({ userId, refreshToken }: UserStatsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.sessionCount}</div>
-            <p className="text-xs text-muted-foreground">Total sessions (all)</p>
+            <p className="text-xs text-muted-foreground">
+              Total sessions (all)
+            </p>
           </CardContent>
         </Card>
 
@@ -98,7 +105,9 @@ export function UserStats({ userId, refreshToken }: UserStatsProps) {
             <Star className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.averageRating || "-"}</div>
+            <div className="text-2xl font-bold">
+              {stats.averageRating || "-"}
+            </div>
             <p className="text-xs text-muted-foreground">
               Average session rating
             </p>
@@ -112,8 +121,11 @@ export function UserStats({ userId, refreshToken }: UserStatsProps) {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold truncate" data-testid="home-break-value">
-              {stats?.homeBeachName || "—"}
+            <div
+              className="text-2xl font-bold truncate"
+              data-testid="home-break-value"
+            >
+              {stats?.homeBeachName ?? profile?.homeBeachName ?? profile?.home_beach?.name ?? "—"}
             </div>
             <p className="text-xs text-muted-foreground">
               {stats?.homeBeachId ? "From profile" : "Not set"}

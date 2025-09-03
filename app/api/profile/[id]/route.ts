@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { getProfileDTOById } from "@/lib/profile/fetchers";
+import type { ProfileDTO } from "@/types/profile";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,30 +29,17 @@ export async function GET(
     // Get current user for authentication (optional for public profiles)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    // Get user profile
-    const { data: profile, error } = await supabase
+    // Get user profile DTO via view
+    const base = await getProfileDTOById(userId, supabase);
+
+    // Fetch additional profile counters expected by clients/tests
+    const { data: counts } = await supabase
       .from("profiles")
-      .select(`
-        id,
-        full_name,
-        favorite_spot,
-        followers_count,
-        following_count,
-        created_at
-      `)
+      .select("followers_count, following_count, created_at")
       .eq("id", userId)
       .single();
 
-    if (error) {
-      if (error.code === "PGRST116") {
-        // No rows returned - user not found
-        return createSuccessResponse(
-          { error: "User not found" },
-          404
-        );
-      }
-      throw error;
-    }
+    // profile fetched above; if not found, fetcher would throw and be handled below
 
     // Add session stats (only public sessions for privacy)
     const { data: sessions, error: sessionsError } = await supabase
@@ -88,7 +77,10 @@ export async function GET(
     }
 
     const profileWithStats = {
-      ...profile,
+      ...(base as ProfileDTO),
+      followers_count: counts?.followers_count ?? 0,
+      following_count: counts?.following_count ?? 0,
+      created_at: counts?.created_at ?? null,
       ...sessionStats,
       isFollowing: isFollowingUser,
       isOwnProfile: user?.id === userId,

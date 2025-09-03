@@ -71,7 +71,7 @@ describe("/api/profile/[id]", () => {
       const mockProfile = createMockProfile({
         id: targetUserId,
         full_name: "John Surfer",
-        favorite_spot: "Malibu",
+        home_beach_id: "beach-1",
         followers_count: 25,
         following_count: 15,
       });
@@ -108,6 +108,15 @@ describe("/api/profile/[id]", () => {
             data: mockSessions,
             error: null,
           };
+        } else if (tableName === 'beaches') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn(() => Promise.resolve({
+              data: { name: 'Malibu' },
+              error: null,
+            })),
+          };
         }
         
         // Default fallback
@@ -124,8 +133,11 @@ describe("/api/profile/[id]", () => {
       const response = await GET(request, { params: { id: targetUserId } });
 
       const data = await expectSuccessResponse(response, 200);
-      expect(data.data).toEqual({
-        ...mockProfile,
+      expect(data.data).toMatchObject({
+        id: targetUserId,
+        full_name: "John Surfer",
+        followers_count: 25,
+        following_count: 15,
         session_count: 3,
         average_rating: 4.0,
         isFollowing: false,

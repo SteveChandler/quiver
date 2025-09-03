@@ -154,7 +154,6 @@ const mockSessionWithDetails: SessionWithDetails = {
     avatar_url: "https://example.com/avatar.jpg",
     location: null,
     experience_level: null,
-    favorite_spot: null,
     instagram: null,
     home_beach_id: null,
     notification_session_reminders: true,

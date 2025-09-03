@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { fetchProfile } from "@/actions/profile-actions";
+import { getProfileDTOById } from "@/lib/profile/fetchers";
+import type { ProfileDTO } from "@/types/profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
- * GET /api/profile - Get current user's profile (cached with tags)
+ * GET /api/profile - Get current user's profile with home beach name
  */
 export async function GET(request: NextRequest) {
   try {
@@ -20,17 +21,17 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Get profile data using tagged fetch for better caching
-    const profileData = await fetchProfile(user.id);
+    // Get standardized profile DTO via view
+    const dto = await getProfileDTOById(user.id, supabase);
     
-    if (!profileData) {
+    if (!dto) {
       return new Response(
         JSON.stringify({ error: "Profile not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
       );
     }
     
-    return createSuccessResponse(profileData);
+    return createSuccessResponse(dto as ProfileDTO);
   } catch (error) {
     console.error("Error in GET /api/profile:", error);
     return handleApiError(error);

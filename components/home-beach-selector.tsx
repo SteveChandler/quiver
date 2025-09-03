@@ -54,7 +54,7 @@ export function HomeBeachSelector({
     const beaches = result.data as Beach[];
     const popularBeaches = [
       "Pacific Beach",
-      "Ocean Beach", 
+      "Ocean Beach",
       "Mission Beach",
       "La Jolla Shores",
       "Windansea",
@@ -62,35 +62,43 @@ export function HomeBeachSelector({
       "Sunset Cliffs",
       "Cardiff",
       "Swami's",
-      "Tourmaline"
+      "Tourmaline",
     ];
 
     return beaches.sort((a, b) => {
       const aPopular = popularBeaches.includes(a.name);
       const bPopular = popularBeaches.includes(b.name);
-      
+
       if (aPopular && !bPopular) return -1;
       if (!aPopular && bPopular) return 1;
-      
+
       return a.name.localeCompare(b.name);
     });
   }, []);
 
-  const { data: allBeaches = [], loading: beachesLoading, error, retry } = useDataFetcher(fetchBeaches);
+  const {
+    data: allBeaches = [],
+    loading: beachesLoading,
+    error,
+    retry,
+  } = useDataFetcher(fetchBeaches);
 
   // Filter beaches based on search locally instead of server search
   const filteredBeaches = React.useMemo(() => {
     if (!allBeaches) return [];
-    
+
     if (!searchQuery.trim()) {
       return allBeaches.slice(0, 20); // Limit to first 20 for performance
     }
-    
+
     const query = searchQuery.toLowerCase();
-    return allBeaches.filter(beach => 
-      beach.name.toLowerCase().includes(query) ||
-      (beach.location && beach.location.toLowerCase().includes(query))
-    ).slice(0, 20);
+    return allBeaches
+      .filter(
+        (beach) =>
+          beach.name.toLowerCase().includes(query) ||
+          (beach.location && beach.location.toLowerCase().includes(query))
+      )
+      .slice(0, 20);
   }, [allBeaches, searchQuery]);
 
   // Find the selected beach based on value prop
@@ -105,6 +113,7 @@ export function HomeBeachSelector({
 
   const handleSelect = (beach: Beach) => {
     setSelectedBeach(beach);
+    console.debug("[HomeBeach/UI] change", { selectedId: beach.id });
     onValueChange(beach.id);
     setOpen(false);
     setSearchQuery("");
@@ -112,6 +121,7 @@ export function HomeBeachSelector({
 
   const handleClear = () => {
     setSelectedBeach(null);
+    console.debug("[HomeBeach/UI] change", { selectedId: undefined });
     onValueChange(undefined);
   };
 
@@ -165,16 +175,20 @@ export function HomeBeachSelector({
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" align="start">
           <Command>
-            <CommandInput 
-              placeholder="Search beaches..." 
+            <CommandInput
+              placeholder="Search beaches..."
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
             <CommandEmpty>
               {error ? (
                 <div className="p-3 text-center flex flex-col items-center gap-2">
-                  <div className="text-sm text-destructive">Error loading beaches</div>
-                  <Button size="sm" variant="outline" onClick={retry}>Retry</Button>
+                  <div className="text-sm text-destructive">
+                    Error loading beaches
+                  </div>
+                  <Button size="sm" variant="outline" onClick={retry}>
+                    Retry
+                  </Button>
                 </div>
               ) : (
                 "No beaches found."
@@ -210,7 +224,9 @@ export function HomeBeachSelector({
                     <Check
                       className={cn(
                         "ml-2 h-4 w-4",
-                        selectedBeach?.id === beach.id ? "opacity-100" : "opacity-0"
+                        selectedBeach?.id === beach.id
+                          ? "opacity-100"
+                          : "opacity-0"
                       )}
                     />
                   </CommandItem>

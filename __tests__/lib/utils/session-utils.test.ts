@@ -33,7 +33,6 @@ function makeSession(
       bio: null,
       location: null,
       experience_level: null,
-      favorite_spot: null,
       instagram: null,
       home_beach_id: null,
       notification_session_reminders: false,

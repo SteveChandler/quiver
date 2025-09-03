@@ -402,7 +402,7 @@ export function createMockProfile(overrides: Partial<any> = {}) {
     id: "profile-123",
     user_id: "test-user-123",
     full_name: "Test User",
-    favorite_spot: "Test Beach",
+    home_beach_id: null,
     followers_count: 10,
     following_count: 5,
     created_at: "2024-01-01T00:00:00Z",

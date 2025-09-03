@@ -36,7 +36,7 @@ import {
 import type { Beach, Profile } from "@/types/database";
 
 const preferencesFormSchema = z.object({
-  home_beach_id: z.string().optional(),
+  home_beach_id: z.string().uuid().nullable().optional(),
   notification_session_reminders: z.boolean().default(false),
   notification_community_replies: z.boolean().default(false),
   inapp_session_invites: z.boolean().default(true),
@@ -62,7 +62,7 @@ export function ProfilePreferences({
   const form = useForm<PreferencesFormValues>({
     resolver: zodResolver(preferencesFormSchema),
     defaultValues: {
-      home_beach_id: profile?.home_beach_id || "",
+      home_beach_id: profile?.home_beach_id ?? null,
       notification_session_reminders:
         profile?.notification_session_reminders || false,
       notification_community_replies:
@@ -75,10 +75,13 @@ export function ProfilePreferences({
   async function onSubmit(data: PreferencesFormValues) {
     if (!userId) return;
 
+    console.debug("[HomeBeach/UI] submit payload", {
+      home_beach_id: form.getValues("home_beach_id"),
+    });
     setIsSubmitting(true);
     try {
       const result = await updateProfile({
-        home_beach_id: data.home_beach_id,
+        home_beach_id: data.home_beach_id ?? null,
         notification_session_reminders: data.notification_session_reminders,
         notification_community_replies: data.notification_community_replies,
         inapp_session_invites: data.inapp_session_invites,
@@ -129,8 +132,13 @@ export function ProfilePreferences({
                   <FormItem>
                     <FormLabel>Home Beach</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      onValueChange={(val) => {
+                        console.debug("[HomeBeach/UI] change", {
+                          selectedId: val,
+                        });
+                        field.onChange(val || null);
+                      }}
+                      value={field.value ?? ""}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -147,7 +155,8 @@ export function ProfilePreferences({
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      This beach will be shown on your home screen and pre-selected when logging new sessions
+                      This beach will be shown on your home screen and
+                      pre-selected when logging new sessions
                     </FormDescription>
                   </FormItem>
                 )}

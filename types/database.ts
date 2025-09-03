@@ -7,7 +7,6 @@ export type Profile = {
   bio: string | null;
   location: string | null;
   experience_level: string | null;
-  favorite_spot: string | null;
   instagram: string | null;
   home_beach_id: string | null;
   notification_session_reminders: boolean;

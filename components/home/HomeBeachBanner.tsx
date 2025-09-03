@@ -3,7 +3,7 @@
 import { useState, startTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useProfile } from "@/lib/hooks/useProfile";
-import { setHomeBeach } from "@/actions/profile-actions";
+import { updateProfile } from "@/actions/profile-actions";
 
 interface HomeBeachBannerProps {
   selectedBeachId: string;
@@ -16,7 +16,10 @@ export function HomeBeachBanner({ selectedBeachId }: HomeBeachBannerProps) {
   async function onSet() {
     setSaving(true);
     try {
-      await setHomeBeach(selectedBeachId);
+      console.debug("[HomeBeach/UI] submit payload", {
+        home_beach_id: selectedBeachId,
+      });
+      await updateProfile({ home_beach_id: selectedBeachId });
       // optimistic refetch
       startTransition(() => mutate());
     } finally {
@@ -29,10 +32,10 @@ export function HomeBeachBanner({ selectedBeachId }: HomeBeachBannerProps) {
 
   return (
     <div data-testid="home-beach-banner">
-      <Button 
-        data-testid="set-home-beach" 
-        disabled={saving} 
-        onClick={onSet} 
+      <Button
+        data-testid="set-home-beach"
+        disabled={saving}
+        onClick={onSet}
         className="w-full"
       >
         {saving ? "Saving..." : "Set Home Beach"}
