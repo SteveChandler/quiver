@@ -4,6 +4,7 @@ import path from "path";
 import satori, { type SatoriOptions } from "satori";
 import { Resvg } from "@resvg/resvg-js";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 // Brand palette sourced from tailwind.config.ts
 const BRAND = {
@@ -89,7 +90,7 @@ export function formatSessionForShare(session: SessionData): {
     ? new Date(session.date)
     : undefined;
 
-  const dateTime = when ? format(when, "MMM d, h:mmaaa") : "";
+  const dateTime = when ? formatInTimeZone(when, "UTC", "MMM d, h:mmaa").replace(/am/, "AM").replace(/pm/, "PM") : "";
   const headline = session.title?.trim() || "Surf Session";
   const subline = [session.beachName, dateTime].filter(Boolean).join(" • ");
 

@@ -8,6 +8,29 @@ jest.mock("framer-motion", () => ({
   },
 }));
 
+// Mock the Avatar UI components
+jest.mock("@/components/ui/avatar", () => ({
+  Avatar: ({ children, className }: any) => (
+    <div data-testid="avatar" className={className}>
+      {children}
+    </div>
+  ),
+  AvatarImage: ({ src, alt, onError, onLoad }: any) => (
+    <img
+      data-testid="avatar-image"
+      src={src}
+      alt={alt}
+      onError={onError}
+      onLoad={onLoad}
+    />
+  ),
+  AvatarFallback: ({ children, className }: any) => (
+    <div data-testid="avatar-fallback" className={className}>
+      {children}
+    </div>
+  ),
+}));
+
 const mockProps = {
   id: "post-1",
   name: "John Doe",
@@ -116,7 +139,7 @@ describe("SocialPostCard", () => {
   it("should apply border styling to avatar", () => {
     render(<SocialPostCard {...mockProps} />);
 
-    const avatarContainer = screen.getByText("John Doe").parentElement?.querySelector("[class*='border-2']");
+    const avatarContainer = screen.getByTestId("avatar");
     expect(avatarContainer).toHaveClass("border-2", "border-white/80");
   });
 
@@ -148,15 +171,23 @@ describe("SocialPostCard", () => {
     it("should handle undefined name gracefully", () => {
       render(<SocialPostCard {...mockProps} name={undefined as any} avatar="" />);
 
-      // Should not crash, but fallback might be empty
-      const fallback = screen.getByText("");
-      expect(fallback).toBeInTheDocument();
+      // Should not crash, fallback should be empty
+      const avatarFallback = screen.getByTestId("avatar-fallback");
+      expect(avatarFallback).toBeInTheDocument();
+      expect(avatarFallback).toHaveTextContent("");
+      
+      // Name should render as empty but component should not crash
+      expect(screen.getByText("Had an epic surf session at Malibu!")).toBeInTheDocument();
     });
 
     it("should handle names with only spaces", () => {
       render(<SocialPostCard {...mockProps} name="   " avatar="" />);
 
-      expect(screen.getByText("   ")).toBeInTheDocument();
+      // React Testing Library normalizes whitespace, so we need to use a more flexible approach
+      const nameElement = screen.getByText((content, element) => {
+        return element?.textContent === "   ";
+      });
+      expect(nameElement).toBeInTheDocument();
     });
 
     it("should handle very long names", () => {
@@ -201,7 +232,7 @@ describe("SocialPostCard", () => {
     it("should handle responsive design", () => {
       render(<SocialPostCard {...mockProps} />);
 
-      const avatar = screen.getByText("John Doe").parentElement?.querySelector("[class*='h-10']");
+      const avatar = screen.getByTestId("avatar");
       expect(avatar).toHaveClass("h-10", "w-10");
     });
   });

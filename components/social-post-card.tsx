@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface SocialPostCardProps {
   id: string;
-  name: string;
+  name: string | null | undefined;
   activity: string;
   imageUrl: string;
   avatar: string;
@@ -32,7 +32,7 @@ export default function SocialPostCard({
         <div className="absolute inset-0">
           <img
             src={imageUrl}
-            alt={`${name}'s surf session`}
+            alt={`${name || "User"}'s surf session`}
             className="w-full h-full object-cover"
           />
         </div>
@@ -41,18 +41,20 @@ export default function SocialPostCard({
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
           <div className="flex items-center space-x-3">
             <Avatar className="h-10 w-10 border-2 border-white/80">
-              <AvatarImage src={avatar} alt={name} />
+              <AvatarImage src={avatar} alt={name || "User"} />
               <AvatarFallback className="bg-ocean-blue text-white font-semibold text-sm">
                 {name
-                  .split(" ")
-                  .map((n) => n.charAt(0))
-                  .join("")
-                  .toUpperCase()}
+                  ? name
+                      .split(" ")
+                      .map((n) => n.charAt(0))
+                      .join("")
+                      .toUpperCase()
+                  : ""}
               </AvatarFallback>
             </Avatar>
             <div>
               <p className="text-white font-roboto font-semibold text-sm leading-tight">
-                {name}
+                {name || ""}
               </p>
               <p className="text-white/90 font-open-sans text-xs leading-tight mt-0.5">
                 {activity}
