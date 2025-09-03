@@ -12,11 +12,17 @@ import { CDIPService } from "@/lib/services/cdip-service";
 const mockEnhancedForecastServiceInstance = {
   generateComprehensiveForecast: jest.fn(),
   storeEnhancedForecasts: jest.fn(),
+  updateAllEnhancedForecasts: jest.fn(),
 };
 
 const mockCDIPServiceInstance = {
+  fetchBuoyData: jest.fn(),
   fetchMultipleStations: jest.fn(),
+  getNearestStation: jest.fn(),
+  fetchStationMetadata: jest.fn(),
   getSouthernCaliforniaStations: jest.fn(),
+  transformToCDIPBuoyData: jest.fn(),
+  getDataQualityScore: jest.fn(),
 };
 
 jest.mock("@/lib/services/enhanced-forecast-service", () => ({
@@ -114,8 +120,8 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
     jest.clearAllMocks();
 
     mockEnhancedForecastService =
-      mockEnhancedForecastServiceInstance as jest.Mocked<EnhancedForecastService>;
-    mockCDIPService = mockCDIPServiceInstance as jest.Mocked<CDIPService>;
+      mockEnhancedForecastServiceInstance as unknown as jest.Mocked<EnhancedForecastService>;
+    mockCDIPService = mockCDIPServiceInstance as unknown as jest.Mocked<CDIPService>;
 
     // Setup default successful responses
     mockEnhancedForecastService.generateComprehensiveForecast.mockResolvedValue(

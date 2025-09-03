@@ -36,7 +36,7 @@ export type Profile = {
   bio: string | null;
   location: string | null;
   experience_level: string | null;
-  default_beach_id: string | null;
+  home_beach_id: string | null; // User's preferred home beach for forecasts
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -143,6 +143,54 @@ export type SessionAnalytics = {
     averageWaveHeight: number;
     sessionCount: number;
   }>;
+};
+```
+
+#### **Gamification Types**
+
+```typescript
+export type XPSource = 
+  | "session_complete"
+  | "first_session"
+  | "streak_3_days" 
+  | "streak_7_days"
+  | "streak_30_days"
+  | "social_share"
+  | "beach_review"
+  | "community_help";
+
+export type Badge = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: "common" | "rare" | "epic" | "legendary";
+  unlock_criteria: string;
+};
+
+export type UserBadge = {
+  id: string;
+  user_id: string;
+  badge_id: string;
+  earned_at: string;
+  is_displayed: boolean;
+};
+
+export type UserXP = {
+  user_id: string;
+  total_xp: number;
+  current_level: number;
+  xp_to_next_level: number;
+  last_updated: string;
+};
+
+export type XPTransaction = {
+  id: string;
+  user_id: string;
+  source: XPSource;
+  amount: number;
+  description: string;
+  created_at: string;
 };
 ```
 

@@ -14,7 +14,7 @@ import { Download, Link, Loader2, Share2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/context/auth-context";
 import { updateSession } from "@/actions/session-actions";
-import toast from "react-hot-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 type Variant = "story" | "square";
 
@@ -60,6 +60,7 @@ export function ShareModal({
   onClose,
   onMadePublic,
 }: ShareModalProps) {
+  const { toast } = useToast();
   const isMobile = useIsMobile();
   const { user } = useAuth();
   const [variant, setVariant] = useState<Variant>(
@@ -105,16 +106,16 @@ export function ShareModal({
       if ((res as any)?.success !== false) {
         setIsPublic(true);
         onMadePublic?.();
-        toast.success("Session is now shareable! 🏄‍♂️");
+        toast({ title: "Session is now shareable! 🏄‍♂️" });
         // Re-warm and reload image post visibility change
         setWarming(true);
         setImgReady(false);
         await fetch(imgUrl, { method: "HEAD" }).catch(() => void 0);
       } else {
-        toast.error("Failed to make session shareable");
+        toast({ title: "Failed to make session shareable", variant: "destructive" });
       }
     } catch (error) {
-      toast.error("Failed to make session shareable");
+      toast({ title: "Failed to make session shareable", variant: "destructive" });
     } finally {
       setUpdating(false);
       setWarming(false);
@@ -138,11 +139,11 @@ export function ShareModal({
       window.URL.revokeObjectURL(url);
 
       if (!hasShownSuccessToast) {
-        toast.success("Image downloaded! 📸");
+        toast({ title: "Image downloaded! 📸" });
         setHasShownSuccessToast(true);
       }
     } catch (error) {
-      toast.error("Failed to download image");
+      toast({ title: "Failed to download image", variant: "destructive" });
     } finally {
       setDownloading(false);
     }
@@ -166,12 +167,12 @@ export function ShareModal({
       });
 
       if (!hasShownSuccessToast) {
-        toast.success("Shared successfully! 🤙");
+        toast({ title: "Shared successfully! 🤙" });
         setHasShownSuccessToast(true);
       }
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
-        toast.error("Failed to share image");
+        toast({ title: "Failed to share image", variant: "destructive" });
       }
     } finally {
       setSharing(false);
@@ -283,13 +284,13 @@ export function ShareModal({
               onLoad={() => {
                 setImgReady(true);
                 if (!hasShownSuccessToast && isPublic) {
-                  toast.success("Your session image is ready! 🏄‍♂️");
+                  toast({ title: "Your session image is ready! 🏄‍♂️" });
                   setHasShownSuccessToast(true);
                 }
               }}
               onError={() => {
                 setImgReady(true);
-                toast.error("Failed to generate image");
+                toast({ title: "Failed to generate image", variant: "destructive" });
               }}
             />
           </div>

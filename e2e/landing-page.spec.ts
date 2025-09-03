@@ -105,11 +105,26 @@ test.describe("Landing Page", () => {
     test("should have call-to-action elements", async ({ page }) => {
       // Wait for any content first
       await page.waitForSelector("body", { timeout: 15000 });
-      await page.waitForTimeout(3000);
+      
+      // Wait for the page to be fully loaded and stable
+      await page.waitForLoadState("networkidle", { timeout: 10000 });
+      await page.waitForTimeout(2000);
 
-      // Look for any buttons or links
-      const buttonCount = await page.locator("button, a[href]").count();
-      expect(buttonCount).toBeGreaterThan(0);
+      try {
+        // Look for any buttons or links - with retry logic
+        const buttonCount = await page.locator("button, a[href]").count();
+        expect(buttonCount).toBeGreaterThan(0);
+      } catch (error) {
+        // If context was destroyed, try one more time after waiting
+        if (error.message.includes("Execution context was destroyed")) {
+          console.log("Context destroyed, retrying CTA element check...");
+          await page.waitForTimeout(1000);
+          const buttonCount = await page.locator("button, a[href]").count();
+          expect(buttonCount).toBeGreaterThan(0);
+        } else {
+          throw error;
+        }
+      }
     });
   });
 

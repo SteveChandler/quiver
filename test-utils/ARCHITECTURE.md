@@ -16,6 +16,38 @@ test-utils/
 
 ## 🧪 **Core Components**
 
+### **0. Jest DOM Type Declarations (/types/jest-dom.d.ts)**
+
+**Purpose**: TypeScript support for Jest DOM testing matchers in all test files.
+
+**Key Features**:
+
+```typescript
+// Global Jest matcher type extensions
+declare global {
+  namespace jest {
+    interface Matchers<R> {
+      toBeInTheDocument(): R;
+      toHaveTextContent(text?: string | RegExp): R;
+      toBeVisible(): R;
+      // ... comprehensive matcher coverage
+    }
+  }
+}
+```
+
+**Usage Patterns**:
+
+- Enables TypeScript autocompletion for Jest DOM matchers
+- Eliminates TypeScript errors in test files using `expect().toBeInTheDocument()`
+- Supports all essential accessibility and DOM testing patterns
+
+**Integration Points**:
+
+- Configured in `tsconfig.json` via `types/**/*.d.ts` inclusion
+- Used across all component and integration tests
+- Provides foundation for accessibility testing standards
+
 ### **1. Navigation Helpers (navigation-helpers.ts)**
 
 **Purpose**: Playwright-specific utilities for end-to-end testing navigation patterns.
@@ -257,6 +289,13 @@ test("mobile navigation flow", async ({ page }) => {
 
 ### **Mock Extension Guidelines**
 
+**Adding New Jest DOM Matchers**:
+
+1. Extend `Matchers<R>` interface in `/types/jest-dom.d.ts`
+2. Follow existing naming conventions (`toBe*`, `toHave*`)
+3. Include proper TypeScript return types
+4. Test the matcher in relevant test suites
+
 **Adding New Router Functionality**:
 
 1. Extend `AppRouterInstance` type
@@ -270,6 +309,13 @@ test("mobile navigation flow", async ({ page }) => {
 2. Include error handling and waiting logic
 3. Document usage patterns
 4. Add to E2E test patterns
+
+**Mock Data Standardization**:
+
+1. Ensure complete interface coverage (no missing properties)
+2. Use realistic data that matches production patterns
+3. Include all required properties with sensible defaults
+4. Follow naming conventions (e.g., `mock*`, `create*`)
 
 ## 🧪 **Test Coverage Strategy**
 

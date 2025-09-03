@@ -11,7 +11,7 @@ components/profile/
 ├── basic-profile-form.tsx    # Core profile information and avatar
 ├── boards-manager.tsx        # Surfboard collection CRUD
 ├── profile-edit-form.tsx     # Composite profile editing page
-├── profile-preferences.tsx   # User preferences and default beach
+├── profile-preferences.tsx   # User preferences and home beach
 ├── recent-sessions-list.tsx  # Recent surf sessions display
 └── user-comments.tsx         # User's comment history
 ```
@@ -150,10 +150,10 @@ const handleDeleteBoard = async () => {
 
 ### **ProfilePreferences** (User Settings)
 
-- **Purpose**: User preferences and default beach selection
+- **Purpose**: User preferences and home beach selection
 - **Props**: `userId, profile, beaches`
 - **Features**:
-  - Default beach selection with search
+  - Home beach selection with search
   - Privacy settings
   - Notification preferences
   - Display preferences
@@ -164,10 +164,10 @@ const handleDeleteBoard = async () => {
 // Beach selection with search
 <FormField
   control={form.control}
-  name="default_beach_id"
+name="home_beach_id"
   render={({ field }) => (
     <FormItem>
-      <FormLabel>Default Beach</FormLabel>
+      <FormLabel>Home Beach</FormLabel>
       <Select onValueChange={field.onChange} defaultValue={field.value}>
         <SelectContent>
           {beaches.map((beach) => (

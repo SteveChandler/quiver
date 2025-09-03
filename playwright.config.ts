@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+const BASE_URL = process.env.BASE_URL || "http://localhost:3002";
 const VERCEL_BYPASS = process.env.VERCEL_BYPASS;
 
 export default defineConfig({
@@ -101,10 +101,13 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: BASE_URL.startsWith("http://localhost")
     ? {
-        command: "npm run dev -- --port 3000 --hostname 0.0.0.0",
-        url: "http://localhost:3000",
+        command: "PORT=3002 npm run dev",
+        url: "http://localhost:3002",
         reuseExistingServer: true,
         timeout: 120 * 1000,
+        env: {
+          PORT: "3002",
+        },
       }
     : undefined,
 });

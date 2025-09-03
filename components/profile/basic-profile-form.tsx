@@ -48,13 +48,9 @@ const profileFormSchema = z.object({
     .string()
     .max(50, "Experience level must be less than 50 characters")
     .optional(),
-  favorite_spot: z
-    .string()
-    .max(100, "Home Break must be less than 100 characters")
-    .optional(),
   instagram: z
     .string()
-    .max(100, "Instagram handle must be less than 100 characters")
+    .max(30, "Instagram username must be less than 30 characters")
     .optional(),
 });
 
@@ -86,8 +82,7 @@ export function BasicProfileForm({
       bio: profile?.bio || "",
       location: profile?.location || "",
       experience_level: profile?.experience_level || "",
-      favorite_spot: profile?.favorite_spot || "",
-      instagram: profile?.instagram || "",
+      instagram: (profile as any)?.instagram || "",
     },
   });
 
@@ -115,9 +110,8 @@ export function BasicProfileForm({
         bio: data.bio,
         location: data.location,
         experience_level: data.experience_level,
-        favorite_spot: data.favorite_spot,
-        instagram: data.instagram,
-        avatar_url: avatarUrl,
+        instagram: (data as any).instagram,
+        ...(avatarUrl && avatarUrl !== "" ? { avatar_url: avatarUrl } : {}),
       });
 
       if (!result.success) {
@@ -424,19 +418,7 @@ export function BasicProfileForm({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="favorite_spot"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Home Break</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Your home break" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {null}
             </div>
 
             {/* Social Media */}

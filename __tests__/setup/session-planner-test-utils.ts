@@ -251,6 +251,7 @@ export const mockForecasts = [
     wind_direction: "NE",
     confidence_score: 0.85,
     weather_condition: "Clear",
+    swell_period: 12,
     created_at: "2024-01-16T00:00:00Z",
   },
   {
@@ -263,6 +264,7 @@ export const mockForecasts = [
     wind_direction: "E",
     confidence_score: 0.8,
     weather_condition: "Partly Cloudy",
+    swell_period: 10,
     created_at: "2024-01-16T00:00:00Z",
   },
 ];
@@ -277,10 +279,13 @@ export const mockUser = {
 // Mock auth context
 export const mockAuthContext = {
   user: mockUser,
-  loading: false,
+  session: null,
+  isLoading: false,
+  isAuthenticated: false,
+  signUp: jest.fn(),
   signIn: jest.fn(),
   signOut: jest.fn(),
-  signUp: jest.fn(),
+  refreshSession: jest.fn(),
 };
 
 // Mock useDataFetcher responses

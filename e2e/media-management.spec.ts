@@ -16,7 +16,7 @@ test.describe("Media/Photo Management", () => {
     test("should upload photos during session creation", async ({ page }) => {
       await handleAuthRedirect(page);
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       // Fill basic session information first
@@ -95,7 +95,7 @@ test.describe("Media/Photo Management", () => {
     test("should validate photo file types", async ({ page }) => {
       await handleAuthRedirect(page);
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const fileInput = page.locator('input[type="file"]');
@@ -122,7 +122,7 @@ test.describe("Media/Photo Management", () => {
     test("should handle large photo files", async ({ page }) => {
       await handleAuthRedirect(page);
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const fileInput = page.locator('input[type="file"]');
@@ -156,7 +156,7 @@ test.describe("Media/Photo Management", () => {
     test("should show photo upload progress", async ({ page }) => {
       await handleAuthRedirect(page);
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const fileInput = page.locator('input[type="file"]');
@@ -552,7 +552,7 @@ test.describe("Media/Photo Management", () => {
     test("should compress large images automatically", async ({ page }) => {
       await handleAuthRedirect(page);
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const fileInput = page.locator('input[type="file"]');
@@ -651,7 +651,7 @@ test.describe("Media/Photo Management", () => {
 
       await handleAuthRedirect(page);
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const fileInput = page.locator('input[type="file"]');
@@ -784,7 +784,7 @@ test.describe("Media/Photo Management", () => {
       // Mock upload failure
       await page.route("**/api/media/**", (route) => route.abort());
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const fileInput = page.locator('input[type="file"]');
@@ -814,7 +814,7 @@ test.describe("Media/Photo Management", () => {
     test("should handle corrupted images", async ({ page }) => {
       await handleAuthRedirect(page);
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const fileInput = page.locator('input[type="file"]');
@@ -852,7 +852,7 @@ test.describe("Media/Photo Management", () => {
         })
       );
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const fileInput = page.locator('input[type="file"]');

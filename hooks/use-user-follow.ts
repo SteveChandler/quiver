@@ -115,7 +115,7 @@ export function useUserFollow(
           table: "user_follows",
           filter: `following_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: any) => {
           setFollowersCount((prev) => {
             const newCount = prev + 1;
             // Notify parent component of follower count change
@@ -142,7 +142,7 @@ export function useUserFollow(
           table: "user_follows",
           filter: `following_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: any) => {
           setFollowersCount((prev) => {
             const newCount = Math.max(0, prev - 1);
             // Notify parent component of follower count change
@@ -191,7 +191,10 @@ export function useUserFollow(
       // Optimistically update the UI
       // The real-time subscription will also update these values,
       // but optimistic updates provide better UX
-      if (result.following) {
+      // Check if the action was a follow (result contains followId) or unfollow
+      const isFollowAction = result.success && result.data && 'followId' in result.data;
+      
+      if (isFollowAction) {
         setFollowing(true);
         setFollowersCount((prev) => {
           const newCount = prev + 1;

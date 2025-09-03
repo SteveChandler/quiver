@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
 import { KpiTile } from "@/components/ui/kpi-tile";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
+import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getForecastForToday } from "@/actions/forecast-actions";
@@ -25,21 +26,21 @@ import type { Profile, Forecast, Beach } from "@/types/database";
 
 interface ForecastTabProps {
   profile: Profile | null;
-  defaultBeach?: Beach | null;
+  homeBeach?: Beach | null;
   overrideBeach?: Beach | null;
 }
 
 export function ForecastTab({
   profile,
-  defaultBeach,
+  homeBeach,
   overrideBeach,
 }: ForecastTabProps) {
   const router = useRouter();
   const [showAdjusted, setShowAdjusted] = useState(false);
 
-  // When no default beach is set, pick a popular beach to display instead
+  // When no home beach is set, pick a popular beach to display instead
   const fetchPopularBeach = useCallback(async () => {
-    if (defaultBeach?.id) {
+    if (homeBeach?.id) {
       return null;
     }
 
@@ -66,29 +67,29 @@ export function ForecastTab({
       )
       .find(Boolean);
     return (byIncludes as Beach) || beaches[0] || null;
-  }, [defaultBeach?.id]);
+  }, [homeBeach?.id]);
 
   const { data: popularBeach, loading: popularLoading } = useDataFetcher(
     fetchPopularBeach,
-    { skip: !!defaultBeach?.id, initialData: null }
+    { skip: !!homeBeach?.id, initialData: null }
   );
 
   const effectiveBeach = (overrideBeach ||
-    defaultBeach ||
+    homeBeach ||
     popularBeach) as Beach | null;
-  const isFallback = !defaultBeach && !!popularBeach;
+  const isFallback = !homeBeach && !!popularBeach;
 
   // Get forecast for effective beach
   const fetchTodaysForecast = useCallback(async () => {
     console.log("🌊 ForecastTab fetchTodaysForecast called:", {
-      hasDefaultBeach: !!defaultBeach,
+      hasHomeBeach: !!homeBeach,
       usingFallback: isFallback,
       beachId: effectiveBeach?.id,
       beachName: effectiveBeach?.name,
     });
 
     if (!effectiveBeach?.id) {
-      console.log("❌ No defaultBeach.id, returning null");
+      console.log("❌ No homeBeach.id, returning null");
       return null;
     }
 
@@ -99,7 +100,7 @@ export function ForecastTab({
     const result = await getForecastForToday(effectiveBeach.id);
     console.log("📊 getForecastForToday result:", result);
     return result;
-  }, [effectiveBeach?.id, isFallback, defaultBeach]);
+  }, [effectiveBeach?.id, isFallback, homeBeach]);
 
   const {
     data: todaysForecast,
@@ -174,6 +175,10 @@ export function ForecastTab({
   ) {
     return (
       <div className="space-y-4">
+        {/* Ensure the Set Home Beach banner is available even while loading */}
+        {isFallback && effectiveBeach?.id && (
+          <HomeBeachBanner selectedBeachId={effectiveBeach.id} />
+        )}
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
           <div className="h-32 bg-gray-200 rounded"></div>
@@ -203,23 +208,9 @@ export function ForecastTab({
 
   return (
     <div className="space-y-4">
-      {isFallback && (
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between gap-3">
-            <div className="text-left">
-              <p className="text-sm font-medium">
-                Showing popular beach forecast
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Set your default beach in your profile to personalize your home
-                feed.
-              </p>
-            </div>
-            <Button onClick={() => router.push("/profile?edit=true")} size="sm">
-              Set Default Beach
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Show home beach banner when no beach is set or using fallback */}
+      {isFallback && effectiveBeach?.id && (
+        <HomeBeachBanner selectedBeachId={effectiveBeach.id} />
       )}
       {/* Beach Header */}
       <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white">
@@ -294,8 +285,8 @@ export function ForecastTab({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Wave Height */}
               {(() => {
-                const raw = (todaysForecast.wave_height || "").toString();
-                const match = raw.match(/([\d.]+)/);
+                const raw = (todaysForecast?.wave_height || "").toString();
+                const match = raw && raw.match(/([\d.]+)/);
                 const value = match ? Number(match[1]).toFixed(1) : "—";
                 const unit = match ? "ft" : undefined;
                 return (
@@ -312,16 +303,17 @@ export function ForecastTab({
 
               {/* Wind Speed */}
               {(() => {
-                const raw = (todaysForecast.wind_speed || "").toString();
-                const match = raw.match(/([\d.]+)/);
+                const raw = (todaysForecast?.wind_speed || "").toString();
+                const match = raw && raw.match(/([\d.]+)/);
                 const value = match ? Number(match[1]).toFixed(0) : "—";
-                const unit = match
-                  ? raw.toLowerCase().includes("mph")
-                    ? "mph"
-                    : raw.toLowerCase().includes("kts")
-                    ? "kts"
-                    : undefined
-                  : undefined;
+                const unit =
+                  match && raw
+                    ? raw.toLowerCase().includes("mph")
+                      ? "mph"
+                      : raw.toLowerCase().includes("kts")
+                      ? "kts"
+                      : undefined
+                    : undefined;
                 return (
                   <KpiTile
                     value={value}
@@ -336,18 +328,19 @@ export function ForecastTab({
 
               {/* Water Temp */}
               {(() => {
-                const raw = (todaysForecast.water_temp || "").toString();
-                const match = raw.match(/([\d.]+)/);
+                const raw = (todaysForecast?.water_temp || "").toString();
+                const match = raw && raw.match(/([\d.]+)/);
                 const value = match ? Number(match[1]).toFixed(0) : "—";
-                const unit = match
-                  ? raw.includes("°")
-                    ? raw.slice(raw.indexOf("°"))
-                    : raw.toLowerCase().includes("f")
-                    ? "°F"
-                    : raw.toLowerCase().includes("c")
-                    ? "°C"
-                    : undefined
-                  : undefined;
+                const unit =
+                  match && raw
+                    ? raw.includes("°")
+                      ? raw.slice(raw.indexOf("°"))
+                      : raw.toLowerCase().includes("f")
+                      ? "°F"
+                      : raw.toLowerCase().includes("c")
+                      ? "°C"
+                      : undefined
+                    : undefined;
                 return (
                   <KpiTile
                     value={value}
@@ -362,7 +355,7 @@ export function ForecastTab({
 
               {/* Confidence */}
               {(() => {
-                const num = Math.round(todaysForecast.confidence_score || 0);
+                const num = Math.round(todaysForecast?.confidence_score || 0);
                 return (
                   <KpiTile
                     value={num}
@@ -402,23 +395,6 @@ export function ForecastTab({
                 </div>
               </div>
             )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              <Button
-                onClick={() => router.push("/plan-session")}
-                className="flex-1 bg-ocean-blue hover:bg-ocean-blue/90"
-              >
-                Plan Session
-              </Button>
-              <Button
-                onClick={() => router.push("/log-session")}
-                variant="outline"
-                className="flex-1"
-              >
-                Log Session
-              </Button>
-            </div>
 
             {/* Local Intel for this beach */}
             <div className="mt-4">

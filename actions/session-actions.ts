@@ -12,8 +12,23 @@ import type {
   Beach,
   SessionMedia,
 } from "@/types/database";
+import type { SessionFormState } from "@/hooks/use-session-form";
+import { 
+  transformSessionFormStateToDbSchema, 
+  sanitizeSessionPayload 
+} from "@/lib/utils/session-utils";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+// Optional XP tracking - imported dynamically to avoid circular dependency
+async function trackXPOptional(action: string, entityId?: string, entityType?: string) {
+  try {
+    const { trackXP } = await import("@/lib/gamification-actions");
+    await trackXP(action as any, entityId, entityType as any);
+  } catch (error) {
+    console.warn("XP tracking failed:", error);
+  }
+}
 
 type SessionInput = Omit<
   Session,
@@ -94,7 +109,7 @@ export async function getUserSessions(userId: string, limit?: number) {
                 .single();
               beach = beachData;
             } catch (beachError) {
-              console.warn("Could not fetch beach for session:", session.id, beachError);
+              // Beach fetch failed, continue with null
             }
           }
           
@@ -111,7 +126,7 @@ export async function getUserSessions(userId: string, limit?: number) {
                 user = userData;
               }
             } catch (userError) {
-              console.warn("Could not fetch user for session:", session.id, userError);
+              // User fetch failed, continue with default
             }
           }
           
@@ -158,7 +173,6 @@ export async function getUserSessionsByDateRange(
 
     return { success: true, data: data as SessionWithDetails[] };
   } catch (error) {
-    console.error("Error fetching user sessions by date range:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -190,7 +204,6 @@ export async function getSessionById(id: string, userId: string) {
 
     return { success: true, data: data as SessionWithDetails };
   } catch (error) {
-    console.error("Error fetching session:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -222,7 +235,6 @@ export async function getPublicSessions(limit = 10) {
 
     return { success: true, data: data as SessionWithDetails[] };
   } catch (error) {
-    console.error("Error fetching public sessions:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -248,10 +260,10 @@ export async function updateSession(
   const supabase = await createSupabaseServerClient();
 
   try {
-    // First, get the current session to check if board_id is changing
+    // First, get the current session to check if board_id/water_temp and arrays are changing
     const { data: currentSession, error: fetchError } = await supabase
       .from("sessions")
-      .select("board_id")
+      .select("board_id, water_temp, invitee_ids, goals")
       .eq("id", id)
       .eq("user_id", userId)
       .single();
@@ -307,14 +319,65 @@ export async function updateSession(
           })
           .eq("id", sessionData.board_id)
           .eq("user_id", userId);
+
+        // Track XP for tagging a board to a session (non-blocking)
+        try {
+          await trackXPOptional("tag_board_to_session", id, "session");
+        } catch (xpError) {
+          // Ignore XP errors
+        }
       }
+    }
+
+    // Track XP for recording water temperature (first-time record)
+    try {
+      const prevTemp = currentSession?.water_temp;
+      const newTemp = (sessionData as any)?.water_temp;
+      const hasNewTemp = typeof newTemp === 'string' && newTemp.trim().length > 0;
+      const hadNoTempBefore = !prevTemp || String(prevTemp).trim().length === 0;
+      if (hasNewTemp && hadNoTempBefore) {
+        await trackXPOptional("record_temperature", id, "session");
+      }
+    } catch (xpError) {
+      // Non-blocking
+    }
+
+    // Track XP for tagging friends (on first-time additions)
+    try {
+      if (Array.isArray((sessionData as any)?.invitee_ids)) {
+        const prev = Array.isArray((currentSession as any)?.invitee_ids)
+          ? new Set<string>((currentSession as any).invitee_ids)
+          : new Set<string>();
+        const next: string[] = (sessionData as any).invitee_ids || [];
+        const added = next.filter((uid) => uid && !prev.has(uid));
+        if (added.length > 0) {
+          await trackXPOptional("tag_friends_in_session", id, "session");
+        }
+      }
+    } catch (xpError) {
+      // Non-blocking
+    }
+
+    // Track XP for adding surf tags (treat changes in goals as tags)
+    try {
+      if (Array.isArray((sessionData as any)?.goals)) {
+        const prev = Array.isArray((currentSession as any)?.goals)
+          ? new Set<string>((currentSession as any).goals)
+          : new Set<string>();
+        const next: string[] = (sessionData as any).goals || [];
+        const added = next.filter((g) => g && !prev.has(g));
+        if (added.length > 0) {
+          await trackXPOptional("add_surf_tags", id, "session");
+        }
+      }
+    } catch (xpError) {
+      // Non-blocking
     }
 
     revalidatePath("/sessions");
     revalidatePath("/profile");
     return { success: true, data: data as Session };
   } catch (error) {
-    console.error("Error updating session:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -340,7 +403,6 @@ export async function updateSessionForm(
       .single();
 
     if (error) {
-      console.error("Error updating session:", error);
       throw new Error("Failed to update session");
     }
 
@@ -398,29 +460,76 @@ export async function deleteSession(id: string, userId: string) {
 
 /**
  * Create a new logged (completed) surf session
+ * Accepts either SessionFormState or SessionInput for backward compatibility
  */
-export async function createLoggedSession(data: SessionInput, userId: string) {
+export async function createLoggedSession(data: SessionFormState | SessionInput) {
   return withAuthenticatedAction(async (user, supabase) => {
-    // Verify the passed userId matches the authenticated user
-    if (user.id !== userId) {
-      throw new Error("User ID mismatch");
+
+    // Transform SessionFormState to database schema if needed
+    let sessionData: Partial<Session>;
+    if ('selectedBeach' in data || 'selectedBeachId' in data || 'boardId' in data) {
+      // This is SessionFormState, transform it
+      sessionData = transformSessionFormStateToDbSchema(data as SessionFormState);
+    } else {
+      // This is already SessionInput, use as-is
+      sessionData = data as SessionInput;
     }
 
     // Create the session with completed status
-    const cleaned = sanitizePayload(data);
+    const cleaned = sanitizeSessionPayload(sessionData);
+    
+    // CRITICAL: Ensure we have a valid beach_id before creating session
+    if (!cleaned.beach_id) {
+      // If we have beach_name but no beach_id, try to find existing beach only
+      if (cleaned.beach_name) {
+        
+        // Try to find existing beach by name (case-insensitive)
+        const { data: existingBeach, error: lookupError } = await supabase
+          .from("beaches")
+          .select("id")
+          .ilike("name", cleaned.beach_name)
+          .limit(1)
+          .single();
+        
+        if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows returned
+          throw new Error(`Failed to lookup beach: ${lookupError.message}`);
+        }
+        
+        if (existingBeach) {
+          cleaned.beach_id = existingBeach.id;
+        } else {
+          // Beach doesn't exist - require user to select from existing beaches
+          throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
+        }
+      } else {
+        // No beach_id or beach_name provided
+        throw new Error("Please select a beach from the dropdown menu.");
+      }
+    }
+    
+    const finalPayload = {
+      ...cleaned,
+      user_id: user.id,
+      profile_id: user.id, // Add profile_id to satisfy the constraint
+      status: "completed",
+    };
+
     const { data: session, error } = await supabase
       .from("sessions")
-      .insert({
-        ...cleaned,
-        user_id: user.id,
-        profile_id: user.id, // Add profile_id to satisfy the constraint
-        status: "completed",
-      })
+      .insert(finalPayload)
       .select()
       .single();
 
     if (error) {
-      throw error;
+      throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
+    }
+
+    // Track XP for logging a completed session
+    try {
+      await trackXPOptional("plan_session", session.id, "session");
+    } catch (xpError) {
+      console.error("Failed to track XP for logged session:", xpError);
+      // Don't fail the session creation if XP tracking fails
     }
 
     revalidatePath("/sessions");
@@ -431,29 +540,76 @@ export async function createLoggedSession(data: SessionInput, userId: string) {
 
 /**
  * Create a new planned surf session
+ * Accepts either SessionFormState or SessionInput for backward compatibility
  */
-export async function createPlannedSession(data: SessionInput, userId: string) {
+export async function createPlannedSession(data: SessionFormState | SessionInput) {
   return withAuthenticatedAction(async (user, supabase) => {
-    // Verify the passed userId matches the authenticated user
-    if (user.id !== userId) {
-      throw new Error("User ID mismatch");
+
+    // Transform SessionFormState to database schema if needed
+    let sessionData: Partial<Session>;
+    if ('selectedBeach' in data || 'selectedBeachId' in data || 'boardId' in data) {
+      // This is SessionFormState, transform it
+      sessionData = transformSessionFormStateToDbSchema(data as SessionFormState);
+    } else {
+      // This is already SessionInput, use as-is
+      sessionData = data as SessionInput;
     }
 
     // Create the session with planned status
-    const cleaned = sanitizePayload(data);
+    const cleaned = sanitizeSessionPayload(sessionData);
+    
+    // CRITICAL: Ensure we have a valid beach_id before creating session
+    if (!cleaned.beach_id) {
+      // If we have beach_name but no beach_id, try to find existing beach only
+      if (cleaned.beach_name) {
+        
+        // Try to find existing beach by name (case-insensitive)
+        const { data: existingBeach, error: lookupError } = await supabase
+          .from("beaches")
+          .select("id")
+          .ilike("name", cleaned.beach_name)
+          .limit(1)
+          .single();
+        
+        if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows returned
+          throw new Error(`Failed to lookup beach: ${lookupError.message}`);
+        }
+        
+        if (existingBeach) {
+          cleaned.beach_id = existingBeach.id;
+        } else {
+          // Beach doesn't exist - require user to select from existing beaches
+          throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
+        }
+      } else {
+        // No beach_id or beach_name provided
+        throw new Error("Please select a beach from the dropdown menu.");
+      }
+    }
+    
+    const finalPayload = {
+      ...cleaned,
+      user_id: user.id,
+      profile_id: user.id, // Add profile_id to satisfy the constraint
+      status: "planned",
+    };
+
     const { data: session, error } = await supabase
       .from("sessions")
-      .insert({
-        ...cleaned,
-        user_id: user.id,
-        profile_id: user.id, // Add profile_id to satisfy the constraint
-        status: "planned",
-      })
+      .insert(finalPayload)
       .select()
       .single();
 
     if (error) {
-      throw error;
+      throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
+    }
+
+    // Track XP for planning a session
+    try {
+      await trackXPOptional("plan_session", session.id, "session");
+    } catch (xpError) {
+      console.error("Failed to track XP for planned session:", xpError);
+      // Don't fail the session creation if XP tracking fails
     }
 
     revalidatePath("/sessions");
@@ -478,8 +634,15 @@ export async function addBoard(data: BoardInput) {
       .single();
 
     if (error) {
-      console.error("Error adding board:", error);
       throw new Error("Failed to add board");
+    }
+
+    // Track XP for adding a board
+    try {
+      await trackXPOptional("add_board", board.id, "board");
+    } catch (xpError) {
+      console.error("Failed to track XP for board addition:", xpError);
+      // Don't fail the board creation if XP tracking fails
     }
 
     revalidatePath("/quiver");
@@ -531,7 +694,6 @@ export async function uploadSessionMedia(
     });
 
   if (uploadError) {
-    console.error("Error uploading file:", uploadError);
     throw new Error("Failed to upload file");
   }
 
@@ -547,8 +709,14 @@ export async function uploadSessionMedia(
     .single();
 
   if (mediaError) {
-    console.error("Error recording media:", mediaError);
     throw new Error("Failed to record media");
+  }
+
+  // Track XP for posting surf photos (non-blocking)
+  try {
+    await trackXPOptional("post_surf_photos", media.id, "photo");
+  } catch (xpError) {
+    // Ignore XP errors
   }
 
   revalidatePath(`/sessions/${sessionId}`);
@@ -583,7 +751,6 @@ export async function getSessionsByBeach(beachId: string, limit = 10) {
 
     return { success: true, data: data as SessionWithDetails[] };
   } catch (error) {
-    console.error("Error fetching beach sessions:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -612,7 +779,6 @@ export async function getAllSessions(limit = 20) {
     .limit(limit);
 
   if (error) {
-    console.error("Error fetching community sessions:", error);
 
     // Enhanced fallback: get basic sessions and manually resolve relationships
     const { data: basicSessions, error: basicError } = await supabase
@@ -622,7 +788,6 @@ export async function getAllSessions(limit = 20) {
       .limit(limit);
 
     if (basicError) {
-      console.error("Error with basic query:", basicError);
       throw new Error("Failed to fetch sessions");
     }
 
@@ -641,7 +806,7 @@ export async function getAllSessions(limit = 20) {
               .single();
             beach = beachData;
           } catch (beachError) {
-            console.warn("Could not fetch beach for session:", session.id, beachError);
+            // Beach fetch failed, continue with null
           }
         }
         
@@ -658,7 +823,7 @@ export async function getAllSessions(limit = 20) {
               user = userData;
             }
           } catch (userError) {
-            console.warn("Could not fetch user for session:", session.id, userError);
+            // User fetch failed, continue with default
           }
         }
         
@@ -748,6 +913,26 @@ export async function updatePlannedSessionToCompleted(
 
     if (updateError) {
       throw updateError;
+    }
+
+    // Track XP for adding a reflection if notes/rating-like fields provided
+    try {
+      if ((completedData?.notes && completedData.notes.trim().length > 0) ||
+          typeof completedData?.rating === 'number' ||
+          typeof completedData?.wave_quality === 'number') {
+        await trackXPOptional("write_reflection", sessionId, "session");
+      }
+    } catch (xpError) {
+      // Non-blocking
+    }
+
+    // Track XP for recording water temperature when provided on completion
+    try {
+      if (completedData?.water_temp && String(completedData.water_temp).trim().length > 0) {
+        await trackXPOptional("record_temperature", sessionId, "session");
+      }
+    } catch (xpError) {
+      // Non-blocking
     }
 
     revalidatePath("/sessions");

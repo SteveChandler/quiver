@@ -16,12 +16,12 @@ test.describe("Login Functionality Verification", () => {
       }
     });
 
-    console.log(">ê COMPREHENSIVE LOGIN TEST");
+    console.log(">ï¿½ COMPREHENSIVE LOGIN TEST");
     console.log("Testing credentials: salidfingers@duck.com / SCquiver1!");
     
     // Step 1: Test API directly
     console.log("\n1. Testing API endpoint directly...");
-    const apiResponse = await page.request.post("http://localhost:3001/api/auth/supabase", {
+    const apiResponse = await page.request.post("http://localhost:3002/api/auth/supabase", {
       data: {
         email: "salidfingers@duck.com",
         password: "SCquiver1!"
@@ -45,7 +45,7 @@ test.describe("Login Functionality Verification", () => {
     // Step 2: Test browser form submission
     console.log("\n2. Testing browser form submission...");
     
-    await page.goto("http://localhost:3001/auth/sign-in");
+    await page.goto("http://localhost:3002/auth/sign-in");
     await page.waitForLoadState("load");
     
     // Check if form is present
@@ -102,15 +102,15 @@ test.describe("Login Functionality Verification", () => {
       
       // Test protected page access
       console.log("\n3. Testing protected page access...");
-      await page.goto("http://localhost:3001/log-session");
+      await page.goto("http://localhost:3002/log-session");
       await page.waitForTimeout(2000);
       
       const protectedPageUrl = page.url();
       console.log(`   Protected page URL: ${protectedPageUrl}`);
       
-      if (protectedPageUrl.includes("/log-session") && !protectedPageUrl.includes("/auth/sign-in")) {
+      if (protectedPageUrl.includes("/sessions/new?mode=log") && !protectedPageUrl.includes("/auth/sign-in")) {
         console.log("    Can access protected pages - authentication fully working");
-        console.log("\n<‰ CONCLUSION: Login functionality is working correctly!");
+        console.log("\n<ï¿½ CONCLUSION: Login functionality is working correctly!");
       } else {
         console.log("   L Cannot access protected pages - partial auth failure");
       }

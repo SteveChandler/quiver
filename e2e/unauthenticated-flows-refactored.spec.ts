@@ -129,8 +129,8 @@ test.describe("Unauthenticated User Flows (Refactored)", () => {
     }) => {
       const protectedRoutes = [
         { path: "/profile", name: "profile" },
-        { path: "/log-session", name: "session logging" },
-        { path: "/plan-session", name: "session planning" },
+        { path: "/sessions/new?mode=log", name: "session logging" },
+        { path: "/sessions/new?mode=plan", name: "session planning" },
       ];
 
       for (const route of protectedRoutes) {

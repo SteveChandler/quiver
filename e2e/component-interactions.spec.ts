@@ -84,7 +84,7 @@ test.describe("Component Interactions", () => {
       page,
     }) => {
       // Navigate to session logging
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await waitForPageLoad(page);
 
       // Test beach selection
@@ -153,7 +153,7 @@ test.describe("Component Interactions", () => {
 
     test("validates form submissions properly", async ({ page }) => {
       // Test session planning form
-      await page.goto("/plan-session");
+      await page.goto("/sessions/new?mode=plan");
       await waitForPageLoad(page);
 
       // Try to submit without required fields
@@ -182,7 +182,7 @@ test.describe("Component Interactions", () => {
 
     test("handles async form operations", async ({ page }) => {
       // Test operations that involve API calls
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await waitForPageLoad(page);
 
       // Fill out a complete form

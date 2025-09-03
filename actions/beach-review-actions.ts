@@ -10,6 +10,15 @@ import {
   calculateMultipleBeachStats,
   type ReviewStats,
 } from "@/lib/review-stats-utils";
+// Optional XP tracking - imported dynamically to avoid circular dependency
+async function trackXPOptional(action: string, entityId?: string, entityType?: string) {
+  try {
+    const { trackXP } = await import("@/lib/gamification-actions");
+    await trackXP(action as any, entityId, entityType as any);
+  } catch (error) {
+    console.warn("XP tracking failed:", error);
+  }
+}
 
 export async function getBeachReviews(beachId: string) {
   return withErrorHandling(async () => {
@@ -87,6 +96,19 @@ export async function createBeachReview(reviewData: {
 
     if (error) {
       handleSupabaseError(error, "createBeachReview");
+    }
+
+    // Track XP for posting beach intel/review
+    try {
+      await trackXPOptional("review_intel", data.id, "review");
+      
+      // Additional XP if crowd/parking info provided
+      if (reviewData.crowd_density_rating || reviewData.parking_rating) {
+        await trackXPOptional("submit_crowd_parking", data.id, "review");
+      }
+    } catch (xpError) {
+      console.error("Failed to track XP for beach review:", xpError);
+      // Don't fail the review creation if XP tracking fails
     }
 
     // Update beach average ratings

@@ -279,8 +279,8 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     return normalizedBeachName.includes(normalizedSearchQuery);
   };
 
-  // Helper function to get default beach (Pacific Beach) for users without a default beach
-  const getDefaultBeachForForecast = async (): Promise<Beach | null> => {
+  // Helper: get a fallback beach (Pacific Beach) for users without a home beach
+  const getFallbackBeachForForecast = async (): Promise<Beach | null> => {
     try {
       const result = await getBeaches();
       if (result.success && result.data) {
@@ -306,50 +306,12 @@ export function BeachSearch({ profile }: BeachSearchProps) {
         return result.data[0] || null;
       }
     } catch (error) {
-      console.error("Error getting default beach:", error);
+      console.error("Error getting fallback beach:", error);
     }
     return null;
   };
 
-  // Helper function to migrate favorite_spot to default_beach_id
-  const migrateFavoriteSpotToDefaultBeach = async (
-    profile: any
-  ): Promise<string | null> => {
-    if (profile?.default_beach_id || !profile?.favorite_spot) {
-      return profile?.default_beach_id || null;
-    }
-
-    try {
-      // Try to find a beach that matches the favorite_spot text
-      const result = await getBeaches();
-      if (result.success && result.data) {
-        const favoriteSpotText = profile.favorite_spot.toLowerCase().trim();
-        const matchingBeach = result.data.find(
-          (beach) =>
-            beach.name.toLowerCase().includes(favoriteSpotText) ||
-            favoriteSpotText.includes(beach.name.toLowerCase())
-        );
-
-        if (matchingBeach) {
-          console.log(
-            `Auto-migrating favorite spot "${profile.favorite_spot}" to beach ID:`,
-            matchingBeach.id
-          );
-          // Update the profile with the matched beach ID
-          try {
-            await updateProfile({ default_beach_id: matchingBeach.id });
-            return matchingBeach.id;
-          } catch (updateError) {
-            console.error("Failed to auto-update default beach:", updateError);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error during favorite spot migration:", error);
-    }
-
-    return null;
-  };
+  // Legacy migration removed: we now rely solely on home_beach_id with no backfill
 
   // Initialize component based on profile
   useEffect(() => {
@@ -357,28 +319,21 @@ export function BeachSearch({ profile }: BeachSearchProps) {
 
     const initializeComponent = async () => {
       try {
-        // Check if we have a profile with a default beach (or can migrate one)
-        let defaultBeachId = profile?.default_beach_id;
+        // Check if we have a profile with a home beach only
+        const homeBeachId = profile?.home_beach_id || null;
 
-        // Auto-migrate from favorite_spot if needed
-        if (!defaultBeachId && profile?.favorite_spot) {
-          defaultBeachId = await migrateFavoriteSpotToDefaultBeach(profile);
-        }
-
-        if (defaultBeachId) {
+        if (homeBeachId) {
           setIsWaitingForProfile(false);
 
-          const beachResult = await getBeachById(defaultBeachId);
+          const beachResult = await getBeachById(homeBeachId);
 
           if (beachResult.success && beachResult.data) {
             setBeach(beachResult.data);
             setQuery(beachResult.data.name);
             setOriginalSearchQuery(beachResult.data.name);
 
-            // Fetch enhanced forecast for the default beach
-            const enhancedForecast = await fetchEnhancedForecast(
-              defaultBeachId
-            );
+            // Fetch enhanced forecast for the home beach
+            const enhancedForecast = await fetchEnhancedForecast(homeBeachId);
 
             if (enhancedForecast) {
               console.log(
@@ -392,28 +347,28 @@ export function BeachSearch({ profile }: BeachSearchProps) {
             }
           }
         } else {
-          // No profile or default beach, show Pacific Beach forecast by default
+          // No profile or home beach: show Pacific Beach forecast by default
           setIsWaitingForProfile(false);
 
-          const defaultBeach = await getDefaultBeachForForecast();
-          if (defaultBeach) {
-            setBeach(defaultBeach);
-            setQuery(defaultBeach.name);
-            setOriginalSearchQuery(defaultBeach.name);
+          const fallbackBeach = await getFallbackBeachForForecast();
+          if (fallbackBeach) {
+            setBeach(fallbackBeach);
+            setQuery(fallbackBeach.name);
+            setOriginalSearchQuery(fallbackBeach.name);
 
             // Fetch enhanced forecast for Pacific Beach
             const enhancedForecast = await fetchEnhancedForecast(
-              defaultBeach.id
+              fallbackBeach.id
             );
 
             if (enhancedForecast) {
               console.log(
-                `✅ Using enhanced forecast for ${defaultBeach.name}`
+                `✅ Using enhanced forecast for ${fallbackBeach.name}`
               );
               setForecast(enhancedForecast);
             } else {
               console.error(
-                `❌ Enhanced forecast failed for ${defaultBeach.name}`
+                `❌ Enhanced forecast failed for ${fallbackBeach.name}`
               );
             }
           }
@@ -432,7 +387,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     return () => clearTimeout(timeoutId);
   }, [profile]);
 
-  // Reset when profile's default beach changes (but not when isInitialized changes)
+  // Reset when profile's home beach changes (but not when isInitialized changes)
   useEffect(() => {
     if (isInitialized) {
       setIsInitialized(false);
@@ -445,7 +400,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       setOutOfAreaMessage("");
       setIsOutOfAreaSearch(false);
     }
-  }, [profile?.default_beach_id]);
+  }, [profile?.home_beach_id]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -691,16 +646,16 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 {beach.name}
               </h2>
               <div className="text-sm text-gray-600 mt-1">
-                {profile?.default_beach_id === beach.id ? (
+                {profile?.home_beach_id === beach.id ? (
                   `Showing surf conditions for your favorite beach: ${beach.name}`
-                ) : profile?.default_beach_id ? (
+                ) : profile?.home_beach_id ? (
                   `Showing surf conditions for ${beach.name}`
                 ) : (
                   <div className="space-y-2">
                     <p>Showing surf conditions for {beach.name}</p>
                     <div className="flex items-center justify-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                       <span className="text-sm text-blue-800">
-                        💡 Want to see your favorite beach here?
+                        💡 Want to see your home beach here?
                         <button
                           onClick={() => {
                             // Open profile page with edit modal
@@ -708,7 +663,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                           }}
                           className="ml-1 text-blue-600 hover:text-blue-800 font-medium underline"
                         >
-                          Set your default beach
+                          Set your home beach
                         </button>
                       </span>
                     </div>

@@ -1,0 +1,67 @@
+name: Database Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # daily at 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest  # or 'ubuntu-24.04' if you want to pin the image
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5  # requires runner >= 2.327.1 (you have 2.328.0)
+        # if you need full history: with: { fetch-depth: 0 }
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Create backup directory
+        run: mkdir -p backups
+
+      - name: Backup database schema & data
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PROJECT_REF: vawdnbbgawichorsjiwe
+        run: |
+          set -euo pipefail
+          DATE=$(date +%Y%m%d_%H%M%S)
+
+          # Link non-interactively via env token
+          supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+          # Dump schema & data into a single file
+          supabase db dump --file "backups/full_backup_${DATE}.sql"
+          gzip "backups/full_backup_${DATE}.sql"
+
+          # Keep only last 30 days
+          find backups -name "*.sql.gz" -mtime +30 -delete
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-backup-${{ github.run_number }}
+          path: backups/*.sql.gz
+          retention-days: 30
+
+      - name: Create backup report
+        run: |
+          {
+            echo "## Database Backup Report"
+            echo "Date: $(date)"
+            echo "Project: vawdnbbgawichorsjiwe"
+            echo
+            echo "### Files Created:"
+            ls -lh backups/*.sql.gz | awk '{print "- " $9 " (" $5 ")"}'
+          } > backup_report.md
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-report-${{ github.run_number }}
+          path: backup_report.md
+          retention-days: 7

@@ -21,9 +21,18 @@ export async function withServerAction<T>(
     return { success: true, data };
   } catch (error) {
     console.error("Server action error:", error);
-    // Preserve legacy behavior: only surface message for real Error objects.
-    // For non-Error throws (e.g., strings), return a generic message so tests remain stable.
-    const message = error instanceof Error && error.message ? error.message : "Unknown error";
+    // Improve error handling to provide more context
+    let message: string;
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (typeof error === "string") {
+      message = error;
+    } else if (error && typeof error === "object" && "message" in error) {
+      message = String(error.message);
+    } else {
+      message = "Unknown error occurred";
+      console.error("Unhandled error type:", typeof error, error);
+    }
     return {
       success: false,
       error: message,
@@ -92,9 +101,20 @@ export function makeAuthenticatedAction<
       return { success: true, data };
     } catch (error: any) {
       console.error("Server action error:", error);
+      let message: string;
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === "string") {
+        message = error;
+      } else if (error && typeof error === "object" && "message" in error) {
+        message = String(error.message);
+      } else {
+        message = "Unknown error occurred";
+        console.error("Unhandled error type:", typeof error, error);
+      }
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: message,
       };
     }
   };

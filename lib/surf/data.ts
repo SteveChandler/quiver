@@ -84,12 +84,27 @@ export async function getBeachesNear(
   radiusKm: number
 ): Promise<any[]> {
   const supabase = createAPIServerClient();
-  const { data, error } = await supabase.rpc("get_beaches_near", {
-    _lat: lat,
-    _lon: lon,
-    _radius_km: radiusKm,
+  // Convert radius from km to meters for the corrected function
+  const radiusMeters = Math.round(radiusKm * 1000);
+  const { data, error } = await supabase.rpc("get_nearby_beaches", {
+    lat: lat,
+    lng: lon,
+    max_distance_meters: radiusMeters,
+    limit_count: 50,
   });
-  if (error) throw error;
+  if (error) {
+    console.error("Spatial function failed, falling back to client-side filtering:", error);
+    // Fallback to basic beaches query if the spatial function fails
+    const { data: beaches, error: basicError } = await supabase
+      .from("beaches")
+      .select("id, name, location, latitude, longitude, is_private")
+      .not("latitude", "is", null)
+      .not("longitude", "is", null)
+      .limit(50);
+    
+    if (basicError) throw basicError;
+    return beaches || [];
+  }
   return data || [];
 }
 

@@ -18,11 +18,55 @@ import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { InteractiveHeroDemo } from "./interactive-hero-demo";
 
 export function HeroSection() {
-  const [showVideo, setShowVideo] = useState(true);
+  const [showVideo, setShowVideo] = useState(false); // Start with video disabled for fast LCP
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Lazy load video after page is interactive to avoid blocking LCP
+  useEffect(() => {
+    const loadVideoAfterInteractive = () => {
+      // Only load video after user has interacted or after a delay
+      const timer = setTimeout(() => {
+        if (!hasUserInteracted) {
+          setShowVideo(true);
+        }
+      }, 3000); // Load video after 3 seconds if no interaction
+
+      return () => clearTimeout(timer);
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const idleCallbackId = requestIdleCallback(() => {
+        loadVideoAfterInteractive();
+      });
+      return () => cancelIdleCallback(idleCallbackId);
+    } else {
+      return loadVideoAfterInteractive();
+    }
+  }, [hasUserInteracted]);
+
+  // Handle user interaction to load video
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      if (!hasUserInteracted) {
+        setHasUserInteracted(true);
+        setShowVideo(true);
+      }
+    };
+
+    window.addEventListener('scroll', handleUserInteraction, { once: true });
+    window.addEventListener('click', handleUserInteraction, { once: true });
+    window.addEventListener('touchstart', handleUserInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleUserInteraction);
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
+    };
+  }, [hasUserInteracted]);
 
   useEffect(() => {
     if (!showVideo) return;
@@ -59,7 +103,7 @@ export function HeroSection() {
   }, [showVideo, currentVideoIndex]);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-[85svh] flex items-center justify-center overflow-clip md:overflow-visible">
       {/* Optimized Background with Gradient Fallback */}
       <div className="absolute inset-0 w-full h-full">
         {/* CSS Gradient Fallback - Always visible for fast render */}
@@ -80,7 +124,7 @@ export function HeroSection() {
           blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
         />
 
-        {/* Video Background - Only loads when requested */}
+        {/* Video Background - Lazy loaded with poster image */}
         {showVideo && (
           <video
             ref={videoRef}
@@ -88,12 +132,23 @@ export function HeroSection() {
             muted
             playsInline
             loop
+            poster="/logoQuiver.png" // Use poster for faster initial paint
+            loading="lazy" // Native lazy loading hint
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
               isVideoLoaded ? "opacity-100" : "opacity-0"
             }`}
             style={{ zIndex: 10 }}
+            aria-label="Hero background video showcasing surf community"
+            preload="none" // Don't preload video to avoid blocking LCP
           >
             <source src={HERO_VIDEOS[currentVideoIndex]} type="video/mp4" />
+            <track 
+              kind="captions" 
+              src="/captions/hero-video-captions.vtt" 
+              srcLang="en" 
+              label="English captions"
+              default
+            />
           </video>
         )}
 
@@ -106,17 +161,17 @@ export function HeroSection() {
       </div>
 
       {/* Enhanced Overlay with Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/60 z-15" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-black/50 via-black/40 to-black/60" />
 
       {/* Hero Content - Modernized */}
       <motion.div
         {...ANIMATION_VARIANTS.heroText(0.1)}
-        className="relative z-30 text-center text-white px-4 max-w-5xl mx-auto"
+        className="relative z-30 w-full max-w-[90vw] sm:max-w-screen-sm md:max-w-3xl mx-auto px-4 sm:px-6 text-center text-white py-8 sm:py-12"
       >
         {/* Social Proof Badge */}
         <motion.div
           {...ANIMATION_VARIANTS.heroText(0.15)}
-          className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-6 text-sm font-medium"
+          className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 sm:px-4 sm:py-2 mb-4 sm:mb-6 text-xs sm:text-sm font-medium"
         >
           <Users className="h-4 w-4" />
           <span>Join surfers near you</span>
@@ -125,7 +180,7 @@ export function HeroSection() {
         {/* Main Headline - More Impactful */}
         <motion.h1
           {...ANIMATION_VARIANTS.heroText(0.2)}
-          className="text-5xl md:text-7xl lg:text-8xl font-roboto font-bold mb-6 leading-tight"
+          className="font-bold leading-tight [text-wrap:balance] text-2xl sm:text-4xl md:text-5xl font-roboto mb-4 sm:mb-6 break-words"
         >
           {CONTENT.hero.title.map((line, index) => (
             <span key={index} className="block">
@@ -138,7 +193,7 @@ export function HeroSection() {
         {/* Enhanced Subtitle */}
         <motion.p
           {...ANIMATION_VARIANTS.heroText(0.3)}
-          className="text-xl md:text-2xl lg:text-3xl font-open-sans mb-8 text-white/90 max-w-3xl mx-auto leading-relaxed"
+          className="text-sm sm:text-base md:text-lg text-pretty break-words hyphens-auto leading-relaxed font-open-sans mb-6 sm:mb-8 text-white/90 px-2 sm:px-4"
         >
           {CONTENT.hero.subtitle}
         </motion.p>
@@ -148,7 +203,7 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.8 }}
-          className="mb-10"
+          className="mb-6 sm:mb-8 lg:mb-10"
         >
           <InteractiveHeroDemo />
         </motion.div>
@@ -156,12 +211,12 @@ export function HeroSection() {
         {/* Key Benefits Grid */}
         <motion.div
           {...ANIMATION_VARIANTS.heroText(0.6)}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 max-w-3xl mx-auto"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8 lg:mb-10 max-w-3xl mx-auto px-2 sm:px-0"
         >
           {CONTENT.hero.benefits.map((benefit, index) => (
             <div
               key={index}
-              className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-sm font-medium"
+              className="bg-white/10 backdrop-blur-sm rounded-lg p-2 sm:p-3 text-xs sm:text-sm font-medium"
             >
               {benefit}
             </div>
@@ -176,7 +231,7 @@ export function HeroSection() {
           {/* Primary CTA */}
           <Button
             size="lg"
-            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 w-full sm:w-auto"
             asChild
           >
             <Link href="/auth/sign-up">
@@ -189,7 +244,7 @@ export function HeroSection() {
           <Button
             size="lg"
             variant="ghost"
-            className="bg-white/10 border border-white/30 text-white hover:bg-white/20 hover:border-white/50 px-8 py-4 text-lg font-roboto font-semibold rounded-full backdrop-blur-sm transition-all duration-300"
+            className="bg-white/10 border border-white/30 text-white hover:bg-white/20 hover:border-white/50 px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-lg font-roboto font-semibold rounded-full backdrop-blur-sm transition-all duration-300 w-full sm:w-auto"
             asChild
           >
             <Link href="/features">
@@ -202,7 +257,7 @@ export function HeroSection() {
         {/* Trust Signals */}
         <motion.div
           {...ANIMATION_VARIANTS.heroText(0.9)}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 text-white/80 text-sm"
+          className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-white/80 text-xs sm:text-sm mt-4 sm:mt-6"
         >
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
@@ -218,23 +273,23 @@ export function HeroSection() {
         {/* Feature Icons */}
         <motion.div
           {...ANIMATION_VARIANTS.heroText(1.1)}
-          className="flex justify-center items-center gap-8 mt-12 text-white/60"
+          className="flex justify-center items-center gap-4 sm:gap-6 md:gap-8 mt-8 sm:mt-10 lg:mt-12 text-white/60 flex-wrap"
         >
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            <span className="text-sm">Community</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Community</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Waves className="h-5 w-5" />
-            <span className="text-sm">Forecasts</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Waves className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Forecasts</span>
           </div>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            <span className="text-sm">Spots</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Spots</span>
           </div>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            <span className="text-sm">Tracking</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm">Tracking</span>
           </div>
         </motion.div>
       </motion.div>

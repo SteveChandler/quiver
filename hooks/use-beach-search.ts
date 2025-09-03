@@ -126,10 +126,11 @@ export function useBeachSearch() {
 
   const loadNearbyBeaches = useCallback(
     async (latitude: number, longitude: number) => {
-      // Prevent multiple simultaneous loads
-      if (loading) return;
-
-      setBeachesState((prev) => ({ ...prev, loading: true, error: null }));
+      // Prevent multiple simultaneous loads using previous state
+      setBeachesState((prev) => {
+        if (prev.loading) return prev; // Already loading, don't start another
+        return { ...prev, loading: true, error: null };
+      });
 
       try {
         const result = await getNearbyBeaches(
@@ -182,7 +183,7 @@ export function useBeachSearch() {
         }));
       }
     },
-    [loading] // Only depend on loading to prevent multiple calls
+    [] // No dependencies to prevent recreation and infinite loops
   );
 
   const setSearchQuery = useCallback((query: string) => {

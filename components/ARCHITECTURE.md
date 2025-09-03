@@ -66,7 +66,7 @@ interface ComponentProps {
 #### Form & Data Entry
 
 - **`add-board-dialog.tsx`** - Surfboard creation modal with validation
-- **`edit-profile-form.tsx`** - User profile editing with image upload
+- **`edit-profile-form.tsx`** - User profile editing with standardized field schema
 - **`edit-profile-modal.tsx`** - Modal wrapper for profile editing
 
 #### Content Display
@@ -76,6 +76,7 @@ interface ComponentProps {
 - **`session-card.tsx`** - Session activity cards with social features
 - **`user-avatar.tsx`** - Consistent user avatar display
 - **`user-stats.tsx`** - User statistics and analytics display
+- **`home-beach-selector.tsx`** - Beach selection dropdown for home beach preference
 
 #### Interactive Features
 
@@ -286,6 +287,58 @@ interface ComponentProps {
 
 ---
 
+### 📁 **`/gamification`** - User Engagement & Progression System
+
+#### Core Components
+
+- **`user-xp-card.tsx`** - User experience points display with level progression
+- **`badge-gallery.tsx`** - Badge collection and achievement display  
+- **`badge-icon.tsx`** - Individual badge rendering with rarity styling
+- **`xp-toast-system.tsx`** - XP gain notifications and feedback
+- **`gamification-test-page.tsx`** - Testing interface for gamification features
+
+#### Features
+
+- **XP System**: Points awarded for session completion, streaks, community engagement
+- **Badge System**: Achievement unlocks with common/rare/epic/legendary tiers
+- **Level Progression**: Visual progression indicators and next level goals
+- **Social Recognition**: Public badge display and leaderboard integration
+- **Streak Tracking**: Daily/weekly/monthly session streaks with bonus XP
+
+#### XP Sources
+
+- Session completion (base XP)
+- First session milestone 
+- Streak achievements (3, 7, 30 days)
+- Social sharing and community contributions
+- Beach reviews and helpful content
+
+---
+
+### 📁 **`/home`** - Home Beach Personalization
+
+#### Components
+
+- **`HomeBeachBanner.tsx`** - Prompt to set home beach when unset
+- **`HomeBeachSelector.tsx`** - Beach selection dropdown (moved to root)
+- **`HomeBeachTile.tsx`** - Profile stats tile showing home beach (in `/profile`)
+
+#### Integration Points
+
+- **Home Screen**: Banner shows when no home beach is set
+- **Profile Page**: Tile displays current home beach or "—" if unset  
+- **Edit Profile**: Selector allows changing home beach preference
+- **Forecast Tab**: Uses home beach for personalized forecasts
+
+#### Data Flow
+
+- **Canonical Field**: `profiles.home_beach_id` (FK to beaches.id)
+- **API Endpoint**: `/api/me/profile` returns `{ id, home_beach_id }`
+- **Update Action**: `updateProfile({ home_beach_id })` via profile actions
+- **Cache Invalidation**: `revalidateTag("profile")` after updates
+
+---
+
 ### 📁 **`/map`** - Interactive Mapping
 
 #### Core Components
@@ -332,19 +385,31 @@ interface ComponentProps {
 
 #### Components
 
-- **`basic-profile-form.tsx`** - Core profile information
+- **`basic-profile-form.tsx`** - Core profile information editing
 - **`profile-edit-form.tsx`** - Comprehensive profile editor
 - **`boards-manager.tsx`** - Surfboard collection management
 - **`profile-preferences.tsx`** - User preferences and settings
 - **`recent-sessions-list.tsx`** - Session history display
 - **`user-comments.tsx`** - User's comment history
+- **`HomeBeachTile.tsx`** - Home beach preference display tile
+
+#### Data Schema Consistency
+
+- **Instagram Field Standardization**: All profile components use consistent `instagram` field name
+  - **Database Schema**: `profiles.instagram` (VARCHAR)
+  - **Frontend Forms**: Form validation and display use `instagram` field
+  - **Server Actions**: Direct field mapping without transformation
+  - **Type Safety**: `Profile` interface uses `instagram: string | null`
+  - **Test Coverage**: Comprehensive test suite validates field consistency
 
 #### Features
 
-- **Avatar Management**: Image upload and cropping
-- **Equipment Tracking**: Surfboard collection
-- **Privacy Controls**: Granular visibility settings
-- **Social Integration**: Following, followers, activity
+- **Avatar Management**: Image upload and cropping with Supabase Storage
+- **Equipment Tracking**: Surfboard collection with detailed specifications
+- **Privacy Controls**: Granular visibility settings for profile information
+- **Social Integration**: Following, followers, activity streams
+- **Home Beach Integration**: Seamless beach preference management
+- **Form Validation**: Real-time validation with Zod schemas
 
 ---
 

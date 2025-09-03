@@ -191,8 +191,8 @@ export default function UserProfilePage() {
         </Card>
       </div>
 
-      {/* Favorite Beach */}
-      {profile.favorite_spot && (
+      {/* Home Break - prefer DTO name, fall back to joined relation name */}
+      {(profile.homeBeachName ?? profile.home_beach?.name) && (
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -203,14 +203,11 @@ export default function UserProfilePage() {
           <CardContent>
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <h3 className="font-medium">{profile.favorite_spot}</h3>
+                <h3 className="font-medium">{profile.homeBeachName ?? profile.home_beach?.name ?? "—"}</h3>
                 <p className="text-sm text-muted-foreground">
                   This surfer's go-to spot for sessions
                 </p>
               </div>
-              <Button variant="outline" size="sm">
-                View Beach
-              </Button>
             </div>
           </CardContent>
         </Card>

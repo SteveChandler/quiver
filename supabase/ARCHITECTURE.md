@@ -17,7 +17,10 @@ supabase/
 │   ├── 20250804104600_intel_posts_with_mock_data.sql
 │   ├── 20250804104758_intel_posts_with_mock_data_fixed.sql
 │   ├── 20250804184702_add_raw_forecast_storage.sql
-│   └── 20250805030000_add_cdip_data_source.sql
+│   ├── 20250805030000_add_cdip_data_source.sql
+│   ├── 20250828000000_create_gamification_system.sql
+│   ├── 20250829030000_add_missing_profile_columns.sql
+│   └── 20250830120000_rename_default_beach_id_to_home_beach_id.sql
 └── ARCHITECTURE.md                       # This documentation file
 ```
 
@@ -57,8 +60,8 @@ idx_comments_parent_comment_fkey ON comments (parent_comment)
 -- Favorite beach joins
 idx_favorite_beaches_beach_id_fkey ON favorite_beaches (beach_id)
 
--- Profile default beach resolution
-idx_profiles_default_beach_id_fkey ON profiles (default_beach_id)
+-- Profile home beach resolution  
+idx_profiles_home_beach_id_fkey ON profiles (home_beach_id)
 ```
 
 **Unused Indexes Removed**:
@@ -364,14 +367,89 @@ FROM pg_stat_user_indexes;
 - RLS policy performance
 - Storage growth patterns
 
+### **3. Recent Feature Additions (August 2025)**
+
+#### **Gamification System (20250828000000)**
+
+**Purpose**: Complete user engagement and progression system.
+
+**Schema Additions**:
+
+```sql
+-- Experience Points and Levels
+user_xp (
+  user_id UUID REFERENCES auth.users(id),
+  total_xp INTEGER DEFAULT 0,
+  current_level INTEGER DEFAULT 1,
+  xp_to_next_level INTEGER DEFAULT 100
+);
+
+-- XP Transaction Log
+xp_transactions (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  source TEXT CHECK (source IN ('session_complete', 'first_session', 'streak_3_days', 'streak_7_days', 'streak_30_days', 'social_share', 'beach_review', 'community_help')),
+  amount INTEGER NOT NULL,
+  description TEXT
+);
+
+-- Badge System
+badges (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  icon TEXT,
+  rarity TEXT CHECK (rarity IN ('common', 'rare', 'epic', 'legendary'))
+);
+
+-- User Badge Unlocks
+user_badges (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  badge_id UUID REFERENCES badges(id),
+  earned_at TIMESTAMP DEFAULT NOW(),
+  is_displayed BOOLEAN DEFAULT TRUE
+);
+```
+
+**Impact**: 
+- Increased user retention through progression mechanics
+- Social features for badge display and leaderboards
+- XP rewards for community engagement
+
+#### **Home Beach Standardization (20250830120000)**
+
+**Purpose**: Standardize home beach field naming across the application.
+
+**Schema Changes**:
+
+```sql
+-- Rename column for consistency
+ALTER TABLE profiles 
+RENAME COLUMN default_beach_id TO home_beach_id;
+
+-- Update index names
+DROP INDEX IF EXISTS idx_profiles_default_beach_id;
+CREATE INDEX idx_profiles_home_beach_id ON profiles(home_beach_id);
+
+-- Add documentation
+COMMENT ON COLUMN profiles.home_beach_id IS 'User''s preferred home beach for forecasts and session defaults';
+```
+
+**Impact**:
+- Single source of truth for home beach preference
+- Consistent naming across API, components, and database
+- Improved home screen personalization
+
 ## 🔄 **Future Migration Strategy**
 
 ### **Planned Enhancements**
 
 1. **Session Analytics**: Enhanced session tracking and analytics
-2. **Social Features**: Advanced community features and interactions
-3. **Forecast ML**: Machine learning forecast improvements
-4. **Real-time Features**: WebSocket support for live updates
+2. **Advanced Social Features**: Expanded community interactions and following system
+3. **Forecast ML**: Machine learning forecast improvements and accuracy modeling
+4. **Real-time Features**: WebSocket support for live updates and notifications
+5. **Leaderboard System**: Global and regional competition features (extends gamification)
 
 ### **Scalability Roadmap**
 

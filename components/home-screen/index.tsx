@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, Suspense, lazy, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { useAuth } from "@/context/auth-context";
 import { useHomeData } from "./use-home-data";
@@ -42,6 +44,7 @@ export function HomeScreen() {
   const [activeTab, setActiveTab] = useState("forecast");
   const [selectedBeachOverride, setSelectedBeachOverride] =
     useState<Beach | null>(null);
+  const router = useRouter();
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
 
@@ -54,7 +57,7 @@ export function HomeScreen() {
   } = useOnboardingFlow();
 
   // Use cached profile hook to prevent flickering on navigation
-  const { profile, defaultBeach, profileLoading, hasCachedData } =
+  const { profile, homeBeach, profileLoading, hasCachedData } =
     useCachedProfile();
 
   const { coords, source, requestLocation } = useGeo();
@@ -83,8 +86,8 @@ export function HomeScreen() {
   console.log("🏠 HomeScreen Summary:", {
     hasUser: !!user,
     hasProfile: !!profile,
-    hasDefaultBeach: !!defaultBeach,
-    defaultBeachName: defaultBeach?.name,
+    hasHomeBeach: !!homeBeach,
+    homeBeachName: homeBeach?.name,
     profileLoading,
     hasCachedData,
   });
@@ -112,13 +115,32 @@ export function HomeScreen() {
       {/* Main Content */}
       <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pt-6">
         {/* Welcome Section */}
-        <section className="centered-container space-y-3">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
-            Hey, {user ? profile?.full_name || "Surfer" : "Guest"}!
-          </h2>
-          <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">
-            The waves are looking good today. Ready to catch some?
-          </p>
+        <section className="centered-container space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+              Hey, {user ? profile?.full_name || "Surfer" : "Guest"}!
+            </h2>
+            <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">
+              The waves are looking good today. Ready to catch some?
+            </p>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button
+              onClick={() => router.push("/sessions/new?mode=plan")}
+              className="flex-1 bg-ocean-blue hover:bg-ocean-blue/90"
+            >
+              Plan Session
+            </Button>
+            <Button
+              onClick={() => router.push("/sessions/new?mode=log")}
+              variant="outline"
+              className="flex-1"
+            >
+              Log Session
+            </Button>
+          </div>
         </section>
 
         {/* Tabs Section */}
@@ -149,7 +171,7 @@ export function HomeScreen() {
                 />
                 <ForecastTab
                   profile={profile}
-                  defaultBeach={defaultBeach}
+                  homeBeach={homeBeach}
                   overrideBeach={selectedBeachOverride}
                 />
               </Suspense>

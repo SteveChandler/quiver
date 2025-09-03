@@ -12,7 +12,7 @@ async function exampleUsage() {
     console.log("Beach name forecast:", {
       beach: beachNameForecast.beach,
       coords: beachNameForecast.coords,
-      forecastSample: beachNameForecast.forecast.hours?.[0], // First hour of forecast
+      forecastSample: beachNameForecast.forecast, // Forecast data
     });
 
     // Example 2: Get forecast by coordinates
@@ -22,7 +22,7 @@ async function exampleUsage() {
     console.log("Coordinates forecast:", {
       beach: coordsForecast.beach,
       coords: coordsForecast.coords,
-      forecastSample: coordsForecast.forecast.hours?.[0], // First hour of forecast
+      forecastSample: coordsForecast.forecast, // Forecast data
     });
 
     // Example 3: Find nearest beach to a location

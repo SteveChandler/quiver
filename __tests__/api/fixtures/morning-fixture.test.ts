@@ -4,6 +4,7 @@ function makeHour(ts: string, baseScoreBias = 0) {
 	return {
 		ts,
 		waveDirectionDeg: 250,
+		wavePeriodS: 12, // Added missing wave period in seconds
 		windDirectionDeg: 270,
 		windSpeedMs: 2,
 		tideHeightM: 0.6,

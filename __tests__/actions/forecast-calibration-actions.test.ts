@@ -16,8 +16,8 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 jest.mock("@/lib/server-action-utils", () => ({
-  withAuthenticatedAction: jest.fn(),
-  withDatabaseOperation: jest.fn(),
+  withAuthenticatedAction: jest.fn((action: any) => action),
+  withDatabaseOperation: jest.fn((operation: any) => operation),
 }));
 
 const mockSupabaseClient = {
@@ -63,7 +63,7 @@ describe("Forecast Calibration Actions", () => {
       ];
 
       // Mock the withAuthenticatedAction wrapper
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         const result = await action(mockUser, mockSupabaseClient);
         return { success: true, data: result };
@@ -92,12 +92,12 @@ describe("Forecast Calibration Actions", () => {
     });
 
     it("should handle database errors", async () => {
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         try {
           await action(mockUser, mockSupabaseClient);
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -121,7 +121,7 @@ describe("Forecast Calibration Actions", () => {
     });
 
     it("should use correct pagination parameters", async () => {
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         const result = await action(mockUser, mockSupabaseClient);
         return { success: true, data: result };
@@ -156,7 +156,7 @@ describe("Forecast Calibration Actions", () => {
         },
       ];
 
-      withDatabaseOperation.mockImplementation(async (operation) => {
+      withDatabaseOperation.mockImplementation(async (operation: any) => {
         try {
           const result = await operation(mockSupabaseClient);
           if (result.error) {
@@ -166,7 +166,7 @@ describe("Forecast Calibration Actions", () => {
           const data = Array.isArray(result) ? result : result.data || [];
           return { success: true, data };
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -193,7 +193,7 @@ describe("Forecast Calibration Actions", () => {
     });
 
     it("should handle missing beach data", async () => {
-      withDatabaseOperation.mockImplementation(async (operation) => {
+      withDatabaseOperation.mockImplementation(async (operation: any) => {
         try {
           const result = await operation(mockSupabaseClient);
           if (result.error) {
@@ -203,7 +203,7 @@ describe("Forecast Calibration Actions", () => {
           const data = Array.isArray(result) ? result : result.data || [];
           return { success: true, data };
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -241,7 +241,7 @@ describe("Forecast Calibration Actions", () => {
         wind_accuracy: 82.8,
       };
 
-      withDatabaseOperation.mockImplementation(async (operation) => {
+      withDatabaseOperation.mockImplementation(async (operation: any) => {
         try {
           const result = await operation(mockSupabaseClient);
           if (result.error) {
@@ -251,7 +251,7 @@ describe("Forecast Calibration Actions", () => {
           const data = Array.isArray(result) ? result : result.data || [];
           return { success: true, data };
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -276,7 +276,7 @@ describe("Forecast Calibration Actions", () => {
     });
 
     it("should handle beach with no accuracy data", async () => {
-      withDatabaseOperation.mockImplementation(async (operation) => {
+      withDatabaseOperation.mockImplementation(async (operation: any) => {
         try {
           const result = await operation(mockSupabaseClient);
           if (result.error) {
@@ -286,7 +286,7 @@ describe("Forecast Calibration Actions", () => {
           const data = Array.isArray(result) ? result : result.data || [];
           return { success: true, data };
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -325,7 +325,7 @@ describe("Forecast Calibration Actions", () => {
         },
       ];
 
-      withDatabaseOperation.mockImplementation(async (operation) => {
+      withDatabaseOperation.mockImplementation(async (operation: any) => {
         try {
           const result = await operation(mockSupabaseClient);
           if (result.error) {
@@ -335,7 +335,7 @@ describe("Forecast Calibration Actions", () => {
           const data = Array.isArray(result) ? result : result.data || [];
           return { success: true, data };
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -354,13 +354,14 @@ describe("Forecast Calibration Actions", () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockAccuracyData);
-      expect(result.data[0].overall_accuracy_score).toBeGreaterThan(
-        result.data[1].overall_accuracy_score
+      expect(result.data).toBeDefined();
+      expect(result.data![0].overall_accuracy_score).toBeGreaterThan(
+        result.data![1].overall_accuracy_score || 0
       );
     });
 
     it("should handle empty beach ID array", async () => {
-      withDatabaseOperation.mockImplementation(async (operation) => {
+      withDatabaseOperation.mockImplementation(async (operation: any) => {
         try {
           const result = await operation(mockSupabaseClient);
           if (result.error) {
@@ -370,7 +371,7 @@ describe("Forecast Calibration Actions", () => {
           const data = Array.isArray(result) ? result : result.data || [];
           return { success: true, data };
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -410,7 +411,7 @@ describe("Forecast Calibration Actions", () => {
         actual_conditions: { wave_height: "3.5", rating: 4 },
       };
 
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         const result = await action(mockUser, mockSupabaseClient);
         return { success: true, data: result };
@@ -467,12 +468,12 @@ describe("Forecast Calibration Actions", () => {
     });
 
     it("should reject creation for non-owned session", async () => {
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         try {
           await action(mockUser, mockSupabaseClient);
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -503,12 +504,12 @@ describe("Forecast Calibration Actions", () => {
         arrival_time: "2024-01-01T06:00:00Z",
       };
 
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         try {
           await action(mockUser, mockSupabaseClient);
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -545,7 +546,7 @@ describe("Forecast Calibration Actions", () => {
 
   describe("updateBeachAccuracy", () => {
     it("should update beach accuracy successfully", async () => {
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         const result = await action(mockUser, mockSupabaseClient);
         return { success: true, data: result };
@@ -556,7 +557,8 @@ describe("Forecast Calibration Actions", () => {
       const result = await updateBeachAccuracy("beach-1");
 
       expect(result.success).toBe(true);
-      expect(result.data.message).toContain("updated successfully");
+      expect(result.data).toBeDefined();
+      expect(result.data!.message).toContain("updated successfully");
       expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
         "update_beach_forecast_accuracy",
         {
@@ -566,12 +568,12 @@ describe("Forecast Calibration Actions", () => {
     });
 
     it("should handle RPC function errors", async () => {
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         try {
           await action(mockUser, mockSupabaseClient);
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -606,7 +608,7 @@ describe("Forecast Calibration Actions", () => {
         },
       ];
 
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         const result = await action(mockUser, mockSupabaseClient);
         return { success: true, data: result };
@@ -624,14 +626,15 @@ describe("Forecast Calibration Actions", () => {
       const result = await getUserForecastAccuracySummary();
 
       expect(result.success).toBe(true);
-      expect(result.data.totalSessions).toBe(3);
-      expect(result.data.avgAccuracy).toBeGreaterThan(0);
-      expect(result.data.topBeaches).toHaveLength(2);
-      expect(result.data.topBeaches[0].beachName).toBe("Beach A");
+      expect(result.data).toBeDefined();
+      expect(result.data!.totalSessions).toBe(3);
+      expect(result.data!.avgAccuracy).toBeGreaterThan(0);
+      expect(result.data!.topBeaches).toHaveLength(2);
+      expect(result.data!.topBeaches[0].beachName).toBe("Beach A");
     });
 
     it("should handle user with no snapshots", async () => {
-      withAuthenticatedAction.mockImplementation(async (action) => {
+      withAuthenticatedAction.mockImplementation(async (action: any) => {
         const mockUser = { id: "user-1" };
         const result = await action(mockUser, mockSupabaseClient);
         return { success: true, data: result };
@@ -649,9 +652,10 @@ describe("Forecast Calibration Actions", () => {
       const result = await getUserForecastAccuracySummary();
 
       expect(result.success).toBe(true);
-      expect(result.data.totalSessions).toBe(0);
-      expect(result.data.avgAccuracy).toBe(0);
-      expect(result.data.topBeaches).toEqual([]);
+      expect(result.data).toBeDefined();
+      expect(result.data!.totalSessions).toBe(0);
+      expect(result.data!.avgAccuracy).toBe(0);
+      expect(result.data!.topBeaches).toEqual([]);
     });
   });
 
@@ -672,7 +676,7 @@ describe("Forecast Calibration Actions", () => {
         },
       ];
 
-      withDatabaseOperation.mockImplementation(async (operation) => {
+      withDatabaseOperation.mockImplementation(async (operation: any) => {
         try {
           const result = await operation(mockSupabaseClient);
           if (result.error) {
@@ -682,7 +686,7 @@ describe("Forecast Calibration Actions", () => {
           const data = Array.isArray(result) ? result : result.data || [];
           return { success: true, data };
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 
@@ -707,7 +711,7 @@ describe("Forecast Calibration Actions", () => {
     });
 
     it("should use correct date range filter", async () => {
-      withDatabaseOperation.mockImplementation(async (operation) => {
+      withDatabaseOperation.mockImplementation(async (operation: any) => {
         try {
           const result = await operation(mockSupabaseClient);
           if (result.error) {
@@ -717,7 +721,7 @@ describe("Forecast Calibration Actions", () => {
           const data = Array.isArray(result) ? result : result.data || [];
           return { success: true, data };
         } catch (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
       });
 

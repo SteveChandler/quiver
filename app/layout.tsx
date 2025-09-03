@@ -1,7 +1,7 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Inter } from "next/font/google";
+import { Inter, Roboto, Open_Sans, Montserrat } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
@@ -11,16 +11,40 @@ import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import GoogleAnalytics from "@/components/analytics/google-analytics";
-import { Toaster } from "react-hot-toast";
+import { Toaster } from "@/components/ui/toaster";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL";
 
 // Optimize font loading with display swap for better performance
 const inter = Inter({
   subsets: ["latin"],
-  display: "swap", // Improves LCP by showing fallback font first
+  display: "swap",
   preload: true,
   variable: "--font-inter",
+});
+
+const roboto = Roboto({
+  weight: ["400", "500", "700"],
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+  variable: "--font-roboto",
+});
+
+const openSans = Open_Sans({
+  weight: ["400", "600"],
+  subsets: ["latin"],
+  display: "swap",
+  preload: false, // Not critical for LCP
+  variable: "--font-open-sans",
+});
+
+const montserrat = Montserrat({
+  weight: ["400", "600", "700"],
+  subsets: ["latin"],
+  display: "swap",
+  preload: false, // Not critical for LCP
+  variable: "--font-montserrat",
 });
 
 // Optimize viewport for mobile performance
@@ -28,6 +52,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: "cover",
   themeColor: "#ffffff",
 };
 
@@ -80,7 +105,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html 
+      lang="en" 
+      suppressHydrationWarning 
+      className={`${inter.variable} ${roboto.variable} ${openSans.variable} ${montserrat.variable}`}
+    >
       <head>
         {/* Google Analytics (GA4) */}
         <Script
@@ -114,16 +143,50 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="//maps.geoapify.com" />
 
         {/* Prefetch critical routes for faster navigation */}
-        <link rel="prefetch" href="/log-session" />
-        <link rel="prefetch" href="/plan-session" />
+        <link rel="prefetch" href="/sessions/new" />
+        {/* Consolidated into /sessions/new above */}
         <link rel="prefetch" href="/map" />
 
         {/* Preload critical resources for faster LCP */}
+        <link
+          rel="preload"
+          href="/logoQuiver.png"
+          as="image"
+          type="image/png"
+        />
 
         {/* Remove non-existent webpack chunk preload - these are dynamic */}
 
         {/* Structured Data for SEO */}
-        {/* <HomePageStructuredData /> */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify([
+              {
+                "@context": "https://schema.org",
+                "@type": "Organization",
+                "name": "Quiver",
+                "alternateName": "Quiver Surf App",
+                "description": "Ultimate surf community platform - Community-driven surf session tracking and social platform",
+                "url": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+                "logo": `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/logoQuiver.png`,
+                "foundingDate": "2024",
+                "applicationCategory": "Sports & Recreation"
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "name": "Quiver - Surf Community App",
+                "url": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/search?q={search_term_string}`,
+                  "query-input": "required name=search_term_string"
+                }
+              }
+            ])
+          }}
+        />
 
         {/* Critical inline styles for faster render */}
         <style
@@ -165,18 +228,8 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <GoogleAnalytics />
         </Suspense>
-        {/* Toast notifications */}
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: "hsl(var(--background))",
-              color: "hsl(var(--foreground))",
-              border: "1px solid hsl(var(--border))",
-            },
-          }}
-        />
+        {/* Toast notifications (app-wide) */}
+        <Toaster />
         {/* Vercel Analytics & Speed Insights */}
         <Analytics />
         <SpeedInsights />

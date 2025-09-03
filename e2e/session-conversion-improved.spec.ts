@@ -14,7 +14,7 @@ test.describe("Session Conversion (Improved)", () => {
     page,
   }) => {
     // 1. Create a planned session first
-    await page.goto("/plan-session");
+    await page.goto("/sessions/new?mode=plan");
     await expect(page.locator("body")).toBeVisible();
 
     // Fill planning form deterministically
@@ -112,7 +112,7 @@ test.describe("Session Conversion (Improved)", () => {
     page,
   }) => {
     // Create planned session with specific data
-    await page.goto("/plan-session");
+    await page.goto("/sessions/new?mode=plan");
     await expect(page.locator("body")).toBeVisible();
 
     const beachInput = page.locator("#beach-input");
@@ -170,7 +170,7 @@ test.describe("Session Conversion (Improved)", () => {
 
   test("should handle conversion cancellation gracefully", async ({ page }) => {
     // Create planned session
-    await page.goto("/plan-session");
+    await page.goto("/sessions/new?mode=plan");
     await expect(page.locator("body")).toBeVisible();
 
     const beachInput = page.locator("#beach-input");
@@ -235,7 +235,7 @@ test.describe("Session Conversion (Improved)", () => {
     // Should be on a valid page
     const currentUrl = page.url();
     const isOnValidPage =
-      currentUrl.includes("/log-session") ||
+      currentUrl.includes("/sessions/new?mode=log") ||
       currentUrl.includes("/profile") ||
       currentUrl.endsWith("/");
     expect(isOnValidPage).toBeTruthy();

@@ -186,10 +186,10 @@ export function JournalView({ className }: JournalViewProps) {
           </p>
           <div className="flex gap-2 justify-center">
             <Button asChild>
-              <Link href="/log-session">Log your first session</Link>
+              <Link href="/sessions/new?mode=log">Log your first session</Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/plan-session">Plan a session</Link>
+              <Link href="/sessions/new?mode=plan">Plan a session</Link>
             </Button>
           </div>
         </CardContent>
@@ -209,13 +209,13 @@ export function JournalView({ className }: JournalViewProps) {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/log-session">
+            <Link href="/sessions/new?mode=log">
               <Plus className="h-4 w-4 mr-2" />
               Log Session
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/plan-session">
+            <Link href="/sessions/new?mode=plan">
               <Plus className="h-4 w-4 mr-2" />
               Plan Session
             </Link>
@@ -256,7 +256,7 @@ export function JournalView({ className }: JournalViewProps) {
             <div className="text-2xl font-bold">
               {analytics?.favoriteBeach || "None"}
             </div>
-            <p className="text-sm text-muted-foreground">Home Break</p>
+            <p className="text-sm text-muted-foreground">Favorite Beach</p>
           </CardContent>
         </Card>
       </div>

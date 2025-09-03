@@ -20,15 +20,9 @@ export async function GET() {
         likes_count,
         created_at,
         profile_id,
-        profiles!sessions_user_id_fkey (
+        profiles!sessions_profile_id_fkey (
           id,
-          full_name,
-          avatar_url
-        ),
-        session_media (
-          id,
-          storage_path,
-          media_type
+          full_name
         )
       `
       )
@@ -59,14 +53,9 @@ export async function GET() {
         author: {
           id: session.profiles.id,
           name: session.profiles.full_name || "Surfer",
-          avatar: session.profiles.avatar_url || "/placeholder-user.jpg",
+          avatar: "/placeholder-user.jpg", // TODO: Add avatar_url column to profiles table when user avatars are implemented
         },
-        media:
-          session.session_media?.map((media) => ({
-            id: media.id,
-            type: media.media_type,
-            url: media.storage_path,
-          })) || [],
+        media: [], // TODO: Add session_media table and relationship when media upload is implemented
       })) || [];
 
     return NextResponse.json({ posts });

@@ -42,6 +42,7 @@ export function UserProfileModal({
   const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // No local beach lookup; use DTO fields from profile
 
   const loadUserData = useCallback(async () => {
     if (!userId || !isOpen) return;
@@ -57,7 +58,11 @@ export function UserProfileModal({
         "data" in profileResult &&
         profileResult.data
       ) {
-        setProfile(profileResult.data as Profile);
+        const p = profileResult.data as Profile & {
+          home_beach?: { id: string; name: string } | null;
+          homeBeachName?: string | null;
+        };
+        setProfile(p as Profile);
       } else {
         throw new Error(profileResult.error || "Failed to load profile");
       }
@@ -170,13 +175,11 @@ export function UserProfileModal({
                       )}
                     </div>
 
-                    {/* Home Break */}
-                    {profile.favorite_spot && (
+                    {/* Home Break - prefer DTO name, fallback to joined relation */}
+                    {(profile.homeBeachName ?? profile.home_beach?.name) && (
                       <div className="text-sm mt-2">
-                        <span className="text-muted-foreground">
-                          Home Break{" "}
-                        </span>
-                        <span>{profile.favorite_spot}</span>
+                        <span className="text-muted-foreground">Home Break{" "}</span>
+                        <span>{profile.homeBeachName ?? profile.home_beach?.name ?? "—"}</span>
                       </div>
                     )}
                   </div>

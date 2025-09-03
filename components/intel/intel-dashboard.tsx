@@ -44,7 +44,7 @@ type LocationMode = "nearby" | "all";
 
 export function IntelDashboard({ className = "" }: IntelDashboardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("split");
-  const [locationMode, setLocationMode] = useState<LocationMode>("all"); // Default to showing all posts
+  const [locationMode, setLocationMode] = useState<LocationMode>("nearby"); // Default to showing nearby posts to match Forecast tab behavior
   const [showFilters, setShowFilters] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
   const [showCheckInForm, setShowCheckInForm] = useState(false);
@@ -137,7 +137,7 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
         lng: post.longitude.toString(),
         location: `${post.title} (Intel)`,
       });
-      router.push(`/plan-session?${searchParams.toString()}`);
+      router.push(`/sessions/new?mode=plan&${searchParams.toString()}`);
     },
     [router]
   );
@@ -231,18 +231,18 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
           <div className="flex items-center gap-2">
             {/* Location Mode Toggle */}
             <Button
-              variant={locationMode === "all" ? "default" : "outline"}
+              variant={locationMode === "nearby" ? "default" : "outline"}
               size="sm"
               onClick={handleLocationModeToggle}
               className="h-8"
             >
-              {locationMode === "all" ? (
-                <Globe className="h-4 w-4" />
-              ) : (
+              {locationMode === "nearby" ? (
                 <MapPin className="h-4 w-4" />
+              ) : (
+                <Globe className="h-4 w-4" />
               )}
               <span className="ml-1 hidden sm:inline">
-                {locationMode === "all" ? "All Posts" : "Nearby"}
+                {locationMode === "nearby" ? "Nearby" : "All Posts"}
               </span>
             </Button>
 

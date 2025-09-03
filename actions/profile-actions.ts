@@ -1,10 +1,35 @@
 "use server";
 
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
-import { invalidateProfileCache } from "@/hooks/use-user-profile";
 import type { Profile } from "@/types/database";
+import { z } from "zod";
+import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
+
+// Unified profile update schema with permissive validation
+const profileUpdateSchema = z.object({
+  full_name: z.string().min(1, "Name is required").max(100, "Name too long").optional(),
+  home_beach_id: z.string().uuid("Invalid beach ID").nullable().optional(),
+  bio: z.string().max(500, "Bio too long").optional(),
+  skill_level: z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
+  experience_years: z.number().int().min(0, "Experience years must be positive").max(100, "Experience years too high").optional(),
+  avatar_url: z.union([
+    z.string().url("Invalid avatar URL"),
+    z.string().length(0), // Allow empty strings
+    z.null()
+  ]).optional(),
+  website_url: z.string().url("Invalid website URL").optional(),
+  instagram: z.string().max(30, "Instagram username too long").optional(),
+  location: z.string().max(255, "Location too long").optional(),
+  board_types: z.array(z.string()).optional(),
+  notifications_enabled: z.boolean().optional(),
+  email_notifications: z.boolean().optional(),
+  push_notifications: z.boolean().optional(),
+  privacy_level: z.enum(["public", "friends", "private"]).optional(),
+  share_sessions: z.boolean().optional(),
+  show_stats: z.boolean().optional(),
+}).passthrough(); // Allow extra fields that aren't in schema
 
 export async function getProfile(userId: string) {
   if (!userId) {
@@ -33,7 +58,7 @@ export async function getProfile(userId: string) {
       .maybeSingle();
 
     if (error) {
-      throw error;
+      throw new Error(error.message || "Failed to fetch profile");
     }
 
     // If no profile exists, create one
@@ -41,7 +66,9 @@ export async function getProfile(userId: string) {
       return await createProfile(userId);
     }
 
-    return { success: true, data };
+    // Return data as is - field names now match
+    const mapped = data;
+    return { success: true, data: mapped };
   } catch (error) {
     console.error("Error fetching profile:", error);
     return {
@@ -49,6 +76,64 @@ export async function getProfile(userId: string) {
       error: error instanceof Error ? error.message : "Unknown error",
       isConnectionError: false,
     };
+  }
+}
+
+/**
+ * Internal profile fetcher for caching
+ */
+async function _fetchProfile(userId: string) {
+  if (!userId) {
+    return null;
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error in _fetchProfile:", error);
+      return null;
+    }
+
+    // If no profile exists, create one
+    if (!data) {
+      const createResult = await createProfile(userId);
+      return createResult.success ? createResult.data : null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in _fetchProfile:", error);
+    return null;
+  }
+}
+
+/**
+ * Standardized tagged profile fetching function for server components
+ * Uses Next.js cache tags for better cache invalidation when available
+ */
+export async function fetchProfile(userId: string) {
+  // Check if we're in a server environment with Next.js caching
+  try {
+    const cachedFetch = unstable_cache(
+      _fetchProfile,
+      ["profile"],
+      {
+        tags: ["profile"],
+        revalidate: 300, // 5 minutes
+      }
+    );
+    return await cachedFetch(userId);
+  } catch (error) {
+    // Fallback to direct function for test environments
+    console.warn("unstable_cache not available, using direct profile fetch");
+    return await _fetchProfile(userId);
   }
 }
 
@@ -104,7 +189,7 @@ export async function createProfile(userId: string) {
       .single();
 
     if (error) {
-      throw error;
+      throw new Error(error.message || "Failed to create profile");
     }
 
     // Clear profile cache on both paths that use profiles
@@ -122,31 +207,82 @@ export async function createProfile(userId: string) {
 }
 
 export async function updateProfile(
-  profileData: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>
+  profileData: Partial<Omit<Profile, "id" | "created_at" | "updated_at">> | Partial<Omit<Profile, "id" | "created_at" | "updated_at">>[]
 ) {
   return withAuthenticatedAction(async (user, supabase) => {
+    // Handle case where data might be wrapped in an array (from certain Next.js action calls)
+    const updateData = Array.isArray(profileData) ? profileData[0] : profileData;
+    
+    // Validate input data
+    const validationResult = profileUpdateSchema.safeParse(updateData);
+    if (!validationResult.success) {
+      throw new Error(`Validation failed: ${validationResult.error.issues.map(i => i.message).join(", ")}`);
+    }
+
+    // Start with validated, but allow passthrough keys to be inspected before DB update
+    const processedData: Record<string, any> = { ...validationResult.data };
+
+    // Server-side fallback: if client sent a typed beach name but not an ID, resolve best match
+    if (!processedData.home_beach_id && typeof (updateData as any)?.home_beach_text === "string") {
+      const text = ((updateData as any).home_beach_text as string).trim();
+      if (text.length > 0) {
+        const { data: candidates, error: beachError } = await supabase
+          .from("beaches")
+          .select("id,name")
+          .ilike("name", `%${text}%`)
+          .limit(25);
+
+        if (!beachError && candidates && candidates.length > 0) {
+          const lower = text.toLowerCase();
+          const exact = candidates.find((b) => b.name.toLowerCase() === lower);
+          const starts = candidates.find((b) => b.name.toLowerCase().startsWith(lower));
+          const contains = candidates[0];
+
+          const match = exact || starts || contains;
+          if (match) {
+            processedData.home_beach_id = match.id;
+          }
+        }
+      }
+    }
+
+    // Never attempt to update unknown column
+    if ("home_beach_text" in processedData) {
+      delete processedData.home_beach_text;
+    }
+
+    // Handle empty strings for avatar_url by treating them as unset
+    if (processedData.avatar_url === "") {
+      delete processedData.avatar_url; // Remove empty string avatar_url from update
+    }
+
+    // Field names match database, no mapping needed
+    const dbPayload: Record<string, any> = {
+      ...processedData,
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from("profiles")
-      .update({
-        ...profileData,
-        updated_at: new Date().toISOString(),
-      })
+      .update(dbPayload)
       .eq("id", user.id)
       .select()
       .single();
 
     if (error) {
-      throw error;
+      throw new Error(error.message || "Failed to update profile");
     }
 
-    // Clear profile cache on both paths that use profiles
+    // Use tag-based cache revalidation for better cache management
+    revalidateTag("profile");
+    
+    // Clear specific paths that use profile data
     revalidatePath("/profile");
     revalidatePath("/"); // Home page uses profile data
+    revalidatePath("/profile/preferences");
 
-    // Clear the in-memory profile cache used by useUserProfile hook
-    invalidateProfileCache(user.id);
-
-    return data;
+    // Return data as is - field names now match
+    return data as any;
   });
 }
 
@@ -160,17 +296,8 @@ export async function getUserStats(userId: string) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // Get user profile for favorite_spot
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("favorite_spot")
-      .eq("id", userId)
-      .single();
-
-    if (profileError) {
-      console.error("Error fetching profile for stats:", profileError);
-      // Continue execution even if profile fetch fails
-    }
+    // Get user profile with home beach (one query)
+    const { profile: profileData, homeBeachName } = await getProfileWithHomeBeachById(userId);
 
     // Get session count
     const { count: sessionCount, error: sessionError } = await supabase
@@ -212,6 +339,8 @@ export async function getUserStats(userId: string) {
       averageRating = Math.round((sum / qualityData.length) * 10) / 10; // Round to 1 decimal place
     }
 
+    // homeBeachName already resolved by fetcher
+
     // Get most visited beach
     let mostVisitedBeach = null;
     let mostVisitedBeachCount = 0;
@@ -237,7 +366,8 @@ export async function getUserStats(userId: string) {
         sessionCount: sessionCount || 0,
         boardCount: boardCount || 0,
         averageRating,
-        favoriteSpot: profileData?.favorite_spot || null,
+        homeBeachId: profileData?.home_beach_id || null,
+        homeBeachName,
         mostVisitedBeach,
         mostVisitedBeachCount,
       },

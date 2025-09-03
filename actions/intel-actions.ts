@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getExpiryDate } from "@/lib/constants/intel";
+import { creditAuthorWithXP } from "@/lib/gamification-actions";
 import type { ActionResult } from "@/lib/action-utils";
 import type {
   CreateIntelPostData,
@@ -17,8 +18,21 @@ import type {
 /**
  * Create a new intel post
  */
+import type { XPAction } from "@/lib/gamification-actions";
+
+type TrackXPFn = (
+  action: XPAction,
+  relatedEntityId?: string,
+  relatedEntityType?: "session" | "board" | "intel_post" | "review" | "invite" | "photo"
+) => Promise<any>;
+
+interface IntelDeps {
+  trackXP?: TrackXPFn;
+}
+
 export async function createIntelPost(
-  data: CreateIntelPostData
+  data: CreateIntelPostData,
+  deps?: IntelDeps
 ): Promise<ActionResult> {
   try {
     // Use service-role for reliable reads (bypasses RLS inconsistencies in dev)
@@ -123,6 +137,16 @@ export async function createIntelPost(
     // Revalidate the home page to refresh the intel feed
     revalidatePath("/");
 
+    // Track XP for posting beach intel (non-blocking)
+    try {
+      const track = deps?.trackXP
+        ? deps.trackXP
+        : (await import("@/lib/gamification-actions")).trackXP;
+      await track("post_beach_intel", intelPost.id, "intel_post");
+    } catch (xpErr) {
+      console.warn("XP tracking failed for intel post:", xpErr);
+    }
+
     return {
       success: true,
       data: enrichedPost,
@@ -135,6 +159,13 @@ export async function createIntelPost(
         error instanceof Error ? error.message : "Failed to create intel post",
     };
   }
+}
+
+// Default export wrapper for convenience (uses dynamic import fallback)
+export default async function createIntelPostDefault(
+  data: CreateIntelPostData
+) {
+  return createIntelPost(data);
 }
 
 /**
@@ -399,6 +430,13 @@ export async function confirmIntelPost(
 
     if (updateError) {
       console.warn("Could not fetch updated confirmations count:", updateError);
+    }
+
+    // Credit the intel author with XP (async, don't block the response)
+    if (intelPost.user_id) {
+      creditAuthorWithXP(intelPost.user_id, 'intel_post', intelPostId).catch(err => 
+        console.error("Failed to credit intel author XP:", err)
+      );
     }
 
     // Revalidate the home page to refresh the intel feed

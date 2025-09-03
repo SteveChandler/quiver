@@ -845,8 +845,8 @@ export class EnhancedForecastService {
     const recentData = sortedData[0];
     console.log(
       `🌊 Using CDIP current conditions for ${targetTime.toISOString()}: ${
-        recentData.waveHeight
-      }ft from ${recentData.timestamp}`
+        recentData.significantWaveHeight
+      }m from ${recentData.timestamp}`
     );
 
     return recentData;

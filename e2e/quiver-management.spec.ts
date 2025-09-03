@@ -553,7 +553,7 @@ test.describe("Board/Quiver Management", () => {
         await createTestBoard(page, { name: "Session Test Board" });
 
         // Navigate to session logging
-        await page.goto("/log-session");
+        await page.goto("/sessions/new?mode=log");
         await page.waitForTimeout(2000);
 
         // Look for board selection
@@ -579,7 +579,7 @@ test.describe("Board/Quiver Management", () => {
     }) => {
       await handleAuthRedirect(page);
 
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const boardSelect = page.getByLabel(/board/i);
@@ -607,7 +607,7 @@ test.describe("Board/Quiver Management", () => {
       await handleAuthRedirect(page);
 
       // This test assumes user has no boards or we can simulate that state
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       const boardSelect = page.getByLabel(/board/i);

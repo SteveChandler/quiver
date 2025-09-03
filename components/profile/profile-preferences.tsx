@@ -26,17 +26,11 @@ import {
 } from "@/components/ui/form";
 import { toast } from "@/components/ui/use-toast";
 import { updateProfile } from "@/actions/profile-actions";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { BeachSelector } from "@/components/BeachSelector";
 import type { Beach, Profile } from "@/types/database";
 
 const preferencesFormSchema = z.object({
-  default_beach_id: z.string().optional(),
+  home_beach_id: z.string().uuid().nullable().optional(),
   notification_session_reminders: z.boolean().default(false),
   notification_community_replies: z.boolean().default(false),
   inapp_session_invites: z.boolean().default(true),
@@ -62,7 +56,7 @@ export function ProfilePreferences({
   const form = useForm<PreferencesFormValues>({
     resolver: zodResolver(preferencesFormSchema),
     defaultValues: {
-      default_beach_id: profile?.default_beach_id || "",
+      home_beach_id: profile?.home_beach_id ?? null,
       notification_session_reminders:
         profile?.notification_session_reminders || false,
       notification_community_replies:
@@ -75,10 +69,13 @@ export function ProfilePreferences({
   async function onSubmit(data: PreferencesFormValues) {
     if (!userId) return;
 
+    console.debug("[HomeBeach/UI] submit payload", {
+      home_beach_id: form.getValues("home_beach_id"),
+    });
     setIsSubmitting(true);
     try {
       const result = await updateProfile({
-        default_beach_id: data.default_beach_id,
+        home_beach_id: data.home_beach_id ?? null,
         notification_session_reminders: data.notification_session_reminders,
         notification_community_replies: data.notification_community_replies,
         inapp_session_invites: data.inapp_session_invites,
@@ -119,35 +116,27 @@ export function ProfilePreferences({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
-            {/* Default Beach */}
+            {/* Home Beach */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">Default Settings</h3>
+              <h3 className="text-sm font-medium">Home Beach Settings</h3>
               <FormField<PreferencesFormValues>
                 control={form.control}
-                name="default_beach_id"
+                name="home_beach_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Default Beach</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a default beach" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="">None</SelectItem>
-                        {beaches.map((beach) => (
-                          <SelectItem key={beach.id} value={beach.id}>
-                            {beach.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Home Beach</FormLabel>
+                    <BeachSelector
+                      initialValue={""}
+                      onBeachSelected={(beach) => {
+                        console.debug("[HomeBeach/UI] change", {
+                          selectedId: beach?.id,
+                        });
+                        field.onChange(beach?.id || null);
+                      }}
+                    />
                     <FormDescription>
-                      This beach will be pre-selected when logging new sessions
+                      This beach will be shown on your home screen and
+                      pre-selected when logging new sessions
                     </FormDescription>
                   </FormItem>
                 )}

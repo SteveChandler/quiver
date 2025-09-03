@@ -23,7 +23,12 @@ import { FullPageLoader, AuthLoader } from "@/components/ui/loading-states";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { BoardCard } from "@/components/board-card";
 import { UserStats } from "@/components/user-stats";
-import { FavoriteBeaches } from "@/components/favorite-beaches";
+// Lazy load FavoriteBeaches to avoid eager importing server actions in E2E/SSR
+const FavoriteBeaches = lazy(() =>
+  import("@/components/favorite-beaches").then((m) => ({
+    default: m.FavoriteBeaches,
+  }))
+);
 import { UserAvatar } from "@/components/user-avatar";
 import { EditProfileModal } from "@/components/edit-profile-modal";
 import { useAuth } from "@/context/auth-context";
@@ -31,6 +36,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getUserBoards } from "@/actions/board-actions";
 import { getUserSessions } from "@/actions/session-actions";
 import { getProfile } from "@/actions/profile-actions";
+// Removed ad-hoc beach lookup; rely on DTO fields for home beach name
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -97,6 +103,8 @@ export function ProfileView() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  // No local beach name state; prefer DTO fields on profile
+  const [statsRefreshToken, setStatsRefreshToken] = useState(0);
 
   const loadUserData = async () => {
     if (!user) return;
@@ -113,7 +121,6 @@ export function ProfileView() {
         profileResult.data
       ) {
         const profileData = profileResult.data as Profile;
-
         setProfile(profileData);
       } else {
         if (
@@ -152,15 +159,28 @@ export function ProfileView() {
     }
   };
 
+  // Removed effect; home beach name provided by API DTO or joined relation
+
   const handleProfileUpdated = async () => {
     console.log(
       "handleProfileUpdated called - reloading data and closing modal"
     );
-    // Reload the user data to get the updated profile
-    await loadUserData();
-    // Close the modal
-    setEditModalOpen(false);
-    console.log("Modal should now be closed");
+    try {
+      // Close the modal first to show immediate response
+      setEditModalOpen(false);
+
+      // Reload the user data to get the updated profile
+      await loadUserData();
+
+      // Increment the stats refresh token to trigger UserStats refresh
+      setStatsRefreshToken((prev) => prev + 1);
+
+      console.log("Profile data reloaded and modal closed successfully");
+    } catch (error) {
+      console.error("Error during profile update callback:", error);
+      // Still close the modal even if reload fails
+      setEditModalOpen(false);
+    }
   };
 
   const handleRetry = () => {
@@ -304,14 +324,14 @@ export function ProfileView() {
                           )}
                         </div>
 
-                        {/* Home Break */}
-                        {profile?.favorite_spot && (
+                        {/* Home Break - prefer DTO name, fallback to joined relation */}
+                        {(profile?.homeBeachName ?? profile?.home_beach?.name) && (
                           <div className="text-xs font-open-sans pt-0.5">
                             <span className="text-muted-foreground">
                               Home Break{" "}
                             </span>
                             <span className="font-medium text-ocean-blue">
-                              {profile.favorite_spot}
+                              {profile?.homeBeachName ?? profile?.home_beach?.name ?? "—"}
                             </span>
                           </div>
                         )}
@@ -342,7 +362,12 @@ export function ProfileView() {
               className="max-w-6xl mx-auto px-4"
             >
               <div className="bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/50">
-                {user && <UserStats userId={user.id} />}
+                {user && (
+                  <UserStats
+                    userId={user.id}
+                    refreshToken={statsRefreshToken}
+                  />
+                )}
               </div>
             </motion.section>
 
@@ -425,8 +450,9 @@ export function ProfileView() {
                         Add Beach
                       </Button>
                     </div>
-
-                    <FavoriteBeaches />
+                    <Suspense fallback={<TabLoadingSkeleton type="Beaches" />}>
+                      <FavoriteBeaches />
+                    </Suspense>
                   </TabsContent>
 
                   <TabsContent value="comments" className="p-6 space-y-4 m-0">

@@ -28,7 +28,7 @@ interface UseEnhancedForecastReturn {
   updating: boolean;
   autoGenerating: boolean;
   setSelectedDate: (date: string) => void;
-  refetch: () => Promise<void>;
+  refetch: () => Promise<ForecastData>;
   invalidateCache: () => void;
   handleRefresh: () => Promise<void>;
 }

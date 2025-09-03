@@ -115,7 +115,7 @@ test.describe("Comprehensive Surf App Workflows", () => {
       }
 
       // 6. Try to access session logging (may redirect if not authenticated)
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       // Should either show form or redirect to auth
@@ -231,7 +231,7 @@ test.describe("Comprehensive Surf App Workflows", () => {
             // Should navigate to log session page
             await page.waitForTimeout(2000);
             expect(
-              page.url().includes("/log-session") ||
+              page.url().includes("/sessions/new?mode=log") ||
                 page.url().includes("/auth")
             ).toBeTruthy();
           }
@@ -275,7 +275,7 @@ test.describe("Comprehensive Surf App Workflows", () => {
       }
 
       // Navigate to session logging to see if boards are available
-      await page.goto("/log-session");
+      await page.goto("/sessions/new?mode=log");
       await page.waitForTimeout(2000);
 
       // Check if we're redirected or if we can see the form
@@ -336,7 +336,7 @@ test.describe("Comprehensive Surf App Workflows", () => {
 
         if (beachName) {
           // Navigate to log session
-          await page.goto("/log-session");
+          await page.goto("/sessions/new?mode=log");
           await page.waitForTimeout(2000);
 
           // Skip if redirected to auth

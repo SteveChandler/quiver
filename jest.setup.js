@@ -1,5 +1,7 @@
 // Import Jest DOM matchers
 import "@testing-library/jest-dom";
+// Import whatwg-fetch for fetch polyfill
+import "whatwg-fetch";
 
 // Polyfill TextEncoder and TextDecoder
 if (typeof TextEncoder === "undefined") {
@@ -53,12 +55,27 @@ jest.mock("next/image", () => ({
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(() => ({
     user: null,
+    session: null,
     isLoading: false,
     isAuthenticated: false,
+    signUp: jest.fn(),
     signIn: jest.fn(),
     signOut: jest.fn(),
-    signUp: jest.fn(),
+    refreshSession: jest.fn(),
   })),
+}));
+
+// Mock RealtimeClient globally to prevent initialization errors
+jest.mock('@supabase/realtime-js', () => ({
+  RealtimeClient: jest.fn().mockImplementation(() => ({
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    channel: jest.fn(() => ({
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn(),
+      unsubscribe: jest.fn()
+    }))
+  }))
 }));
 
 // Mock for server actions
@@ -154,6 +171,11 @@ if (typeof Element !== "undefined") {
 
   // Polyfill for scrollIntoView (needed by Radix UI components)
   Element.prototype.scrollIntoView = jest.fn();
+}
+
+// Mock scrollTo to prevent jsdom warnings
+if (typeof window !== "undefined") {
+  window.scrollTo = jest.fn();
 }
 
 // Suppress console errors during tests

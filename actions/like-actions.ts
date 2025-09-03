@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { creditAuthorWithXP } from "@/lib/gamification-actions";
 
 export async function toggleSessionLike(sessionId: string) {
   const supabase = await createSupabaseServerClient();
@@ -59,6 +60,20 @@ export async function toggleSessionLike(sessionId: string) {
 
       if (insertError) {
         throw insertError;
+      }
+
+      // Get the session author to credit them with XP
+      const { data: session, error: sessionError } = await supabase
+        .from("sessions")
+        .select("user_id")
+        .eq("id", sessionId)
+        .single();
+
+      if (!sessionError && session && session.user_id !== user.id) {
+        // Credit the author with XP (async, don't block the response)
+        creditAuthorWithXP(session.user_id, 'session', sessionId).catch(err => 
+          console.error("Failed to credit author XP:", err)
+        );
       }
 
       return {

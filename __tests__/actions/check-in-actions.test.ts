@@ -171,7 +171,6 @@ describe("Check-in Actions", () => {
         });
 
       const result = await CheckInActionsModule.updateCheckIn(
-        "user-123",
         "checkin-123",
         {
           wave_height: 4.0,
@@ -196,7 +195,7 @@ describe("Check-in Actions", () => {
         });
 
       await expect(
-        CheckInActionsModule.updateCheckIn("user-123", "checkin-123", {
+        CheckInActionsModule.updateCheckIn("checkin-123", {
           wave_height: 4.0,
         })
       ).rejects.toThrow("Failed to update check-in");
@@ -210,7 +209,6 @@ describe("Check-in Actions", () => {
       });
 
       const result = await CheckInActionsModule.deleteCheckIn(
-        "user-123",
         "checkin-123"
       );
 
@@ -227,7 +225,7 @@ describe("Check-in Actions", () => {
           error: { message: "Delete failed" },
         });
 
-      await expect(CheckInActionsModule.deleteCheckIn("user-123", "checkin-123")).rejects.toThrow(
+      await expect(CheckInActionsModule.deleteCheckIn("checkin-123")).rejects.toThrow(
         "Failed to delete check-in"
       );
     });

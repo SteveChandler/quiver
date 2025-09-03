@@ -8,7 +8,7 @@ import {
 
 test.describe("Social Friend Invitations", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/plan-session");
+    await page.goto("/sessions/new?mode=plan");
     await waitForPageLoad(page);
   });
 
@@ -299,7 +299,7 @@ test.describe("Social Friend Invitations", () => {
       const currentUrl = page.url();
       const isSuccessPage = currentUrl.includes("/sessions/") || 
                           currentUrl.includes("/profile") ||
-                          currentUrl !== "http://localhost:3000/plan-session";
+                          currentUrl !== "http://localhost:3002/plan-session";
 
       expect(hasSuccessToast || isSuccessPage).toBeTruthy();
     });

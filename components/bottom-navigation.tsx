@@ -12,6 +12,12 @@ export function BottomNavigation() {
   const [isVisible, setIsVisible] = useState(true);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Hide navigation on session wizard pages to prevent interference with wizard footer
+  const isSessionWizard = pathname === '/sessions/new';
+  if (isSessionWizard) {
+    return null;
+  }
+
   // Check if we're in test mode (disable auto-hide for testing)
   const isTestMode =
     typeof window !== "undefined" &&
