@@ -1,3 +1,7 @@
+### Changed
+
+- Discover page `View Profile` now opens in-app `UserProfileModal` instead of a new tab, following `components/ARCHITECTURE.md` social modal patterns for a smoother, accessible UX.
+
 # Quiver Surf App - Changelog
 
 All notable changes to the Quiver surf app are documented in this file.

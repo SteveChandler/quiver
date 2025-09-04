@@ -82,7 +82,7 @@ test.describe("User Discovery & Following", () => {
       }
     });
 
-    test("should navigate to user profiles", async ({ page }) => {
+    test("should show user profile modal from search results", async ({ page }) => {
       await handleAuthRedirect(page);
 
       // Search for a specific user
@@ -93,21 +93,15 @@ test.describe("User Discovery & Following", () => {
       await safeClick(searchButton);
       await page.waitForTimeout(2000);
 
-      // Click view profile if available
+      // Click view profile and expect modal
       const viewProfileButton = page.getByRole("button", { name: /View Profile/i });
-      if (await viewProfileButton.isVisible()) {
-        // Note: This opens in new tab, so we'll test that it tries to navigate
-        const [newPage] = await Promise.all([
-          page.waitForEvent("popup").catch(() => null),
-          safeClick(viewProfileButton)
-        ]);
-
-        // If popup opened, verify it's the user profile page
-        if (newPage) {
-          await waitForPageLoad(newPage);
-          expect(newPage.url()).toContain("/user/");
-          await newPage.close();
-        }
+      const isVisible = await viewProfileButton.isVisible().catch(() => false);
+      if (isVisible) {
+        await safeClick(viewProfileButton);
+        // Modal dialog should appear with title "Surfer Profile"
+        const dialog = page.getByRole("dialog");
+        await expect(dialog).toBeVisible();
+        await expect(page.getByText(/Surfer Profile/i)).toBeVisible();
       }
     });
   });

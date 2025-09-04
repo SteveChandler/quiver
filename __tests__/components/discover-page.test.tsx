@@ -2,12 +2,17 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import DiscoverPage from "@/app/discover/page";
+import { UserProfileModal } from "@/components/social/user-profile-modal";
 import { useAuth } from "@/context/auth-context";
 import { FollowButton } from "@/components/social/follow-button";
 
 // Mock dependencies
 jest.mock("@/context/auth-context");
 jest.mock("@/components/social/follow-button");
+jest.mock("@/components/social/user-profile-modal", () => ({
+  UserProfileModal: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog">Surfer Profile</div> : null,
+}));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const MockFollowButton = FollowButton as jest.MockedFunction<
@@ -309,7 +314,7 @@ describe("DiscoverPage", () => {
       });
     });
 
-    it("should open user profile in new tab when View Profile is clicked", async () => {
+    it("should open user profile modal when View Profile is clicked", async () => {
       const user = userEvent.setup();
       const mockSearchResults = [
         {
@@ -328,10 +333,6 @@ describe("DiscoverPage", () => {
           }),
       });
 
-      // Mock window.open
-      const mockWindowOpen = jest.fn();
-      window.open = mockWindowOpen;
-
       render(<DiscoverPage />);
 
       const searchInput = screen.getByPlaceholderText(
@@ -342,14 +343,14 @@ describe("DiscoverPage", () => {
       const searchButton = screen.getByRole("button", { name: /search/i });
       await user.click(searchButton);
 
-      await waitFor(() => {
+      await waitFor(async () => {
         const viewProfileButton = screen.getByRole("button", {
           name: /view profile/i,
         });
-        return user.click(viewProfileButton);
+        await user.click(viewProfileButton);
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+        expect(screen.getByText("Surfer Profile")).toBeInTheDocument();
       });
-
-      expect(mockWindowOpen).toHaveBeenCalledWith("/user/user-2", "_blank");
     });
   });
 

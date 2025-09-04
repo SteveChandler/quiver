@@ -11,13 +11,21 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { FollowButton } from "@/components/social/follow-button";
 import { useAuth } from "@/context/auth-context";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { UserProfileModal } from "@/components/social/user-profile-modal";
 
 export default function DiscoverPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   // Temporarily disabled - will implement suggested users later
-  const suggestedUsers = [];
+  const suggestedUsers: Array<{
+    id: string;
+    full_name?: string | null;
+    avatar_url?: string | null;
+    followers_count?: number | null;
+  }> = [];
   const loading = false;
   const error = null;
 
@@ -158,9 +166,10 @@ export default function DiscoverPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        window.open(`/user/${searchUser.id}`, "_blank")
-                      }
+                      onClick={() => {
+                        setSelectedUserId(searchUser.id);
+                        setIsProfileModalOpen(true);
+                      }}
                     >
                       View Profile
                     </Button>
@@ -292,6 +301,14 @@ export default function DiscoverPage() {
 
       {/* Bottom Navigation */}
       <BottomNavigation />
+      {/* User Profile Modal */}
+      {selectedUserId && (
+        <UserProfileModal
+          userId={selectedUserId}
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
