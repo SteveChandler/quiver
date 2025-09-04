@@ -1,3 +1,6 @@
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+
 // Extract Supabase project ID from URL for image patterns
 const getSupabaseHostname = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -160,6 +163,16 @@ const nextConfig = {
 
     // Enable external directory support
     externalDir: true,
+  },
+
+  // Reduce bundle size by rewriting common libs to per-module imports
+  modularizeImports: {
+    lodash: {
+      transform: "lodash/{{member}}",
+    },
+    "date-fns": {
+      transform: "date-fns/{{member}}",
+    },
   },
 
   // Webpack configuration for externals and bundle analyzer

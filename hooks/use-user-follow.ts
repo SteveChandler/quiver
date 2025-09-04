@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { toggleUserFollow } from "@/actions/social-actions";
+import { data as gateway } from "@/lib/data/client";
 import { useAuth } from "@/context/auth-context";
 
 interface UseUserFollowReturn {
@@ -27,6 +27,14 @@ export function useUserFollow(
   const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
 
+  // Keep callback stable across renders without retriggering effects
+  const followersCountChangeRef = useRef<
+    ((newCount: number) => void) | undefined
+  >(onFollowersCountChange);
+  useEffect(() => {
+    followersCountChangeRef.current = onFollowersCountChange;
+  }, [onFollowersCountChange]);
+
   useEffect(() => {
     // Don't proceed if userId is empty or is the current user
     if (!userId || userId === user?.id) {
@@ -39,58 +47,21 @@ export function useUserFollow(
 
     const supabase = createClient();
 
-    // Fetch initial follow status and counts
+    // Fetch initial follow status and counts via gateway
     const fetchFollowStatus = async () => {
       try {
         setIsLoading(true);
+        const res = await gateway.users.follow.getStatusAndCounts(userId);
+        const newFollowersCount = res.followersCount || 0;
+        setFollowersCount(newFollowersCount);
+        setFollowingCount(res.followingCount || 0);
+        setFollowing(res.following);
 
-        // Get profile counts
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("followers_count, following_count")
-          .eq("id", userId)
-          .single();
-
-        if (profileError) {
-          console.error(
-            "Error fetching profile counts for user",
-            userId,
-            ":",
-            profileError
-          );
-        } else {
-          const newFollowersCount = profile.followers_count || 0;
-          setFollowersCount(newFollowersCount);
-          setFollowingCount(profile.following_count || 0);
-          
-          // Notify parent component of initial follower count
-          if (onFollowersCountChange) {
-            try {
-              onFollowersCountChange(newFollowersCount);
-            } catch (error) {
-              console.error("Error in onFollowersCountChange callback:", error);
-            }
-          }
-        }
-
-        // Get user's follow status if authenticated
-        if (user) {
-          const { data: userFollow, error: followError } = await supabase
-            .from("user_follows")
-            .select("id")
-            .eq("follower_id", user.id)
-            .eq("following_id", userId)
-            .maybeSingle();
-
-          if (followError && followError.code !== "PGRST116") {
-            // PGRST116 is "no rows returned"
-            console.error("Error fetching user follow status:", followError);
-            throw followError;
-          }
-
-          setFollowing(!!userFollow);
-        } else {
-          setFollowing(false);
+        // Notify parent component of initial follower count
+        try {
+          followersCountChangeRef.current?.(newFollowersCount);
+        } catch (error) {
+          console.error("Error in onFollowersCountChange callback:", error);
         }
       } catch (error) {
         console.error("Error fetching follow status:", error);
@@ -101,6 +72,10 @@ export function useUserFollow(
         setIsLoading(false);
       }
     };
+
+    // Ensure initial counts are set for this userId before fetch
+    setFollowersCount(initialFollowersCount);
+    setFollowingCount(initialFollowingCount);
 
     fetchFollowStatus();
 
@@ -119,12 +94,10 @@ export function useUserFollow(
           setFollowersCount((prev) => {
             const newCount = prev + 1;
             // Notify parent component of follower count change
-            if (onFollowersCountChange) {
-              try {
-                onFollowersCountChange(newCount);
-              } catch (error) {
-                console.error("Error in onFollowersCountChange callback:", error);
-              }
+            try {
+              followersCountChangeRef.current?.(newCount);
+            } catch (error) {
+              console.error("Error in onFollowersCountChange callback:", error);
             }
             return newCount;
           });
@@ -146,12 +119,10 @@ export function useUserFollow(
           setFollowersCount((prev) => {
             const newCount = Math.max(0, prev - 1);
             // Notify parent component of follower count change
-            if (onFollowersCountChange) {
-              try {
-                onFollowersCountChange(newCount);
-              } catch (error) {
-                console.error("Error in onFollowersCountChange callback:", error);
-              }
+            try {
+              followersCountChangeRef.current?.(newCount);
+            } catch (error) {
+              console.error("Error in onFollowersCountChange callback:", error);
             }
             return newCount;
           });
@@ -166,7 +137,7 @@ export function useUserFollow(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, user, initialFollowersCount, initialFollowingCount, onFollowersCountChange]);
+  }, [userId, user?.id]);
 
   const toggleFollow = async () => {
     if (!user) {
@@ -181,7 +152,7 @@ export function useUserFollow(
     setIsToggling(true);
 
     try {
-      const result = await toggleUserFollow(userId);
+      const result = await gateway.users.follow.toggle(userId);
 
       if (!result.success) {
         console.error("Failed to toggle follow:", result.error);

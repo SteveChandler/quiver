@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { data as gateway } from "@/lib/data/client";
 
 export function useCommentCount(sessionId: string) {
   const [commentCount, setCommentCount] = useState(0);
@@ -17,26 +18,12 @@ export function useCommentCount(sessionId: string) {
 
     const supabase = createClient();
 
-    // Fetch initial comment count
+    // Fetch initial comment count via gateway
     const fetchCommentCount = async () => {
       try {
         setIsLoading(true);
-        const { count, error } = await supabase
-          .from("comments")
-          .select("*", { count: "exact", head: true })
-          .eq("session_id", sessionId);
-
-        if (error) {
-          console.error(
-            "Error fetching comment count for session",
-            sessionId,
-            ":",
-            error
-          );
-          throw error;
-        }
-
-        setCommentCount(count || 0);
+        const comments = await gateway.sessions.comments.listTopLevel(sessionId);
+        setCommentCount(Array.isArray(comments) ? comments.length : 0);
       } catch (error) {
         console.error("Error fetching comment count:", error);
         setCommentCount(0);

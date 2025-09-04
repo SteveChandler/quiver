@@ -14,7 +14,7 @@ test.describe("Profile Home Beach Refresh", () => {
     await page.goto("http://localhost:3002/profile");
 
     // Wait for the page to load
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     // Step 2: Check initial Home Break value
     const homeBreakCard = page.locator('[data-testid="home-break-value"]');
@@ -85,7 +85,7 @@ test.describe("Profile Home Beach Refresh", () => {
 
   test("should show loading state during stats refresh", async ({ page }) => {
     await page.goto("http://localhost:3002/profile");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     // Open edit modal
     const editButton = page.locator("button", { hasText: "Edit" });

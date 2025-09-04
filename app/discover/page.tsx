@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,13 +26,16 @@ export default function DiscoverPage() {
   const [searchLoading, setSearchLoading] = useState(false);
 
   // Update follower count for a specific user in search results
-  const updateUserFollowerCount = (userId: string, newCount: number) => {
-    setSearchResults((prev) =>
-      prev.map((user) =>
-        user.id === userId ? { ...user, followers_count: newCount } : user
-      )
-    );
-  };
+  const updateUserFollowerCount = useCallback(
+    (userId: string, newCount: number) => {
+      setSearchResults((prev) =>
+        prev.map((user) =>
+          user.id === userId ? { ...user, followers_count: newCount } : user
+        )
+      );
+    },
+    []
+  );
 
   const handleSearch = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) return;
@@ -69,7 +72,7 @@ export default function DiscoverPage() {
             </p>
           </div>
         </div>
-        
+
         {/* Bottom Navigation */}
         <BottomNavigation />
       </div>
@@ -286,7 +289,7 @@ export default function DiscoverPage() {
           </div>
         </CardContent>
       </Card>
-      
+
       {/* Bottom Navigation */}
       <BottomNavigation />
     </div>

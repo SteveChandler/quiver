@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { data } from "@/lib/data/client";
+import { useCallback } from "react";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Beach } from "@/types/database";
 
 export function BeachSelector({
@@ -11,27 +13,27 @@ export function BeachSelector({
   onBeachSelected: (beach: Beach) => void;
   initialValue?: string;
 }) {
-  const supabase = createClient();
   const [allBeaches, setAllBeaches] = useState<Beach[]>([]);
   const [query, setQuery] = useState(initialValue || "");
   const [matches, setMatches] = useState<Beach[]>([]);
   const [selectionMade, setSelectionMade] = useState(!!initialValue);
 
-  // 1. Fetch all beaches once on mount
+  // 1. Fetch all beaches once on mount via data gateway
+  const fetchBeaches = useCallback(async () => {
+    return await data.beaches.getAll();
+  }, []);
+
+  const {
+    data: beaches,
+    loading: loadingBeaches,
+    error: beachesError,
+  } = useDataFetcher<Beach[]>(fetchBeaches);
+
   useEffect(() => {
-    const load = async () => {
-      const { data, error } = await supabase
-        .from("beaches")
-        .select("*")
-        .order("name", { ascending: true });
-      if (error) {
-        console.error("Error loading beaches:", error);
-      } else {
-        setAllBeaches(data || []);
-      }
-    };
-    load();
-  }, [supabase]);
+    if (beaches) {
+      setAllBeaches(beaches);
+    }
+  }, [beaches]);
 
   // 2. Whenever query changes, recompute our filtered list
   useEffect(() => {

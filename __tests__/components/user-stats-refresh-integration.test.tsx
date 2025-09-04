@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
-import { UserStats } from "@/components/user-stats";
+// Load component dynamically after mocks are applied
+const loadUserStats = () => require("@/components/user-stats").UserStats;
 
 // Create a jest mock implementation
 const mockGetUserStats = jest.fn();
@@ -107,6 +108,7 @@ describe("UserStats Refresh Integration", () => {
       data: initialStats,
     });
 
+    const UserStats = loadUserStats();
     const { rerender } = render(<UserStats userId={mockUserId} />);
 
     await waitFor(() => {
@@ -157,9 +159,7 @@ describe("UserStats Refresh Integration", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("home-break-value")).toHaveTextContent(
-        "Beach"
-      );
+      expect(screen.getByTestId("home-break-value")).toHaveTextContent("Beach");
     });
 
     expect(mockGetUserStats).toHaveBeenCalledTimes(1);
@@ -189,12 +189,11 @@ describe("UserStats Refresh Integration", () => {
       data: initialStats,
     });
 
+    const UserStats = loadUserStats();
     const { rerender } = render(<UserStats userId={mockUserId} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("home-break-value")).toHaveTextContent(
-        "Beach"
-      );
+      expect(screen.getByTestId("home-break-value")).toHaveTextContent("Beach");
     });
 
     // Second render - slow response to see loading state
@@ -244,12 +243,11 @@ describe("UserStats Refresh Integration", () => {
     });
 
     // Should work without refreshToken prop
+    const UserStats = loadUserStats();
     render(<UserStats userId={mockUserId} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("home-break-value")).toHaveTextContent(
-        "Beach"
-      );
+      expect(screen.getByTestId("home-break-value")).toHaveTextContent("Beach");
     });
 
     expect(mockGetUserStats).toHaveBeenCalledTimes(1);
@@ -273,12 +271,11 @@ describe("UserStats Refresh Integration", () => {
       data: initialStats,
     });
 
+    const UserStats = loadUserStats();
     const { rerender } = render(<UserStats userId={mockUserId} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId("home-break-value")).toHaveTextContent(
-        "Beach"
-      );
+      expect(screen.getByTestId("home-break-value")).toHaveTextContent("Beach");
     });
 
     // Second render - failure

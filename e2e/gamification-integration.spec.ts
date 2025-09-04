@@ -39,7 +39,7 @@ test.describe('Gamification Integration Tests', () => {
     await page.goto('/profile');
     
     // Wait for profile to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
     
     // Check if we're on the profile page
     const isOnProfile = await page.url().includes('/profile') || await page.url().includes('/map');
@@ -70,7 +70,7 @@ test.describe('Gamification Integration Tests', () => {
     
     // Navigate to session creation
     await page.goto('/sessions/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
     
     // Check for any gamification-related errors
     const gamificationErrors = errors.filter(e => 
@@ -112,7 +112,7 @@ test.describe('Gamification Integration Tests', () => {
   test('should render XP booster cards correctly', async ({ page }) => {
     // Try to navigate to Journal or Quiver sections
     await page.goto('/journal');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
     
     // If redirected to map (authenticated), look for XP boosters
     if (page.url().includes('/map') || page.url().includes('/journal')) {

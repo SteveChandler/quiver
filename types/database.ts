@@ -4000,3 +4000,106 @@ export const Constants = {
     },
   },
 } as const
+
+// Friendly aliases used throughout the app (additive, safe for regeneration)
+export type IntelPostTag = Database["public"]["Enums"]["intel_post_tag"];
+export type IntelPost = Database["public"]["Tables"]["intel_posts"]["Row"];
+export type IntelPostWithUser = IntelPost & {
+  user: { full_name: string; avatar_url: string | null };
+};
+type PublicTables = Database["public"]["Tables"];
+
+// Extend Beach with commonly used optional metadata present in app DTOs
+export type Beach = Database["public"]["Tables"]["beaches"]["Row"] & {
+  location_text?: string | null;
+  cdip_station?: string | null;
+  ndbc_station?: string | null;
+};
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
+  homeBeachName?: string | null;
+  home_beach?: { id: string; name: string } | null;
+};
+export type Board = Database["public"]["Tables"]["boards"]["Row"];
+export type Session = Database["public"]["Tables"]["sessions"]["Row"];
+export type SessionWithDetails = Session & {
+  beach: Beach | null;
+  board: Board | null;
+  user: Profile | null;
+  // Commonly used derived/display fields
+  beach_name?: string | null;
+  wave_height?: string | null;
+  water_temp?: string | null;
+  wave_quality?: number | null;
+  crowd_rating?: number | null;
+  notes?: string | null;
+  duration_minutes?: number | null;
+};
+export type SessionPhoto = PublicTables extends { session_media: { Row: infer R } }
+  ? R
+  : SessionMediaFallbackRow;
+// Fallback shape if session_media table types are unavailable in generated schema
+export interface SessionMediaFallbackRow {
+  id: string;
+  session_id: string | null;
+  user_id: string;
+  storage_path: string;
+  public_url: string;
+  file_size: number;
+  media_type: "photo" | "video" | string;
+  caption?: string | null;
+  metadata?: Json | null;
+  created_at: string;
+}
+export type SessionPhotoLike = SessionPhoto extends never
+  ? SessionMediaFallbackRow
+  : SessionPhoto;
+export type Forecast = Database["public"]["Tables"]["enhanced_forecasts"]["Row"];
+export type EnhancedForecast = Database["public"]["Tables"]["enhanced_forecasts"]["Row"];
+export type BeachForecastAccuracy = Database["public"]["Tables"]["beach_forecast_accuracy"]["Row"];
+export type SessionForecastSnapshot = Database["public"]["Tables"]["session_forecast_snapshots"]["Row"];
+export type GetBestTimesRow = PublicTables extends { mv_best_times: { Row: infer R } }
+  ? R
+  : {
+      beach_id: string | null;
+      start_ts: string | null;
+      end_ts: string | null;
+      score: number | null;
+      reason: string | null;
+    };
+export type BeachReview = Database["public"]["Tables"]["beach_reviews"]["Row"];
+export type BeachReviewWithUser = BeachReview & { user: { id: string; full_name: string; avatar_url: string | null } };
+export type CheckIn = PublicTables extends { check_ins: { Row: infer R } }
+  ? R
+  : {
+      id: string;
+      user_id: string;
+      beach_id: string | null;
+      created_at: string;
+      forecast_confidence_score?: number | null;
+      forecast_snapshot?: Json | null;
+      actual_conditions?: Json | null;
+    };
+export type CheckInWithUser = CheckIn & { user: { id: string; full_name: string; avatar_url: string | null } };
+export type ForecastAccuracyStats = BeachForecastAccuracy;
+export type ActivityFeedItem = {
+  // Verbose feed item used in UI (not a direct DB row)
+  type: "follow" | "like" | "comment" | "session";
+  activity_type?: string;
+  entity_type?: "session" | "beach" | "user" | string;
+  entity_id?: string;
+  created_at: string;
+  user_id: string;
+  user_name?: string | null;
+  user_avatar?: string | null;
+  actor_full_name?: string | null;
+  actor_avatar_url?: string | null;
+  target_user_id?: string;
+  metadata?: {
+    beach_id?: string;
+    beach_name?: string;
+    rating?: number;
+    overall_rating?: number;
+    followed_user_id?: string;
+    [key: string]: any;
+  } | null;
+};

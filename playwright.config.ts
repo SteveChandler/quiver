@@ -96,6 +96,15 @@ export default defineConfig({
         headless: true,
       },
     },
+    // Mobile project for mobile-only interaction tests
+    {
+      name: "mobile-chrome",
+      testMatch: ["**/phase1-motion-interactions.spec.ts"],
+      use: {
+        ...devices["Pixel 5"],
+        storageState: ".auth/user.json",
+      },
+    },
   ],
 
   /* Run your local dev server before starting the tests */

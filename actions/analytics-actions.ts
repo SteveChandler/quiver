@@ -287,30 +287,3 @@ export async function getCalendarHeatmapData(
   }
 }
 
-/**
- * Update session privacy flag
- */
-export async function updateSessionPrivacy(
-  sessionId: string,
-  isPrivate: boolean
-) {
-  return withAuthenticatedAction(async (user, supabase) => {
-    // Update session privacy
-    const { data, error } = await supabase
-      .from("sessions")
-      .update({
-        is_public: !isPrivate,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", sessionId)
-      .eq("user_id", user.id) // Ensure user owns this session
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  });
-}

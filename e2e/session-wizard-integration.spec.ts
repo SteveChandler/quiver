@@ -13,7 +13,7 @@ test.describe('SessionWizard Integration', () => {
   test('should display SessionWizard on /plan-session route', async ({ page }) => {
     // Navigate to plan session page
     await page.goto('/plan-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Check for wizard-specific elements that wouldn't exist in the old form
     const wizardContainer = page.locator('[data-testid="session-wizard"]');
@@ -39,7 +39,7 @@ test.describe('SessionWizard Integration', () => {
   test('should display SessionWizard on /log-session route', async ({ page }) => {
     // Navigate to log session page
     await page.goto('/log-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Check for wizard-specific elements
     const wizardContainer = page.locator('[data-testid="session-wizard"]');
@@ -64,7 +64,7 @@ test.describe('SessionWizard Integration', () => {
 
   test('should navigate between wizard steps with smooth transitions', async ({ page }) => {
     await page.goto('/plan-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Fill out first step (DateTime)
     await page.click('input[name="date"]');
@@ -97,7 +97,7 @@ test.describe('SessionWizard Integration', () => {
 
   test('should show progress bar animation', async ({ page }) => {
     await page.goto('/plan-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Check initial progress (should be 0% for step 1)
     const progressFill = page.locator('[data-testid="progress-fill"]');
@@ -118,7 +118,7 @@ test.describe('SessionWizard Integration', () => {
 
   test('should show auto-save indicator', async ({ page }) => {
     await page.goto('/plan-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Fill out a field to trigger auto-save
     await page.click('input[name="date"]');
@@ -135,7 +135,7 @@ test.describe('SessionWizard Integration', () => {
 
   test('should show form validation with animation', async ({ page }) => {
     await page.goto('/plan-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Try to proceed without filling required fields
     const nextButton = page.locator('button:has-text("Next")');

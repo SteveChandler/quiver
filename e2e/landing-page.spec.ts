@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Landing Page", () => {
   test.beforeEach(async ({ page }) => {
@@ -107,7 +107,7 @@ test.describe("Landing Page", () => {
       await page.waitForSelector("body", { timeout: 15000 });
       
       // Wait for the page to be fully loaded and stable
-      await page.waitForLoadState("networkidle", { timeout: 10000 });
+      await page.waitForLoadState("load", { timeout: 10000 });
       await page.waitForTimeout(2000);
 
       try {

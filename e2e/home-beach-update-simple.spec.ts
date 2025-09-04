@@ -40,7 +40,7 @@ test.describe("Home Beach Update Flow - Simple", () => {
 
     // Step 1: Go to profile page
     await page.goto("/profile");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // Verify initial state shows no home beach
     const homeBreakValue = page.locator('[data-testid="home-break-value"]');
@@ -93,7 +93,7 @@ test.describe("Home Beach Update Flow - Simple", () => {
     
     // Step 6: Navigate to home page
     await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // The home beach banner should NOT be visible since we now have a home beach set
     const homeBanner = page.locator('[data-testid="home-beach-banner"]');
@@ -141,7 +141,7 @@ test.describe("Home Beach Update Flow - Simple", () => {
     
     // Step 9: Go to home page and verify banner is visible again
     await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // Now the banner should be visible since there's no home beach
     await expect(homeBanner).toBeVisible({ timeout: 10000 });

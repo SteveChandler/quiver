@@ -17,6 +17,18 @@ async function globalSetup(config: FullConfig) {
   try {
     const baseUrl =
       process.env.BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002";
+
+    // Ensure baseline seed (beaches) exists via Supabase CLI if available
+    // Non-blocking: best-effort seeding
+    try {
+      const { execSync } = await import("node:child_process");
+      if (process.env.SUPABASE_DB_URL) {
+        console.log("🧪 Seeding baseline data with Supabase CLI (best-effort)...");
+        execSync("supabase db reset --force", { stdio: "inherit" });
+      }
+    } catch (cliErr) {
+      console.warn("⚠️  Supabase CLI seeding skipped:", cliErr?.toString?.() || cliErr);
+    }
     const bypass = process.env.VERCEL_BYPASS;
     const isLocal = baseUrl.startsWith("http://localhost");
     const devToken = process.env.DEV_AUTH_TOKEN || "dev-local-token";
