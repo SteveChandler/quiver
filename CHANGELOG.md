@@ -139,6 +139,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Server-side fallback: `updateProfile` now resolves `home_beach_text` to a valid `home_beach_id` when no ID is provided
 - Discover page follow-status infinite request loop resolved: stabilized `hooks/use-user-follow` effect dependencies and callback handling; memoized follower count updater in `app/discover/page.tsx`. Follows `hooks/ARCHITECTURE.md` realtime subscription pattern and centralized data gateway in `lib/data/client.ts`.
 
+- E2E: Stabilized `e2e/profile-edit.spec.ts` by using seeded beach ("Ocean Beach"), resilient dropdown selection fallback, and stable submit selector (`data-testid="save-profile"`). Prevents flakiness from missing options and inconsistent button text.
+
 ### Performance
 
 - Spatial search optimization: Added generated `geog geography(Point,4326)` column and `GiST` index on `public.beaches` to enable index-backed `ST_DWithin` queries

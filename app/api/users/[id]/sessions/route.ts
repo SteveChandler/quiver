@@ -13,6 +13,8 @@ function isUuidLike(id: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest, context: { params: { id: string } }) {
   try {
     const { id: targetUserId } = context.params;
