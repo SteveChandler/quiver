@@ -4,6 +4,21 @@ test.describe("Landing Page", () => {
   test.beforeEach(async ({ page }) => {
     // Clear any existing authentication
     await page.context().clearCookies();
+    // Defense-in-depth: clear storages before navigation
+    await page.addInitScript(() => {
+      try {
+        // @ts-ignore
+        (window as any).__PLAYWRIGHT__ = true;
+        localStorage.clear();
+        sessionStorage.clear();
+        const keys = Object.keys(localStorage);
+        for (const key of keys) {
+          if ((key.startsWith("sb-") && key.endsWith("-auth-token")) || key.includes("supabase")) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch {}
+    });
     await page.goto("/");
 
     // Wait for the landing page to load by waiting for any content

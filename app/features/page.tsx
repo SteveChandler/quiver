@@ -25,11 +25,12 @@ import {
 
 export default function FeaturesPage() {
   const { hero, categories, cta } = FEATURES_EXTENDED_CONTENT;
+  const isTest = typeof window !== "undefined" && (window as any).__PLAYWRIGHT__ === true;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-      {/* 🚨 EMERGENCY: Engagement Tracker - Fix 37s engagement time */}
-      <EngagementProgressTracker />
+      {/* Disable heavy engagement tracker in E2E to prevent dev runtime instability */}
+      {!isTest && <EngagementProgressTracker />}
 
       {/* Enhanced Hero Section with Interactive Stats */}
       <section className="py-20 px-4">

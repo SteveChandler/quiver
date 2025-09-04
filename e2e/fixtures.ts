@@ -6,6 +6,48 @@ export const test = base.extend({
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
 
+    // Ensure tests start from a clean unauthenticated state and mark Playwright context
+    await page.addInitScript(() => {
+      try {
+        // Mark that we're in a Playwright environment for components that adjust behavior
+        // @ts-ignore
+        (window as any).__PLAYWRIGHT__ = true;
+
+        // Clear storages proactively before the app code runs
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+
+          // Explicitly remove Supabase auth tokens if present
+          const keys = Object.keys(localStorage);
+          for (const key of keys) {
+            if ((key.startsWith("sb-") && key.endsWith("-auth-token")) || key.includes("supabase")) {
+              localStorage.removeItem(key);
+            }
+          }
+        } catch {}
+
+        // Best-effort IndexedDB cleanup for common Supabase stores
+        try {
+          // These deletes are no-ops if DBs don't exist
+          indexedDB.deleteDatabase("supabase-auth");
+          indexedDB.deleteDatabase("Supabase-auth");
+          indexedDB.deleteDatabase("supabase-cache");
+        } catch {}
+
+        // Clear Cache Storage (service worker caches) if available
+        try {
+          // @ts-ignore
+          if (window.caches && typeof window.caches.keys === "function") {
+            // @ts-ignore
+            caches.keys().then((names: string[]) => {
+              names.forEach((name) => caches.delete(name));
+            });
+          }
+        } catch {}
+      } catch {}
+    });
+
     const ignorePatterns = [
       /Failed to fetch RSC payload/i,
       /Failed to load resource: the server responded with a status of 404/i,

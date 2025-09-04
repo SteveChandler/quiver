@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +15,7 @@ import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 
-export default function ErrorPage() {
+function ErrorCard() {
   const searchParams = useSearchParams();
   const reason = searchParams.get("reason");
 
@@ -46,30 +47,30 @@ export default function ErrorPage() {
           <AlertCircle className="h-6 w-6 text-destructive" />
           {getErrorTitle(reason)}
         </CardTitle>
-        <CardDescription>
-          {getErrorMessage(reason)}
-        </CardDescription>
+        <CardDescription>{getErrorMessage(reason)}</CardDescription>
       </CardHeader>
       <CardContent>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {getErrorMessage(reason)}
-          </AlertDescription>
+          <AlertDescription>{getErrorMessage(reason)}</AlertDescription>
         </Alert>
       </CardContent>
       <CardFooter className="flex flex-col gap-2">
         <Button asChild className="w-full">
-          <Link href="/auth/forgot-password">
-            Request New Reset Link
-          </Link>
+          <Link href="/auth/forgot-password">Request New Reset Link</Link>
         </Button>
         <Button variant="outline" asChild className="w-full">
-          <Link href="/auth/sign-in">
-            Back to Sign In
-          </Link>
+          <Link href="/auth/sign-in">Back to Sign In</Link>
         </Button>
       </CardFooter>
     </Card>
+  );
+}
+
+export default function ErrorPage() {
+  return (
+    <Suspense fallback={<div className="text-center text-sm text-muted-foreground">Loading…</div>}>
+      <ErrorCard />
+    </Suspense>
   );
 }
