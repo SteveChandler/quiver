@@ -4,22 +4,12 @@ import { HeroSection } from "@/components/landing-page/hero-section";
 import { Suspense, lazy, useState, useEffect } from "react";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 
-// Aggressively lazy load non-critical sections to reduce initial bundle
-const SocialFeedSection = lazy(() => 
-  import("@/components/landing-page/social-feed-section").then(mod => ({ default: mod.SocialFeedSection }))
-);
-const ForecastSection = lazy(() => 
-  import("@/components/landing-page/forecast-section").then(mod => ({ default: mod.ForecastSection }))
-);
-const FeaturesSection = lazy(() => 
-  import("@/components/landing-page/features-section").then(mod => ({ default: mod.FeaturesSection }))
-);
-const CTASection = lazy(() => 
-  import("@/components/landing-page/cta-section").then(mod => ({ default: mod.CTASection }))
-);
-const FooterSection = lazy(() => 
-  import("@/components/landing-page/footer-section").then(mod => ({ default: mod.FooterSection }))
-);
+// Import sections directly to debug lazy loading issue
+import { SocialFeedSection } from "@/components/landing-page/social-feed-section";
+import { ForecastSection } from "@/components/landing-page/forecast-section";
+import { FeaturesSection } from "@/components/landing-page/features-section";
+import { CTASection } from "@/components/landing-page/cta-section";
+import { FooterSection } from "@/components/landing-page/footer-section";
 
 // Loading placeholder for sections
 function SectionSkeleton({ height = "h-64" }: { height?: string }) {
@@ -88,36 +78,26 @@ export default function LandingPage() {
       {/* Show hero section immediately - critical for LCP */}
       <HeroSection />
 
-      {/* Progressive loading sections - reduces initial bundle size */}
+      {/* Progressive loading sections - removes lazy loading for debugging */}
       <div className="space-y-0">
         <ProgressiveSection height="h-96">
-          <Suspense fallback={<SectionSkeleton height="h-96" />}>
-            <SocialFeedSection />
-          </Suspense>
+          <SocialFeedSection />
         </ProgressiveSection>
 
         <ProgressiveSection height="h-80">
-          <Suspense fallback={<SectionSkeleton height="h-80" />}>
-            <ForecastSection />
-          </Suspense>
+          <ForecastSection />
         </ProgressiveSection>
 
         <ProgressiveSection height="h-96">
-          <Suspense fallback={<SectionSkeleton height="h-96" />}>
-            <FeaturesSection />
-          </Suspense>
+          <FeaturesSection />
         </ProgressiveSection>
 
         <ProgressiveSection height="h-64">
-          <Suspense fallback={<SectionSkeleton height="h-64" />}>
-            <CTASection />
-          </Suspense>
+          <CTASection />
         </ProgressiveSection>
 
         <ProgressiveSection height="h-48">
-          <Suspense fallback={<SectionSkeleton height="h-48" />}>
-            <FooterSection />
-          </Suspense>
+          <FooterSection />
         </ProgressiveSection>
       </div>
     </div>

@@ -88,6 +88,19 @@ export const data = {
     },
   },
   users: {
+    profile: {
+      async get(userId: string) {
+        // Prefer new namespaced route; keep legacy as fallback via server redirect if present
+        const res = await fetch(`/api/users/${userId}/profile`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Failed to load profile: ${res.status}`);
+        const json = await res.json();
+        return json.data;
+      },
+    },
     follow: {
       async getStatusAndCounts(userId: string): Promise<{ following: boolean; followersCount: number; followingCount: number }> {
         const res = await fetch(`/api/users/${userId}/follow`, {
@@ -124,6 +137,20 @@ export const data = {
         return json.data?.comments || [];
       },
     },
+    sessions: {
+      async list(userId: string, limit = 5) {
+        const params = new URLSearchParams();
+        if (limit) params.set("limit", String(limit));
+        const res = await fetch(`/api/users/${userId}/sessions?${params.toString()}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Failed to load user sessions: ${res.status}`);
+        const json = await res.json();
+        return json.data?.sessions || [];
+      },
+    },
   },
   comments: {
     async delete(commentId: string) {
@@ -149,5 +176,4 @@ export const data = {
 };
 
 export type { Beach };
-
 

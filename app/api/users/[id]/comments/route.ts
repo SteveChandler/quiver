@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { 
+  createSuccessResponse, 
+  handleApiError, 
+  createValidationError,
+  methodNotAllowed,
+  isValidUuid,
+} from "@/lib/api-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(
@@ -8,6 +14,9 @@ export async function GET(
 ) {
   try {
     const { id: userId } = context.params;
+    if (!userId || !isValidUuid(userId)) {
+      return createValidationError("Invalid user id format");
+    }
     const supabase = await createSupabaseServerClient();
 
     const { data, error } = await supabase
@@ -27,6 +36,10 @@ export async function GET(
   } catch (error) {
     return handleApiError(error, "Failed to load user comments");
   }
+}
+
+export function POST() {
+  return methodNotAllowed(["GET"]);
 }
 
 

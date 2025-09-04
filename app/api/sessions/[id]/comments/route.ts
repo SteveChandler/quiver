@@ -4,6 +4,8 @@ import {
   handleApiError,
   createAuthError,
   createValidationError,
+  methodNotAllowed,
+  isValidUuid,
 } from "@/lib/api-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -13,6 +15,9 @@ export async function GET(
 ) {
   try {
     const { id: sessionId } = context.params;
+    if (!sessionId || !isValidUuid(sessionId)) {
+      return createValidationError("Invalid session id format");
+    }
     const supabase = await createSupabaseServerClient();
 
     const { data, error } = await supabase
@@ -41,6 +46,9 @@ export async function POST(
 ) {
   try {
     const { id: sessionId } = context.params;
+    if (!sessionId || !isValidUuid(sessionId)) {
+      return createValidationError("Invalid session id format");
+    }
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -68,6 +76,10 @@ export async function POST(
   } catch (error) {
     return handleApiError(error, "Failed to create comment");
   }
+}
+
+export function DELETE() {
+  return methodNotAllowed(["GET", "POST"]);
 }
 
 

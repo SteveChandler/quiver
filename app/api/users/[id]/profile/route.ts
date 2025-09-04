@@ -1,15 +1,17 @@
 import { NextRequest } from "next/server";
+import { 
+  createSuccessResponse, 
+  handleApiError, 
+  createValidationError, 
+  methodNotAllowed, 
+  isValidUuid 
+} from "@/lib/api-utils";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { getProfileDTOById } from "@/lib/profile/fetchers";
 import type { ProfileDTO } from "@/types/profile";
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Get user profile by ID
- * GET /api/profile/[id]
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -17,26 +19,19 @@ export async function GET(
   try {
     const { id: userId } = params;
 
-    if (!userId) {
-      return createSuccessResponse(
-        { error: "User ID is required" },
-        400
-      );
+    if (!isValidUuid(userId)) {
+      return createValidationError("Invalid user id format");
     }
 
     const supabase = createAPIServerClient();
 
-    // Get current user for authentication (optional for public profiles)
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    // Get user profile DTO via view
+    const { data: { user } } = await supabase.auth.getUser();
+
     const base = await getProfileDTOById(userId, supabase);
 
-    // Fetch additional profile details and counters expected by clients/tests
     const { data: details } = await supabase
       .from("profiles")
-      .select(
-        `
+      .select(`
         followers_count,
         following_count,
         created_at,
@@ -47,36 +42,26 @@ export async function GET(
         experience_level,
         instagram,
         home_beach:beaches!profiles_home_beach_id_fkey(id, name)
-      `
-      )
+      `)
       .eq("id", userId)
       .single();
 
-    // profile fetched above; if not found, fetcher would throw and be handled below
-
-    // Add session stats (only public sessions for privacy)
-    const { data: sessions, error: sessionsError } = await supabase
+    const { data: sessions } = await supabase
       .from("sessions")
       .select("id, rating, status")
       .eq("user_id", userId)
       .eq("is_public", true);
 
-    let sessionStats = {
-      session_count: 0,
-      average_rating: null,
-    };
-
-    if (!sessionsError && sessions) {
-      const completedSessions = sessions.filter(s => s.status === "completed");
-      sessionStats.session_count = completedSessions.length;
-      
-      if (completedSessions.length > 0) {
-        const totalRating = completedSessions.reduce((sum, s) => sum + (s.rating || 0), 0);
-        sessionStats.average_rating = Math.round((totalRating / completedSessions.length) * 10) / 10;
+    let sessionStats = { session_count: 0, average_rating: null as number | null };
+    if (sessions) {
+      const completed = sessions.filter((s) => s.status === "completed");
+      sessionStats.session_count = completed.length;
+      if (completed.length > 0) {
+        const total = completed.reduce((sum, s) => sum + (s.rating || 0), 0);
+        sessionStats.average_rating = Math.round((total / completed.length) * 10) / 10;
       }
     }
 
-    // Check if current user is following this user (if authenticated)
     let isFollowingUser = false;
     if (user && user.id !== userId) {
       const { data: followData } = await supabase
@@ -85,16 +70,29 @@ export async function GET(
         .eq("follower_id", user.id)
         .eq("following_id", userId)
         .single();
-      
       isFollowingUser = !!followData;
     }
 
-    const profileWithStats = {
+    const profileWithStats: ProfileDTO & {
+      followers_count: number;
+      following_count: number;
+      created_at: string | null;
+      avatar_url?: string | null;
+      email?: string | null;
+      bio?: string | null;
+      location?: string | null;
+      experience_level?: string | null;
+      instagram?: string | null;
+      home_beach?: { id: string; name: string } | null;
+      session_count: number;
+      average_rating: number | null;
+      isFollowing: boolean;
+      isOwnProfile: boolean;
+    } = {
       ...(base as ProfileDTO),
       followers_count: details?.followers_count ?? 0,
       following_count: details?.following_count ?? 0,
       created_at: details?.created_at ?? null,
-      // Optional details for richer UI rendering
       avatar_url: details?.avatar_url ?? null,
       email: details?.email ?? null,
       bio: details?.bio ?? null,
@@ -102,15 +100,20 @@ export async function GET(
       experience_level: details?.experience_level ?? null,
       instagram: details?.instagram ?? null,
       home_beach: details?.home_beach ?? null,
-      ...sessionStats,
+      session_count: sessionStats.session_count,
+      average_rating: sessionStats.average_rating,
       isFollowing: isFollowingUser,
       isOwnProfile: user?.id === userId,
     };
 
     return createSuccessResponse(profileWithStats);
-
   } catch (error) {
-    console.error("Error fetching user profile:", error);
     return handleApiError(error);
   }
 }
+
+export function POST() {
+  return methodNotAllowed(["GET"]);
+}
+
+

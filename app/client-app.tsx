@@ -1,19 +1,11 @@
 "use client";
 
 import { useAuth } from "@/context/auth-context";
-import { Suspense, lazy, useEffect } from "react";
+import { useEffect } from "react";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
-
-// Lazy load heavy components to improve initial page load
-const HomeScreen = lazy(() =>
-  import("@/components/home-screen").then((module) => ({
-    default: module.HomeScreen,
-  }))
-);
-// Note: There is both `components/landing-page.tsx` and a `components/landing-page/` directory.
-// Explicitly import the .tsx file to avoid resolving the directory index (which has no default export).
-const LandingPage = lazy(() => import("@/components/landing-page.tsx"));
+import { HomeScreen } from "@/components/home-screen";
+import LandingPage from "@/components/landing-page.tsx";
 
 // Performance-optimized loading component
 function ComponentLoadingFallback({ type }: { type: "home" | "landing" }) {
@@ -82,16 +74,8 @@ export default function ClientApp() {
 
   // Render appropriate component with performance optimizations
   if (user) {
-    return (
-      <Suspense fallback={<ComponentLoadingFallback type="home" />}>
-        <HomeScreen />
-      </Suspense>
-    );
+    return <HomeScreen />;
   }
 
-  return (
-    <Suspense fallback={<ComponentLoadingFallback type="landing" />}>
-      <LandingPage />
-    </Suspense>
-  );
+  return <LandingPage />;
 }

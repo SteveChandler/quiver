@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError, createAuthError } from "@/lib/api-utils";
+import { createSuccessResponse, handleApiError, createAuthError, createValidationError, methodNotAllowed, isValidUuid } from "@/lib/api-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function DELETE(
@@ -8,6 +8,9 @@ export async function DELETE(
 ) {
   try {
     const { commentId } = context.params;
+    if (!commentId || !isValidUuid(commentId)) {
+      return createValidationError("Invalid comment id format");
+    }
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -30,6 +33,10 @@ export async function DELETE(
   } catch (error) {
     return handleApiError(error, "Failed to delete comment");
   }
+}
+
+export function GET() {
+  return methodNotAllowed(["DELETE"]);
 }
 
 

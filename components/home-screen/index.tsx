@@ -18,16 +18,10 @@ import {
 } from "@/components/onboarding/onboarding-flow";
 import { FloatingInteractionHint } from "@/components/engagement/micro-interactions";
 
-// Lazy load heavy tab components
-const ForecastTab = lazy(() =>
-  import("./forecast-tab").then((m) => ({ default: m.ForecastTab }))
-);
-const NearbyTab = lazy(() =>
-  import("./nearby-tab").then((m) => ({ default: m.NearbyTab }))
-);
-const CommunityTab = lazy(() =>
-  import("./community-tab").then((m) => ({ default: m.CommunityTab }))
-);
+// Import tab components directly to debug lazy loading issue
+import { ForecastTab } from "./forecast-tab";
+import { NearbyTab } from "./nearby-tab";
+import { CommunityTab } from "./community-tab";
 
 // Loading component for tabs
 function TabSkeleton() {
@@ -163,30 +157,24 @@ export function HomeScreen() {
             </TabsList>
 
             <TabsContent value="forecast">
-              <Suspense fallback={<TabSkeleton />}>
-                {/* Centered Search Bar under the tabs */}
-                <BeachSearchBar
-                  onSelect={(b) => setSelectedBeachOverride(b)}
-                  className="mb-4"
-                />
-                <ForecastTab
-                  profile={profile}
-                  homeBeach={homeBeach}
-                  overrideBeach={selectedBeachOverride}
-                />
-              </Suspense>
+              {/* Centered Search Bar under the tabs */}
+              <BeachSearchBar
+                onSelect={(b) => setSelectedBeachOverride(b)}
+                className="mb-4"
+              />
+              <ForecastTab
+                profile={profile}
+                homeBeach={homeBeach}
+                overrideBeach={selectedBeachOverride}
+              />
             </TabsContent>
 
             <TabsContent value="nearby">
-              <Suspense fallback={<TabSkeleton />}>
-                <NearbyTab beaches={beaches} loading={loading} />
-              </Suspense>
+              <NearbyTab beaches={beaches} loading={loading} />
             </TabsContent>
 
             <TabsContent value="community">
-              <Suspense fallback={<TabSkeleton />}>
-                <CommunityTab sessions={sessions} loading={loading} />
-              </Suspense>
+              <CommunityTab sessions={sessions} loading={loading} />
             </TabsContent>
           </Tabs>
         </section>

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { createSuccessResponse, handleApiError, createValidationError, methodNotAllowed, isValidUuid } from "@/lib/api-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(
@@ -8,6 +8,9 @@ export async function GET(
 ) {
   try {
     const { id: targetUserId } = context.params;
+    if (!targetUserId || !isValidUuid(targetUserId)) {
+      return createValidationError("Invalid user id format");
+    }
     const supabase = await createSupabaseServerClient();
 
     // Get current user if authenticated
@@ -50,6 +53,10 @@ export async function GET(
   } catch (error) {
     return handleApiError(error, "Failed to load follow status");
   }
+}
+
+export function POST() {
+  return methodNotAllowed(["GET"]);
 }
 
 

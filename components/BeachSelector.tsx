@@ -5,6 +5,7 @@ import { data } from "@/lib/data/client";
 import { useCallback } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Beach } from "@/types/database";
+import { searchBeachesByName } from "@/lib/utils/beach-search-utils";
 
 export function BeachSelector({
   onBeachSelected,
@@ -96,7 +97,8 @@ export function BeachSelector({
     }
   };
 
-  const noMatch = !!query && matches.length === 0;
+  const noMatch =
+    !!query && matches.length === 0 && !loadingBeaches && allBeaches.length > 0;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -113,6 +115,18 @@ export function BeachSelector({
       updated_at: "",
     } as any;
     onBeachSelected(typed);
+
+    // Use shared home-page search to auto-recognize exact matches immediately
+    // without requiring a dropdown click, while still allowing free-typed entries
+    if (value.trim()) {
+      void searchBeachesByName(value).then((found) => {
+        if (found && found.name.toLowerCase() === value.toLowerCase().trim()) {
+          setQuery(found.name);
+          setSelectionMade(true);
+          onBeachSelected(found);
+        }
+      });
+    }
   };
 
   const handleFocus = () => {
@@ -138,6 +152,7 @@ export function BeachSelector({
           onBlur={handleBlur}
           onFocus={handleFocus}
           data-testid="beach-search-input"
+          list="beach-list"
         />
         {selectionMade && query && (
           <button
@@ -172,11 +187,7 @@ export function BeachSelector({
             ))}
           </datalist>
 
-          {noMatch && (
-            <p className="text-red-500 text-sm">
-              Please select something from the drop down.
-            </p>
-          )}
+          {/* Intentionally hide dropdown-only error to allow free-typed entries */}
 
           <ul className="border rounded max-h-60 overflow-auto mt-1">
             {matches.map((b) => (

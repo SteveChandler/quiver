@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense, lazy } from "react";
+import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,9 +33,9 @@ import { UserAvatar } from "@/components/user-avatar";
 import { EditProfileModal } from "@/components/edit-profile-modal";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getUserBoards } from "@/actions/board-actions";
-import { getUserSessions } from "@/actions/session-actions";
-import { getProfile } from "@/actions/profile-actions";
+// Client-server boundary: use client data gateway instead of importing server actions
+import { data as gateway } from "@/lib/data/client";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 // Removed ad-hoc beach lookup; rely on DTO fields for home beach name
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
@@ -99,65 +99,31 @@ export function ProfileView() {
   const [boards, setBoards] = useState<Board[]>([]);
   const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Loading is derived from useDataFetcher below
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
   // No local beach name state; prefer DTO fields on profile
   const [statsRefreshToken, setStatsRefreshToken] = useState(0);
 
-  const loadUserData = async () => {
-    if (!user) return;
+  const fetchData = useCallback(async () => {
+    if (!user) throw new Error("User not authenticated");
+    const profileData = await gateway.users.profile.get(user.id);
+    setProfile(profileData as Profile);
+    const userSessions = await gateway.users.sessions.list(user.id, 5);
+    setSessions(userSessions as SessionWithDetails[]);
+    return { profile: profileData, sessions: userSessions };
+  }, [user]);
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Fetch user profile
-      const profileResult = await getProfile(user.id);
-      if (
-        profileResult.success &&
-        "data" in profileResult &&
-        profileResult.data
-      ) {
-        const profileData = profileResult.data as Profile;
-        setProfile(profileData);
-      } else {
-        if (
-          "isConnectionError" in profileResult &&
-          profileResult.isConnectionError
-        ) {
-          setError(
-            "Connection to the database failed. Please try again later."
-          );
-        } else {
-          setError(profileResult.error || "Failed to load profile");
-        }
-        return; // Stop loading other data if profile fetch fails
-      }
-
-      // Fetch user boards
-      const boardsResult = await getUserBoards(user.id);
-      if (boardsResult.success && boardsResult.data) {
-        setBoards(boardsResult.data);
-      } else {
-        console.error("Error loading boards:", boardsResult.error);
-      }
-
-      // Fetch user sessions
-      const sessionsResult = await getUserSessions(user.id);
-      if (sessionsResult.success && sessionsResult.data) {
-        setSessions(sessionsResult.data);
-      } else {
-        console.error("Error loading sessions:", sessionsResult.error);
-      }
-    } catch (error) {
-      console.error("Error loading user data:", error);
-      setError("Failed to load user data. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    loading: dataLoading,
+    error: fetchError,
+    refetch,
+  } = useDataFetcher(fetchData, {
+    immediate: true,
+    skip: !user,
+    onError: (msg) => setError(msg),
+  });
 
   // Removed effect; home beach name provided by API DTO or joined relation
 
@@ -170,7 +136,7 @@ export function ProfileView() {
       setEditModalOpen(false);
 
       // Reload the user data to get the updated profile
-      await loadUserData();
+      await refetch();
 
       // Increment the stats refresh token to trigger UserStats refresh
       setStatsRefreshToken((prev) => prev + 1);
@@ -188,12 +154,11 @@ export function ProfileView() {
   };
 
   useEffect(() => {
-    if (user) {
-      loadUserData();
-    } else if (!authLoading) {
-      setLoading(false);
+    if (!user && !authLoading) {
+      // Ensure previous errors don't persist when logging out
+      setError(null);
     }
-  }, [user, retryCount, authLoading]);
+  }, [user, authLoading]);
 
   // Open edit modal if URL contains ?edit=true
   useEffect(() => {
@@ -203,7 +168,7 @@ export function ProfileView() {
   }, [searchParams]);
 
   // Show loading state while checking authentication
-  if (authLoading || (loading && !error)) {
+  if (authLoading || (dataLoading && !error && !fetchError)) {
     return <FullPageLoader text="Loading profile..." />;
   }
 
@@ -325,13 +290,16 @@ export function ProfileView() {
                         </div>
 
                         {/* Home Break - prefer DTO name, fallback to joined relation */}
-                        {(profile?.homeBeachName ?? profile?.home_beach?.name) && (
+                        {(profile?.homeBeachName ??
+                          profile?.home_beach?.name) && (
                           <div className="text-xs font-open-sans pt-0.5">
                             <span className="text-muted-foreground">
                               Home Break{" "}
                             </span>
                             <span className="font-medium text-ocean-blue">
-                              {profile?.homeBeachName ?? profile?.home_beach?.name ?? "—"}
+                              {profile?.homeBeachName ??
+                                profile?.home_beach?.name ??
+                                "—"}
                             </span>
                           </div>
                         )}
