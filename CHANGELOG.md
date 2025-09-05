@@ -77,6 +77,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Revoked `anon`/`authenticated` access on `public.spatial_ref_sys` (PostGIS system table) to avoid exposure via PostgREST
   - Documented mandatory view security and RLS patterns in `supabase/ARCHITECTURE.md`
 
+- Follow-up:
+  - Enabled RLS on `public.spatial_ref_sys` with a permissive SELECT policy to satisfy Supabase linter while preserving read-only behavior
+
 - Bundle analysis build and report generation via `ANALYZE=true npm run build` using `webpack-bundle-analyzer`. Report saved to `.next/bundle-analyzer-report.html`.
 
 ### Changed
