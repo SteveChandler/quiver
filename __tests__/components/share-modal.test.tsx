@@ -21,6 +21,7 @@ global.fetch = jest.fn();
 // Mock Web Share API
 Object.defineProperty(navigator, 'share', {
   writable: true,
+  configurable: true,
   value: jest.fn(),
 });
 
@@ -166,6 +167,7 @@ describe("ShareModal", () => {
       // Ensure Web Share API is available
       Object.defineProperty(navigator, 'share', {
         writable: true,
+        configurable: true,
         value: jest.fn(),
       });
       
@@ -417,6 +419,7 @@ describe("ShareModal", () => {
       // Ensure Web Share API is available
       Object.defineProperty(navigator, 'share', {
         writable: true,
+        configurable: true,
         value: mockNavigatorShare,
       });
     });
@@ -568,6 +571,7 @@ describe("ShareModal", () => {
     it("should show Web Share copy when available", () => {
       Object.defineProperty(navigator, 'share', {
         writable: true,
+        configurable: true,
         value: jest.fn(),
       });
       
@@ -582,8 +586,8 @@ describe("ShareModal", () => {
       const onClose = jest.fn();
       render(<ShareModal {...defaultProps} onClose={onClose} />);
       
-      const closeButton = screen.getByText("Close");
-      fireEvent.click(closeButton);
+      const closeButtons = screen.getAllByText("Close");
+      fireEvent.click(closeButtons[0]);
       
       expect(onClose).toHaveBeenCalled();
     });

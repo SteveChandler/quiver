@@ -1,6 +1,7 @@
 ### Changed
 
 - Discover page `View Profile` now opens in-app `UserProfileModal` instead of a new tab, following `components/ARCHITECTURE.md` social modal patterns for a smoother, accessible UX.
+- Tests: Consolidated `UserStats` tests into a single suite `__tests__/components/user-stats.test.tsx` and removed redundant files `user-stats-refresh.test.tsx` and `user-stats-refresh-integration.test.tsx` to reduce duplication and speed up CI.
 
 # Quiver Surf App - Changelog
 
@@ -11,6 +12,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+
+- Reliable social share image fonts:
+
+  - Added `scripts/fetch-fonts.mjs` to download Roboto, Open Sans, Montserrat, and Inter TTFs into `public/fonts` at build time
+  - Wired into `postinstall`, `prebuild`, and `pretest` to ensure availability across local dev, CI, and Vercel
+  - Improved diagnostics in `lib/social-share-utils.ts` when fonts are missing
 
 - Client–Server boundary hardening:
   - New API routes for user data:
@@ -78,6 +85,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Documented mandatory view security and RLS patterns in `supabase/ARCHITECTURE.md`
 
 - Follow-up:
+
   - Enabled RLS on `public.spatial_ref_sys` with a permissive SELECT policy to satisfy Supabase linter while preserving read-only behavior
 
 - Bundle analysis build and report generation via `ANALYZE=true npm run build` using `webpack-bundle-analyzer`. Report saved to `.next/bundle-analyzer-report.html`.

@@ -73,11 +73,13 @@ export function ShareModal({
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [hasShownSuccessToast, setHasShownSuccessToast] = useState(false);
+  const [hasShownShareToast, setHasShownShareToast] = useState(false);
 
   useEffect(() => {
     if (open) {
       // Reset states when modal opens
       setHasShownSuccessToast(false);
+      setHasShownShareToast(false);
 
       // Warm the function via HEAD
       const url = buildShareUrl(sessionId, variant);
@@ -172,9 +174,9 @@ export function ShareModal({
         files: [file],
       });
 
-      if (!hasShownSuccessToast) {
+      if (!hasShownShareToast) {
         toast({ title: "Shared successfully! 🤙" });
-        setHasShownSuccessToast(true);
+        setHasShownShareToast(true);
       }
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
@@ -183,7 +185,7 @@ export function ShareModal({
     } finally {
       setSharing(false);
     }
-  }, [imgUrl, imgReady, sessionId, hasShownSuccessToast]);
+  }, [imgUrl, imgReady, sessionId, hasShownShareToast]);
 
   const getPlatformCopy = () => {
     if (hasWebShare()) {
