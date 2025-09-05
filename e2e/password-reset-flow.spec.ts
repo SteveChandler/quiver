@@ -34,7 +34,7 @@ test.describe("Password Reset Flow", () => {
   test("Auth confirm route handles missing parameters", async ({ page }) => {
     // Visit confirm without parameters - should redirect to error
     await page.goto("/auth/confirm");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // Should be redirected to error page
     expect(page.url()).toContain("/error");
@@ -43,7 +43,7 @@ test.describe("Password Reset Flow", () => {
   test("Auth confirm route handles invalid token", async ({ page }) => {
     // Visit confirm with fake parameters
     await page.goto("/auth/confirm?token_hash=FAKE&type=recovery&next=/auth/reset");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // Should be redirected to error page
     expect(page.url()).toContain("/error");
@@ -73,10 +73,8 @@ test.describe("Password Reset Flow", () => {
     await page.goto("/auth/reset");
     await page.waitForLoadState("load");
 
-    // If redirected away, this test doesn't apply
-    if (!page.url().includes("/auth/reset")) {
-      test.skip(true, "No valid session, skipping reset form validation");
-    }
+    // If redirected away, assert environment is missing auth and fail to surface setup issue
+    expect(page.url()).toContain("/auth/reset");
 
     const newPassword = page
       .getByLabel(/new password/i)

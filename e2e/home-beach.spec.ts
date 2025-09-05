@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Home Beach Flow", () => {
   test.beforeEach(async ({ page }) => {
@@ -244,8 +244,10 @@ test.describe("Home Beach Flow", () => {
     // Navigate to profile page
     await page.goto("/profile");
     
+    // Wait for page to load reliably
+    await page.waitForLoadState("load");
     // Wait for page to load
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // The app should handle the error gracefully without crashing
     const body = page.locator("body");

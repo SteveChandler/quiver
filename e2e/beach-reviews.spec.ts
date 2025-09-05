@@ -62,9 +62,9 @@ test.describe("Beach Reviews System", () => {
       }
     }
 
-    // Final fallback: use test-beach-id but expect it might not exist
+    // Final fallback: use a valid test UUID but expect it might not exist
     if (!page.url().includes("/beach/")) {
-      await page.goto("/beach/test-beach-id");
+      await page.goto("/beach/462bfb3b-b402-485d-b907-7eedfe5e828e");
       await page.waitForTimeout(2000);
     }
   });
@@ -685,7 +685,7 @@ test.describe("Beach Reviews System", () => {
 
     test("should handle empty beach gracefully", async ({ page }) => {
       // Navigate to non-existent beach
-      await page.goto("/beach/test-beach-id");
+      await page.goto("/beach/462bfb3b-b402-485d-b907-7eedfe5e828e");
       await page.waitForTimeout(3000);
 
       // Should show appropriate error message, redirect, or loading state
@@ -696,7 +696,7 @@ test.describe("Beach Reviews System", () => {
         page.getByText(/invalid.*uuid|invalid.*syntax/i), // Include UUID error messages
       ];
 
-      const redirected = !page.url().includes("test-beach-id");
+      const redirected = !page.url().includes("462bfb3b-b402-485d-b907-7eedfe5e828e");
       const backToMapButton = page.getByRole("button", {
         name: /back to map/i,
       });

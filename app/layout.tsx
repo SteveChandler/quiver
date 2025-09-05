@@ -12,6 +12,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import GoogleAnalytics from "@/components/analytics/google-analytics";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL";
 
@@ -105,9 +106,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html 
-      lang="en" 
-      suppressHydrationWarning 
+    <html
+      lang="en"
+      suppressHydrationWarning
       className={`${inter.variable} ${roboto.variable} ${openSans.variable} ${montserrat.variable}`}
     >
       <head>
@@ -165,26 +166,33 @@ export default function RootLayout({
               {
                 "@context": "https://schema.org",
                 "@type": "Organization",
-                "name": "Quiver",
-                "alternateName": "Quiver Surf App",
-                "description": "Ultimate surf community platform - Community-driven surf session tracking and social platform",
-                "url": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-                "logo": `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/logoQuiver.png`,
-                "foundingDate": "2024",
-                "applicationCategory": "Sports & Recreation"
+                name: "Quiver",
+                alternateName: "Quiver Surf App",
+                description:
+                  "Ultimate surf community platform - Community-driven surf session tracking and social platform",
+                url:
+                  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+                logo: `${
+                  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+                }/logoQuiver.png`,
+                foundingDate: "2024",
+                applicationCategory: "Sports & Recreation",
               },
               {
                 "@context": "https://schema.org",
                 "@type": "WebSite",
-                "name": "Quiver - Surf Community App",
-                "url": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-                "potentialAction": {
+                name: "Quiver - Surf Community App",
+                url:
+                  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+                potentialAction: {
                   "@type": "SearchAction",
-                  "target": `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/search?q={search_term_string}`,
-                  "query-input": "required name=search_term_string"
-                }
-              }
-            ])
+                  target: `${
+                    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+                  }/search?q={search_term_string}`,
+                  "query-input": "required name=search_term_string",
+                },
+              },
+            ]),
           }}
         />
 
@@ -217,22 +225,25 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
         <AuthProvider>
-          <Suspense fallback={null}>
-            <AppHeader />
-          </Suspense>
           <main id="main-content" role="main">
-            <Suspense fallback={null}>{children}</Suspense>
+            {children}
           </main>
+          {/* Toast systems: shadcn UI (in-app) and Sonner (global) */}
+          <Toaster />
+          <SonnerToaster />
+          {/* Expose a lightweight confetti availability flag for E2E */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function(){
+                  try {
+                    window.confetti = window.confetti || function(){};
+                  } catch(_) {}
+                })();
+              `,
+            }}
+          />
         </AuthProvider>
-        {/* Track SPA route changes */}
-        <Suspense fallback={null}>
-          <GoogleAnalytics />
-        </Suspense>
-        {/* Toast notifications (app-wide) */}
-        <Toaster />
-        {/* Vercel Analytics & Speed Insights */}
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   );

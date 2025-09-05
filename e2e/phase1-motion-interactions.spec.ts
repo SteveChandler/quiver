@@ -180,8 +180,7 @@ test.describe("Phase 1: Viral Growth Motion Interactions", () => {
       expect(transform).not.toBe("none");
     });
 
-    test("should handle tap interactions on mobile", async ({ page, isMobile }) => {
-      test.skip(!isMobile, "Mobile-specific test");
+    test("should handle tap interactions on mobile", async ({ page }) => {
 
       await page.goto("/sessions");
       await page.waitForLoadState("load");

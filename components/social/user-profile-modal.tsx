@@ -14,8 +14,7 @@ import { FollowButton } from "@/components/social/follow-button";
 import { UserStats } from "@/components/user-stats";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
-import { getProfile } from "@/actions/profile-actions";
-import { getUserSessions } from "@/actions/session-actions";
+import { data as gateway } from "@/lib/data/client";
 import {
   MapPin,
   Instagram,
@@ -24,7 +23,7 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
-import type { Profile, SessionWithDetails } from "@/types/database";
+import type { SessionWithDetails } from "@/types/database";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UserProfileModalProps {
@@ -38,7 +37,22 @@ export function UserProfileModal({
   isOpen,
   onClose,
 }: UserProfileModalProps) {
-  const [profile, setProfile] = useState<Profile | null>(null);
+  // Use a relaxed profile type: minimal core fields + optional extras
+  type ModalProfile = {
+    id: string;
+    full_name: string | null;
+    home_beach_id: string | null;
+    homeBeachName?: string | null;
+    home_beach?: { id: string; name: string } | null;
+    avatar_url?: string | null;
+    email?: string | null;
+    bio?: string | null;
+    location?: string | null;
+    experience_level?: string | null;
+    instagram?: string | null;
+  };
+
+  const [profile, setProfile] = useState<ModalProfile | null>(null);
   const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,30 +65,13 @@ export function UserProfileModal({
     setError(null);
 
     try {
-      // Fetch user profile
-      const profileResult = await getProfile(userId);
-      if (
-        profileResult.success &&
-        "data" in profileResult &&
-        profileResult.data
-      ) {
-        const p = profileResult.data as Profile & {
-          home_beach?: { id: string; name: string } | null;
-          homeBeachName?: string | null;
-        };
-        setProfile(p as Profile);
-      } else {
-        throw new Error(profileResult.error || "Failed to load profile");
-      }
+      // Fetch user profile via data gateway
+      const p = await gateway.users.profile.get(userId);
+      setProfile(p as ModalProfile);
 
-      // Fetch user's recent sessions (limit to 5 for modal)
-      const sessionsResult = await getUserSessions(userId, 5);
-      if (sessionsResult.success && sessionsResult.data) {
-        setSessions(sessionsResult.data);
-      } else {
-        console.warn("Could not load user sessions:", sessionsResult.error);
-        setSessions([]);
-      }
+      // Fetch user's recent sessions (limit to 5 for modal) via data gateway
+      const s = await gateway.users.sessions.list(userId, 5);
+      setSessions(s as SessionWithDetails[]);
     } catch (error) {
       console.error("Error loading user data:", error);
       setError("Failed to load user profile. Please try again.");

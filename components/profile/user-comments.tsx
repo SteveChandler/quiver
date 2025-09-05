@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, MessageSquare, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { data as gateway } from "@/lib/data/client";
 import type { Database } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
@@ -28,19 +29,8 @@ export function UserComments({ userId }: UserCommentsProps) {
 
   const fetchComments = async () => {
     try {
-      const { data, error } = await supabase
-        .from("comments")
-        .select(
-          `
-          *,
-          session:sessions(beach:beaches(name))
-        `
-        )
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setComments(data || []);
+      const list = await gateway.users.comments.listByUser(userId);
+      setComments(list || []);
     } catch (error) {
       console.error("Error fetching comments:", error);
     } finally {
@@ -75,13 +65,7 @@ export function UserComments({ userId }: UserCommentsProps) {
 
   const handleDeleteComment = async (commentId: string) => {
     try {
-      const { error } = await supabase
-        .from("comments")
-        .delete()
-        .eq("id", commentId)
-        .eq("user_id", userId); // Extra safety check
-
-      if (error) throw error;
+      await gateway.comments.delete(commentId);
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (error) {
       console.error("Error deleting comment:", error);

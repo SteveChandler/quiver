@@ -21,6 +21,8 @@ interface ForecastDataSourceIndicatorProps {
   dataSource: string;
   confidenceScore: number;
   dataSources: string[];
+  // Compact display flag used by some callers; noop here for compatibility
+  compact?: boolean;
   fallbackLocation?: string;
   nearestBuoyDistance?: number;
   nearestBuoyName?: string;

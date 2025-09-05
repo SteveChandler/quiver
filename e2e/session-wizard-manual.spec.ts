@@ -13,7 +13,7 @@ test.describe('SessionWizard Manual Verification', () => {
   test('verify plan-session loads SessionWizard successfully', async ({ page }) => {
     // Navigate to plan session page
     await page.goto('/plan-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Take a screenshot to see what's actually rendered
     await page.screenshot({ path: 'test-results/plan-session-screenshot.png', fullPage: true });
@@ -36,7 +36,7 @@ test.describe('SessionWizard Manual Verification', () => {
   test('verify log-session loads SessionWizard successfully', async ({ page }) => {
     // Navigate to log session page
     await page.goto('/log-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Take a screenshot to see what's actually rendered
     await page.screenshot({ path: 'test-results/log-session-screenshot.png', fullPage: true });
@@ -59,7 +59,7 @@ test.describe('SessionWizard Manual Verification', () => {
   test('verify both pages render different content than before', async ({ page }) => {
     // Check plan session
     await page.goto('/plan-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
     
     // Look for any step-related UI that would indicate wizard vs single form
     const hasSteps = await page.locator('button, div, span').filter({ hasText: /step|next|previous|progress/i }).count();
@@ -67,7 +67,7 @@ test.describe('SessionWizard Manual Verification', () => {
 
     // Check log session
     await page.goto('/log-session');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
     
     const hasStepsLog = await page.locator('button, div, span').filter({ hasText: /step|next|previous|progress/i }).count();
     console.log(`Log session has ${hasStepsLog} step-related elements`);

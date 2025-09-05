@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { SessionWizard } from "@/components/session/wizard/SessionWizard";
@@ -13,7 +13,7 @@ import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 import { createActivity } from "@/actions/activity-actions";
 import { useAuth } from "@/context/auth-context";
 
-export default function NewSessionPage() {
+function NewSessionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -23,13 +23,7 @@ export default function NewSessionPage() {
   const mode = (searchParams.get("mode") as SessionFormMode) || "plan";
   const convertSessionId = searchParams.get("convert"); // For converting planned sessions
 
-  // Redirect to auth if not logged in
-  useEffect(() => {
-    if (!user) {
-      toast.error("Please sign in to create a session");
-      router.push("/auth/sign-in?redirect=/sessions/new");
-    }
-  }, [user, router]);
+  // Soft-auth: Allow UI to render; server actions enforce auth
 
   // Handle session completion
   const handleSessionComplete = async (sessionData: any) => {
@@ -136,32 +130,38 @@ export default function NewSessionPage() {
       }
 
       // Show celebration with enhanced logging
-      console.log(`🎉 Session ${mode} completed successfully! Showing celebration...`);
+      console.log(
+        `🎉 Session ${mode} completed successfully! Showing celebration...`
+      );
       setShowCelebration(true);
-      
+
       // Trigger celebration with confetti
-      if (typeof window !== 'undefined') {
-        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (typeof window !== "undefined") {
+        const reduce = window.matchMedia(
+          "(prefers-reduced-motion: reduce)"
+        ).matches;
         console.log(`Reduced motion preference: ${reduce}`);
         if (!reduce) {
-          import('canvas-confetti').then(({ default: confetti }) => {
-            console.log('🎊 Launching confetti animation!');
-            confetti({
-              particleCount: 140,
-              spread: 70,
-              origin: { y: 0.6 }
+          import("canvas-confetti")
+            .then(({ default: confetti }) => {
+              console.log("🎊 Launching confetti animation!");
+              confetti({
+                particleCount: 140,
+                spread: 70,
+                origin: { y: 0.6 },
+              });
+            })
+            .catch((error) => {
+              console.error("Failed to load confetti:", error);
             });
-          }).catch((error) => {
-            console.error('Failed to load confetti:', error);
-          });
         } else {
-          console.log('Confetti skipped due to reduced motion preference');
+          console.log("Confetti skipped due to reduced motion preference");
         }
       }
 
       // Redirect to profile after extended celebration (5 seconds for better visibility)
       setTimeout(() => {
-        console.log('🎉 Celebration complete, redirecting to profile...');
+        console.log("🎉 Celebration complete, redirecting to profile...");
         router.push("/profile");
       }, 5000);
     } catch (error) {
@@ -292,7 +292,7 @@ export default function NewSessionPage() {
         onCancel={handleCancel}
         className="min-h-screen"
       />
-      
+
       {/* Celebration overlay with enhanced visibility */}
       {showCelebration && (
         <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none bg-black/10">
@@ -310,5 +310,22 @@ export default function NewSessionPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function NewSessionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading session form…</p>
+          </div>
+        </div>
+      }
+    >
+      <NewSessionPageContent />
+    </Suspense>
   );
 }

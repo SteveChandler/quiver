@@ -181,3 +181,29 @@ export function withSecurityHeaders(response: NextResponse) {
   });
   return response;
 }
+
+// Return 405 Method Not Allowed
+export function methodNotAllowed(allowedMethods: string[] = ["GET"]): NextResponse<ApiError> {
+  const response = NextResponse.json(
+    {
+      success: false,
+      error: "Method Not Allowed",
+      timestamp: new Date().toISOString(),
+    },
+    {
+      status: 405,
+      headers: DEFAULT_SECURITY_HEADERS,
+    }
+  );
+  response.headers.set("Allow", allowedMethods.join(", "));
+  return response;
+}
+
+// UUID validation utility (simple RFC4122 v1-5 pattern)
+const UUID_REGEX =
+  /^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/;
+
+export function isValidUuid(value: string | undefined | null): boolean {
+  if (!value || typeof value !== "string") return false;
+  return UUID_REGEX.test(value);
+}

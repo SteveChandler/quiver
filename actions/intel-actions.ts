@@ -161,12 +161,7 @@ export async function createIntelPost(
   }
 }
 
-// Default export wrapper for convenience (uses dynamic import fallback)
-export default async function createIntelPostDefault(
-  data: CreateIntelPostData
-) {
-  return createIntelPost(data);
-}
+// Removed default export wrapper (unused)
 
 /**
  * Get nearby intel posts (authenticated)
@@ -555,79 +550,7 @@ export async function removeIntelPostConfirmation(
   }
 }
 
-/**
- * Delete an intel post (only by the owner)
- */
-export async function deleteIntelPost(
-  intelPostId: string
-): Promise<ActionResult> {
-  try {
-    const supabase = await createSupabaseServerClient();
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return {
-        success: false,
-        error: "Authentication required",
-      };
-    }
-
-    // Check if intel post exists and user is the owner
-    const { data: intelPost, error: postError } = await supabase
-      .from("intel_posts")
-      .select("id, user_id")
-      .eq("id", intelPostId)
-      .single();
-
-    if (postError || !intelPost) {
-      return {
-        success: false,
-        error: "Intel post not found",
-      };
-    }
-
-    if (intelPost.user_id !== user.id) {
-      return {
-        success: false,
-        error: "You can only delete your own intel posts",
-      };
-    }
-
-    // Soft delete by marking as inactive
-    const { error: deleteError } = await supabase
-      .from("intel_posts")
-      .update({ is_active: false })
-      .eq("id", intelPostId)
-      .eq("user_id", user.id);
-
-    if (deleteError) {
-      console.error("Error deleting intel post:", deleteError);
-      return {
-        success: false,
-        error: "Failed to delete intel post",
-      };
-    }
-
-    // Revalidate the home page to refresh the intel feed
-    revalidatePath("/");
-
-    return {
-      success: true,
-      data: { deleted: true },
-    };
-  } catch (error) {
-    console.error("Error in deleteIntelPost:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to delete intel post",
-    };
-  }
-}
+// Removed deleteIntelPost (unused)
 
 /**
  * Get intel posts for unauthenticated users (public read-only access)

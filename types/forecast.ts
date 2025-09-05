@@ -15,6 +15,12 @@ export const createConfidenceScore = (score: number): ConfidenceScore => {
   return score as ConfidenceScore;
 };
 
+// Convenience converter: clamps any numeric input to a valid 0–100 ConfidenceScore
+export const toConfidenceScore = (value: number): ConfidenceScore => {
+  const clamped = Math.max(0, Math.min(100, Math.round(value)));
+  return createConfidenceScore(clamped);
+};
+
 export const createBeachId = (id: string): BeachId => {
   if (!id || id.trim().length === 0) {
     throw new Error("Beach ID cannot be empty");
@@ -114,31 +120,48 @@ export interface EnhancedForecastEntity {
   forecast_date: string;
   forecast_time: string;
   wave_height: string | null;
-  wave_period: string | null;
-  wave_direction: string | null;
-  swell_1_height: string | null;
-  swell_1_period: string | null;
-  swell_1_direction: string | null;
-  swell_2_height: string | null;
-  swell_2_period: string | null;
-  swell_2_direction: string | null;
-  wind_wave_height: string | null;
-  wind_wave_period: string | null;
-  wind_wave_direction: string | null;
-  water_temp: string;
-  air_temperature: string;
-  wind_speed: string;
-  wind_direction: string;
-  tide_status: string;
-  tide_height: string;
-  next_tide_time: string;
-  next_tide_type: string;
-  next_tide_height: string;
-  weather_condition: string;
-  confidence_score: number;
-  data_source: "NOAA_NWS" | "CDIP" | "FALLBACK";
+  wave_period?: string | null;
+  wave_direction?: string | null;
+  swell_1_height?: string | null;
+  swell_1_period?: string | null;
+  swell_1_direction?: string | null;
+  swell_2_height?: string | null;
+  swell_2_period?: string | null;
+  swell_2_direction?: string | null;
+  wind_wave_height?: string | null;
+  wind_wave_period?: string | null;
+  wind_wave_direction?: string | null;
+  water_temp: string | null;
+  air_temperature?: string | null;
+  wind_speed?: string | null;
+  wind_direction?: string | null;
+  tide_status?: string | null;
+  tide_height?: string | null;
+  next_tide_time?: string | null;
+  next_tide_type?: string | null;
+  next_tide_height?: string | null;
+  weather_condition?: string | null;
+  // Some tests refer to this alias; keep optional
+  weather_description?: string | null;
+  confidence_score: number | null;
+  data_source: "NOAA_NWS" | "CDIP" | "FALLBACK" | string;
   created_at: string;
   updated_at: string;
+  // Optional raw forecast payload for transparency/debugging
+  raw_forecast?: {
+    cdip_data?: any;
+    noaa_data?: any;
+    data_sources?: string[];
+    quality_scores?: {
+      cdip?: number;
+      noaa?: number;
+      overall?: number;
+    };
+    fetch_timestamps?: {
+      cdip?: string;
+      noaa?: string;
+    };
+  } | null;
 }
 
 // Data source interfaces

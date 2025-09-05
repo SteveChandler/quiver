@@ -6,7 +6,7 @@ test.describe('Session Wizard Completion Flow', () => {
     await page.goto('/sessions/new?mode=plan');
     
     // Wait for authentication to complete
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
   });
 
   test('should complete plan session wizard without User ID mismatch error', async ({ page }) => {
@@ -57,7 +57,7 @@ test.describe('Session Wizard Completion Flow', () => {
   test('should complete log session wizard without User ID mismatch error', async ({ page }) => {
     // Navigate to log mode
     await page.goto('/sessions/new?mode=log');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
     
     // Wait for the wizard to load
     await expect(page.getByRole('heading', { name: /log session/i })).toBeVisible();

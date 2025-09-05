@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
-import { UserStats } from "@/components/user-stats";
+// Load component dynamically after mocks are applied
+const loadUserStats = () => require("@/components/user-stats").UserStats;
 import { getUserStats } from "@/actions/profile-actions";
 
 // Mock the profile actions
@@ -91,6 +92,7 @@ describe("UserStats Refresh Behavior", () => {
         data: initialStats,
       });
 
+      const UserStats = loadUserStats();
       render(<UserStats userId={mockUserId} />);
 
       await waitFor(() => {
@@ -120,6 +122,7 @@ describe("UserStats Refresh Behavior", () => {
         data: initialStats,
       });
 
+      const UserStats = loadUserStats();
       const { rerender } = render(<UserStats userId={mockUserId} />);
 
       await waitFor(() => {
@@ -170,6 +173,7 @@ describe("UserStats Refresh Behavior", () => {
           data: updatedStats,
         });
 
+      const UserStats = loadUserStats();
       const { rerender } = render(<UserStats userId={mockUserId} />);
 
       await waitFor(() => {
@@ -179,9 +183,7 @@ describe("UserStats Refresh Behavior", () => {
       });
 
       // Rerender with refreshToken should trigger a new fetch
-      rerender(
-        <UserStats userId={mockUserId} refreshToken={1} />
-      );
+      rerender(<UserStats userId={mockUserId} refreshToken={1} />);
 
       await waitFor(() => {
         expect(screen.getByTestId("home-break-value")).toHaveTextContent(
@@ -209,6 +211,7 @@ describe("UserStats Refresh Behavior", () => {
         data: initialStats,
       });
 
+      const UserStats = loadUserStats();
       const { rerender } = render(<UserStats userId={mockUserId} />);
 
       await waitFor(() => {
@@ -220,9 +223,7 @@ describe("UserStats Refresh Behavior", () => {
       // Mock a slow second request to see loading state
       mockGetUserStats.mockImplementationOnce(() => new Promise(() => {}));
 
-      rerender(
-        <UserStats userId={mockUserId} refreshToken={1} />
-      );
+      rerender(<UserStats userId={mockUserId} refreshToken={1} />);
 
       // Should show loading spinner during refresh
       expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
@@ -267,6 +268,7 @@ describe("UserStats Refresh Behavior", () => {
         .mockResolvedValueOnce({ success: true, data: stats2 })
         .mockResolvedValueOnce({ success: true, data: stats3 });
 
+      const UserStats = loadUserStats();
       const { rerender } = render(<UserStats userId={mockUserId} />);
 
       await waitFor(() => {
@@ -276,9 +278,7 @@ describe("UserStats Refresh Behavior", () => {
       });
 
       // First refresh
-      rerender(
-        <UserStats userId={mockUserId} refreshToken={1} />
-      );
+      rerender(<UserStats userId={mockUserId} refreshToken={1} />);
 
       await waitFor(() => {
         expect(screen.getByTestId("home-break-value")).toHaveTextContent(
@@ -287,9 +287,7 @@ describe("UserStats Refresh Behavior", () => {
       });
 
       // Second refresh
-      rerender(
-        <UserStats userId={mockUserId} refreshToken={2} />
-      );
+      rerender(<UserStats userId={mockUserId} refreshToken={2} />);
 
       await waitFor(() => {
         expect(screen.getByTestId("home-break-value")).toHaveTextContent(
@@ -328,9 +326,7 @@ describe("UserStats Refresh Behavior", () => {
       });
 
       // Rerender with same refreshToken should not trigger new fetch
-      rerender(
-        <UserStats userId={mockUserId} refreshToken={1} />
-      );
+      rerender(<UserStats userId={mockUserId} refreshToken={1} />);
 
       expect(mockGetUserStats).toHaveBeenCalledTimes(1);
     });
@@ -360,9 +356,7 @@ describe("UserStats Refresh Behavior", () => {
       });
 
       // Trigger refresh that fails
-      rerender(
-        <UserStats userId={mockUserId} refreshToken={1} />
-      );
+      rerender(<UserStats userId={mockUserId} refreshToken={1} />);
 
       await waitFor(() => {
         expect(screen.getByText("Stats unavailable")).toBeInTheDocument();
@@ -389,6 +383,7 @@ describe("UserStats Refresh Behavior", () => {
       });
 
       // Should work without refreshToken
+      const UserStats = loadUserStats();
       expect(() => render(<UserStats userId={mockUserId} />)).not.toThrow();
 
       // Should work with refreshToken

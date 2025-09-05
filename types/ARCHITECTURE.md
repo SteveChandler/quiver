@@ -149,10 +149,10 @@ export type SessionAnalytics = {
 #### **Gamification Types**
 
 ```typescript
-export type XPSource = 
+export type XPSource =
   | "session_complete"
   | "first_session"
-  | "streak_3_days" 
+  | "streak_3_days"
   | "streak_7_days"
   | "streak_30_days"
   | "social_share"
@@ -209,7 +209,8 @@ export type Longitude = number & { readonly __brand: "Longitude" };
 
 // Factory functions with validation
 export const createConfidenceScore = (score: number): ConfidenceScore => {
-  if (score < 0 || score > 1) throw new Error("Confidence score must be 0-1");
+  if (score < 0 || score > 100)
+    throw new Error("Confidence score must be 0-100");
   return score as ConfidenceScore;
 };
 ```

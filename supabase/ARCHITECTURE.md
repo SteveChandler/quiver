@@ -60,7 +60,7 @@ idx_comments_parent_comment_fkey ON comments (parent_comment)
 -- Favorite beach joins
 idx_favorite_beaches_beach_id_fkey ON favorite_beaches (beach_id)
 
--- Profile home beach resolution  
+-- Profile home beach resolution
 idx_profiles_home_beach_id_fkey ON profiles (home_beach_id)
 ```
 
@@ -289,6 +289,43 @@ CREATE POLICY "public_read" ON table
 - Service role elevated permissions
 - Data expiration enforcement
 
+### **Views Security Policy (Mandatory)**
+
+- All app-facing views MUST be created with `WITH (security_invoker = true)` so that underlying table RLS applies based on the querying role.
+- Example:
+  ```sql
+  CREATE OR REPLACE VIEW public.example_view
+  WITH (security_invoker = true) AS
+  SELECT ...
+  FROM ...;
+  ```
+- Existing view updated: `public.profiles_with_home_beach` now uses `WITH (security_invoker = true)`.
+
+### **Public Tables Must Have RLS Enabled**
+
+- Any table in `public` accessible through PostgREST must have RLS enabled with least-privilege policies.
+- Canonical patterns:
+  - Public read only:
+    ```sql
+    ALTER TABLE public.some_table ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "select_all" ON public.some_table FOR SELECT USING (true);
+    ```
+  - Owner-only CRUD:
+    ```sql
+    ALTER TABLE public.some_private ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "select_own" ON public.some_private FOR SELECT USING ((select auth.uid()) = user_id);
+    CREATE POLICY "insert_own" ON public.some_private FOR INSERT WITH CHECK ((select auth.uid()) = user_id);
+    CREATE POLICY "update_own" ON public.some_private FOR UPDATE USING ((select auth.uid()) = user_id);
+    CREATE POLICY "delete_own" ON public.some_private FOR DELETE USING ((select auth.uid()) = user_id);
+    ```
+
+### **System Tables Exposure**
+
+- System tables like `public.spatial_ref_sys` (PostGIS) should not be exposed to `anon`/`authenticated` roles. Revoke access instead of attempting to enable RLS:
+  ```sql
+  REVOKE ALL ON TABLE public.spatial_ref_sys FROM anon, authenticated;
+  ```
+
 ### **Data Integrity**
 
 **Constraints**:
@@ -412,7 +449,8 @@ user_badges (
 );
 ```
 
-**Impact**: 
+**Impact**:
+
 - Increased user retention through progression mechanics
 - Social features for badge display and leaderboards
 - XP rewards for community engagement
@@ -425,7 +463,7 @@ user_badges (
 
 ```sql
 -- Rename column for consistency
-ALTER TABLE profiles 
+ALTER TABLE profiles
 RENAME COLUMN default_beach_id TO home_beach_id;
 
 -- Update index names
@@ -437,6 +475,7 @@ COMMENT ON COLUMN profiles.home_beach_id IS 'User''s preferred home beach for fo
 ```
 
 **Impact**:
+
 - Single source of truth for home beach preference
 - Consistent naming across API, components, and database
 - Improved home screen personalization

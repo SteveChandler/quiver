@@ -96,17 +96,28 @@ export default defineConfig({
         headless: true,
       },
     },
+    // Mobile project for mobile-only interaction tests
+    {
+      name: "mobile-chrome",
+      testMatch: ["**/phase1-motion-interactions.spec.ts"],
+      use: {
+        ...devices["Pixel 5"],
+        storageState: ".auth/user.json",
+      },
+    },
   ],
 
   /* Run your local dev server before starting the tests */
   webServer: BASE_URL.startsWith("http://localhost")
     ? {
-        command: "PORT=3002 npm run dev",
+        command: "rm -rf .next && NEXT_PUBLIC_TEST_MODE=1 PORT=3002 npm run dev",
         url: "http://localhost:3002",
-        reuseExistingServer: true,
+        reuseExistingServer: false,
         timeout: 120 * 1000,
         env: {
           PORT: "3002",
+          NEXT_PUBLIC_TEST_MODE: "1",
+          NEXT_TELEMETRY_DISABLED: "1",
         },
       }
     : undefined,

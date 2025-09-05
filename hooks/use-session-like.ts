@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { toggleSessionLike } from "@/actions/like-actions";
+import { data as gateway } from "@/lib/data/client";
 import { useAuth } from "@/context/auth-context";
 
 interface UseSessionLikeReturn {
@@ -34,48 +34,13 @@ export function useSessionLike(
 
     const supabase = createClient();
 
-    // Fetch initial like status and count
+    // Fetch initial like status and count via gateway
     const fetchLikeStatus = async () => {
       try {
         setIsLoading(true);
-
-        // Get likes count
-        const { count: totalLikes, error: countError } = await supabase
-          .from("session_likes")
-          .select("*", { count: "exact", head: true })
-          .eq("session_id", sessionId);
-
-        if (countError) {
-          console.error(
-            "Error fetching likes count for session",
-            sessionId,
-            ":",
-            countError
-          );
-          throw countError;
-        }
-
-        setLikesCount(totalLikes || 0);
-
-        // Get user's like status if authenticated
-        if (user) {
-          const { data: userLike, error: likeError } = await supabase
-            .from("session_likes")
-            .select("id")
-            .eq("session_id", sessionId)
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          if (likeError && likeError.code !== "PGRST116") {
-            // PGRST116 is "no rows returned"
-            console.error("Error fetching user like status:", likeError);
-            throw likeError;
-          }
-
-          setLiked(!!userLike);
-        } else {
-          setLiked(false);
-        }
+        const status = await gateway.sessions.likes.getStatus(sessionId);
+        setLikesCount(status.likesCount);
+        setLiked(status.liked);
       } catch (error) {
         console.error("Error fetching like status:", error);
         setLiked(false);
@@ -142,7 +107,7 @@ export function useSessionLike(
     setIsToggling(true);
 
     try {
-      const result = await toggleSessionLike(sessionId);
+      const result = await gateway.sessions.likes.toggle(sessionId);
 
       if (!result.success) {
         console.error("Failed to toggle like:", result.error);

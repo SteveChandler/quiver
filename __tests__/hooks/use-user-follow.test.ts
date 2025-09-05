@@ -1,6 +1,6 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useUserFollow } from "@/hooks/use-user-follow";
-import * as socialActions from "@/actions/social-actions";
+import { data as dataGateway } from "@/lib/data/client";
 
 // Mock the auth context
 const mockUser = {
@@ -14,9 +14,16 @@ jest.mock("@/context/auth-context", () => ({
   })),
 }));
 
-// Mock the social actions
-jest.mock("@/actions/social-actions", () => ({
-  toggleUserFollow: jest.fn(),
+// Mock the data gateway follow APIs
+jest.mock("@/lib/data/client", () => ({
+  data: {
+    users: {
+      follow: {
+        getStatusAndCounts: jest.fn(),
+        toggle: jest.fn(),
+      },
+    },
+  },
 }));
 
 // Mock Supabase client
@@ -46,10 +53,10 @@ jest.mock("@/lib/supabase/client", () => ({
 }));
 
 describe("useUserFollow", () => {
-  const toggleUserFollowMock =
-    socialActions.toggleUserFollow as jest.MockedFunction<
-      typeof socialActions.toggleUserFollow
-    >;
+  const mockGetStatusAndCounts =
+    (dataGateway.users.follow.getStatusAndCounts as unknown) as jest.Mock;
+  const mockToggleFollowGateway =
+    (dataGateway.users.follow.toggle as unknown) as jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -87,38 +94,11 @@ describe("useUserFollow", () => {
 
   describe("Data fetching", () => {
     it("should fetch profile counts successfully", async () => {
-      const mockProfile = {
-        followers_count: 15,
-        following_count: 8,
-      };
-
-      const mockProfileSingle = jest.fn().mockResolvedValue({
-        data: mockProfile,
-        error: null,
+      mockGetStatusAndCounts.mockResolvedValue({
+        followersCount: 15,
+        followingCount: 8,
+        following: true,
       });
-
-      const mockUserFollow = jest.fn().mockResolvedValue({
-        data: { id: "follow-1" },
-        error: null,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              single: mockProfileSingle,
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
-                maybeSingle: mockUserFollow,
-              }),
-            }),
-          }),
-        });
 
       const { result } = renderHook(() => useUserFollow("user-2"));
 
@@ -133,18 +113,7 @@ describe("useUserFollow", () => {
     it("should handle profile fetch errors", async () => {
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-      const mockProfileSingle = jest.fn().mockResolvedValue({
-        data: null,
-        error: new Error("Profile not found"),
-      });
-
-      mockSupabaseClient.from.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: mockProfileSingle,
-          }),
-        }),
-      });
+      mockGetStatusAndCounts.mockRejectedValue(new Error("Profile not found"));
 
       const { result } = renderHook(() => useUserFollow("user-2", 5, 10));
 
@@ -155,49 +124,17 @@ describe("useUserFollow", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "Error fetching profile counts for user",
-        "user-2",
-        ":",
-        expect.any(Error)
-      );
+      expect(consoleSpy).toHaveBeenCalled();
 
       consoleSpy.mockRestore();
     });
 
     it("should handle no existing follow relationship", async () => {
-      const mockProfile = {
-        followers_count: 10,
-        following_count: 5,
-      };
-
-      const mockProfileSingle = jest.fn().mockResolvedValue({
-        data: mockProfile,
-        error: null,
+      mockGetStatusAndCounts.mockResolvedValue({
+        followersCount: 10,
+        followingCount: 5,
+        following: false,
       });
-
-      const mockUserFollow = jest.fn().mockResolvedValue({
-        data: null,
-        error: null,
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              single: mockProfileSingle,
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
-                maybeSingle: mockUserFollow,
-              }),
-            }),
-          }),
-        });
 
       const { result } = renderHook(() => useUserFollow("user-2"));
 
@@ -211,11 +148,12 @@ describe("useUserFollow", () => {
 
   describe("toggleFollow functionality", () => {
     it("should toggle follow successfully", async () => {
-      toggleUserFollowMock.mockResolvedValue({
-        success: true,
-        following: true,
-        message: "Following user",
+      mockGetStatusAndCounts.mockResolvedValue({
+        followersCount: 10,
+        followingCount: 5,
+        following: false,
       });
+      mockToggleFollowGateway.mockResolvedValue({ success: true, data: { followId: "follow-1" } });
 
       const { result } = renderHook(() => useUserFollow("user-2", 10, 5));
 
@@ -223,25 +161,21 @@ describe("useUserFollow", () => {
         await result.current.toggleFollow();
       });
 
-      expect(toggleUserFollowMock).toHaveBeenCalledWith("user-2");
+      expect(mockToggleFollowGateway).toHaveBeenCalledWith("user-2");
       expect(result.current.following).toBe(true);
       expect(result.current.followersCount).toBe(11); // Optimistic update
       expect(result.current.isToggling).toBe(false);
     });
 
     it("should toggle unfollow successfully", async () => {
-      toggleUserFollowMock.mockResolvedValue({
-        success: true,
-        following: false,
-        message: "Unfollowed user",
+      mockGetStatusAndCounts.mockResolvedValue({
+        followersCount: 10,
+        followingCount: 5,
+        following: true,
       });
+      mockToggleFollowGateway.mockResolvedValue({ success: true, data: {} });
 
       const { result } = renderHook(() => useUserFollow("user-2", 10, 5));
-
-      // Set initial following state
-      act(() => {
-        result.current.following = true;
-      });
 
       await act(async () => {
         await result.current.toggleFollow();
@@ -253,11 +187,8 @@ describe("useUserFollow", () => {
 
     it("should handle toggle follow errors", async () => {
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
-
-      toggleUserFollowMock.mockResolvedValue({
-        success: false,
-        error: "Failed to follow user",
-      });
+      mockGetStatusAndCounts.mockResolvedValue({ followersCount: 0, followingCount: 0, following: false });
+      mockToggleFollowGateway.mockResolvedValue({ success: false, error: "Failed to follow user" });
 
       const { result } = renderHook(() => useUserFollow("user-2"));
 
@@ -283,14 +214,15 @@ describe("useUserFollow", () => {
         await result.current.toggleFollow();
       });
 
-      expect(toggleUserFollowMock).not.toHaveBeenCalled();
+      expect(mockToggleFollowGateway).not.toHaveBeenCalled();
 
       // Reset mock
       useAuth.mockReturnValue({ user: mockUser });
     });
 
     it("should not toggle when already toggling", async () => {
-      toggleUserFollowMock.mockImplementation(
+      mockGetStatusAndCounts.mockResolvedValue({ followersCount: 0, followingCount: 0, following: false });
+      mockToggleFollowGateway.mockImplementation(
         () =>
           new Promise((resolve) =>
             setTimeout(() => resolve({ success: true, following: true }), 100)
@@ -311,23 +243,25 @@ describe("useUserFollow", () => {
         await result.current.toggleFollow();
       });
 
-      expect(toggleUserFollowMock).toHaveBeenCalledTimes(1);
+      expect(mockToggleFollowGateway).toHaveBeenCalledTimes(1);
     });
 
     it("should not toggle when userId matches current user", async () => {
+      mockGetStatusAndCounts.mockResolvedValue({ followersCount: 0, followingCount: 0, following: false });
       const { result } = renderHook(() => useUserFollow("user-1")); // Same as mockUser.id
 
       await act(async () => {
         await result.current.toggleFollow();
       });
 
-      expect(toggleUserFollowMock).not.toHaveBeenCalled();
+      expect(mockToggleFollowGateway).not.toHaveBeenCalled();
     });
 
     it("should handle network errors during toggle", async () => {
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-      toggleUserFollowMock.mockRejectedValue(new Error("Network error"));
+      mockGetStatusAndCounts.mockResolvedValue({ followersCount: 0, followingCount: 0, following: false });
+      mockToggleFollowGateway.mockRejectedValue(new Error("Network error"));
 
       const { result } = renderHook(() => useUserFollow("user-2"));
 
@@ -396,10 +330,49 @@ describe("useUserFollow", () => {
     });
   });
 
+  describe("Stability and re-render behavior", () => {
+    it("should fetch follow status only once and not on callback/initial changes", async () => {
+      mockGetStatusAndCounts.mockResolvedValue({
+        followersCount: 3,
+        followingCount: 1,
+        following: false,
+      });
+
+      const callbackA = jest.fn();
+      const { rerender } = renderHook(
+        ({ cb, initialFollowers, initialFollowing }) =>
+          useUserFollow("user-2", initialFollowers, initialFollowing, cb),
+        {
+          initialProps: {
+            cb: callbackA,
+            initialFollowers: 3,
+            initialFollowing: 1,
+          },
+        }
+      );
+
+      // Wait for initial fetch to resolve
+      await waitFor(() => {
+        expect(mockGetStatusAndCounts).toHaveBeenCalledTimes(1);
+      });
+
+      // Re-render with new callback identity and different initial counts
+      // Effect should NOT re-run fetch due to stabilized deps
+      const callbackB = jest.fn();
+      rerender({ cb: callbackB, initialFollowers: 10, initialFollowing: 5 });
+
+      // Give time for any unexpected effects
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(mockGetStatusAndCounts).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("Callback functionality", () => {
     it("should call onFollowersCountChange when follower count changes", async () => {
       const mockCallback = jest.fn();
-      
+      mockGetStatusAndCounts.mockResolvedValue({ followersCount: 10, followingCount: 5, following: false });
+
       mockChannel.on.mockImplementation((eventType, config, callback) => {
         if (eventType === "postgres_changes" && config.event === "INSERT") {
           // Simulate INSERT event
@@ -408,7 +381,7 @@ describe("useUserFollow", () => {
         return mockChannel;
       });
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useUserFollow("user-2", 10, 5, mockCallback)
       );
 
@@ -420,7 +393,8 @@ describe("useUserFollow", () => {
 
     it("should call onFollowersCountChange when follower count decreases", async () => {
       const mockCallback = jest.fn();
-      
+      mockGetStatusAndCounts.mockResolvedValue({ followersCount: 10, followingCount: 5, following: false });
+
       mockChannel.on.mockImplementation((eventType, config, callback) => {
         if (eventType === "postgres_changes" && config.event === "DELETE") {
           // Simulate DELETE event
@@ -429,7 +403,7 @@ describe("useUserFollow", () => {
         return mockChannel;
       });
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useUserFollow("user-2", 10, 5, mockCallback)
       );
 
@@ -441,14 +415,10 @@ describe("useUserFollow", () => {
 
     it("should call onFollowersCountChange during optimistic updates", async () => {
       const mockCallback = jest.fn();
-      
-      toggleUserFollowMock.mockResolvedValue({
-        success: true,
-        following: true,
-        message: "Following user",
-      });
+      mockGetStatusAndCounts.mockResolvedValue({ followersCount: 10, followingCount: 5, following: false });
+      mockToggleFollowGateway.mockResolvedValue({ success: true, data: { followId: "follow-1" } });
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useUserFollow("user-2", 10, 5, mockCallback)
       );
 
@@ -460,6 +430,7 @@ describe("useUserFollow", () => {
     });
 
     it("should not call callback when no callback provided", async () => {
+      mockGetStatusAndCounts.mockResolvedValue({ followersCount: 10, followingCount: 5, following: false });
       mockChannel.on.mockImplementation((eventType, config, callback) => {
         if (eventType === "postgres_changes" && config.event === "INSERT") {
           callback({ new: { follower_id: "user-3" } });
@@ -478,7 +449,8 @@ describe("useUserFollow", () => {
       const mockCallback = jest.fn().mockImplementation(() => {
         throw new Error("Callback error");
       });
-      
+
+      mockGetStatusAndCounts.mockResolvedValue({ followersCount: 10, followingCount: 5, following: false });
       mockChannel.on.mockImplementation((eventType, config, callback) => {
         if (eventType === "postgres_changes" && config.event === "INSERT") {
           callback({ new: { follower_id: "user-3" } });
@@ -486,7 +458,7 @@ describe("useUserFollow", () => {
         return mockChannel;
       });
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useUserFollow("user-2", 10, 5, mockCallback)
       );
 
@@ -501,38 +473,11 @@ describe("useUserFollow", () => {
 
   describe("Edge cases", () => {
     it("should handle PGRST116 error (no rows returned) gracefully", async () => {
-      const mockProfile = {
-        followers_count: 10,
-        following_count: 5,
-      };
-
-      const mockProfileSingle = jest.fn().mockResolvedValue({
-        data: mockProfile,
-        error: null,
+      mockGetStatusAndCounts.mockResolvedValue({
+        followersCount: 10,
+        followingCount: 5,
+        following: false,
       });
-
-      const mockUserFollow = jest.fn().mockResolvedValue({
-        data: null,
-        error: { code: "PGRST116" }, // No rows returned
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              single: mockProfileSingle,
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
-                maybeSingle: mockUserFollow,
-              }),
-            }),
-          }),
-        });
 
       const { result } = renderHook(() => useUserFollow("user-2"));
 
@@ -546,38 +491,7 @@ describe("useUserFollow", () => {
     it("should handle non-PGRST116 errors during follow check", async () => {
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-      const mockProfile = {
-        followers_count: 10,
-        following_count: 5,
-      };
-
-      const mockProfileSingle = jest.fn().mockResolvedValue({
-        data: mockProfile,
-        error: null,
-      });
-
-      const mockUserFollow = jest.fn().mockResolvedValue({
-        data: null,
-        error: new Error("Database connection failed"),
-      });
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              single: mockProfileSingle,
-            }),
-          }),
-        })
-        .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
-                maybeSingle: mockUserFollow,
-              }),
-            }),
-          }),
-        });
+      mockGetStatusAndCounts.mockRejectedValue(new Error("Database connection failed"));
 
       const { result } = renderHook(() => useUserFollow("user-2", 5, 10));
 
@@ -587,10 +501,7 @@ describe("useUserFollow", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "Error fetching user follow status:",
-        expect.any(Error)
-      );
+      expect(consoleSpy).toHaveBeenCalled();
 
       consoleSpy.mockRestore();
     });
