@@ -67,6 +67,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Unified profile write action with comprehensive validation and types
 - SQL view `profiles_with_home_beach` for server-side join of profiles to beaches (exposes `home_beach_name`)
 
+### Security
+
+- Resolved Supabase linter errors:
+
+  - Converted `public.profiles_with_home_beach` to `WITH (security_invoker = true)` so caller RLS applies
+  - Enabled RLS on `public.beach_reviews` with public read and owner-only write/update/delete policies
+  - Enabled RLS on `public.boards` with owner-only visibility and CRUD policies
+  - Revoked `anon`/`authenticated` access on `public.spatial_ref_sys` (PostGIS system table) to avoid exposure via PostgREST
+  - Documented mandatory view security and RLS patterns in `supabase/ARCHITECTURE.md`
+
 - Bundle analysis build and report generation via `ANALYZE=true npm run build` using `webpack-bundle-analyzer`. Report saved to `.next/bundle-analyzer-report.html`.
 
 ### Changed
