@@ -17,6 +17,15 @@ async function globalSetup(config: FullConfig) {
   try {
     const baseUrl =
       process.env.BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002";
+    const bypass =
+      process.env.VERCEL_BYPASS_TOKEN ||
+      process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
+      process.env.VERCEL_BYPASS;
+
+    // Ensure Vercel protection bypass header is applied BEFORE any navigation on non-local runs
+    if (bypass && !baseUrl.startsWith("http://localhost")) {
+      await page.context().setExtraHTTPHeaders({ "x-vercel-protection-bypass": bypass });
+    }
 
     // Ensure baseline seed (beaches) exists via Supabase CLI if available
     // Non-blocking: best-effort seeding
@@ -29,9 +38,39 @@ async function globalSetup(config: FullConfig) {
     } catch (cliErr) {
       console.warn("⚠️  Supabase CLI seeding skipped:", cliErr?.toString?.() || cliErr);
     }
-    const bypass = process.env.VERCEL_BYPASS;
     const isLocal = baseUrl.startsWith("http://localhost");
     const devToken = process.env.DEV_AUTH_TOKEN || "dev-local-token";
+
+    // Fastest path for dev.quiversurf.app: use the helper endpoint to set real Supabase cookies
+    try {
+      const devHost = new URL(baseUrl).host;
+      if (!isLocal && devHost === "dev.quiversurf.app" && process.env.E2E_SECRET) {
+        // Header already applied globally via context above when non-local
+
+        const loginUrl = new URL("/api/e2e-login", baseUrl);
+        loginUrl.searchParams.set("secret", process.env.E2E_SECRET);
+
+        console.log("🔐 Using dev e2e-login helper...", loginUrl.toString());
+        await page.goto(loginUrl.toString(), { waitUntil: "load" });
+
+        // Navigate to base to ensure cookies applied in context
+        await page.goto(baseUrl, { waitUntil: "load" });
+
+        const authDir = path.join(__dirname, "..", ".auth");
+        if (!fs.existsSync(authDir)) {
+          fs.mkdirSync(authDir, { recursive: true });
+          console.log("📁 Created .auth directory");
+        }
+        const authFile = path.join(authDir, "user.json");
+        await page.context().storageState({ path: authFile });
+        console.log(`💾 Saved authentication state to ${authFile}`);
+        console.log("🏁 Global setup completed using dev e2e-login helper");
+        await browser.close();
+        return;
+      }
+    } catch (devHelperErr) {
+      console.warn("⚠️  Dev e2e-login helper failed, continuing with existing flows:", devHelperErr);
+    }
     // Fast path: for local runs, prefer programmatic auth via seed-and-session endpoint
     if (isLocal) {
       try {
@@ -73,11 +112,7 @@ async function globalSetup(config: FullConfig) {
       waitUntil: "load",
       referer: baseUrl,
     });
-    if (bypass && !baseUrl.startsWith("http://localhost")) {
-      await page.setExtraHTTPHeaders({
-        "x-vercel-protection-bypass": bypass,
-      });
-    }
+    // Header already applied globally via context above when non-local
     await page.waitForLoadState("load");
 
     // Check if sign-in form is available with more flexible selectors
@@ -123,9 +158,7 @@ async function globalSetup(config: FullConfig) {
         // 2) Hit the dev-session endpoint to set Supabase cookies in the browser context
         const devToken = process.env.DEV_AUTH_TOKEN || "dev-local-token";
         const devSessionUrl = new URL(`/api/test/auth/dev-session?token=${devToken}`, baseUrl).toString();
-        if (bypass && !baseUrl.startsWith("http://localhost")) {
-          await page.setExtraHTTPHeaders({ "x-vercel-protection-bypass": bypass });
-        }
+        // Header already applied globally via context above when non-local
         const resp = await page.goto(devSessionUrl, { waitUntil: "load" });
         console.log("🔐 Dev session status:", resp?.status());
 
@@ -166,8 +199,11 @@ async function globalSetup(config: FullConfig) {
     }
 
     // Use environment variables or fallback credentials
-    const testEmail = process.env.TEST_USER_EMAIL;
-    const testPassword = process.env.TEST_USER_PASSWORD;
+    // Support multiple env var names for credentials
+    const testEmail =
+      process.env.TEST_USER_EMAIL || process.env.E2E_USER_EMAIL || process.env.E2E_EMAIL;
+    const testPassword =
+      process.env.TEST_USER_PASSWORD || process.env.E2E_USER_PASSWORD || process.env.E2E_PASSWORD;
 
     // If no test credentials are provided, create an empty auth state for unauthenticated tests
     if (!testEmail || !testPassword) {

@@ -225,6 +225,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
         <AuthProvider>
+          <Suspense fallback={null}>
+            <AppHeader />
+          </Suspense>
           <main id="main-content" role="main">
             {children}
           </main>

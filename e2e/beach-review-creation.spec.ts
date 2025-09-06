@@ -52,8 +52,8 @@ test.describe("Beach Review Creation & Interaction", () => {
         await safeClick(reviewsAccordion);
         await page.waitForTimeout(2000); // Give accordion time to expand
 
-        // Look for "Add Review" or "Write Review" button
-        const addReviewButton = page.getByRole("button", { name: /write review|add review|post review/i })
+        // Look for a button to start writing a review (handles variants like "Write the First Review")
+        const addReviewButton = page.getByRole("button", { name: /write.*review|add.*review|post.*review/i })
           .or(page.locator('[data-testid="add-review-button"]'))
           .first();
 
@@ -188,7 +188,7 @@ test.describe("Beach Review Creation & Interaction", () => {
           await page.waitForTimeout(1000);
         }
 
-        const addReviewButton = page.getByRole("button", { name: /add review/i }).first();
+        const addReviewButton = page.getByRole("button", { name: /write.*review|add.*review/i }).first();
         if (await addReviewButton.isVisible()) {
           await safeClick(addReviewButton);
           await page.waitForTimeout(1000);
@@ -421,7 +421,7 @@ test.describe("Beach Review Creation & Interaction", () => {
           await safeClick(reviewsSection);
           await page.waitForTimeout(1000);
 
-          const addReviewButton = page.getByRole("button", { name: /add review/i }).first();
+          const addReviewButton = page.getByRole("button", { name: /write.*review|add.*review/i }).first();
           if (await addReviewButton.isVisible()) {
             await safeClick(addReviewButton);
             await page.waitForTimeout(1000);
@@ -485,7 +485,7 @@ test.describe("Beach Review Creation & Interaction", () => {
           await page.waitForTimeout(1000);
 
           // Check if "Add Review" button shows different text for users who already reviewed
-          const addReviewButton = page.getByRole("button", { name: /add review|edit.*review|already.*reviewed/i });
+          const addReviewButton = page.getByRole("button", { name: /write.*review|add.*review|edit.*review|already.*reviewed/i });
           const buttonText = await addReviewButton.textContent().catch(() => "");
 
           // Button should either be "Add Review" (new) or "Edit Review" (existing)
@@ -555,7 +555,7 @@ test.describe("Beach Review Creation & Interaction", () => {
           expect(hasEmptyMessage || hasReviews).toBeTruthy();
 
           // Should still have "Add Review" button available
-          const addReviewButton = page.getByRole("button", { name: /add review/i });
+          const addReviewButton = page.getByRole("button", { name: /write.*review|add.*review/i });
           const hasAddButton = await addReviewButton.isVisible().catch(() => false);
           expect(hasAddButton).toBeTruthy();
         }

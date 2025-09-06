@@ -7,6 +7,7 @@ const protectedPaths = [
   "/profile",
   "/sessions",
   "/dashboard",
+  "/map",
 ];
 
 // Only enable verbose logging in development
@@ -96,22 +97,31 @@ export async function middleware(request: NextRequest) {
     log(`[Middleware] Checking auth for protected path: ${pathname}`);
 
     try {
-      // Use getUser() instead of getSession() - this validates with Supabase's auth server
+      // Prefer local session cookie validation first to avoid unnecessary remote calls
       const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-      if (!user || userError) {
-        log(`[Middleware] No valid user found, redirecting to sign-in`);
-        const signInUrl = new URL("/auth/sign-in", request.url);
-        signInUrl.searchParams.set("redirectTo", pathname);
-        return NextResponse.redirect(signInUrl);
+      if (session?.user && !sessionError) {
+        log(`[Middleware] Session present for ${pathname}`);
       } else {
-        log(`[Middleware] Valid user found for ${pathname}`);
+        // Fallback: validate with Supabase auth server if session not present
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (!user || userError) {
+          log(`[Middleware] No valid user found, redirecting to sign-in`);
+          const signInUrl = new URL("/auth/sign-in", request.url);
+          signInUrl.searchParams.set("redirectTo", pathname);
+          return NextResponse.redirect(signInUrl);
+        }
+        log(`[Middleware] Valid user found via fallback for ${pathname}`);
       }
     } catch (error) {
-      logError(`[Middleware] Error checking user:`, error);
+      logError(`[Middleware] Error checking auth:`, error);
       const signInUrl = new URL("/auth/sign-in", request.url);
       signInUrl.searchParams.set("redirectTo", pathname);
       return NextResponse.redirect(signInUrl);

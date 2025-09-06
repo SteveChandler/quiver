@@ -1,90 +1,70 @@
 import { test, expect } from "@playwright/test";
+import { waitForPageLoad, ensureAuthenticated } from "./test-helpers";
 
 test.describe("Beach Search Functionality", () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the homepage
+    // Navigate to the homepage and actively wait for HomeScreen (Forecast tab)
     await page.goto("/");
-    await page.waitForTimeout(3000);
+    await waitForPageLoad(page);
+    let forecastTab = page.getByRole("tab", { name: /forecast/i });
+    const visible = await forecastTab.isVisible({ timeout: 3000 }).catch(() => false);
+    if (!visible) {
+      const authed = await ensureAuthenticated(page, 12000);
+      await page.goto("/");
+      await waitForPageLoad(page);
+      forecastTab = page.getByRole("tab", { name: /forecast/i });
+      await expect(forecastTab).toBeVisible({ timeout: authed ? 8000 : 0 });
+    }
   });
 
-  test("should load homepage with search functionality", async ({ page }) => {
-    // Basic page load test
+  test("should load home screen with search functionality", async ({ page }) => {
     await expect(page.locator("body")).toBeVisible();
-
-    // Look for any search-related elements
-    const searchElements = [
-      page.locator('input[type="text"]'),
-      page.locator('input[placeholder*="search"]'),
-      page.locator('input[placeholder*="beach"]'),
-      page.getByRole("searchbox"),
-    ];
-
-    // At least one search element should exist
-    let hasSearchElement = false;
-    for (const element of searchElements) {
-      if (await element.isVisible().catch(() => false)) {
-        hasSearchElement = true;
-        break;
-      }
-    }
-
-    // If no search elements found, that's okay - the page still loaded
-    expect(true).toBeTruthy();
+    // Assert the Forecast tab to confirm HomeScreen
+    await expect(page.getByRole("tab", { name: /forecast/i })).toBeVisible();
+    // Assert the beach search bar input is visible
+    const searchInput = page.getByPlaceholder(/search beaches/i).first();
+    await expect(searchInput).toBeVisible();
   });
 
-  test("should handle search input when available", async ({ page }) => {
-    // Look for search input
-    const searchInput = page.locator('input[type="text"]').first();
-
-    if (await searchInput.isVisible().catch(() => false)) {
-      // Try to interact with the search input
-      await searchInput.fill("Ocean Beach");
-      await page.waitForTimeout(1000);
-
-      // Should not crash the page
-      await expect(page.locator("body")).toBeVisible();
-    } else {
-      // No search input found, indicates missing feature
-      throw new Error("Search input not found - search functionality may be broken or missing");
-    }
+  test("should accept input in beach search bar", async ({ page }) => {
+    const searchInput = page
+      .getByPlaceholder(/search beaches/i)
+      .or(page.getByRole("searchbox"))
+      .first();
+    await expect(searchInput).toBeVisible();
+    await searchInput.fill("Ocean Beach");
+    await page.waitForTimeout(800);
+    await expect(page.locator("body")).toBeVisible();
   });
 
-  test("should handle search submission when available", async ({ page }) => {
-    const searchInput = page.locator('input[type="text"]').first();
-    const searchButton = page.getByRole("button").first();
+  test("should submit a beach search", async ({ page }) => {
+    const searchInput = page
+      .getByPlaceholder(/search beaches/i)
+      .or(page.getByRole("searchbox"))
+      .first();
+    const searchButton = page.getByRole("button", { name: /search/i }).first();
 
-    if (
-      (await searchInput.isVisible().catch(() => false)) &&
-      (await searchButton.isVisible().catch(() => false))
-    ) {
-      await searchInput.fill("Test Beach");
-      await searchButton.click();
-      await page.waitForTimeout(3000);
+    await expect(searchInput).toBeVisible();
+    await expect(searchButton).toBeVisible();
 
-      // Page should remain functional after search
-      await expect(page.locator("body")).toBeVisible();
-    } else {
-      // No search functionality found, indicates missing feature
-      throw new Error("Search functionality not found - search feature may be broken or missing");
-    }
+    await searchInput.fill("Test Beach");
+    await searchButton.click();
+    await page.waitForTimeout(1200);
+    await expect(page.locator("body")).toBeVisible();
   });
 
-  test("should handle mobile viewport", async ({ page }) => {
+  test("should load home on mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto("/");
-    await page.waitForTimeout(2000);
-
-    // Should load properly on mobile
-    await expect(page.locator("body")).toBeVisible();
+    await waitForPageLoad(page);
+    await expect(page.getByRole("tab", { name: /forecast/i })).toBeVisible({ timeout: 15000 });
   });
 
-  test("should handle desktop viewport", async ({ page }) => {
+  test("should load home on desktop viewport", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.goto("/");
-    await page.waitForTimeout(2000);
-
-    // Should load properly on desktop
-    await expect(page.locator("body")).toBeVisible();
+    await waitForPageLoad(page);
+    await expect(page.getByRole("tab", { name: /forecast/i })).toBeVisible({ timeout: 15000 });
   });
 
   test("should navigate to map page", async ({ page }) => {

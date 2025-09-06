@@ -4,7 +4,10 @@ import { defineConfig, devices } from "@playwright/test";
  * @see https://playwright.dev/docs/test-configuration
  */
 const BASE_URL = process.env.BASE_URL || "http://localhost:3002";
-const VERCEL_BYPASS = process.env.VERCEL_BYPASS;
+const VERCEL_BYPASS =
+  process.env.VERCEL_BYPASS_TOKEN ||
+  process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
+  process.env.VERCEL_BYPASS;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -23,7 +26,7 @@ export default defineConfig({
   globalSetup: require.resolve("./e2e/global-setup"),
   //maxFailures: 1,
   expect: {
-    timeout: 5000,
+    timeout: 10000,
   },
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {

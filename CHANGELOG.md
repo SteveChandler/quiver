@@ -1,3 +1,12 @@
+### Added
+
+- Dev-only endpoint `app/api/e2e-login/route.ts` to sign in Supabase test user using SSR client and set real cookies. Restricted to `dev.quiversurf.app` and `E2E_SECRET`. Follows patterns from `app/ARCHITECTURE.md` and uses `DEFAULT_SECURITY_HEADERS`.
+
+### Changed
+
+- Playwright global setup updated to use `/api/e2e-login` on `dev.quiversurf.app` when available and persist `storageState` quickly.
+- Playwright config now reads `VERCEL_BYPASS_TOKEN` (fallback `VERCEL_BYPASS`) and applies the `x-vercel-protection-bypass` header for non-local runs.
+
 ### Changed
 
 - Discover page `View Profile` now opens in-app `UserProfileModal` instead of a new tab, following `components/ARCHITECTURE.md` social modal patterns for a smoother, accessible UX.
@@ -153,12 +162,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- E2E: Stabilized `e2e/beach-best-times.spec.ts` by using role-based heading selector and relying on Playwright expect waits with development-friendly timeouts; prevents premature failures before page load.
 - Home Beach selection now persists reliably; UI duplication/crash fixes
 - Instagram field name aligned between frontend and database
 - E2E/MCP configuration fixes; improved stability of tests and dev server
 - Spatial query ambiguity resolved; production build verified
 - Server-side fallback: `updateProfile` now resolves `home_beach_text` to a valid `home_beach_id` when no ID is provided
 - Discover page follow-status infinite request loop resolved: stabilized `hooks/use-user-follow` effect dependencies and callback handling; memoized follower count updater in `app/discover/page.tsx`. Follows `hooks/ARCHITECTURE.md` realtime subscription pattern and centralized data gateway in `lib/data/client.ts`.
+
+- Middleware auth redirect on profile: adjusted `middleware.ts` to validate with `supabase.auth.getSession()` first and fall back to `getUser()` only if needed. Fixes incorrect redirects to `/auth/sign-in?redirectTo=%2Fprofile` during authenticated navigation and stabilizes E2E navigation tests. Follows `app/ARCHITECTURE.md` route protection pattern.
+
+- Restored global header: re-added `AppHeader` rendering in `app/layout.tsx` (wrapped in `Suspense`) per `app/ARCHITECTURE.md` layout responsibilities, fixing missing header across pages.
 
 - E2E: Stabilized `e2e/profile-edit.spec.ts` by using seeded beach ("Ocean Beach"), resilient dropdown selection fallback, and stable submit selector (`data-testid="save-profile"`). Prevents flakiness from missing options and inconsistent button text.
 

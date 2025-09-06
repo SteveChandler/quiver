@@ -1,4 +1,8 @@
 import { Page, expect } from "@playwright/test";
+// Load environment variables for test runtime (some tests rely on E2E_* creds)
+import 'dotenv/config';
+import { config as loadEnv } from 'dotenv';
+try { loadEnv({ path: '.env.test' }); } catch {}
 
 /**
  * Reliable page loading that doesn't depend on networkidle
@@ -66,7 +70,11 @@ export async function dismissOnboardingModal(page: Page, timeout = 5000) {
   try {
     // Pre-emptively set localStorage flag to prevent future modals
     await page.evaluate(() => {
-      localStorage.setItem('quiver-onboarding-completed', 'true');
+      try {
+        localStorage.setItem('quiver-onboarding-completed', 'true');
+      } catch (e) {
+        // Ignore storage access issues (sandboxed/blocked contexts)
+      }
     });
     
     // Check if onboarding modal is present
@@ -188,6 +196,77 @@ export async function waitForNavigation(page: Page, expectedUrl?: string) {
   }
 
   return true;
+}
+
+/**
+ * Ensure the page is authenticated. Attempts the dev helper first, then UI login.
+ * Returns true if authenticated (Forecast tab visible on home), false otherwise.
+ */
+export async function ensureAuthenticated(page: Page, timeout = 15000) {
+  // Quick check: if Forecast tab is visible, assume we're on the Home dashboard (authenticated)
+  const forecastTab = page.getByRole("tab", { name: /forecast/i });
+  const hasForecastTab = await forecastTab.isVisible().catch(() => false);
+  if (hasForecastTab) return true;
+
+  // Try dev helper if secret is available and not localhost
+  const baseUrl = (process.env.BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002").toString();
+  const isLocal = baseUrl.startsWith("http://localhost");
+  const secret = process.env.E2E_SECRET;
+
+  try {
+    if (!isLocal && secret) {
+      console.log("AUTH: trying dev helper login...");
+      await page.goto(`/api/e2e-login?secret=${encodeURIComponent(secret)}`, { waitUntil: "load" });
+      await page.goto("/", { waitUntil: "load" });
+      // Give app time to hydrate auth state
+      await page.waitForTimeout(800);
+      const ok = await page.getByRole("tab", { name: /forecast/i }).isVisible({ timeout }).catch(() => false);
+      if (ok) {
+        console.log("AUTH: dev helper succeeded");
+        return true;
+      } else {
+        console.log("AUTH: dev helper did not expose Forecast tab");
+      }
+    }
+  } catch {}
+
+  // UI login fallback with provided credentials
+  const email = process.env.TEST_USER_EMAIL || process.env.E2E_USER_EMAIL || process.env.E2E_EMAIL;
+  const password = process.env.TEST_USER_PASSWORD || process.env.E2E_USER_PASSWORD || process.env.E2E_PASSWORD;
+  if (email && password) {
+    try {
+      console.log("AUTH: trying UI login with credentials env");
+      await page.goto("/auth/sign-in", { waitUntil: "load" });
+      const emailField = page.locator('input[type="email"], input#email, input[name="email"]').first();
+      const passwordField = page.locator('input[type="password"], input#password, input[name="password"]').first();
+      const submitButton = page.locator('button[type="submit"]').filter({ hasText: /sign in/i });
+
+      if (await emailField.isVisible().catch(() => false)) {
+        await emailField.fill(email);
+      }
+      if (await passwordField.isVisible().catch(() => false)) {
+        await passwordField.fill(password);
+      }
+      if ((await submitButton.count()) > 0) {
+        await submitButton.first().click();
+      }
+
+      // Wait for redirect away from /auth
+      await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout: 10000 }).catch(() => {});
+      await page.goto("/");
+      await page.waitForLoadState("load");
+      await page.waitForTimeout(800);
+      const ok = await page.getByRole("tab", { name: /forecast/i }).isVisible({ timeout }).catch(() => false);
+      if (ok) {
+        console.log("AUTH: UI login succeeded");
+        return true;
+      } else {
+        console.log("AUTH: UI login did not expose Forecast tab");
+      }
+    } catch {}
+  }
+
+  return false;
 }
 
 /**
@@ -371,68 +450,7 @@ export async function waitForRealtimeUpdate(
   );
 }
 
-/**
- * Ensure the page is authenticated using TEST_USER_EMAIL/TEST_USER_PASSWORD.
- * Returns true if authenticated, false if credentials are missing or login fails.
- */
-export async function ensureAuthenticated(page: Page): Promise<boolean> {
-  try {
-    const testEmail = process.env.TEST_USER_EMAIL;
-    const testPassword = process.env.TEST_USER_PASSWORD;
-
-    // If creds are not provided, cannot authenticate
-    if (!testEmail || !testPassword) return false;
-
-    // If already authenticated, avoid re-login by checking for auth pages
-    const currentUrl = page.url();
-    if (!currentUrl.includes("/auth")) {
-      // Ping a protected page to verify; if redirect occurs, we'll handle below
-      await page.goto("/profile");
-      await page.waitForLoadState("load");
-    }
-
-    // If we are redirected to auth, perform sign in
-    if (page.url().includes("/auth")) {
-      await page.goto("/auth/sign-in");
-      await page.waitForLoadState("load");
-
-      const emailField = page
-        .locator('input[type="email"], input[id="email"], input[name="email"]')
-        .first();
-      const passwordField = page
-        .locator('input[type="password"], input[id="password"], input[name="password"]')
-        .first();
-      const submitButton = page
-        .locator('button[type="submit"]')
-        .filter({ hasText: /sign in/i });
-
-      if (!(await emailField.isVisible().catch(() => false))) return false;
-      if (!(await passwordField.isVisible().catch(() => false))) return false;
-
-      await emailField.fill(testEmail);
-      await passwordField.fill(testPassword);
-      await submitButton.click();
-
-      // Wait for redirect away from auth
-      try {
-        await page.waitForURL(
-          (url) => !url.pathname.startsWith("/auth"),
-          { timeout: 10000 }
-        );
-      } catch {
-        return false;
-      }
-    }
-
-    // Final sanity check: can we access a protected route without redirect?
-    await page.goto("/profile");
-    await page.waitForLoadState("load");
-    if (page.url().includes("/auth")) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
+/* removed duplicate ensureAuthenticated() — consolidated earlier implementation supports dev helper and E2E creds */
 
 /**
  * Board Management Helpers
