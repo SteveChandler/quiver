@@ -7,10 +7,7 @@ test.describe("Session Invitations API (integration)", () => {
   test("POST invites returns success or meaningful error and respects idempotency", async ({
     request,
   }) => {
-    const base =
-      process.env.BASE_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "http://localhost:3002";
+    const base = process.env.BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
 
     // Attempt posting with minimal valid shape; backend will enforce auth
     const res = await request.post(`${base}/api/session-planner/invitations`, {

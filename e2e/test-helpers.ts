@@ -203,34 +203,89 @@ export async function waitForNavigation(page: Page, expectedUrl?: string) {
  * Returns true if authenticated (Forecast tab visible on home), false otherwise.
  */
 export async function ensureAuthenticated(page: Page, timeout = 15000) {
-  // Quick check: if Forecast tab is visible, assume we're on the Home dashboard (authenticated)
-  const forecastTab = page.getByRole("tab", { name: /forecast/i });
-  const hasForecastTab = await forecastTab.isVisible().catch(() => false);
-  if (hasForecastTab) return true;
+  // Helper: verify auth using browser context (so cookies are included)
+  async function browserAuthOk(): Promise<boolean> {
+    try {
+      // Prefer lightweight session check
+      const hasSession = await page.evaluate(async () => {
+        try {
+          const res = await fetch('/api/auth/check-session', { credentials: 'include' });
+          if (!res.ok) return false;
+          const data = await res.json();
+          return !!data?.hasSession;
+        } catch {
+          return false;
+        }
+      });
+      if (hasSession) return true;
+    } catch {}
 
-  // Try dev helper if secret is available and not localhost
+    try {
+      // Fallback to profile endpoint
+      const ok = await page.evaluate(async () => {
+        try {
+          const res = await fetch('/api/profile', { credentials: 'include' });
+          return res.ok;
+        } catch {
+          return false;
+        }
+      });
+      return !!ok;
+    } catch {}
+    return false;
+  }
+
+  // 1) Already authenticated?
+  try {
+    if (await browserAuthOk()) {
+      const currentUrl = page.url();
+      if (currentUrl.includes('/auth')) {
+        await page.goto('/', { waitUntil: 'load' });
+        await page.waitForTimeout(300);
+      }
+      return true;
+    }
+  } catch {}
+
+  // Environment details
   const baseUrl = (process.env.BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3002").toString();
-  const isLocal = baseUrl.startsWith("http://localhost");
+  let isLocal = false;
+  try {
+    const host = new URL(baseUrl).hostname;
+    isLocal = host === 'localhost' || host === '127.0.0.1';
+  } catch {
+    isLocal = baseUrl.startsWith('http://localhost') || baseUrl.startsWith('http://127.0.0.1');
+  }
   const secret = process.env.E2E_SECRET;
 
+  // 2) Try dev helper login on non-local with secret
   try {
     if (!isLocal && secret) {
       console.log("AUTH: trying dev helper login...");
       await page.goto(`/api/e2e-login?secret=${encodeURIComponent(secret)}`, { waitUntil: "load" });
       await page.goto("/", { waitUntil: "load" });
-      // Give app time to hydrate auth state
       await page.waitForTimeout(800);
-      const ok = await page.getByRole("tab", { name: /forecast/i }).isVisible({ timeout }).catch(() => false);
-      if (ok) {
+      if (await browserAuthOk()) {
         console.log("AUTH: dev helper succeeded");
         return true;
-      } else {
-        console.log("AUTH: dev helper did not expose Forecast tab");
       }
     }
   } catch {}
 
-  // UI login fallback with provided credentials
+  // 3) Try dev-session endpoint (works on non-prod with DEV_AUTH_TOKEN)
+  try {
+    const devToken = process.env.DEV_AUTH_TOKEN || 'dev-local-token';
+    console.log("AUTH: trying dev-session endpoint...");
+    await page.goto(`/api/test/auth/dev-session?token=${encodeURIComponent(devToken)}`, { waitUntil: 'load' });
+    await page.goto('/', { waitUntil: 'load' });
+    await page.waitForTimeout(800);
+    if (await browserAuthOk()) {
+      console.log("AUTH: dev-session succeeded");
+      return true;
+    }
+  } catch {}
+
+  // 4) UI login fallback with provided credentials
   const email = process.env.TEST_USER_EMAIL || process.env.E2E_USER_EMAIL || process.env.E2E_EMAIL;
   const password = process.env.TEST_USER_PASSWORD || process.env.E2E_USER_PASSWORD || process.env.E2E_PASSWORD;
   if (email && password) {
@@ -251,18 +306,15 @@ export async function ensureAuthenticated(page: Page, timeout = 15000) {
         await submitButton.first().click();
       }
 
-      // Wait for redirect away from /auth
       await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout: 10000 }).catch(() => {});
       await page.goto("/");
       await page.waitForLoadState("load");
       await page.waitForTimeout(800);
-      const ok = await page.getByRole("tab", { name: /forecast/i }).isVisible({ timeout }).catch(() => false);
-      if (ok) {
+      if (await browserAuthOk()) {
         console.log("AUTH: UI login succeeded");
         return true;
-      } else {
-        console.log("AUTH: UI login did not expose Forecast tab");
       }
+      console.log("AUTH: UI login did not verify via browser fetch");
     } catch {}
   }
 

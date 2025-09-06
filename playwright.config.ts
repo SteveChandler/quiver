@@ -113,7 +113,7 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: BASE_URL.startsWith("http://localhost")
     ? {
-        command: "rm -rf .next && NEXT_PUBLIC_TEST_MODE=1 PORT=3002 npm run dev",
+        command: "rm -rf .next || true && NEXT_PUBLIC_TEST_MODE=1 PORT=3002 npm run dev",
         url: "http://localhost:3002",
         reuseExistingServer: false,
         timeout: 120 * 1000,

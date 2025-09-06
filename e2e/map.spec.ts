@@ -1,7 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { ensureAuthenticated } from "./test-helpers";
 
 test.describe("Map and Beach Directory", () => {
   test.beforeEach(async ({ page }) => {
+    await ensureAuthenticated(page);
     await page.goto("/map");
     await page.waitForLoadState("load");
     // Give the page a reasonable time to start loading content

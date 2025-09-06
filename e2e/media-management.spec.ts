@@ -4,12 +4,14 @@ import {
   handleAuthRedirect,
   uploadTestPhoto,
   createTestSession,
+  ensureAuthenticated,
 } from "./test-helpers";
 
 test.describe("Media/Photo Management", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
     await waitForPageLoad(page);
+    await ensureAuthenticated(page);
   });
 
   test.describe("Photo Upload During Session Logging", () => {

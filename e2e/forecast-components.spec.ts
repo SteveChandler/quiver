@@ -1,11 +1,28 @@
 import { test, expect } from "@playwright/test";
-import { waitForPageLoad, waitForElementReady } from "./test-helpers";
+import {
+  waitForPageLoad,
+  waitForElementReady,
+  waitForPageLoadAndDismissModal,
+  ensureAuthenticated,
+} from "./test-helpers";
 
 test.describe("Forecast Components", () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to home page where forecast components are displayed
+    // Ensure we are authenticated and truly on the Home screen (not Landing)
+    const authed = await ensureAuthenticated(page);
+    if (!authed) {
+      throw new Error(
+        "Authentication missing for forecast component tests. Ensure E2E creds or dev helper are configured."
+      );
+    }
+
     await page.goto("/");
-    await waitForPageLoad(page);
+    await waitForPageLoadAndDismissModal(page);
+
+    // Verify Home screen markers: bottom nav present, landing CTA absent
+    await expect(page.getByTestId("bottom-navigation")).toBeVisible();
+    const landingCta = page.locator('[data-testid="test-fallback-cta"]');
+    expect(await landingCta.count()).toBe(0);
   });
 
   test.describe("ForecastTab Component", () => {

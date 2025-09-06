@@ -1,11 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { setupTestUser, cleanupTestData, waitForPageLoad } from "./test-helpers";
+import { setupTestUser, cleanupTestData, waitForPageLoad, ensureAuthenticated, waitForPageLoadAndDismissModal } from "./test-helpers";
 
 test.describe("Modal Debug Tests", () => {
   let testUserId: string;
 
   test.beforeEach(async ({ page }) => {
-    testUserId = await setupTestUser(page);
+    // Ensure auth to avoid redirects obscuring modal checks
+    const authed = await ensureAuthenticated(page, 12000);
+    if (!authed) {
+      // Fallback to legacy setup (non-blocking)
+      testUserId = await setupTestUser(page);
+    }
     
     // Monitor all console messages
     page.on('console', msg => {
@@ -29,7 +34,7 @@ test.describe("Modal Debug Tests", () => {
   test("should debug home page and profile modal access", async ({ page }) => {
     console.log("=== Testing Home Page ===");
     await page.goto("/");
-    await waitForPageLoad(page);
+    await waitForPageLoadAndDismissModal(page);
     
     // Check home page structure
     const bodyVisible = await page.locator("body").isVisible().catch(() => false);

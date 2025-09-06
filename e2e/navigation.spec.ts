@@ -3,6 +3,7 @@ import {
   waitForPageLoad,
   handleAuthRedirect,
   waitForNavigation,
+  ensureAuthenticated,
 } from "./test-helpers";
 
 test.describe("Navigation", () => {
@@ -17,6 +18,9 @@ test.describe("Navigation", () => {
 
     // Wait for page to load reliably
     await waitForPageLoad(page);
+
+    // Ensure authenticated to stabilize protected-route navigations in dev
+    await ensureAuthenticated(page);
   });
 
   test("should navigate to all main pages via bottom navigation", async ({

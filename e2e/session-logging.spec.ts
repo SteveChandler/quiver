@@ -4,14 +4,16 @@ import {
   handleAuthRedirect,
   safeClick,
   createPlannedSession,
+  ensureAuthenticated,
 } from "./test-helpers";
 
 test.describe("Session Logging", () => {
   test.beforeEach(async ({ page }) => {
+    // Ensure authenticated for consistent access to session logging in dev
+    await ensureAuthenticated(page);
     // Navigate to log session page
     await page.goto("/sessions/new?mode=log");
-
-    // Wait for page to load and handle potential auth redirect
+    // Wait for page to load
     await waitForPageLoad(page);
   });
 

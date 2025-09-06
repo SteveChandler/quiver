@@ -158,6 +158,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Added canonical helpers in `test-utils/navigation-helpers.ts`: `waitForRealtimeUpdate`, `fillFormSafely`
   - Consolidated helpers; removed unused `e2e/test-helpers-improved.ts`
   - Added Playwright mobile project `mobile-chrome` targeting motion interactions; no runtime mobile skips
+  - Enforced dev authentication across protected-route specs by adding `ensureAuthenticated(page)` in beforeEach where appropriate:
+    - Updated `e2e/map.spec.ts` (navigations to `/map`)
+    - Updated `e2e/media-management.spec.ts` (session logging and profile flows)
+    - Updated `e2e/navigation.spec.ts` (bottom nav to `/map` and `/profile`)
+    - Updated `e2e/session-logging.spec.ts` (logging at `/sessions/new?mode=log`)
+  - Keeps unauthenticated tests intentionally public (auth, public flows, API-only), aligning with `e2e/ARCHITECTURE.md` and dev helper `/api/e2e-login` from recent changes
 - Removed brittle unit test `__tests__/components/profile/EditProfileModal.spec.tsx` in favor of E2E coverage
 
 ### Fixed
@@ -170,15 +176,24 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Server-side fallback: `updateProfile` now resolves `home_beach_text` to a valid `home_beach_id` when no ID is provided
 - Discover page follow-status infinite request loop resolved: stabilized `hooks/use-user-follow` effect dependencies and callback handling; memoized follower count updater in `app/discover/page.tsx`. Follows `hooks/ARCHITECTURE.md` realtime subscription pattern and centralized data gateway in `lib/data/client.ts`.
 
+- E2E Gamification auth hardening: `e2e/gamification-integration.spec.ts` now enforces authentication via `ensureAuthenticated(page)` from `e2e/test-helpers.ts` and fails fast if redirected to `/auth`. Prevents false-positive passes when unauthenticated and improves headed dev reliability. Follows `e2e/ARCHITECTURE.md` testing patterns and existing helper utilities.
+
 - Middleware auth redirect on profile: adjusted `middleware.ts` to validate with `supabase.auth.getSession()` first and fall back to `getUser()` only if needed. Fixes incorrect redirects to `/auth/sign-in?redirectTo=%2Fprofile` during authenticated navigation and stabilizes E2E navigation tests. Follows `app/ARCHITECTURE.md` route protection pattern.
 
 - Restored global header: re-added `AppHeader` rendering in `app/layout.tsx` (wrapped in `Suspense`) per `app/ARCHITECTURE.md` layout responsibilities, fixing missing header across pages.
 
 - E2E: Stabilized `e2e/profile-edit.spec.ts` by using seeded beach ("Ocean Beach"), resilient dropdown selection fallback, and stable submit selector (`data-testid="save-profile"`). Prevents flakiness from missing options and inconsistent button text.
+- E2E: Consolidated Home Beach specs — kept `e2e/home-beach-update-flow.spec.ts` and `e2e/profile-home-beach-refresh.spec.ts`; removed redundant `e2e/home-beach-update-simple.spec.ts`, `e2e/home-beach.spec.ts`, and `e2e/home-beach-fix-validation.spec.ts`. Reduces duplication and improves stability per `e2e/ARCHITECTURE.md`.
 
 ### Changed
 
 - Temporarily removed `e2e/profile-edit.spec.ts` due to backend 500s from `/api/users/[id]/profile` during Playwright runs. Will reinstate after API fallback path is hardened (decouple from view/FK name assumptions). This avoids masking server errors with flaky test failures per testing policy.
+
+- Removed development-only `test-beaches` playground:
+  - Deleted route `app/test-beaches/page.tsx`
+  - Deleted E2E spec `e2e/beach-map-component.spec.ts`
+  - Removed references from `docs/MOTION_DESIGN_REVIEW.md`
+  - Clean-up aligns with `app/ARCHITECTURE.md` and testing policies
 
 ### Performance
 

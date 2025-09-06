@@ -151,3 +151,24 @@
     }
   }
 }
+
+/* Accessibility - Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  /* Global safeguard: disable motion across the board when users prefer reduced motion */
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .motion-optimized,
+  .like-button-spring,
+  .ripple-effect,
+  .session-card-hover {
+    /* Minimize motion while keeping interactions responsive */
+    animation: none !important;
+    transition: none !important;
+    animation-duration: 0.01ms !important; /* fallback */
+    transition-duration: 0.01ms !important; /* fallback */
+    transform: none !important;
+  }
+}
