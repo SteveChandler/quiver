@@ -1,0 +1,39 @@
+Feature,Owner,Primary Route,Key Components,APIs Used,Tests Present,Status,Notes
+Authentication,Auth Team,/auth/*,SignInForm SignUpForm,Supabase Auth,Yes,Production,Complete OAuth + email/password
+User Profiles,User Team,/profile,ProfileForm AvatarUpload,profiles actions,Yes,Production,Home beach integration complete
+Beach Discovery,Discovery Team,/discover,BeachCard MapView BeachFilters,beaches actions + Mapbox,Yes,Production,Map-based discovery with filters
+Beach Details,Beach Team,/beach/[id],BeachDetails ForecastWidget ReviewsList,beach actions + forecasts,Yes,Production,Comprehensive beach information
+Forecasting,Forecast Team,/forecast/[beachId],ForecastChart TideChart WeatherWidget,NOAA APIs + forecast actions,Yes,Production,10-day NOAA integration
+Session Logging,Journal Team,/journal/* + wizard,SessionForm SessionWizard PhotoUpload,session actions + media,Yes,Production,Multi-step session capture
+Session History,Journal Team,/journal,SessionsList SessionDetails SessionStats,session actions,Yes,Production,Personal session history
+Session Photos,Media Team,Session components,SessionPhotoGallery PhotoUpload,Supabase Storage + media actions,Yes,Production,Upload and display system
+Social Following,Social Team,Profile components,FollowButton UsersList ActivityFeed,user-follow actions,Yes,Production,Follow/unfollow with real-time
+Activity Feeds,Social Team,/,ActivityFeed PostCard,activity actions,Yes,Production,Real-time social activity stream
+Intel Posts,Content Team,/intel,IntelForm IntelCard IntelFilters,intel actions,Yes,Production,User-generated beach reports
+Beach Reviews,Review Team,Beach components,ReviewForm StarRating ReviewsList,review actions,Yes,Production,5-category rating system
+Gamification,Growth Team,Profile + Session,XPDisplay BadgesList ProgressBar,gamification actions,Yes,Production,XP points and badge system
+Admin Dashboard,Admin Team,/admin/*,AdminStats ForecastAdmin UserAdmin,admin actions,Yes,Production,Forecast and user management
+Home Page,Marketing Team,/,HeroSection RecentPosts ForecastPreview,public APIs,Yes,Production,Landing page with real data
+Settings,User Team,/settings,SettingsForm PreferencesForm,profile actions,Yes,Production,User preferences and privacy
+Search,Discovery Team,Search components,SearchBar BeachSearch UserSearch,search actions,Yes,Production,Multi-entity search functionality
+Maps Integration,Map Team,Map components,MapView BeachMarkers ClusterMap,Mapbox GL + geo actions,Yes,Production,Interactive beach maps
+Tide Information,Forecast Team,Forecast components,TideChart TideWidget,NOAA Tide Service,Yes,Production,Tide predictions and current
+Weather Data,Forecast Team,Forecast components,WeatherWidget WindDisplay,NOAA Weather API,Yes,Production,Weather conditions integration
+Buoy Data,Forecast Team,Forecast components,BuoyWidget WaveData,NDBC Buoy Service,Yes,Production,Real-time wave measurements
+Notifications,System Team,Notification components,NotificationCenter ToastProvider,notification actions,Yes,Production,In-app notifications system
+Dark Mode,UI Team,Global,ThemeProvider DarkModeToggle,Local storage,Yes,Production,System and manual theme switching
+Mobile Responsive,UI Team,All components,ResponsiveLayout MobileNav,CSS/Tailwind,Yes,Production,Mobile-first responsive design
+SEO Optimization,Marketing Team,All pages,MetaTags StructuredData,Next.js metadata,Yes,Production,Search engine optimization
+Analytics,Growth Team,Global,AnalyticsProvider EventTracking,Vercel Analytics,Yes,Production,User behavior tracking
+Performance,DevOps Team,Global,LazyLoading ImageOptimization,Next.js built-ins,Yes,Production,Core Web Vitals optimized
+Security,Security Team,Global,RLS Policies AuthMiddleware,Supabase RLS,Yes,Production,Comprehensive data protection
+Error Handling,DevOps Team,Global,ErrorBoundary 404Page,Error components,Yes,Production,User-friendly error pages
+Testing,QA Team,All features,Test utilities E2E specs,Jest + Playwright,Yes,Production,660+ comprehensive tests
+API Routes,Backend Team,/api/*,Various API endpoints,External services,Yes,Production,RESTful API endpoints
+Server Actions,Backend Team,actions/*,Form handlers Data mutations,Supabase client,Yes,Production,Type-safe server actions
+Real-time Updates,System Team,Various,Subscription hooks Channel management,Supabase Realtime,Yes,Production,Live data synchronization
+File Storage,Media Team,Storage integration,File upload Image processing,Supabase Storage,Yes,Production,Secure media management
+Database Migrations,DevOps Team,supabase/migrations,Schema management,PostgreSQL + RLS,Yes,Production,Safe schema evolution
+Type Safety,DevX Team,types/*,TypeScript definitions,Generated types,Yes,Production,Full type coverage
+Build System,DevX Team,Config files,Next.js config Webpack optimization,Build tools,Yes,Production,Production-ready builds
+Deployment,DevOps Team,CI/CD,GitHub Actions Vercel integration,Deployment pipeline,Yes,Production,Automated deployments

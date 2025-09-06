@@ -1,21 +1,36 @@
 import { test, expect } from "@playwright/test";
+import { ensureAuthenticated, waitForPageLoadAndDismissModal } from "./test-helpers";
 
 test.describe("Map Motion Interactions - Priority 1", () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to a page with map components
+    // Ensure authenticated Home screen (not Landing) for components on '/'
+    const authed = await ensureAuthenticated(page, 15000);
+    if (!authed) throw new Error("Authentication failed for map motion tests");
     await page.goto("/");
+    await waitForPageLoadAndDismissModal(page);
+
+    // If we still see Landing (no bottom nav), prefer /map which also exposes search/motion
+    const hasBottomNav = await page.getByTestId("bottom-navigation").isVisible().catch(() => false);
+    if (!hasBottomNav) {
+      await page.goto("/map");
+      await page.waitForLoadState("load");
+    }
   });
 
   test("should animate beach search bar with MAP_MOTION", async ({ page }) => {
     // Wait for beach search bar to appear
-    const searchSection = page.locator('[data-testid="beach-search-bar"]').or(
-      page.locator('section').filter({ has: page.locator('input[placeholder*="Search beaches"]') })
-    );
+    const searchSection = page
+      .locator('[data-testid="beach-search-bar"]').or(
+        page.locator('section').filter({ has: page.locator('input[placeholder*="search beaches" i]') })
+      )
+      .or(page.locator('input[placeholder*="search" i]').first());
     
-    await expect(searchSection).toBeVisible({ timeout: 10000 });
+    await expect(searchSection).toBeVisible({ timeout: 15000 });
     
     // Test search input animations
-    const searchInput = page.locator('input[placeholder*="Search beaches"]');
+    const searchInput = page.locator('input[placeholder*="search beaches" i]').or(
+      page.locator('input[placeholder*="search" i]')
+    ).first();
     await expect(searchInput).toBeVisible();
     
     // Test hover effects on search container

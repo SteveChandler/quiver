@@ -1,9 +1,14 @@
 import { test, expect } from "@playwright/test";
+import { ensureAuthenticated, waitForPageLoad } from "./test-helpers";
 
-test.describe("Favorite Beach Functionality", () => {
+test.describe("Home Beach Functionality (Profile Preference)", () => {
   test.beforeEach(async ({ page }) => {
+    await page.goto("/");
+    await waitForPageLoad(page);
+    const ok = await ensureAuthenticated(page, 15000);
+    if (!ok) throw new Error("Authentication failed for Home Beach tests");
     await page.goto("/profile");
-    await page.waitForTimeout(2000);
+    await waitForPageLoad(page);
   });
 
   test.describe("Authenticated User Behavior", () => {
@@ -28,7 +33,7 @@ test.describe("Favorite Beach Functionality", () => {
       }
     });
 
-    test("should display user's favorite beach when set", async ({ page }) => {
+    test("should display user's home beach when set", async ({ page }) => {
       const signInButton = page
         .getByRole("button", { name: /sign in|login/i })
         .or(page.getByRole("link", { name: /sign in|login/i }));
@@ -42,42 +47,21 @@ test.describe("Favorite Beach Functionality", () => {
       // Wait for content to load
       await page.waitForTimeout(4000);
 
-      // Look for favorite beach indicators
-      const favoriteMessage = page.getByText(
-        /favorite beach|showing.*favorite/i
-      );
-      const oceanBeachText = page.getByText(/ocean beach/i);
-      const malibuText = page.getByText(/malibu/i);
-      const pacificBeachText = page.getByText(/pacific beach/i);
+      // Look for home beach indicators (profile preference)
+      const homeBeachLabel = page.getByText(/home beach/i);
+      const homeBeachValue = page
+        .getByTestId("home-break-value")
+        .or(page.getByText(/ocean beach|malibu|pacific beach/i));
 
-      const hasFavoriteMessage = await favoriteMessage
-        .isVisible()
-        .catch(() => false);
-      const hasOceanBeach = await oceanBeachText.isVisible().catch(() => false);
-      const hasMalibu = await malibuText.isVisible().catch(() => false);
-      const hasPacificBeach = await pacificBeachText
-        .isVisible()
-        .catch(() => false);
+      const hasHomeLabel = await homeBeachLabel.isVisible().catch(() => false);
+      const hasHomeValue = await homeBeachValue.isVisible().catch(() => false);
 
-      // Should show either favorite message or a specific beach (not Huntington)
-      const hasUserFavorite =
-        hasFavoriteMessage || hasOceanBeach || hasMalibu || hasPacificBeach;
-
-      if (hasUserFavorite) {
-        expect(hasUserFavorite).toBeTruthy();
+      if (hasHomeLabel || hasHomeValue) {
+        expect(hasHomeLabel || hasHomeValue).toBeTruthy();
       } else {
-        // Fallback case - check that we're not showing the default loading state
-        const huntingtonOnly = page.getByText(/huntington beach/i);
-        const isHuntingtonOnly = await huntingtonOnly
-          .isVisible()
-          .catch(() => false);
-
-        // If showing Huntington, it should be a fallback, not the loading state
-        if (isHuntingtonOnly) {
-          console.log(
-            "User appears to have no favorite beach set - showing Huntington Beach fallback"
-          );
-        }
+        // If no home beach, app may show banner to set it
+        const banner = page.getByText(/set home beach/i);
+        expect(await banner.isVisible().catch(() => false)).toBeTruthy();
       }
     });
 
@@ -94,13 +78,14 @@ test.describe("Favorite Beach Functionality", () => {
         throw new Error("User not authenticated - authentication setup failed");
       }
 
-      // Wait for favorite beach to load
+      // Wait for profile to load
       await page.waitForTimeout(4000);
 
-      // Look for search input
+      // Look for home beach selector or search input
       const searchInput = page
         .getByPlaceholder(/search.*beach/i)
-        .or(page.getByLabel(/search/i));
+        .or(page.getByLabel(/search/i))
+        .or(page.getByTestId("home-beach-select"));
 
       if (await searchInput.isVisible()) {
         // Type in search box

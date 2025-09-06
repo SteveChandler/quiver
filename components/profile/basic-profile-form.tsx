@@ -31,6 +31,7 @@ import { toast } from "@/components/ui/use-toast";
 import { uploadImage, deleteImage } from "@/lib/image-upload";
 import type { Profile } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
+import { data as gateway } from "@/lib/data/client";
 
 const profileFormSchema = z.object({
   full_name: z
@@ -93,13 +94,9 @@ export function BasicProfileForm({
     try {
       // First update the email in Supabase Auth if it has changed
       if (email !== data.email) {
-        const supabase = createClient();
-        const { error: emailUpdateError } = await supabase.auth.updateUser({
-          email: data.email,
-        });
-
-        if (emailUpdateError) {
-          throw new Error(emailUpdateError.message || "Failed to update email");
+        const result = await gateway.auth.updateEmail(data.email);
+        if (!result?.success) {
+          throw new Error(result?.error || "Failed to update email");
         }
       }
 

@@ -91,7 +91,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
   let mockCDIPService: jest.Mocked<CDIPService>;
 
   const mockBeach = {
-    id: "test-beach-id",
+    id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
     name: "Scripps Pier",
     latitude: 32.8663,
     longitude: -117.2544,

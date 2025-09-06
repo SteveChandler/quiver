@@ -16,7 +16,7 @@ interface XPToastProps {
 const triggerConfetti = async (options: any) => {
   // Only run on client-side to avoid SSR hydration errors
   if (typeof window === "undefined") return;
-  
+
   try {
     // Dynamic import to avoid SSR issues
     const confetti = (await import("canvas-confetti")).default;
@@ -61,7 +61,7 @@ export function useXPToastSystem() {
       particleCount: 100,
       spread: 70,
       origin: { y: 0.6 },
-      colors: ['#3B82F6', '#8B5CF6', '#06B6D4', '#F59E0B'],
+      colors: ["#3B82F6", "#8B5CF6", "#06B6D4", "#F59E0B"],
     });
 
     // Show level up toast
@@ -74,12 +74,20 @@ export function useXPToastSystem() {
       ),
       description: (
         <div className="space-y-1">
-          <p>You're now a <span className="font-semibold text-blue-600">{result.level_title}</span></p>
-          <p className="text-sm text-muted-foreground">Level {result.new_level}</p>
+          <p>
+            You're now a{" "}
+            <span className="font-semibold text-blue-600">
+              {result.level_title}
+            </span>
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Level {result.new_level}
+          </p>
         </div>
       ),
       duration: 6000,
-      className: "bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300",
+      className:
+        "bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300",
     });
   };
 
@@ -89,7 +97,7 @@ export function useXPToastSystem() {
       particleCount: 150,
       spread: 60,
       origin: { y: 0.7 },
-      colors: ['#10B981', '#F59E0B', '#8B5CF6', '#EF4444'],
+      colors: ["#10B981", "#F59E0B", "#8B5CF6", "#EF4444"],
     });
 
     badges.forEach((badge, index) => {
@@ -108,13 +116,16 @@ export function useXPToastSystem() {
               <div>
                 <p className="font-medium">{badge.name}</p>
                 {badge.xp_reward > 0 && (
-                  <p className="text-sm text-green-600">+{badge.xp_reward} bonus XP</p>
+                  <p className="text-sm text-green-600">
+                    +{badge.xp_reward} bonus XP
+                  </p>
                 )}
               </div>
             </div>
           ),
           duration: 5000,
-          className: "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200",
+          className:
+            "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200",
         });
       }, index * 1000);
     });
@@ -168,6 +179,7 @@ export function XPBoosterCard({
 
   return (
     <div
+      data-testid="xp-booster-card"
       className={cn(
         "relative overflow-hidden rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 p-4 cursor-pointer hover:shadow-md transition-all duration-200",
         "border-blue-200 hover:border-blue-300",
@@ -177,9 +189,7 @@ export function XPBoosterCard({
       onClick={onClick}
     >
       <div className="flex items-center gap-3">
-        <div className="flex-shrink-0 rounded-full bg-blue-100 p-2">
-          {icon}
-        </div>
+        <div className="flex-shrink-0 rounded-full bg-blue-100 p-2">{icon}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium text-gray-900 truncate">
@@ -192,7 +202,7 @@ export function XPBoosterCard({
           </div>
         </div>
       </div>
-      
+
       {/* Subtle animation effect */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full animate-[shimmer_2s_infinite]" />
     </div>

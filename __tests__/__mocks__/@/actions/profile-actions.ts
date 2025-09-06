@@ -3,7 +3,7 @@ export const setHomeBeach = jest.fn().mockResolvedValue({
   success: true,
   data: {
     id: "test-user-id",
-    home_beach_id: "test-beach-id",
+    home_beach_id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
     full_name: "Test User"
   }
 });

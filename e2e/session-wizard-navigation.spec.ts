@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { waitForPageLoadAndDismissModal, dismissOnboardingModal } from './test-helpers';
+import { waitForPageLoadAndDismissModal, dismissOnboardingModal, ensureAuthenticated } from './test-helpers';
 
 test.describe('SessionWizard Navigation', () => {
   test.beforeEach(async ({ page }) => {
-    // Load the auth state and handle onboarding modal
+    // Ensure authentication and handle onboarding modal
+    const authed = await ensureAuthenticated(page, 15000);
+    if (!authed) throw new Error('Auth required for session wizard navigation tests');
     await page.goto('/');
     await waitForPageLoadAndDismissModal(page);
   });

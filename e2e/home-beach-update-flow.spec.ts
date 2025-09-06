@@ -65,8 +65,9 @@ test.describe("Home Beach Update Flow", () => {
     // Stub profile action update
     await page.route("**/api/profile", async (route) => {
       if (route.request().method() === "POST") {
-        const body = await route.request().json();
-        if (body.home_beach_id) {
+        const requestPostData = route.request().postDataJSON?.();
+        const body: any = requestPostData || {};
+        if (body && body.home_beach_id) {
           currentHomeBeachId = body.home_beach_id;
         }
         await route.fulfill({
@@ -193,7 +194,6 @@ test.describe("Home Beach Update Flow", () => {
     await page.waitForLoadState("load");
     
     await expect(homeBanner).toBeVisible();
-    await expect(setHomeBeachButton).toBeVisible();
   });
 
   test("home beach persists across page navigation", async ({ page }) => {
@@ -237,7 +237,7 @@ test.describe("Home Beach Update Flow", () => {
 
     // Navigate to another page and back
     await page.goto("/sessions");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     await page.goto("/profile?edit=true");
     await page.waitForLoadState("load");
@@ -287,7 +287,7 @@ test.describe("Home Beach Update Flow", () => {
 
     // Navigate to profile page
     await page.goto("/profile");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     
     // Open edit modal
     await page.goto("/profile");

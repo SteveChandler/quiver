@@ -492,4 +492,191 @@ describe("UserStats", () => {
       expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
     });
   });
+
+  describe("Refresh Behavior", () => {
+    it("refreshes when refreshToken changes", async () => {
+      const initialStats = {
+        sessionCount: 10,
+        boardCount: 3,
+        averageRating: 4.2,
+        homeBeachId: "beach-123",
+        homeBeachName: "Old Beach",
+        mostVisitedBeach: "Old Beach",
+        mostVisitedBeachCount: 5,
+      };
+
+      const updatedStats = {
+        sessionCount: 10,
+        boardCount: 3,
+        averageRating: 4.2,
+        homeBeachId: "beach-456",
+        homeBeachName: "New Beach",
+        mostVisitedBeach: "New Beach",
+        mostVisitedBeachCount: 5,
+      };
+
+      mockGetUserStats
+        .mockResolvedValueOnce({ success: true, data: initialStats })
+        .mockResolvedValueOnce({ success: true, data: updatedStats });
+
+      const { rerender } = render(
+        <UserStats userId={mockUserId} getUserStatsFn={mockGetUserStats} />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("home-break-value")).toHaveTextContent(
+          "Old Beach"
+        );
+      });
+
+      rerender(
+        <UserStats
+          userId={mockUserId}
+          refreshToken={1}
+          getUserStatsFn={mockGetUserStats}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("home-break-value")).toHaveTextContent(
+          "New Beach"
+        );
+      });
+
+      expect(mockGetUserStats).toHaveBeenCalledTimes(2);
+    });
+
+    it("shows loading state during refresh", async () => {
+      const initialStats = {
+        sessionCount: 10,
+        boardCount: 3,
+        averageRating: 4.2,
+        homeBeachId: "beach-123",
+        homeBeachName: "Old Beach",
+        mostVisitedBeach: "Old Beach",
+        mostVisitedBeachCount: 5,
+      };
+
+      mockGetUserStats.mockResolvedValueOnce({
+        success: true,
+        data: initialStats,
+      });
+
+      const { rerender } = render(
+        <UserStats userId={mockUserId} getUserStatsFn={mockGetUserStats} />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("home-break-value")).toHaveTextContent(
+          "Old Beach"
+        );
+      });
+
+      let slowResolve: (v: any) => void;
+      const slowPromise = new Promise((resolve) => {
+        slowResolve = resolve;
+      });
+      // @ts-expect-error test-only mutation
+      mockGetUserStats.mockReturnValueOnce(slowPromise);
+
+      rerender(
+        <UserStats
+          userId={mockUserId}
+          refreshToken={1}
+          getUserStatsFn={mockGetUserStats}
+        />
+      );
+
+      expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
+
+      slowResolve!({
+        success: true,
+        data: { ...initialStats, homeBeachName: "Updated Beach" },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("home-break-value")).toHaveTextContent(
+          "Updated Beach"
+        );
+      });
+    });
+
+    it("does not refresh with same refreshToken value", async () => {
+      const stats = {
+        sessionCount: 10,
+        boardCount: 3,
+        averageRating: 4.2,
+        homeBeachId: "beach-123",
+        homeBeachName: "Beach",
+        mostVisitedBeach: "Beach",
+        mostVisitedBeachCount: 5,
+      };
+
+      mockGetUserStats.mockResolvedValue({ success: true, data: stats });
+
+      const { rerender } = render(
+        <UserStats
+          userId={mockUserId}
+          refreshToken={1}
+          getUserStatsFn={mockGetUserStats}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("home-break-value")).toHaveTextContent(
+          "Beach"
+        );
+      });
+
+      rerender(
+        <UserStats
+          userId={mockUserId}
+          refreshToken={1}
+          getUserStatsFn={mockGetUserStats}
+        />
+      );
+
+      expect(mockGetUserStats).toHaveBeenCalledTimes(1);
+    });
+
+    it("handles refresh errors gracefully", async () => {
+      const initialStats = {
+        sessionCount: 10,
+        boardCount: 3,
+        averageRating: 4.2,
+        homeBeachId: "beach-123",
+        homeBeachName: "Beach",
+        mostVisitedBeach: "Beach",
+        mostVisitedBeachCount: 5,
+      };
+
+      mockGetUserStats
+        .mockResolvedValueOnce({ success: true, data: initialStats })
+        .mockRejectedValueOnce(new Error("Refresh failed"));
+
+      const { rerender } = render(
+        <UserStats userId={mockUserId} getUserStatsFn={mockGetUserStats} />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("home-break-value")).toHaveTextContent(
+          "Beach"
+        );
+      });
+
+      rerender(
+        <UserStats
+          userId={mockUserId}
+          refreshToken={1}
+          getUserStatsFn={mockGetUserStats}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Stats unavailable")).toBeInTheDocument();
+      });
+
+      expect(mockGetUserStats).toHaveBeenCalledTimes(2);
+    });
+  });
 });

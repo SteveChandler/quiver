@@ -31,7 +31,7 @@ const customJestConfig = {
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [
-    "node_modules/(?!(@supabase|@supabase/.*|jose|uuid)/)",
+    "node_modules/(?!(@supabase|@supabase/.*/?|jose|uuid|date-fns)/)",
   ],
   // Add module file extensions
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],

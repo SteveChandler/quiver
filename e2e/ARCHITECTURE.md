@@ -270,43 +270,13 @@ export async function waitForElementReady(
 }
 ```
 
-### **Enhanced Test Helpers** (`test-helpers-improved.ts`)
+### **Enhanced Test Helpers** (Canonical helpers live in `test-helpers.ts` and `test-utils/navigation-helpers.ts`)
 
 ```typescript
-// Session creation helper
-export async function createPlannedSession(
-  page: Page,
-  sessionData: {
-    beach: string;
-    date?: string;
-    time?: string;
-    notes?: string;
-  }
-) {
-  await page.goto("/plan-session");
-
-  // Fill beach selection
-  const beachInput = page.getByPlaceholder(/search beaches/i);
-  await beachInput.fill(sessionData.beach);
-  await page.waitForTimeout(1000);
-
-  // Continue through form steps...
-}
-
-// Social interaction testing
-export async function testSocialInteraction(
-  page: Page,
-  interactionType: "like" | "comment"
-) {
-  const sessionCard = page.locator(".session-card").first();
-
-  if (interactionType === "like") {
-    await sessionCard.locator('button[aria-label*="like"]').click();
-  }
-
-  // Verify interaction feedback
-  await expect(sessionCard.locator(".like-count")).toBeVisible();
-}
+// Canonical helpers: use from
+// - e2e/test-helpers.ts (auth/waits/forms)
+// - test-utils/navigation-helpers.ts (navigation, realtime waits, safe form fills)
+// Prefer load-based waits and explicit element assertions over networkidle.
 ```
 
 ## 🚀 **PERFORMANCE OPTIMIZATIONS**

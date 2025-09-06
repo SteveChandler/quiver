@@ -41,3 +41,29 @@ export async function clickNavigationItem(page: Page, itemName: string) {
   await navItem.waitFor({ state: "visible", timeout: 3000 });
   await navItem.click();
 }
+
+/**
+ * Wait for realtime-driven UI to settle (e.g., after Supabase changes)
+ * Uses a generic data-loading flag pattern used across the app/tests
+ */
+export async function waitForRealtimeUpdate(page: Page, timeout = 5000) {
+  await page.waitForFunction(
+    () => !document.querySelector('[data-loading="true"]'),
+    { timeout }
+  );
+}
+
+/**
+ * Safely fill a form using data-testid-based selectors, with visibility checks
+ */
+export async function fillFormSafely(
+  page: Page,
+  formData: Record<string, string>
+) {
+  await page.waitForLoadState("load");
+  for (const [field, value] of Object.entries(formData)) {
+    const selector = `[data-testid="${field}"]`;
+    await page.waitForSelector(selector);
+    await page.fill(selector, value);
+  }
+}

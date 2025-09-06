@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
 interface ForecastDataTransparencyProps {
-  dataSource: "NOAA_NWS" | "FALLBACK";
+  dataSource: "NOAA_NWS" | "CDIP" | "FALLBACK";
   className?: string;
 }
 
@@ -14,7 +14,7 @@ export default function ForecastDataTransparency({
   dataSource,
   className = "",
 }: ForecastDataTransparencyProps) {
-  const isRealData = dataSource === "NOAA_NWS";
+  const isRealData = dataSource === "NOAA_NWS" || dataSource === "CDIP";
 
   return (
     <Alert

@@ -287,7 +287,7 @@ export function SessionAnnotationModal({
                     sessionId={session.id}
                     photos={sessionPhotos}
                     canEdit={true}
-                    onPhotosChange={setSessionPhotos}
+                    onPhotosChange={(photos) => setSessionPhotos(photos)}
                   />
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">

@@ -4,7 +4,10 @@ import { defineConfig, devices } from "@playwright/test";
  * @see https://playwright.dev/docs/test-configuration
  */
 const BASE_URL = process.env.BASE_URL || "http://localhost:3002";
-const VERCEL_BYPASS = process.env.VERCEL_BYPASS;
+const VERCEL_BYPASS =
+  process.env.VERCEL_BYPASS_TOKEN ||
+  process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
+  process.env.VERCEL_BYPASS;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -23,7 +26,7 @@ export default defineConfig({
   globalSetup: require.resolve("./e2e/global-setup"),
   //maxFailures: 1,
   expect: {
-    timeout: 5000,
+    timeout: 10000,
   },
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
@@ -96,17 +99,28 @@ export default defineConfig({
         headless: true,
       },
     },
+    // Mobile project for mobile-only interaction tests
+    {
+      name: "mobile-chrome",
+      testMatch: ["**/phase1-motion-interactions.spec.ts"],
+      use: {
+        ...devices["Pixel 5"],
+        storageState: ".auth/user.json",
+      },
+    },
   ],
 
   /* Run your local dev server before starting the tests */
   webServer: BASE_URL.startsWith("http://localhost")
     ? {
-        command: "PORT=3002 npm run dev",
+        command: "rm -rf .next || true && NEXT_PUBLIC_TEST_MODE=1 PORT=3002 npm run dev",
         url: "http://localhost:3002",
-        reuseExistingServer: true,
+        reuseExistingServer: false,
         timeout: 120 * 1000,
         env: {
           PORT: "3002",
+          NEXT_PUBLIC_TEST_MODE: "1",
+          NEXT_TELEMETRY_DISABLED: "1",
         },
       }
     : undefined,

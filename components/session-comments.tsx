@@ -5,6 +5,7 @@ import { Loader2, MessageSquare, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { UserAvatar } from "@/components/user-avatar";
 import { createClient } from "@/lib/supabase/client";
+import { data as gateway } from "@/lib/data/client";
 import type { Database } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,20 +38,8 @@ export function SessionComments({
 
   const fetchComments = async () => {
     try {
-      const { data, error } = await supabase
-        .from("comments")
-        .select(
-          `
-          *,
-          user:profiles(full_name, avatar_url, email)
-        `
-        )
-        .eq("session_id", sessionId)
-        .is("parent_comment", null) // Only fetch top-level comments
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setComments(data || []);
+      const list = await gateway.sessions.comments.listTopLevel(sessionId);
+      setComments(list || []);
 
       // Notify parent of comment count change
       if (onCommentCountChange) {
@@ -94,13 +83,7 @@ export function SessionComments({
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("comments").insert({
-        session_id: sessionId,
-        user_id: user.id,
-        content: newComment.trim(),
-      });
-
-      if (error) throw error;
+      await gateway.sessions.comments.create(sessionId, newComment.trim());
       setNewComment("");
     } catch (error) {
       console.error("Error posting comment:", error);
@@ -111,13 +94,7 @@ export function SessionComments({
 
   const handleDeleteComment = async (commentId: string) => {
     try {
-      const { error } = await supabase
-        .from("comments")
-        .delete()
-        .eq("id", commentId)
-        .eq("user_id", user?.id); // Extra safety check
-
-      if (error) throw error;
+      await gateway.sessions.comments.delete(sessionId, commentId);
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (error) {
       console.error("Error deleting comment:", error);

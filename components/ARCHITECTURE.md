@@ -4,6 +4,16 @@
 
 The `/components` directory implements a comprehensive, scalable component system for the Quiver surf community platform. Built on React + TypeScript with Radix UI primitives and Tailwind CSS, it follows modern design patterns including DRY principles, composition patterns, and a robust design system.
 
+> Deprecation Notice: Direct Supabase queries in client components are deprecated. Use the centralized data gateway instead:
+>
+> ```ts
+> import { data } from "@/lib/data/client";
+> // Example
+> const beaches = await data.beaches.getAll();
+> ```
+>
+> For server-side operations, use server actions or add API routes and call them via the gateway.
+
 ## Architecture Principles
 
 ### 🏗️ **Component Design Patterns**
@@ -292,7 +302,7 @@ interface ComponentProps {
 #### Core Components
 
 - **`user-xp-card.tsx`** - User experience points display with level progression
-- **`badge-gallery.tsx`** - Badge collection and achievement display  
+- **`badge-gallery.tsx`** - Badge collection and achievement display
 - **`badge-icon.tsx`** - Individual badge rendering with rarity styling
 - **`xp-toast-system.tsx`** - XP gain notifications and feedback
 - **`gamification-test-page.tsx`** - Testing interface for gamification features
@@ -308,7 +318,7 @@ interface ComponentProps {
 #### XP Sources
 
 - Session completion (base XP)
-- First session milestone 
+- First session milestone
 - Streak achievements (3, 7, 30 days)
 - Social sharing and community contributions
 - Beach reviews and helpful content
@@ -326,7 +336,7 @@ interface ComponentProps {
 #### Integration Points
 
 - **Home Screen**: Banner shows when no home beach is set
-- **Profile Page**: Tile displays current home beach or "—" if unset  
+- **Profile Page**: Tile displays current home beach or "—" if unset
 - **Edit Profile**: Selector allows changing home beach preference
 - **Forecast Tab**: Uses home beach for personalized forecasts
 

@@ -62,7 +62,7 @@ jest.mock("@/lib/utils/distance-utils", () => ({
 
 // Sample beach data for testing
 const mockBeach = {
-  id: "test-beach-id",
+  id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
   name: "Test Beach",
   latitude: 37.7749,
   longitude: -122.4194,
@@ -85,7 +85,7 @@ for (let day = 0; day < FORECAST_CONSTANTS.DAYS; day++) {
   for (let hour = 0; hour < 24; hour += 3) {
     mockForecastData.push({
       id: `forecast-${day}-${hour}`,
-      beach_id: "test-beach-id",
+      beach_id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
       forecast_date: dateStr,
       forecast_time: `${hour.toString().padStart(2, "0")}:00:00`,
       wave_height: "2 ft",
@@ -165,7 +165,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
 
   describe("fetchBeachForecasts", () => {
     it("should default to 12 days of forecast data", async () => {
-      const result = await fetchBeachForecasts("test-beach-id");
+      const result = await fetchBeachForecasts("462bfb3b-b402-485d-b907-7eedfe5e828e");
 
       expect(result).toHaveProperty("forecasts");
       expect(result).toHaveProperty("forecastsByDate");
@@ -182,7 +182,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
     it("should respect custom days parameter", async () => {
       // For this test, we'll verify that the function can accept different day parameters
       // The mock always returns the same data, but we verify the parameter is accepted
-      const result = await fetchBeachForecasts("test-beach-id", 5);
+      const result = await fetchBeachForecasts("462bfb3b-b402-485d-b907-7eedfe5e828e", 5);
 
       expect(result).toHaveProperty("forecasts");
       expect(result).toHaveProperty("forecastsByDate");
@@ -190,7 +190,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
     });
 
     it("should group forecasts by date correctly", async () => {
-      const result = await fetchBeachForecasts("test-beach-id");
+      const result = await fetchBeachForecasts("462bfb3b-b402-485d-b907-7eedfe5e828e");
 
       // Each date should have multiple forecasts (FORECASTS_PER_DAY, every INTERVAL_HOURS hours)
       const dates = Object.keys(result.forecastsByDate);
@@ -204,7 +204,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
     });
 
     it("should have forecasts spanning from today to 12 days ahead", async () => {
-      const result = await fetchBeachForecasts("test-beach-id");
+      const result = await fetchBeachForecasts("462bfb3b-b402-485d-b907-7eedfe5e828e");
 
       const dates = Object.keys(result.forecastsByDate).sort();
       const firstDate = new Date(dates[0]);

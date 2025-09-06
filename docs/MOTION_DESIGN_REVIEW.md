@@ -148,12 +148,8 @@ Based on implemented motion enhancements:
 # Run motion tests
 npx playwright test e2e/phase1-motion-interactions.spec.ts
 
-# Test beach map component
-npx playwright test e2e/beach-map-component.spec.ts
-
 # Test with Playwright MCP
 mcp__playwright__browser_navigate to http://localhost:3000
-mcp__playwright__browser_navigate to http://localhost:3000/test-beaches
 ```
 
 ---

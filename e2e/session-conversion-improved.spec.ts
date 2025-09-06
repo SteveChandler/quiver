@@ -1,13 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { handleAuthRedirect } from "./test-helpers";
+import { ensureAuthenticated } from "./test-helpers";
 
 test.describe("Session Conversion (Improved)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("load");
-
-    // Check authentication status
-    await handleAuthRedirect(page);
+    const authed = await ensureAuthenticated(page, 15000);
+    if (!authed) throw new Error("Auth required for session conversion tests");
   });
 
   test("should convert planned session to completed session with proper validation", async ({

@@ -43,10 +43,8 @@ test.describe("Password Recovery", () => {
     await page.goto("/auth/reset");
     await page.waitForLoadState("load");
 
-    // If redirected to forgot-password (no valid session), skip this test
-    if (page.url().includes("/auth/forgot-password")) {
-      test.skip(true, "No valid session for reset page, skipping validation test");
-    }
+    // Validate environment is set correctly for this test; don't skip silently
+    expect(page.url()).toContain("/auth/reset");
 
     const newPassword = page
       .getByLabel(/new password/i)

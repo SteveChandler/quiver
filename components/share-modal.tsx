@@ -73,11 +73,13 @@ export function ShareModal({
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [hasShownSuccessToast, setHasShownSuccessToast] = useState(false);
+  const [hasShownShareToast, setHasShownShareToast] = useState(false);
 
   useEffect(() => {
     if (open) {
       // Reset states when modal opens
       setHasShownSuccessToast(false);
+      setHasShownShareToast(false);
 
       // Warm the function via HEAD
       const url = buildShareUrl(sessionId, variant);
@@ -112,10 +114,16 @@ export function ShareModal({
         setImgReady(false);
         await fetch(imgUrl, { method: "HEAD" }).catch(() => void 0);
       } else {
-        toast({ title: "Failed to make session shareable", variant: "destructive" });
+        toast({
+          title: "Failed to make session shareable",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      toast({ title: "Failed to make session shareable", variant: "destructive" });
+      toast({
+        title: "Failed to make session shareable",
+        variant: "destructive",
+      });
     } finally {
       setUpdating(false);
       setWarming(false);
@@ -166,9 +174,9 @@ export function ShareModal({
         files: [file],
       });
 
-      if (!hasShownSuccessToast) {
+      if (!hasShownShareToast) {
         toast({ title: "Shared successfully! 🤙" });
-        setHasShownSuccessToast(true);
+        setHasShownShareToast(true);
       }
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
@@ -177,7 +185,7 @@ export function ShareModal({
     } finally {
       setSharing(false);
     }
-  }, [imgUrl, imgReady, sessionId, hasShownSuccessToast]);
+  }, [imgUrl, imgReady, sessionId, hasShownShareToast]);
 
   const getPlatformCopy = () => {
     if (hasWebShare()) {
@@ -290,12 +298,15 @@ export function ShareModal({
               }}
               onError={() => {
                 setImgReady(true);
-                toast({ title: "Failed to generate image", variant: "destructive" });
+                toast({
+                  title: "Failed to generate image",
+                  variant: "destructive",
+                });
               }}
             />
           </div>
 
-          {isPublic && imgReady && (
+          {isPublic && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground text-center">
                 {getPlatformCopy()}

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { handleAuthRedirect } from "./test-helpers";
 
 test.describe("Page Performance", () => {
@@ -60,7 +60,7 @@ test.describe("Page Performance", () => {
 
     const startTime = Date.now();
 
-    await page.goto("/sessions/new?mode=log", { waitUntil: "networkidle" });
+    await page.goto("/sessions/new?mode=log", { waitUntil: "load" });
 
     const loadTime = Date.now() - startTime;
     expect(loadTime).toBeLessThan(PERFORMANCE_THRESHOLDS.loadTime);

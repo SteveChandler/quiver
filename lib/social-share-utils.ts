@@ -35,7 +35,10 @@ type FontSpec = {
 };
 
 const CANDIDATE_FONTS: FontSpec[] = [
-  // Try Tailwind-configured families first
+  // Vendored first (ensured by scripts/fetch-fonts.mjs)
+  { name: "Noto Sans", weight: 400, style: "normal", file: "NotoSans/NotoSans-Regular.ttf" },
+  { name: "Noto Sans", weight: 700, style: "normal", file: "NotoSans/NotoSans-Bold.ttf" },
+  // Try Tailwind-configured families if present
   { name: "Roboto", weight: 400, style: "normal", file: "Roboto/Roboto-Regular.ttf" },
   { name: "Roboto", weight: 700, style: "normal", file: "Roboto/Roboto-Bold.ttf" },
   { name: "Open Sans", weight: 400, style: "normal", file: "OpenSans/OpenSans-Regular.ttf" },
@@ -61,6 +64,10 @@ export async function loadFonts(): Promise<SatoriOptions["fonts"]> {
           style: f.style,
         } as const;
       } catch {
+        // Provide clearer diagnostics when fonts are missing or unreadable
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(`[share-fonts] missing font file`, f.file);
+        }
         return null;
       }
     })
@@ -70,7 +77,7 @@ export async function loadFonts(): Promise<SatoriOptions["fonts"]> {
   
   // Ensure at least one font is available for Satori
   if (validFonts.length === 0) {
-    console.warn("No custom fonts found, using system fallback approach");
+    console.warn("[share-fonts] No custom fonts found in public/fonts; Satori will likely fail and fallback image will be returned.");
     // For development: return empty array and catch the error in renderShareImage
     return [];
   }

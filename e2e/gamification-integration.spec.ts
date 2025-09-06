@@ -1,57 +1,34 @@
 import { test, expect } from '@playwright/test';
-import { createTestUser, loginTestUser } from '../test-utils/auth-helpers';
+import { ensureAuthenticated, waitForPageLoad } from './test-helpers';
 
 test.describe('Gamification Integration Tests', () => {
   let testUser: any;
 
-  test.beforeAll(async () => {
-    // Create a test user for gamification testing
-    testUser = {
-      email: `gamification_test_${Date.now()}@example.com`,
-      password: 'TestPassword123!',
-      username: `gamer_${Date.now()}`,
-    };
+  test.beforeEach(async ({ page }) => {
+    const authed = await ensureAuthenticated(page);
+    expect(authed).toBeTruthy();
   });
 
   test('should track XP when creating a session', async ({ page }) => {
-    // Navigate to sessions page
     await page.goto('/sessions/new');
-    
-    // Check if we're authenticated (from global setup)
-    const isOnSessionForm = await page.url().includes('/sessions/new');
-    
-    if (isOnSessionForm) {
-      // Look for form elements
-      const beachSelector = page.locator('[data-testid="beach-selector"], select[name*="beach"], input[placeholder*="beach"]').first();
-      
-      // Check if the session form is visible
-      const formVisible = await page.locator('form').first().isVisible();
-      expect(formVisible).toBeTruthy();
-      
-      // Look for any XP-related elements that might be pre-loaded
-      const xpElements = await page.locator('text=/XP|experience|level/i').count();
-      console.log(`Found ${xpElements} XP-related elements on session form`);
-    }
+    await page.waitForLoadState('load');
+    expect(page.url()).not.toContain('/auth');
+
+    await page.waitForSelector('form');
+    const formCount = await page.locator('form').count();
+    expect(formCount).toBeGreaterThan(0);
+
+    const xpElements = await page.locator('text=/XP|experience|level/i').count();
+    console.log(`Found ${xpElements} XP-related elements on session form`);
   });
 
   test('should display profile gamification section', async ({ page }) => {
-    // Navigate to profile
     await page.goto('/profile');
-    
-    // Wait for profile to load
-    await page.waitForLoadState('networkidle');
-    
-    // Check if we're on the profile page
-    const isOnProfile = await page.url().includes('/profile') || await page.url().includes('/map');
-    
-    if (isOnProfile && !page.url().includes('/login')) {
-      // Look for gamification elements
-      const hasXPSection = await page.locator('text=/level|badge|achievement/i').count() > 0;
-      
-      // Profile might not show gamification if user has no XP yet
-      // But the components should be available
-      console.log(`Gamification elements present: ${hasXPSection}`);
-    }
+    await page.waitForLoadState('load');
+    expect(page.url()).not.toMatch(/\/auth|\/login/);
+
+    const hasXPSection = (await page.locator('[data-testid="xp-booster-card"]').count()) > 0;
+    console.log(`Gamification elements present: ${hasXPSection}`);
   });
 
   test('should have XP tracking functions in session actions', async ({ page }) => {
@@ -68,9 +45,9 @@ test.describe('Gamification Integration Tests', () => {
       }
     });
     
-    // Navigate to session creation
     await page.goto('/sessions/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
+    expect(page.url()).not.toContain('/auth');
     
     // Check for any gamification-related errors
     const gamificationErrors = errors.filter(e => 
@@ -110,40 +87,20 @@ test.describe('Gamification Integration Tests', () => {
   });
 
   test('should render XP booster cards correctly', async ({ page }) => {
-    // Try to navigate to Journal or Quiver sections
     await page.goto('/journal');
-    await page.waitForLoadState('networkidle');
-    
-    // If redirected to map (authenticated), look for XP boosters
-    if (page.url().includes('/map') || page.url().includes('/journal')) {
-      // Look for XP booster elements
-      const boosterCards = await page.locator('[class*="booster"], [class*="XP"], text=/\\+\\d+ XP/').count();
-      
-      console.log(`Found ${boosterCards} potential XP booster elements`);
-      
-      // Boosters might not show if user has completed all actions
-      expect(boosterCards).toBeGreaterThanOrEqual(0);
-    }
+    await page.waitForLoadState('load');
+    expect(page.url()).not.toContain('/auth');
+
+    const boosterCards = await page.locator('[data-testid="xp-booster-card"]').count();
+    console.log(`Found ${boosterCards} XP booster elements`);
+    expect(boosterCards).toBeGreaterThanOrEqual(0);
   });
 
   test('should have toast notification system ready', async ({ page }) => {
     await page.goto('/');
     
-    // Check if toast container exists in DOM
-    const hasToastContainer = await page.evaluate(() => {
-      // Look for common toast container selectors
-      const selectors = [
-        '[role="alert"]',
-        '[class*="toast"]',
-        '[class*="Toaster"]',
-        '[data-sonner-toaster]',
-        '#toast-container'
-      ];
-      
-      return selectors.some(selector => 
-        document.querySelector(selector) !== null
-      );
-    });
+    // Check if toast container exists in DOM (deterministic)
+    const hasToastContainer = await page.locator('#toast-container, [data-testid="toast-container"]').count() > 0;
     
     console.log(`Toast container present: ${hasToastContainer}`);
     

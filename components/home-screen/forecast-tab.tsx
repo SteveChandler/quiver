@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
+import { HighConfidenceIndicator } from "@/components/forecast/high-confidence-indicator";
 import { KpiTile } from "@/components/ui/kpi-tile";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
@@ -174,7 +175,7 @@ export function ForecastTab({
     (!todaysForecast && !retryAttempted)
   ) {
     return (
-      <div className="space-y-4">
+      <div data-testid="forecast-tab" className="space-y-4">
         {/* Ensure the Set Home Beach banner is available even while loading */}
         {isFallback && effectiveBeach?.id && (
           <HomeBeachBanner selectedBeachId={effectiveBeach.id} />
@@ -189,25 +190,27 @@ export function ForecastTab({
 
   if (!todaysForecast || forecastError) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <Info className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">
-            Forecast Unavailable
-          </h3>
-          <p className="text-gray-500 mb-4">
-            No forecast data available for {effectiveBeach.name} today
-          </p>
-          <Button onClick={handleViewBeach} variant="outline">
-            View Beach Details
-          </Button>
-        </CardContent>
-      </Card>
+      <div data-testid="forecast-tab">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <Info className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-600 mb-2">
+              Forecast Unavailable
+            </h3>
+            <p className="text-gray-500 mb-4">
+              No forecast data available for {effectiveBeach.name} today
+            </p>
+            <Button onClick={handleViewBeach} variant="outline">
+              View Beach Details
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div data-testid="forecast-tab" id="forecast-tab-content" className="space-y-4">
       {/* Show home beach banner when no beach is set or using fallback */}
       {isFallback && effectiveBeach?.id && (
         <HomeBeachBanner selectedBeachId={effectiveBeach.id} />
@@ -265,6 +268,9 @@ export function ForecastTab({
                     Raw Data
                   </Badge>
                 )}
+                <HighConfidenceIndicator 
+                  confidence={todaysForecast?.confidence_score || 0} 
+                />
               </div>
 
               {beachAccuracy && (

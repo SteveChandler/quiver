@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { getProfileDTOById } from "@/lib/profile/fetchers";
+import { getProfileDTOById, getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 import type { ProfileDTO } from "@/types/profile";
 
 export const dynamic = 'force-dynamic';
@@ -29,13 +29,39 @@ export async function GET(
     // Get current user for authentication (optional for public profiles)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    // Get user profile DTO via view
-    const base = await getProfileDTOById(userId, supabase);
+    // Get user profile DTO via view; fallback to joined query if the view is missing in dev/test
+    let base: ProfileDTO | null = null;
+    try {
+      base = await getProfileDTOById(userId, supabase);
+    } catch (e) {
+      // Fallback path for environments without the materialized view
+      const { profile, homeBeachName } = await getProfileWithHomeBeachById(userId, supabase);
+      base = {
+        id: profile.id,
+        full_name: profile.full_name ?? null,
+        home_beach_id: profile.home_beach_id ?? null,
+        homeBeachName: homeBeachName,
+        home_beach: profile.home_beach ?? null,
+      } as ProfileDTO;
+    }
 
-    // Fetch additional profile counters expected by clients/tests
-    const { data: counts } = await supabase
+    // Fetch additional profile details and counters expected by clients/tests
+    const { data: details } = await supabase
       .from("profiles")
-      .select("followers_count, following_count, created_at")
+      .select(
+        `
+        followers_count,
+        following_count,
+        created_at,
+        avatar_url,
+        email,
+        bio,
+        location,
+        experience_level,
+        instagram,
+        home_beach:beaches!profiles_home_beach_id_fkey(id, name)
+      `
+      )
       .eq("id", userId)
       .single();
 
@@ -78,9 +104,17 @@ export async function GET(
 
     const profileWithStats = {
       ...(base as ProfileDTO),
-      followers_count: counts?.followers_count ?? 0,
-      following_count: counts?.following_count ?? 0,
-      created_at: counts?.created_at ?? null,
+      followers_count: details?.followers_count ?? 0,
+      following_count: details?.following_count ?? 0,
+      created_at: details?.created_at ?? null,
+      // Optional details for richer UI rendering
+      avatar_url: details?.avatar_url ?? null,
+      email: details?.email ?? null,
+      bio: details?.bio ?? null,
+      location: details?.location ?? null,
+      experience_level: details?.experience_level ?? null,
+      instagram: details?.instagram ?? null,
+      home_beach: details?.home_beach ?? null,
       ...sessionStats,
       isFollowing: isFollowingUser,
       isOwnProfile: user?.id === userId,

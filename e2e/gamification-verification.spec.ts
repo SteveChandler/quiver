@@ -1,14 +1,15 @@
 import { test, expect } from '@playwright/test';
+import { ensureAuthenticated } from './test-helpers';
 
 test.describe('Gamification System Verification', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the app
-    await page.goto('http://localhost:3002');
+    // Navigate to the app (baseURL-aware)
+    await page.goto('/');
   });
 
   test('should display landing page and allow navigation', async ({ page }) => {
     // Verify landing page loads
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
     
     // Check for any main heading or navigation element
     const hasMainContent = await page.locator('main, header, nav, h1, h2').first().isVisible();
@@ -30,8 +31,8 @@ test.describe('Gamification System Verification', () => {
       }
     });
     
-    await page.goto('http://localhost:3002');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/');
+    await page.waitForLoadState('load');
     
     // Check no database connection errors in console
     const dbErrors = consoleLogs.filter(log => 
@@ -45,27 +46,46 @@ test.describe('Gamification System Verification', () => {
 
   test('should load profile page with gamification section placeholder', async ({ page }) => {
     // Try to navigate to a profile page (may require auth)
-    await page.goto('http://localhost:3002/profile');
+    await page.goto('/profile');
+    await ensureAuthenticated(page);
     
     // Wait for either redirect to login or profile content
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
     
-    const currentUrl = page.url();
+    let currentUrl = page.url();
     
     // If redirected to auth, that's expected behavior
     if (currentUrl.includes('login') || currentUrl.includes('sign')) {
       expect(currentUrl).toMatch(/login|sign/);
     } else {
-      // If on profile, look for gamification elements
-      const profileContent = await page.locator('main').textContent();
-      expect(profileContent).toBeDefined();
+      // Ensure we are actually on the profile page
+      if (!currentUrl.includes('/profile')) {
+        await page.goto('/profile');
+        await page.waitForLoadState('load');
+        currentUrl = page.url();
+      }
+
+      // If still not on profile, accept redirect to auth or home
+      if (!currentUrl.includes('/profile')) {
+        await expect(page).toHaveURL(/auth|login|sign|\/$/);
+      } else {
+        // Verify profile UI loaded (stable target)
+        await expect(page.getByRole('tab', { name: /journal\+/i })).toBeVisible();
+
+        // Gamification placeholder can be transient; accept either loading or loaded state
+        const loadingStatsVisible = await page.getByText(/Loading stats/i).first().isVisible().catch(() => false);
+        if (!loadingStatsVisible) {
+          await expect(page.getByText('Home Break').first()).toBeVisible();
+        }
+      }
     }
   });
 
   test('should have XP tracking integrated in session creation flow', async ({ page }) => {
     // Navigate to session creation (may require auth)
-    await page.goto('http://localhost:3002/sessions/new');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/sessions/new');
+    await ensureAuthenticated(page);
+    await page.waitForLoadState('load');
     
     const currentUrl = page.url();
     
@@ -83,8 +103,8 @@ test.describe('Gamification System Verification', () => {
 
   test('should display gamification test page if available', async ({ page }) => {
     // Try to load the gamification test page directly
-    await page.goto('http://localhost:3002/test/gamification');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/test/gamification');
+    await page.waitForLoadState('load');
     
     // Check if test page exists or returns 404
     const response = await page.evaluate(() => document.body.innerText);
@@ -107,7 +127,7 @@ test.describe('Gamification System Verification', () => {
       }
     });
     
-    await page.goto('http://localhost:3002');
+    await page.goto('/');
     await page.waitForTimeout(2000);
     
     // Check for module not found errors related to gamification
@@ -124,7 +144,7 @@ test.describe('Gamification System Verification', () => {
 test.describe('Gamification UI Components', () => {
   test('should render XP toast system when triggered', async ({ page }) => {
     // Create a test page that triggers XP toast
-    await page.goto('http://localhost:3002');
+    await page.goto('/');
     
     // Look for any toast container elements
     const toastContainer = page.locator('[role="alert"], .toast, [class*="toast"]');
@@ -138,8 +158,8 @@ test.describe('Gamification UI Components', () => {
 
   test('should have confetti animation capability', async ({ page }) => {
     // Check if confetti library is loaded
-    await page.goto('http://localhost:3002');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/');
+    await page.waitForLoadState('load');
     
     // Check that the page loads without confetti-related errors
     const consoleLogs: string[] = [];
