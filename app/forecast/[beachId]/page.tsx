@@ -40,20 +40,10 @@ export async function generateMetadata({
 }: {
   params: { beachId: string };
 }): Promise<Metadata> {
-  const beach = await getBeachById(params.beachId);
-  if (!beach) {
-    return buildPageMetadata({
-      title: "Surf Forecast | Quiver",
-      description: "Beach forecast not found.",
-      path: `/forecast/${params.beachId}`,
-    });
-  }
-
-  const title = `${beach.name} Surf Forecast | Quiver`;
-  const description = `10-day surf forecast, buoy data, and confidence for ${beach.name}.`;
+  // Avoid Supabase-backed calls in metadata; use a static fallback
   return buildPageMetadata({
-    title,
-    description,
+    title: "Surf Forecast | Quiver",
+    description: "10-day surf forecast with live buoy data and confidence.",
     path: `/forecast/${params.beachId}`,
   });
 }

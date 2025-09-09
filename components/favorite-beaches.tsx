@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,6 +28,7 @@ import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { toast } from "@/components/ui/use-toast";
 import type { Beach } from "@/types/database";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 
 export function FavoriteBeaches() {
   const { user } = useAuth();
@@ -36,39 +37,27 @@ export function FavoriteBeaches() {
   const [removing, setRemoving] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
 
-  useEffect(() => {
-    async function loadFavoriteBeaches() {
-      if (!user) return;
-
-      setLoading(true);
-      try {
-        const result = await getFavoriteBeaches(user.id);
-        if (result.success) {
-          setBeaches(result.data || []);
-        } else {
-          console.error("Error loading favorite beaches:", result.error);
-          toast({
-            title: "Error",
-            description:
-              "Failed to load favorite beaches. Please refresh the page.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Error loading favorite beaches:", error);
-        toast({
-          title: "Error",
-          description:
-            "Failed to load favorite beaches. Please refresh the page.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadFavoriteBeaches();
+  // Standard data fetching pattern
+  const fetchFavorites = useCallback(async () => {
+    if (!user) return [] as Beach[];
+    const result = await getFavoriteBeaches(user.id);
+    if (result.success) return (result.data || []) as Beach[];
+    console.error("FavoriteBeaches: failed to fetch favorites:", result.error);
+    return [] as Beach[];
   }, [user]);
+
+  const { data: favorites, loading: favLoading } = useDataFetcher(
+    fetchFavorites,
+    {
+      immediate: true,
+      initialData: [] as Beach[],
+    }
+  );
+
+  useEffect(() => {
+    setBeaches(favorites || []);
+    setLoading(favLoading);
+  }, [favorites, favLoading]);
 
   const handleRemoveFavorite = async (beachId: string) => {
     if (!user) return;

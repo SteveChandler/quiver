@@ -5,10 +5,13 @@ import { revalidatePath } from "next/cache";
 import type { Beach } from "@/types/database";
 import { withAuthenticatedAction, makeAuthenticatedAction } from "@/lib/server-action-utils";
 
-export async function getFavoriteBeaches(userId: string) {
-  const supabase = await createSupabaseServerClient();
+export const getFavoriteBeaches = makeAuthenticatedAction(
+  async (user, supabase, userId: string) => {
+    // Ensure the requester is fetching their own favorites
+    if (user.id !== userId) {
+      throw new Error("Unauthorized access to favorite beaches");
+    }
 
-  try {
     const { data, error } = await supabase
       .from("favorite_beaches")
       .select(
@@ -23,24 +26,16 @@ export async function getFavoriteBeaches(userId: string) {
       .order("rank", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     // Extract the beaches from the nested structure (preserve order)
     const beaches = (data || [])
       .map((item: any) => item.beaches)
       .filter((beach: any) => beach !== null) as Beach[];
 
-    return { success: true, data: beaches };
-  } catch (error) {
-    console.error("Error fetching favorite beaches:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
+    return beaches;
   }
-}
+);
 
 export async function addFavoriteBeach(userId: string, beachId: string) {
   const supabase = await createSupabaseServerClient();
