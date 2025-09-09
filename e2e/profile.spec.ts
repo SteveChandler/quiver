@@ -65,7 +65,7 @@ test.describe('Profile Deep E2E', () => {
     await expect(page.locator(selectors.profileModalTitle)).toBeVisible();
   });
 
-  test('clicking Add Beach opens modal and keeps Beaches tab active', async ({ page }) => {
+  test('clicking Add Beach navigates to map to add beaches', async ({ page }) => {
     await loginViaUI(page, { redirectTo: '/profile' });
 
     // Switch to Beaches tab
@@ -74,10 +74,9 @@ test.describe('Profile Deep E2E', () => {
 
     // Click Add Beach
     await page.getByRole('button', { name: /Add Beach/i }).click();
-    await expect(page.locator(selectors.profileModalTitle)).toBeVisible();
 
-    // Ensure Beaches tab is active (the code sets it after opening modal)
-    const activeTab = page.getByRole('tab', { selected: true });
-    await expect(activeTab).toHaveText(/Beaches/i);
+    // Assert navigation to map and presence of map view
+    await expect(page).toHaveURL(/\/map/);
+    await expect(page.getByTestId('map-view')).toBeVisible();
   });
 });

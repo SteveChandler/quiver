@@ -59,6 +59,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Profile: "Add Beach" button on `ProfileView` now navigates to `/map` instead of opening the Edit Profile modal. Removes DOM click hack to force Beaches tab active. Updated `e2e/profile.spec.ts` to assert navigation and map presence. Follows `components/ARCHITECTURE.md` and growth-first navigation patterns.
 - **Priority 3: Forecast Component Test Failures** (E2E testing stability):
   - Fixed missing `data-testid="forecast-tab"` attribute in `ForecastTab` component, resolving test timeout issues
   - Added `HighConfidenceIndicator` component with proper test attributes for confidence scores >85%
