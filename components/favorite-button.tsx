@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Heart, Loader2 } from "lucide-react";
 import {
@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/context/auth-context";
 import { toast } from "@/components/ui/use-toast";
 import type { Beach } from "@/types/database";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 
 interface FavoriteButtonProps {
   beachId: string;
@@ -28,43 +29,32 @@ export function FavoriteButton({
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  useEffect(() => {
-    async function checkIfFavorite() {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const result = await getFavoriteBeaches(user.id);
-        if (result.success) {
-          const favorites = result.data || [];
-          setIsFavorite(favorites.some((beach: Beach) => beach.id === beachId));
-        } else {
-          console.error("Error loading favorite beaches:", result.error);
-          toast({
-            title: "Error",
-            description:
-              "Failed to load favorite beaches. Please refresh the page.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Error checking if beach is favorite:", error);
-        toast({
-          title: "Error",
-          description:
-            "Failed to load favorite beaches. Please refresh the page.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
+  // Use standard data fetching pattern for background read
+  const fetchFavorites = useCallback(async () => {
+    if (!user) return [] as Beach[];
+    const result = await getFavoriteBeaches(user.id);
+    if (result.success) {
+      return (result.data || []) as Beach[];
     }
+    // Quietly degrade on background read; avoid noisy toasts
+    console.error("FavoriteButton: failed to fetch favorites:", result.error);
+    return [] as Beach[];
+  }, [user]);
 
-    checkIfFavorite();
-  }, [user, beachId]);
+  const { data: favorites, loading: favLoading } = useDataFetcher(
+    fetchFavorites,
+    {
+      immediate: true,
+      initialData: [] as Beach[],
+    }
+  );
+
+  useEffect(() => {
+    setIsFavorite(
+      (favorites || []).some((beach: Beach) => beach.id === beachId)
+    );
+    setLoading(favLoading);
+  }, [favorites, favLoading, beachId]);
 
   const toggleFavorite = async () => {
     if (!user) {

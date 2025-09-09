@@ -1,7 +1,6 @@
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { BeachDetail } from "@/components/beach-detail";
 import { getBeachById as fetchBeach } from "@/actions/beach/beach-query-actions";
-import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
@@ -24,11 +23,12 @@ export async function generateMetadata({
 }: {
   params: { id: string };
 }): Promise<Metadata> {
-  const beach = await getBeachById(params.id);
-  const name = beach?.name || "Beach";
+  // Avoid calling Supabase-backed actions in metadata to prevent
+  // crashes on POST-induced re-renders (cookies() not available).
+  // Use a safe fallback title/description without fetching.
   return buildPageMetadata({
-    title: `${name} Surf Guide | Quiver`,
-    description: `Conditions, intel, photos, and community tips for ${name}.`,
+    title: `Beach Surf Guide | Quiver`,
+    description: `Conditions, intel, photos, and community tips for this beach.`,
     path: `/beach/${params.id}`,
   });
 }

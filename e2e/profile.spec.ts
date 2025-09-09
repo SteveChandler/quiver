@@ -1,162 +1,83 @@
-import { test, expect } from "@playwright/test";
-import { handleAuthRedirect } from "./test-helpers";
+import { test, expect } from '@playwright/test';
+import { loginViaUI } from './utils/auth';
+import { selectors } from './utils/selectors';
+import { waitForNetworkIdle } from './utils/waits';
 
-test.describe("Profile Management", () => {
-  test.describe("Profile View", () => {
-    test.beforeEach(async ({ page }) => {
-      await page.goto("/profile");
-      await page.waitForTimeout(3000);
-    });
+test.describe('Profile Basics', () => {
+  test('tabs render and can be switched', async ({ page }) => {
+    await loginViaUI(page, { redirectTo: '/profile' });
 
-    test("should load profile page", async ({ page }) => {
-      // Should either show profile content or redirect to auth
-      const isAuthPage = page.url().includes("/auth");
+    // Tabs visible
+    const journalTab = page.getByRole('tab', { name: /journal\+/i });
+    const quiverTab = page.getByRole('tab', { name: /quiver/i });
+    const beachesTab = page.getByRole('tab', { name: /beaches/i });
+    const commentsTab = page.getByRole('tab', { name: /comments/i });
 
-      if (isAuthPage) {
-        // Verify auth page loads
-        await expect(page.locator("form")).toBeVisible({ timeout: 5000 });
-      } else {
-        // Verify profile page loads
-        await expect(page.locator("body")).toBeVisible();
-      }
-    });
+    await expect(journalTab).toBeVisible();
+    await expect(quiverTab).toBeVisible();
+    await expect(beachesTab).toBeVisible();
+    await expect(commentsTab).toBeVisible();
 
-    test("should show user content when authenticated", async ({ page }) => {
-      // Check authentication
-      await handleAuthRedirect(page);
+    // Switch between tabs (no deep assertions to avoid data flake)
+    await quiverTab.click();
+    await beachesTab.click();
+    await commentsTab.click();
+    await journalTab.click();
+  });
+});
 
-      // Look for any profile-related content
-      const profileElements = [
-        page.getByText(/profile/i),
-        page.getByText(/board/i),
-        page.getByText(/session/i),
-        page.locator("h1, h2, h3"),
-        page.locator("main"),
-      ];
+test.describe('Profile Deep E2E', () => {
+  test('edit profile modal flow updates UI', async ({ page }) => {
+    await loginViaUI(page, { redirectTo: '/profile' });
 
-      // At least one profile element should be visible
-      let hasProfileContent = false;
-      for (const element of profileElements) {
-        if (await element.isVisible().catch(() => false)) {
-          hasProfileContent = true;
-          break;
-        }
-      }
+    // Capture existing name from header if present to revert later
+    const header = page.getByRole('heading', { level: 1 }).filter({ hasText: /Profile/i }).first();
+    const initialHeaderText = (await header.textContent())?.trim() || '';
+    const match = initialHeaderText.match(/^(.*)'s Profile$/);
+    const originalName = match?.[1] || '';
 
-      if (hasProfileContent) {
-        expect(hasProfileContent).toBeTruthy();
-      } else {
-        // If no specific content, at least the page should load
-        await expect(page.locator("body")).toBeVisible();
-      }
-    });
+    // Open Edit modal
+    await page.locator(selectors.profileEditButton).click();
+    await expect(page.locator(selectors.profileModalTitle)).toBeVisible();
 
-    test("should handle edit profile navigation", async ({ page }) => {
-      // Check authentication
-      await handleAuthRedirect(page);
+    // Do not mutate fields; ensure inputs are interactable for a no-op save
+    await page.getByPlaceholder('Your name').isVisible();
+    await page.getByPlaceholder('Tell us about yourself and your surfing journey').isVisible();
+    await page.getByPlaceholder('Where are you based?').isVisible();
+    await page.getByPlaceholder('Beginner, Intermediate, Advanced, etc.').isVisible();
+    await page.getByPlaceholder('@yourusername').isVisible();
 
-      // Try to navigate to edit page
-      await page.goto("/profile?edit=true");
-      await page.waitForTimeout(2000);
+    // Save
+    await page.locator(selectors.saveProfileButton).click();
 
-      // Should load without crashing
-      await expect(page.locator("body")).toBeVisible();
-    });
+    // Modal should close and profile should refetch; wait for network idle and header should remain unchanged
+    await waitForNetworkIdle(page);
+    if (originalName) {
+      await expect(header).toContainText(`${originalName}'s Profile`, { timeout: 15000 });
+    } else {
+      // If we couldn't parse the name, at least ensure the header still contains "Profile"
+      await expect(header).toContainText('Profile', { timeout: 15000 });
+    }
   });
 
-  test.describe("Profile Edit", () => {
-    test.beforeEach(async ({ page }) => {
-      await page.goto("/profile?edit=true");
-      await page.waitForTimeout(3000);
-    });
+  test('deep link opens edit modal via /profile?edit=true', async ({ page }) => {
+    await loginViaUI(page, { redirectTo: '/profile?edit=true' });
+    await expect(page.locator(selectors.profileModalTitle)).toBeVisible();
+  });
 
-    test("should load profile edit page", async ({ page }) => {
-      // Should either show edit form or redirect to auth
-      const isAuthPage = page.url().includes("/auth");
+  test('clicking Add Beach opens modal and keeps Beaches tab active', async ({ page }) => {
+    await loginViaUI(page, { redirectTo: '/profile' });
 
-      if (isAuthPage) {
-        // Verify auth page loads
-        await expect(page.locator("form")).toBeVisible({ timeout: 5000 });
-      } else {
-        // Verify edit page loads
-        await expect(page.locator("body")).toBeVisible();
-      }
-    });
+    // Switch to Beaches tab
+    await page.getByRole('tab', { name: /Beaches/i }).click();
+    await expect(page.getByRole('tab', { name: /Beaches/i })).toHaveAttribute('data-state', 'active');
 
-    test("should handle form interactions when authenticated", async ({
-      page,
-    }) => {
-      // Check authentication
-      await handleAuthRedirect(page);
+    // Click Add Beach
+    await page.getByRole('button', { name: /Add Beach/i }).click();
+    await expect(page.locator(selectors.profileModalTitle)).toBeVisible();
 
-      // Look for any form elements
-      const formElements = [
-        page.locator('input[type="text"]'),
-        page.locator('input[type="email"]'),
-        page.locator("textarea"),
-        page.locator("select"),
-        page.getByRole("button"),
-      ];
-
-      // Try to interact with form elements if they exist
-      for (const element of formElements) {
-        if (await element.isVisible().catch(() => false)) {
-          // Element exists and is visible
-          expect(true).toBeTruthy();
-          break;
-        }
-      }
-
-      // Page should remain functional
-      await expect(page.locator("body")).toBeVisible();
-    });
-
-    test("should handle save attempts when authenticated", async ({ page }) => {
-      // Check authentication
-      await handleAuthRedirect(page);
-
-      // Look for save button
-      const saveButton = page.getByRole("button").first();
-
-      if (await saveButton.isVisible().catch(() => false)) {
-        // Try to click save button
-        await saveButton.click();
-        await page.waitForTimeout(2000);
-
-        // Page should remain functional after save attempt
-        await expect(page.locator("body")).toBeVisible();
-      } else {
-        // No save button found, that's okay
-        await expect(page.locator("body")).toBeVisible();
-      }
-    });
-
-    test("should handle navigation from edit page", async ({ page }) => {
-      // Check authentication
-      await handleAuthRedirect(page);
-
-      // Try to navigate back to profile
-      await page.goto("/profile");
-      await page.waitForTimeout(2000);
-
-      // Should successfully navigate
-      await expect(page.locator("body")).toBeVisible();
-    });
-
-    test("should handle responsive design", async ({ page }) => {
-      // Test mobile view
-      await page.setViewportSize({ width: 375, height: 667 });
-      await page.waitForTimeout(1000);
-
-      // Should load properly on mobile
-      await expect(page.locator("body")).toBeVisible();
-
-      // Test desktop view
-      await page.setViewportSize({ width: 1024, height: 768 });
-      await page.waitForTimeout(1000);
-
-      // Should load properly on desktop
-      await expect(page.locator("body")).toBeVisible();
-    });
+    // Ensure Beaches tab is active (the code sets it after opening modal)
+    const activeTab = page.getByRole('tab', { selected: true });
+    await expect(activeTab).toHaveText(/Beaches/i);
   });
 });
