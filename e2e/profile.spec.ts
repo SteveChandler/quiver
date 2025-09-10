@@ -3,10 +3,12 @@ import { loginViaUI } from './utils/auth';
 import { selectors } from './utils/selectors';
 import { waitForNetworkIdle } from './utils/waits';
 
-test.describe('Profile Basics', () => {
-  test('tabs render and can be switched', async ({ page }) => {
+test.describe('Profile', () => {
+  test.beforeEach(async ({ page }) => {
     await loginViaUI(page, { redirectTo: '/profile' });
+  });
 
+  test('tabs render and can be switched', async ({ page }) => {
     // Tabs visible
     const journalTab = page.getByRole('tab', { name: /journal\+/i });
     const quiverTab = page.getByRole('tab', { name: /quiver/i });
@@ -24,12 +26,8 @@ test.describe('Profile Basics', () => {
     await commentsTab.click();
     await journalTab.click();
   });
-});
 
-test.describe('Profile Deep E2E', () => {
   test('edit profile modal flow updates UI', async ({ page }) => {
-    await loginViaUI(page, { redirectTo: '/profile' });
-
     // Capture existing name from header if present to revert later
     const header = page.getByRole('heading', { level: 1 }).filter({ hasText: /Profile/i }).first();
     const initialHeaderText = (await header.textContent())?.trim() || '';
@@ -61,13 +59,12 @@ test.describe('Profile Deep E2E', () => {
   });
 
   test('deep link opens edit modal via /profile?edit=true', async ({ page }) => {
-    await loginViaUI(page, { redirectTo: '/profile?edit=true' });
+    // Session already established in beforeEach; navigate to deep link
+    await page.goto('/profile?edit=true', { waitUntil: 'domcontentloaded' });
     await expect(page.locator(selectors.profileModalTitle)).toBeVisible();
   });
 
   test('clicking Add Beach navigates to map to add beaches', async ({ page }) => {
-    await loginViaUI(page, { redirectTo: '/profile' });
-
     // Switch to Beaches tab
     await page.getByRole('tab', { name: /Beaches/i }).click();
     await expect(page.getByRole('tab', { name: /Beaches/i })).toHaveAttribute('data-state', 'active');

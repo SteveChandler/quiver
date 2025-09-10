@@ -14,3 +14,14 @@ export async function waitForURLContains(page: Page, fragment: string | RegExp, 
   }
 }
 
+export async function grantGeolocation(page: Page, latitude = 32.7503, longitude = -117.2534) {
+  const context = page.context();
+  await context.grantPermissions(['geolocation']);
+  await context.setGeolocation({ latitude, longitude });
+}
+
+export async function denyGeolocation(page: Page) {
+  const context = page.context();
+  await context.clearPermissions();
+}
+

@@ -68,33 +68,27 @@ export function FavoriteButton({
 
     setIsProcessing(true);
     try {
-      if (isFavorite) {
-        const result = await removeFavoriteBeach(user.id, beachId);
-        if (result.success) {
-          setIsFavorite(false);
-          toast({
-            title: "Beach removed",
-            description: "Beach removed from favorites.",
-          });
-        } else {
-          throw new Error(
-            result.error || "Failed to remove beach from favorites"
-          );
-        }
-      } else {
+      // Optimistically flip UI for better responsiveness
+      const next = !isFavorite;
+      setIsFavorite(next);
+
+      if (next) {
         const result = await addFavoriteBeach(user.id, beachId);
-        if (result.success) {
-          setIsFavorite(true);
-          toast({
-            title: "Beach added",
-            description: "Beach added to favorites.",
-          });
-        } else {
+        if (!result.success) {
           throw new Error(result.error || "Failed to add beach to favorites");
         }
+        toast({ title: "Beach added", description: "Beach added to favorites." });
+      } else {
+        const result = await removeFavoriteBeach(user.id, beachId);
+        if (!result.success) {
+          throw new Error(result.error || "Failed to remove beach from favorites");
+        }
+        toast({ title: "Beach removed", description: "Beach removed from favorites." });
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
+      // Revert optimistic update on error
+      setIsFavorite((prev) => !prev);
       toast({
         title: "Error",
         description:
@@ -122,6 +116,7 @@ export function FavoriteButton({
       size={size}
       onClick={toggleFavorite}
       disabled={isProcessing}
+      aria-pressed={isFavorite}
       aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
     >
       {isProcessing ? (

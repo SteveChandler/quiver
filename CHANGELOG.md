@@ -9,6 +9,12 @@
 
 ### Changed
 
+- E2E Beach Detail consolidation and coverage:
+
+  - Added consolidated spec `e2e/beach-detail.spec.ts` covering Forecast & Tides visibility, intel deep-linking, favorite toggle via accessible label, reviews dialog open/close, Spot Overview fields, intel view-all toggle, and back navigation to `/map`.
+  - Removed legacy `e2e/beach-detail-flows.spec.ts` after migration to the consolidated suite.
+  - Updated `docs/E2E_TEST_PLAN.md` to reflect the consolidated `@beach` suite and scenarios.
+
 - Playwright global setup updated to use `/api/e2e-login` on `dev.quiversurf.app` when available and persist `storageState` quickly.
 - Playwright config now reads `VERCEL_BYPASS_TOKEN` (fallback `VERCEL_BYPASS`) and applies the `x-vercel-protection-bypass` header for non-local runs.
 - E2E runs simplified to always target `https://dev.quiversurf.app`; removed local `webServer` and complex UI/seed flows in `e2e/global-setup.ts` in favor of a single dev e2e-login path with empty-state fallback. Updated `e2e/ARCHITECTURE.md` accordingly.
@@ -187,6 +193,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
     - Updated `e2e/session-logging.spec.ts` (logging at `/sessions/new?mode=log`)
   - Keeps unauthenticated tests intentionally public (auth, public flows, API-only), aligning with `e2e/ARCHITECTURE.md` and dev helper `/api/e2e-login` from recent changes
 - Removed brittle unit test `__tests__/components/profile/EditProfileModal.spec.tsx` in favor of E2E coverage
+
+### Removed
+
+- Map E2E consolidation:
+  - Deleted `e2e/map-discovery.spec.ts`, `e2e/map-interactions.spec.ts`, and `e2e/map-list-mode.spec.ts`
+  - Scenarios merged into `e2e/guest-map.spec.ts` with `@map`-scoped suites (Discovery, Map Mode, List Mode)
+  - Aligns with `test-utils/ARCHITECTURE.md` guidance and Playwright `guest` project conventions
 
 ### Fixed
 

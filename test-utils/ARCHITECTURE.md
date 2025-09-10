@@ -197,6 +197,28 @@ test("mobile navigation flow", async ({ page }) => {
 });
 ```
 
+### **Map Suite Consolidation (@map)**
+
+To keep map coverage DRY and reliable, all public `/map` flows are consolidated in a single guest-only spec:
+
+```text
+e2e/map.spec.ts
+```
+
+Structure:
+
+- `@map - Discovery`: basic render and visibility of map containers
+- `@map - Map Mode`: geolocation allow/deny, marker selection, navigate to beach detail
+- `@map - List Mode`: toggle to list, filter, select, navigate to beach detail
+
+Selectors live in `e2e/utils/selectors.ts` and helpers in `e2e/utils/waits.ts`. Run only map tests with:
+
+```bash
+npx playwright test -g "@map" --project=auth
+```
+
+The file is named `map.spec.ts` to run under the authenticated `auth` project (middleware protects `/map`).
+
 **Cross-Platform Testing**:
 
 - Mobile-specific navigation helpers
