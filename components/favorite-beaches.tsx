@@ -64,7 +64,7 @@ export function FavoriteBeaches() {
 
     setRemoving(beachId);
     try {
-      const result = await removeFavoriteBeach(user.id, beachId);
+      const result = await removeFavoriteBeach(beachId);
       if (result.success) {
         setBeaches((prev) => prev.filter((beach) => beach.id !== beachId));
         toast({

@@ -73,17 +73,25 @@ export function FavoriteButton({
       setIsFavorite(next);
 
       if (next) {
-        const result = await addFavoriteBeach(user.id, beachId);
+        const result = await addFavoriteBeach(beachId);
         if (!result.success) {
           throw new Error(result.error || "Failed to add beach to favorites");
         }
-        toast({ title: "Beach added", description: "Beach added to favorites." });
+        toast({
+          title: "Beach added",
+          description: "Beach added to favorites.",
+        });
       } else {
-        const result = await removeFavoriteBeach(user.id, beachId);
+        const result = await removeFavoriteBeach(beachId);
         if (!result.success) {
-          throw new Error(result.error || "Failed to remove beach from favorites");
+          throw new Error(
+            result.error || "Failed to remove beach from favorites"
+          );
         }
-        toast({ title: "Beach removed", description: "Beach removed from favorites." });
+        toast({
+          title: "Beach removed",
+          description: "Beach removed from favorites.",
+        });
       }
     } catch (error) {
       console.error("Error toggling favorite:", error);
