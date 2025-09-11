@@ -80,6 +80,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Validated `boards` table schema - confirmed correct structure with `board_type` column matching application usage
 - Beach page favorites error: favorites fetch now uses authenticated server action and client components use `useDataFetcher`, preventing RLS denials and noisy “Failed to load favorite beaches” toasts on background loads.
 
+- Favorite toggle RSC crash: made Supabase server client cookie adapter read-only in Server Components/server actions (no-op `set/remove`) to avoid Next.js "mutable cookies" errors during RSC refresh after server actions. API routes continue to use writable adapters via `createAPIServerClient*`. Fixes 500s when clicking the Favorites button on `/beach/[id]`.
+
 ### Added
 
 - Gamification UI improvements (Priority 2):
