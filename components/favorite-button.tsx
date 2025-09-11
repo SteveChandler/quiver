@@ -3,11 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Heart, Loader2 } from "lucide-react";
-import {
-  addFavoriteBeach,
-  removeFavoriteBeach,
-  getFavoriteBeaches,
-} from "@/actions/beach-actions";
+import { getFavoriteBeaches } from "@/actions/beach-actions";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "@/components/ui/use-toast";
 import type { Beach } from "@/types/database";
@@ -72,27 +68,37 @@ export function FavoriteButton({
       const next = !isFavorite;
       setIsFavorite(next);
 
-      if (next) {
-        const result = await addFavoriteBeach(beachId);
-        if (!result.success) {
-          throw new Error(result.error || "Failed to add beach to favorites");
+      // Call API route to avoid RSC re-render failures in production
+      const res = await fetch(
+        `/api/beaches/${beachId}/favorite/toggle`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
         }
-        toast({
-          title: "Beach added",
-          description: "Beach added to favorites.",
-        });
-      } else {
-        const result = await removeFavoriteBeach(beachId);
-        if (!result.success) {
-          throw new Error(
-            result.error || "Failed to remove beach from favorites"
-          );
-        }
-        toast({
-          title: "Beach removed",
-          description: "Beach removed from favorites.",
-        });
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || "Failed to update favorites");
       }
+
+      const body = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        action?: "added" | "removed";
+        error?: string;
+      };
+
+      if (!body?.success) {
+        throw new Error(body?.error || "Failed to update favorites");
+      }
+
+      toast({
+        title: body.action === "removed" ? "Beach removed" : "Beach added",
+        description:
+          body.action === "removed"
+            ? "Beach removed from favorites."
+            : "Beach added to favorites.",
+      });
     } catch (error) {
       console.error("Error toggling favorite:", error);
       // Revert optimistic update on error
