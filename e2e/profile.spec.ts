@@ -76,4 +76,27 @@ test.describe('Profile', () => {
     await expect(page).toHaveURL(/\/map/);
     await expect(page.getByTestId('map-view')).toBeVisible();
   });
+
+  test('favorited beach appears in Favorites tab on profile', async ({ page }) => {
+    const beachId = process.env.TEST_BEACH_ID || '15c7337e-5258-4339-9dc3-c435c666926b';
+
+    // Ensure the beach is favorited via the Beach page toggle
+    await page.goto(`/beach/${beachId}`, { waitUntil: 'domcontentloaded' });
+    const favButton = page.getByRole('button', { name: /add to favorites|remove from favorites/i });
+    await expect(favButton).toBeVisible({ timeout: 20000 });
+
+    const label = (await favButton.getAttribute('aria-label')) || '';
+    if (/add to favorites/i.test(label)) {
+      await favButton.click();
+      await expect(favButton).toHaveAttribute('aria-label', /remove from favorites/i);
+    }
+
+    // Navigate back to profile and open Beaches tab
+    await page.goto('/profile', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('tab', { name: /Beaches/i }).click();
+
+    // Expect a link to the favorited beach to be present in the favorites list
+    const beachLink = page.locator(`a[href="/beach/${beachId}"]`).first();
+    await expect(beachLink).toBeVisible({ timeout: 20000 });
+  });
 });

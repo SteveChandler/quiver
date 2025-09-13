@@ -82,7 +82,12 @@ test.describe('@beach - Beach Detail Page', () => {
     await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
 
     const overviewTrigger = page.getByRole('button', { name: /spot overview/i });
-    await overviewTrigger.click();
+    // Ensure the trigger is in view and activate via keyboard to avoid overlay interception
+    await overviewTrigger.scrollIntoViewIfNeeded();
+    await overviewTrigger.evaluate((el) => (el as HTMLElement).scrollIntoView({ block: 'center' }));
+    await overviewTrigger.focus();
+    await expect(overviewTrigger).toBeFocused();
+    await page.keyboard.press('Enter');
 
     await expect(page.getByText(/break type/i)).toBeVisible();
     await expect(page.getByText(/best swell/i)).toBeVisible();

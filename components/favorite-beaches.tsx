@@ -20,7 +20,6 @@ import {
   Accessibility,
 } from "lucide-react";
 import {
-  getFavoriteBeaches,
   removeFavoriteBeach,
   reorderFavoriteBeaches,
 } from "@/actions/beach-actions";
@@ -39,17 +38,27 @@ export function FavoriteBeaches() {
 
   // Standard data fetching pattern
   const fetchFavorites = useCallback(async () => {
-    if (!user) return [] as Beach[];
-    const result = await getFavoriteBeaches(user.id);
-    if (result.success) return (result.data || []) as Beach[];
-    console.error("FavoriteBeaches: failed to fetch favorites:", result.error);
-    return [] as Beach[];
-  }, [user]);
+    if (!user?.id) return [] as Beach[];
+    try {
+      const res = await fetch("/api/beaches/favorites", {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!res.ok) return [] as Beach[];
+      const json = await res.json();
+      return (json?.data?.beaches || []) as Beach[];
+    } catch (e) {
+      console.error("FavoriteBeaches: failed to fetch favorites via API", e);
+      return [] as Beach[];
+    }
+  }, [user?.id]);
 
   const { data: favorites, loading: favLoading } = useDataFetcher(
     fetchFavorites,
     {
       immediate: true,
+      skip: !user,
       initialData: [] as Beach[],
     }
   );
