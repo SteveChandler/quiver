@@ -20,7 +20,8 @@ interface ForecastAndTidesProps {
 export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
   // Ensure forecasts is always an array
   const safeForecasts = forecasts || [];
-  const [subTab, setSubTab] = useState<"today" | "tides" | "wind" | "swell" | "week">("today");
+  // Default to showing the 5-day tide chart
+  const [subTab, setSubTab] = useState<"today" | "tides" | "wind" | "swell" | "week">("tides");
 
   const todayStr = useMemo(() => {
     const d = new Date();

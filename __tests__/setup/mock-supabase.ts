@@ -100,7 +100,9 @@ const mockSupabaseClient = {
 };
 
 // Default export for ES module compatibility
-export default mockSupabaseClient;
+const defaultExport: any = mockSupabaseClient;
+defaultExport.createClient = createClient;
+export default defaultExport;
 
 // Named exports that might be imported
 export { mockSupabaseClient as supabase };

@@ -22,6 +22,20 @@ test.describe('@beach - Beach Detail Page', () => {
     await expect(anyChip).toBeVisible({ timeout: 20000 });
   });
 
+  test('defaults to Tides tab with 5-Day Tide Chart visible', async ({ page }) => {
+    await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
+
+    const forecastRegion = page.getByRole('region', { name: /forecast & tides/i });
+    await expect(forecastRegion).toBeVisible({ timeout: 20000 });
+
+    // The tide chart card header should be visible by default
+    await expect(forecastRegion.getByText(/5-day tide chart/i)).toBeVisible({ timeout: 20000 });
+
+    // The Tides tab trigger should be active
+    const tidesTab = forecastRegion.getByRole('tab', { name: /tides/i });
+    await expect(tidesTab).toHaveAttribute('data-state', /active/);
+  });
+
   test('deep-link to intel section scrolls into view and is visible', async ({ page }) => {
     await page.goto(`/beach/${BEACH_ID}?section=intel`, { waitUntil: 'domcontentloaded' });
 

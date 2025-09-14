@@ -8,9 +8,10 @@ import {
 } from "@/lib/social-share-utils";
 
 // Mock filesystem operations
-jest.mock("fs/promises", () => ({
-  readFile: jest.fn(),
-}));
+jest.mock("fs/promises", () => {
+  const readFile = jest.fn();
+  return { readFile };
+});
 
 // Mock external libraries
 jest.mock("satori", () => ({
@@ -30,7 +31,7 @@ import { readFile } from "fs/promises";
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
 
-const mockReadFile = readFile as jest.MockedFunction<typeof readFile>;
+const mockReadFile = readFile as unknown as jest.MockedFunction<typeof readFile>;
 const mockSatori = satori as jest.MockedFunction<typeof satori>;
 
 describe("Social Share Utils", () => {

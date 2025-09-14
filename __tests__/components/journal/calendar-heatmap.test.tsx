@@ -1,7 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CalendarHeatmap } from "@/components/journal/calendar-heatmap";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { format } from "date-fns";
 
 // Mock dependencies
 jest.mock("@/hooks/use-data-fetcher");
