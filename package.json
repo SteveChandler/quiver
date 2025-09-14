@@ -53,7 +53,8 @@
     "lighthouse:ci": "lhci autorun",
     "perf:audit": "npm run build && npm run lighthouse",
     "perf:monitor": "next build && next start & sleep 5 && npm run lighthouse && pkill -f 'next start'",
-    "perf:test": "node scripts/performance-test.mjs"
+    "perf:test": "node scripts/performance-test.mjs",
+    "geocode:beaches": "tsx scripts/geocodeBeaches.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "3.3.4",
@@ -94,6 +95,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
+    "csv-parse": "^6.1.0",
+    "csv-writer": "^1.6.0",
     "date-fns": "4.1.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^16.5.0",
@@ -105,6 +108,7 @@
     "lucide-react": "0.454.0",
     "mapbox-gl": "^3.13.0",
     "next": "14.2.32",
+    "node-fetch": "^3.3.2",
     "react": "18.3.1",
     "react-day-picker": "^9.7.0",
     "react-dom": "18.3.1",
