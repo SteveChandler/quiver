@@ -1,6 +1,5 @@
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { BeachDetail } from "@/components/beach-detail";
-import { getBeachById as fetchBeach } from "@/actions/beach/beach-query-actions";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 

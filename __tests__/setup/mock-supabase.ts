@@ -4,7 +4,9 @@
  */
 
 // Mock the client creation functions
-export const createClient = jest.fn(() => mockSupabaseClient);
+const createClient = jest.fn(() => mockSupabaseClient);
+// Support both named and default-style access in tests using require()
+export { createClient };
 export const createClientComponentClient = jest.fn(() => mockSupabaseClient);
 export const createServerComponentClient = jest.fn(() => mockSupabaseClient);
 export const createSupabaseServerClient = jest.fn(() =>
@@ -37,6 +39,7 @@ const mockSupabaseClient = {
         order: jest.fn(() => Promise.resolve({ data: [], error: null })),
         single: jest.fn(() => Promise.resolve({ data: null, error: null })),
         limit: jest.fn(() => Promise.resolve({ data: [], error: null })),
+        maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
       })),
       neq: jest.fn(() => ({
         order: jest.fn(() => Promise.resolve({ data: [], error: null })),

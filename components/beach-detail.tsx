@@ -13,14 +13,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { TideChart } from "@/components/forecast/tide-chart-recharts";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { SessionForecastComparison } from "@/components/forecast/session-forecast-comparison";
 import { DetailedSwellModal } from "@/components/beach-detail/detailed-swell-modal";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
-import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
-import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import {
@@ -109,15 +106,22 @@ export function BeachDetail({ id }: BeachDetailProps) {
     setReviewRefreshTrigger((prev) => prev + 1);
   }, []);
 
-  // Fetch beach information
+  // Fetch beach information via API (avoid server actions from client)
   const fetchBeach = useCallback(async () => {
-    console.log("🏖️ Fetching beach data for:", id);
-    const result = await getBeachById(id);
-    if (result.success && result.data) {
-      console.log("✅ Beach data:", result.data);
-      return result.data;
+    console.log("🏖️ Fetching beach data (API) for:", id);
+    const res = await fetch(`/api/beaches/${id}`, { cache: "no-store" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || `Failed to fetch beach: ${res.status}`);
     }
-    throw new Error(result.error || "Failed to fetch beach data");
+    const body = (await res.json().catch(() => ({}))) as {
+      data?: { beach?: Beach } | Beach;
+      beach?: Beach;
+    };
+    const beachData = (body as any)?.data?.beach || (body as any)?.beach || (body as any)?.data;
+    if (!beachData) throw new Error("Beach data not found");
+    console.log("✅ Beach data:", beachData);
+    return beachData as Beach;
   }, [id]);
 
   const {
@@ -128,27 +132,39 @@ export function BeachDetail({ id }: BeachDetailProps) {
     immediate: true,
   });
 
-  // Single data fetch - 10-day enhanced forecast
+  // Single data fetch - 10-day enhanced forecast via API
   const fetchForecasts = useCallback(async () => {
-    console.log("🚀 Starting fresh forecast fetch for beach:", id);
-    const result = await getEnhancedBeachForecasts(id, 10);
-    if (result.success && result.data) {
-      console.log("🔍 Raw forecast data:", {
-        totalForecasts: result.data.length,
-        dateRange: {
-          first: result.data[0]?.forecast_date,
-          last: result.data[result.data.length - 1]?.forecast_date,
-        },
-        sampleForecast: result.data[0],
-        uniqueDates: [...new Set(result.data.map((f) => f.forecast_date))],
-        forecastsByDate: result.data.reduce((acc, f) => {
-          acc[f.forecast_date] = (acc[f.forecast_date] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>),
-      });
-      return result.data;
+    console.log("🚀 Starting enhanced forecast fetch (API) for beach:", id);
+    const res = await fetch(
+      `/api/forecasts/update-enhanced?beachId=${id}&days=10`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || `Failed to fetch enhanced forecasts: ${res.status}`);
     }
-    throw new Error(result.error || "Failed to fetch forecasts");
+    const body = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      data?: { forecasts?: EnhancedForecastEntity[] };
+      forecasts?: EnhancedForecastEntity[];
+      error?: string;
+    };
+    const forecasts: EnhancedForecastEntity[] =
+      body?.data?.forecasts || (body as any)?.forecasts || [];
+    console.log("🔍 Raw forecast data:", {
+      totalForecasts: forecasts.length,
+      dateRange: {
+        first: forecasts[0]?.forecast_date,
+        last: forecasts[forecasts.length - 1]?.forecast_date,
+      },
+      sampleForecast: forecasts[0],
+      uniqueDates: [...new Set(forecasts.map((f) => f.forecast_date))],
+      forecastsByDate: forecasts.reduce((acc, f) => {
+        acc[f.forecast_date] = (acc[f.forecast_date] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    });
+    return forecasts;
   }, [id]);
 
   const {

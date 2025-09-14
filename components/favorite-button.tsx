@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Heart, Loader2 } from "lucide-react";
-import { getFavoriteBeaches } from "@/actions/beach-actions";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "@/components/ui/use-toast";
 import type { Beach } from "@/types/database";
@@ -28,13 +27,26 @@ export function FavoriteButton({
   // Use standard data fetching pattern for background read
   const fetchFavorites = useCallback(async () => {
     if (!user) return [] as Beach[];
-    const result = await getFavoriteBeaches(user.id);
-    if (result.success) {
-      return (result.data || []) as Beach[];
+    try {
+      const res = await fetch("/api/beaches/favorites", {
+        method: "GET",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("FavoriteButton: failed to fetch favorites:", body?.error || res.status);
+        return [] as Beach[];
+      }
+      const body = (await res.json().catch(() => ({}))) as {
+        data?: { beaches?: Beach[] };
+        beaches?: Beach[];
+      };
+      return (body?.data?.beaches || (body as any)?.beaches || []) as Beach[];
+    } catch (err) {
+      console.error("FavoriteButton: fetch error:", err);
+      return [] as Beach[];
     }
-    // Quietly degrade on background read; avoid noisy toasts
-    console.error("FavoriteButton: failed to fetch favorites:", result.error);
-    return [] as Beach[];
   }, [user]);
 
   const { data: favorites, loading: favLoading } = useDataFetcher(

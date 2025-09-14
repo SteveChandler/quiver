@@ -101,12 +101,14 @@ export function formatSessionForShare(session: SessionData): {
   const headline = session.title?.trim() || "Surf Session";
   const subline = [session.beachName, dateTime].filter(Boolean).join(" • ");
 
-  const hMin = session.waveHeightFtMin ?? session.waveHeightFtMax ?? undefined;
-  const hMax = session.waveHeightFtMax ?? session.waveHeightFtMin ?? undefined;
+  const hasMin = session.waveHeightFtMin != null;
+  const hasMax = session.waveHeightFtMax != null;
+  const hMin = hasMin ? session.waveHeightFtMin : hasMax ? session.waveHeightFtMax : undefined;
+  const hMax = hasMax ? session.waveHeightFtMax : hasMin ? session.waveHeightFtMin : undefined;
   const waveRange =
-    hMin && hMax
+    hMin != null && hMax != null && hMin !== hMax
       ? `${Math.round(hMin)}–${Math.round(hMax)} ft`
-      : hMin
+      : hMin != null
       ? `${Math.round(hMin)} ft`
       : "";
   const descriptor = describeWaveHeight(hMin, hMax);

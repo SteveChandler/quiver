@@ -38,8 +38,12 @@ export const getFavoriteBeaches = makeAuthenticatedAction(
 );
 
 export const addFavoriteBeach = makeAuthenticatedAction(
-  async (user, supabase, beachId: string) => {
+  async (user, supabase, userId: string, beachId: string) => {
     try {
+      // Ensure caller matches authenticated user
+      if (user.id !== userId) {
+        throw new Error("Unauthorized access to favorite beaches");
+      }
       // Check if already favorited
       const { data: existing, error: checkError } = await supabase
         .from("favorite_beaches")
@@ -92,8 +96,11 @@ export const addFavoriteBeach = makeAuthenticatedAction(
 );
 
 export const removeFavoriteBeach = makeAuthenticatedAction(
-  async (user, supabase, beachId: string) => {
+  async (user, supabase, userId: string, beachId: string) => {
     try {
+      if (user.id !== userId) {
+        throw new Error("Unauthorized access to favorite beaches");
+      }
       const { error } = await supabase
         .from("favorite_beaches")
         .delete()
