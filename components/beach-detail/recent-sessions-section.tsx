@@ -13,15 +13,8 @@ interface RecentSessionsSectionProps {
 
 export function RecentSessionsSection({ beachId }: RecentSessionsSectionProps) {
   const fetchSessions = useCallback(async (): Promise<SessionWithDetails[]> => {
-    const res = await fetch(`/api/users/${encodeURIComponent("public")}/sessions?beachId=${beachId}&limit=5`, { cache: "no-store" });
-    // Fallback: If API doesn't support beachId filter, call a dedicated route when available
+    const res = await fetch(`/api/beaches/${beachId}/sessions?limit=5`, { cache: "no-store" });
     if (!res.ok) {
-      // Try a server-action-backed endpoint if present
-      const alt = await fetch(`/api/beaches/${beachId}/sessions?limit=5`).catch(() => null);
-      if (alt && alt.ok) {
-        const j = await alt.json();
-        return (j?.data?.sessions || j?.sessions || []) as SessionWithDetails[];
-      }
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.error || `Failed to fetch recent sessions: ${res.status}`);
     }
