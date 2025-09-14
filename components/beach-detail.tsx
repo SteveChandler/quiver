@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -13,9 +14,21 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { BeachIntelSection } from "@/components/intel/beach-intel-section";
-import { SessionForecastComparison } from "@/components/forecast/session-forecast-comparison";
-import { DetailedSwellModal } from "@/components/beach-detail/detailed-swell-modal";
+const BeachIntelSection = dynamic(
+  () => import("@/components/intel/beach-intel-section").then((m) => m.BeachIntelSection),
+  { ssr: false }
+);
+const SessionForecastComparison = dynamic(
+  () =>
+    import("@/components/forecast/session-forecast-comparison").then(
+      (m) => m.SessionForecastComparison
+    ),
+  { ssr: false }
+);
+const DetailedSwellModal = dynamic(
+  () => import("@/components/beach-detail/detailed-swell-modal").then((m) => m.DetailedSwellModal),
+  { ssr: false }
+);
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -32,9 +45,18 @@ import { SpotOverview } from "@/components/beach-detail/spot-overview";
 import { FavoriteButton } from "@/components/favorite-button";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 // Replacing BeachCheckIns with BeachIntelSection in Local Intel section
-import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
-import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
-import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
+const ForecastAndTides = dynamic(
+  () => import("@/components/beach-detail/forecast-and-tides").then((m) => m.ForecastAndTides),
+  { ssr: false }
+);
+const BeachReviewSummary = dynamic(
+  () => import("@/components/beach/beach-review-summary").then((m) => m.BeachReviewSummary),
+  { ssr: false }
+);
+const BeachReviewsList = dynamic(
+  () => import("@/components/beach/beach-reviews-list").then((m) => m.BeachReviewsList),
+  { ssr: false }
+);
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import { track, slugify } from "@/lib/analytics";
 
