@@ -79,6 +79,7 @@ export function ForecastTab({
     homeBeach ||
     popularBeach) as Beach | null;
   const isFallback = !homeBeach && !!popularBeach;
+  const shouldShowHomeBeachBanner = !homeBeach && !!effectiveBeach?.id;
 
   // Get forecast for effective beach
   const fetchTodaysForecast = useCallback(async () => {
@@ -177,8 +178,11 @@ export function ForecastTab({
     return (
       <div data-testid="forecast-tab" className="space-y-4">
         {/* Ensure the Set Home Beach banner is available even while loading */}
-        {isFallback && effectiveBeach?.id && (
-          <HomeBeachBanner selectedBeachId={effectiveBeach.id} selectedBeachName={effectiveBeach.name} />
+        {shouldShowHomeBeachBanner && (
+          <HomeBeachBanner
+            selectedBeachId={effectiveBeach.id}
+            selectedBeachName={effectiveBeach.name}
+          />
         )}
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
@@ -210,10 +214,17 @@ export function ForecastTab({
   }
 
   return (
-    <div data-testid="forecast-tab" id="forecast-tab-content" className="space-y-4">
+    <div
+      data-testid="forecast-tab"
+      id="forecast-tab-content"
+      className="space-y-4"
+    >
       {/* Show home beach banner when no beach is set or using fallback */}
-      {isFallback && effectiveBeach?.id && (
-        <HomeBeachBanner selectedBeachId={effectiveBeach.id} selectedBeachName={effectiveBeach.name} />
+      {shouldShowHomeBeachBanner && (
+        <HomeBeachBanner
+          selectedBeachId={effectiveBeach.id}
+          selectedBeachName={effectiveBeach.name}
+        />
       )}
       {/* Beach Header */}
       <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white">
@@ -268,8 +279,8 @@ export function ForecastTab({
                     Raw Data
                   </Badge>
                 )}
-                <HighConfidenceIndicator 
-                  confidence={todaysForecast?.confidence_score || 0} 
+                <HighConfidenceIndicator
+                  confidence={todaysForecast?.confidence_score || 0}
                 />
               </div>
 

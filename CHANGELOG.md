@@ -1,5 +1,6 @@
 ### Added
 
+- Home screen nearby beach chips: permissioned geolocation → show nearest 5 beaches for one-tap preview and Set Home Beach, following `components/home-screen/ARCHITECTURE.md` patterns.
 - Offline utility: `scripts/geocodeBeaches.ts` to enrich `docs/beaches_etl.csv` with lat/lng via Mapbox Geocoding. Uses 200ms throttling (~5 rps), writes `docs/beaches_etl_geocoded.csv`. Scopes to `country=us` only for `country === "USA"`, otherwise searches globally. Run with `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=... npm run geocode:beaches`. Follows repo scripts organization; no app runtime changes.
 
 - Dev-only endpoint `app/api/e2e-login/route.ts` to sign in Supabase test user using SSR client and set real cookies. Restricted to `dev.quiversurf.app` and `E2E_SECRET`. Follows patterns from `app/ARCHITECTURE.md` and uses `DEFAULT_SECURITY_HEADERS`.
