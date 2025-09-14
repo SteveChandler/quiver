@@ -12,13 +12,18 @@ interface CamsSectionProps {
 
 export function CamsSection({ beachId }: CamsSectionProps) {
   const fetchSources = useCallback(async () => {
-    const res = await fetch(`/api/beaches/${beachId}/sources`, { cache: "no-store" });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body?.error || `Failed to fetch beach sources: ${res.status}`);
+    try {
+      const res = await fetch(`/api/beaches/${beachId}/sources`, { cache: "no-store" });
+      if (!res.ok) {
+        // Soften failures: treat as no cam available
+        return null;
+      }
+      const json = await res.json().catch(() => ({} as any));
+      return (json as any)?.data?.sources || (json as any)?.sources || null;
+    } catch {
+      // Network or parsing error: gracefully fall back
+      return null;
     }
-    const json = await res.json();
-    return json?.data?.sources || json?.sources || null;
   }, [beachId]);
 
   const { data: sources, loading, error, refetch } = useDataFetcher(fetchSources, { immediate: true });
@@ -57,9 +62,7 @@ export function CamsSection({ beachId }: CamsSectionProps) {
           </div>
         )}
 
-        {error && (
-          <div className="text-sm text-red-600">{String(error)}</div>
-        )}
+        {/* Errors are softened to a neutral empty state; no error UI */}
       </CardContent>
     </Card>
   );
