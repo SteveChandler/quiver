@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BeachCard } from "@/components/beach-card";
@@ -42,7 +42,12 @@ export function BeachList({
   const [selectedBeachId, setSelectedBeachId] = useState<string | null>(null);
   const [filterValue, setFilterValue] = useState("");
   const [displayedBeaches, setDisplayedBeaches] = useState<Beach[]>([]);
-  
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const EST_ITEM_HEIGHT = 156; // px approximate
+  const BUFFER = 8;
+
   // Memoize beach IDs to ensure stable dependencies
   const beachIds = useMemo(
     () => filteredBeaches.map((beach) => beach.id),
@@ -51,24 +56,55 @@ export function BeachList({
 
   const { reviewStats, loading: reviewsLoading } =
     useMultipleBeachReviews(beachIds);
-    
+
   // Filter beaches based on local filter
   useEffect(() => {
     let filtered = filteredBeaches;
     if (filterValue) {
-      filtered = filteredBeaches.filter(beach =>
-        beach.name.toLowerCase().includes(filterValue.toLowerCase()) ||
-        (beach.location && beach.location.toLowerCase().includes(filterValue.toLowerCase()))
+      filtered = filteredBeaches.filter(
+        (beach) =>
+          beach.name.toLowerCase().includes(filterValue.toLowerCase()) ||
+          (beach.location &&
+            beach.location.toLowerCase().includes(filterValue.toLowerCase()))
       );
     }
     setDisplayedBeaches(filtered);
   }, [filteredBeaches, filterValue]);
-  
+
+  // Virtualization: track scroll and size
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onScroll = () => setScrollTop(el.scrollTop);
+    const onResize = () => setContainerHeight(el.clientHeight);
+    onResize();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+
+  const { startIndex, endIndex, offsetTop } = useMemo(() => {
+    const itemsPerViewport = Math.max(
+      1,
+      Math.ceil(containerHeight / EST_ITEM_HEIGHT)
+    );
+    const start = Math.max(0, Math.floor(scrollTop / EST_ITEM_HEIGHT) - BUFFER);
+    const end = Math.min(
+      displayedBeaches.length,
+      start + itemsPerViewport + BUFFER * 2
+    );
+    const offset = start * EST_ITEM_HEIGHT;
+    return { startIndex: start, endIndex: end, offsetTop: offset };
+  }, [scrollTop, containerHeight, displayedBeaches.length]);
+
   const handleBeachSelect = (beach: Beach) => {
     setSelectedBeachId(beach.id);
     onBeachSelect(beach);
   };
-  
+
   const handleFilter = (value: string) => {
     setFilterValue(value);
   };
@@ -84,7 +120,11 @@ export function BeachList({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto" data-testid="beach-list">
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto"
+      data-testid="beach-list"
+    >
       <div className="p-4 space-y-4">
         {/* Filter Input */}
         <motion.div
@@ -152,7 +192,9 @@ export function BeachList({
                     transition={{ duration: 0.3 }}
                   >
                     <p className="text-lg font-medium mb-2">
-                      {filterValue ? `No beaches match "${filterValue}"` : "No beaches found"}
+                      {filterValue
+                        ? `No beaches match "${filterValue}"`
+                        : "No beaches found"}
                     </p>
                     <p className="text-muted-foreground mb-2">
                       {searchQuery && `No beaches match "${searchQuery}"`}
@@ -201,89 +243,97 @@ export function BeachList({
               visible: {
                 opacity: 1,
                 transition: {
-                  staggerChildren: 0.1
-                }
-              }
+                  staggerChildren: 0.1,
+                },
+              },
             }}
           >
             {(() => {
+              const slice = displayedBeaches.slice(startIndex, endIndex);
               const beachCardData = prepareMultipleBeachCardData(
-                displayedBeaches,
+                slice,
                 userLocation,
                 reviewStats,
                 "BEACH_CARD_LIST"
               );
-
-              return beachCardData.map((beachData, index) => {
-                const isSelected = selectedBeachId === beachData.id;
-                
-                return (
-                  <motion.div 
-                    key={beachData.id} 
-                    data-testid="beach-item" 
-                    className="relative"
-                    variants={{
-                      hidden: { opacity: 0, x: -20 },
-                      visible: { 
-                        opacity: 1, 
-                        x: 0,
-                        transition: {
-                          duration: 0.4,
-                          ease: "easeOut"
-                        }
-                      }
-                    }}
-                    whileHover={{ 
-                      scale: 1.02, 
-                      y: -2,
-                      transition: { duration: 0.2 }
-                    }}
-                    layout
-                  >
-                    {/* Selection indicator */}
-                    <AnimatePresence>
-                      {isSelected && (
-                        <motion.div 
-                          className="absolute top-2 right-2 z-10" 
-                          data-testid="selection-indicator"
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0, opacity: 0 }}
-                          transition={{ type: "spring", bounce: 0.3 }}
+              return (
+                <div
+                  style={{ height: displayedBeaches.length * EST_ITEM_HEIGHT }}
+                >
+                  <div style={{ transform: `translateY(${offsetTop}px)` }}>
+                    {beachCardData.map((beachData) => {
+                      const isSelected = selectedBeachId === beachData.id;
+                      return (
+                        <motion.div
+                          key={beachData.id}
+                          data-testid="beach-item"
+                          className="relative"
+                          variants={{
+                            hidden: { opacity: 0, x: -20 },
+                            visible: {
+                              opacity: 1,
+                              x: 0,
+                              transition: {
+                                duration: 0.4,
+                                ease: "easeOut",
+                              },
+                            },
+                          }}
+                          whileHover={{
+                            scale: 1.02,
+                            y: -2,
+                            transition: { duration: 0.2 },
+                          }}
+                          layout
                         >
-                          <div className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold shadow-lg">
-                            ✓
-                          </div>
+                          <AnimatePresence>
+                            {isSelected && (
+                              <motion.div
+                                className="absolute top-2 right-2 z-10"
+                                data-testid="selection-indicator"
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{ type: "spring", bounce: 0.3 }}
+                              >
+                                <div className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold shadow-lg">
+                                  ✓
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          <motion.div
+                            className={`transition-all duration-200 ${
+                              isSelected
+                                ? "ring-2 ring-blue-500 ring-offset-2 rounded-lg"
+                                : ""
+                            }`}
+                          >
+                            <BeachCard
+                              id={beachData.id}
+                              name={beachData.name}
+                              distance={beachData.distance}
+                              rating={beachData.rating}
+                              reviewCount={beachData.reviewCount}
+                              imageUrl={beachData.mapImageUrl}
+                              latitude={beachData.latitude}
+                              longitude={beachData.longitude}
+                              onViewDetails={() => {
+                                handleBeachSelect(
+                                  displayedBeaches.find(
+                                    (b) => b.id === beachData.id
+                                  )!
+                                );
+                              }}
+                            />
+                          </motion.div>
                         </motion.div>
-                      )}
-                    </AnimatePresence>
-                    
-                    <motion.div
-                      className={`transition-all duration-200 ${
-                        isSelected 
-                          ? 'ring-2 ring-blue-500 ring-offset-2 rounded-lg' 
-                          : ''
-                      }`}
-                    >
-                      <BeachCard
-                        id={beachData.id}
-                        name={beachData.name}
-                        distance={beachData.distance}
-                        rating={beachData.rating}
-                        reviewCount={beachData.reviewCount}
-                        imageUrl={beachData.mapImageUrl}
-                        latitude={beachData.latitude}
-                        longitude={beachData.longitude}
-                        onViewDetails={() => {
-                          handleBeachSelect(
-                            displayedBeaches.find((b) => b.id === beachData.id)!
-                          );
-                        }}
-                      />
-                    </motion.div>
-                  </motion.div>
-                );
-              });
+                      );
+                    })}
+                  </div>
+                </div>
+              );
             })()}
           </motion.div>
         )}

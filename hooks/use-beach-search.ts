@@ -9,6 +9,12 @@ interface BeachSearchState {
   filteredBeaches: Beach[];
   searchQuery: string;
   selectedBeach: Beach | null;
+  activeRegion: string | "ALL";
+  filters: {
+    beginnerFriendly: boolean;
+    breakTypes: Set<string>;
+    minParkingRating: number | null; // Applied when available on beach records
+  };
 }
 
 export function useBeachSearch() {
@@ -16,6 +22,12 @@ export function useBeachSearch() {
     filteredBeaches: [],
     searchQuery: "",
     selectedBeach: null,
+    activeRegion: "ALL",
+    filters: {
+      beginnerFriendly: false,
+      breakTypes: new Set<string>(),
+      minParkingRating: null,
+    },
   });
 
   // Separate state for beaches data to handle both loadBeaches and loadNearbyBeaches
@@ -56,36 +68,74 @@ export function useBeachSearch() {
 
   const { beaches, loading, error } = beachesState;
 
-  // Memoize the search function to prevent it from changing on every render
-  const performSearch = useCallback((query: string, beachList: Beach[]) => {
-    if (!query.trim()) {
-      return beachList;
+  // Compute distinct regions from loaded beaches
+  const regions = useMemo(() => {
+    const unique = new Set<string>();
+    for (const b of beaches || []) {
+      if (b?.region) unique.add(b.region);
     }
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [beaches]);
 
-    return beachList.filter(
-      (beach) =>
-        beach.name.toLowerCase().includes(query.toLowerCase()) ||
-        (beach.location &&
-          beach.location.toLowerCase().includes(query.toLowerCase()))
-    );
-  }, []);
+  // Memoize the filter + search pipeline
+  const applyFiltersAndSearch = useCallback(
+    (query: string, beachList: Beach[], activeRegion: string | "ALL", filters: BeachSearchState["filters"]) => {
+      let working = beachList;
 
-  // Update filtered beaches when beaches array or search query changes
+      // Region filter
+      if (activeRegion !== "ALL") {
+        working = working.filter((b) => (b.region || "") === activeRegion);
+      }
+
+      // Beginner-friendly filter
+      if (filters.beginnerFriendly) {
+        working = working.filter((b) => (b.skill_level || "").toLowerCase().includes("beginner"));
+      }
+
+      // Break type filter
+      if (filters.breakTypes && filters.breakTypes.size > 0) {
+        working = working.filter((b) => b.break_type ? filters.breakTypes.has(b.break_type.toLowerCase()) : false);
+      }
+
+      // Parking rating filter (best-effort if present on object)
+      if (typeof filters.minParkingRating === "number") {
+        working = working.filter((b: any) =>
+          typeof b?.parking_rating === "number" ? b.parking_rating >= (filters.minParkingRating as number) : true
+        );
+      }
+
+      // Fuzzy-ish search (tokens include)
+      const trimmed = query.trim().toLowerCase();
+      if (!trimmed) return working;
+
+      const tokens = trimmed.split(/\s+/g).filter(Boolean);
+      return working.filter((beach) => {
+        const hay = `${beach.name} ${(beach.location || "")}`.toLowerCase();
+        return tokens.every((t) => hay.includes(t) || t.includes(hay));
+      });
+    },
+    []
+  );
+
+  // Update filtered beaches when inputs change
   useEffect(() => {
-    const filtered = performSearch(state.searchQuery, beaches || []);
+    const filtered = applyFiltersAndSearch(
+      state.searchQuery,
+      beaches || [],
+      state.activeRegion,
+      state.filters
+    );
 
     setState((prev) => ({
       ...prev,
       filteredBeaches: filtered,
-      // Clear selectedBeach when searching to prioritize search results
-      // Only keep selectedBeach if there's no search query
       selectedBeach: state.searchQuery
         ? filtered.length > 0
           ? filtered[0]
           : null
         : prev.selectedBeach || (filtered.length > 0 ? filtered[0] : null),
     }));
-  }, [beaches, performSearch, state.searchQuery]);
+  }, [beaches, state.searchQuery, state.activeRegion, state.filters, applyFiltersAndSearch]);
 
   // Debounced search effect - separate from the main update logic
   useEffect(() => {
@@ -216,11 +266,33 @@ export function useBeachSearch() {
     beaches,
     loading,
     error,
+    regions,
     loadBeaches,
     loadNearbyBeaches,
     setSearchQuery,
     clearSearch,
     setSelectedBeach,
     nearbyBeachesForScroll,
+    // Filters API
+    setActiveRegion: useCallback((region: string | "ALL") => {
+      setState((prev) => ({ ...prev, activeRegion: region }));
+    }, []),
+    toggleBeginnerFriendly: useCallback(() => {
+      setState((prev) => ({
+        ...prev,
+        filters: { ...prev.filters, beginnerFriendly: !prev.filters.beginnerFriendly },
+      }));
+    }, []),
+    toggleBreakType: useCallback((type: string) => {
+      setState((prev) => {
+        const next = new Set(prev.filters.breakTypes);
+        const key = type.toLowerCase();
+        if (next.has(key)) next.delete(key); else next.add(key);
+        return { ...prev, filters: { ...prev.filters, breakTypes: next } };
+      });
+    }, []),
+    setMinParkingRating: useCallback((rating: number | null) => {
+      setState((prev) => ({ ...prev, filters: { ...prev.filters, minParkingRating: rating } }));
+    }, []),
   };
 }

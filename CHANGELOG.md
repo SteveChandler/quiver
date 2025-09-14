@@ -271,6 +271,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Spatial search optimization: Added generated `geog geography(Point,4326)` column and `GiST` index on `public.beaches` to enable index-backed `ST_DWithin` queries
 - Updated `get_nearby_beaches` to use `b.geog` and cap `max_distance_meters` (≤100 miles) and `limit_count` (≤200) to prevent excessive scans while keeping defaults the same
 
+### Added
+
+- Map directory enhancements on `/map` (follows `app/ARCHITECTURE.md`, `components/ARCHITECTURE.md`, and `hooks/ARCHITECTURE.md`):
+  - Region tabs derived from `beaches.region`
+  - Filter chips: Beginner-friendly, Break type (beach/point/reef), Parking 3+
+  - Fuzzy search in header (local, debounced) and a dedicated "Near me" chip action
+  - Virtualized beach list (windowing) in `components/map/beach-list.tsx` for smoother scrolling
+  - Preserves lazy-loaded map and skeleton states; map/list selection remains in sync
+
+### Changed
+
+- `hooks/use-beach-search.ts`: extended with `regions`, `activeRegion`, and filter state; unified filter+search pipeline; memoized for performance
+- `components/map-view.tsx`: wired Region Tabs and Filter Chips; exposes "Near me" action via header
+- `components/map/map-search-header.tsx`: replaced mocked suggestions with local fuzzy handling and added "Near me" control
+- `components/map/beach-list.tsx`: added client-side virtualization with simple windowing and placeholder spacer
+
 ## [2025.09.02] - Development Update
 
 ### Added
