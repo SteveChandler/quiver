@@ -25,12 +25,10 @@ export async function withServerAction<T>(
     let message: string;
     if (error instanceof Error) {
       message = error.message;
-    } else if (typeof error === "string") {
-      message = error;
     } else if (error && typeof error === "object" && "message" in error) {
       message = String(error.message);
     } else {
-      message = "Unknown error occurred";
+      message = "Unknown error";
       console.error("Unhandled error type:", typeof error, error);
     }
     return {
@@ -104,12 +102,10 @@ export function makeAuthenticatedAction<
       let message: string;
       if (error instanceof Error) {
         message = error.message;
-      } else if (typeof error === "string") {
-        message = error;
       } else if (error && typeof error === "object" && "message" in error) {
         message = String(error.message);
       } else {
-        message = "Unknown error occurred";
+        message = "Unknown error";
         console.error("Unhandled error type:", typeof error, error);
       }
       return {

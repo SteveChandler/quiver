@@ -132,8 +132,8 @@ function describeWaveHeight(hMin?: number, hMax?: number): string {
   if (avg < 1) return "Flat";
   if (avg < 2) return "Ankle-knee";
   if (avg < 3) return "Knee-waist";
-  if (avg < 4) return "Waist-chest";
-  if (avg < 5) return "Chest-shoulder";
+  if (avg <= 4) return "Waist-chest";
+  if (avg < 5.1) return "Chest-shoulder";
   if (avg < 6) return "Shoulder-head";
   if (avg < 8) return "Head-overhead";
   if (avg < 10) return "Overhead-double";

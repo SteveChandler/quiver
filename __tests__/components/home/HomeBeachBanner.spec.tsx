@@ -8,11 +8,11 @@ const mockMutate = jest.fn();
 const mockUseProfile = jest.fn();
 
 jest.mock("@/lib/hooks/useProfile", () => ({
-  useProfile: () => mockUseProfile()
+  useProfile: () => mockUseProfile(),
 }));
 
 jest.mock("@/actions/profile-actions", () => ({
-  setHomeBeach: (...args: any[]) => mockSetHomeBeach(...args),
+  updateProfile: (...args: any[]) => mockSetHomeBeach(...args),
 }));
 
 describe("HomeBeachBanner", () => {
@@ -25,22 +25,22 @@ describe("HomeBeachBanner", () => {
       data: {
         id: "test-user-id",
         home_beach_id: selectedBeachId,
-        full_name: "Test User"
-      }
+        full_name: "Test User",
+      },
     });
   });
 
   it("renders the set home beach button when beach is not already set", () => {
     mockUseProfile.mockReturnValue({
-      profile: { 
-        id: "test-user-id", 
+      profile: {
+        id: "test-user-id",
         home_beach_id: null,
-        full_name: "Test User"
+        full_name: "Test User",
       },
       loading: false,
       error: null,
       refetch: jest.fn(),
-      mutate: mockMutate
+      mutate: mockMutate,
     });
 
     render(<HomeBeachBanner selectedBeachId={selectedBeachId} />);
@@ -52,33 +52,35 @@ describe("HomeBeachBanner", () => {
 
   it("does not render when beach is already set as home beach", () => {
     mockUseProfile.mockReturnValue({
-      profile: { 
-        id: "test-user-id", 
+      profile: {
+        id: "test-user-id",
         home_beach_id: selectedBeachId,
-        full_name: "Test User"
+        full_name: "Test User",
       },
       loading: false,
       error: null,
       refetch: jest.fn(),
-      mutate: mockMutate
+      mutate: mockMutate,
     });
 
-    const { container } = render(<HomeBeachBanner selectedBeachId={selectedBeachId} />);
+    const { container } = render(
+      <HomeBeachBanner selectedBeachId={selectedBeachId} />
+    );
 
     expect(container.firstChild).toBeNull();
   });
 
   it("calls setHomeBeach action when button is clicked", async () => {
     mockUseProfile.mockReturnValue({
-      profile: { 
-        id: "test-user-id", 
+      profile: {
+        id: "test-user-id",
         home_beach_id: null,
-        full_name: "Test User"
+        full_name: "Test User",
       },
       loading: false,
       error: null,
       refetch: jest.fn(),
-      mutate: mockMutate
+      mutate: mockMutate,
     });
 
     render(<HomeBeachBanner selectedBeachId={selectedBeachId} />);
@@ -87,7 +89,9 @@ describe("HomeBeachBanner", () => {
     fireEvent.click(button);
 
     await waitFor(() => {
-      expect(mockSetHomeBeach).toHaveBeenCalledWith(selectedBeachId);
+      expect(mockSetHomeBeach).toHaveBeenCalledWith({
+        home_beach_id: selectedBeachId,
+      });
     });
 
     // Should also trigger profile refetch
@@ -96,23 +100,34 @@ describe("HomeBeachBanner", () => {
 
   it("shows saving state when action is in progress", async () => {
     // Make the action slow to resolve
-    mockSetHomeBeach.mockImplementation(() => new Promise(resolve => 
-      setTimeout(() => resolve({
-        success: true,
-        data: { id: "test-user-id", home_beach_id: selectedBeachId, full_name: "Test User" }
-      }), 100)
-    ));
+    mockSetHomeBeach.mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                success: true,
+                data: {
+                  id: "test-user-id",
+                  home_beach_id: selectedBeachId,
+                  full_name: "Test User",
+                },
+              }),
+            100
+          )
+        )
+    );
 
     mockUseProfile.mockReturnValue({
-      profile: { 
-        id: "test-user-id", 
+      profile: {
+        id: "test-user-id",
         home_beach_id: null,
-        full_name: "Test User"
+        full_name: "Test User",
       },
       loading: false,
       error: null,
       refetch: jest.fn(),
-      mutate: mockMutate
+      mutate: mockMutate,
     });
 
     render(<HomeBeachBanner selectedBeachId={selectedBeachId} />);
