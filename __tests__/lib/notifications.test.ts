@@ -1,9 +1,12 @@
 import { createActivityForInvite } from "@/lib/notifications";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-jest.mock("@/lib/supabase/server", () =>
-  require("@/__tests__/setup/mock-supabase")
-);
+jest.mock("@/lib/supabase/server", () => {
+  const mock = require("@/__tests__/setup/mock-supabase");
+  return {
+    createSupabaseServerClient: () => Promise.resolve(mock.default || mock),
+  };
+});
 
 describe("createActivityForInvite", () => {
   it("calls RPC with correct payload", async () => {

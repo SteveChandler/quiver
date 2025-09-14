@@ -8,10 +8,10 @@ import {
 } from "@/lib/social-share-utils";
 
 // Mock filesystem operations
-jest.mock("fs/promises", () => {
-  const readFile = jest.fn();
-  return { readFile };
-});
+jest.mock("fs/promises", () => ({
+  __esModule: true,
+  readFile: jest.fn(),
+}));
 
 // Mock external libraries
 jest.mock("satori", () => ({

@@ -28,7 +28,7 @@ describe("AuthContext error paths", () => {
 
   it("handles getSession error and sets unauthenticated", async () => {
     const mock = require("@/__tests__/setup/mock-supabase");
-    const client = mock.createClient();
+    const client = mock.createClient ? mock.createClient() : mock.default;
     client.auth.getSession.mockResolvedValueOnce({
       data: { session: null },
       error: new Error("boom"),

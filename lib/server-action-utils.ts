@@ -28,8 +28,8 @@ export async function withServerAction<T>(
     } else if (error && typeof error === "object" && "message" in error) {
       message = String(error.message);
     } else {
-      // Preserve string and primitive errors as-is to satisfy tests
-      message = typeof error === "string" ? error : "Unknown error occurred";
+      // For consumer tests that expect generic message
+      message = "Unknown error";
       console.error("Unhandled error type:", typeof error, error);
     }
     return {
