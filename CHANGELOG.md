@@ -77,6 +77,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Indexes: GiST on `coordinates` for nearest; GIN `pg_trgm` on `lower(name)`, `lower(slug)`, and expression index on `array_to_string(alt_names,' ')`
   - New tables: `public.beach_sources` and `public.beach_calibration` with RLS (public read) and FK indexes
 
+- Beach detail enhancements:
+  - New slug route `app/beach/[slug]/page.tsx` with server-side slug resolution
+  - Per-beach metadata via `buildPageMetadata` (canonical + OpenGraph)
+  - JSON-LD Place for beach pages via `BeachPageStructuredData`
+  - Above-the-fold summary cards: Today → Next tides → Wind → Swell
+  - Inline “Set Home Beach” button using `updateProfile`
+
 ### Changed
 
 - E2E Beach Detail consolidation and coverage:
@@ -85,6 +92,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ### Fixed
 
 - Profile: "Add Beach" button on `ProfileView` now navigates to `/map` instead of opening the Edit Profile modal. Removes DOM click hack to force Beaches tab active. Updated `e2e/profile.spec.ts` to assert navigation and map presence. Follows `components/ARCHITECTURE.md` and growth-first navigation patterns.
+- E2E map acceptance: `e2e/map-enhanced.spec.ts` now robustly returns to Map after selecting a list item by clicking `[data-testid="view-mode-map"]` when present, or falling back to bottom nav `Map` link, then waiting for `load`. Prevents timeouts when list item navigates to beach detail.
 - **Priority 3: Forecast Component Test Failures** (E2E testing stability):
   - Fixed missing `data-testid="forecast-tab"` attribute in `ForecastTab` component, resolving test timeout issues
   - Added `HighConfidenceIndicator` component with proper test attributes for confidence scores >85%
@@ -270,6 +278,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Spatial search optimization: Added generated `geog geography(Point,4326)` column and `GiST` index on `public.beaches` to enable index-backed `ST_DWithin` queries
 - Updated `get_nearby_beaches` to use `b.geog` and cap `max_distance_meters` (≤100 miles) and `limit_count` (≤200) to prevent excessive scans while keeping defaults the same
+
+- Beach pages: deferred below-the-fold content to improve LCP/CLS on mobile
 
 ### Added
 
