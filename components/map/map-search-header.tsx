@@ -230,6 +230,7 @@ export function MapSearchHeader({
           <Button
             variant={viewMode === "map" ? "default" : "ghost"}
             size="sm"
+            data-testid="view-mode-map"
             onClick={() => onViewModeChange("map")}
             className="w-full"
           >
@@ -246,6 +247,7 @@ export function MapSearchHeader({
           <Button
             variant={viewMode === "list" ? "default" : "ghost"}
             size="sm"
+            data-testid="view-mode-list"
             onClick={() => onViewModeChange("list")}
             className="w-full"
           >

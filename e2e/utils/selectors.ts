@@ -26,5 +26,7 @@ export const selectors = {
   beachListSelectionIndicator: '[data-testid="selection-indicator"]',
   listFilterInput: '[data-testid="filter-input"]',
   searchInput: '[data-testid="search-input"]',
+  viewModeMap: '[data-testid="view-mode-map"]',
+  viewModeList: '[data-testid="view-mode-list"]',
 };
 
