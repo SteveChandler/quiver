@@ -159,7 +159,7 @@ export function ForecastTab({
 
   const handleViewBeach = () => {
     if (effectiveBeach?.id) {
-      router.push(`/beach/${effectiveBeach.id}`);
+      router.push(`/beach/${effectiveBeach.id}?from=home`);
     }
   };
 
@@ -178,7 +178,7 @@ export function ForecastTab({
       <div data-testid="forecast-tab" className="space-y-4">
         {/* Ensure the Set Home Beach banner is available even while loading */}
         {isFallback && effectiveBeach?.id && (
-          <HomeBeachBanner selectedBeachId={effectiveBeach.id} />
+          <HomeBeachBanner selectedBeachId={effectiveBeach.id} selectedBeachName={effectiveBeach.name} />
         )}
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
@@ -213,7 +213,7 @@ export function ForecastTab({
     <div data-testid="forecast-tab" id="forecast-tab-content" className="space-y-4">
       {/* Show home beach banner when no beach is set or using fallback */}
       {isFallback && effectiveBeach?.id && (
-        <HomeBeachBanner selectedBeachId={effectiveBeach.id} />
+        <HomeBeachBanner selectedBeachId={effectiveBeach.id} selectedBeachName={effectiveBeach.name} />
       )}
       {/* Beach Header */}
       <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white">

@@ -24,7 +24,7 @@ const mockToast = {
 // Mock file operations
 const mockFileReader = {
   readAsDataURL: jest.fn(),
-  result: 'data:image/jpeg;base64,fake-image-data',
+  result: "data:image/jpeg;base64,fake-image-data",
   onload: null as any,
   onerror: null as any,
 };
@@ -36,8 +36,12 @@ const mockFileReader = {
 global.fetch = jest.fn();
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
-const mockUploadSessionMedia = uploadSessionMedia as jest.MockedFunction<typeof uploadSessionMedia>;
-const mockUpdateSession = updateSession as jest.MockedFunction<typeof updateSession>;
+const mockUploadSessionMedia = uploadSessionMedia as jest.MockedFunction<
+  typeof uploadSessionMedia
+>;
+const mockUpdateSession = updateSession as jest.MockedFunction<
+  typeof updateSession
+>;
 const mockFetch = fetch as jest.MockedFunction<typeof fetch>;
 
 const mockUser = {
@@ -47,12 +51,18 @@ const mockUser = {
 
 // Mock photo upload component
 function MockPhotoUpload({ onUploadSuccess }: { onUploadSuccess: () => void }) {
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+    // Guard: only attempt upload for image files
+    if (!files.every((f) => f.type.startsWith("image/"))) {
+      return;
+    }
 
     try {
-      const result = await mockUploadSessionMedia("session-1", [file]);
+      const result = await mockUploadSessionMedia("session-1", files);
       if (result.success) {
         onUploadSuccess();
       }
@@ -87,7 +97,7 @@ describe("Social Photo Upload Integration", () => {
     // Mock successful fetch
     mockFetch.mockResolvedValue({
       ok: true,
-      blob: () => Promise.resolve(new Blob(['fake-image-data'])),
+      blob: () => Promise.resolve(new Blob(["fake-image-data"])),
     } as Response);
 
     // Setup toast mocks
@@ -98,7 +108,7 @@ describe("Social Photo Upload Integration", () => {
   describe("Photo Upload Flow", () => {
     it("should upload photo and enable sharing", async () => {
       const onUploadSuccess = jest.fn();
-      
+
       // Mock successful upload
       mockUploadSessionMedia.mockResolvedValue({
         success: true,
@@ -115,7 +125,7 @@ describe("Social Photo Upload Integration", () => {
       });
 
       const input = screen.getByTestId("photo-upload-input");
-      
+
       // Upload photo
       Object.defineProperty(input, "files", {
         value: [file],
@@ -124,19 +134,23 @@ describe("Social Photo Upload Integration", () => {
       fireEvent.change(input);
 
       await waitFor(() => {
-        expect(mockUploadSessionMedia).toHaveBeenCalledWith("session-1", [file]);
+        expect(mockUploadSessionMedia).toHaveBeenCalledWith("session-1", [
+          file,
+        ]);
         expect(onUploadSuccess).toHaveBeenCalled();
       });
     });
 
     it("should handle upload failure", async () => {
       mockUploadSessionMedia.mockRejectedValue(new Error("Upload failed"));
-      
+
       render(<MockPhotoUpload onUploadSuccess={jest.fn()} />);
 
-      const file = new File(["fake-image"], "photo.jpg", { type: "image/jpeg" });
+      const file = new File(["fake-image"], "photo.jpg", {
+        type: "image/jpeg",
+      });
       const input = screen.getByTestId("photo-upload-input");
-      
+
       Object.defineProperty(input, "files", {
         value: [file],
         writable: false,
@@ -148,16 +162,20 @@ describe("Social Photo Upload Integration", () => {
       });
 
       // Should handle error gracefully
-      expect(screen.getByTestId("upload-status")).toHaveTextContent("Ready for upload");
+      expect(screen.getByTestId("upload-status")).toHaveTextContent(
+        "Ready for upload"
+      );
     });
 
     it("should validate file types", async () => {
       render(<MockPhotoUpload onUploadSuccess={jest.fn()} />);
 
       // Try to upload a non-image file
-      const file = new File(["fake-text"], "document.txt", { type: "text/plain" });
+      const file = new File(["fake-text"], "document.txt", {
+        type: "text/plain",
+      });
       const input = screen.getByTestId("photo-upload-input");
-      
+
       Object.defineProperty(input, "files", {
         value: [file],
         writable: false,
@@ -204,7 +222,7 @@ describe("Social Photo Upload Integration", () => {
       mockUpdateSession.mockResolvedValue({ success: true });
       mockFetch.mockResolvedValue({
         ok: true,
-        blob: () => Promise.resolve(new Blob(['fake-image-data'])),
+        blob: () => Promise.resolve(new Blob(["fake-image-data"])),
       } as Response);
 
       render(
@@ -222,7 +240,9 @@ describe("Social Photo Upload Integration", () => {
       fireEvent.click(makePublicButton);
 
       await waitFor(() => {
-        expect(mockUpdateSession).toHaveBeenCalledWith("session-1", "user-1", { is_public: true });
+        expect(mockUpdateSession).toHaveBeenCalledWith("session-1", "user-1", {
+          is_public: true,
+        });
       });
 
       // Should warm the share image
@@ -239,7 +259,7 @@ describe("Social Photo Upload Integration", () => {
 
       const PhotoUploadToShareFlow = () => {
         const [uploaded, setUploaded] = React.useState(false);
-        
+
         const handleUploadSuccess = () => {
           setUploaded(true);
         };
@@ -265,8 +285,8 @@ describe("Social Photo Upload Integration", () => {
       };
 
       // Need React import for useState
-      const React = require('react');
-      
+      const React = require("react");
+
       mockUploadSessionMedia.mockResolvedValue({
         success: true,
         data: { urls: ["photo.jpg"] },
@@ -321,7 +341,9 @@ describe("Social Photo Upload Integration", () => {
       fireEvent.change(input);
 
       await waitFor(() => {
-        expect(mockUploadSessionMedia).toHaveBeenCalledWith("session-1", [file]);
+        expect(mockUploadSessionMedia).toHaveBeenCalledWith("session-1", [
+          file,
+        ]);
       });
 
       // Verify upload was successful
@@ -329,7 +351,7 @@ describe("Social Photo Upload Integration", () => {
     });
 
     it("should handle photo upload errors gracefully", async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation();
       mockUploadSessionMedia.mockRejectedValue(new Error("Storage error"));
 
       render(<MockPhotoUpload onUploadSuccess={jest.fn()} />);
@@ -343,7 +365,10 @@ describe("Social Photo Upload Integration", () => {
       fireEvent.change(input);
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith("Upload failed:", expect.any(Error));
+        expect(consoleSpy).toHaveBeenCalledWith(
+          "Upload failed:",
+          expect.any(Error)
+        );
       });
 
       consoleSpy.mockRestore();
@@ -384,7 +409,7 @@ describe("Social Photo Upload Integration", () => {
   describe("Viral Growth Features", () => {
     it("should track sharing events for growth analytics", async () => {
       mockUpdateSession.mockResolvedValue({ success: true });
-      
+
       render(
         <ShareModal
           sessionId="session-1"
@@ -425,9 +450,11 @@ describe("Social Photo Upload Integration", () => {
 
       // Should show growth-focused messaging
       expect(screen.getByText("Share Your Epic Session")).toBeInTheDocument();
-      
+
       // Should include viral elements in copy
-      expect(screen.getByText(/download to upload to instagram\/tiktok/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/download to upload to instagram\/tiktok/i)
+      ).toBeInTheDocument();
     });
 
     it("should generate viral-optimized content for different platforms", async () => {
@@ -444,10 +471,10 @@ describe("Social Photo Upload Integration", () => {
 
       // Should support Instagram story format
       expect(screen.getByText("Story")).toBeInTheDocument();
-      
+
       // Switch to square format for other platforms
       fireEvent.click(screen.getByText("Square"));
-      
+
       // Should warm both formats for viral sharing
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -461,12 +488,12 @@ describe("Social Photo Upload Integration", () => {
   describe("Error Handling and Edge Cases", () => {
     it("should handle network errors during photo upload", async () => {
       mockUploadSessionMedia.mockRejectedValue(new Error("Network error"));
-      
+
       render(<MockPhotoUpload onUploadSuccess={jest.fn()} />);
 
       const file = new File(["test"], "test.jpg", { type: "image/jpeg" });
       const input = screen.getByTestId("photo-upload-input");
-      
+
       Object.defineProperty(input, "files", { value: [file], writable: false });
       fireEvent.change(input);
 
@@ -494,21 +521,31 @@ describe("Social Photo Upload Integration", () => {
       );
 
       const input = screen.getByTestId("photo-upload-input");
-      Object.defineProperty(input, "files", { value: [largeFile], writable: false });
+      Object.defineProperty(input, "files", {
+        value: [largeFile],
+        writable: false,
+      });
       fireEvent.change(input);
 
       await waitFor(() => {
-        expect(mockUploadSessionMedia).toHaveBeenCalledWith("session-1", [largeFile]);
+        expect(mockUploadSessionMedia).toHaveBeenCalledWith("session-1", [
+          largeFile,
+        ]);
       });
     });
 
     it("should handle unsupported file formats", async () => {
       render(<MockPhotoUpload onUploadSuccess={jest.fn()} />);
 
-      const unsupportedFile = new File(["test"], "test.pdf", { type: "application/pdf" });
+      const unsupportedFile = new File(["test"], "test.pdf", {
+        type: "application/pdf",
+      });
       const input = screen.getByTestId("photo-upload-input");
-      
-      Object.defineProperty(input, "files", { value: [unsupportedFile], writable: false });
+
+      Object.defineProperty(input, "files", {
+        value: [unsupportedFile],
+        writable: false,
+      });
       fireEvent.change(input);
 
       // Should not attempt upload for unsupported file

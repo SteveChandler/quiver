@@ -4,6 +4,7 @@ import { Search, MapIcon, List } from "lucide-react";
 import { motion } from "framer-motion";
 import { PHASE2_ANIMATIONS } from "@/lib/constants/animations";
 import { useState } from "react";
+import { track } from "@/lib/analytics";
 
 interface MapSearchHeaderProps {
   searchQuery: string;
@@ -60,6 +61,12 @@ export function MapSearchHeader({
     setIsSelecting(true);
     setSelectedLocation(result.name);
     onSearchChange(result.name);
+    // Track search selection in map context
+    track("beach_search", {
+      query: searchQuery,
+      result_count: searchResults.length,
+      source: "map",
+    });
     
     // Excitement animation
     setTimeout(() => {

@@ -8,6 +8,7 @@ import { Loader2, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { searchBeachesByName } from "@/lib/utils/beach-search-utils";
+import { track } from "@/lib/analytics";
 import { MAP_MOTION } from "@/lib/constants/animations";
 import type { Beach } from "@/types/database";
 
@@ -31,6 +32,12 @@ export function BeachSearchBar({ onSelect, className }: BeachSearchBarProps) {
   const { loading, refetch } = useDataFetcher<Beach | null>(performSearch, {
     immediate: false,
     onSuccess: (beach) => {
+      // Track beach search outcome (home)
+      track("beach_search", {
+        query,
+        result_count: beach && beach.id ? 1 : 0,
+        source: "home",
+      });
       if (beach && beach.id) {
         setError(null);
         onSelect(beach);

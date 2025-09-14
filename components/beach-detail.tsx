@@ -38,6 +38,7 @@ import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
 import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
 import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
+import { track, slugify } from "@/lib/analytics";
 
 interface BeachDetailProps {
   id: string;
@@ -255,6 +256,21 @@ export function BeachDetail({ id }: BeachDetailProps) {
   const handleAccordionChange = (values: string | string[]) => {
     setOpenSections(Array.isArray(values) ? values : [values]);
   };
+
+  // Track beach view once we have data
+  useEffect(() => {
+    if (!beach) return;
+    try {
+      const isHome = (searchParams?.get("from") || "") === "home";
+      track("beach_view", {
+        beach_slug: slugify(beach.name),
+        region: (beach as any).region || (beach as any).location || undefined,
+        is_home: isHome,
+      });
+    } catch {}
+    // only on first load per beach id
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beach?.id]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">

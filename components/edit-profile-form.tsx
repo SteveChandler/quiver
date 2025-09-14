@@ -36,6 +36,7 @@ import { uploadImage, deleteImage } from "@/lib/image-upload";
 import { toast } from "@/components/ui/use-toast";
 import { BeachSelector } from "@/components/BeachSelector";
 import { useProfile } from "@/lib/hooks/useProfile";
+import { track, slugify } from "@/lib/analytics";
 
 const profileFormSchema = z.object({
   full_name: z
@@ -138,6 +139,16 @@ export function EditProfileForm({
       if (!result.success) {
         throw new Error(result.error || "Failed to update profile");
       }
+
+      // Analytics: set_home_beach when a beach is selected
+      try {
+        if (data.home_beach_id || homeBeachText) {
+          const slug = data.home_beach_id
+            ? data.home_beach_id // can't resolve name here reliably
+            : slugify(homeBeachText);
+          track("set_home_beach", { beach_slug: slug });
+        }
+      } catch {}
 
       // Refresh profile data
       startTransition(() => mutate());

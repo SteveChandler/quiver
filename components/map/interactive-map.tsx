@@ -16,6 +16,7 @@ import {
 } from "@/lib/utils/wave-height-formatter";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
+import { track, slugify } from "@/lib/analytics";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -217,6 +218,14 @@ export function InteractiveMap({
 
         // Set selection state for animation
         setSelectedBeachId(location.id);
+
+        // Track marker click
+        try {
+          track("map_marker_click", {
+            beach_slug: slugify(location.name),
+            region: (location as any).region || (location as any).location || undefined,
+          });
+        } catch {}
 
         // Trigger location click callback if provided
         if (onLocationClick) {

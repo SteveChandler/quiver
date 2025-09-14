@@ -7,9 +7,12 @@ import { updateProfile } from "@/actions/profile-actions";
 
 interface HomeBeachBannerProps {
   selectedBeachId: string;
+  selectedBeachName?: string;
 }
 
-export function HomeBeachBanner({ selectedBeachId }: HomeBeachBannerProps) {
+import { track, slugify } from "@/lib/analytics";
+
+export function HomeBeachBanner({ selectedBeachId, selectedBeachName }: HomeBeachBannerProps) {
   const { profile, mutate } = useProfile();
   const [saving, setSaving] = useState(false);
 
@@ -20,6 +23,11 @@ export function HomeBeachBanner({ selectedBeachId }: HomeBeachBannerProps) {
         home_beach_id: selectedBeachId,
       });
       await updateProfile({ home_beach_id: selectedBeachId });
+      // Analytics: set_home_beach (mark as conversion in GA UI)
+      try {
+        const slug = selectedBeachName ? slugify(selectedBeachName) : selectedBeachId;
+        track("set_home_beach", { beach_slug: slug });
+      } catch {}
       // optimistic refetch
       startTransition(() => mutate());
     } finally {

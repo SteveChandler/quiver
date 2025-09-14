@@ -12,6 +12,7 @@ import {
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 import { createActivity } from "@/actions/activity-actions";
 import { useAuth } from "@/context/auth-context";
+import { track, slugify } from "@/lib/analytics";
 
 function NewSessionPageContent() {
   const router = useRouter();
@@ -115,6 +116,23 @@ function NewSessionPageContent() {
         if (!result.success) {
           throw new Error(result.error);
         }
+
+        // Analytics: session_log_submit (mark as conversion in GA UI)
+        try {
+          const wave = sessionData.waveQuality ? parseInt(sessionData.waveQuality) : undefined;
+          const crowd = sessionData.crowdLevel ? parseInt(sessionData.crowdLevel) : undefined;
+          let water: number | undefined;
+          if (sessionData.waterTemp) {
+            const m = String(sessionData.waterTemp).match(/(\d+)/);
+            water = m ? parseInt(m[1]) : undefined;
+          }
+          track("session_log_submit", {
+            beach_slug: sessionData.selectedBeach ? slugify(sessionData.selectedBeach) : sessionData.selectedBeachId,
+            wave_rating: isFinite(wave as number) ? wave : undefined,
+            crowd: isFinite(crowd as number) ? crowd : undefined,
+            water_temp: isFinite(water as number) ? water : undefined,
+          });
+        } catch {}
 
         // Handle photo uploads if any
         if (sessionData.photos && sessionData.photos.length > 0) {

@@ -11,6 +11,7 @@ import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import GoogleAnalytics from "@/components/analytics/google-analytics";
+import PWAAndPushListeners from "@/components/analytics/pwa-and-push-listeners";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
@@ -127,6 +128,7 @@ export default function RootLayout({
               function gtag(){dataLayer.push(arguments);} 
               gtag('js', new Date());
               gtag('config', '${GA_ID}', { anonymize_ip: true, send_page_view: false });
+              ${process.env.NODE_ENV !== "production" ? "try{gtag('set','debug_mode',true);}catch(_){}" : ""}
             `,
           }}
         />
@@ -225,6 +227,13 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
         <AuthProvider>
+          {/* Track page views on client-side route changes */}
+          <Suspense fallback={null}>
+            <GoogleAnalytics />
+          </Suspense>
+          <Suspense fallback={null}>
+            <PWAAndPushListeners />
+          </Suspense>
           <Suspense fallback={null}>
             <AppHeader />
           </Suspense>
