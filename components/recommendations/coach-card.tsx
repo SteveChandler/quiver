@@ -57,17 +57,24 @@ export function CoachCard({
     recommendations?: Recommendation[];
   };
 }) {
-  // Require valid beach context; avoid any leaked global state or fallbacks
+  // Determine context validity up-front
   const hasValidContext = Boolean(
     beachId && Number.isFinite(lat) && Number.isFinite(lon)
   );
-  if (!hasValidContext) return null;
+
+  // Hooks must not be conditional; keep them unconditionally declared
   const [showExplanation, setShowExplanation] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<{
     [key: string]: boolean;
   }>({});
 
   const fetchRecs = useCallback(async () => {
+    if (!hasValidContext) {
+      return { top_picks: [], recommendations: [] } as {
+        top_picks?: Recommendation[];
+        recommendations?: Recommendation[];
+      };
+    }
     const uniqueBySpot = (items: Recommendation[]) => {
       const seen = new Set<string>();
       return items.filter((p) => {
@@ -150,7 +157,7 @@ export function CoachCard({
       )
     );
     return { top_picks: top, recommendations: all };
-  }, [beachId, lat, lon]);
+  }, [beachId, lat, lon, hasValidContext]);
 
   const {
     data: response,
@@ -161,7 +168,7 @@ export function CoachCard({
     top_picks?: Recommendation[];
     recommendations?: Recommendation[];
   }>(fetchRecs, {
-    immediate: !initialResponse,
+    immediate: hasValidContext && !initialResponse,
     initialData: initialResponse
       ? {
           top_picks: (() => {
@@ -194,6 +201,9 @@ export function CoachCard({
         }
       : {},
   });
+
+  // If invalid context, render nothing (after hooks are declared to satisfy rules of hooks)
+  if (!hasValidContext) return null;
 
   const topPicks = response?.top_picks || [];
   const allRecs = response?.recommendations || [];
