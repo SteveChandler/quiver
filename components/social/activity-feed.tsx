@@ -7,7 +7,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { UserAvatarButton } from "@/components/social/user-avatar-button";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
 import { useActivityFeed } from "@/hooks/use-activity-feed";
-import { formatDistanceToNow } from "date-fns";
+import formatDistanceToNow from "date-fns/formatDistanceToNow";
 import {
   Waves,
   Star,

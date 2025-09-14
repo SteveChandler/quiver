@@ -106,6 +106,6 @@ describe("SessionWizard (aligned)", () => {
 
     // Wait for transition to step 2
     await screen.findByText(/Step 2 of 4/i);
-    expect(screen.getByTestId("datetime-step")).toBeInTheDocument();
+    expect(screen.getByText(/When/i)).toBeInTheDocument();
   });
 });

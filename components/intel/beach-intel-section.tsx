@@ -24,7 +24,7 @@ import {
   AlertTriangle,
   Eye,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import formatDistanceToNow from "date-fns/formatDistanceToNow";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";
@@ -60,7 +60,9 @@ export function BeachIntelSection({
   const [showPostForm, setShowPostForm] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<boolean>(initialShowAll);
-  const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(new Set());
+  const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(
+    new Set()
+  );
   const [optimisticUpdates, setOptimisticUpdates] = useState<
     Record<string, { user_has_confirmed: boolean; confirmations_count: number }>
   >({});
@@ -83,7 +85,7 @@ export function BeachIntelSection({
   // Apply optimistic updates to posts data
   const posts = useMemo(() => {
     const basePosts = intelData?.posts || [];
-    return basePosts.map(post => {
+    return basePosts.map((post) => {
       const optimisticUpdate = optimisticUpdates[post.id];
       if (optimisticUpdate) {
         return {
@@ -105,14 +107,14 @@ export function BeachIntelSection({
       }
 
       // Find the current post to get its current count
-      const currentPost = posts.find(post => post.id === postId);
+      const currentPost = posts.find((post) => post.id === postId);
       if (!currentPost) {
         toast.error("Post not found");
         return;
       }
 
       // Set loading state
-      setConfirmingPosts(prev => new Set(prev).add(postId));
+      setConfirmingPosts((prev) => new Set(prev).add(postId));
 
       // Apply optimistic update immediately
       const optimisticConfirmed = !isCurrentlyConfirmed;
@@ -120,7 +122,7 @@ export function BeachIntelSection({
         ? Math.max(0, currentPost.confirmations_count - 1)
         : currentPost.confirmations_count + 1;
 
-      setOptimisticUpdates(prev => ({
+      setOptimisticUpdates((prev) => ({
         ...prev,
         [postId]: {
           user_has_confirmed: optimisticConfirmed,
@@ -140,9 +142,9 @@ export function BeachIntelSection({
               ? "Vote removed"
               : "Thanks for confirming this intel!"
           );
-          
+
           // Clear optimistic update and refetch to get server state
-          setOptimisticUpdates(prev => {
+          setOptimisticUpdates((prev) => {
             const next = { ...prev };
             delete next[postId];
             return next;
@@ -151,7 +153,7 @@ export function BeachIntelSection({
         } else {
           toast.error(result.error || "Failed to update vote");
           // Revert optimistic update on API error
-          setOptimisticUpdates(prev => {
+          setOptimisticUpdates((prev) => {
             const next = { ...prev };
             delete next[postId];
             return next;
@@ -161,14 +163,14 @@ export function BeachIntelSection({
         console.error("Confirmation error:", error);
         toast.error("Failed to update vote");
         // Revert optimistic update on API error
-        setOptimisticUpdates(prev => {
+        setOptimisticUpdates((prev) => {
           const next = { ...prev };
           delete next[postId];
           return next;
         });
       } finally {
         // Remove loading state
-        setConfirmingPosts(prev => {
+        setConfirmingPosts((prev) => {
           const next = new Set(prev);
           next.delete(postId);
           return next;

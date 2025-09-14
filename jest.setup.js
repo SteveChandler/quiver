@@ -66,16 +66,16 @@ jest.mock("@/context/auth-context", () => ({
 }));
 
 // Mock RealtimeClient globally to prevent initialization errors
-jest.mock('@supabase/realtime-js', () => ({
+jest.mock("@supabase/realtime-js", () => ({
   RealtimeClient: jest.fn().mockImplementation(() => ({
     connect: jest.fn(),
     disconnect: jest.fn(),
     channel: jest.fn(() => ({
       on: jest.fn().mockReturnThis(),
       subscribe: jest.fn(),
-      unsubscribe: jest.fn()
-    }))
-  }))
+      unsubscribe: jest.fn(),
+    })),
+  })),
 }));
 
 // Mock for server actions
@@ -184,3 +184,9 @@ global.console = {
   error: jest.fn(),
   warn: jest.fn(),
 };
+
+// Mock date-fns distance function to avoid Intl/timezone differences in tests
+jest.mock("date-fns/formatDistanceToNow", () => ({
+  __esModule: true,
+  default: (date, opts) => "1h ago",
+}));
