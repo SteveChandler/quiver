@@ -61,13 +61,24 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Improved diagnostics in `lib/social-share-utils.ts` when fonts are missing
 
 - Client–Server boundary hardening:
+
   - New API routes for user data:
     - `GET /api/users/[id]/profile` (UUID validation, DTO via `getProfileDTOById`, session stats, follow flags)
     - `GET /api/users/[id]/sessions?limit=5` (public sessions only, recent-first)
   - Gateway update in `lib/data/client.ts` to use `/api/users/[id]/profile` for `users.profile.get`
   - Shared API helpers: `methodNotAllowed()` and `isValidUuid()` in `lib/api-utils.ts`
   - Added unit tests for gateway `lib/data/client.ts` covering beaches, sessions (likes/comments), users (profile/follow/comments/sessions), root comments, and auth email update. Ensures correct URLs, methods, headers, payloads, parsing, error propagation. Follows `hooks/ARCHITECTURE.md` and centralized utils patterns.
-  - Standardized UUID validation and 405 handling across API routes: `users/[id]/comments`, `users/[id]/follow`, `users/[id]/follow/toggle`, `sessions/[id]/likes`, `sessions/[id]/comments`, `sessions/[id]/comments/[commentId]`, and `comments/[commentId]` now consistently use `isValidUuid`, `createValidationError`, and `methodNotAllowed`.
+
+- Beaches search and sources mapping (schema):
+  - Added columns to `public.beaches`: `slug` (unique, lowercase-validated), `popularity_score` (int, default 0, not null), `swell_window` (text), `shore_aspect` (text), `alt_names` (text[]), `is_featured` (bool, default false)
+  - Ensured columns exist: `region`, `country`, `lat`, `lon`, `lng`, `coordinates geography(Point,4326)` with sync trigger from lat/lon/lng
+  - Indexes: GiST on `coordinates` for nearest; GIN `pg_trgm` on `lower(name)`, `lower(slug)`, and expression index on `array_to_string(alt_names,' ')`
+  - New tables: `public.beach_sources` and `public.beach_calibration` with RLS (public read) and FK indexes
+
+### Changed
+
+- E2E Beach Detail consolidation and coverage:
+  - Added consolidated spec `e2e/beach-detail.spec.ts` covering Forecast & Tides visibility, intel deep-linking, favorite toggle via accessible label, reviews dialog open/close, Spot Overview fields, intel view-all toggle, and back navigation to `/map`.
 
 ### Fixed
 

@@ -81,6 +81,49 @@ idx_profiles_home_beach_id_fkey ON profiles (home_beach_id)
 
 #### **Forecast Data Transparency (20250715025211)**
 
+#### **Beaches Search & Sources (20250914090000)**
+
+Purpose: Improve beach searchability and source mappings for forecasting and cameras.
+
+Schema Changes:
+
+```sql
+-- Beaches columns
+slug TEXT CHECK (slug ~ '^[a-z0-9-]+$') UNIQUE (lower(slug)) NULLS NOT DISTINCT;
+region TEXT; country TEXT; lat DOUBLE PRECISION; lon DOUBLE PRECISION; lng DOUBLE PRECISION;
+popularity_score INTEGER NOT NULL DEFAULT 0;
+swell_window TEXT; shore_aspect TEXT; alt_names TEXT[] NOT NULL DEFAULT '{}';
+is_featured BOOLEAN NOT NULL DEFAULT false;
+
+-- Geography column (for nearest)
+coordinates GEOGRAPHY(Point,4326);
+
+-- Indexes
+CREATE INDEX idx_beaches_coordinates_gist ON public.beaches USING GIST (coordinates);
+CREATE INDEX idx_beaches_name_trgm ON public.beaches USING GIN (lower(name) gin_trgm_ops);
+CREATE INDEX idx_beaches_slug_trgm ON public.beaches USING GIN (lower(slug) gin_trgm_ops);
+CREATE INDEX idx_beaches_alt_names_trgm ON public.beaches USING GIN ((array_to_string(alt_names, ' ')) gin_trgm_ops);
+
+-- Mapping tables
+beach_sources(beach_id UUID PK/FK, ndbc_buoy_ids TEXT[], forecast_source_id TEXT, camera_url TEXT);
+beach_calibration(beach_id UUID PK/FK, tide_pref JSONB, swell_pref JSONB, created_at, updated_at);
+```
+
+Policies & Triggers:
+
+- `beach_sources`, `beach_calibration`: RLS enabled; public read-only policy; writes via service role.
+- `trg_set_beach_coordinates`: keeps `coordinates` synced on `lat/lon/lng` changes.
+- `trg_beach_calibration_set_updated_at`: updates `updated_at` on row change.
+
+Extensions:
+
+- Ensure `postgis` and `pg_trgm` are enabled locally and in production.
+
+Performance Impact:
+
+- Nearest-beach queries use GIST index on `coordinates`.
+- Fuzzy search on `name`, `slug`, and `alt_names` leverages GIN trigram indexes.
+
 **Purpose**: Adds data source tracking to enhanced forecasts for transparency.
 
 **Schema Changes**:
