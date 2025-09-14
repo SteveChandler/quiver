@@ -48,6 +48,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- Daily NPC activity volume controls:
+
+  - Env-driven knobs in `scripts/npc-daily-activity.ts`: `NPC_DAILY_MIN/MAX`, `NPC_INTEL_PER_NPC_MIN/MAX`, `NPC_RUN_MAX_TOTAL`
+  - Workflow defaults in `.github/workflows/npc-daily.yml` (DEV: modest; PROD: increased volume)
+  - Enforced per-run cap and production confirmation guard
+
 - Reliable social share image fonts:
 
   - Added `scripts/fetch-fonts.mjs` to download Roboto, Open Sans, Montserrat, and Inter TTFs into `public/fonts` at build time
@@ -152,6 +158,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Removed `cleanupOrphanedMediaAction` and `batchUpdatePhotoCaptionsAction` from `actions/session-media-actions.ts`
 
 ### Documentation
+
+- Documented NPC daily seeding volume controls and environment defaults in `docs/ARCHITECTURE_REVIEW.md` (Backend Integration → NPC Daily Activity Seeding)
 
 - Components architecture now includes a deprecation note directing client components to use the data gateway instead of direct Supabase queries.
 

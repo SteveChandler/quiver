@@ -93,10 +93,11 @@ test.describe('Profile', () => {
 
     // Navigate back to profile and open Beaches tab
     await page.goto('/profile', { waitUntil: 'domcontentloaded' });
-    await page.getByRole('tab', { name: /Beaches/i }).click();
+    const beachesTab = page.getByRole('tab', { name: /Beaches/i });
+    await beachesTab.click();
+    await expect(beachesTab).toHaveAttribute('data-state', 'active');
 
-    // Expect a link to the favorited beach to be present in the favorites list
-    const beachLink = page.locator(`a[href="/beach/${beachId}"]`).first();
-    await expect(beachLink).toBeVisible({ timeout: 20000 });
+    // Assert favorite by visible beach name within Beaches tab panel
+    await expect(page.getByRole('tabpanel').getByText(/la jolla shores/i)).toBeVisible({ timeout: 20000 });
   });
 });
