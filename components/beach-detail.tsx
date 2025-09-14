@@ -57,6 +57,21 @@ const BeachReviewsList = dynamic(
   () => import("@/components/beach/beach-reviews-list").then((m) => m.BeachReviewsList),
   { ssr: false }
 );
+const CamsSection = dynamic(
+  () => import("@/components/beach-detail/cams-section").then((m) => m.CamsSection),
+  { ssr: false }
+);
+const RecentSessionsSection = dynamic(
+  () =>
+    import("@/components/beach-detail/recent-sessions-section").then(
+      (m) => m.RecentSessionsSection
+    ),
+  { ssr: false }
+);
+const CrowdTipsSection = dynamic(
+  () => import("@/components/beach-detail/crowd-tips-section").then((m) => m.CrowdTipsSection),
+  { ssr: false }
+);
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import { track, slugify } from "@/lib/analytics";
 
@@ -412,6 +427,35 @@ export function BeachDetail({ id }: BeachDetailProps) {
             </AccordionContent>
           </AccordionItem>
 
+          {/* 7-Day Chart */}
+          <AccordionItem value="week">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <Waves className="h-4 w-4" /> 7-Day Outlook
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Weekly Tides and Conditions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Reuse enhanced forecast with multi-day tide chart + table */}
+                    {/* Keep client-only to avoid RSC overhead */}
+                    {beach?.id && (
+                      <div className="space-y-4">
+                        {/* Lightweight multi-day: rely on ForecastAndTides internal tables/charts if available */}
+                        {/* Or render enhanced forecast component for rich view */}
+                        {/**/}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
           {/* Local Intel */}
           <AccordionItem value="intel" id="intel-section">
             <AccordionTrigger className="text-lg">
@@ -428,6 +472,19 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 navigateOnViewAll={false}
                 initialShowAll={searchParams?.get("show") === "all"}
               />
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Live Cams */}
+          <AccordionItem value="cams">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-camera h-4 w-4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                Live Cams
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CamsSection beachId={id} />
             </AccordionContent>
           </AccordionItem>
 
@@ -450,6 +507,32 @@ export function BeachDetail({ id }: BeachDetailProps) {
                   refreshTrigger={reviewRefreshTrigger}
                 />
               </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Recent Sessions */}
+          <AccordionItem value="sessions">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar h-4 w-4"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
+                Recent Sessions
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <RecentSessionsSection beachId={id} />
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Crowd Tips */}
+          <AccordionItem value="tips">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-users h-4 w-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Crowd Tips
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CrowdTipsSection beachId={id} />
             </AccordionContent>
           </AccordionItem>
 
