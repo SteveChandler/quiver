@@ -72,6 +72,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Added unit tests for gateway `lib/data/client.ts` covering beaches, sessions (likes/comments), users (profile/follow/comments/sessions), root comments, and auth email update. Ensures correct URLs, methods, headers, payloads, parsing, error propagation. Follows `hooks/ARCHITECTURE.md` and centralized utils patterns.
 
 - Beaches search and sources mapping (schema):
+
   - Added columns to `public.beaches`: `slug` (unique, lowercase-validated), `popularity_score` (int, default 0, not null), `swell_window` (text), `shore_aspect` (text), `alt_names` (text[]), `is_featured` (bool, default false)
   - Ensured columns exist: `region`, `country`, `lat`, `lon`, `lng`, `coordinates geography(Point,4326)` with sync trigger from lat/lon/lng
   - Indexes: GiST on `coordinates` for nearest; GIN `pg_trgm` on `lower(name)`, `lower(slug)`, and expression index on `array_to_string(alt_names,' ')`
