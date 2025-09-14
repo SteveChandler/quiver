@@ -48,7 +48,14 @@ test.describe('@map - Enhanced Acceptance', () => {
 
     // Back to map view via sticky header toggle
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.locator(selectors.viewModeMap).click();
+    const mapToggle = page.locator(selectors.viewModeMap);
+    if (await mapToggle.count()) {
+      await mapToggle.click();
+    } else {
+      // If the list item navigated to a beach page, return via bottom nav
+      await page.getByRole('link', { name: 'Map' }).click();
+    }
+    await page.waitForLoadState('load');
     await expect(page.locator(selectors.mapContainer)).toBeVisible();
 
     // Map overlay should include selected beach name

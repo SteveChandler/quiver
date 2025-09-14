@@ -30,6 +30,7 @@ import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { MapPin, MessageSquare, Waves, Star } from "lucide-react";
 import { SpotOverview } from "@/components/beach-detail/spot-overview";
 import { FavoriteButton } from "@/components/favorite-button";
+import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 // Replacing BeachCheckIns with BeachIntelSection in Local Intel section
 import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
 import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
@@ -313,75 +314,58 @@ export function BeachDetail({ id }: BeachDetailProps) {
           {beach.name}
         </h1>
 
-        {/* Quick actions: Favorite */}
-        <div className="flex justify-end mb-4">
+        {/* Quick actions: Favorite + Set Home Beach */}
+        <div className="flex items-center justify-between mb-4 gap-3">
           <FavoriteButton beachId={beach.id} variant="outline" size="sm" />
+          <div className="w-48">
+            <HomeBeachBanner selectedBeachId={beach.id} selectedBeachName={beach.name} />
+          </div>
         </div>
 
-        {/* Today's Overview (compact metrics) */}
+        {/* Above the fold: Today → Next tides → Wind → Swell */}
         {forecasts && forecasts.length > 0 && (
-          <Card className="rounded-2xl shadow-xl mb-8 overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-ocean-blue to-blue-600 text-white">
-              <CardTitle className="text-xl md:text-2xl font-roboto font-bold">
-                Today's Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-ocean-blue">Wave Height:</strong>{" "}
-                <span className="text-ocean-blue/80">
-                  {currentForecast?.wave_height || "Data Unavailable"}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-ocean-blue">Wave Period:</strong>{" "}
-                <span className="text-ocean-blue/80">
-                  {currentForecast?.wave_period || "Data Unavailable"}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-blue-700">Water Temp:</strong>{" "}
-                <span className="text-blue-600">
-                  {currentForecast?.water_temp}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-blue-700">Wind Speed:</strong>{" "}
-                <span className="text-blue-600">
-                  {currentForecast?.wind_speed}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-cyan-700">Wind Dir:</strong>{" "}
-                <span className="text-cyan-600">
-                  {currentForecast?.wind_direction}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-cyan-700">Condition:</strong>{" "}
-                <span className="text-cyan-600">
-                  {currentForecast?.weather_condition}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-teal-700">Tide Status:</strong>{" "}
-                <span className="text-teal-600">
-                  {currentForecast?.tide_status}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-emerald-700">
-                  Forecast window confidence:
-                </strong>{" "}
-                <span className="text-emerald-600">
-                  {currentForecast
-                    ? Math.round(currentForecast.confidence_score)
-                    : "–"}
-                  %
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Today</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <div>Wave: {currentForecast?.wave_height ?? "–"}</div>
+                <div>Period: {currentForecast?.wave_period ?? "–"}</div>
+                <div>Cond: {currentForecast?.weather_condition ?? "–"}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Next Tides</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <div>Status: {currentForecast?.tide_status ?? "–"}</div>
+                <div>
+                  Next: {currentForecast?.next_tide_type ?? "–"} {currentForecast?.next_tide_height ?? ""} @ {currentForecast?.next_tide_time ?? ""}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Wind</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <div>Speed: {currentForecast?.wind_speed ?? "–"}</div>
+                <div>Dir: {currentForecast?.wind_direction ?? "–"}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Swell</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <div>Height: {currentForecast?.wave_height ?? "–"}</div>
+                <div>Period: {currentForecast?.wave_period ?? "–"}</div>
+                <div>Dir: {currentForecast?.wave_direction ?? "–"}</div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Accordion Sections */}
