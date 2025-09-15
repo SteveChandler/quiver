@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Camera } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { buildCamEmbed } from "@/lib/media/cam-embed";
 
 interface CamsSectionProps {
   beachId: string;
@@ -28,11 +29,17 @@ export function CamsSection({ beachId }: CamsSectionProps) {
 
   const { data: sources, loading, error, refetch } = useDataFetcher(fetchSources, { immediate: true });
 
+  const [iframeBlocked, setIframeBlocked] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  useEffect(() => {
+    setIframeBlocked(false);
+  }, [sources?.camera_url]);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Camera className="h-5 w-5" /> Live Cams
+          <Camera className="h-5 w-5" /> Live Cam
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -49,20 +56,64 @@ export function CamsSection({ beachId }: CamsSectionProps) {
         )}
 
         {sources?.camera_url && (
-          <div className="flex items-center justify-between">
-            <a
-              href={sources.camera_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline"
-            >
-              Open live cam
-            </a>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>Refresh</Button>
+          <div className="space-y-3">
+            {(() => {
+              const intent = buildCamEmbed(sources.camera_url as string);
+              if (intent.kind === "iframe" && !iframeBlocked) {
+                return (
+                  <div className="w-full aspect-video rounded-lg overflow-hidden border">
+                    <iframe
+                      ref={iframeRef}
+                      src={intent.src}
+                      title={intent.title || "Live Cam"}
+                      allow={intent.allow}
+                      className="w-full h-full"
+                      loading="lazy"
+                      onError={() => setIframeBlocked(true)}
+                    />
+                  </div>
+                );
+              }
+              if (intent.kind === "video") {
+                return (
+                  <div className="w-full aspect-video rounded-lg overflow-hidden border">
+                    <video src={intent.src} controls playsInline className="w-full h-full" />
+                  </div>
+                );
+              }
+              // HLS or blocked iframe → fallback
+              return (
+                <div className="w-full aspect-video rounded-lg overflow-hidden flex items-center justify-center bg-muted">
+                  <div className="text-center space-y-2">
+                    <div className="text-sm text-muted-foreground">Preview unavailable</div>
+                    <a
+                      href={sources.camera_url as string}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-primary underline"
+                    >
+                      Open camera
+                    </a>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="flex items-center justify-between">
+              <Button variant="outline" size="sm" onClick={() => refetch()}>Refresh</Button>
+              <a
+                href={sources.camera_url as string}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary underline"
+              >
+                Open camera
+              </a>
+            </div>
           </div>
         )}
 
-        {/* Errors are softened to a neutral empty state; no error UI */}
+        {/* Errors are softened to a neutral empty state; no explicit error UI */}
       </CardContent>
     </Card>
   );

@@ -1,3 +1,14 @@
+### Changed
+
+- Beach detail: Moved "Live Cam" section above "Forecast & Tides" and removed "Coach Pick" card from `Forecast & Tides`.
+
+### Added
+
+- Live cam embed support with graceful fallback in `components/beach-detail/cams-section.tsx` using `lib/media/cam-embed.ts`.
+
+### Fixed
+
+- Live cam now renders for beaches with camera URLs (including fallback to beaches table if `beach_sources` lacks `camera_url`).
 ### Added
 
 - Home screen nearby beach chips: permissioned geolocation → show nearest 5 beaches for one-tap preview and Set Home Beach, following `components/home-screen/ARCHITECTURE.md` patterns.

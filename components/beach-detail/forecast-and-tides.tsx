@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import { CoachCard } from "@/components/recommendations/coach-card";
 import { track, slugify } from "@/lib/analytics";
 
 interface ForecastAndTidesProps {
@@ -58,16 +57,6 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
         <div className="inline-flex items-center gap-1 px-2 py-1 bg-muted rounded">
           <Wind className="h-4 w-4" /> Wind in forecast table
         </div>
-      </div>
-
-      {/* Coach Pick (replaces Best Times) */}
-      <div>
-        <CoachCard
-          beachId={beach.id as string}
-          lat={(beach as any).latitude as number}
-          lon={(beach as any).longitude as number}
-          className="w-full"
-        />
       </div>
 
       {/* Sub-tabs for Forecast section */}

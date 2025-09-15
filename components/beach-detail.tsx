@@ -406,6 +406,19 @@ export function BeachDetail({ id }: BeachDetailProps) {
           onValueChange={handleAccordionChange}
           className="space-y-4"
         >
+          {/* Live Cam */}
+          <AccordionItem value="cams">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-camera h-4 w-4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                Live Cam
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CamsSection beachId={id} />
+            </AccordionContent>
+          </AccordionItem>
+
           {/* Forecast & Tides */}
           <AccordionItem value="forecast">
             <AccordionTrigger className="text-lg">
@@ -469,18 +482,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
             </AccordionContent>
           </AccordionItem>
 
-          {/* Live Cams */}
-          <AccordionItem value="cams">
-            <AccordionTrigger className="text-lg">
-              <span className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-camera h-4 w-4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                Live Cams
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <CamsSection beachId={id} />
-            </AccordionContent>
-          </AccordionItem>
+          
 
           {/* Reviews */}
           <AccordionItem value="reviews">

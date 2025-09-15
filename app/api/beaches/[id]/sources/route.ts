@@ -19,7 +19,31 @@ export async function GET(
       return handleApiError(error, "Failed to fetch beach sources");
     }
 
-    return createSuccessResponse({ sources: data || null });
+    // Fallback: if beach_sources missing or camera_url empty, check beaches table for live_cam_url variants
+    let cameraUrl: string | null = (data as any)?.camera_url || null;
+    if (!cameraUrl) {
+      const { data: beachRow, error: beachErr } = await supabase
+        .from("beaches")
+        .select("id, live_cam_url, camera_url")
+        .eq("id", params.id)
+        .maybeSingle();
+      if (!beachErr && beachRow) {
+        cameraUrl =
+          ((beachRow as any).liveCamUrl as string | null) ||
+          ((beachRow as any).live_cam_url as string | null) ||
+          ((beachRow as any).camera_url as string | null) ||
+          null;
+      }
+    }
+
+    const merged = {
+      beach_id: params.id,
+      ndbc_buoy_ids: (data as any)?.ndbc_buoy_ids || null,
+      forecast_source_id: (data as any)?.forecast_source_id || null,
+      camera_url: cameraUrl,
+    };
+
+    return createSuccessResponse({ sources: merged });
   } catch (err) {
     return handleApiError(err, "Failed to fetch beach sources");
   }
