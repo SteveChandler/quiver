@@ -5,6 +5,7 @@
 
 - Dev-only endpoint `app/api/e2e-login/route.ts` to sign in Supabase test user using SSR client and set real cookies. Restricted to `dev.quiversurf.app` and `E2E_SECRET`. Follows patterns from `app/ARCHITECTURE.md` and uses `DEFAULT_SECURITY_HEADERS`.
 - E2E hardening:
+
   - Fail-fast check in `e2e/global-setup.ts` for missing `E2E_SECRET`; prevents unauthenticated dev runs
   - Auth redirect watcher (`watchForAuthRedirect`) captures screenshot when tests hit `/auth/...`
   - Strictness toggle `E2E_STRICT` (default CI=1, local=0) to tighten assertions when seed is reliable
@@ -35,6 +36,7 @@
 ### Removed
 
 - Redundant session E2E specs after consolidation:
+
   - `e2e/plan-session.spec.ts` (covered by `session-planning.spec.ts` with optimal-times and wizard UI checks)
   - `e2e/session-log-and-share.spec.ts` (covered by `session-logging.spec.ts` and `session-share-simple.spec.ts`)
   - `e2e/session-wizard-integration.spec.ts`, `e2e/session-wizard-manual.spec.ts`, `e2e/session-wizard-completion.spec.ts` (wizard UI/flow assertions merged into `session-planning.spec.ts` and conversion tests)
