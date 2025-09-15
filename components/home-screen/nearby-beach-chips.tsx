@@ -46,8 +46,8 @@ export function NearbyBeachChips({
     return (Array.isArray(data) ? data : json?.data || []).map((b: any) => ({
       id: b.id,
       name: b.name,
-      latitude: b.latitude ?? b.lat,
-      longitude: b.longitude ?? b.lon,
+      latitude: b.latitude,
+      longitude: b.longitude,
     }));
   }, [coords?.lat, coords?.lon, limit]);
 

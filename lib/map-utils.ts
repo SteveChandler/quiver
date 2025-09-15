@@ -443,10 +443,7 @@ export function getBeachCoordinates(
     return { latitude: beach.location.y, longitude: beach.location.x };
   }
 
-  // Check if beach has lat/lng properties
-  if (beach.lat && beach.lng) {
-    return { latitude: beach.lat, longitude: beach.lng };
-  }
+  // Legacy support removed: prefer canonical latitude/longitude only
 
   return null;
 }

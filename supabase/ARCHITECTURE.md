@@ -112,7 +112,7 @@ beach_calibration(beach_id UUID PK/FK, tide_pref JSONB, swell_pref JSONB, create
 Policies & Triggers:
 
 - `beach_sources`, `beach_calibration`: RLS enabled; public read-only policy; writes via service role.
-- `trg_set_beach_coordinates`: keeps `coordinates` synced on `lat/lon/lng` changes.
+- `trg_set_beach_coordinates`: keeps `coordinates` synced on `latitude/longitude` changes (canonical fields). Legacy `lat/lon/lng` dropped in 2025-09-15 consolidation.
 - `trg_beach_calibration_set_updated_at`: updates `updated_at` on row change.
 
 Extensions:

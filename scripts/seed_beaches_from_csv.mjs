@@ -120,8 +120,6 @@ async function upsertBeach(supabase, row) {
         country,
         latitude: lat,
         longitude: lng,
-        lat,
-        lon: lng,
         location,
       })
       .eq("id", existing.id);
@@ -135,8 +133,6 @@ async function upsertBeach(supabase, row) {
     country,
     latitude: lat,
     longitude: lng,
-    lat,
-    lon: lng,
     location,
   };
   const { data: inserted, error: insErr } = await supabase

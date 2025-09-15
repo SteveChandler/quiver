@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 interface Beach {
   id: string;
   name: string;
-  lat: number;
-  lon: number;
+  latitude: number;
+  longitude: number;
   sizeFt?: number;
 }
 
@@ -119,7 +119,7 @@ export default function IntelMapBeaches({
         };
 
         return (
-          <Marker key={beach.id} latitude={beach.lat} longitude={beach.lon}>
+          <Marker key={beach.id} latitude={beach.latitude} longitude={beach.longitude}>
             <div className="relative">
               {/* Selection ring with ping animation */}
               <AnimatePresence>

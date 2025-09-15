@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         getMarineForecastRange(b.id, startUtc, endUtc),
         getTideForecastRange(b.id, startUtc, endUtc),
         // Warm the sun_times cache for this beach/day in parallel (result not used directly here)
-        getSunTimes(b.id, localDateStr, b.lat, b.lon).catch(() => ({ sunrise_utc: null, sunset_utc: null })),
+        getSunTimes(b.id, localDateStr, b.latitude, b.longitude).catch(() => ({ sunrise_utc: null, sunset_utc: null })),
       ]).then(([m, t]) => [m, t]);
       marine = m || [];
       tide = t || [];

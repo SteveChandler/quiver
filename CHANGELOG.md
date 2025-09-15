@@ -10,6 +10,11 @@
   - Strictness toggle `E2E_STRICT` (default CI=1, local=0) to tighten assertions when seed is reliable
   - Tightened social specs: `e2e/social-discovery.spec.ts`, `e2e/social-invitations.spec.ts` assert presence of content under strict mode
 
+- Schema consolidation for beach coordinates:
+  - `coordinates geography(Point,4326)` remains source of truth
+  - Canonical numeric fields: `latitude`, `longitude`
+  - Trigger `trg_set_beach_coordinates` now syncs from `latitude/longitude` only
+
 ### Changed
 
 - E2E Beach Detail consolidation and coverage:
@@ -23,16 +28,9 @@
 - E2E runs simplified to always target `https://dev.quiversurf.app`; removed local `webServer` and complex UI/seed flows in `e2e/global-setup.ts` in favor of a single dev e2e-login path with empty-state fallback. Updated `e2e/ARCHITECTURE.md` accordingly.
 - Playwright config respects `BASE_URL` env and defaults `E2E_STRICT` to CI=1/local=0.
 
-### Changed
-
-- Discover page `View Profile` now opens in-app `UserProfileModal` instead of a new tab, following `components/ARCHITECTURE.md` social modal patterns for a smoother, accessible UX.
-- Tests: Consolidated `UserStats` tests into a single suite `__tests__/components/user-stats.test.tsx` and removed redundant files `user-stats-refresh.test.tsx` and `user-stats-refresh-integration.test.tsx` to reduce duplication and speed up CI.
-
-- E2E Sessions Auth & Consolidation:
-  - Standardized session specs to use suite-level `ensureAuthenticated(page)` and removed inline UI sign-ins and scattered auth checks.
-  - Updated: `e2e/session-share-simple.spec.ts`, `e2e/session-planning.spec.ts`, `e2e/plan-session.spec.ts`, `e2e/session-log-and-share.spec.ts`.
-  - Wizard specs now rely on auth helper instead of manual sign-in and avoid `networkidle`: `e2e/session-wizard-integration.spec.ts`, `e2e/session-wizard-manual.spec.ts`, `e2e/session-wizard-completion.spec.ts`.
-  - Aligns with `e2e/ARCHITECTURE.md` patterns (auth via storageState + helper, load-state waits, no 500 expectations).
+- Components: removed fallbacks to legacy `lat`/`lon`/`lng` in `components/home-screen/nearby-beach-chips.tsx` and standardized Intel map markers to `latitude`/`longitude`.
+- API: `app/api/recommendations/morning/route.ts` now reads `b.latitude/b.longitude` when warming sun times cache.
+- Scripts: `scripts/seed_beaches_from_csv.mjs` now upserts only `latitude` and `longitude` (trigger maintains `coordinates`).
 
 ### Removed
 
@@ -40,6 +38,8 @@
   - `e2e/plan-session.spec.ts` (covered by `session-planning.spec.ts` with optimal-times and wizard UI checks)
   - `e2e/session-log-and-share.spec.ts` (covered by `session-logging.spec.ts` and `session-share-simple.spec.ts`)
   - `e2e/session-wizard-integration.spec.ts`, `e2e/session-wizard-manual.spec.ts`, `e2e/session-wizard-completion.spec.ts` (wizard UI/flow assertions merged into `session-planning.spec.ts` and conversion tests)
+
+- Dropped legacy duplicate columns from `public.beaches`: `lat`, `lon`, `lng` (see migration `20250915090000_consolidate_beach_coordinates.sql`).
 
 # Quiver Surf App - Changelog
 
