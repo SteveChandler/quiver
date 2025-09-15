@@ -54,7 +54,9 @@
     "perf:audit": "npm run build && npm run lighthouse",
     "perf:monitor": "next build && next start & sleep 5 && npm run lighthouse && pkill -f 'next start'",
     "perf:test": "node scripts/performance-test.mjs",
-    "geocode:beaches": "tsx scripts/geocodeBeaches.ts"
+    "geocode:beaches": "tsx scripts/geocodeBeaches.ts",
+    "seed:beaches:dry": "node scripts/seed_beaches_from_csv.mjs --file ./docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv --dry-run",
+    "seed:beaches": "node scripts/seed_beaches_from_csv.mjs --file ./docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv"
   },
   "dependencies": {
     "@hookform/resolvers": "3.3.4",

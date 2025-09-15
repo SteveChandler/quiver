@@ -247,6 +247,7 @@ export function BeachIntelSection({
             </CardTitle>
 
             <Button
+              data-testid="add-intel"
               onClick={() => setShowPostForm(true)}
               size="sm"
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200 transform hover:scale-105"
@@ -285,6 +286,7 @@ export function BeachIntelSection({
                 Be the first to share intel about {beachName}
               </p>
               <Button
+                data-testid="add-intel"
                 onClick={() => setShowPostForm(true)}
                 size="sm"
                 variant="outline"

@@ -73,6 +73,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Added unit tests for gateway `lib/data/client.ts` covering beaches, sessions (likes/comments), users (profile/follow/comments/sessions), root comments, and auth email update. Ensures correct URLs, methods, headers, payloads, parsing, error propagation. Follows `hooks/ARCHITECTURE.md` and centralized utils patterns.
 
 - Beaches search and sources mapping (schema):
+- Added migration to create `public.beach_sources` if missing (idempotent):
+
+  - Columns: `beach_id uuid PK/FK -> beaches(id)`, `ndbc_buoy_ids text[]`, `forecast_source_id text`, `camera_url text`, `created_at`
+  - RLS enabled with public read-only policy, index on `beach_id`
+  - Apply via Supabase SQL or CLI, then rerun `npm run seed:beaches` to populate camera URLs from CSV
+
+- Beach seeding from owner cams CSV:
+
+  - New script `scripts/seed_beaches_from_csv.mjs` seeds `public.beaches` (name, region, latitude/longitude, location) and upserts `public.beach_sources.camera_url` from `docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv`.
+  - Idempotent and case-insensitive by `lower(name)` following patterns from `scripts/load_beaches_with_meta.sql` and `scripts/load_beaches_inline.sql`. Coordinates kept in `latitude/longitude` and `coordinates` via DB trigger.
+  - Usage: `npm run seed:beaches:dry` then `npm run seed:beaches`. Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
 
   - Added columns to `public.beaches`: `slug` (unique, lowercase-validated), `popularity_score` (int, default 0, not null), `swell_window` (text), `shore_aspect` (text), `alt_names` (text[]), `is_featured` (bool, default false)
   - Ensured columns exist: `region`, `country`, `lat`, `lon`, `lng`, `coordinates geography(Point,4326)` with sync trigger from lat/lon/lng

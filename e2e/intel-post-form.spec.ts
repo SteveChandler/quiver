@@ -18,7 +18,12 @@ test.describe('@intel - Post Form (Beach)', () => {
     }
 
     // Open Add Intel dialog
-    const addIntel = page.getByRole('button', { name: /add intel|add first intel/i });
+    // Ensure section is scrolled into view, then click the appropriate button
+    const intelHeading = page.getByRole('heading', { name: /local intel/i }).first();
+    await expect(intelHeading).toBeVisible({ timeout: 20000 });
+    await intelHeading.scrollIntoViewIfNeeded();
+
+    const addIntel = page.locator('[data-testid="add-intel"]').first();
     await expect(addIntel).toBeVisible({ timeout: 20000 });
     await addIntel.click();
 

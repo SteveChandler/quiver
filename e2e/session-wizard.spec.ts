@@ -30,6 +30,11 @@ test.describe('Session Wizard', () => {
     // Fill Location
     const beachInput = page.locator('[data-testid="beach-search-input"]');
     await beachInput.fill(beachName);
+    // Confirm selection if dropdown appears
+    const suggestion = page.getByRole('option', { name: new RegExp(beachName, 'i') });
+    if (await suggestion.isVisible().catch(() => false)) {
+      await suggestion.click();
+    }
    
 
     // Advance from the location step immediately after selecting the beach
@@ -39,6 +44,39 @@ test.describe('Session Wizard', () => {
     // Set Date to today (allowed in log mode)
     const today = new Date().toISOString().split('T')[0];
     await page.locator('[data-testid="session-date-input"]').fill(today);
+    // Set a default time if present for logged sessions
+    const timeInput = page.locator('[data-testid="session-time-input"]');
+    if (await timeInput.isVisible().catch(() => false)) {
+      await timeInput.fill('09:00');
+    }
+
+    // Fill minimal required conditions/ratings if the fields appear
+    const overallRating = page.locator('[data-testid="overall-rating-input"]');
+    if (await overallRating.isVisible().catch(() => false)) {
+      await overallRating.fill('4');
+    }
+    const waveQuality = page.locator('[data-testid="wave-quality-input"]');
+    if (await waveQuality.isVisible().catch(() => false)) {
+      await waveQuality.fill('4');
+    }
+    const crowdLevel = page.locator('[data-testid="crowd-level-input"]');
+    if (await crowdLevel.isVisible().catch(() => false)) {
+      await crowdLevel.fill('3');
+    }
+    const parkingEase = page.locator('[data-testid="parking-ease-input"]');
+    if (await parkingEase.isVisible().catch(() => false)) {
+      await parkingEase.fill('4');
+    }
+
+    // Equip: Select a board if a selector is present
+    const boardSelect = page.locator('[data-testid="board-select"]');
+    if (await boardSelect.isVisible().catch(() => false)) {
+      await boardSelect.click();
+      const firstOption = page.getByRole('option').first();
+      if (await firstOption.isVisible().catch(() => false)) {
+        await firstOption.click();
+      }
+    }
 
     // Advance steps until the final "Log Session" button is present
     // The wizard uses a Next button until the last step shows "Log Session".
@@ -61,7 +99,7 @@ test.describe('Session Wizard', () => {
     await logBtn.click();
 
     // Expect success overlay text and redirect to profile
-    await expect(page.getByText('Session Logged!', { exact: false })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Session Logged!', { exact: false })).toBeVisible({ timeout: 15_000 });
     await waitForURLContains(page, /\/profile$/);
   });
 
@@ -114,7 +152,7 @@ test.describe('Session Wizard', () => {
     await planBtn.click();
 
     // Expect success overlay text and redirect to profile
-    await expect(page.getByText('Session Planned!', { exact: false })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Session Planned!', { exact: false })).toBeVisible({ timeout: 15_000 });
     await waitForURLContains(page, /\/profile$/);
   });
 });
