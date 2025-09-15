@@ -223,7 +223,10 @@ export function InteractiveMap({
         try {
           track("map_marker_click", {
             beach_slug: slugify(location.name),
-            region: (location as any).region || (location as any).location || undefined,
+            region:
+              (location as any).region ||
+              (location as any).location ||
+              undefined,
           });
         } catch {}
 
@@ -340,7 +343,6 @@ export function InteractiveMap({
                 );
                 const currentForecast = getCurrentForecast(forecasts) as any;
 
-
                 if (currentForecast && currentForecast.wave_height) {
                   return {
                     beachId: beach.id,
@@ -397,6 +399,12 @@ export function InteractiveMap({
           const badgeElement = createWaveHeightBadge(location, waveHeight);
 
           // Create enhanced popup with motion
+          const locationText =
+            (location as any).location &&
+            String((location as any).location).trim().length > 0
+              ? String((location as any).location)
+              : null;
+
           const popupContent = `
             <div class="forecast-popup-content" data-testid="forecast-popup">
               <div class="text-center">
@@ -410,12 +418,14 @@ export function InteractiveMap({
                       ${waveHeight ? formatWaveHeight(waveHeight) : "N/A"}
                     </span>
                   </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-600">Location:</span>
-                    <span class="font-medium text-xs">${
-                      location.location || "Unknown"
-                    }</span>
-                  </div>
+                  ${
+                    locationText
+                      ? `<div class="flex justify-between">
+                          <span class="text-gray-600">Location:</span>
+                          <span class="font-medium text-xs">${locationText}</span>
+                        </div>`
+                      : ""
+                  }
                 </div>
                 <div class="mt-2 text-xs text-gray-500">
                   Click marker for details
@@ -436,10 +446,7 @@ export function InteractiveMap({
             draggable: false,
             anchor: "center",
           })
-            .setLngLat([
-              Number(location.longitude),
-              Number(location.latitude),
-            ])
+            .setLngLat([Number(location.longitude), Number(location.latitude)])
             .setPopup(popup);
 
           // Add hover event listeners to control popup visibility

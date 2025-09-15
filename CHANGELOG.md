@@ -20,6 +20,8 @@
 
 - Live cam now renders for beaches with camera URLs (including fallback to beaches table if `beach_sources` lacks `camera_url`).
 - Build failure on `/journal/new`: wrapped `useSearchParams()` usage in a Suspense boundary in `app/journal/new/page.tsx` per `app/ARCHITECTURE.md` routing/loading patterns. Vercel `next build` now succeeds.
+- Map hover popups no longer display "Location: Unknown"; the row is omitted when location metadata is missing (`components/map/interactive-map.tsx`). Also suppressed "Location Unknown" placeholder text in static map generation (`lib/map-utils.ts`).
+- Map directory: fixed filters not applying and removed stray text `beachpointreef.map` displayed beside chips by cleaning up JSX in `components/map-view.tsx`. Selecting a search result now snaps the map to that beach by wiring dropdown selection → `setSelectedBeach` via `onResultSelect` in `components/map/map-search-header.tsx`. Follows `hooks/ARCHITECTURE.md` data-fetcher and component composition patterns.
 
 ### Added
 

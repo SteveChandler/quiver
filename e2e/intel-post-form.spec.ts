@@ -1,29 +1,36 @@
 import { test, expect } from '@playwright/test';
 import { loginViaUI } from './utils/auth';
 
-const BEACH_ID = process.env.TEST_BEACH_ID || '15c7337e-5258-4339-9dc3-c435c666926b';
+// Prefer a stable slug that exists in dev; allow override via env
+const BEACH_SLUG = process.env.TEST_BEACH_SLUG || 'la-jolla-shores';
 
 test.describe('@intel - Post Form (Beach)', () => {
   test.beforeEach(async ({ page }) => {
-    await loginViaUI(page, { redirectTo: `/beach/${BEACH_ID}?section=intel` });
+    await loginViaUI(page, { redirectTo: `/beach/${BEACH_SLUG}?section=intel` });
   });
 
   test('opens Add Intel form, shows fields, toggles conditions, then cancel', async ({ page }) => {
-    await page.goto(`/beach/${BEACH_ID}?section=intel`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`/beach/${BEACH_SLUG}?section=intel`, { waitUntil: 'load' });
 
     // Expand "Local Intel" accordion if needed
-    const intelTrigger = page.getByRole('button', { name: /local intel/i });
-    if (await intelTrigger.isVisible().catch(() => false)) {
-      await intelTrigger.click();
+    // Open accordion only if collapsed to avoid accidental close
+    // Ensure content has loaded
+    // Confirm we are on the beach page
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30000 });
+
+    const intelCollapsed = page.getByRole('button', { name: /local intel/i, expanded: false });
+    if (await intelCollapsed.isVisible().catch(() => false)) {
+      await intelCollapsed.click();
     }
 
     // Open Add Intel dialog
-    // Ensure section is scrolled into view, then click the appropriate button
-    const intelHeading = page.getByRole('heading', { name: /local intel/i }).first();
-    await expect(intelHeading).toBeVisible({ timeout: 20000 });
-    await intelHeading.scrollIntoViewIfNeeded();
+    // Wait for Add Intel button to appear inside the section
+    const skeletons = page.locator('[data-testid="loading-skeleton"]');
+    if (await skeletons.first().isVisible().catch(() => false)) {
+      await expect(skeletons).toHaveCount(0, { timeout: 30000 });
+    }
 
-    const addIntel = page.locator('[data-testid="add-intel"]').first();
+    const addIntel = page.getByTestId('add-intel').first();
     await expect(addIntel).toBeVisible({ timeout: 20000 });
     await addIntel.click();
 

@@ -16,6 +16,7 @@ interface MapSearchHeaderProps {
   onViewModeChange: (mode: "map" | "list") => void;
   onNearMe?: () => void;
   suggestions?: Array<{ id: string; name: string; location?: string }>; // Provided by parent for dropdown
+  onResultSelect?: (id: string) => void;
 }
 
 interface SearchResult {
@@ -32,6 +33,7 @@ export function MapSearchHeader({
   onViewModeChange,
   onNearMe,
   suggestions = [],
+  onResultSelect,
 }: MapSearchHeaderProps) {
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
@@ -97,6 +99,7 @@ export function MapSearchHeader({
     setIsSelecting(true);
     setSelectedLocation(result.name);
     onSearchChange(result.name);
+    onResultSelect?.(result.id);
     // Track search selection in map context
     track("beach_search", {
       query: searchQuery,

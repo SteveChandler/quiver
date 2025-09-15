@@ -34,6 +34,7 @@ export function MapView() {
     loading: beachLoading,
     searchQuery,
     selectedBeach,
+    beaches,
     nearbyBeachesForScroll,
     regions,
     loadBeaches,
@@ -115,6 +116,19 @@ export function MapView() {
         onClearSearch={handleClearSearch}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        suggestions={(beaches || []).map((b) => ({
+          id: b.id,
+          name: b.name,
+          location: b.location || undefined,
+        }))}
+        onResultSelect={(id) => {
+          const beach = (beaches || []).find((b) => b.id === id);
+          if (beach) {
+            setSelectedBeach(beach);
+            setSearchQuery(beach.name);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }}
         // Near Me chip control
         onNearMe={() => {
           if (userLocation) {
@@ -153,7 +167,6 @@ export function MapView() {
           >
             Beginner-friendly
           </Badge>
-          {["beach", "point", "reef"] as const}.map
           {["beach", "point", "reef"].map((t) => (
             <Badge
               key={t}

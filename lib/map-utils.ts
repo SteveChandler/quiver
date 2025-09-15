@@ -321,7 +321,7 @@ export function getStaticMapImageUrl(
       0,
       options.width || 300,
       options.height || 120,
-      options.markerText || "Location Unknown"
+      options.markerText || ""
     );
   }
 
