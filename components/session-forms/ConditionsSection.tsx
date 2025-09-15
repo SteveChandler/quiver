@@ -163,19 +163,16 @@ export function ConditionsSection({
     formState.selectedTime
   );
 
-  // Only show for logged sessions with required data
-  if (mode === "plan") {
-    return null;
-  }
-
-  // Don't show until user has filled out basic session details
-  if (
-    !formState.selectedBeachId ||
-    !formState.selectedDate ||
-    !formState.selectedTime
-  ) {
-    return null;
-  }
+  // Breadcrumb for diagnostics (once on mount in practice; rendering is cheap)
+  try {
+    // eslint-disable-next-line no-console
+    console.debug(
+      "[ConditionsStep] isReady:",
+      Boolean(formState.selectedBeachId && formState.selectedDate),
+      "providedQuestions:",
+      0
+    );
+  } catch {}
 
   return (
     <SimpleCardLayout
@@ -185,7 +182,11 @@ export function ConditionsSection({
           Session Conditions
         </div>
       }
-      description="Rate the conditions during your session and help the community with real-time data"
+      description={
+        formState.selectedBeachId && formState.selectedDate
+          ? "Rate the conditions during your session and help the community with real-time data"
+          : "Showing fallback until beach and date are selected. You can still enter your observations."
+      }
     >
       <div className="space-y-8">
         {/* Forecast vs Actual Comparison */}
@@ -200,7 +201,7 @@ export function ConditionsSection({
               </div>
             </div>
           </div>
-        ) : forecastData ? (
+        ) : forecastData && formState.selectedBeachId && formState.selectedDate ? (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 mb-2">
               Forecast for Your Session
@@ -246,7 +247,7 @@ export function ConditionsSection({
               Forecast for Your Session
             </h4>
             <p className="text-sm text-gray-600">
-              Select a beach, date, and time to see forecast data.
+              Select a beach and date to see forecast data. You can still fill in the fields below.
             </p>
           </div>
         )}

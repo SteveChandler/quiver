@@ -1,3 +1,13 @@
+### Added
+
+- `app/(journal)/new/steps/ConditionsStep.tsx` client component with fallback questionnaire and RHF bindings
+- New route `app/journal/new/page.tsx` to expose Conditions step for tests
+- Playwright test `e2e/journal/conditions.spec.ts` asserting core fields are visible
+
+### Changed
+
+- Softened guards in `components/session-forms/ConditionsSection.tsx` to never return null; added empty-state hints and a debug breadcrumb
+
 ### Changed
 
 - Beach detail: Moved "Live Cam" section above "Forecast & Tides" and removed "Coach Pick" card from `Forecast & Tides`.
