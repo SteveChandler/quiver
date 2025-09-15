@@ -9,6 +9,7 @@
 ### Fixed
 
 - Live cam now renders for beaches with camera URLs (including fallback to beaches table if `beach_sources` lacks `camera_url`).
+
 ### Added
 
 - Home screen nearby beach chips: permissioned geolocation → show nearest 5 beaches for one-tap preview and Set Home Beach, following `components/home-screen/ARCHITECTURE.md` patterns.

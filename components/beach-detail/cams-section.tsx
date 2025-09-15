@@ -14,7 +14,9 @@ interface CamsSectionProps {
 export function CamsSection({ beachId }: CamsSectionProps) {
   const fetchSources = useCallback(async () => {
     try {
-      const res = await fetch(`/api/beaches/${beachId}/sources`, { cache: "no-store" });
+      const res = await fetch(`/api/beaches/${beachId}/sources`, {
+        cache: "no-store",
+      });
       if (!res.ok) {
         // Soften failures: treat as no cam available
         return null;
@@ -27,13 +29,27 @@ export function CamsSection({ beachId }: CamsSectionProps) {
     }
   }, [beachId]);
 
-  const { data: sources, loading, error, refetch } = useDataFetcher(fetchSources, { immediate: true });
+  const {
+    data: sources,
+    loading,
+    error,
+    refetch,
+  } = useDataFetcher(fetchSources, { immediate: true });
 
   const [iframeBlocked, setIframeBlocked] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   useEffect(() => {
     setIframeBlocked(false);
-  }, [sources?.camera_url]);
+    setIframeLoaded(false);
+    if (!sources?.camera_url) return;
+    const timeout = setTimeout(() => {
+      if (!iframeLoaded) {
+        setIframeBlocked(true);
+      }
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, [sources?.camera_url, iframeLoaded]);
 
   return (
     <Card>
@@ -69,6 +85,7 @@ export function CamsSection({ beachId }: CamsSectionProps) {
                       allow={intent.allow}
                       className="w-full h-full"
                       loading="lazy"
+                      onLoad={() => setIframeLoaded(true)}
                       onError={() => setIframeBlocked(true)}
                     />
                   </div>
@@ -77,7 +94,12 @@ export function CamsSection({ beachId }: CamsSectionProps) {
               if (intent.kind === "video") {
                 return (
                   <div className="w-full aspect-video rounded-lg overflow-hidden border">
-                    <video src={intent.src} controls playsInline className="w-full h-full" />
+                    <video
+                      src={intent.src}
+                      controls
+                      playsInline
+                      className="w-full h-full"
+                    />
                   </div>
                 );
               }
@@ -85,7 +107,9 @@ export function CamsSection({ beachId }: CamsSectionProps) {
               return (
                 <div className="w-full aspect-video rounded-lg overflow-hidden flex items-center justify-center bg-muted">
                   <div className="text-center space-y-2">
-                    <div className="text-sm text-muted-foreground">Preview unavailable</div>
+                    <div className="text-sm text-muted-foreground">
+                      Preview unavailable
+                    </div>
                     <a
                       href={sources.camera_url as string}
                       target="_blank"
@@ -100,7 +124,9 @@ export function CamsSection({ beachId }: CamsSectionProps) {
             })()}
 
             <div className="flex items-center justify-between">
-              <Button variant="outline" size="sm" onClick={() => refetch()}>Refresh</Button>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                Refresh
+              </Button>
               <a
                 href={sources.camera_url as string}
                 target="_blank"
@@ -118,5 +144,3 @@ export function CamsSection({ beachId }: CamsSectionProps) {
     </Card>
   );
 }
-
-

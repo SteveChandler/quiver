@@ -15,7 +15,10 @@ import {
 } from "@/components/ui/dialog";
 
 const BeachIntelSection = dynamic(
-  () => import("@/components/intel/beach-intel-section").then((m) => m.BeachIntelSection),
+  () =>
+    import("@/components/intel/beach-intel-section").then(
+      (m) => m.BeachIntelSection
+    ),
   { ssr: false }
 );
 const SessionForecastComparison = dynamic(
@@ -26,7 +29,10 @@ const SessionForecastComparison = dynamic(
   { ssr: false }
 );
 const DetailedSwellModal = dynamic(
-  () => import("@/components/beach-detail/detailed-swell-modal").then((m) => m.DetailedSwellModal),
+  () =>
+    import("@/components/beach-detail/detailed-swell-modal").then(
+      (m) => m.DetailedSwellModal
+    ),
   { ssr: false }
 );
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -46,19 +52,29 @@ import { FavoriteButton } from "@/components/favorite-button";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 // Replacing BeachCheckIns with BeachIntelSection in Local Intel section
 const ForecastAndTides = dynamic(
-  () => import("@/components/beach-detail/forecast-and-tides").then((m) => m.ForecastAndTides),
+  () =>
+    import("@/components/beach-detail/forecast-and-tides").then(
+      (m) => m.ForecastAndTides
+    ),
   { ssr: false }
 );
 const BeachReviewSummary = dynamic(
-  () => import("@/components/beach/beach-review-summary").then((m) => m.BeachReviewSummary),
+  () =>
+    import("@/components/beach/beach-review-summary").then(
+      (m) => m.BeachReviewSummary
+    ),
   { ssr: false }
 );
 const BeachReviewsList = dynamic(
-  () => import("@/components/beach/beach-reviews-list").then((m) => m.BeachReviewsList),
+  () =>
+    import("@/components/beach/beach-reviews-list").then(
+      (m) => m.BeachReviewsList
+    ),
   { ssr: false }
 );
 const CamsSection = dynamic(
-  () => import("@/components/beach-detail/cams-section").then((m) => m.CamsSection),
+  () =>
+    import("@/components/beach-detail/cams-section").then((m) => m.CamsSection),
   { ssr: false }
 );
 const RecentSessionsSection = dynamic(
@@ -69,7 +85,10 @@ const RecentSessionsSection = dynamic(
   { ssr: false }
 );
 const CrowdTipsSection = dynamic(
-  () => import("@/components/beach-detail/crowd-tips-section").then((m) => m.CrowdTipsSection),
+  () =>
+    import("@/components/beach-detail/crowd-tips-section").then(
+      (m) => m.CrowdTipsSection
+    ),
   { ssr: false }
 );
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
@@ -156,7 +175,8 @@ export function BeachDetail({ id }: BeachDetailProps) {
       data?: { beach?: Beach } | Beach;
       beach?: Beach;
     };
-    const beachData = (body as any)?.data?.beach || (body as any)?.beach || (body as any)?.data;
+    const beachData =
+      (body as any)?.data?.beach || (body as any)?.beach || (body as any)?.data;
     if (!beachData) throw new Error("Beach data not found");
     console.log("✅ Beach data:", beachData);
     return beachData as Beach;
@@ -179,7 +199,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
     );
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body?.error || `Failed to fetch enhanced forecasts: ${res.status}`);
+      throw new Error(
+        body?.error || `Failed to fetch enhanced forecasts: ${res.status}`
+      );
     }
     const body = (await res.json().catch(() => ({}))) as {
       success?: boolean;
@@ -349,7 +371,10 @@ export function BeachDetail({ id }: BeachDetailProps) {
         <div className="flex items-center justify-between mb-4 gap-3">
           <FavoriteButton beachId={beach.id} variant="outline" size="sm" />
           <div className="w-48">
-            <HomeBeachBanner selectedBeachId={beach.id} selectedBeachName={beach.name} />
+            <HomeBeachBanner
+              selectedBeachId={beach.id}
+              selectedBeachName={beach.name}
+            />
           </div>
         </div>
 
@@ -373,7 +398,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
               <CardContent className="text-sm">
                 <div>Status: {currentForecast?.tide_status ?? "–"}</div>
                 <div>
-                  Next: {currentForecast?.next_tide_type ?? "–"} {currentForecast?.next_tide_height ?? ""} @ {currentForecast?.next_tide_time ?? ""}
+                  Next: {currentForecast?.next_tide_type ?? "–"}{" "}
+                  {currentForecast?.next_tide_height ?? ""} @{" "}
+                  {currentForecast?.next_tide_time ?? ""}
                 </div>
               </CardContent>
             </Card>
@@ -405,12 +432,27 @@ export function BeachDetail({ id }: BeachDetailProps) {
           value={openSections}
           onValueChange={handleAccordionChange}
           className="space-y-4"
+          data-testid="beach-accordion"
         >
           {/* Live Cam */}
-          <AccordionItem value="cams">
+          <AccordionItem value="cams" data-testid="accordion-item-cams">
             <AccordionTrigger className="text-lg">
               <span className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-camera h-4 w-4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-camera h-4 w-4"
+                >
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
                 Live Cam
               </span>
             </AccordionTrigger>
@@ -420,7 +462,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
           </AccordionItem>
 
           {/* Forecast & Tides */}
-          <AccordionItem value="forecast">
+          <AccordionItem value="forecast" data-testid="accordion-item-forecast">
             <AccordionTrigger className="text-lg">
               <span className="flex items-center gap-2">
                 <Waves className="h-4 w-4" /> Forecast & Tides
@@ -482,8 +524,6 @@ export function BeachDetail({ id }: BeachDetailProps) {
             </AccordionContent>
           </AccordionItem>
 
-          
-
           {/* Reviews */}
           <AccordionItem value="reviews">
             <AccordionTrigger className="text-lg">
@@ -510,7 +550,23 @@ export function BeachDetail({ id }: BeachDetailProps) {
           <AccordionItem value="sessions">
             <AccordionTrigger className="text-lg">
               <span className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar h-4 w-4"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-calendar h-4 w-4"
+                >
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                  <line x1="16" x2="16" y1="2" y2="6"></line>
+                  <line x1="8" x2="8" y1="2" y2="6"></line>
+                  <line x1="3" x2="21" y1="10" y2="10"></line>
+                </svg>
                 Recent Sessions
               </span>
             </AccordionTrigger>
@@ -523,7 +579,23 @@ export function BeachDetail({ id }: BeachDetailProps) {
           <AccordionItem value="tips">
             <AccordionTrigger className="text-lg">
               <span className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-users h-4 w-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-users h-4 w-4"
+                >
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
                 Crowd Tips
               </span>
             </AccordionTrigger>

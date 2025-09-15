@@ -7,19 +7,22 @@ test("Beach page shows live cam above forecast and hides Coach Pick", async ({ p
   await expect(page.getByText(/coach pick/i)).toHaveCount(0);
 
   // Order: Live Cam before Forecast & Tides (Accordion triggers are buttons)
-  const liveCam = page.locator('button:has-text("Live Cam")').first();
-  const forecast = page.locator('button:has-text("Forecast & Tides")').first();
+  const accordion = page.locator('[data-testid="beach-accordion"]').first();
+  const liveCamItem = accordion.locator('[data-testid="accordion-item-cams"]');
+  const forecastItem = accordion.locator('[data-testid="accordion-item-forecast"]');
+  const liveCam = liveCamItem.locator('button').first();
+  const forecast = forecastItem.locator('button').first();
   await expect(liveCam).toBeVisible();
   await expect(forecast).toBeVisible();
-  const liveCamHandle = await liveCam.elementHandle();
-  const forecastHandle = await forecast.elementHandle();
   const isBefore = await page.evaluate(([a, b]) =>
     Boolean((a as Element).compareDocumentPosition(b as Element) & Node.DOCUMENT_POSITION_FOLLOWING)
-  , [liveCamHandle, forecastHandle]);
+  , [await liveCam.elementHandle(), await forecast.elementHandle()]);
   expect(isBefore).toBeTruthy();
 
   // Player present (iframe or video) OR fallback link
-  const player = page.locator("iframe, video");
+  // Expand Live Cam to ensure content is in the DOM
+  await liveCam.click();
+  const player = accordion.locator("iframe, video");
   const fallback = page.getByRole("link", { name: /open camera/i });
   await expect(player.or(fallback)).toBeVisible();
 });
