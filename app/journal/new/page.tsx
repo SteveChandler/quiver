@@ -1,14 +1,28 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import ConditionsStep from "@/app/(journal)/new/steps/ConditionsStep";
 
-export default function JournalNewPage() {
+function JournalNewContent() {
   const searchParams = useSearchParams();
   const step = searchParams.get("step");
+  const { watch } = useFormContext();
+  const isReady = Boolean(watch("sessionId") && watch("beachId"));
 
+  if (step === "conditions") {
+    return <ConditionsStep isReady={isReady} questions={null} />;
+  }
+
+  return (
+    <div className="text-sm text-muted-foreground">
+      Provide step=conditions to view the Conditions step.
+    </div>
+  );
+}
+
+export default function JournalNewPage() {
   const form = useForm({
     defaultValues: {
       sessionId: "",
@@ -17,19 +31,17 @@ export default function JournalNewPage() {
     },
   });
 
-  const isReady = Boolean(form.watch("sessionId") && form.watch("beachId"));
-
   return (
     <div className="container mx-auto max-w-2xl p-4">
       <FormProvider {...form}>
-        {step === "conditions" ? (
-          <ConditionsStep isReady={isReady} questions={null} />
-        ) : (
-          <div className="text-sm text-muted-foreground">Provide step=conditions to view the Conditions step.</div>
-        )}
+        <Suspense
+          fallback={
+            <div className="text-sm text-muted-foreground">Loading...</div>
+          }
+        >
+          <JournalNewContent />
+        </Suspense>
       </FormProvider>
     </div>
   );
 }
-
-
