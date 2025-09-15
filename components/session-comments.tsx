@@ -43,7 +43,7 @@ export function SessionComments({
 
       // Notify parent of comment count change
       if (onCommentCountChange) {
-        onCommentCountChange(data?.length || 0);
+        onCommentCountChange((list || []).length);
       }
     } catch (error) {
       console.error("Error fetching comments:", error);

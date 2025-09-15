@@ -75,7 +75,11 @@ export function CamsSection({ beachId }: CamsSectionProps) {
           <div className="space-y-3">
             {(() => {
               const intent = buildCamEmbed(sources.camera_url as string);
-              if (intent.kind === "iframe" && !iframeBlocked) {
+              const allowIframe =
+                (sources as any)?.embed_allowed !== false &&
+                intent.kind === "iframe" &&
+                !iframeBlocked;
+              if (allowIframe) {
                 return (
                   <div className="w-full aspect-video rounded-lg overflow-hidden border">
                     <iframe

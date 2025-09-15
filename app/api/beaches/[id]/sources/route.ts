@@ -36,11 +36,28 @@ export async function GET(
       }
     }
 
+    // Server-side preflight for embed allow
+    let embedAllowed: boolean | null = null;
+    if (cameraUrl) {
+      try {
+        const head = await fetch(cameraUrl, { method: "HEAD" });
+        const xfo = head.headers.get("x-frame-options");
+        const csp = head.headers.get("content-security-policy");
+        const deniesXfo = xfo && /deny|sameorigin/i.test(xfo);
+        const deniesCsp = csp && /frame-ancestors\s+('none'|none|self)/i.test(csp);
+        embedAllowed = !(deniesXfo || deniesCsp);
+      } catch {
+        // Network or CORS may block reading headers; be optimistic and let client attempt
+        embedAllowed = null;
+      }
+    }
+
     const merged = {
       beach_id: params.id,
       ndbc_buoy_ids: (data as any)?.ndbc_buoy_ids || null,
       forecast_source_id: (data as any)?.forecast_source_id || null,
       camera_url: cameraUrl,
+      embed_allowed: embedAllowed,
     };
 
     return createSuccessResponse({ sources: merged });
