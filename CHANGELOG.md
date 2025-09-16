@@ -139,6 +139,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - Updated forecast component tests to handle flexible forecast data formats and conditional high-confidence display
   - All 3 ForecastTab Component E2E tests now passing: forecast display, high confidence handling, and beach detail navigation
 - Session logging location: typing an exact beach name (e.g., `Ocean Beach`) now auto-selects using the same matching logic as the home page search, and the dropdown-only error was removed in `components/BeachSelector.tsx`. Free-typed beaches are still accepted per established behavior.
+- Tide chart duplicate x-axis labels in mobile landscape fixed: `components/forecast/tide-chart-recharts.tsx` now uses a unique-per-day `ticks` array with `interval={0}`, `allowDuplicatedCategory={false}`, and tuned `minTickGap`/`tickMargin` to prevent Recharts from auto-generating duplicate labels. Applies consistently across screen sizes while keeping Today/Tomorrow/day formatting.
 - **Database schema critical fixes** (Priority 1 infrastructure):
   - Fixed invalid UUID format in test data: replaced "test-beach-id" with proper UUID format across test files to resolve `invalid input syntax for type uuid` errors
   - Fixed `get_nearby_beaches` function signature mismatch: updated function to accept `lat, lng` parameters as expected by application code, resolving PGRST202 spatial query failures
