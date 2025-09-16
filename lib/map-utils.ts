@@ -111,8 +111,10 @@ export function getMapboxStaticImageUrl(
     markerText,
   } = options;
 
-  // Get the Mapbox access token from environment variable
-  const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+  // Get the Mapbox access token from environment variable (support alias)
+  const accessToken =
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+    (process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   if (!accessToken) {
     console.warn(
@@ -339,22 +341,14 @@ export function getStaticMapImageUrl(
 
   console.log("Generating map image for coordinates:", { latitude, longitude });
   console.log("Available environment variables:", {
-    hasMapbox: !!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN,
+    hasMapbox:
+      !!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+      !!(process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN,
     hasGoogle: !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
     hasGeoapify: !!process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY,
   });
 
-  // For production on Vercel, prefer enhanced placeholder to avoid external service issues
-  if (process.env.NODE_ENV === "production" && process.env.VERCEL) {
-    console.log("Using enhanced placeholder for Vercel production deployment");
-    return generateEnhancedMapPlaceholder(
-      latitude,
-      longitude,
-      options.width || 300,
-      options.height || 120,
-      options.markerText
-    );
-  }
+  // Use real providers in all environments; rely on graceful fallbacks below
 
   // Try Google Maps first if we have marker text (better text support)
   if (options.markerText && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
@@ -366,7 +360,10 @@ export function getStaticMapImageUrl(
   }
 
   // Try Mapbox first (best for outdoor/surf maps)
-  if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
+  if (
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+    (process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN
+  ) {
     console.log("Using Mapbox for map image");
     return getMapboxStaticImageUrl(latitude, longitude, options);
   }
