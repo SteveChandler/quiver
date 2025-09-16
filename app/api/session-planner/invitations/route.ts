@@ -19,7 +19,7 @@ const DEBUG_INVITES =
 const debug = (...args: any[]) => {
   if (DEBUG_INVITES) {
     // eslint-disable-next-line no-console
-    console.debug("[INVITES]", ...args);
+    console.log("[INVITES]", ...args);
   }
 };
 
@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
     const body: InvitationRequest = await request.json();
     const { sessionId, invitees, message } = body;
     const idempotencyKey = request.headers.get("Idempotency-Key");
+    let emailAttempted = false;
 
     debug("POST /invitations body", {
       sessionId,
@@ -288,6 +289,7 @@ export async function POST(request: NextRequest) {
                   to: "<redacted>",
                   appUrl,
                 });
+                emailAttempted = true;
                 await sendSessionInviteEmail({
                   toEmail: prefs.email,
                   inviter: {
@@ -320,6 +322,7 @@ export async function POST(request: NextRequest) {
                 to: "<redacted>",
                 appUrl,
               });
+              emailAttempted = true;
               await sendSessionInviteEmail({
                 toEmail: invitee.email,
                 inviter: {
@@ -370,7 +373,13 @@ export async function POST(request: NextRequest) {
       errorsCount: errors.length,
     });
 
-    return createSuccessResponse(response);
+    const res = createSuccessResponse(response);
+    if (DEBUG_INVITES) {
+      try {
+        res.headers.set("x-invite-email-attempted", String(emailAttempted));
+      } catch {}
+    }
+    return res;
   } catch (error) {
     console.error("Error sending invitations:", error);
     return createErrorResponse(
