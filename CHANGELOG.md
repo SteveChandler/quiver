@@ -289,6 +289,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - E2E Discover stabilization: `e2e/user-discovery.spec.ts` and `e2e/social-discovery.spec.ts` now call `ensureAuthenticated(page)` in `beforeEach` to guarantee signed-in state before asserting Discover UI ("Discover Surfers", search, suggestions). Aligns with dev `/api/e2e-login` helper and Playwright config headers described above.
 - E2E auth persistence across contexts: global setup now creates the context with `x-vercel-protection-bypass` from the first request, waits for `networkidle`, verifies non-`/auth` URL and presence of cookies for `quiversurf.app` before saving `storageState`. Ensures deterministic auth state and prevents surprise redirects.
 - E2E extra contexts fixed: any `browser.newContext()` in specs must include both `storageState` and the bypass header. Updated `e2e/social-discovery.spec.ts` beforeAll to pass both.
+- Discover page: corrected typo in follow state label – "Fowolliwng" → "Following" (`app/discover/page.tsx`) and synced unit test label.
 
 - E2E Profile stabilization: `e2e/profile.spec.ts` no longer mutates the user's name. The test now captures the existing name, performs a no-op save, and asserts the header remains unchanged. Prevents cross-test data flakiness and aligns with E2E stability guidelines.
 

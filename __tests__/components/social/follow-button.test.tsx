@@ -62,7 +62,7 @@ describe("FollowButton", () => {
       const { rerender } = render(
         <FollowButton
           userId="user-2"
-          followingLabel="Fowolliwng"
+          followingLabel="Following"
           notFollowingLabel="Send Wave"
         />
       );
@@ -79,14 +79,14 @@ describe("FollowButton", () => {
       rerender(
         <FollowButton
           userId="user-2"
-          followingLabel="Fowolliwng"
+          followingLabel="Following"
           notFollowingLabel="Send Wave"
         />
       );
 
       button = screen.getByRole("button");
-      expect(button).toHaveTextContent("Fowolliwng");
-      expect(button.getAttribute("aria-label")).toContain("Fowolliwng");
+      expect(button).toHaveTextContent("Following");
+      expect(button.getAttribute("aria-label")).toContain("Following");
     });
 
     it("should show loading state when toggling", () => {
