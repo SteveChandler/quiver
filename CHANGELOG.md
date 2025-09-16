@@ -23,6 +23,23 @@
 - Map hover popups no longer display "Location: Unknown"; the row is omitted when location metadata is missing (`components/map/interactive-map.tsx`). Also suppressed "Location Unknown" placeholder text in static map generation (`lib/map-utils.ts`).
 - Map directory: fixed filters not applying and removed stray text `beachpointreef.map` displayed beside chips by cleaning up JSX in `components/map-view.tsx`. Selecting a search result now snaps the map to that beach by wiring dropdown selection → `setSelectedBeach` via `onResultSelect` in `components/map/map-search-header.tsx`. Follows `hooks/ARCHITECTURE.md` data-fetcher and component composition patterns.
 
+### [2025.09.16] - Invites Debug + Snapshot
+
+### Added
+
+- Dev-only verbose logging for `app/api/session-planner/invitations/route.ts` behind `DEBUG_INVITES` (default on in dev, off in prod). Logs invite resolution, dedupe checks, insert results, activity/email attempts, and response summaries while redacting emails. Follows `lib/api-response-utils.ts` patterns and keeps production quiet.
+- Database snapshots saved to `supabase/backups/` for:
+  - `session_invitations_YYYYMMDD_HHMMSS.json`
+  - Email tables list: `email_tables_YYYYMMDD_HHMMSS.json`
+
+### Changed
+
+- None.
+
+### Fixed
+
+- None.
+
 ### Added
 
 - Home screen nearby beach chips: permissioned geolocation → show nearest 5 beaches for one-tap preview and Set Home Beach, following `components/home-screen/ARCHITECTURE.md` patterns.

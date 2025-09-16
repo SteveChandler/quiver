@@ -11,6 +11,18 @@ import { sendSessionInviteEmail } from "@/lib/mailer/sessionInviteEmail";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Dev-only verbose logging helper
+const DEBUG_INVITES =
+  process.env.NODE_ENV !== "production" &&
+  (process.env.DEBUG_INVITES === "1" || process.env.DEBUG_INVITES === "true" ||
+    process.env.DEBUG_INVITES === undefined);
+const debug = (...args: any[]) => {
+  if (DEBUG_INVITES) {
+    // eslint-disable-next-line no-console
+    console.debug("[INVITES]", ...args);
+  }
+};
+
 interface SessionInvitation {
   id: string;
   sessionId: string;
@@ -49,6 +61,13 @@ export async function POST(request: NextRequest) {
     const { sessionId, invitees, message } = body;
     const idempotencyKey = request.headers.get("Idempotency-Key");
 
+    debug("POST /invitations body", {
+      sessionId,
+      inviteesCount: Array.isArray(invitees) ? invitees.length : 0,
+      messagePresent: Boolean(message && message.length > 0),
+      idempotencyKey: Boolean(idempotencyKey),
+    });
+
     if (!sessionId || !invitees || invitees.length === 0) {
       return createErrorResponse(
         "Session ID and invitees are required",
@@ -67,6 +86,8 @@ export async function POST(request: NextRequest) {
     if (userError || !user) {
       return createErrorResponse("Authentication required", null, 401);
     }
+
+    debug("Authenticated user", { userId: user.id });
 
     // Verify the user owns the session
     const { data: session, error: sessionError } = await supabase
@@ -93,6 +114,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    debug("Session verified", {
+      sessionId: session.id,
+      beach: session.beach_name,
+      status: session.status,
+    });
+
     const invitations: SessionInvitation[] = [];
     const errors: string[] = [];
     let invitationsSent = 0;
@@ -107,6 +134,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Process each invitee
+    debug("Processing invitees", Array.isArray(invitees) ? invitees.length : 0);
     for (const invitee of invitees) {
       try {
         let inviteeUserId: string | null = null;
@@ -127,6 +155,12 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        debug("Resolved invitee", {
+          providedUserId: Boolean(invitee.userId),
+          providedEmail: Boolean(invitee.email),
+          resolvedUserId: inviteeUserId || null,
+        });
+
         // Check for existing invitation (per-invitee uniqueness)
         const { data: existingInvitation } = await supabase
           .from("session_invitations")
@@ -144,6 +178,11 @@ export async function POST(request: NextRequest) {
               invitee.email || invitee.name || "user"
             }`
           );
+          debug("Duplicate invitation detected, skipping", {
+            sessionId,
+            inviteeUserId: inviteeUserId || null,
+            inviteeEmail: invitee.email || null,
+          });
           continue;
         }
 
@@ -177,6 +216,11 @@ export async function POST(request: NextRequest) {
                 invitee.email || invitee.name || "user"
               }`
             );
+            debug("Unique violation on insert - treated as duplicate", {
+              sessionId,
+              inviteeUserId: inviteeUserId || null,
+              inviteeEmail: invitee.email || null,
+            });
             continue;
           } else {
             errors.push(
@@ -184,9 +228,16 @@ export async function POST(request: NextRequest) {
                 invitationError.message
               }`
             );
+            debug("Insert error", invitationError);
             continue;
           }
         }
+
+        debug("Invitation inserted", {
+          id: newInvitation.id,
+          inviteeId: newInvitation.invitee_id,
+          inviteeEmail: newInvitation.invitee_email ? "<redacted>" : null,
+        });
 
         invitations.push({
           id: newInvitation.id,
@@ -226,12 +277,17 @@ export async function POST(request: NextRequest) {
                   message: message || null,
                 },
               });
+              debug("Created in-app invite activity", { activityId });
             }
 
             if (prefs?.email && prefs.email_session_invites !== false) {
               const appUrl =
                 process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
               try {
+                debug("Sending invite email to user", {
+                  to: "<redacted>",
+                  appUrl,
+                });
                 await sendSessionInviteEmail({
                   toEmail: prefs.email,
                   inviter: {
@@ -260,6 +316,10 @@ export async function POST(request: NextRequest) {
             const appUrl =
               process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
             try {
+              debug("Sending invite email to address", {
+                to: "<redacted>",
+                appUrl,
+              });
               await sendSessionInviteEmail({
                 toEmail: invitee.email,
                 inviter: {
@@ -304,6 +364,12 @@ export async function POST(request: NextRequest) {
       errors,
     };
 
+    debug("POST response summary", {
+      invitationsSent,
+      invitationsCount: invitations.length,
+      errorsCount: errors.length,
+    });
+
     return createSuccessResponse(response);
   } catch (error) {
     console.error("Error sending invitations:", error);
@@ -323,6 +389,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "received";
     const sessionId = searchParams.get("sessionId");
+
+    debug("GET /invitations", { type, sessionIdPresent: Boolean(sessionId) });
 
     const supabase = await createSupabaseServerClient();
 
@@ -445,6 +513,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    debug("GET response summary", {
+      type,
+      count: Array.isArray(invitations) ? invitations.length : 0,
+    });
+
     return createSuccessResponse(
       {
         type,
@@ -470,6 +543,11 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const { invitationId, response: invitationResponse } = body;
+
+    debug("PATCH /invitations", {
+      invitationIdPresent: Boolean(invitationId),
+      response: invitationResponse,
+    });
 
     if (!invitationId || !invitationResponse) {
       return createErrorResponse(
@@ -540,6 +618,11 @@ export async function PATCH(request: NextRequest) {
         updateError.message
       );
     }
+
+    debug("Invitation updated", {
+      id: updatedInvitation.id,
+      status: updatedInvitation.status,
+    });
 
     // TODO: Send notification to session creator about the response
     // TODO: If accepted, add user to session participants
