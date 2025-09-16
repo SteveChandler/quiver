@@ -1,4 +1,4 @@
-import { resend, MAIL_FROM } from "./client";
+import { resend, MAIL_FROM, MAIL_REPLY_TO } from "./client";
 import { SessionInviteEmail } from "./templates/SessionInviteEmail";
 
 export async function sendSessionInviteEmail({
@@ -28,6 +28,7 @@ export async function sendSessionInviteEmail({
   await resend.emails.send({
     from: MAIL_FROM,
     to: toEmail,
+    reply_to: MAIL_REPLY_TO,
     subject: `${inviterName} invited you to surf${
       session.beach_name ? " at " + session.beach_name : ""
     }`,
@@ -40,4 +41,3 @@ export async function sendSessionInviteEmail({
     }),
   });
 }
-
