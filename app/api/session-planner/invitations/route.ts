@@ -4,7 +4,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
 } from "@/lib/api-response-utils";
-import { createActivityForInvite } from "@/lib/notifications";
+import { notifySessionInvite } from "@/lib/notifications";
 import { sendSessionInviteEmail } from "@/lib/mailer/sessionInviteEmail";
 
 // Mark this route as dynamic to prevent static generation
@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
               .single();
 
             if (prefs?.inapp_session_invites !== false) {
-              activityId = await createActivityForInvite({
+              activityId = await notifySessionInvite({
                 actorId: user.id,
                 recipientId: inviteeUserId,
                 sessionId: sessionId,
