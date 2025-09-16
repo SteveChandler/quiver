@@ -79,7 +79,7 @@ interface WaveTypeSelectorProps {
 }
 
 export function WaveTypeSelector({
-  selectedTypes,
+  selectedTypes = [],
   onChange,
   className = "",
 }: WaveTypeSelectorProps) {

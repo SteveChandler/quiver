@@ -4,13 +4,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 jest.mock("@/lib/supabase/server", () => {
   const mock = require("@/__tests__/setup/mock-supabase");
   return {
-    createSupabaseServerClient: () => Promise.resolve(mock.default || mock),
+    createSupabaseServerClient: async () => mock.default,
   };
 });
 
 describe("createActivityForInvite", () => {
   it("calls RPC with correct payload", async () => {
     const supabase: any = await createSupabaseServerClient();
+    // Ensure rpc is a jest mock function
+    expect(typeof supabase.rpc).toBe("function");
     await createActivityForInvite({
       actorId: "u1",
       recipientId: "u2",

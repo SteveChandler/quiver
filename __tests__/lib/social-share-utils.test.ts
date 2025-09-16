@@ -31,7 +31,7 @@ import { readFile } from "fs/promises";
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
 
-const mockReadFile = readFile as unknown as jest.MockedFunction<typeof readFile>;
+const mockReadFile = readFile as unknown as jest.MockedFunction<any>;
 const mockSatori = satori as jest.MockedFunction<typeof satori>;
 
 describe("Social Share Utils", () => {

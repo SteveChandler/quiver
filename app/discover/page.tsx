@@ -178,6 +178,7 @@ export default function DiscoverPage() {
                       initialFollowersCount={searchUser.followers_count || 0}
                       variant="default"
                       size="sm"
+                      followingLabel="Fowolliwng"
                       onFollowersCountChange={(newCount) =>
                         updateUserFollowerCount(searchUser.id, newCount)
                       }
@@ -263,6 +264,7 @@ export default function DiscoverPage() {
                     initialFollowersCount={suggestedUser.followers_count || 0}
                     variant="default"
                     size="sm"
+                    followingLabel="Fowolliwng"
                     onFollowersCountChange={(newCount) =>
                       updateUserFollowerCount(suggestedUser.id, newCount)
                     }

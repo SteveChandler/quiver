@@ -430,17 +430,20 @@ export function getBeachCoordinates(
   if (!beach) return null;
 
   // Check if beach has direct latitude/longitude properties
-  if (beach.latitude && beach.longitude) {
+  if (typeof beach.latitude === "number" && typeof beach.longitude === "number") {
     return { latitude: beach.latitude, longitude: beach.longitude };
   }
 
   // Check if beach has location object with x/y coordinates
-  if (beach.location?.x && beach.location?.y) {
+  if (typeof beach.location?.x === "number" && typeof beach.location?.y === "number") {
     // In PostGIS, x is longitude and y is latitude
     return { latitude: beach.location.y, longitude: beach.location.x };
   }
 
-  // Legacy support removed: prefer canonical latitude/longitude only
+  // Legacy support: tolerate lat/lng property names in tests and older code paths
+  if (typeof beach.lat === "number" && typeof beach.lng === "number") {
+    return { latitude: beach.lat, longitude: beach.lng };
+  }
 
   return null;
 }

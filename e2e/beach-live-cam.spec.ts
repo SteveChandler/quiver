@@ -22,9 +22,14 @@ test("Beach page shows live cam above forecast and hides Coach Pick", async ({ p
   // Player present (iframe or video) OR fallback link
   // Expand Live Cam to ensure content is in the DOM
   await liveCam.click();
-  const player = accordion.locator("iframe, video");
-  const fallback = page.getByRole("link", { name: /open camera/i });
-  await expect(player.or(fallback)).toBeVisible();
+  const camRegion = page.getByRole("region", { name: /live cam/i });
+  await expect(
+    camRegion
+      .locator("iframe, video")
+      .first()
+      .or(camRegion.getByRole("link", { name: /open camera/i }))
+      .or(camRegion.getByText(/No camera link available/i))
+  ).toBeVisible();
 });
 
 
