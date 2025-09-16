@@ -461,11 +461,11 @@ export function BeachDetail({ id }: BeachDetailProps) {
             </AccordionContent>
           </AccordionItem>
 
-          {/* Forecast & Tides */}
+          {/* 5 Day Outlook */}
           <AccordionItem value="forecast" data-testid="accordion-item-forecast">
             <AccordionTrigger className="text-lg">
               <span className="flex items-center gap-2">
-                <Waves className="h-4 w-4" /> Forecast & Tides
+                <Waves className="h-4 w-4" /> 5 Day Outlook
               </span>
             </AccordionTrigger>
             <AccordionContent>
@@ -473,35 +473,6 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 beach={beach as Beach}
                 forecasts={forecasts || []}
               />
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* 7-Day Chart */}
-          <AccordionItem value="week">
-            <AccordionTrigger className="text-lg">
-              <span className="flex items-center gap-2">
-                <Waves className="h-4 w-4" /> 7-Day Outlook
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Weekly Tides and Conditions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {/* Reuse enhanced forecast with multi-day tide chart + table */}
-                    {/* Keep client-only to avoid RSC overhead */}
-                    {beach?.id && (
-                      <div className="space-y-4">
-                        {/* Lightweight multi-day: rely on ForecastAndTides internal tables/charts if available */}
-                        {/* Or render enhanced forecast component for rich view */}
-                        {/**/}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
             </AccordionContent>
           </AccordionItem>
 

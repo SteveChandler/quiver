@@ -6,15 +6,15 @@ import { test, expect } from '@playwright/test';
 const BEACH_ID = process.env.TEST_BEACH_ID || '15c7337e-5258-4339-9dc3-c435c666926b';
 
 test.describe('@beach - Beach Detail Page', () => {
-  test('loads beach detail and shows Forecast & Tides section (default open)', async ({ page }) => {
+  test('loads beach detail and shows 5 Day Outlook section (default open)', async ({ page }) => {
     await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
 
     // Assert accordion trigger is present
-    const forecastTrigger = page.getByRole('button', { name: /forecast & tides/i });
+    const forecastTrigger = page.getByRole('button', { name: /5 day outlook/i });
     await expect(forecastTrigger).toBeVisible({ timeout: 20000 });
 
-    // Content heuristics inside Forecast & Tides (scope to region, avoid strict-mode ambiguity)
-    const forecastRegion = page.getByRole('region', { name: /forecast & tides/i });
+    // Content heuristics inside 5 Day Outlook (scope to region, avoid strict-mode ambiguity)
+    const forecastRegion = page.getByRole('region', { name: /5 day outlook/i });
     await expect(forecastRegion).toBeVisible({ timeout: 20000 });
     const anyChip = forecastRegion
       .getByText(/(tide chart included|wind in forecast table)/i)
@@ -25,7 +25,7 @@ test.describe('@beach - Beach Detail Page', () => {
   test('defaults to Tides tab with 5-Day Tide Chart visible', async ({ page }) => {
     await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
 
-    const forecastRegion = page.getByRole('region', { name: /forecast & tides/i });
+    const forecastRegion = page.getByRole('region', { name: /5 day outlook/i });
     await expect(forecastRegion).toBeVisible({ timeout: 20000 });
 
     // The tide chart card header should be visible by default
@@ -150,7 +150,7 @@ test.describe('Beach Detail', () => {
     }
 
     // Expect at least two accordion triggers to be visible
-    await expect(page.getByRole('button', { name: /forecast & tides/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /5 day outlook/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /local intel/i })).toBeVisible();
 
     // Expand Local Intel to ensure it responds

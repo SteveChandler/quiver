@@ -115,7 +115,7 @@ Purpose: Validate Home forecast experience, Beach detail, and Profile basics.
 - Precondition: From Home or direct link to a known/fallback beach.
 - Steps:
   - Prefer direct navigation via `TEST_BEACH_ID` when set (Dev fallback used: `15c7337e-5258-4339-9dc3-c435c666926b`).
-  - Forecast & Tides section visible by default; tolerate chips-only state and optional charts/tables.
+  - 5 Day Outlook section visible by default; tolerate chips-only state and optional charts/tables.
   - Deep-link `?section=intel` opens Intel; assert `#intel`/`#intel-section` visibility and “Local Intel” trigger.
   - Favorite toggle via accessible label flips between “Add to favorites”/“Remove from favorites”.
   - Reviews: open section, click “Write Review/Write the First Review”, dialog opens and closes.

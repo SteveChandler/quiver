@@ -6,7 +6,7 @@ test("Beach page shows live cam above forecast and hides Coach Pick", async ({ p
   // Coach Pick absent
   await expect(page.getByText(/coach pick/i)).toHaveCount(0);
 
-  // Order: Live Cam before Forecast & Tides (Accordion triggers are buttons)
+  // Order: Live Cam before 5 Day Outlook (Accordion triggers are buttons)
   const accordion = page.locator('[data-testid="beach-accordion"]').first();
   const liveCamItem = accordion.locator('[data-testid="accordion-item-cams"]');
   const forecastItem = accordion.locator('[data-testid="accordion-item-forecast"]');

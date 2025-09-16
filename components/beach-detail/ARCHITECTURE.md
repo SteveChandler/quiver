@@ -121,7 +121,7 @@ const { beachAccuracy } = useForecastCalibration({
 
 ### **Coach Pick (temporary replacement for Best Times)**
 
-- The `Forecast & Tides` section currently shows `CoachCard` in place of the previous Best Times chip list.
+- The `5 Day Outlook` section currently shows `CoachCard` in place of the previous Best Times chip list.
 - Best Times fetching and UI have been removed here temporarily due to instability, to focus on actionable recommendations for growth.
 - When reinstating Best Times, follow the documented MV/RPC/why‑breakdown pattern previously described.
 

@@ -10,7 +10,7 @@
 
 ### Changed
 
-- Beach detail: Moved "Live Cam" section above "Forecast & Tides" and removed "Coach Pick" card from `Forecast & Tides`.
+- Beach detail: Renamed "Forecast & Tides" to "5 Day Outlook" and removed the separate "7-Day Outlook" accordion. Kept Live Cam above 5 Day Outlook.
 
 ### Added
 
