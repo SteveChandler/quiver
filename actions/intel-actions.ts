@@ -72,6 +72,23 @@ export async function createIntelPost(
 
       const expiryDate = getExpiryDate(tag);
 
+      // Normalize optional surf condition inputs into JSONB
+      const surfConditions: Record<string, any> = {};
+      if (wave_height !== undefined && wave_height !== null)
+        surfConditions.wave_height = wave_height;
+      if (wind_speed !== undefined && wind_speed !== null)
+        surfConditions.wind_speed = wind_speed;
+      if (wind_direction !== undefined && wind_direction !== null)
+        surfConditions.wind_direction = wind_direction;
+      if (water_temp !== undefined && water_temp !== null)
+        surfConditions.water_temp = water_temp;
+      if (crowd_level !== undefined && crowd_level !== null)
+        surfConditions.crowd_level = crowd_level;
+      if (wave_types && Array.isArray(wave_types) && wave_types.length > 0)
+        surfConditions.wave_types = wave_types;
+      if (forecast_accuracy !== undefined && forecast_accuracy !== null)
+        surfConditions.forecast_accuracy = forecast_accuracy;
+
       const { data: intelPost, error: createError } = await supabase
         .from("intel_posts")
         .insert({
@@ -84,13 +101,9 @@ export async function createIntelPost(
           photo_url,
           photo_storage_path,
           expires_at: expiryDate.toISOString(),
-          wave_height,
-          wind_speed,
-          wind_direction,
-          water_temp,
-          crowd_level,
-          wave_types,
-          forecast_accuracy,
+          surf_conditions: Object.keys(surfConditions).length
+            ? surfConditions
+            : null,
         })
         .select()
         .single();

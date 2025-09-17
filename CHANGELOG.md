@@ -25,6 +25,11 @@
 - Map directory: fixed filters not applying and removed stray text `beachpointreef.map` displayed beside chips by cleaning up JSX in `components/map-view.tsx`. Selecting a search result now snaps the map to that beach by wiring dropdown selection → `setSelectedBeach` via `onResultSelect` in `components/map/map-search-header.tsx`. Follows `hooks/ARCHITECTURE.md` data-fetcher and component composition patterns.
 - Invitations feed attribution: session invite activities are now owned by the invitee so they appear in the recipient's feed. Implemented SECURITY DEFINER RPC `public.notify_session_invite` and updated `app/api/session-planner/invitations/route.ts` to call it via service-role client, preserving inviter as `metadata.actor_id`. Follows `lib/ARCHITECTURE.md` Supabase patterns and centralized API utils.
 - Beach Detail incorrect error flash: prioritized loading state and removed `!forecasts` from error guard in `components/beach-detail.tsx`. Added tests to prevent regression.
+- Intel posts not appearing from Beach Detail: added RLS INSERT policy allowing authenticated users to insert into `public.intel_posts` when `user_id = (select auth.uid())`. Implemented via migration `20250919_add_intel_posts_insert_policy.sql`. Aligns with `supabase/ARCHITECTURE.md` policy pattern using `(select auth.uid())` for stable plans.
+
+### Changed
+
+- Local Intel ordering updated to prioritize recency: RPC `get_nearby_intel_posts` now orders by `created_at DESC, confirmations_count DESC` (previously confirmations first). This ensures a user's newly added intel appears at the top of the list on the beach page after save, while still surfacing well-confirmed posts when timestamps are similar. Implemented via migration `20250917_adjust_intel_sorting.sql`; UI continues to use `useDataFetcher` with `refetch()` after post success.
 
 ### [2025.09.16] - Invites Debug + Snapshot
 
