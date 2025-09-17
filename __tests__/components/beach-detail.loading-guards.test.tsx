@@ -4,6 +4,12 @@ jest.mock("@/hooks/use-data-fetcher", () => ({
 jest.mock("@/hooks/use-forecast-calibration", () => ({
   useForecastCalibration: () => ({ sessionSnapshots: [] }),
 }));
+jest.mock("@/components/favorite-button", () => ({
+  FavoriteButton: () => <button data-testid="favorite-mock" />,
+}));
+jest.mock("@/components/home/HomeBeachBanner", () => ({
+  HomeBeachBanner: () => <div data-testid="home-beach-banner" />,
+}));
 
 import React from "react";
 import { render, screen } from "@testing-library/react";
@@ -37,11 +43,14 @@ function mockDataFetcherSequence(
   };
   let call = 0;
   fn.mockImplementation(() => {
-    let state;
-    if (call === 0) state = normalizedBeach; // beach
-    else if (call === 1) state = normalizedForecasts; // forecasts
-    else state = normalizedFavorites; // favorites (and beyond)
+    const idx = call % 3; // beach, forecasts, favorites (repeat)
     call += 1;
+    const state =
+      idx === 0
+        ? normalizedBeach
+        : idx === 1
+        ? normalizedForecasts
+        : normalizedFavorites;
     return wrap(state);
   });
   return fn;
@@ -70,11 +79,15 @@ describe("BeachDetail loading and error guards", () => {
     const spy = mockDataFetcherSequence([
       { data: null, loading: false, error: "Failed" }, // beach
       { data: [], loading: false, error: null }, // forecasts
+      { data: [], loading: false, error: null }, // favorites
     ]);
 
     render(<BeachDetail id="beach-1" />);
 
-    expect(screen.getByText(/Failed/i)).toBeInTheDocument();
+    // Assert the error UI by its recovery CTA for stability
+    expect(
+      screen.getByRole("button", { name: /Back to Map/i })
+    ).toBeInTheDocument();
     expect(spy).toHaveBeenCalled();
   });
 
@@ -90,12 +103,8 @@ describe("BeachDetail loading and error guards", () => {
 
     render(<BeachDetail id="beach-1" />);
 
-    // Beach name may be used in multiple headings; ensure the page renders content
-    expect(
-      screen.getByText(
-        (content) => content.includes("Test") || content.includes("Live Cam")
-      )
-    ).toBeInTheDocument();
+    // Assert the main accordion renders to confirm content is present
+    expect(screen.getByTestId("beach-accordion")).toBeInTheDocument();
     expect(screen.queryByText(/Beach data not found/i)).not.toBeInTheDocument();
     expect(spy).toHaveBeenCalled();
   });

@@ -7,6 +7,7 @@ jest.mock("@/components/ui/dialog", () => ({
   DialogContent: ({ children }: any) => <div>{children}</div>,
   DialogHeader: ({ children }: any) => <div>{children}</div>,
   DialogTitle: ({ children }: any) => <div>{children}</div>,
+  DialogDescription: ({ children }: any) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/ui/select", () => {

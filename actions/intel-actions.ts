@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getExpiryDate } from "@/lib/constants/intel";
 import { creditAuthorWithXP } from "@/lib/gamification-actions";
 import type { ActionResult } from "@/lib/action-utils";
