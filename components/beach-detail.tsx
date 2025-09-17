@@ -93,6 +93,7 @@ const CrowdTipsSection = dynamic(
 );
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import { track, slugify } from "@/lib/analytics";
+import { FullPageLoader } from "@/components/ui/loading-states";
 
 interface BeachDetailProps {
   id: string;
@@ -319,9 +320,13 @@ export function BeachDetail({ id }: BeachDetailProps) {
     [forecastsByDate]
   );
 
-  // Render skeleton content instead of full-screen loader to improve LCP
+  // Prioritize loading state to prevent erroneous "not found" flash
+  if (loading) {
+    return <FullPageLoader />;
+  }
 
-  if (error || !forecasts || !beach) {
+  // After loading finishes, show error only if we truly have an error or no beach
+  if (error || !beach) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sandy-beige via-white to-blue-50">
         <div className="text-center">

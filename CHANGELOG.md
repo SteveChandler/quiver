@@ -24,6 +24,7 @@
 - Map hover popups no longer display "Location: Unknown"; the row is omitted when location metadata is missing (`components/map/interactive-map.tsx`). Also suppressed "Location Unknown" placeholder text in static map generation (`lib/map-utils.ts`).
 - Map directory: fixed filters not applying and removed stray text `beachpointreef.map` displayed beside chips by cleaning up JSX in `components/map-view.tsx`. Selecting a search result now snaps the map to that beach by wiring dropdown selection → `setSelectedBeach` via `onResultSelect` in `components/map/map-search-header.tsx`. Follows `hooks/ARCHITECTURE.md` data-fetcher and component composition patterns.
 - Invitations feed attribution: session invite activities are now owned by the invitee so they appear in the recipient's feed. Implemented SECURITY DEFINER RPC `public.notify_session_invite` and updated `app/api/session-planner/invitations/route.ts` to call it via service-role client, preserving inviter as `metadata.actor_id`. Follows `lib/ARCHITECTURE.md` Supabase patterns and centralized API utils.
+- Beach Detail incorrect error flash: prioritized loading state and removed `!forecasts` from error guard in `components/beach-detail.tsx`. Added tests to prevent regression.
 
 ### [2025.09.16] - Invites Debug + Snapshot
 
