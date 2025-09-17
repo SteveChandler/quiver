@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -463,9 +464,9 @@ export function IntelPostForm({
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{INTEL_UI_TEXT.FORM.TITLE}</DialogTitle>
-          <p className="text-sm text-muted-foreground">
+          <DialogDescription>
             {INTEL_UI_TEXT.FORM.DESCRIPTION}
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmitForm} className="space-y-4">

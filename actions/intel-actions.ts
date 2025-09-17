@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getExpiryDate } from "@/lib/constants/intel";
 import { creditAuthorWithXP } from "@/lib/gamification-actions";
 import type { ActionResult } from "@/lib/action-utils";
@@ -19,6 +19,7 @@ import type {
  * Create a new intel post
  */
 import type { XPAction } from "@/lib/gamification-actions";
+import { withAuthenticatedAction } from "@/lib/server-action-utils";
 
 type TrackXPFn = (
   action: XPAction,
@@ -35,70 +36,17 @@ export async function createIntelPost(
   deps?: IntelDeps
 ): Promise<ActionResult> {
   try {
-    // Use service-role for reliable reads (bypasses RLS inconsistencies in dev)
-    const supabase = await createSupabaseServiceRoleClient();
+    return await withAuthenticatedAction(async (user) => {
+      const supabase = await createSupabaseServerClient();
 
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return {
-        success: false,
-        error: "Authentication required",
-      };
-    }
-
-    const {
-      latitude,
-      longitude,
-      tag,
-      title,
-      description,
-      photo_url,
-      photo_storage_path,
-      wave_height,
-      wind_speed,
-      wind_direction,
-      water_temp,
-      crowd_level,
-      wave_types,
-      forecast_accuracy,
-    } = data;
-
-    // Validate required fields
-    if (
-      !latitude ||
-      !longitude ||
-      !tag ||
-      !title?.trim() ||
-      !description?.trim()
-    ) {
-      return {
-        success: false,
-        error:
-          "Missing required fields: latitude, longitude, tag, title, description",
-      };
-    }
-
-    // Calculate expiry date based on tag
-    const expiryDate = getExpiryDate(tag);
-
-    // Create intel post
-    const { data: intelPost, error: createError } = await supabase
-      .from("intel_posts")
-      .insert({
-        user_id: user.id,
+      const {
         latitude,
         longitude,
         tag,
-        title: title.trim(),
-        description: description.trim(),
+        title,
+        description,
         photo_url,
         photo_storage_path,
-        expires_at: expiryDate.toISOString(),
-        // Surf condition fields
         wave_height,
         wind_speed,
         wind_direction,
@@ -106,51 +54,83 @@ export async function createIntelPost(
         crowd_level,
         wave_types,
         forecast_accuracy,
-      })
-      .select()
-      .single();
+      } = data;
 
-    if (createError) {
-      console.error("Error creating intel post:", createError);
-      return {
-        success: false,
-        error: "Failed to create intel post",
+      if (
+        !latitude ||
+        !longitude ||
+        !tag ||
+        !title?.trim() ||
+        !description?.trim()
+      ) {
+        return {
+          success: false,
+          error:
+            "Missing required fields: latitude, longitude, tag, title, description",
+        };
+      }
+
+      const expiryDate = getExpiryDate(tag);
+
+      const { data: intelPost, error: createError } = await supabase
+        .from("intel_posts")
+        .insert({
+          user_id: user.id,
+          latitude,
+          longitude,
+          tag,
+          title: title.trim(),
+          description: description.trim(),
+          photo_url,
+          photo_storage_path,
+          expires_at: expiryDate.toISOString(),
+          wave_height,
+          wind_speed,
+          wind_direction,
+          water_temp,
+          crowd_level,
+          wave_types,
+          forecast_accuracy,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Error creating intel post:", createError);
+        return { success: false, error: "Failed to create intel post" };
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      const enrichedPost: IntelPostWithUser = {
+        ...intelPost,
+        user: {
+          full_name: profile?.full_name || "Anonymous",
+          avatar_url: profile?.avatar_url || null,
+        },
+        user_has_confirmed: false,
       };
-    }
 
-    // Get user profile for response
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url")
-      .eq("id", user.id)
-      .single();
+      revalidatePath("/");
 
-    const enrichedPost: IntelPostWithUser = {
-      ...intelPost,
-      user: {
-        full_name: profile?.full_name || "Anonymous",
-        avatar_url: profile?.avatar_url || null,
-      },
-      user_has_confirmed: false,
-    };
+      try {
+        const track = deps?.trackXP
+          ? deps.trackXP
+          : (await import("@/lib/gamification-actions")).trackXP;
+        await track("post_beach_intel", intelPost.id, "intel_post");
+      } catch (xpErr) {
+        console.warn("XP tracking failed for intel post:", xpErr);
+      }
 
-    // Revalidate the home page to refresh the intel feed
-    revalidatePath("/");
-
-    // Track XP for posting beach intel (non-blocking)
-    try {
-      const track = deps?.trackXP
-        ? deps.trackXP
-        : (await import("@/lib/gamification-actions")).trackXP;
-      await track("post_beach_intel", intelPost.id, "intel_post");
-    } catch (xpErr) {
-      console.warn("XP tracking failed for intel post:", xpErr);
-    }
-
-    return {
-      success: true,
-      data: enrichedPost,
-    };
+      return {
+        success: true,
+        data: enrichedPost,
+      } as ActionResult;
+    });
   } catch (error) {
     console.error("Error in createIntelPost:", error);
     return {
