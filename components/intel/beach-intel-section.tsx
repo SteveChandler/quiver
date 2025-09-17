@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,6 +66,7 @@ export function BeachIntelSection({
   const [optimisticUpdates, setOptimisticUpdates] = useState<
     Record<string, { user_has_confirmed: boolean; confirmations_count: number }>
   >({});
+  const [pendingPosts, setPendingPosts] = useState<IntelPostWithUser[]>([]);
   const { user } = useAuth();
 
   // Fetch intel data for this beach location
@@ -85,7 +86,17 @@ export function BeachIntelSection({
   // Apply optimistic updates to posts data
   const posts = useMemo(() => {
     const basePosts = intelData?.posts || [];
-    return basePosts.map((post) => {
+    const combined = [...pendingPosts, ...basePosts];
+    const seen = new Set<string>();
+
+    const deduped = combined.filter((post) => {
+      if (!post?.id) return false;
+      if (seen.has(post.id)) return false;
+      seen.add(post.id);
+      return true;
+    });
+
+    return deduped.map((post) => {
       const optimisticUpdate = optimisticUpdates[post.id];
       if (optimisticUpdate) {
         return {
@@ -96,7 +107,16 @@ export function BeachIntelSection({
       }
       return post;
     });
-  }, [intelData?.posts, optimisticUpdates]);
+  }, [intelData?.posts, optimisticUpdates, pendingPosts]);
+
+  useEffect(() => {
+    if (!intelData?.posts) return;
+    setPendingPosts((prev) =>
+      prev.filter(
+        (pending) => !intelData.posts.some((post) => post.id === pending.id)
+      )
+    );
+  }, [intelData?.posts]);
 
   // Handle intel post confirmation with optimistic updates
   const handleConfirmPost = useCallback(
@@ -180,11 +200,19 @@ export function BeachIntelSection({
     [user, posts, refetch]
   );
 
-  const handlePostCreated = useCallback(() => {
-    setShowPostForm(false);
-    refetch();
-    toast.success("Intel post created successfully!");
-  }, [refetch]);
+  const handlePostCreated = useCallback(
+    (newPost: IntelPostWithUser | null) => {
+      setShowPostForm(false);
+      if (newPost) {
+        setPendingPosts((prev) => [
+          newPost,
+          ...prev.filter((post) => post.id !== newPost.id),
+        ]);
+      }
+      refetch();
+    },
+    [refetch]
+  );
 
   if (loading && posts.length === 0) {
     return (

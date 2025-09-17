@@ -154,6 +154,29 @@ const mockCreateIntelPost = createIntelPost as any;
 const mockUploadImage = uploadImage as any;
 const mockToast = toast as any;
 
+const baseIntelPost = {
+  id: "intel-post-id",
+  user_id: "user-id",
+  beach_id: null,
+  latitude: 32.7507,
+  longitude: -117.254,
+  tag: "other",
+  title: "Mock Intel",
+  description: "Mock description",
+  photo_url: null,
+  confirmations_count: 0,
+  is_active: true,
+  surf_conditions: null,
+  expires_at: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  user_has_confirmed: false,
+  user: {
+    full_name: "Test User",
+    avatar_url: null,
+  },
+};
+
 describe("IntelPostForm", () => {
   const defaultProps = {
     isOpen: true,
@@ -164,7 +187,10 @@ describe("IntelPostForm", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCreateIntelPost.mockResolvedValue({ success: true });
+    mockCreateIntelPost.mockResolvedValue({
+      success: true,
+      data: { ...baseIntelPost },
+    });
   });
 
   it("renders basic form elements", () => {
@@ -336,6 +362,8 @@ describe("IntelPostForm", () => {
   it("calls onSuccess after successful submission", async () => {
     const user = userEvent.setup();
     const mockOnSuccess = jest.fn();
+    const createdPost = { ...baseIntelPost, id: "created-post" };
+    mockCreateIntelPost.mockResolvedValueOnce({ success: true, data: createdPost });
     render(<IntelPostForm {...defaultProps} onSuccess={mockOnSuccess} />);
 
     // Fill and submit form
@@ -344,7 +372,7 @@ describe("IntelPostForm", () => {
     await user.click(screen.getByText("Share Intel"));
 
     await waitFor(() => {
-      expect(mockOnSuccess).toHaveBeenCalled();
+      expect(mockOnSuccess).toHaveBeenCalledWith(createdPost);
     });
   });
 

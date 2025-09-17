@@ -25,6 +25,14 @@ export default async function globalSetup(config: FullConfig) {
   const page = await context.newPage();
 
   try {
+    // If running against protected deployment, set the bypass cookie first
+    if (!baseURL.includes('localhost') && bypass) {
+      const setBypassUrl = `/?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${encodeURIComponent(String(bypass))}`;
+      await page.goto(setBypassUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      // Give Vercel a moment to set cookie
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    }
+
     await page.goto('/auth/sign-in?redirectTo=/', { waitUntil: 'domcontentloaded' });
     await page.locator('#email').fill(email);
     await page.locator('#password').fill(password);

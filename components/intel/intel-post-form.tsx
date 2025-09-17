@@ -41,7 +41,7 @@ import {
 import { INTEL_CONFIG, INTEL_UI_TEXT, INTEL_TAGS } from "@/lib/constants/intel";
 import { createIntelPost } from "@/actions/intel-actions";
 import { uploadImage } from "@/lib/image-upload";
-import type { IntelPostTag } from "@/types/database";
+import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
@@ -105,7 +105,7 @@ type IntelPostFormData = z.infer<typeof intelPostSchema>;
 interface IntelPostFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (post: IntelPostWithUser | null) => void;
   initialLocation?: { latitude: number; longitude: number };
 }
 
@@ -334,6 +334,7 @@ export function IntelPostForm({
       });
 
       if (result.success) {
+        const newPost = result.data as IntelPostWithUser | undefined;
         toast.success(INTEL_UI_TEXT.SUCCESS.POST_CREATED);
         form.reset({
           tag: "other",
@@ -350,7 +351,7 @@ export function IntelPostForm({
         setLocation(null);
         setSelectedPhoto(null);
         setPhotoPreview(null);
-        onSuccess?.();
+        onSuccess?.(newPost ?? null);
         onClose();
       } else {
         toast.error(result.error || INTEL_UI_TEXT.ERROR.POST_FAILED);
