@@ -366,7 +366,36 @@ export function IntelPostForm({
   const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const values = form.getValues();
+      let values = form.getValues();
+
+      // For quick "conditions" posts, auto-generate content if fields are blank
+      if (values.tag === "conditions") {
+        const needsTitle = !values.title || !values.title.trim();
+        const needsDesc = !values.description || !values.description.trim();
+
+        if (needsTitle || needsDesc) {
+          const waveTypes = (values.wave_types || []).join(", ");
+          const parts: string[] = [];
+          if (waveTypes) parts.push(`Waves: ${waveTypes}`);
+          if (values.crowd_level) parts.push(`Crowd: ${values.crowd_level}/5`);
+          if (values.wind_direction || values.wind_speed !== null)
+            parts.push(
+              `Wind: ${values.wind_direction || ""}$${""}`.replace("$", "")
+            );
+          if (values.wind_speed !== null && values.wind_speed !== undefined)
+            parts.push(`Wind Speed: ${values.wind_speed} mph`);
+          if (values.water_temp !== null && values.water_temp !== undefined)
+            parts.push(`Water: ${values.water_temp}°F`);
+
+          const summary = parts.join(" • ") || "Real-time conditions update";
+          if (needsTitle) form.setValue("title", "Conditions update");
+          if (needsDesc) form.setValue("description", summary);
+          values = form.getValues();
+        }
+      }
+
+      // Validate required fields; provide helpful feedback and focus
+      const missing: string[] = [];
       let blocked = false;
       if (!values.title || !values.title.trim()) {
         form.setError("title", {
@@ -374,6 +403,7 @@ export function IntelPostForm({
           message: INTEL_UI_TEXT.VALIDATION.TITLE_REQUIRED,
         });
         blocked = true;
+        missing.push("title");
       }
       if (!values.description || !values.description.trim()) {
         form.setError("description", {
@@ -381,8 +411,20 @@ export function IntelPostForm({
           message: INTEL_UI_TEXT.VALIDATION.DESCRIPTION_REQUIRED,
         });
         blocked = true;
+        missing.push("description");
       }
-      if (blocked) return;
+      if (blocked) {
+        // Focus the first missing field and show a toast
+        if (missing.includes("title")) form.setFocus("title");
+        else if (missing.includes("description")) form.setFocus("description");
+        toast.error(
+          `Please complete the required ${missing.join(" and ")} field$${
+            missing.length > 1 ? "s" : ""
+          } before sharing.`.replace("$", "")
+        );
+        return;
+      }
+
       const isValid = await form.trigger(["title", "description", "tag"]);
       if (!isValid) return;
       await submitIntel(form.getValues());

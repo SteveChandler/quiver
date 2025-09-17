@@ -15,6 +15,7 @@
 ### Added
 
 - Live cam embed support with graceful fallback in `components/beach-detail/cams-section.tsx` using `lib/media/cam-embed.ts`.
+- Supabase storage: created `intel-photos` bucket with public read and owner-only write/update/delete RLS policies, enabling intel photo uploads. SQL in `supabase/migrations/20250917_create_intel_photos_bucket.sql`. Follows policy style from `20250829040000_create_avatar_storage_policies.sql` and uses `INTEL_CONFIG.PHOTO_UPLOAD_BUCKET`.
 
 ### Fixed
 
