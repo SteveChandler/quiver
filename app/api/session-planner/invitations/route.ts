@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
           const { data: existingUser } = await supabase
             .from("profiles")
             .select("id")
-            .eq("email", invitee.email)
+            .ilike("email", invitee.email)
             .single();
 
           if (existingUser) {
@@ -168,6 +168,8 @@ export async function POST(request: NextRequest) {
           resolvedUserId: inviteeUserId || null,
         });
 
+        const normalizedEmail = invitee.email ? invitee.email.toLowerCase() : undefined;
+
         // Check for existing invitation (per-invitee uniqueness)
         const { data: existingInvitation } = await serviceSupabase
           .from("session_invitations")
@@ -175,7 +177,7 @@ export async function POST(request: NextRequest) {
           .eq("session_id", sessionId)
           .eq(
             inviteeUserId ? "invitee_id" : "invitee_email",
-            inviteeUserId || invitee.email
+            inviteeUserId || normalizedEmail
           )
           .single();
 
@@ -202,7 +204,7 @@ export async function POST(request: NextRequest) {
           session_id: sessionId,
           inviter_id: user.id,
           invitee_id: inviteeUserId,
-          invitee_email: invitee.email,
+          invitee_email: normalizedEmail,
           status: "pending" as const,
           message: message || null,
           created_at: new Date().toISOString(),
@@ -511,8 +513,8 @@ export async function GET(request: NextRequest) {
       if (emailVal && typeof emailVal === "string" && emailVal.length > 0) {
         const byEmail = serviceSupabase
           .from("session_invitations")
-          .select("*")
-          .eq("invitee_email", emailVal)
+          .select(selectFields)
+          .ilike("invitee_email", emailVal)
           .order("created_at", { ascending: false });
         filters.push(byEmail);
       }
@@ -543,7 +545,7 @@ export async function GET(request: NextRequest) {
       );
 
       if (sessionId) {
-        invitations = invitations.filter((inv) => inv.session_id === sessionId);
+        invitations = invitations.filter((inv: any) => inv.session?.id === sessionId);
       }
     }
 
@@ -653,7 +655,7 @@ export async function PATCH(request: NextRequest) {
       .from("session_invitations")
       .select("*")
       .eq("id", invitationId)
-      .or(`invitee_id.eq.${user.id},invitee_email.eq.${user.email}`)
+      .or(`invitee_id.eq.${user.id},invitee_email.ilike.${user.email}`)
       .single();
 
     if (invitationError || !invitation) {

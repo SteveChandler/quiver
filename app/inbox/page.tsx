@@ -71,26 +71,23 @@ export default function InboxPage() {
     refetch,
   } = useDataFetcher<Invitation[]>(fetchInvites);
 
-  const markInvitationsSeen = useCallback(
-    async (ids: string[]) => {
-      const unseen = ids.filter((id) => !inFlightSeen.current.has(id));
-      if (unseen.length === 0) return;
+  const markInvitationsSeen = useCallback(async (ids: string[]) => {
+    const unseen = ids.filter((id) => !inFlightSeen.current.has(id));
+    if (unseen.length === 0) return;
 
-      unseen.forEach((id) => inFlightSeen.current.add(id));
+    unseen.forEach((id) => inFlightSeen.current.add(id));
 
-      try {
-        await fetch("/api/session-planner/invitations", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ markSeen: true, invitationIds: unseen }),
-        });
-      } catch (err) {
-        unseen.forEach((id) => inFlightSeen.current.delete(id));
-        console.error("Failed to mark invitations as seen", err);
-      }
-    },
-    []
-  );
+    try {
+      await fetch("/api/session-planner/invitations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markSeen: true, invitationIds: unseen }),
+      });
+    } catch (err) {
+      unseen.forEach((id) => inFlightSeen.current.delete(id));
+      console.error("Failed to mark invitations as seen", err);
+    }
+  }, []);
 
   useEffect(() => {
     if (!invitations || invitations.length === 0) return;
@@ -132,7 +129,7 @@ export default function InboxPage() {
       channels.push(userChannel);
     }
 
-    const emailValue = user?.email;
+    const emailValue = user?.email?.toLowerCase();
     if (emailValue) {
       const encoded = encodeURIComponent(emailValue);
       const emailChannel = supabase
