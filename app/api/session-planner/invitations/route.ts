@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  createSupabaseServiceRoleClient,
+} from "@/lib/supabase/server";
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -78,6 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createSupabaseServerClient();
+    const serviceSupabase = await createSupabaseServiceRoleClient();
 
     // Get the current user
     const {
@@ -163,7 +167,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Check for existing invitation (per-invitee uniqueness)
-        const { data: existingInvitation } = await supabase
+        const { data: existingInvitation } = await serviceSupabase
           .from("session_invitations")
           .select("id")
           .eq("session_id", sessionId)
@@ -203,7 +207,7 @@ export async function POST(request: NextRequest) {
           idempotency_key: perInviteeIdempKey,
         };
 
-        const { data: newInvitation, error: invitationError } = await supabase
+        const { data: newInvitation, error: invitationError } = await serviceSupabase
           .from("session_invitations")
           .insert(invitationData)
           .select()
