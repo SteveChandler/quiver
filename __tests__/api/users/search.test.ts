@@ -34,11 +34,13 @@ function mockProfilesQuery(mockClient: any, profilesData: any, error: any = null
       full_name: user.full_name,
       followers_count: user.followers_count,
       following_count: user.following_count,
+      avatar_url: user.avatar_url,
+      email: user.email,
     })) : profilesData;
 
   mockClient.from.mockReturnValue({
     select: jest.fn(() => ({
-      ilike: jest.fn(() => ({
+      or: jest.fn(() => ({
         neq: jest.fn(() => ({
           gt: jest.fn(() => ({
             order: jest.fn(() => ({
@@ -119,6 +121,40 @@ describe("/api/users/search", () => {
       });
 
       expect(mockSupabaseClient.from).toHaveBeenCalledWith("profiles");
+    });
+
+    it("should return users when searching by email", async () => {
+      const currentUser = createMockUser({ id: "current-user" });
+      const mockUsers = [
+        createMockProfile({
+          id: "user-1",
+          full_name: "Steven Chandler",
+          followers_count: 42,
+          following_count: 7,
+          email: "stcha0004@gmail.com",
+        }),
+      ];
+
+      mockAuthenticatedUser(mockSupabaseClient, currentUser);
+
+      mockProfilesQuery(mockSupabaseClient, mockUsers);
+
+      const request = createMockRequest(
+        "GET",
+        "http://localhost:3000/api/users/search",
+        {
+          searchParams: { q: "stcha0004@gmail.com" },
+        }
+      );
+
+      const response = await GET(request);
+      const data = await expectSuccessResponse(response, 200);
+
+      expect(data.data.users).toHaveLength(1);
+      const [user] = data.data.users;
+      expect(user.full_name).toBe("Steven Chandler");
+      expect(user).not.toHaveProperty("email");
+      expect(user.relevance).toBeGreaterThan(0);
     });
 
     it("should return empty results when query is too short", async () => {

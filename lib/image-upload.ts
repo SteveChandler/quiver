@@ -33,13 +33,23 @@ export async function uploadImage(
       throw new Error("File too large");
     }
 
-    // Create a unique file name using user ID for avatars
-    const fileExt = file.name.split(".").pop();
-    const fileName =
-      folder === "profiles"
-        ? `${currentUserId}.${fileExt}`
-        : `${currentUserId}/${Date.now()}.${fileExt}`;
-    const filePath = `${folder}/${fileName}`;
+    // Build storage path
+    // For avatars bucket, RLS requires first folder to be the user id.
+    // We therefore store at: avatars/<userId>/avatar.<ext>
+    const fileExt = file.name.split(".").pop() || "jpg";
+
+    let filePath: string;
+    if (bucket === "avatars") {
+      // Ignore provided folder to align with storage policy
+      filePath = `${currentUserId}/avatar.${fileExt}`;
+    } else {
+      // Preserve existing convention for other buckets
+      const fileName =
+        folder === "profiles"
+          ? `${currentUserId}.${fileExt}`
+          : `${currentUserId}/${Date.now()}.${fileExt}`;
+      filePath = `${folder}/${fileName}`;
+    }
 
     // Upload the file
     const { data, error } = await supabase.storage

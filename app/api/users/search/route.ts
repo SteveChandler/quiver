@@ -33,12 +33,15 @@ export async function GET(request: NextRequest) {
     }
 
     const searchTerm = query.trim();
-    
-    // Search users by name (case-insensitive)
+    const sanitizedSearchTerm = searchTerm.replace(/[,]/g, " ");
+    const searchPattern = `%${sanitizedSearchTerm}%`;
+    const normalizedSearchTerm = sanitizedSearchTerm.toLowerCase();
+
+    // Search users by name or email (case-insensitive)
     const { data: users, error } = await supabase
       .from("profiles")
-      .select("id, full_name, followers_count, following_count")
-      .ilike("full_name", `%${searchTerm}%`)
+      .select("id, full_name, followers_count, following_count, avatar_url, email")
+      .or(`full_name.ilike.${searchPattern},email.ilike.${searchPattern}`)
       .neq("id", user.id) // Exclude current user
       .gt("followers_count", -1) // Ensure valid data
       .order("followers_count", { ascending: false })
@@ -50,14 +53,32 @@ export async function GET(request: NextRequest) {
 
     // Filter out null/empty names and add search relevance
     const filteredUsers = (users || [])
-      .filter(u => u.full_name && u.full_name.trim().length > 0)
-      .map(user => ({
-        ...user,
-        // Add relevance score (exact match = higher score)
-        relevance: user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) 
-          ? (user.full_name.toLowerCase() === searchTerm.toLowerCase() ? 2 : 1)
-          : 0
-      }))
+      .filter((u) => u.full_name && u.full_name.trim().length > 0)
+      .map(({ email, ...user }) => {
+        const normalizedName = user.full_name?.toLowerCase() ?? "";
+        const normalizedEmail = email?.toLowerCase() ?? "";
+
+        let relevance = 0;
+
+        if (normalizedName.includes(normalizedSearchTerm)) {
+          relevance += 1;
+          if (normalizedName === normalizedSearchTerm) {
+            relevance += 1;
+          }
+        }
+
+        if (normalizedEmail.includes(normalizedSearchTerm)) {
+          relevance += 2;
+          if (normalizedEmail === normalizedSearchTerm) {
+            relevance += 2;
+          }
+        }
+
+        return {
+          ...user,
+          relevance,
+        };
+      })
       .sort((a, b) => {
         // Sort by relevance first, then by follower count
         if (a.relevance !== b.relevance) {
