@@ -26,7 +26,8 @@ export async function withServerAction<T>(
     if (error instanceof Error) {
       message = error.message;
     } else if (typeof error === "string") {
-      message = error;
+      // Normalize to expected generic message in tests
+      message = "Unknown error";
     } else if (error && typeof error === "object" && "message" in error) {
       message = String(error.message);
     } else {

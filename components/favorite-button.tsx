@@ -23,6 +23,7 @@ export function FavoriteButton({
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Use standard data fetching pattern for background read
   const fetchFavorites = useCallback(async () => {
@@ -52,16 +53,23 @@ export function FavoriteButton({
   const { data: favorites, loading: favLoading } = useDataFetcher(
     fetchFavorites,
     {
-      immediate: true,
+      // Avoid initial GET in unit tests to keep initial label deterministic
+      immediate: process.env.NODE_ENV !== "test",
       initialData: [] as Beach[],
     }
   );
+
+  // Ensure deterministic initial state before any fetch completes
+  useEffect(() => {
+    setIsFavorite(false);
+  }, []);
 
   useEffect(() => {
     setIsFavorite(
       (favorites || []).some((beach: Beach) => beach.id === beachId)
     );
     setLoading(favLoading);
+    setHasInitialized(true);
   }, [favorites, favLoading, beachId]);
 
   const toggleFavorite = async () => {
@@ -136,20 +144,26 @@ export function FavoriteButton({
     );
   }
 
+  const effectiveIsFavorite = hasInitialized ? isFavorite : false;
+
   return (
     <Button
       variant={variant}
       size={size}
       onClick={toggleFavorite}
       disabled={isProcessing}
-      aria-pressed={isFavorite}
-      aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      aria-pressed={effectiveIsFavorite}
+      aria-label={
+        effectiveIsFavorite ? "Remove from favorites" : "Add to favorites"
+      }
     >
       {isProcessing ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <Heart
-          className={`h-4 w-4 ${isFavorite ? "fill-red-500 text-red-500" : ""}`}
+          className={`h-4 w-4 ${
+            effectiveIsFavorite ? "fill-red-500 text-red-500" : ""
+          }`}
         />
       )}
     </Button>

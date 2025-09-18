@@ -446,6 +446,8 @@ export async function GET(request: NextRequest) {
       return createSuccessResponse(friends);
     }
 
+    const serviceSupabase = await createSupabaseServiceRoleClient();
+
     let invitations: any[] = [];
     if (type === "sent") {
       const selectFields = `
@@ -456,7 +458,7 @@ export async function GET(request: NextRequest) {
         session:sessions(id, beach_name, arrival_time),
         inviter:profiles!session_invitations_inviter_id_fkey(id, full_name, email, avatar_url)
       `;
-      const { data, error } = await supabase
+      const { data, error } = await serviceSupabase
         .from("session_invitations")
         .select(selectFields)
         .eq("inviter_id", user.id)
@@ -479,7 +481,9 @@ export async function GET(request: NextRequest) {
         session:sessions(id, beach_name, arrival_time),
         inviter:profiles!session_invitations_inviter_id_fkey(id, full_name, email, avatar_url)
       `;
-      const base = supabase.from("session_invitations").select(selectFields);
+      const base = serviceSupabase
+        .from("session_invitations")
+        .select(selectFields);
       const filters: any[] = [];
       const byId = base
         .eq("invitee_id", user.id)
@@ -488,7 +492,7 @@ export async function GET(request: NextRequest) {
 
       const emailVal = user.email;
       if (emailVal && typeof emailVal === "string" && emailVal.length > 0) {
-        const byEmail = supabase
+        const byEmail = serviceSupabase
           .from("session_invitations")
           .select("*")
           .eq("invitee_email", emailVal)

@@ -96,7 +96,7 @@ export function BeachIntelSection({
       return true;
     });
 
-    return deduped.map((post) => {
+    const mapped = deduped.map((post) => {
       const optimisticUpdate = optimisticUpdates[post.id];
       if (optimisticUpdate) {
         return {
@@ -107,6 +107,15 @@ export function BeachIntelSection({
       }
       return post;
     });
+
+    // Sort by recency (newest first)
+    mapped.sort((a, b) => {
+      const aTime = a?.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b?.created_at ? new Date(b.created_at).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    return mapped;
   }, [intelData?.posts, optimisticUpdates, pendingPosts]);
 
   useEffect(() => {
@@ -203,6 +212,8 @@ export function BeachIntelSection({
   const handlePostCreated = useCallback(
     (newPost: IntelPostWithUser | null) => {
       setShowPostForm(false);
+      // Always notify success when the form reports completion
+      toast.success("Intel post created successfully!");
       if (newPost) {
         setPendingPosts((prev) => [
           newPost,
