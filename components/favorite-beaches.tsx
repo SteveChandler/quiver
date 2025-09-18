@@ -143,7 +143,7 @@ export function FavoriteBeaches() {
   if (beaches.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        <p>You don't have any favorite beaches yet.</p>
+        <p>You don&apos;t have any favorite beaches yet.</p>
         <Button variant="link" asChild>
           <Link href="/map">Explore beaches</Link>
         </Button>

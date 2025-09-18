@@ -315,7 +315,7 @@ export function EngagementProgressTracker() {
           animate={{ scale: 1 }}
           className="mt-2 text-center"
         >
-          <p className="text-sm font-medium text-green-600">🎉 You're a pro!</p>
+          <p className="text-sm font-medium text-green-600">🎉 You’re a pro!</p>
         </motion.div>
       )}
     </motion.div>

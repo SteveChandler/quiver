@@ -116,7 +116,7 @@ export default function PrivacyPage() {
               </div>
               <div>
                 <h3 className="text-lg font-roboto font-semibold text-dark-grey mb-3">
-                  Children's Privacy
+                  Children’s Privacy
                 </h3>
                 <p className="text-gray-600 font-open-sans leading-relaxed">
                   {importantInfo.childrenPolicy}

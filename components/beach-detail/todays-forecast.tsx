@@ -17,7 +17,7 @@ function ModernForecastDisplay({ forecast }: { forecast: Forecast }) {
       <CardContent className="p-6">
         <div className="text-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800 mb-1">
-            Today's Forecast
+            Today’s Forecast
           </h3>
           <p className="text-sm text-gray-600">
             {new Date(forecast.forecast_date).toLocaleDateString("en-US", {
@@ -36,8 +36,8 @@ function ModernForecastDisplay({ forecast }: { forecast: Forecast }) {
                 <Waves className="h-5 w-5 text-blue-600" />
                 <span className="font-medium text-gray-800">Wave Height</span>
               </div>
-              <WaveHeightDisplay 
-                height={forecast.wave_height} 
+              <WaveHeightDisplay
+                height={forecast.wave_height}
                 className="text-lg font-semibold text-blue-600"
               />
             </div>
@@ -86,7 +86,7 @@ export function TodaysForecast({ forecast }: TodaysForecastProps) {
 
   return (
     <section className="space-y-4">
-      <h3 className="text-lg font-semibold">Today's Forecast</h3>
+      <h3 className="text-lg font-semibold">Today&apos;s Forecast</h3>
       {forecast ? (
         <div className="space-y-4">
           {/* Enhanced forecast with community adjustments */}

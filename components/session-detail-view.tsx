@@ -286,8 +286,8 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
                 <div>
                   <p className="font-medium text-blue-800">Planned Session</p>
                   <p className="text-sm text-blue-700">
-                    This session is planned for {formattedDate}. Click "Mark as
-                    Completed" to log the details of your actual session.
+                    This session is planned for {formattedDate}. Click “Mark as
+                    Completed” to log the details of your actual session.
                   </p>
                   {session.notes && (
                     <div className="mt-2 p-2 bg-blue-100 rounded text-sm">

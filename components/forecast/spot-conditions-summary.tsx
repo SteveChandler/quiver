@@ -54,8 +54,6 @@ export function SpotConditionsSummary({ data, className }: Props) {
     return data.sun[0];
   }, [data]);
 
-  if (!data) return null;
-
   const sourceLabel = useMemo(() => {
     // Prefer marine source if present
     if (latest) {
@@ -68,6 +66,8 @@ export function SpotConditionsSummary({ data, className }: Props) {
     if (data.tides?.length) return "NOAA";
     return "–";
   }, [latest, data]);
+
+  if (!data) return null;
 
   return (
     <Card className={cn("p-3 sm:p-4", className)}>

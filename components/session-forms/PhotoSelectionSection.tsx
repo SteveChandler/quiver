@@ -51,10 +51,7 @@ export function PhotoSelectionSection({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const text = getFormText(mode);
 
-  // Only show for log mode
-  if (mode !== "log") {
-    return null;
-  }
+  // Hooks must be called unconditionally; gate rendering later
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -180,6 +177,10 @@ export function PhotoSelectionSection({
     if (!e.target.files || disabled || isProcessing) return;
     processFiles(e.target.files);
   };
+
+  if (mode !== "log") {
+    return null;
+  }
 
   return (
     <SimpleCardLayout

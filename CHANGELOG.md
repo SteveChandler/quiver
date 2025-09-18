@@ -30,6 +30,7 @@
 - Profile edits not saving name reliably: `actions/profile-actions.updateProfile` now strips non-DB keys (e.g., `home_beach_text`) before building the DB payload, preventing silent failures and ensuring `full_name` persists. Cache revalidation tags remain intact.
 - Profile picture not displaying after upload/remove: `components/edit-profile-form.tsx` now persists `avatar_url` immediately on upload and clears it on remove via `updateProfile`, then updates local state. This fixes stale placeholders in the modal/profile without requiring a full page reload.
 - API consistency for client hooks: `GET /api/me/profile` now includes `avatar_url` (and light details like `bio`, `location`) so avatar renders in UIs using `useProfile()` immediately after edits.
+- ESLint cleanup: resolved all Error-severity lint issues across app/components. Fixed conditional hook calls, stabilized memoization, and escaped unescaped quotes in JSX (e.g., `BeachesEnhancedForecast`, `BottomNavigation`, `PhotoSelectionSection`, and various UI text). Lint now passes with warnings only, following `hooks/ARCHITECTURE.md` patterns.
 
 ### Changed
 
@@ -256,11 +257,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Types architecture updated to reflect 0–100 confidence scale.
 
-  - `components/BeachSelector.tsx` now uses `useDataFetcher` + `data.beaches.getAll()`
-  - `hooks/use-session-like.ts` uses gateway for initial state + toggle; realtime kept
-  - `hooks/use-comment-count.ts` uses gateway for initial count; realtime kept
-  - `components/session-comments.tsx` uses gateway for list/create/delete; realtime kept
-  - `hooks/use-user-follow.ts` uses gateway for initial state + toggle; realtime kept
+- Notifications system documented in `docs/notifications-architecture.md`: current architecture, known breakage (invited user not receiving in-app notification), proposed security changes (RPC auth, RLS), inbox source-of-truth, read-state consideration, realtime subscription patterns for header and inbox, inviter-response notifications, email idempotency/compliance, and rate limiting recommendations.
+
+- `components/BeachSelector.tsx` now uses `useDataFetcher` + `data.beaches.getAll()`
+- `hooks/use-session-like.ts` uses gateway for initial state + toggle; realtime kept
+- `hooks/use-comment-count.ts` uses gateway for initial count; realtime kept
+- `components/session-comments.tsx` uses gateway for list/create/delete; realtime kept
+- `hooks/use-user-follow.ts` uses gateway for initial state + toggle; realtime kept
 
 - Pinned critical dependencies to explicit versions: `@hookform/resolvers@3.3.4`, `@supabase/ssr@0.5.1`, `@supabase/supabase-js@2.45.4`, `react-hook-form@7.53.2`. Keeps builds reproducible and aligns with consolidation RFC.
 - Profile updates consolidated on `updateProfile({ home_beach_id })`; removed `setHomeBeach`

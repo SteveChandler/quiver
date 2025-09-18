@@ -163,16 +163,21 @@ describe("lib/data/client gateway", () => {
       expect(res).toEqual({ following: true, followersCount: 3, followingCount: 4 });
     });
 
-    it("toggle POSTs and returns json", async () => {
+    it("toggle POSTs and unwraps server action payload", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } })
+        new Response(
+          JSON.stringify({
+            data: { success: true, data: { followId: "follow-123" } },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
       );
       const res = await data.users.follow.toggle("u1");
       expect(global.fetch).toHaveBeenCalledWith(
         "/api/users/u1/follow/toggle",
         expect.objectContaining({ method: "POST" })
       );
-      expect(await res).toEqual({ ok: true });
+      expect(res).toEqual({ success: true, data: { followId: "follow-123" } });
     });
 
     it("throws on non-ok for both", async () => {
@@ -264,5 +269,4 @@ describe("lib/data/client gateway", () => {
     });
   });
 });
-
 

@@ -398,7 +398,7 @@ export function CheckInForm({
             {/* Forecast Accuracy */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                Was today's forecast accurate?
+                Was today’s forecast accurate?
               </h3>
 
               <FormField

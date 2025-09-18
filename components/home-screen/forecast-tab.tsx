@@ -273,7 +273,7 @@ export function ForecastTab({
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Waves className="h-5 w-5 text-blue-500" />
-                <span>Today's Forecast</span>
+                <span>Today’s Forecast</span>
                 {!showAdjusted && (
                   <Badge variant="outline" className="text-xs">
                     Raw Data

@@ -301,7 +301,10 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
                     <FormItem>
                       <FormLabel>Dimensions</FormLabel>
                       <FormControl>
-                        <Input placeholder="5'10 x 19 1/4 x 2 3/8" {...field} />
+                        <Input
+                          placeholder={"5'10 x 19 1/4 x 2 3/8"}
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -362,7 +365,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
         {boards.length === 0 ? (
           <div className="text-center py-6">
             <p className="text-muted-foreground">
-              You haven't added any boards yet.
+              You haven’t added any boards yet.
             </p>
             <Button
               variant="outline"
@@ -517,7 +520,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
           <DialogHeader>
             <DialogTitle>Delete Board</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{selectedBoard?.name}"? This
+              Are you sure you want to delete “{selectedBoard?.name}”? This
               action cannot be undone.
             </DialogDescription>
           </DialogHeader>

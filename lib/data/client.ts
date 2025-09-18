@@ -122,7 +122,15 @@ export const data = {
           headers: { "Content-Type": "application/json" },
         });
         if (!res.ok) throw new Error(`Failed to toggle follow: ${res.status}`);
-        return res.json();
+        const json = await res.json();
+
+        // API routes wrap server action responses in { success, data }, so
+        // surface the inner server action payload for callers.
+        if (json && typeof json === "object" && "data" in json) {
+          return json.data;
+        }
+
+        return json;
       },
     },
     comments: {
@@ -176,4 +184,3 @@ export const data = {
 };
 
 export type { Beach };
-

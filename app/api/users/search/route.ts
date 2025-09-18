@@ -53,7 +53,11 @@ export async function GET(request: NextRequest) {
 
     // Filter out null/empty names and add search relevance
     const filteredUsers = (users || [])
-      .filter((u) => u.full_name && u.full_name.trim().length > 0)
+      .filter((u) => {
+        // Keep profiles with either a name or email matchable content
+        const hasName = Boolean(u.full_name && u.full_name.trim().length > 0);
+        return hasName || Boolean(u.email);
+      })
       .map(({ email, ...user }) => {
         const normalizedName = user.full_name?.toLowerCase() ?? "";
         const normalizedEmail = email?.toLowerCase() ?? "";

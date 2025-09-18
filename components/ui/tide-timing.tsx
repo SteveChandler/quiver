@@ -176,7 +176,7 @@ export function TideSchedule({ tides, className }: TideScheduleProps) {
     <div className={cn("space-y-2", className)}>
       <div className="flex items-center gap-2 mb-3">
         <Clock className="h-4 w-4 text-blue-600" />
-        <span className="text-sm font-medium">Today's Tides</span>
+        <span className="text-sm font-medium">Today&apos;s Tides</span>
       </div>
 
       <div className="space-y-2">
@@ -204,7 +204,9 @@ export function TideSchedule({ tides, className }: TideScheduleProps) {
                   <ArrowDown className="h-4 w-4 text-gray-600" />
                 )}
                 <span className="font-medium">{isHigh ? "High" : "Low"}</span>
-                <span className="text-muted-foreground">{Math.round(tide.height * 10) / 10}ft</span>
+                <span className="text-muted-foreground">
+                  {Math.round(tide.height * 10) / 10}ft
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-mono">{formatTideTime(tide.time)}</span>

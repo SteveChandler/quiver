@@ -157,6 +157,34 @@ describe("/api/users/search", () => {
       expect(user.relevance).toBeGreaterThan(0);
     });
 
+    it("should include users without full names when email matches", async () => {
+      const currentUser = createMockUser({ id: "current-user" });
+      const mockUsers = [
+        createMockProfile({
+          id: "user-2",
+          full_name: null,
+          followers_count: 0,
+          following_count: 0,
+          email: "nameless@example.com",
+        }),
+      ];
+
+      mockAuthenticatedUser(mockSupabaseClient, currentUser);
+      mockProfilesQuery(mockSupabaseClient, mockUsers);
+
+      const request = createMockRequest("GET", "http://localhost:3000/api/users/search", {
+        searchParams: { q: "nameless@example.com" },
+      });
+
+      const response = await GET(request);
+      const data = await expectSuccessResponse(response, 200);
+
+      expect(data.data.users).toHaveLength(1);
+      const [user] = data.data.users;
+      expect(user.full_name).toBeNull();
+      expect(user.relevance).toBeGreaterThan(0);
+    });
+
     it("should return empty results when query is too short", async () => {
       const request = createMockRequest("GET", "http://localhost:3000/api/users/search", {
         searchParams: { q: "a" },

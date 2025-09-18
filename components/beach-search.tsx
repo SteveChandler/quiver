@@ -34,7 +34,7 @@ function FallbackForecastDisplay({ forecast }: { forecast: any }) {
       {/* Today's Date Header */}
       <div className="text-center pb-3 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-800">
-          Today's Forecast
+          Today’s Forecast
         </h3>
         <p className="text-sm text-gray-600">
           {new Date().toLocaleDateString("en-US", {
@@ -680,7 +680,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 <div className="text-center pb-3 border-b border-gray-200">
                   <div className="flex items-center justify-center gap-2">
                     <h3 className="text-lg font-semibold text-gray-800">
-                      Today's Forecast
+                      Today’s Forecast
                     </h3>
                     <Button
                       variant="ghost"

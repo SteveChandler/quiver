@@ -318,7 +318,7 @@ export function GroupInvitationsSection({
                       When: {formState.selectedDate} at {formState.selectedTime}
                     </p>
                   )}
-                  {invitationMessage && <p>Message: "{invitationMessage}"</p>}
+                  {invitationMessage && <p>Message: “{invitationMessage}”</p>}
                 </div>
               </div>
             </div>
@@ -337,7 +337,7 @@ export function GroupInvitationsSection({
             <ul className="text-blue-700 space-y-1 text-xs">
               <li>• Friends receive notifications when you save the session</li>
               <li>• They can accept or decline your invitation</li>
-              <li>• You'll see who's joining in your session details</li>
+              <li>• You’ll see who’s joining in your session details</li>
               <li>• Everyone can see who else is going</li>
               <li>• Perfect for coordinating dawn patrol sessions!</li>
             </ul>
@@ -353,7 +353,7 @@ export function GroupInvitationsSection({
             variant="outline"
             size="sm"
             onClick={() =>
-              handleTemplateClick("Dawn patrol tomorrow! Who's in? 🌅🏄‍♂️")
+              handleTemplateClick("Dawn patrol tomorrow! Who’s in? 🌅🏄‍♂️")
             }
             className="text-xs"
           >
@@ -365,7 +365,7 @@ export function GroupInvitationsSection({
             size="sm"
             onClick={() =>
               handleTemplateClick(
-                "Conditions looking epic! Let's get some waves 🤙"
+                "Conditions looking epic! Let’s get some waves 🤙"
               )
             }
             className="text-xs"

@@ -75,7 +75,7 @@ export function useXPToastSystem() {
       description: (
         <div className="space-y-1">
           <p>
-            You're now a{" "}
+            You’re now a{" "}
             <span className="font-semibold text-blue-600">
               {result.level_title}
             </span>
