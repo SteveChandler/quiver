@@ -206,12 +206,17 @@ export function EditProfileForm({
       }
       uploadSuccess = true;
 
-      // Only delete old image after successful upload
+      // Persist the avatar change immediately so profile views see it
+      const persisted = await updateProfile({ avatar_url: result.url });
+      if (!persisted.success) {
+        throw new Error(persisted.error || "Failed to save profile picture");
+      }
+
+      // Only delete old image after successful upload + DB update
       if (avatarUrl && !avatarUrl.includes("placeholder.svg")) {
         try {
           await deleteImage(avatarUrl, "avatars");
         } catch (deleteError) {
-          // Don't fail the whole operation if we can't delete the old image
           console.warn(
             "Failed to delete old image, but new image uploaded successfully:",
             deleteError
@@ -219,10 +224,9 @@ export function EditProfileForm({
         }
       }
 
-      // Update the avatar URL
+      // Update the local avatar URL for immediate UI feedback
       setAvatarUrl(result.url);
 
-      // Show success message
       toast({
         title: "Profile picture updated",
         description: "Your profile picture has been updated successfully.",
@@ -258,7 +262,13 @@ export function EditProfileForm({
       // Delete the image
       await deleteImage(avatarUrl, "avatars");
 
-      // Set to placeholder
+      // Persist removal in DB
+      const persisted = await updateProfile({ avatar_url: "" });
+      if (!persisted.success) {
+        throw new Error(persisted.error || "Failed to remove profile picture");
+      }
+
+      // Set to placeholder locally
       setAvatarUrl("/placeholder.svg?height=200&width=200");
       toast({
         title: "Image removed",

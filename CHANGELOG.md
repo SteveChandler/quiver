@@ -27,6 +27,9 @@
 - Beach Detail incorrect error flash: prioritized loading state and removed `!forecasts` from error guard in `components/beach-detail.tsx`. Added tests to prevent regression.
 - Intel posts not appearing from Beach Detail: added RLS INSERT policy allowing authenticated users to insert into `public.intel_posts` when `user_id = (select auth.uid())`. Implemented via migration `20250919_add_intel_posts_insert_policy.sql`. Aligns with `supabase/ARCHITECTURE.md` policy pattern using `(select auth.uid())` for stable plans.
 - Profile avatar upload RLS failure: aligned client upload path with storage policy by saving avatars to `avatars/<userId>/avatar.<ext>` (first segment is user id). Implemented in `lib/image-upload.ts`; no policy weakening needed. Fixes “new row violates row-level security policy” when updating profile picture.
+- Profile edits not saving name reliably: `actions/profile-actions.updateProfile` now strips non-DB keys (e.g., `home_beach_text`) before building the DB payload, preventing silent failures and ensuring `full_name` persists. Cache revalidation tags remain intact.
+- Profile picture not displaying after upload/remove: `components/edit-profile-form.tsx` now persists `avatar_url` immediately on upload and clears it on remove via `updateProfile`, then updates local state. This fixes stale placeholders in the modal/profile without requiring a full page reload.
+- API consistency for client hooks: `GET /api/me/profile` now includes `avatar_url` (and light details like `bio`, `location`) so avatar renders in UIs using `useProfile()` immediately after edits.
 
 ### Changed
 
