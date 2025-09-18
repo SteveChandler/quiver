@@ -267,7 +267,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     if (showFallbackMessage && availableBeaches.length === 0) {
       loadAvailableBeaches();
     }
-  }, [showFallbackMessage]);
+  }, [showFallbackMessage, availableBeaches.length]);
 
   // Helper function to check if beach matches the search query
   const doesBeachMatchSearch = (
@@ -385,7 +385,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     // Add a small delay to prevent flash of loading state
     const timeoutId = setTimeout(initializeComponent, 100);
     return () => clearTimeout(timeoutId);
-  }, [profile]);
+  }, [profile, isInitialized]);
 
   // Reset when profile's home beach changes (but not when isInitialized changes)
   useEffect(() => {
@@ -400,7 +400,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
       setOutOfAreaMessage("");
       setIsOutOfAreaSearch(false);
     }
-  }, [profile?.home_beach_id]);
+  }, [profile?.home_beach_id, isInitialized]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();

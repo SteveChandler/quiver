@@ -218,6 +218,7 @@ export default function SessionPhotoGallery({
               className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer"
               onClick={() => openLightbox(index)}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.public_url}
                 alt={photo.caption || `Session photo ${index + 1}`}
@@ -285,6 +286,7 @@ export default function SessionPhotoGallery({
             <div className="relative">
               {/* Image */}
               <div className="relative bg-black">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={currentPhoto.public_url}
                   alt={currentPhoto.caption || "Session photo"}

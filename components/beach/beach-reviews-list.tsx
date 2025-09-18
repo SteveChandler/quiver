@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
@@ -15,6 +15,7 @@ import { useAuth } from "@/context/auth-context";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { BeachReviewWithUser } from "@/types/database";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,27 +41,34 @@ export function BeachReviewsList({
 }: BeachReviewsListProps) {
   const { user } = useAuth();
   const [reviews, setReviews] = useState<BeachReviewWithUser[]>([]);
-  const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const fetchReviews = async () => {
-    try {
-      const result = await getBeachReviews(beachId);
-      if (result.success) {
-        setReviews(result.data || []);
-      } else {
-        console.error("Error fetching reviews:", result.error);
-      }
-    } catch (error) {
-      console.error("Error fetching reviews:", error);
-    } finally {
-      setLoading(false);
+  const fetchReviews = useCallback(async () => {
+    const result = await getBeachReviews(beachId);
+    if (result.success) {
+      return result.data || [];
     }
-  };
+    throw new Error(result.error || "Failed to fetch reviews");
+  }, [beachId]);
+
+  const { data, loading, refetch } = useDataFetcher<BeachReviewWithUser[]>(
+    fetchReviews,
+    {
+      immediate: true,
+    }
+  );
 
   useEffect(() => {
-    fetchReviews();
-  }, [beachId, refreshTrigger]);
+    if (data) {
+      setReviews(data);
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (typeof refreshTrigger !== "undefined") {
+      refetch();
+    }
+  }, [refreshTrigger, refetch]);
 
   const handleDeleteReview = async (reviewId: string) => {
     setDeletingId(reviewId);

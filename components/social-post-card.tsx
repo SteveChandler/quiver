@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -30,10 +31,13 @@ export default function SocialPostCard({
       <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer relative aspect-square">
         {/* Background Image */}
         <div className="absolute inset-0">
-          <img
+          <Image
             src={imageUrl}
             alt={`${name || "User"}'s surf session`}
-            className="w-full h-full object-cover"
+            fill
+            sizes="(max-width: 640px) 100vw, 33vw"
+            className="object-cover"
+            priority={false}
           />
         </div>
 

@@ -113,12 +113,12 @@ export function GroupInvitationsSection({
     ];
 
     updateField("invitees", invitees);
-  }, [selectedFriends, emailInput]); // Removed updateField from dependencies
+  }, [selectedFriends, emailInput, updateField]);
 
   // Update invitation message in form state
   useEffect(() => {
     updateField("invitationMessage", invitationMessage);
-  }, [invitationMessage]); // Removed updateField from dependencies
+  }, [invitationMessage, updateField]);
 
   // Handle friend selection
   const handleFriendSelect = (friend: Friend) => {

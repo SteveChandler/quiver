@@ -19,7 +19,7 @@ import {
   FileText,
   Calendar,
   BarChart3,
-  Image,
+  Image as ImageIcon,
   CheckCircle,
   Clock,
   X,
@@ -416,7 +416,7 @@ export function ExportModal({
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Image className="h-4 w-4" />
+                    <ImageIcon className="h-4 w-4" />
                     <Label htmlFor="include-photos">Include Photos</Label>
                   </div>
                   <Switch

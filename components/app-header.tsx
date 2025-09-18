@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
@@ -9,6 +10,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -54,7 +56,9 @@ export function AppHeader() {
       if (!res.ok) return 0;
       const json = await res.json();
       const list: any[] = json?.data?.invitations || [];
-      return list.filter((i) => i.status === "pending").length;
+      return list.filter(
+        (i) => i.status === "pending" && (!i.seen_at || i.seen_at === null)
+      ).length;
     } catch {
       return 0;
     } finally {
@@ -62,9 +66,66 @@ export function AppHeader() {
     }
   }, [user]);
 
-  const { data: unreadCount = 0 } = useDataFetcher<number>(
-    fetchNotificationsCount
-  );
+  const {
+    data: unreadCount = 0,
+    refetch: refetchUnreadCount,
+  } = useDataFetcher<number>(fetchNotificationsCount);
+
+  const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    if (!user?.id && !user?.email) {
+      return;
+    }
+
+    const channels: RealtimeChannel[] = [];
+
+    if (user?.id) {
+      const userChannel = supabase
+        .channel(`session_invitations_invitee_${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "session_invitations",
+            filter: `invitee_id=eq.${user.id}`,
+          },
+          () => {
+            refetchUnreadCount();
+          }
+        )
+        .subscribe();
+      channels.push(userChannel);
+    }
+
+    const emailValue = user?.email;
+    if (emailValue) {
+      const encoded = encodeURIComponent(emailValue);
+      const emailChannel = supabase
+        .channel(`session_invitations_invitee_email_${encoded}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "session_invitations",
+            filter: `invitee_email=eq.${emailValue}`,
+          },
+          () => {
+            refetchUnreadCount();
+          }
+        )
+        .subscribe();
+      channels.push(emailChannel);
+    }
+
+    return () => {
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+    };
+  }, [supabase, user?.id, user?.email, refetchUnreadCount]);
 
   // Navigation items - different for authenticated vs unauthenticated users
   const navItems: { name: string; href: string; icon: null }[] = user

@@ -43,6 +43,7 @@ import { createIntelPost } from "@/actions/intel-actions";
 import { uploadImage } from "@/lib/image-upload";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import { toast } from "sonner";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
 import { Slider } from "@/components/ui/slider";
@@ -808,11 +809,13 @@ export function IntelPostForm({
             <Label>{INTEL_UI_TEXT.FORM.PHOTO_LABEL}</Label>
 
             {photoPreview ? (
-              <div className="relative">
-                <img
+              <div className="relative h-32">
+                <Image
                   src={photoPreview}
                   alt="Preview"
-                  className="w-full h-32 object-cover rounded-lg"
+                  fill
+                  sizes="100vw"
+                  className="object-cover rounded-lg"
                 />
                 <Button
                   type="button"

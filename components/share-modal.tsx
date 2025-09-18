@@ -157,7 +157,7 @@ export function ShareModal({
     } finally {
       setDownloading(false);
     }
-  }, [imgUrl, imgReady, sessionId, variant, hasShownDownloadToast]);
+  }, [imgUrl, imgReady, sessionId, variant, hasShownDownloadToast, toast]);
 
   const shareImage = useCallback(async () => {
     if (!imgReady || !hasWebShare()) return;
@@ -187,7 +187,7 @@ export function ShareModal({
     } finally {
       setSharing(false);
     }
-  }, [imgUrl, imgReady, sessionId, hasShownShareToast]);
+  }, [imgUrl, imgReady, sessionId, hasShownShareToast, toast]);
 
   const getPlatformCopy = () => {
     if (hasWebShare()) {

@@ -416,7 +416,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         if (formState.invitees && formState.invitees.length > 0) {
           void (async () => {
             try {
-              await fetch("/api/session-planner/invitations", {
+              const response = await fetch("/api/session-planner/invitations", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -425,8 +425,28 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
                   message: formState.invitationMessage,
                 }),
               });
+              const payload = await response.json().catch(() => null);
+
+              if (!response.ok || !payload?.success) {
+                const errMessage =
+                  payload?.error ||
+                  (typeof payload?.details === "string"
+                    ? payload.details
+                    : response.statusText) ||
+                  "Failed to send invitations";
+                console.error("Invitation API error:", errMessage, payload);
+                toast.error("Failed to send invitations");
+                return;
+              }
+
+              const inviteErrors: string[] = payload?.data?.errors ?? [];
+              if (inviteErrors.length > 0) {
+                console.warn("Invitation warnings:", inviteErrors);
+                toast.warning(inviteErrors[0]);
+              }
             } catch (invitationError) {
               console.error("Error sending invitations:", invitationError);
+              toast.error("Failed to send invitations");
             }
           })();
         }

@@ -30,6 +30,7 @@ import type { IntelPostWithUser } from "@/types/database";
 import { cn } from "@/lib/utils";
 import { getNearestBeachName } from "@/lib/utils/nearest-beach";
 import { useMemo } from "react";
+import Image from "next/image";
 
 interface IntelPostModalProps {
   post: IntelPostWithUser;
@@ -114,11 +115,14 @@ export function IntelPostModal({
 
           {/* Photo */}
           {post.photo_url && (
-            <div className="rounded-lg overflow-hidden">
-              <img
+            <div className="relative h-48 rounded-lg overflow-hidden">
+              <Image
                 src={post.photo_url}
                 alt="Intel photo"
-                className="w-full h-48 object-cover"
+                fill
+                sizes="100vw"
+                className="object-cover"
+                priority={false}
               />
             </div>
           )}

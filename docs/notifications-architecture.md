@@ -33,6 +33,7 @@ This document captures the current implementation, the breakage observed in prod
 
 - `public.session_invitations` (not fully documented here)
   - Purpose: Represents actionable invitations a user can accept/decline in `/inbox` and drives the header badge count.
+  - Columns: includes nullable `seen_at` (added 2025-09-20) so the client can distinguish new vs. acknowledged invites; indexed with `WHERE seen_at IS NULL` for badge queries.
 
 ### Server and RPC
 
@@ -53,14 +54,17 @@ This document captures the current implementation, the breakage observed in prod
     - If in-app enabled: calls `notify_session_invite(...)` to create a recipient-owned activity row.
     - If email enabled and email present: sends a Resend email with CTA to `/inbox`.
   - Also creates/maintains `session_invitations` rows (see existing implementation) used by Inbox and header count.
+  - Returns a per-request `errors` array (and per-invite `notificationErrors`) so clients can surface delivery failures.
 
 ### Client Surfaces
 
 - `/inbox` page
-  - Fetches `GET /api/session-planner/invitations?type=received`.
-  - Renders pending invites with accept/decline.
+  - Fetches `GET /api/session-planner/invitations?type=received` and subscribes to Supabase realtime `session_invitations` events (invitee ID or email).
+  - Automatically patches `markSeen` for newly fetched `pending` invites (`seen_at IS NULL`) so the badge reflects what the user has opened.
+  - Renders pending invites with accept/decline and highlights rows where `seen_at` is still null as “New”.
 - Header badge count
-  - Fetches the same endpoint, counts `status === 'pending'`.
+  - Fetches the same endpoint and counts invitations where `status === 'pending' && seen_at IS NULL`.
+  - Subscribes to the same realtime channel to refresh counts as rows insert/update for the current user/email.
 - Social/activity feed
   - Uses `user_activities` to display activities (distinct from Inbox).
 - Gamification toasts
@@ -113,13 +117,12 @@ Privacy
 
 Read-state
 
-- `user_activities` has no `read_at`; Inbox uses `session_invitations.status` as actionable state. Activity-based notifications cannot be marked read.
-- Recommendation: Add `read_at` to `user_activities` for notification-type events, or separate “notifications” table.
+- 2025-09-20: Added `session_invitations.seen_at` + API `markSeen` branch so inbox/header can distinguish “new” vs “seen” invitations. Still outstanding: `user_activities` lacks `read_at`, so activity-feed notifications remain unreadable.
+- Recommendation: Extend the same pattern (or a dedicated notifications table) to activity feed events if they need read tracking.
 
 Realtime gaps
 
-- Header count and `/inbox` do not subscribe to realtime changes, requiring manual refresh.
-- Recommendation: Add Supabase realtime subscriptions for `session_invitations` (and optionally `user_activities`) and trigger `refetch`.
+- 2025-09-20: `/inbox` and the header now subscribe to Supabase realtime `session_invitations` channels scoped to the current user/email and refetch on insert/update. Remaining gap: activity feed still polls.
 
 Email robustness
 

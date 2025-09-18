@@ -232,7 +232,7 @@ export default function DiscoverPage() {
                 No suggested users right now
               </p>
               <p className="text-sm">
-                As more people join Quiver, you'll see suggested surfers to
+                As more people join Quiver, you&apos;ll see suggested surfers to
                 follow here. Invite friends to join the community!
               </p>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Waves, Users, Car, MapPin, Star, Plus, Loader2 } from "lucide-react";
 import { getBeachReviewStats } from "@/actions/beach-review-actions";
 import { useAuth } from "@/context/auth-context";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 
 interface BeachReviewSummaryProps {
   beachId: string;
@@ -30,27 +31,26 @@ export function BeachReviewSummary({
   refreshTrigger,
 }: BeachReviewSummaryProps) {
   const { user } = useAuth();
-  const [stats, setStats] = useState<ReviewStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchStats = async () => {
-    try {
-      const result = await getBeachReviewStats(beachId);
-      if (result.success) {
-        setStats(result.data);
-      } else {
-        console.error("Error fetching review stats:", result.error);
-      }
-    } catch (error) {
-      console.error("Error fetching review stats:", error);
-    } finally {
-      setLoading(false);
+  const fetchStats = useCallback(async (): Promise<ReviewStats | null> => {
+    const result = await getBeachReviewStats(beachId);
+    if (result.success) {
+      return result.data;
     }
-  };
+    throw new Error(result.error || "Failed to fetch review stats");
+  }, [beachId]);
+
+  const {
+    data: stats,
+    loading,
+    refetch,
+  } = useDataFetcher<ReviewStats | null>(fetchStats, { immediate: true });
 
   useEffect(() => {
-    fetchStats();
-  }, [beachId, refreshTrigger]);
+    // Refetch when the parent triggers a refresh (e.g., after writing a review)
+    if (typeof refreshTrigger !== "undefined") {
+      refetch();
+    }
+  }, [refreshTrigger, refetch]);
 
   if (loading) {
     return (

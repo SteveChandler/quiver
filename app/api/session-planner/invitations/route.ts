@@ -35,6 +35,8 @@ interface SessionInvitation {
   status: "pending" | "accepted" | "declined";
   message?: string;
   createdAt: string;
+  seenAt: string | null;
+  notificationErrors?: string[];
 }
 
 interface InvitationRequest {
@@ -244,6 +246,8 @@ export async function POST(request: NextRequest) {
           inviteeEmail: newInvitation.invitee_email ? "<redacted>" : null,
         });
 
+        const invitationNotificationErrors: string[] = [];
+
         invitations.push({
           id: newInvitation.id,
           sessionId: newInvitation.session_id,
@@ -253,6 +257,8 @@ export async function POST(request: NextRequest) {
           status: newInvitation.status,
           message: newInvitation.message,
           createdAt: newInvitation.created_at,
+          seenAt: newInvitation.seen_at ?? null,
+          notificationErrors: invitationNotificationErrors,
         });
 
         invitationsSent++;
@@ -260,29 +266,41 @@ export async function POST(request: NextRequest) {
         // Track XP for each friend invited
         trackInviteXP(newInvitation.id);
 
-        // In-app activity + email only for plan-session tagging flow and per invitee prefs
-        try {
-          let activityId: string | undefined;
+        const displayName = invitee.email || invitee.name || "user";
 
-          if (inviteeUserId) {
-            const { data: prefs } = await supabase
-              .from("profiles")
-              .select("email, email_session_invites, inapp_session_invites")
-              .eq("id", inviteeUserId)
-              .single();
+        let activityId: string | undefined;
 
+        if (inviteeUserId) {
+          const { data: prefs, error: prefsError } = await supabase
+            .from("profiles")
+            .select("email, email_session_invites, inapp_session_invites")
+            .eq("id", inviteeUserId)
+            .single();
+
+          if (prefsError) {
+            const messageText = `Failed to load notification preferences for ${displayName}: ${prefsError.message}`;
+            errors.push(messageText);
+            invitationNotificationErrors.push(messageText);
+          } else {
             if (prefs?.inapp_session_invites !== false) {
-              activityId = await notifySessionInvite({
-                actorId: user.id,
-                recipientId: inviteeUserId,
-                sessionId: sessionId,
-                metadata: {
-                  beachName: session.beach_name,
-                  when: session.arrival_time,
-                  message: message || null,
-                },
-              });
-              debug("Created in-app invite activity", { activityId });
+              try {
+                activityId = await notifySessionInvite({
+                  actorId: user.id,
+                  recipientId: inviteeUserId,
+                  sessionId: sessionId,
+                  metadata: {
+                    beachName: session.beach_name,
+                    when: session.arrival_time,
+                    message: message || null,
+                  },
+                });
+                debug("Created in-app invite activity", { activityId });
+              } catch (activityErr) {
+                const msg = `Failed to create in-app notification for ${displayName}: ${activityErr instanceof Error ? activityErr.message : "Unknown error"}`;
+                console.error(msg, activityErr);
+                errors.push(msg);
+                invitationNotificationErrors.push(msg);
+              }
             }
 
             if (prefs?.email && prefs.email_session_invites !== false) {
@@ -311,48 +329,45 @@ export async function POST(request: NextRequest) {
                   appUrl,
                 });
               } catch (mailErr) {
-                console.warn(
-                  "Email invite skipped: RESEND not configured",
-                  mailErr
-                );
+                const msg = `Failed to send invite email to ${displayName}: ${mailErr instanceof Error ? mailErr.message : "Unknown error"}`;
+                console.error(msg, mailErr);
+                errors.push(msg);
+                invitationNotificationErrors.push(msg);
               }
             }
-          } else if (invitee.email) {
-            // Email-only invite (no in-app activity)
-            const appUrl =
-              process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-            try {
-              debug("Sending invite email to address", {
-                to: "<redacted>",
-                appUrl,
-              });
-              emailAttempted = true;
-              await sendSessionInviteEmail({
-                toEmail: invitee.email,
-                inviter: {
-                  id: user.id,
-                  name: user.user_metadata?.full_name,
-                  username: user.user_metadata?.user_name,
-                },
-                session: {
-                  id: session.id,
-                  arrival_time: session.arrival_time,
-                  beach_name: session.beach_name,
-                },
-                message: message || undefined,
-                activityId,
-                appUrl,
-              });
-            } catch (mailErr) {
-              console.warn(
-                "Email invite skipped: RESEND not configured",
-                mailErr
-              );
-            }
           }
-        } catch (notifyErr) {
-          console.error("Invite activity/email error:", notifyErr);
-          // proceed without failing overall request
+        } else if (invitee.email) {
+          // Email-only invite (no in-app activity)
+          const appUrl =
+            process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+          try {
+            debug("Sending invite email to address", {
+              to: "<redacted>",
+              appUrl,
+            });
+            emailAttempted = true;
+            await sendSessionInviteEmail({
+              toEmail: invitee.email,
+              inviter: {
+                id: user.id,
+                name: user.user_metadata?.full_name,
+                username: user.user_metadata?.user_name,
+              },
+              session: {
+                id: session.id,
+                arrival_time: session.arrival_time,
+                beach_name: session.beach_name,
+              },
+              message: message || undefined,
+              activityId,
+              appUrl,
+            });
+          } catch (mailErr) {
+            const msg = `Failed to send invite email to ${displayName}: ${mailErr instanceof Error ? mailErr.message : "Unknown error"}`;
+            console.error(msg, mailErr);
+            errors.push(msg);
+            invitationNotificationErrors.push(msg);
+          }
         }
       } catch (error) {
         console.error("Error processing invitee:", error);
@@ -455,6 +470,7 @@ export async function GET(request: NextRequest) {
         status,
         message,
         created_at,
+        seen_at,
         session:sessions(id, beach_name, arrival_time),
         inviter:profiles!session_invitations_inviter_id_fkey(id, full_name, email, avatar_url)
       `;
@@ -478,6 +494,7 @@ export async function GET(request: NextRequest) {
         status,
         message,
         created_at,
+        seen_at,
         session:sessions(id, beach_name, arrival_time),
         inviter:profiles!session_invitations_inviter_id_fkey(id, full_name, email, avatar_url)
       `;
@@ -559,12 +576,61 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { invitationId, response: invitationResponse } = body;
+    const {
+      invitationId,
+      response: invitationResponse,
+      markSeen,
+      invitationIds,
+    } = body;
 
     debug("PATCH /invitations", {
       invitationIdPresent: Boolean(invitationId),
       response: invitationResponse,
+      markSeen: Boolean(markSeen),
+      invitationIdsCount: Array.isArray(invitationIds) ? invitationIds.length : 0,
     });
+
+    const supabase = await createSupabaseServerClient();
+
+    // Get the current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return createErrorResponse("Authentication required", null, 401);
+    }
+
+    if (markSeen) {
+      if (!Array.isArray(invitationIds) || invitationIds.length === 0) {
+        return createErrorResponse(
+          "Invitation IDs are required to mark notifications as seen",
+          null,
+          400
+        );
+      }
+
+      const { data: updatedRows, error: seenError } = await supabase
+        .from("session_invitations")
+        .update({ seen_at: new Date().toISOString() })
+        .in("id", invitationIds)
+        .select("id, seen_at");
+
+      if (seenError) {
+        console.error("Error marking invitations as seen:", seenError);
+        return createErrorResponse(
+          "Failed to mark invitations as seen",
+          seenError.message
+        );
+      }
+
+      return createSuccessResponse(
+        {
+          updated: updatedRows ?? [],
+        },
+        "Invitations marked as seen"
+      );
+    }
 
     if (!invitationId || !invitationResponse) {
       return createErrorResponse(
@@ -580,17 +646,6 @@ export async function PATCH(request: NextRequest) {
         null,
         400
       );
-    }
-
-    const supabase = await createSupabaseServerClient();
-
-    // Get the current user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return createErrorResponse("Authentication required", null, 401);
     }
 
     // Get the invitation and verify user can respond to it

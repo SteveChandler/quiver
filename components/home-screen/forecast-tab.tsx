@@ -102,7 +102,7 @@ export function ForecastTab({
     const result = await getForecastForToday(effectiveBeach.id);
     console.log("📊 getForecastForToday result:", result);
     return result;
-  }, [effectiveBeach?.id, isFallback, homeBeach]);
+  }, [effectiveBeach?.id, effectiveBeach?.name, isFallback, homeBeach]);
 
   const {
     data: todaysForecast,

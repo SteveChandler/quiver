@@ -231,7 +231,7 @@ function NewSessionPageContent() {
     message?: string
   ) => {
     try {
-      await fetch("/api/session-planner/invitations", {
+      const response = await fetch("/api/session-planner/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -240,9 +240,28 @@ function NewSessionPageContent() {
           message,
         }),
       });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || !payload?.success) {
+        const errMessage =
+          payload?.error ||
+          (typeof payload?.details === "string"
+            ? payload.details
+            : response.statusText) ||
+          "Failed to send invitations";
+        console.error("Invitation API error:", errMessage, payload);
+        toast.error("Failed to send invitations");
+        return;
+      }
+
+      const inviteErrors: string[] = payload?.data?.errors ?? [];
+      if (inviteErrors.length > 0) {
+        console.warn("Invitation warnings:", inviteErrors);
+        toast.warning(inviteErrors[0]);
+      }
     } catch (error) {
       console.error("Error sending invitations:", error);
-      // Don't show error toast since this is fire-and-forget
+      toast.error("Failed to send invitations");
     }
   };
 

@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
-import { SimplifiedForecastTable, MultiDayForecastTable } from "@/components/forecast/forecast-table";
+import {
+  SimplifiedForecastTable,
+  MultiDayForecastTable,
+} from "@/components/forecast/forecast-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -17,10 +20,12 @@ interface ForecastAndTidesProps {
 }
 
 export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
-  // Ensure forecasts is always an array
-  const safeForecasts = forecasts || [];
+  // Ensure forecasts is always a stable array reference
+  const safeForecasts = useMemo(() => forecasts || [], [forecasts]);
   // Default to showing the 5-day tide chart
-  const [subTab, setSubTab] = useState<"today" | "tides" | "wind" | "swell" | "week">("tides");
+  const [subTab, setSubTab] = useState<
+    "today" | "tides" | "wind" | "swell" | "week"
+  >("tides");
 
   const todayStr = useMemo(() => {
     const d = new Date();
@@ -61,26 +66,32 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
 
       {/* Sub-tabs for Forecast section */}
       {safeForecasts.length > 0 && (
-        <Tabs value={subTab} onValueChange={(v) => setSubTab(v as any)} className="w-full">
+        <Tabs
+          value={subTab}
+          onValueChange={(v) => setSubTab(v as any)}
+          className="w-full"
+        >
           <TabsList className="grid grid-cols-5 w-full">
-            {(["today", "tides", "wind", "swell", "week"] as const).map((tab) => (
-              <TabsTrigger
-                key={tab}
-                value={tab}
-                onClick={() =>
-                  track("forecast_tab_click", {
-                    beach_slug: slugify(beach.name),
-                    tab,
-                  })
-                }
-              >
-                {tab === "today" && "Today"}
-                {tab === "tides" && "Tides"}
-                {tab === "wind" && "Wind"}
-                {tab === "swell" && "Swell"}
-                {tab === "week" && "Week"}
-              </TabsTrigger>
-            ))}
+            {(["today", "tides", "wind", "swell", "week"] as const).map(
+              (tab) => (
+                <TabsTrigger
+                  key={tab}
+                  value={tab}
+                  onClick={() =>
+                    track("forecast_tab_click", {
+                      beach_slug: slugify(beach.name),
+                      tab,
+                    })
+                  }
+                >
+                  {tab === "today" && "Today"}
+                  {tab === "tides" && "Tides"}
+                  {tab === "wind" && "Wind"}
+                  {tab === "swell" && "Swell"}
+                  {tab === "week" && "Week"}
+                </TabsTrigger>
+              )
+            )}
           </TabsList>
 
           <TabsContent value="today" className="mt-4">
