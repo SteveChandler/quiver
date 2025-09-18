@@ -107,6 +107,7 @@ interface IntelPostFormProps {
   onClose: () => void;
   onSuccess?: (post: IntelPostWithUser | null) => void;
   initialLocation?: { latitude: number; longitude: number };
+  beachId?: string;
 }
 
 const windDirections = [
@@ -155,6 +156,7 @@ export function IntelPostForm({
   onClose,
   onSuccess,
   initialLocation,
+  beachId,
 }: IntelPostFormProps) {
   const [location, setLocation] = useState<{
     latitude: number;
@@ -318,6 +320,7 @@ export function IntelPostForm({
       const result = await createIntelPost({
         latitude: location.latitude,
         longitude: location.longitude,
+        ...(beachId ? { beach_id: beachId } : {}),
         tag: data.tag,
         title: data.title,
         description: data.description,

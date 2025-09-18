@@ -1,5 +1,4 @@
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-import { createIntelPost } from '@/actions/intel-actions';
+import { describe, test, expect, jest, beforeEach, beforeAll } from '@jest/globals';
 
 // Mock Supabase service-role client
 const mockSupabase = {
@@ -11,11 +10,14 @@ const mockSupabase = {
   select: jest.fn().mockReturnThis(),
   single: jest.fn().mockReturnThis(),
   eq: jest.fn().mockReturnThis(),
+  rpc: jest.fn(),
 };
 
-jest.mock('@/lib/supabase/server', () => ({
-  createSupabaseServiceRoleClient: async () => mockSupabase,
-}));
+let createIntelPost: typeof import('@/actions/intel-actions')['createIntelPost'];
+
+beforeAll(async () => {
+  ({ createIntelPost } = await import('@/actions/intel-actions'));
+});
 
 // Local DI trackXP mock
 const trackXP = jest.fn(async () => ({ success: true }));
@@ -37,12 +39,10 @@ describe('Intel Actions XP Wiring', () => {
 
   test('createIntelPost awards post_beach_intel XP on success', async () => {
     // Auth user
-    mockSupabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: 'user-1' } }, error: null });
-
     // Insert intel post
     mockSupabase.insert.mockReturnThis();
     mockSupabase.select.mockReturnThis();
-    mockSupabase.single.mockResolvedValueOnce({ data: { id: 'intel-123', user_id: 'user-1' }, error: null });
+    mockSupabase.single.mockResolvedValueOnce({ data: { id: 'intel-123', user_id: 'user-1', beach_id: 'beach-123' }, error: null });
 
     // Profile fetch
     mockSupabase.select.mockReturnThis();
@@ -54,8 +54,12 @@ describe('Intel Actions XP Wiring', () => {
       longitude: -117.2,
       tag: 'conditions' as any,
       title: 'Great morning',
-      description: 'Light offshore winds.'
-    }, { trackXP });
+      description: 'Light offshore winds.',
+      beach_id: 'beach-123',
+    }, {
+      trackXP,
+      authWrapper: async (fn: any) => fn({ id: 'user-1' }, mockSupabase),
+    });
     if (!res.success) {
       // eslint-disable-next-line no-console
       console.error('createIntelPost failed:', res);

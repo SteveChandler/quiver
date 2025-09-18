@@ -29,6 +29,7 @@ type TrackXPFn = (
 
 interface IntelDeps {
   trackXP?: TrackXPFn;
+  authWrapper?: typeof withAuthenticatedAction;
 }
 
 export async function createIntelPost(
@@ -36,12 +37,13 @@ export async function createIntelPost(
   deps?: IntelDeps
 ): Promise<ActionResult> {
   try {
-    return await withAuthenticatedAction(async (user) => {
-      const supabase = await createSupabaseServerClient();
+    const authWrapper = deps?.authWrapper ?? withAuthenticatedAction;
 
+    return await authWrapper(async (user, supabase) => {
       const {
         latitude,
         longitude,
+        beach_id,
         tag,
         title,
         description,
@@ -57,8 +59,10 @@ export async function createIntelPost(
       } = data;
 
       if (
-        !latitude ||
-        !longitude ||
+        typeof latitude !== "number" ||
+        Number.isNaN(latitude) ||
+        typeof longitude !== "number" ||
+        Number.isNaN(longitude) ||
         !tag ||
         !title?.trim() ||
         !description?.trim()
@@ -71,6 +75,37 @@ export async function createIntelPost(
       }
 
       const expiryDate = getExpiryDate(tag);
+
+      let normalizedBeachId = beach_id?.trim() || null;
+
+      // Prefer explicit beach_id but fall back to nearest beach from geo lookup
+      if (!normalizedBeachId) {
+        const { data: nearbyBeaches, error: nearestError } = await supabase.rpc(
+          "get_nearby_beaches",
+          {
+            lat: latitude,
+            lng: longitude,
+            limit_count: 1,
+          }
+        );
+
+        if (nearestError) {
+          console.error("Nearest beach lookup failed:", nearestError);
+          return {
+            success: false,
+            error: "Unable to determine nearest beach for intel post",
+          };
+        }
+
+        normalizedBeachId = nearbyBeaches?.[0]?.id ?? null;
+      }
+
+      if (!normalizedBeachId) {
+        return {
+          success: false,
+          error: "Unable to determine a beach for this intel post",
+        };
+      }
 
       // Normalize optional surf condition inputs into JSONB
       const surfConditions: Record<string, any> = {};
@@ -93,6 +128,7 @@ export async function createIntelPost(
         .from("intel_posts")
         .insert({
           user_id: user.id,
+          beach_id: normalizedBeachId,
           latitude,
           longitude,
           tag,
@@ -101,6 +137,7 @@ export async function createIntelPost(
           photo_url,
           photo_storage_path,
           expires_at: expiryDate.toISOString(),
+          is_active: true,
           surf_conditions: Object.keys(surfConditions).length
             ? surfConditions
             : null,
@@ -111,6 +148,17 @@ export async function createIntelPost(
       if (createError) {
         console.error("Error creating intel post:", createError);
         return { success: false, error: "Failed to create intel post" };
+      }
+
+      if (!intelPost?.beach_id) {
+        console.error(
+          "Intel post created without beach_id despite guard",
+          intelPost
+        );
+        return {
+          success: false,
+          error: "Intel post missing beach association",
+        };
       }
 
       const { data: profile } = await supabase

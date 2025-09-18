@@ -375,6 +375,7 @@ export function BeachIntelSection({
         isOpen={showPostForm}
         onClose={() => setShowPostForm(false)}
         onSuccess={handlePostCreated}
+        beachId={beachId}
         initialLocation={{ latitude, longitude }}
       />
     </>

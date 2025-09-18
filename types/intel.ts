@@ -3,6 +3,7 @@ import type { IntelPostTag, IntelPostWithUser } from "./database";
 export interface CreateIntelPostData {
   latitude: number;
   longitude: number;
+  beach_id?: string;
   tag: IntelPostTag;
   title: string;
   description: string;

@@ -157,7 +157,7 @@ const mockToast = toast as any;
 const baseIntelPost = {
   id: "intel-post-id",
   user_id: "user-id",
-  beach_id: null,
+  beach_id: "beach-123",
   latitude: 32.7507,
   longitude: -117.254,
   tag: "other",
@@ -183,6 +183,7 @@ describe("IntelPostForm", () => {
     onClose: jest.fn(),
     onSuccess: jest.fn(),
     initialLocation: { latitude: 32.7507, longitude: -117.254 },
+    beachId: "beach-123",
   };
 
   beforeEach(() => {
@@ -261,6 +262,7 @@ describe("IntelPostForm", () => {
       expect(mockCreateIntelPost).toHaveBeenCalledWith({
         latitude: 32.7507,
         longitude: -117.254,
+        beach_id: "beach-123",
         tag: "other",
         title: "Great parking spot",
         description: "Free parking available near the beach",
@@ -319,6 +321,7 @@ describe("IntelPostForm", () => {
       expect(mockCreateIntelPost).toHaveBeenCalledWith({
         latitude: 32.7507,
         longitude: -117.254,
+        beach_id: "beach-123",
         tag: "conditions",
         title: "Epic surf conditions",
         description: "Perfect waves this morning",
