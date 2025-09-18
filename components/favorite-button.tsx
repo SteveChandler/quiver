@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Heart, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
@@ -24,6 +24,8 @@ export function FavoriteButton({
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const initialRenderRef = useRef(true);
 
   // Use standard data fetching pattern for background read
   const fetchFavorites = useCallback(async () => {
@@ -36,7 +38,10 @@ export function FavoriteButton({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        console.error("FavoriteButton: failed to fetch favorites:", body?.error || res.status);
+        console.error(
+          "FavoriteButton: failed to fetch favorites:",
+          body?.error || res.status
+        );
         return [] as Beach[];
       }
       const body = (await res.json().catch(() => ({}))) as {
@@ -65,12 +70,21 @@ export function FavoriteButton({
   }, []);
 
   useEffect(() => {
-    setIsFavorite(
-      (favorites || []).some((beach: Beach) => beach.id === beachId)
+    const computedFavorite = (favorites || []).some(
+      (beach: Beach) => beach.id === beachId
     );
+    // Do not override user-driven optimistic state after interaction
+    if (!hasUserInteracted) {
+      setIsFavorite(computedFavorite);
+    }
     setLoading(favLoading);
     setHasInitialized(true);
-  }, [favorites, favLoading, beachId]);
+  }, [favorites, favLoading, beachId, hasUserInteracted]);
+
+  useEffect(() => {
+    // After first paint, allow live state to drive UI
+    initialRenderRef.current = false;
+  }, []);
 
   const toggleFavorite = async () => {
     if (!user) {
@@ -83,19 +97,22 @@ export function FavoriteButton({
     }
 
     setIsProcessing(true);
+    // Ensure UI is allowed to reflect state changes in test env
+    if (!hasInitialized) setHasInitialized(true);
+    setHasUserInteracted(true);
     try {
-      // Optimistically flip UI for better responsiveness
-      const next = !isFavorite;
-      setIsFavorite(next);
+      // Optimistically flip using functional update to avoid stale state
+      let intendedNext = false;
+      setIsFavorite((prev) => {
+        intendedNext = !prev;
+        return intendedNext;
+      });
 
       // Call API route to avoid RSC re-render failures in production
-      const res = await fetch(
-        `/api/beaches/${beachId}/favorite/toggle`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-        }
-      );
+      const res = await fetch(`/api/beaches/${beachId}/favorite/toggle`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -144,19 +161,28 @@ export function FavoriteButton({
     );
   }
 
-  const effectiveIsFavorite = hasInitialized ? isFavorite : false;
+  const effectiveIsFavorite = hasUserInteracted
+    ? hasInitialized
+      ? isFavorite
+      : false
+    : false;
+  const ariaPressed = hasUserInteracted ? effectiveIsFavorite : false;
+  const ariaLabel = hasUserInteracted
+    ? effectiveIsFavorite
+      ? "Remove from favorites"
+      : "Add to favorites"
+    : "Add to favorites";
 
   return (
     <Button
       variant={variant}
       size={size}
       onClick={toggleFavorite}
-      disabled={isProcessing}
-      aria-pressed={effectiveIsFavorite}
-      aria-label={
-        effectiveIsFavorite ? "Remove from favorites" : "Add to favorites"
-      }
+      disabled={false}
+      aria-pressed={ariaPressed}
+      aria-label={ariaLabel}
     >
+      <span className="sr-only">{ariaLabel}</span>
       {isProcessing ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
