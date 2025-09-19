@@ -1,5 +1,8 @@
 import { GET, PATCH } from "@/app/api/session-planner/invitations/route";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  createSupabaseServiceRoleClient,
+} from "@/lib/supabase/server";
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -10,7 +13,73 @@ import {
   setupMockSupabase,
 } from "../../../../setup/session-planner-test-utils";
 
-jest.mock("@/lib/supabase/server");
+const mockServiceState = {
+  sessionInvitationResponses: [] as Array<{ data: any; error: any }>,
+  sessionsResponses: [] as Array<{ data: any; error: any }>,
+  profilesResponses: [] as Array<{ data: any; error: any }>,
+};
+
+jest.mock("@/lib/supabase/server", () => {
+  const serviceClient = {
+    from: jest.fn((table: string) => {
+      if (table === "session_invitations") {
+        const builder: any = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          ilike: jest.fn().mockReturnThis(),
+          order: jest.fn().mockImplementation(() => {
+            const next =
+              mockServiceState.sessionInvitationResponses.shift() ?? {
+                data: [],
+                error: null,
+              };
+            return Promise.resolve(next);
+          }),
+        };
+        return builder;
+      }
+
+      if (table === "sessions") {
+        const builder: any = {
+          select: jest.fn().mockReturnThis(),
+          in: jest.fn().mockImplementation(() => {
+            const next = mockServiceState.sessionsResponses.shift() ?? {
+              data: [],
+              error: null,
+            };
+            return Promise.resolve(next);
+          }),
+        };
+        return builder;
+      }
+
+      if (table === "profiles") {
+        const builder: any = {
+          select: jest.fn().mockReturnThis(),
+          in: jest.fn().mockImplementation(() => {
+            const next = mockServiceState.profilesResponses.shift() ?? {
+              data: [],
+              error: null,
+            };
+            return Promise.resolve(next);
+          }),
+        };
+        return builder;
+      }
+
+      return {
+        select: jest.fn().mockReturnThis(),
+      } as any;
+    }),
+  };
+
+  return {
+    createSupabaseServerClient: jest.fn(),
+    createSupabaseServiceRoleClient: jest
+      .fn()
+      .mockResolvedValue(serviceClient),
+  };
+});
 jest.mock("@/lib/api-response-utils", () => ({
   createSuccessResponse: jest.fn((data: any) => ({
     json: async () => ({ success: true, data }),
@@ -29,12 +98,19 @@ jest.mock("@/lib/api-response-utils", () => ({
 const mockServer = createSupabaseServerClient as jest.MockedFunction<
   typeof createSupabaseServerClient
 >;
+const mockService = createSupabaseServiceRoleClient as jest.MockedFunction<
+  typeof createSupabaseServiceRoleClient
+>;
 
 describe("/api/session-planner/invitations", () => {
   setupMockSupabase();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockServiceState.sessionInvitationResponses = [];
+    mockServiceState.sessionsResponses = [];
+    mockServiceState.profilesResponses = [];
+    mockService.mockClear();
   });
 
   function mockAuth(
@@ -48,14 +124,7 @@ describe("/api/session-planner/invitations", () => {
           error: null,
         }),
       },
-      from: jest.fn().mockImplementation((table: string) => {
-        return {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          order: jest.fn().mockResolvedValue({ data: [], error: null }),
-          update: jest.fn().mockReturnThis(),
-        };
-      }),
+      from: jest.fn(),
     } as any);
   }
 
@@ -63,39 +132,57 @@ describe("/api/session-planner/invitations", () => {
     const byIdRows = [
       {
         id: "a",
-        invitee_id: "user-1",
+        session_id: "sess-1",
+        inviter_id: "user-inviter",
         status: "pending",
         created_at: "2024-01-01",
+        seen_at: null,
+        invitee_id: "user-1",
+        invitee_email: null,
+        message: null,
       },
     ];
     const byEmailRows = [
       {
         id: "b",
-        invitee_email: "test@example.com",
+        session_id: "sess-2",
+        inviter_id: "user-inviter",
         status: "pending",
         created_at: "2024-01-02",
+        seen_at: null,
+        invitee_id: null,
+        invitee_email: "test@example.com",
+        message: null,
       },
     ];
 
-    const mockFrom = {
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      order: jest.fn(),
-    } as any;
-
-    mockFrom.order
-      .mockResolvedValueOnce({ data: byIdRows, error: null })
-      .mockResolvedValueOnce({ data: byEmailRows, error: null });
-
-    mockServer.mockResolvedValue({
-      auth: {
-        getUser: jest.fn().mockResolvedValue({
-          data: { user: { id: "user-1", email: "test@example.com" } },
-          error: null,
-        }),
+    mockAuth("user-1", "test@example.com");
+    mockServiceState.sessionInvitationResponses = [
+      { data: byIdRows, error: null },
+      { data: byEmailRows, error: null },
+    ];
+    mockServiceState.sessionsResponses = [
+      {
+        data: [
+          { id: "sess-1", beach_name: "Beach 1", arrival_time: "2024-01-01" },
+          { id: "sess-2", beach_name: "Beach 2", arrival_time: "2024-01-02" },
+        ],
+        error: null,
       },
-      from: jest.fn().mockReturnValue(mockFrom),
-    } as any);
+    ];
+    mockServiceState.profilesResponses = [
+      {
+        data: [
+          {
+            id: "user-inviter",
+            full_name: "Inviter One",
+            email: "inviter@example.com",
+            avatar_url: null,
+          },
+        ],
+        error: null,
+      },
+    ];
 
     const req = createMockRequest({ type: "received" });
     const res = await GET(req as any);
@@ -107,39 +194,80 @@ describe("/api/session-planner/invitations", () => {
       "a",
       "b",
     ]);
+    expect(json.data.invitations[0].session).toBeTruthy();
+    expect(json.data.invitations[0].inviter).toBeTruthy();
 
     // Null email path → only by id
-    mockServer.mockResolvedValue({
-      auth: {
-        getUser: jest.fn().mockResolvedValue({
-          data: { user: { id: "user-1", email: null } },
-          error: null,
-        }),
+    mockAuth("user-1", null);
+    mockServiceState.sessionInvitationResponses = [
+      { data: byIdRows, error: null },
+    ];
+    mockServiceState.sessionsResponses = [
+      {
+        data: [
+          { id: "sess-1", beach_name: "Beach 1", arrival_time: "2024-01-01" },
+        ],
+        error: null,
       },
-      from: jest.fn().mockReturnValue(mockFrom),
-    } as any);
-    mockFrom.order.mockResolvedValueOnce({ data: byIdRows, error: null });
+    ];
+    mockServiceState.profilesResponses = [
+      {
+        data: [
+          {
+            id: "user-inviter",
+            full_name: "Inviter One",
+            email: "inviter@example.com",
+            avatar_url: null,
+          },
+        ],
+        error: null,
+      },
+    ];
     const res2 = await GET(req as any);
     const json2 = await (res2 as any).json();
     expect(json2.data.invitations.map((x: any) => x.id)).toEqual(["a"]);
   });
 
   it("GET sent: filters by inviter_id", async () => {
-    const rows = [{ id: "s1", inviter_id: "user-1" }];
-    const mockFrom = {
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      order: jest.fn().mockResolvedValue({ data: rows, error: null }),
-    } as any;
-    mockServer.mockResolvedValue({
-      auth: {
-        getUser: jest.fn().mockResolvedValue({
-          data: { user: { id: "user-1", email: "t@example.com" } },
-          error: null,
-        }),
+    const rows = [
+      {
+        id: "s1",
+        session_id: "sess-3",
+        inviter_id: "user-1",
+        invitee_id: "friend-1",
+        invitee_email: null,
+        status: "pending",
+        created_at: "2024-02-01",
+        seen_at: null,
+        message: null,
       },
-      from: jest.fn().mockReturnValue(mockFrom),
-    } as any);
+    ];
+
+    mockAuth("user-1", "t@example.com");
+    mockServiceState.sessionInvitationResponses = [
+      { data: rows, error: null },
+    ];
+    mockServiceState.sessionsResponses = [
+      {
+        data: [
+          { id: "sess-3", beach_name: "Beach 3", arrival_time: "2024-02-01" },
+        ],
+        error: null,
+      },
+    ];
+    mockServiceState.profilesResponses = [
+      {
+        data: [
+          {
+            id: "user-1",
+            full_name: "User One",
+            email: "t@example.com",
+            avatar_url: null,
+          },
+        ],
+        error: null,
+      },
+    ];
 
     const req = createMockRequest({ type: "sent" });
     const res = await GET(req as any);

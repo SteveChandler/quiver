@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   createSupabaseServerClient,
   createSupabaseServiceRoleClient,
@@ -55,6 +56,102 @@ interface InvitationResponse {
   invitations: SessionInvitation[];
   errors: string[];
 }
+
+type RawInvitationRow = {
+  id: string;
+  session_id: string | null;
+  inviter_id: string | null;
+  invitee_id: string | null;
+  invitee_email: string | null;
+  status: string;
+  message: string | null;
+  created_at: string;
+  seen_at: string | null;
+};
+
+const BASE_INVITATION_FIELDS = `
+  id,
+  session_id,
+  inviter_id,
+  invitee_id,
+  invitee_email,
+  status,
+  message,
+  created_at,
+  seen_at
+`;
+
+const buildEnrichedInvitations = async (
+  client: SupabaseClient,
+  rows: RawInvitationRow[]
+) => {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return [] as any[];
+  }
+
+  const sessionIds = Array.from(
+    new Set(rows.map((row) => row.session_id).filter(Boolean))
+  ) as string[];
+  const inviterIds = Array.from(
+    new Set(rows.map((row) => row.inviter_id).filter(Boolean))
+  ) as string[];
+
+  const [sessionsResult, invitersResult] = await Promise.all([
+    sessionIds.length
+      ? client
+          .from("sessions")
+          .select("id, beach_name, arrival_time")
+          .in("id", sessionIds)
+      : Promise.resolve({ data: [] as any[], error: null }),
+    inviterIds.length
+      ? client
+          .from("profiles")
+          .select("id, full_name, email, avatar_url")
+          .in("id", inviterIds)
+      : Promise.resolve({ data: [] as any[], error: null }),
+  ]);
+
+  if (sessionsResult.error) {
+    console.error("Error loading sessions for invitations:", sessionsResult.error);
+  }
+  if (invitersResult.error) {
+    console.error("Error loading inviters for invitations:", invitersResult.error);
+  }
+
+  const sessionMap = new Map<string, any>();
+  (sessionsResult.data || []).forEach((session) => {
+    if (session?.id) {
+      sessionMap.set(session.id, session);
+    }
+  });
+
+  const inviterMap = new Map<string, any>();
+  (invitersResult.data || []).forEach((profile) => {
+    if (profile?.id) {
+      inviterMap.set(profile.id, profile);
+    }
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    message: row.message,
+    created_at: row.created_at,
+    seen_at: row.seen_at ?? null,
+    session: row.session_id ? sessionMap.get(row.session_id) || null : null,
+    inviter: row.inviter_id ? inviterMap.get(row.inviter_id) || null : null,
+    invitee_id: row.invitee_id,
+    invitee_email: row.invitee_email,
+  }));
+};
+
+const dedupeInvitationsById = (rows: RawInvitationRow[]) =>
+  rows.reduce<RawInvitationRow[]>((acc, row) => {
+    if (!acc.find((existing) => existing.id === row.id)) {
+      acc.push(row);
+    }
+    return acc;
+  }, []);
 
 /**
  * Send session invitations to friends
@@ -467,20 +564,12 @@ export async function GET(request: NextRequest) {
 
     let invitations: any[] = [];
     if (type === "sent") {
-      const selectFields = `
-        id,
-        status,
-        message,
-        created_at,
-        seen_at,
-        session:sessions(id, beach_name, arrival_time),
-        inviter:profiles!session_invitations_inviter_id_fkey(id, full_name, email, avatar_url)
-      `;
       const { data, error } = await serviceSupabase
         .from("session_invitations")
-        .select(selectFields)
+        .select(BASE_INVITATION_FIELDS)
         .eq("inviter_id", user.id)
         .order("created_at", { ascending: false });
+
       if (error) {
         console.error("Error fetching sent invitations:", error);
         return createErrorResponse(
@@ -488,65 +577,55 @@ export async function GET(request: NextRequest) {
           error.message
         );
       }
-      invitations = data || [];
+
+      let rows: RawInvitationRow[] = Array.isArray(data) ? (data as RawInvitationRow[]) : [];
+      if (sessionId) {
+        rows = rows.filter((row) => row.session_id === sessionId);
+      }
+      rows = rows.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      invitations = await buildEnrichedInvitations(serviceSupabase, rows);
     } else {
-      // Received: fetch by ID, and separately by email if present; then merge
-      const selectFields = `
-        id,
-        status,
-        message,
-        created_at,
-        seen_at,
-        session:sessions(id, beach_name, arrival_time),
-        inviter:profiles!session_invitations_inviter_id_fkey(id, full_name, email, avatar_url)
-      `;
-      const base = serviceSupabase
+      const { data: dataById, error: errId } = await serviceSupabase
         .from("session_invitations")
-        .select(selectFields);
-      const filters: any[] = [];
-      const byId = base
+        .select(BASE_INVITATION_FIELDS)
         .eq("invitee_id", user.id)
         .order("created_at", { ascending: false });
-      filters.push(byId);
-
-      const emailVal = user.email;
-      if (emailVal && typeof emailVal === "string" && emailVal.length > 0) {
-        const byEmail = serviceSupabase
-          .from("session_invitations")
-          .select(selectFields)
-          .ilike("invitee_email", emailVal)
-          .order("created_at", { ascending: false });
-        filters.push(byEmail);
-      }
-
-      // Execute sequentially to keep it simple and robust
-      const { data: dataById, error: errId } = await byId;
       if (errId) {
         console.error("Error fetching invitations by id:", errId);
       }
-      const listById = Array.isArray(dataById) ? dataById : [];
+      const listById = Array.isArray(dataById)
+        ? (dataById as RawInvitationRow[])
+        : [];
 
-      let listByEmail: any[] = [];
-      if (filters.length > 1) {
-        const { data: dataByEmail, error: errEmail } =
-          await (filters[1] as any);
+      let listByEmail: RawInvitationRow[] = [];
+      const emailVal = user.email;
+      if (emailVal && typeof emailVal === "string" && emailVal.length > 0) {
+        const { data: dataByEmail, error: errEmail } = await serviceSupabase
+          .from("session_invitations")
+          .select(BASE_INVITATION_FIELDS)
+          .ilike("invitee_email", emailVal)
+          .order("created_at", { ascending: false });
         if (errEmail) {
           console.error("Error fetching invitations by email:", errEmail);
         }
-        listByEmail = Array.isArray(dataByEmail) ? dataByEmail : [];
+        listByEmail = Array.isArray(dataByEmail)
+          ? (dataByEmail as RawInvitationRow[])
+          : [];
       }
 
-      invitations = [...listById, ...listByEmail].reduce(
-        (acc: any[], row: any) => {
-          if (!acc.find((r) => r.id === row.id)) acc.push(row);
-          return acc;
-        },
-        []
-      );
+      let combined = dedupeInvitationsById([...listById, ...listByEmail]);
 
       if (sessionId) {
-        invitations = invitations.filter((inv: any) => inv.session?.id === sessionId);
+        combined = combined.filter((row) => row.session_id === sessionId);
       }
+
+      combined = combined.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      invitations = await buildEnrichedInvitations(serviceSupabase, combined);
     }
 
     debug("GET response summary", {
