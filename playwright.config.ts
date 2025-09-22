@@ -1,127 +1,53 @@
+import 'dotenv/config';
 import { defineConfig, devices } from "@playwright/test";
 
-/**
- * @see https://playwright.dev/docs/test-configuration
- */
-const BASE_URL = process.env.BASE_URL || "http://localhost:3002";
-const VERCEL_BYPASS =
-  process.env.VERCEL_BYPASS_TOKEN ||
-  process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
-  process.env.VERCEL_BYPASS;
-
+// Minimal fresh Playwright configuration
 export default defineConfig({
+  globalSetup: './e2e/global-setup.ts',
   testDir: "./e2e",
-  timeout: 120 * 1000, // 2 minutes per test for performance issues
-  /* Run tests in files in parallel */
+  timeout: 120 * 1000,
   fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
-  /* Use more workers for better performance - adjust based on available cores */
-  workers: process.env.CI ? 5 : 5,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [["dot"], ["html", { open: "never" }]],
-  /* Global setup for authentication */
-  globalSetup: require.resolve("./e2e/global-setup"),
-  //maxFailures: 1,
-  expect: {
-    timeout: 10000,
-  },
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 4 : undefined,
+  reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: BASE_URL,
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: "retain-on-failure",
-
-    /* Take screenshot only when test fails */
+    baseURL: process.env.BASE_URL || "http://localhost:3000",
+    extraHTTPHeaders: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))
+      ? undefined
+      : (process.env.VERCEL_BYPASS_TOKEN || process.env.VERCEL_AUTOMATION_BYPASS_SECRET || process.env.VERCEL_BYPASS)
+      ? {
+          'x-vercel-protection-bypass': String(
+            process.env.VERCEL_BYPASS_TOKEN ||
+              process.env.VERCEL_AUTOMATION_BYPASS_SECRET ||
+              process.env.VERCEL_BYPASS
+          ),
+        }
+      : undefined,
+    trace: "on-first-retry",
     screenshot: "only-on-failure",
-
-    /* Use saved authentication state */
-    storageState: ".auth/user.json",
-
-    /* Set test mode flag for components to detect test environment and allow API tests */
-    extraHTTPHeaders: Object.fromEntries(
-      Object.entries({
-        "X-Test-Mode": "true",
-        ...(VERCEL_BYPASS && !BASE_URL.startsWith("http://localhost")
-          ? { "x-vercel-protection-bypass": VERCEL_BYPASS }
-          : {}),
-      })
-    ),
+    video: "retain-on-failure",
   },
-
-  /* Configure projects for major browsers */
   projects: [
+    // Guest-only: runs unauthenticated checks
     {
-      name: "auth-tests",
-      testMatch: [
-        "**/auth.spec.ts",
-        "**/landing-page.spec.ts",
-        "**/comprehensive.spec.ts",
-      ],
-      use: {
-        ...devices["Desktop Chrome"],
-        // Don't use stored auth state for auth tests
-        storageState: undefined,
-      },
+      name: 'guest',
+      testMatch: ['e2e/guest-*.spec.ts'],
+      use: { ...devices['Desktop Chrome'] },
     },
+    // Authenticated: uses storageState produced by globalSetup
     {
-      name: "chromium",
-      testIgnore: [
-        "**/auth.spec.ts",
-        "**/landing-page.spec.ts",
-        "**/comprehensive.spec.ts",
-      ],
-      use: { ...devices["Desktop Chrome"] },
-    },
-
-    // Mobile Safari tests removed - focus on desktop browser testing
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
-
-    // Add API testing project
-    {
-      name: "api-tests",
-      testMatch: "**/api-*.spec.ts",
-      use: {
-        // API tests don't need a browser
-        headless: true,
-      },
-    },
-    // Mobile project for mobile-only interaction tests
-    {
-      name: "mobile-chrome",
-      testMatch: ["**/phase1-motion-interactions.spec.ts"],
-      use: {
-        ...devices["Pixel 5"],
-        storageState: ".auth/user.json",
-      },
+      name: 'auth',
+      testIgnore: ['e2e/guest-*.spec.ts'],
+      use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/state.json' },
     },
   ],
-
-  /* Run your local dev server before starting the tests */
-  webServer: BASE_URL.startsWith("http://localhost")
+  webServer: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))
     ? {
-        command: "rm -rf .next || true && NEXT_PUBLIC_TEST_MODE=1 PORT=3002 npm run dev",
-        url: "http://localhost:3002",
-        reuseExistingServer: false,
-        timeout: 120 * 1000,
-        env: {
-          PORT: "3002",
-          NEXT_PUBLIC_TEST_MODE: "1",
-          NEXT_TELEMETRY_DISABLED: "1",
-        },
+        command: "npm run dev",
+        url: process.env.BASE_URL || "http://localhost:3000",
+        reuseExistingServer: true,
+        timeout: 120_000,
       }
     : undefined,
 });

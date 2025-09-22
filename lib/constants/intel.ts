@@ -154,7 +154,7 @@ export const INTEL_FILTERS = {
 };
 
 // Confirmation thresholds
-export const INTEL_CONFIRMATION_CONFIG = {
+const INTEL_CONFIRMATION_CONFIG = {
   // Number of confirmations needed for different trust levels
   THRESHOLDS: {
     LOW: 1,
@@ -195,7 +195,7 @@ export const getConfidenceLabel = (confirmations: number) => {
   return INTEL_CONFIRMATION_CONFIG.CONFIDENCE_LABELS[level];
 };
 
-export const shouldExpireFast = (tag: IntelPostTag) => {
+const shouldExpireFast = (tag: IntelPostTag) => {
   return INTEL_CONFIG.FAST_EXPIRY_TAGS.includes(tag);
 };
 

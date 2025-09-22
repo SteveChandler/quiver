@@ -360,7 +360,7 @@ export function GearSuggestionsSection({
         <div className="pt-3 border-t">
           <p className="text-xs text-muted-foreground">
             💡 Recommendations are based on your past session ratings, board
-            performance in similar conditions, and how recently you've used each
+            performance in similar conditions, and how recently you’ve used each
             board.
           </p>
         </div>

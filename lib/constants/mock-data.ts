@@ -1,4 +1,4 @@
-export interface MockPost {
+interface MockPost {
   id: string;
   name: string;
   activity: string;

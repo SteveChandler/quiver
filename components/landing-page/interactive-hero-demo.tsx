@@ -184,7 +184,9 @@ export function InteractiveHeroDemo({
                   (Demo)
                 </span>
               </h3>
-              <span className="text-xs sm:text-sm text-white/70">Updated now</span>
+              <span className="text-xs sm:text-sm text-white/70">
+                Updated now
+              </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4">
@@ -206,14 +208,16 @@ export function InteractiveHeroDemo({
                   tabIndex={0}
                   aria-label={`View conditions for ${beach.name}: ${beach.waves}, ${beach.wind}, ${beach.conditions}`}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       setSelectedBeach(index);
                     }
                   }}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-white text-sm sm:text-base truncate">{beach.name}</h4>
+                    <h4 className="font-medium text-white text-sm sm:text-base truncate">
+                      {beach.name}
+                    </h4>
                     <div className={`w-3 h-3 rounded-full ${beach.color}`} />
                   </div>
                   <div className="space-y-1 text-xs sm:text-sm text-white/80">
@@ -231,7 +235,9 @@ export function InteractiveHeroDemo({
                       </span>
                       <div className="flex items-center gap-1">
                         <Star className="h-2 w-2 sm:h-3 sm:w-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs sm:text-sm">{beach.rating}</span>
+                        <span className="text-xs sm:text-sm">
+                          {beach.rating}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -295,7 +301,9 @@ export function InteractiveHeroDemo({
                           : "text-white/70 hover:text-white"
                       }`}
                       data-testid="demo-like-button"
-                      aria-label={`${likedSessions.has(session.id) ? 'Unlike' : 'Like'} session by ${session.user}`}
+                      aria-label={`${
+                        likedSessions.has(session.id) ? "Unlike" : "Like"
+                      } session by ${session.user}`}
                     >
                       <ThumbsUp
                         className={`h-4 w-4 transition-all ${
@@ -313,7 +321,7 @@ export function InteractiveHeroDemo({
                       <MessageSquare className="h-4 w-4" />
                       <span>{session.comments}</span>
                     </div>
-                    <button 
+                    <button
                       className="flex items-center gap-1 text-sm text-white/70 hover:text-white transition-colors"
                       aria-label={`Share session by ${session.user}`}
                     >
@@ -394,7 +402,7 @@ export function InteractiveHeroDemo({
 
             <div className="text-center">
               <p className="text-white/90 mb-4">
-                "Finally found my surf crew! Best sessions ever 🤙"
+                “Finally found my surf crew! Best sessions ever 🤙”
               </p>
               <p className="text-sm text-white/70">- Alex, San Diego</p>
             </div>

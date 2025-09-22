@@ -70,7 +70,7 @@ export default function ForecastDataTransparency({
 
       {!isRealData && (
         <div className="mt-2 p-2 bg-orange-100 rounded text-xs text-orange-800">
-          <strong>Note:</strong> NOAA weather stations don't provide
+          <strong>Note:</strong> NOAA weather stations don’t provide
           oceanographic wave data for coastal locations. These estimates are
           based on typical surf conditions for this area and season.
         </div>

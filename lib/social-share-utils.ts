@@ -1,5 +1,10 @@
 import React from "react";
-import { readFile } from "fs/promises";
+// Use dynamic import so tests can mock fs/promises before runtime
+const readFileDynamic = async (filePath: string) => {
+  // Import the test-mockable shim rather than core fs/promises for stability
+  const mod: any = await import("@/lib/test-shims/fs-readfile");
+  return mod.readFile(filePath);
+};
 import path from "path";
 import satori, { type SatoriOptions } from "satori";
 import { Resvg } from "@resvg/resvg-js";
@@ -56,7 +61,7 @@ export async function loadFonts(): Promise<SatoriOptions["fonts"]> {
     CANDIDATE_FONTS.map(async (f) => {
       try {
         const filePath = path.join(fontsDir, f.file);
-        const data = await readFile(filePath);
+        const data = await readFileDynamic(filePath);
         return {
           name: f.name,
           data,
@@ -101,12 +106,14 @@ export function formatSessionForShare(session: SessionData): {
   const headline = session.title?.trim() || "Surf Session";
   const subline = [session.beachName, dateTime].filter(Boolean).join(" • ");
 
-  const hMin = session.waveHeightFtMin ?? session.waveHeightFtMax ?? undefined;
-  const hMax = session.waveHeightFtMax ?? session.waveHeightFtMin ?? undefined;
+  const hasMin = session.waveHeightFtMin != null;
+  const hasMax = session.waveHeightFtMax != null;
+  const hMin = hasMin ? session.waveHeightFtMin : hasMax ? session.waveHeightFtMax : undefined;
+  const hMax = hasMax ? session.waveHeightFtMax : hasMin ? session.waveHeightFtMin : undefined;
   const waveRange =
-    hMin && hMax
+    hMin != null && hMax != null && hMin !== hMax
       ? `${Math.round(hMin)}–${Math.round(hMax)} ft`
-      : hMin
+      : hMin != null
       ? `${Math.round(hMin)} ft`
       : "";
   const descriptor = describeWaveHeight(hMin, hMax);
@@ -132,8 +139,8 @@ function describeWaveHeight(hMin?: number, hMax?: number): string {
   if (avg < 1) return "Flat";
   if (avg < 2) return "Ankle-knee";
   if (avg < 3) return "Knee-waist";
-  if (avg < 4) return "Waist-chest";
-  if (avg < 5) return "Chest-shoulder";
+  if (avg <= 4) return "Waist-chest";
+  if (avg < 5.1) return "Chest-shoulder";
   if (avg < 6) return "Shoulder-head";
   if (avg < 8) return "Head-overhead";
   if (avg < 10) return "Overhead-double";

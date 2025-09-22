@@ -39,14 +39,14 @@ export function EquipmentStep({
       updateField("selectedBoard", newBoard.id);
       updateField("boardId", newBoard.id);
     }
-    
+
     setIsAddBoardDialogOpen(false);
-    
+
     // Refresh boards list after everything else is done
     if (onBoardsRefresh) {
       try {
         await onBoardsRefresh();
-        
+
         // Ensure the board stays selected after refresh
         if (newBoard) {
           updateField("selectedBoard", newBoard.id);
@@ -72,7 +72,7 @@ export function EquipmentStep({
       {boards.length === 0 ? (
         <div className="text-center py-4">
           <p className="text-muted-foreground mb-4">
-            You haven't added any boards yet
+            You haven&apos;t added any boards yet
           </p>
           <Button
             type="button"

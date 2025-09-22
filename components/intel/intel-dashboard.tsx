@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +59,7 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
 
   // Intel data with location (now supports showAll mode)
   const {
-    posts,
+    posts: fetchedPosts,
     loading,
     error,
     refetch,
@@ -78,6 +78,29 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
     refreshInterval: 30000,
     showAll: locationMode === "all",
   });
+
+  const [pendingPosts, setPendingPosts] = useState<IntelPostWithUser[]>([]);
+  const posts = useMemo(() => {
+    const basePosts = fetchedPosts || [];
+    const combined = [...pendingPosts, ...basePosts];
+    const seen = new Set<string>();
+
+    return combined.filter((post) => {
+      if (!post?.id) return false;
+      if (seen.has(post.id)) return false;
+      seen.add(post.id);
+      return true;
+    });
+  }, [pendingPosts, fetchedPosts]);
+
+  useEffect(() => {
+    if (!fetchedPosts || fetchedPosts.length === 0) return;
+    setPendingPosts((prev) =>
+      prev.filter(
+        (pending) => !fetchedPosts.some((post) => post.id === pending.id)
+      )
+    );
+  }, [fetchedPosts]);
 
   // Handle map movement to update data
   const handleMapMove = useCallback(
@@ -170,9 +193,23 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
   }, []);
 
   // Handle successful post creation
-  const handlePostSuccess = useCallback(() => {
-    refetch();
-  }, [refetch]);
+  const handlePostSuccess = useCallback(
+    (newPost: IntelPostWithUser | null) => {
+      setShowPostForm(false);
+      if (newPost) {
+        setPendingPosts((prev) => [
+          newPost,
+          ...prev.filter((post) => post.id !== newPost.id),
+        ]);
+        setMapCenter([
+          Number(newPost.longitude),
+          Number(newPost.latitude),
+        ]);
+      }
+      refetch();
+    },
+    [refetch]
+  );
 
   const canConfirm = !!user;
   const canPost = !!user;

@@ -13,7 +13,7 @@ import {
   Thermometer,
   CalendarClock,
 } from "lucide-react";
-import Image from "next/image";
+import { MapImage } from "@/components/map-image";
 import Link from "next/link";
 import { useState } from "react";
 import { useCommentCount } from "@/hooks/use-comment-count";
@@ -252,11 +252,11 @@ export function SessionCard({
         </div>
       )}
 
-      {/* Image */}
+      {/* Map Preview */}
       <div className="relative h-48 w-full rounded-md overflow-hidden">
-        <Image
+        <MapImage
           src={imageUrl || "/placeholder.svg"}
-          alt="Session photo"
+          alt="Session location map"
           fill
           className="object-cover"
         />

@@ -31,6 +31,27 @@ import { config } from 'dotenv';
 // Load environment variables
 config();
 
+// Volume controls (env-driven with safe defaults)
+function parseEnvInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function randomIntInclusive(min: number, max: number): number {
+  const low = Math.ceil(min);
+  const high = Math.floor(max);
+  return Math.floor(Math.random() * (high - low + 1)) + low;
+}
+
+const NPC_DAILY_MIN = parseEnvInt('NPC_DAILY_MIN', 3);
+const NPC_DAILY_MAX = parseEnvInt('NPC_DAILY_MAX', 5);
+const NPC_INTEL_PER_NPC_MIN = parseEnvInt('NPC_INTEL_PER_NPC_MIN', 1);
+const NPC_INTEL_PER_NPC_MAX = parseEnvInt('NPC_INTEL_PER_NPC_MAX', 1);
+// Hard safety cap on total content pieces created per run (sessions + intel + reviews)
+const NPC_RUN_MAX_TOTAL = parseEnvInt('NPC_RUN_MAX_TOTAL', 30);
+
 interface MockUser {
   id: string;
   full_name: string;
@@ -224,8 +245,8 @@ async function fetchRandomNPCs(supabase: any, count: number = 5): Promise<MockUs
     throw new Error('No mock users found. Please create mock users first with is_mock=true');
   }
 
-  // Randomly select 3-5 NPCs
-  const selectedCount = Math.max(3, Math.min(count, profiles.length));
+  // Select requested count within available profiles
+  const selectedCount = Math.max(1, Math.min(count, profiles.length));
   const shuffled = [...profiles].sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, selectedCount);
 
@@ -605,13 +626,16 @@ function generatePersonalityBasedRatings(personality: MockUser['personality']): 
 async function createDailyNPCActivity(supabase: any) {
   console.log('🚀 Creating daily NPC activity...\n');
   
-  // Select 3-5 random NPCs
-  const selectedNPCs = await fetchRandomNPCs(supabase, 3 + Math.floor(Math.random() * 3));
+  // Determine number of NPCs to use today from configured range
+  const npcCount = randomIntInclusive(NPC_DAILY_MIN, Math.max(NPC_DAILY_MIN, NPC_DAILY_MAX));
+  console.log(`⚙️  Volume config: NPCs=${npcCount}, intel per NPC=${NPC_INTEL_PER_NPC_MIN}-${NPC_INTEL_PER_NPC_MAX}, run cap=${NPC_RUN_MAX_TOTAL}`);
+  const selectedNPCs = await fetchRandomNPCs(supabase, npcCount);
   const beaches = await fetchRandomBeaches(supabase, selectedNPCs.length);
   
   let sessionCount = 0;
   let intelCount = 0;
   let reviewCount = 0;
+  let totalCreated = 0;
   const errors: string[] = [];
 
   for (let i = 0; i < selectedNPCs.length; i++) {
@@ -621,6 +645,11 @@ async function createDailyNPCActivity(supabase: any) {
     console.log(`📝 Creating content for ${npc.full_name} (${npc.personality}) at ${beach.name}...`);
     
     try {
+      // Enforce hard cap
+      if (totalCreated >= NPC_RUN_MAX_TOTAL) {
+        console.log('⛔ Per-run content cap reached. Stopping early to protect volume limits.');
+        break;
+      }
       // Create session
       const sessionData = generateSessionFromPersonality(npc, beach);
       const { error: sessionError } = await supabase
@@ -631,23 +660,38 @@ async function createDailyNPCActivity(supabase: any) {
         errors.push(`Session for ${npc.full_name}: ${sessionError.message}`);
       } else {
         sessionCount++;
+        totalCreated++;
         console.log(`  ✅ Session created`);
       }
 
-      // Create intel post
-      const intelData = generateIntelPost(npc, beach);
-      const { error: intelError } = await supabase
-        .from('intel_posts')
-        .insert(intelData);
-      
-      if (intelError) {
-        errors.push(`Intel post for ${npc.full_name}: ${intelError.message}`);
-      } else {
-        intelCount++;
-        console.log(`  ✅ Intel post created (${intelData.tag})`);
+      // Create 1..N intel posts per NPC within configured range, respecting cap
+      const intelForThisNpc = randomIntInclusive(
+        Math.max(1, NPC_INTEL_PER_NPC_MIN),
+        Math.max(NPC_INTEL_PER_NPC_MIN, NPC_INTEL_PER_NPC_MAX)
+      );
+      for (let j = 0; j < intelForThisNpc; j++) {
+        if (totalCreated >= NPC_RUN_MAX_TOTAL) {
+          console.log('⛔ Per-run content cap reached during intel creation. Stopping.');
+          break;
+        }
+        const intelData = generateIntelPost(npc, beach);
+        const { error: intelError } = await supabase
+          .from('intel_posts')
+          .insert(intelData);
+        if (intelError) {
+          errors.push(`Intel post for ${npc.full_name}: ${intelError.message}`);
+        } else {
+          intelCount++;
+          totalCreated++;
+          console.log(`  ✅ Intel post created (${intelData.tag})`);
+        }
       }
 
       // Create beach review
+      if (totalCreated >= NPC_RUN_MAX_TOTAL) {
+        console.log('⛔ Per-run content cap reached before review creation. Stopping.');
+        break;
+      }
       const reviewData = generateBeachReview(npc, beach);
       const { error: reviewError } = await supabase
         .from('beach_reviews')
@@ -657,6 +701,7 @@ async function createDailyNPCActivity(supabase: any) {
         errors.push(`Beach review for ${npc.full_name}: ${reviewError.message}`);
       } else {
         reviewCount++;
+        totalCreated++;
         console.log(`  ✅ Beach review created`);
       }
 

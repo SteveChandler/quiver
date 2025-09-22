@@ -182,7 +182,7 @@ export function JournalView({ className }: JournalViewProps) {
       <Card className="border-dashed">
         <CardContent className="pt-6 text-center space-y-3">
           <p className="text-muted-foreground">
-            You haven't logged any sessions yet.
+            You haven&apos;t logged any sessions yet.
           </p>
           <div className="flex gap-2 justify-center">
             <Button asChild>

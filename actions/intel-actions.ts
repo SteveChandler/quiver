@@ -19,6 +19,7 @@ import type {
  * Create a new intel post
  */
 import type { XPAction } from "@/lib/gamification-actions";
+import { withAuthenticatedAction } from "@/lib/server-action-utils";
 
 type TrackXPFn = (
   action: XPAction,
@@ -28,6 +29,7 @@ type TrackXPFn = (
 
 interface IntelDeps {
   trackXP?: TrackXPFn;
+  authWrapper?: typeof withAuthenticatedAction;
 }
 
 export async function createIntelPost(
@@ -35,70 +37,18 @@ export async function createIntelPost(
   deps?: IntelDeps
 ): Promise<ActionResult> {
   try {
-    // Use service-role for reliable reads (bypasses RLS inconsistencies in dev)
-    const supabase = await createSupabaseServiceRoleClient();
+    const authWrapper = deps?.authWrapper ?? withAuthenticatedAction;
 
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return {
-        success: false,
-        error: "Authentication required",
-      };
-    }
-
-    const {
-      latitude,
-      longitude,
-      tag,
-      title,
-      description,
-      photo_url,
-      photo_storage_path,
-      wave_height,
-      wind_speed,
-      wind_direction,
-      water_temp,
-      crowd_level,
-      wave_types,
-      forecast_accuracy,
-    } = data;
-
-    // Validate required fields
-    if (
-      !latitude ||
-      !longitude ||
-      !tag ||
-      !title?.trim() ||
-      !description?.trim()
-    ) {
-      return {
-        success: false,
-        error:
-          "Missing required fields: latitude, longitude, tag, title, description",
-      };
-    }
-
-    // Calculate expiry date based on tag
-    const expiryDate = getExpiryDate(tag);
-
-    // Create intel post
-    const { data: intelPost, error: createError } = await supabase
-      .from("intel_posts")
-      .insert({
-        user_id: user.id,
+    return await authWrapper(async (user, supabase) => {
+      const {
         latitude,
         longitude,
+        beach_id,
         tag,
-        title: title.trim(),
-        description: description.trim(),
+        title,
+        description,
         photo_url,
         photo_storage_path,
-        expires_at: expiryDate.toISOString(),
-        // Surf condition fields
         wave_height,
         wind_speed,
         wind_direction,
@@ -106,51 +56,142 @@ export async function createIntelPost(
         crowd_level,
         wave_types,
         forecast_accuracy,
-      })
-      .select()
-      .single();
+      } = data;
 
-    if (createError) {
-      console.error("Error creating intel post:", createError);
-      return {
-        success: false,
-        error: "Failed to create intel post",
+      if (
+        typeof latitude !== "number" ||
+        Number.isNaN(latitude) ||
+        typeof longitude !== "number" ||
+        Number.isNaN(longitude) ||
+        !tag ||
+        !title?.trim() ||
+        !description?.trim()
+      ) {
+        return {
+          success: false,
+          error:
+            "Missing required fields: latitude, longitude, tag, title, description",
+        };
+      }
+
+      const expiryDate = getExpiryDate(tag);
+
+      let normalizedBeachId = beach_id?.trim() || null;
+
+      // Prefer explicit beach_id but fall back to nearest beach from geo lookup
+      if (!normalizedBeachId) {
+        const { data: nearbyBeaches, error: nearestError } = await supabase.rpc(
+          "get_nearby_beaches",
+          {
+            lat: latitude,
+            lng: longitude,
+            limit_count: 1,
+          }
+        );
+
+        if (nearestError) {
+          console.error("Nearest beach lookup failed:", nearestError);
+          return {
+            success: false,
+            error: "Unable to determine nearest beach for intel post",
+          };
+        }
+
+        normalizedBeachId = nearbyBeaches?.[0]?.id ?? null;
+      }
+
+      if (!normalizedBeachId) {
+        return {
+          success: false,
+          error: "Unable to determine a beach for this intel post",
+        };
+      }
+
+      // Normalize optional surf condition inputs into JSONB
+      const surfConditions: Record<string, any> = {};
+      if (wave_height !== undefined && wave_height !== null)
+        surfConditions.wave_height = wave_height;
+      if (wind_speed !== undefined && wind_speed !== null)
+        surfConditions.wind_speed = wind_speed;
+      if (wind_direction !== undefined && wind_direction !== null)
+        surfConditions.wind_direction = wind_direction;
+      if (water_temp !== undefined && water_temp !== null)
+        surfConditions.water_temp = water_temp;
+      if (crowd_level !== undefined && crowd_level !== null)
+        surfConditions.crowd_level = crowd_level;
+      if (wave_types && Array.isArray(wave_types) && wave_types.length > 0)
+        surfConditions.wave_types = wave_types;
+      if (forecast_accuracy !== undefined && forecast_accuracy !== null)
+        surfConditions.forecast_accuracy = forecast_accuracy;
+
+      const { data: intelPost, error: createError } = await supabase
+        .from("intel_posts")
+        .insert({
+          user_id: user.id,
+          beach_id: normalizedBeachId,
+          latitude,
+          longitude,
+          tag,
+          title: title.trim(),
+          description: description.trim(),
+          photo_url,
+          photo_storage_path,
+          expires_at: expiryDate.toISOString(),
+          is_active: true,
+          surf_conditions: Object.keys(surfConditions).length
+            ? surfConditions
+            : null,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Error creating intel post:", createError);
+        return { success: false, error: "Failed to create intel post" };
+      }
+
+      if (!intelPost?.beach_id) {
+        console.error(
+          "Intel post created without beach_id despite guard",
+          intelPost
+        );
+        return {
+          success: false,
+          error: "Intel post missing beach association",
+        };
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      const enrichedPost: IntelPostWithUser = {
+        ...intelPost,
+        user: {
+          full_name: profile?.full_name || "Anonymous",
+          avatar_url: profile?.avatar_url || null,
+        },
+        user_has_confirmed: false,
       };
-    }
 
-    // Get user profile for response
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url")
-      .eq("id", user.id)
-      .single();
+      revalidatePath("/");
 
-    const enrichedPost: IntelPostWithUser = {
-      ...intelPost,
-      user: {
-        full_name: profile?.full_name || "Anonymous",
-        avatar_url: profile?.avatar_url || null,
-      },
-      user_has_confirmed: false,
-    };
+      try {
+        const track = deps?.trackXP
+          ? deps.trackXP
+          : (await import("@/lib/gamification-actions")).trackXP;
+        await track("post_beach_intel", intelPost.id, "intel_post");
+      } catch (xpErr) {
+        console.warn("XP tracking failed for intel post:", xpErr);
+      }
 
-    // Revalidate the home page to refresh the intel feed
-    revalidatePath("/");
-
-    // Track XP for posting beach intel (non-blocking)
-    try {
-      const track = deps?.trackXP
-        ? deps.trackXP
-        : (await import("@/lib/gamification-actions")).trackXP;
-      await track("post_beach_intel", intelPost.id, "intel_post");
-    } catch (xpErr) {
-      console.warn("XP tracking failed for intel post:", xpErr);
-    }
-
-    return {
-      success: true,
-      data: enrichedPost,
-    };
+      return {
+        success: true,
+        data: enrichedPost,
+      } as ActionResult;
+    });
   } catch (error) {
     console.error("Error in createIntelPost:", error);
     return {

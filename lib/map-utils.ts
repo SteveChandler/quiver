@@ -90,7 +90,7 @@ function generateEnhancedMapPlaceholder(
 }
 
 // Option 1: Mapbox Static Images API with custom marker text
-export function getMapboxStaticImageUrl(
+function getMapboxStaticImageUrl(
   latitude: number,
   longitude: number,
   options: {
@@ -111,8 +111,10 @@ export function getMapboxStaticImageUrl(
     markerText,
   } = options;
 
-  // Get the Mapbox access token from environment variable
-  const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+  // Get the Mapbox access token from environment variable (support alias)
+  const accessToken =
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+    (process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   if (!accessToken) {
     console.warn(
@@ -161,7 +163,7 @@ export function getMapboxStaticImageUrl(
 }
 
 // Option 2: Google Maps Static API with custom marker labels
-export function getGoogleMapsStaticImageUrl(
+function getGoogleMapsStaticImageUrl(
   latitude: number,
   longitude: number,
   options: {
@@ -233,7 +235,7 @@ export function getGoogleMapsStaticImageUrl(
 }
 
 // Option 3: OpenStreetMap via Geoapify (with API key)
-export function getGeoapifyStaticImageUrl(
+function getGeoapifyStaticImageUrl(
   latitude: number,
   longitude: number,
   options: {
@@ -260,7 +262,7 @@ export function getGeoapifyStaticImageUrl(
 }
 
 // Option 4: Free OpenStreetMap static image (no API key required)
-export function getOpenStreetMapStaticImageUrl(
+function getOpenStreetMapStaticImageUrl(
   latitude: number,
   longitude: number,
   options: {
@@ -321,7 +323,7 @@ export function getStaticMapImageUrl(
       0,
       options.width || 300,
       options.height || 120,
-      options.markerText || "Location Unknown"
+      options.markerText || ""
     );
   }
 
@@ -339,22 +341,14 @@ export function getStaticMapImageUrl(
 
   console.log("Generating map image for coordinates:", { latitude, longitude });
   console.log("Available environment variables:", {
-    hasMapbox: !!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN,
+    hasMapbox:
+      !!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+      !!(process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN,
     hasGoogle: !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
     hasGeoapify: !!process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY,
   });
 
-  // For production on Vercel, prefer enhanced placeholder to avoid external service issues
-  if (process.env.NODE_ENV === "production" && process.env.VERCEL) {
-    console.log("Using enhanced placeholder for Vercel production deployment");
-    return generateEnhancedMapPlaceholder(
-      latitude,
-      longitude,
-      options.width || 300,
-      options.height || 120,
-      options.markerText
-    );
-  }
+  // Use real providers in all environments; rely on graceful fallbacks below
 
   // Try Google Maps first if we have marker text (better text support)
   if (options.markerText && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
@@ -366,7 +360,10 @@ export function getStaticMapImageUrl(
   }
 
   // Try Mapbox first (best for outdoor/surf maps)
-  if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
+  if (
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+    (process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN
+  ) {
     console.log("Using Mapbox for map image");
     return getMapboxStaticImageUrl(latitude, longitude, options);
   }
@@ -433,18 +430,18 @@ export function getBeachCoordinates(
   if (!beach) return null;
 
   // Check if beach has direct latitude/longitude properties
-  if (beach.latitude && beach.longitude) {
+  if (typeof beach.latitude === "number" && typeof beach.longitude === "number") {
     return { latitude: beach.latitude, longitude: beach.longitude };
   }
 
   // Check if beach has location object with x/y coordinates
-  if (beach.location?.x && beach.location?.y) {
+  if (typeof beach.location?.x === "number" && typeof beach.location?.y === "number") {
     // In PostGIS, x is longitude and y is latitude
     return { latitude: beach.location.y, longitude: beach.location.x };
   }
 
-  // Check if beach has lat/lng properties
-  if (beach.lat && beach.lng) {
+  // Legacy support: tolerate lat/lng property names in tests and older code paths
+  if (typeof beach.lat === "number" && typeof beach.lng === "number") {
     return { latitude: beach.lat, longitude: beach.lng };
   }
 

@@ -48,6 +48,9 @@ export async function GET(request: NextRequest, deps?: GetDeps) {
         id: profileData.id,
         home_beach_id: profileData.home_beach_id,
         full_name: profileData.full_name,
+        avatar_url: (profileData as any).avatar_url ?? null,
+        bio: (profileData as any).bio ?? null,
+        location: (profileData as any).location ?? null,
       };
       return createSuccessResponse(response);
     }
@@ -68,8 +71,10 @@ export async function GET(request: NextRequest, deps?: GetDeps) {
       home_beach_id: profile.home_beach_id,
       full_name: profile.full_name,
       homeBeachName,
-      // Include other fields needed by the client
-      // Note: keep minimal fields here to avoid over-fetching
+      // Light additional details so client UIs (like avatar) render correctly
+      avatar_url: (profile as any).avatar_url ?? null,
+      bio: (profile as any).bio ?? null,
+      location: (profile as any).location ?? null,
     };
     
     return createSuccessResponse(response);

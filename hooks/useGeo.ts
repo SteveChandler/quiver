@@ -2,19 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-export type GeoSource = "browser" | "lastUsedBeach" | "default";
+type GeoSource = "browser" | "lastUsedBeach" | "default";
 
-export interface Coordinates {
+interface Coordinates {
   lat: number;
   lon: number;
 }
 
-export interface LastBeachMeta extends Coordinates {
+interface LastBeachMeta extends Coordinates {
   id?: string;
   name?: string;
 }
 
-export interface UseGeoOptions {
+interface UseGeoOptions {
   defaultCoords?: Coordinates; // Fallback when nothing else available
   lastBeachStorageKey?: string; // localStorage key for last used beach
   highAccuracy?: boolean;
@@ -22,7 +22,7 @@ export interface UseGeoOptions {
   maximumAgeMs?: number;
 }
 
-export interface UseGeoResult {
+interface UseGeoResult {
   coords: Coordinates | null;
   loading: boolean;
   error: string | null;
@@ -133,5 +133,4 @@ export function useGeo(options: UseGeoOptions = {}): UseGeoResult {
     setLastBeach,
   };
 }
-
 

@@ -72,13 +72,15 @@ export function ShareModal({
   const [updating, setUpdating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [hasShownSuccessToast, setHasShownSuccessToast] = useState(false);
+  const [hasShownImageReadyToast, setHasShownImageReadyToast] = useState(false);
+  const [hasShownDownloadToast, setHasShownDownloadToast] = useState(false);
   const [hasShownShareToast, setHasShownShareToast] = useState(false);
 
   useEffect(() => {
     if (open) {
       // Reset states when modal opens
-      setHasShownSuccessToast(false);
+      setHasShownImageReadyToast(false);
+      setHasShownDownloadToast(false);
       setHasShownShareToast(false);
 
       // Warm the function via HEAD
@@ -146,16 +148,16 @@ export function ShareModal({
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      if (!hasShownSuccessToast) {
+      if (!hasShownDownloadToast) {
         toast({ title: "Image downloaded! 📸" });
-        setHasShownSuccessToast(true);
+        setHasShownDownloadToast(true);
       }
     } catch (error) {
       toast({ title: "Failed to download image", variant: "destructive" });
     } finally {
       setDownloading(false);
     }
-  }, [imgUrl, imgReady, sessionId, variant, hasShownSuccessToast]);
+  }, [imgUrl, imgReady, sessionId, variant, hasShownDownloadToast, toast]);
 
   const shareImage = useCallback(async () => {
     if (!imgReady || !hasWebShare()) return;
@@ -185,7 +187,7 @@ export function ShareModal({
     } finally {
       setSharing(false);
     }
-  }, [imgUrl, imgReady, sessionId, hasShownShareToast]);
+  }, [imgUrl, imgReady, sessionId, hasShownShareToast, toast]);
 
   const getPlatformCopy = () => {
     if (hasWebShare()) {
@@ -216,10 +218,18 @@ export function ShareModal({
             className="w-full"
           >
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="story" className="text-sm sm:text-base">
+              <TabsTrigger
+                value="story"
+                className="text-sm sm:text-base"
+                onClick={() => setVariant("story")}
+              >
                 Story <span className="hidden sm:inline">(1080x1920)</span>
               </TabsTrigger>
-              <TabsTrigger value="square" className="text-sm sm:text-base">
+              <TabsTrigger
+                value="square"
+                className="text-sm sm:text-base"
+                onClick={() => setVariant("square")}
+              >
                 Square <span className="hidden sm:inline">(1080x1080)</span>
               </TabsTrigger>
             </TabsList>
@@ -281,7 +291,7 @@ export function ShareModal({
               className={`w-full share-flip-animation ${
                 sharing
                   ? "sharing"
-                  : imgReady && hasShownSuccessToast
+                  : imgReady && hasShownImageReadyToast
                   ? "shared"
                   : ""
               } ${
@@ -291,9 +301,9 @@ export function ShareModal({
               }`}
               onLoad={() => {
                 setImgReady(true);
-                if (!hasShownSuccessToast && isPublic) {
+                if (!hasShownImageReadyToast && isPublic) {
                   toast({ title: "Your session image is ready! 🏄‍♂️" });
-                  setHasShownSuccessToast(true);
+                  setHasShownImageReadyToast(true);
                 }
               }}
               onError={() => {
@@ -317,7 +327,7 @@ export function ShareModal({
                     onClick={shareImage}
                     disabled={sharing || !imgReady}
                     className={`flex-1 motion-optimized like-button-spring ripple-effect transition-all ${
-                      hasShownSuccessToast ? "celebration-bounce" : ""
+                      hasShownShareToast ? "celebration-bounce" : ""
                     }`}
                     aria-label="Share session image"
                     data-testid="web-share-button"
@@ -337,13 +347,11 @@ export function ShareModal({
                       <>
                         <Share2
                           className={`mr-2 h-4 w-4 transition-transform ${
-                            hasShownSuccessToast
-                              ? "scale-110 text-green-500"
-                              : ""
+                            hasShownShareToast ? "scale-110 text-green-500" : ""
                           }`}
                           aria-hidden="true"
                         />
-                        {hasShownSuccessToast ? "Shared! 🤙" : "Share"}
+                        {hasShownShareToast ? "Shared! 🤙" : "Share"}
                       </>
                     )}
                   </Button>
@@ -352,7 +360,7 @@ export function ShareModal({
                     onClick={downloadImage}
                     disabled={downloading || !imgReady}
                     className={`flex-1 motion-optimized like-button-spring ripple-effect transition-all ${
-                      hasShownSuccessToast ? "celebration-bounce" : ""
+                      hasShownDownloadToast ? "celebration-bounce" : ""
                     }`}
                     aria-label="Download session image"
                     data-testid="download-button"
@@ -372,13 +380,13 @@ export function ShareModal({
                       <>
                         <Download
                           className={`mr-2 h-4 w-4 transition-transform ${
-                            hasShownSuccessToast
+                            hasShownDownloadToast
                               ? "scale-110 text-green-500"
                               : ""
                           }`}
                           aria-hidden="true"
                         />
-                        {hasShownSuccessToast ? "Downloaded! 📸" : "Download"}
+                        {hasShownDownloadToast ? "Downloaded! 📸" : "Download"}
                       </>
                     )}
                   </Button>

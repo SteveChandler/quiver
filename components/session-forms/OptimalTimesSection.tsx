@@ -98,6 +98,7 @@ export function OptimalTimesSection({
     return response.json();
   }, [
     formState.selectedBeachId,
+    formState.selectedBeach,
     formState.selectedDate,
     formState.selectedTime,
   ]);

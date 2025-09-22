@@ -19,13 +19,19 @@ export default function SignInPage() {
             Enter your email and password to sign in to your account
           </p>
           <p className="text-xs text-muted-foreground">
-            Don't have an account?{" "}
+            Don’t have an account?{" "}
             <a href="/auth/sign-up" className="text-primary hover:underline">
               Sign up
             </a>
           </p>
         </div>
-        <Suspense fallback={<div className="text-sm text-muted-foreground">Loading sign in…</div>}>
+        <Suspense
+          fallback={
+            <div className="text-sm text-muted-foreground">
+              Loading sign in…
+            </div>
+          }
+        >
           <SignInForm />
         </Suspense>
       </div>

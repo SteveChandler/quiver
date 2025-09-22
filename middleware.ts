@@ -8,6 +8,7 @@ const protectedPaths = [
   "/sessions",
   "/dashboard",
   "/map",
+  "/journal",
 ];
 
 // Only enable verbose logging in development

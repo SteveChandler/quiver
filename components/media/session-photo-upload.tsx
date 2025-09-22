@@ -375,6 +375,7 @@ export default function SessionPhotoUpload({
             {files.map((filePreview) => (
               <div key={filePreview.id} className="relative group">
                 <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={filePreview.url}
                     alt="Preview"

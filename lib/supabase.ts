@@ -5,7 +5,7 @@ import {
 } from "@supabase/ssr";
 
 // Create a browser client using @supabase/ssr
-export const createBrowserClient = () => {
+const createBrowserClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
@@ -88,37 +88,15 @@ export const createServerClient = () => {
             return undefined;
           }
         },
-        set(name, value, options) {
-          try {
-            // This will attempt to set the cookie.
-            // In Server Components, this attempt will be caught by the try...catch
-            // as cookies() from next/headers is read-only in that context.
-            // The @supabase/ssr library is designed to handle this by ensuring
-            // the middleware takes care of actually setting the cookie on the response.
-            cookieStore.set({
-              name,
-              value,
-              ...options,
-            });
-          } catch (error) {
-            // Cookie setting fails in server actions and RSC by design
-            // This is expected and fine as we use middleware to handle this
-            // console.debug("Warning: Could not set cookie in server action or RSC. This is expected.");
-          }
+        set(_name, _value, _options) {
+          // No-op in Server Components and server actions to avoid
+          // Next.js "mutable cookies" errors during RSC refresh.
+          // API routes should use createAPIServerClient* which supports writes.
+          return;
         },
-        remove(name, options) {
-          try {
-            // Similar to set, this attempts the operation.
-            // The @supabase/ssr library ensures middleware handles the actual cookie deletion.
-            cookieStore.delete({
-              name,
-              ...options,
-            });
-          } catch (error) {
-            // Cookie deletion fails in server actions and RSC by design
-            // This is expected and fine as we use middleware to handle this
-            // console.debug("Warning: Could not delete cookie in server action or RSC. This is expected.");
-          }
+        remove(_name, _options) {
+          // No-op in Server Components and server actions; see comment above.
+          return;
         },
       },
     });

@@ -1,17 +1,23 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Loader2, CalendarPlus, Check, XCircle } from "lucide-react";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/context/auth-context";
+import { createClient } from "@/lib/supabase/client";
 
 type Invitation = {
   id: string;
   status: "pending" | "accepted" | "declined";
   created_at?: string;
   message?: string | null;
+  seen_at?: string | null;
+  notificationErrors?: string[];
   session?: {
     id?: string;
     beach_name?: string | null;
@@ -26,6 +32,12 @@ type Invitation = {
 };
 
 export default function InboxPage() {
+  // Be tolerant to test environment mocks where useAuth may be mocked as undefined
+  const auth = useAuth() as any;
+  const user = auth?.user ?? null;
+  const supabase = useMemo(() => createClient(), []);
+  const inFlightSeen = useRef(new Set<string>());
+
   const fetchInvites = useCallback(async () => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000); // 15s safety timeout
@@ -60,6 +72,92 @@ export default function InboxPage() {
     error,
     refetch,
   } = useDataFetcher<Invitation[]>(fetchInvites);
+
+  const markInvitationsSeen = useCallback(async (ids: string[]) => {
+    const unseen = ids.filter((id) => !inFlightSeen.current.has(id));
+    if (unseen.length === 0) return;
+
+    unseen.forEach((id) => inFlightSeen.current.add(id));
+
+    try {
+      await fetch("/api/session-planner/invitations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markSeen: true, invitationIds: unseen }),
+      });
+    } catch (err) {
+      unseen.forEach((id) => inFlightSeen.current.delete(id));
+      console.error("Failed to mark invitations as seen", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!invitations || invitations.length === 0) return;
+    if (!user?.id && !user?.email) return;
+
+    const pendingUnseenIds = invitations
+      .filter(
+        (inv) =>
+          inv.status === "pending" && (!inv.seen_at || inv.seen_at === null)
+      )
+      .map((inv) => inv.id);
+
+    if (pendingUnseenIds.length > 0) {
+      markInvitationsSeen(pendingUnseenIds);
+    }
+  }, [invitations, markInvitationsSeen, user?.id, user?.email]);
+
+  useEffect(() => {
+    if (!user?.id && !user?.email) return;
+
+    const channels: RealtimeChannel[] = [];
+
+    if (user?.id) {
+      const userChannel = supabase
+        .channel(`session_invitations_invitee_${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "session_invitations",
+            filter: `invitee_id=eq.${user.id}`,
+          },
+          () => {
+            refetch();
+          }
+        )
+        .subscribe();
+      channels.push(userChannel);
+    }
+
+    const emailValue = user?.email?.toLowerCase();
+    if (emailValue) {
+      const encoded = encodeURIComponent(emailValue);
+      const emailChannel = supabase
+        .channel(`session_invitations_invitee_email_${encoded}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "session_invitations",
+            filter: `invitee_email=eq.${emailValue}`,
+          },
+          () => {
+            refetch();
+          }
+        )
+        .subscribe();
+      channels.push(emailChannel);
+    }
+
+    return () => {
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+    };
+  }, [supabase, user?.id, user?.email, refetch]);
 
   const pending = useMemo(() => {
     return (invitations || []).filter((i) => i.status === "pending");
@@ -110,12 +208,17 @@ export default function InboxPage() {
                       className="flex items-center justify-between border rounded-md p-3"
                     >
                       <div className="min-w-0">
-                        <div className="font-medium truncate">
+                        <div className="font-medium truncate flex items-center gap-2">
                           {inv.inviter?.full_name || "A surfer"} invited you to
                           surf
                           {inv.session?.beach_name
                             ? ` at ${inv.session.beach_name}`
                             : ""}
+                          {(!inv.seen_at || inv.seen_at === null) && (
+                            <Badge variant="secondary" className="shrink-0">
+                              New
+                            </Badge>
+                          )}
                         </div>
                         {inv.session?.arrival_time && (
                           <div className="text-sm text-muted-foreground truncate">

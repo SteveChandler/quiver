@@ -101,18 +101,6 @@ export const CDIP_STATIONS: Record<string, CDIPStationConfig> = {
 // Primary stations for Southern California beaches
 export const SOCAL_PRIMARY_STATIONS = ["100", "67", "191"];
 
-// All California stations (north to south)
-export const CALIFORNIA_STATIONS = [
-  "46221", // Point Arena
-  "46225", // Point Reyes
-  "71", // Half Moon Bay
-  "46236", // Monterey Bay
-  "157", // Point Sur
-  "191", // Harvest
-  "67", // San Pedro South
-  "100", // Torrey Pines Outer
-];
-
 // Station coverage areas (approximate radius in km)
 export const STATION_COVERAGE_RADIUS = {
   "100": 100, // Covers most of San Diego County
@@ -192,30 +180,8 @@ export const DATA_QUALITY_THRESHOLDS = {
   },
 } as const;
 
-// Helper functions
-export function getStationsByRegion(
-  region: "socal" | "central" | "norcal" | "all"
-): string[] {
-  switch (region) {
-    case "socal":
-      return ["100", "67", "191"];
-    case "central":
-      return ["157", "46236", "71"];
-    case "norcal":
-      return ["46225", "46221"];
-    case "all":
-      return CALIFORNIA_STATIONS;
-    default:
-      return SOCAL_PRIMARY_STATIONS;
-  }
-}
-
 export function getStationConfig(stationId: string): CDIPStationConfig | null {
   return CDIP_STATIONS[stationId] || null;
-}
-
-export function isValidStationId(stationId: string): boolean {
-  return stationId in CDIP_STATIONS;
 }
 
 export function getStationCoverageRadius(stationId: string): number {

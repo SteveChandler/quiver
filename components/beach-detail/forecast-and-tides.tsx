@@ -1,13 +1,18 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
-import { SimplifiedForecastTable } from "@/components/forecast/forecast-table";
+import {
+  SimplifiedForecastTable,
+  MultiDayForecastTable,
+} from "@/components/forecast/forecast-table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import { CoachCard } from "@/components/recommendations/coach-card";
+import { track, slugify } from "@/lib/analytics";
 
 interface ForecastAndTidesProps {
   beach: Beach;
@@ -15,8 +20,25 @@ interface ForecastAndTidesProps {
 }
 
 export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
-  // Ensure forecasts is always an array
-  const safeForecasts = forecasts || [];
+  // Ensure forecasts is always a stable array reference
+  const safeForecasts = useMemo(() => forecasts || [], [forecasts]);
+  // Default to showing the 5-day tide chart
+  const [subTab, setSubTab] = useState<
+    "today" | "tides" | "wind" | "swell" | "week"
+  >("tides");
+
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }, []);
+
+  const todaysForecasts = useMemo(
+    () => safeForecasts.filter((f) => f.forecast_date === todayStr),
+    [safeForecasts, todayStr]
+  );
 
   // Early return if no beach data
   if (!beach || !beach.id) {
@@ -42,30 +64,78 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
         </div>
       </div>
 
-      {/* Coach Pick (replaces Best Times) */}
-      <div>
-        <CoachCard
-          beachId={beach.id as string}
-          lat={(beach as any).latitude as number}
-          lon={(beach as any).longitude as number}
+      {/* Sub-tabs for Forecast section */}
+      {safeForecasts.length > 0 && (
+        <Tabs
+          value={subTab}
+          onValueChange={(v) => setSubTab(v as any)}
           className="w-full"
-        />
-      </div>
+        >
+          <TabsList className="grid grid-cols-5 w-full">
+            {(["today", "tides", "wind", "swell", "week"] as const).map(
+              (tab) => (
+                <TabsTrigger
+                  key={tab}
+                  value={tab}
+                  onClick={() =>
+                    track("forecast_tab_click", {
+                      beach_slug: slugify(beach.name),
+                      tab,
+                    })
+                  }
+                >
+                  {tab === "today" && "Today"}
+                  {tab === "tides" && "Tides"}
+                  {tab === "wind" && "Wind"}
+                  {tab === "swell" && "Swell"}
+                  {tab === "week" && "Week"}
+                </TabsTrigger>
+              )
+            )}
+          </TabsList>
 
-      {/* Tide Chart */}
-      {safeForecasts.length > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <TideChart forecasts={safeForecasts} />
-          </CardContent>
-        </Card>
-      )}
+          <TabsContent value="today" className="mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                <SimplifiedForecastTable forecasts={todaysForecasts} />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-      {/* Simplified forecast table (kept); detailed multi-day table removed */}
-      {safeForecasts.length > 0 && (
-        <div className="space-y-4">
-          <SimplifiedForecastTable forecasts={safeForecasts} />
-        </div>
+          <TabsContent value="tides" className="mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                <TideChart forecasts={safeForecasts} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="wind" className="mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                {/* For now, reuse simplified table; wind column is included */}
+                <SimplifiedForecastTable forecasts={safeForecasts} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="swell" className="mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                {/* For now, reuse simplified table; swell columns are included */}
+                <SimplifiedForecastTable forecasts={safeForecasts} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="week" className="mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                <MultiDayForecastTable forecasts={safeForecasts} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );

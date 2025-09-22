@@ -13,10 +13,7 @@ export function BottomNavigation() {
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Hide navigation on session wizard pages to prevent interference with wizard footer
-  const isSessionWizard = pathname === '/sessions/new';
-  if (isSessionWizard) {
-    return null;
-  }
+  const isSessionWizard = pathname === "/sessions/new";
 
   // Check if we're in test mode (disable auto-hide for testing)
   const isTestMode =
@@ -76,7 +73,7 @@ export function BottomNavigation() {
 
   useEffect(() => {
     // Add event listeners for user activity (but not in test mode)
-    if (!isTestMode) {
+    if (!isTestMode && !isSessionWizard) {
       const options = { passive: true };
       window.addEventListener("scroll", handleUserActivity, options);
       window.addEventListener("touchstart", handleUserActivity, options);
@@ -102,7 +99,12 @@ export function BottomNavigation() {
       // In test mode, just show navigation and keep it visible
       setIsVisible(true);
     }
-  }, [handleUserActivity, showNavigation, isTestMode]);
+  }, [handleUserActivity, showNavigation, isTestMode, isSessionWizard]);
+
+  // After hooks are declared, allow conditional early return
+  if (isSessionWizard) {
+    return null;
+  }
 
   return (
     <div

@@ -25,7 +25,8 @@ import {
 
 export default function FeaturesPage() {
   const { hero, categories, cta } = FEATURES_EXTENDED_CONTENT;
-  const isTest = typeof window !== "undefined" && (window as any).__PLAYWRIGHT__ === true;
+  const isTest =
+    typeof window !== "undefined" && (window as any).__PLAYWRIGHT__ === true;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
@@ -57,7 +58,7 @@ export default function FeaturesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
-              Join the surf community that's growing every day. Connect, share,
+              Join the surf community that’s growing every day. Connect, share,
               and discover amazing waves with friends.
             </motion.p>
 

@@ -1,7 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CalendarHeatmap } from "@/components/journal/calendar-heatmap";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { format } from "date-fns";
 
 // Mock dependencies
 jest.mock("@/hooks/use-data-fetcher");
@@ -113,7 +112,8 @@ describe("CalendarHeatmap", () => {
     );
 
     // Check for current month display (use current date)
-    const currentMonthYear = format(new Date(), "MMMM yyyy");
+    const now = new Date();
+    const currentMonthYear = now.toLocaleString("en-US", { month: "long", year: "numeric" });
     expect(screen.getByText(currentMonthYear)).toBeInTheDocument();
     expect(screen.getByText("Today")).toBeInTheDocument();
   });
@@ -249,7 +249,8 @@ describe("CalendarHeatmap", () => {
     fireEvent.click(todayButton);
 
     // Should reset to current date
-    const currentMonthYear = format(new Date(), "MMMM yyyy");
+    const now2 = new Date();
+    const currentMonthYear = now2.toLocaleString("en-US", { month: "long", year: "numeric" });
     expect(screen.getByText(currentMonthYear)).toBeInTheDocument();
   });
 
@@ -339,7 +340,8 @@ describe("CalendarHeatmap", () => {
       />
     );
 
-    const currentMonthYear = format(new Date(), "MMMM yyyy");
+    const now3 = new Date();
+    const currentMonthYear = now3.toLocaleString("en-US", { month: "long", year: "numeric" });
     expect(screen.getByText(currentMonthYear)).toBeInTheDocument();
     // Should still render calendar but with no session indicators
   });

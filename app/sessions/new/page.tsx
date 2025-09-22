@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { SessionWizard } from "@/components/session/wizard/SessionWizard";
-import { SessionFormMode } from "@/hooks/useSessionWizard";
+import { SessionFormMode } from "@/hooks/use-session-form";
 import {
   createPlannedSession,
   createLoggedSession,
@@ -12,6 +12,7 @@ import {
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 import { createActivity } from "@/actions/activity-actions";
 import { useAuth } from "@/context/auth-context";
+import { track, slugify } from "@/lib/analytics";
 
 function NewSessionPageContent() {
   const router = useRouter();
@@ -116,6 +117,23 @@ function NewSessionPageContent() {
           throw new Error(result.error);
         }
 
+        // Analytics: session_log_submit (mark as conversion in GA UI)
+        try {
+          const wave = sessionData.waveQuality ? parseInt(sessionData.waveQuality) : undefined;
+          const crowd = sessionData.crowdLevel ? parseInt(sessionData.crowdLevel) : undefined;
+          let water: number | undefined;
+          if (sessionData.waterTemp) {
+            const m = String(sessionData.waterTemp).match(/(\d+)/);
+            water = m ? parseInt(m[1]) : undefined;
+          }
+          track("session_log_submit", {
+            beach_slug: sessionData.selectedBeach ? slugify(sessionData.selectedBeach) : sessionData.selectedBeachId,
+            wave_rating: isFinite(wave as number) ? wave : undefined,
+            crowd: isFinite(crowd as number) ? crowd : undefined,
+            water_temp: isFinite(water as number) ? water : undefined,
+          });
+        } catch {}
+
         // Handle photo uploads if any
         if (sessionData.photos && sessionData.photos.length > 0) {
           await handlePhotoUpload(result.data.id, sessionData.photos);
@@ -213,7 +231,7 @@ function NewSessionPageContent() {
     message?: string
   ) => {
     try {
-      await fetch("/api/session-planner/invitations", {
+      const response = await fetch("/api/session-planner/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -222,9 +240,28 @@ function NewSessionPageContent() {
           message,
         }),
       });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || !payload?.success) {
+        const errMessage =
+          payload?.error ||
+          (typeof payload?.details === "string"
+            ? payload.details
+            : response.statusText) ||
+          "Failed to send invitations";
+        console.error("Invitation API error:", errMessage, payload);
+        toast.error("Failed to send invitations");
+        return;
+      }
+
+      const inviteErrors: string[] = payload?.data?.errors ?? [];
+      if (inviteErrors.length > 0) {
+        console.warn("Invitation warnings:", inviteErrors);
+        toast.warning(inviteErrors[0]);
+      }
     } catch (error) {
       console.error("Error sending invitations:", error);
-      // Don't show error toast since this is fire-and-forget
+      toast.error("Failed to send invitations");
     }
   };
 

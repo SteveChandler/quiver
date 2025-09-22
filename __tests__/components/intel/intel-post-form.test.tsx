@@ -7,6 +7,7 @@ jest.mock("@/components/ui/dialog", () => ({
   DialogContent: ({ children }: any) => <div>{children}</div>,
   DialogHeader: ({ children }: any) => <div>{children}</div>,
   DialogTitle: ({ children }: any) => <div>{children}</div>,
+  DialogDescription: ({ children }: any) => <div>{children}</div>,
 }));
 
 jest.mock("@/components/ui/select", () => {
@@ -153,17 +154,44 @@ const mockCreateIntelPost = createIntelPost as any;
 const mockUploadImage = uploadImage as any;
 const mockToast = toast as any;
 
+const baseIntelPost = {
+  id: "intel-post-id",
+  user_id: "user-id",
+  beach_id: "beach-123",
+  latitude: 32.7507,
+  longitude: -117.254,
+  tag: "other",
+  title: "Mock Intel",
+  description: "Mock description",
+  photo_url: null,
+  confirmations_count: 0,
+  is_active: true,
+  surf_conditions: null,
+  expires_at: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  user_has_confirmed: false,
+  user: {
+    full_name: "Test User",
+    avatar_url: null,
+  },
+};
+
 describe("IntelPostForm", () => {
   const defaultProps = {
     isOpen: true,
     onClose: jest.fn(),
     onSuccess: jest.fn(),
     initialLocation: { latitude: 32.7507, longitude: -117.254 },
+    beachId: "beach-123",
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCreateIntelPost.mockResolvedValue({ success: true });
+    mockCreateIntelPost.mockResolvedValue({
+      success: true,
+      data: { ...baseIntelPost },
+    });
   });
 
   it("renders basic form elements", () => {
@@ -234,6 +262,7 @@ describe("IntelPostForm", () => {
       expect(mockCreateIntelPost).toHaveBeenCalledWith({
         latitude: 32.7507,
         longitude: -117.254,
+        beach_id: "beach-123",
         tag: "other",
         title: "Great parking spot",
         description: "Free parking available near the beach",
@@ -292,6 +321,7 @@ describe("IntelPostForm", () => {
       expect(mockCreateIntelPost).toHaveBeenCalledWith({
         latitude: 32.7507,
         longitude: -117.254,
+        beach_id: "beach-123",
         tag: "conditions",
         title: "Epic surf conditions",
         description: "Perfect waves this morning",
@@ -335,6 +365,8 @@ describe("IntelPostForm", () => {
   it("calls onSuccess after successful submission", async () => {
     const user = userEvent.setup();
     const mockOnSuccess = jest.fn();
+    const createdPost = { ...baseIntelPost, id: "created-post" };
+    mockCreateIntelPost.mockResolvedValueOnce({ success: true, data: createdPost });
     render(<IntelPostForm {...defaultProps} onSuccess={mockOnSuccess} />);
 
     // Fill and submit form
@@ -343,7 +375,7 @@ describe("IntelPostForm", () => {
     await user.click(screen.getByText("Share Intel"));
 
     await waitFor(() => {
-      expect(mockOnSuccess).toHaveBeenCalled();
+      expect(mockOnSuccess).toHaveBeenCalledWith(createdPost);
     });
   });
 

@@ -399,18 +399,7 @@ export function ProfileView() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          setEditModalOpen(true);
-                          // Set active tab to beaches after a short delay
-                          setTimeout(() => {
-                            const tabsElement =
-                              document.querySelector('[role="tablist"]');
-                            const beachesTab = tabsElement?.querySelector(
-                              '[data-value="beaches"]'
-                            );
-                            if (beachesTab instanceof HTMLElement) {
-                              beachesTab.click();
-                            }
-                          }, 100);
+                          router.push("/map");
                         }}
                         className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-emerald-500 hover:to-green-600 text-white font-roboto font-medium rounded-full transition-all duration-300"
                       >

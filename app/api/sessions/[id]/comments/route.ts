@@ -29,7 +29,6 @@ export async function GET(
       `
       )
       .eq("session_id", sessionId)
-      .is("parent_comment", null)
       .order("created_at", { ascending: false });
 
     if (error) throw error;

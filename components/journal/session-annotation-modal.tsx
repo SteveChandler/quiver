@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -68,9 +68,9 @@ export function SessionAnnotationModal({
     if (isOpen && session.id) {
       loadSessionPhotos();
     }
-  }, [isOpen, session.id]);
+  }, [isOpen, session.id, loadSessionPhotos]);
 
-  const loadSessionPhotos = async () => {
+  const loadSessionPhotos = useCallback(async () => {
     if (!session.id) return;
 
     setLoadingPhotos(true);
@@ -84,7 +84,7 @@ export function SessionAnnotationModal({
     } finally {
       setLoadingPhotos(false);
     }
-  };
+  }, [session.id]);
 
   const handleSave = async () => {
     if (!user?.id) return;

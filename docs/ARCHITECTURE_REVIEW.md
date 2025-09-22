@@ -429,6 +429,20 @@ useEffect(() => {
 - **API Routes**: RESTful endpoints with standardized error handling
 - **Real-time**: WebSocket connections for instant updates
 
+#### NPC Daily Activity Seeding (Content Volume Controls)
+
+- Source: `.github/workflows/npc-daily.yml` → runs daily at 17:00 UTC
+- Script: `scripts/npc-daily-activity.ts`
+- Purpose: Create NPC sessions, intel, and reviews to keep the community fresh
+- Volume controls (env-driven; safe defaults inside script, overridden in workflow):
+  - `NPC_DAILY_MIN` / `NPC_DAILY_MAX`: number of NPCs selected per run
+  - `NPC_INTEL_PER_NPC_MIN` / `NPC_INTEL_PER_NPC_MAX`: intel posts per NPC
+  - `NPC_RUN_MAX_TOTAL`: hard cap for total content pieces per run (sessions + intel + reviews)
+- Defaults by environment (set in workflow):
+  - DEV: 3–5 NPCs, 1 intel per NPC, cap 20
+  - PROD: 8–12 NPCs, 1–2 intel per NPC, cap 50
+- Safety: production runs require `CONFIRM_PROD=YES`; script validates env and enforces caps
+
 ### **Data Management** ✅
 
 - **Custom Hooks**: `useDataFetcher`, `useSessionLike`, `useUserFollow`, `useActivityFeed`

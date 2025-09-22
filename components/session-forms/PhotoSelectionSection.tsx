@@ -51,10 +51,7 @@ export function PhotoSelectionSection({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const text = getFormText(mode);
 
-  // Only show for log mode
-  if (mode !== "log") {
-    return null;
-  }
+  // Hooks must be called unconditionally; gate rendering later
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -181,6 +178,10 @@ export function PhotoSelectionSection({
     processFiles(e.target.files);
   };
 
+  if (mode !== "log") {
+    return null;
+  }
+
   return (
     <SimpleCardLayout
       title={
@@ -283,6 +284,7 @@ export function PhotoSelectionSection({
               {filePreviews.map((filePreview) => (
                 <div key={filePreview.id} className="relative group">
                   <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={filePreview.url}
                       alt="Preview"

@@ -4,7 +4,7 @@ import { SEO_CONFIG } from "@/lib/constants/seo";
 const baseUrlString =
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-export function absoluteUrl(path: string): string {
+function absoluteUrl(path: string): string {
   try {
     const url = new URL(path, baseUrlString);
     return url.toString();
@@ -72,7 +72,7 @@ export function buildPageMetadata({
   } satisfies Metadata;
 }
 
-export function shouldIndex(): boolean {
+function shouldIndex(): boolean {
   if (process.env.DISALLOW_ROBOTS === "true") return false;
   const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
   return env === "production";

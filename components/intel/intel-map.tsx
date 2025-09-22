@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import { debounce } from "lodash";
 import { useAuth } from "@/context/auth-context";
@@ -212,16 +212,17 @@ export function IntelMap({
 
       markersRef.current[markerId] = marker;
     });
-  }, [isMapReady, posts, selectedTag, createIntelPin]);
+  }, [isMapReady, posts, selectedTag, createIntelPin, cleanupMarkers]);
 
-  // Handle map move events
-  const handleMoveEnd = useCallback(
-    debounce(() => {
-      if (!mapRef.current) return;
-      const center = mapRef.current.getCenter();
-      const zoom = mapRef.current.getZoom();
-      onMapMove?.(center, zoom);
-    }, 1000),
+  // Handle map move events (debounced)
+  const handleMoveEnd = useMemo(
+    () =>
+      debounce(() => {
+        if (!mapRef.current) return;
+        const center = mapRef.current.getCenter();
+        const zoom = mapRef.current.getZoom();
+        onMapMove?.(center, zoom);
+      }, 1000),
     [onMapMove]
   );
 
@@ -298,6 +299,7 @@ export function IntelMap({
 
     return () => {
       map.off("moveend", handleMoveEnd);
+      (handleMoveEnd as any)?.cancel?.();
       cleanupMap();
     };
   }, [initialCenter, initialZoom, handleMoveEnd, onMapClick, cleanupMap]);

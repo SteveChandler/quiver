@@ -49,23 +49,7 @@ export function BeachesEnhancedForecast({
   allowToggleTransparency = false,
   highlightQualityVariations = false,
 }: BeachesEnhancedForecastProps) {
-  // If advanced transparency is requested, use the enhanced version
-  if (showTransparency || showQualitySummary || allowToggleTransparency) {
-    return (
-      <BeachesEnhancedForecastWithTransparency
-        beachId={beachId}
-        beachName={beachName}
-        showHeader={showHeader}
-        showTransparency={showTransparency}
-        showTransparencySummary={showQualitySummary}
-        allowToggleTransparency={allowToggleTransparency}
-        highlightQualityVariations={highlightQualityVariations}
-        showFallbackInfo={true}
-        expandableTransparency={true}
-        showQualityChart={showQualitySummary}
-      />
-    );
-  }
+  // Always call hooks unconditionally per Rules of Hooks
   const {
     forecasts,
     availableDates,
@@ -85,8 +69,26 @@ export function BeachesEnhancedForecast({
     autoGenerate,
   });
 
+  // If advanced transparency is requested, use the enhanced version
+  if (showTransparency || showQualitySummary || allowToggleTransparency) {
+    return (
+      <BeachesEnhancedForecastWithTransparency
+        beachId={beachId}
+        beachName={beachName}
+        showHeader={showHeader}
+        showTransparency={showTransparency}
+        showTransparencySummary={showQualitySummary}
+        allowToggleTransparency={allowToggleTransparency}
+        highlightQualityVariations={highlightQualityVariations}
+        showFallbackInfo={true}
+        expandableTransparency={true}
+        showQualityChart={showQualitySummary}
+      />
+    );
+  }
+
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner label="Loading enhanced forecasts..." />;
   }
 
   if (error) {

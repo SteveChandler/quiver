@@ -1,6 +1,7 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { Inter, Roboto, Open_Sans, Montserrat } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -10,7 +11,14 @@ import { AppHeader } from "@/components/app-header";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import GoogleAnalytics from "@/components/analytics/google-analytics";
+const GoogleAnalytics = dynamic(
+  () => import("@/components/analytics/google-analytics"),
+  { ssr: false }
+);
+const PWAAndPushListeners = dynamic(
+  () => import("@/components/analytics/pwa-and-push-listeners"),
+  { ssr: false }
+);
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
@@ -81,7 +89,9 @@ export const metadata: Metadata = {
     siteName: SEO_CONFIG.openGraph.siteName,
     locale: SEO_CONFIG.openGraph.locale,
     type: SEO_CONFIG.openGraph.type as any,
-    images: SEO_CONFIG.openGraph.images,
+    images: SEO_CONFIG.openGraph.images
+      ? SEO_CONFIG.openGraph.images.map((img) => ({ ...img }))
+      : undefined,
   },
 
   // Twitter optimizations
@@ -91,7 +101,7 @@ export const metadata: Metadata = {
     description: SEO_CONFIG.twitter.description,
     site: SEO_CONFIG.twitter.site,
     creator: SEO_CONFIG.twitter.creator,
-    images: SEO_CONFIG.openGraph.images?.[0]?.url,
+    images: [SEO_CONFIG.openGraph.images?.[0]?.url || "/images/buoy.png"],
   },
 
   // Performance hints
@@ -116,17 +126,18 @@ export default function RootLayout({
         <Script
           id="ga-script"
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
         <Script
           id="ga-init"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);} 
               gtag('js', new Date());
               gtag('config', '${GA_ID}', { anonymize_ip: true, send_page_view: false });
+              ${process.env.NODE_ENV !== "production" ? "try{gtag('set','debug_mode',true);}catch(_){}" : ""}
             `,
           }}
         />
@@ -143,10 +154,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="//maps.googleapis.com" />
         <link rel="dns-prefetch" href="//maps.geoapify.com" />
 
-        {/* Prefetch critical routes for faster navigation */}
-        <link rel="prefetch" href="/sessions/new" />
-        {/* Consolidated into /sessions/new above */}
-        <link rel="prefetch" href="/map" />
+        {/* Remove aggressive prefetching on mobile to reduce initial network load */}
 
         {/* Preload critical resources for faster LCP */}
         <link
@@ -225,6 +233,13 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
         <AuthProvider>
+          {/* Track page views on client-side route changes */}
+          <Suspense fallback={null}>
+            <GoogleAnalytics />
+          </Suspense>
+          <Suspense fallback={null}>
+            <PWAAndPushListeners />
+          </Suspense>
           <Suspense fallback={null}>
             <AppHeader />
           </Suspense>

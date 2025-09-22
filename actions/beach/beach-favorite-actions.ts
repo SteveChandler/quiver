@@ -5,10 +5,13 @@ import { revalidatePath } from "next/cache";
 import type { Beach } from "@/types/database";
 import { withAuthenticatedAction, makeAuthenticatedAction } from "@/lib/server-action-utils";
 
-export async function getFavoriteBeaches(userId: string) {
-  const supabase = await createSupabaseServerClient();
+export const getFavoriteBeaches = makeAuthenticatedAction(
+  async (user, supabase, userId: string) => {
+    // Ensure the requester is fetching their own favorites
+    if (user.id !== userId) {
+      throw new Error("Unauthorized access to favorite beaches");
+    }
 
-  try {
     const { data, error } = await supabase
       .from("favorite_beaches")
       .select(
@@ -23,104 +26,103 @@ export async function getFavoriteBeaches(userId: string) {
       .order("rank", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     // Extract the beaches from the nested structure (preserve order)
     const beaches = (data || [])
       .map((item: any) => item.beaches)
       .filter((beach: any) => beach !== null) as Beach[];
 
-    return { success: true, data: beaches };
-  } catch (error) {
-    console.error("Error fetching favorite beaches:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
+    return beaches;
   }
-}
+);
 
-export async function addFavoriteBeach(userId: string, beachId: string) {
-  const supabase = await createSupabaseServerClient();
+export const addFavoriteBeach = makeAuthenticatedAction(
+  async (user, supabase, userId: string, beachId: string) => {
+    try {
+      // Ensure caller matches authenticated user
+      if (user.id !== userId) {
+        throw new Error("Unauthorized access to favorite beaches");
+      }
+      // Check if already favorited
+      const { data: existing, error: checkError } = await supabase
+        .from("favorite_beaches")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("beach_id", beachId)
+        .maybeSingle();
 
-  try {
-    // Check if already favorited
-    const { data: existing, error: checkError } = await supabase
-      .from("favorite_beaches")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("beach_id", beachId)
-      .maybeSingle();
+      if (checkError) {
+        throw checkError;
+      }
 
-    if (checkError) {
-      throw checkError;
+      // If already favorited, return success
+      if (existing) {
+        return { success: true, message: "Beach already in favorites" };
+      }
+
+      // Determine next rank (max + 1)
+      const { data: maxRankRows } = await supabase
+        .from("favorite_beaches")
+        .select("rank")
+        .eq("user_id", user.id);
+
+      const nextRank = (maxRankRows || [])
+        .map((r: any) => r.rank || 0)
+        .reduce((max: number, cur: number) => (cur > max ? cur : max), 0) + 1;
+
+      // Add to favorites with rank
+      const { error } = await supabase.from("favorite_beaches").insert({
+        user_id: user.id,
+        beach_id: beachId,
+        rank: nextRank,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      revalidatePath("/profile");
+      revalidatePath("/");
+      return { success: true };
+    } catch (error) {
+      console.error("Error adding favorite beach:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
     }
-
-    // If already favorited, return success
-    if (existing) {
-      return { success: true, message: "Beach already in favorites" };
-    }
-
-    // Determine next rank (max + 1)
-    const { data: maxRankRows } = await supabase
-      .from("favorite_beaches")
-      .select("rank")
-      .eq("user_id", userId);
-
-    const nextRank = (maxRankRows || [])
-      .map((r: any) => r.rank || 0)
-      .reduce((max: number, cur: number) => (cur > max ? cur : max), 0) + 1;
-
-    // Add to favorites with rank
-    const { error } = await supabase.from("favorite_beaches").insert({
-      user_id: userId,
-      beach_id: beachId,
-      rank: nextRank,
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    revalidatePath("/profile");
-    revalidatePath("/");
-    return { success: true };
-  } catch (error) {
-    console.error("Error adding favorite beach:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
   }
-}
+);
 
-export async function removeFavoriteBeach(userId: string, beachId: string) {
-  const supabase = await createSupabaseServerClient();
+export const removeFavoriteBeach = makeAuthenticatedAction(
+  async (user, supabase, userId: string, beachId: string) => {
+    try {
+      if (user.id !== userId) {
+        throw new Error("Unauthorized access to favorite beaches");
+      }
+      const { error } = await supabase
+        .from("favorite_beaches")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("beach_id", beachId);
 
-  try {
-    const { error } = await supabase
-      .from("favorite_beaches")
-      .delete()
-      .eq("user_id", userId)
-      .eq("beach_id", beachId);
+      if (error) {
+        throw error;
+      }
 
-    if (error) {
-      throw error;
+      revalidatePath("/profile");
+      revalidatePath("/");
+      return { success: true };
+    } catch (error) {
+      console.error("Error removing favorite beach:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
     }
-
-    revalidatePath("/profile");
-    revalidatePath("/");
-    return { success: true };
-  } catch (error) {
-    console.error("Error removing favorite beach:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
   }
-}
+);
 
 // Reorder favorites (assign ranks 1..N in provided order)
 export const reorderFavoriteBeaches = makeAuthenticatedAction(
@@ -152,27 +154,5 @@ export const reorderFavoriteBeaches = makeAuthenticatedAction(
     revalidatePath("/profile");
     revalidatePath("/");
     return { success: true };
-  }
-);
-
-// Fetch top-ranked favorite beach for a user
-export const getTopFavoriteBeach = makeAuthenticatedAction(
-  async (user, supabase, userId: string) => {
-    // Verify requester matches target user
-    if (user.id !== userId) {
-      throw new Error("Unauthorized access to favorite beaches");
-    }
-
-    const { data, error } = await supabase
-      .from("favorite_beaches")
-      .select("rank, beaches(*)")
-      .eq("user_id", userId)
-      .order("rank", { ascending: true, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-    const beach = (data as any)?.beaches as Beach | null;
-    return beach || null;
   }
 );

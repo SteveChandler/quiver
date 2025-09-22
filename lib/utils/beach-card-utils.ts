@@ -2,17 +2,9 @@ import type { Beach } from "@/types/database";
 import { resolveBeachCoordinates, getStaticMapImageUrl } from "@/lib/map-utils";
 import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import { MAP_PRESET_USAGE } from "@/lib/constants/map-presets";
+import type { ReviewStats } from "@/lib/review-stats-utils";
 
-export interface ReviewStats {
-  total_reviews: number;
-  average_overall: number;
-  average_wave_quality: number;
-  average_crowd_density: number;
-  average_parking: number;
-  average_accessibility: number;
-}
-
-export interface BeachCardData {
+interface BeachCardData {
   id: string;
   name: string;
   coords: { latitude: number; longitude: number } | null;
@@ -27,7 +19,7 @@ export interface BeachCardData {
 /**
  * Prepare beach card data with coordinates, map image, and stats
  */
-export function prepareBeachCardData(
+function prepareBeachCardData(
   beach: Beach,
   userLocation?: { lat: number; lng: number } | null,
   reviewStats?: Record<string, ReviewStats>,

@@ -8,19 +8,7 @@ import { ChevronLeft, ChevronRight, Waves, Calendar } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  addMonths,
-  subMonths,
-  isToday,
-} from "date-fns";
+import * as dateFns from "date-fns";
 import type { SessionWithDetails, CalendarHeatmapData } from "@/types/database";
 
 interface CalendarHeatmapProps {
@@ -39,7 +27,7 @@ export function CalendarHeatmap({
 
   // Group sessions by date
   const sessionsByDate = sessions.reduce((acc, session) => {
-    const date = format(new Date(session.arrival_time), "yyyy-MM-dd");
+    const date = dateFns.format(new Date(session.arrival_time), "yyyy-MM-dd");
     if (!acc[date]) {
       acc[date] = [];
     }
@@ -88,11 +76,11 @@ export function CalendarHeatmap({
   } = useDataFetcher(fetchCalendarData);
 
   // Calculate calendar layout
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const calendarStart = startOfWeek(monthStart);
-  const calendarEnd = endOfWeek(monthEnd);
-  const allDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const monthStart = dateFns.startOfMonth(currentDate);
+  const monthEnd = dateFns.endOfMonth(currentDate);
+  const calendarStart = dateFns.startOfWeek(monthStart);
+  const calendarEnd = dateFns.endOfWeek(monthEnd);
+  const allDays = dateFns.eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   // Get intensity for wave height coloring
   const getWaveHeightIntensity = (waveHeight: number): string => {
@@ -106,7 +94,7 @@ export function CalendarHeatmap({
 
   // Get session info for a specific date
   const getDateInfo = (date: Date) => {
-    const dateStr = format(date, "yyyy-MM-dd");
+    const dateStr = dateFns.format(date, "yyyy-MM-dd");
     const daySessions = sessionsByDate[dateStr] || [];
 
     const averageWaveHeight =
@@ -142,7 +130,7 @@ export function CalendarHeatmap({
   const navigateMonth = (direction: "prev" | "next") => {
     setCurrentDate((prev) => {
       const newDate =
-        direction === "prev" ? subMonths(prev, 1) : addMonths(prev, 1);
+        direction === "prev" ? dateFns.subMonths(prev, 1) : dateFns.addMonths(prev, 1);
       return newDate;
     });
   };
@@ -177,7 +165,7 @@ export function CalendarHeatmap({
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               <CardTitle className="text-lg">
-                {format(currentDate, "MMMM yyyy")}
+                {dateFns.format(currentDate, "MMMM yyyy")}
               </CardTitle>
             </div>
             <div className="flex items-center gap-2">
@@ -228,10 +216,10 @@ export function CalendarHeatmap({
             {/* Calendar days */}
             {allDays.map((day) => {
               const dateInfo = getDateInfo(day);
-              const isCurrentMonth = isSameMonth(day, currentDate);
+              const isCurrentMonth = dateFns.isSameMonth(day, currentDate);
               const isHovered = hoveredDate === dateInfo.date;
               const hasSession = dateInfo.sessionCount > 0;
-              const dayNumber = format(day, "d");
+              const dayNumber = dateFns.format(day, "d");
 
               return (
                 <div
@@ -239,7 +227,7 @@ export function CalendarHeatmap({
                   className={`
                     relative p-2 min-h-[3rem] border rounded-lg cursor-pointer transition-all duration-200
                     ${!isCurrentMonth ? "opacity-30" : ""}
-                    ${isToday(day) ? "ring-2 ring-primary" : ""}
+                    ${dateFns.isToday(day) ? "ring-2 ring-primary" : ""}
                     ${hasSession ? "cursor-pointer hover:scale-105" : ""}
                     ${isHovered ? "scale-105 z-10" : ""}
                     ${
@@ -252,7 +240,7 @@ export function CalendarHeatmap({
                   onMouseEnter={() => setHoveredDate(dateInfo.date)}
                   onMouseLeave={() => setHoveredDate(null)}
                   role="gridcell"
-                  aria-label={`${format(day, "EEEE, MMMM d")}${
+                  aria-label={`${dateFns.format(day, "EEEE, MMMM d")}${
                     hasSession ? ` - ${dateInfo.sessionCount} sessions` : ""
                   }`}
                 >
@@ -319,7 +307,7 @@ export function CalendarHeatmap({
       {hoveredDate && sessionsByDate[hoveredDate] && (
         <Card className="absolute z-20 bg-popover p-3 shadow-lg border">
           <div className="text-sm font-medium mb-2">
-            {format(new Date(hoveredDate), "EEEE, MMMM d")}
+            {dateFns.format(new Date(hoveredDate), "EEEE, MMMM d")}
           </div>
           <div className="space-y-1">
             {sessionsByDate[hoveredDate].map((session) => (

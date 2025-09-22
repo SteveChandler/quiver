@@ -70,7 +70,7 @@ function formatLastUpdate(date: Date | string): string {
   } else if (diffHours < 24) {
     return `${diffHours}h ago`;
   } else {
-    return updateTime.toLocaleDateString();
+    return updateTime.toLocaleDateString("en-US", { timeZone: "UTC" });
   }
 }
 

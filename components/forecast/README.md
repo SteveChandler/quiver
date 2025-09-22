@@ -165,7 +165,11 @@ Run tests: `npm test -- tide-chart-recharts.test.tsx`
 
 ### Axis Configuration
 
-- **X-axis**: Time scale with "Today"/"Tomorrow" labels, grey tick marks
+- **X-axis**: Time scale with "Today"/"Tomorrow" labels, grey tick marks. We
+  explicitly pass a unique-per-day `ticks` array derived from the dataset and
+  set `interval={0}` with `allowDuplicatedCategory={false}` to prevent
+  Recharts from auto-generating duplicate day labels on narrow/mobile
+  viewports. `minTickGap` and `tickMargin` are tuned for mobile landscape.
 - **Y-axis**: Smart domain calculation with "Tide (ft)" label, professional styling
 - **Reference lines**: Zero baseline and optional "Now" line for context
 - **Margins**: Generous spacing (`50px` top/bottom) prevents label clipping

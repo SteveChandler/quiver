@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Waves, Anchor, AlertTriangle, Images } from "lucide-react";
@@ -191,13 +192,15 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
               {photos.map((p) => (
                 <div
                   key={p.id}
-                  className="aspect-square overflow-hidden rounded-lg bg-muted"
+                  className="relative aspect-square overflow-hidden rounded-lg bg-muted"
                 >
-                  <img
+                  <Image
                     src={p.public_url}
                     alt="Best of spot"
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                    className="object-cover"
+                    priority={false}
                   />
                 </div>
               ))}

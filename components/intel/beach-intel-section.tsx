@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,7 @@ import {
   AlertTriangle,
   Eye,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import formatDistanceToNow from "date-fns/formatDistanceToNow";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";
@@ -60,10 +60,13 @@ export function BeachIntelSection({
   const [showPostForm, setShowPostForm] = useState(false);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [showAll, setShowAll] = useState<boolean>(initialShowAll);
-  const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(new Set());
+  const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(
+    new Set()
+  );
   const [optimisticUpdates, setOptimisticUpdates] = useState<
     Record<string, { user_has_confirmed: boolean; confirmations_count: number }>
   >({});
+  const [pendingPosts, setPendingPosts] = useState<IntelPostWithUser[]>([]);
   const { user } = useAuth();
 
   // Fetch intel data for this beach location
@@ -83,7 +86,17 @@ export function BeachIntelSection({
   // Apply optimistic updates to posts data
   const posts = useMemo(() => {
     const basePosts = intelData?.posts || [];
-    return basePosts.map(post => {
+    const combined = [...pendingPosts, ...basePosts];
+    const seen = new Set<string>();
+
+    const deduped = combined.filter((post) => {
+      if (!post?.id) return false;
+      if (seen.has(post.id)) return false;
+      seen.add(post.id);
+      return true;
+    });
+
+    const mapped = deduped.map((post) => {
       const optimisticUpdate = optimisticUpdates[post.id];
       if (optimisticUpdate) {
         return {
@@ -94,7 +107,25 @@ export function BeachIntelSection({
       }
       return post;
     });
-  }, [intelData?.posts, optimisticUpdates]);
+
+    // Sort by recency (newest first)
+    mapped.sort((a, b) => {
+      const aTime = a?.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b?.created_at ? new Date(b.created_at).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    return mapped;
+  }, [intelData?.posts, optimisticUpdates, pendingPosts]);
+
+  useEffect(() => {
+    if (!intelData?.posts) return;
+    setPendingPosts((prev) =>
+      prev.filter(
+        (pending) => !intelData.posts.some((post) => post.id === pending.id)
+      )
+    );
+  }, [intelData?.posts]);
 
   // Handle intel post confirmation with optimistic updates
   const handleConfirmPost = useCallback(
@@ -105,14 +136,14 @@ export function BeachIntelSection({
       }
 
       // Find the current post to get its current count
-      const currentPost = posts.find(post => post.id === postId);
+      const currentPost = posts.find((post) => post.id === postId);
       if (!currentPost) {
         toast.error("Post not found");
         return;
       }
 
       // Set loading state
-      setConfirmingPosts(prev => new Set(prev).add(postId));
+      setConfirmingPosts((prev) => new Set(prev).add(postId));
 
       // Apply optimistic update immediately
       const optimisticConfirmed = !isCurrentlyConfirmed;
@@ -120,7 +151,7 @@ export function BeachIntelSection({
         ? Math.max(0, currentPost.confirmations_count - 1)
         : currentPost.confirmations_count + 1;
 
-      setOptimisticUpdates(prev => ({
+      setOptimisticUpdates((prev) => ({
         ...prev,
         [postId]: {
           user_has_confirmed: optimisticConfirmed,
@@ -140,9 +171,9 @@ export function BeachIntelSection({
               ? "Vote removed"
               : "Thanks for confirming this intel!"
           );
-          
+
           // Clear optimistic update and refetch to get server state
-          setOptimisticUpdates(prev => {
+          setOptimisticUpdates((prev) => {
             const next = { ...prev };
             delete next[postId];
             return next;
@@ -151,7 +182,7 @@ export function BeachIntelSection({
         } else {
           toast.error(result.error || "Failed to update vote");
           // Revert optimistic update on API error
-          setOptimisticUpdates(prev => {
+          setOptimisticUpdates((prev) => {
             const next = { ...prev };
             delete next[postId];
             return next;
@@ -161,14 +192,14 @@ export function BeachIntelSection({
         console.error("Confirmation error:", error);
         toast.error("Failed to update vote");
         // Revert optimistic update on API error
-        setOptimisticUpdates(prev => {
+        setOptimisticUpdates((prev) => {
           const next = { ...prev };
           delete next[postId];
           return next;
         });
       } finally {
         // Remove loading state
-        setConfirmingPosts(prev => {
+        setConfirmingPosts((prev) => {
           const next = new Set(prev);
           next.delete(postId);
           return next;
@@ -178,11 +209,21 @@ export function BeachIntelSection({
     [user, posts, refetch]
   );
 
-  const handlePostCreated = useCallback(() => {
-    setShowPostForm(false);
-    refetch();
-    toast.success("Intel post created successfully!");
-  }, [refetch]);
+  const handlePostCreated = useCallback(
+    (newPost: IntelPostWithUser | null) => {
+      setShowPostForm(false);
+      // Always notify success when the form reports completion
+      toast.success("Intel post created successfully!");
+      if (newPost) {
+        setPendingPosts((prev) => [
+          newPost,
+          ...prev.filter((post) => post.id !== newPost.id),
+        ]);
+      }
+      refetch();
+    },
+    [refetch]
+  );
 
   if (loading && posts.length === 0) {
     return (
@@ -245,6 +286,7 @@ export function BeachIntelSection({
             </CardTitle>
 
             <Button
+              data-testid="add-intel"
               onClick={() => setShowPostForm(true)}
               size="sm"
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200 transform hover:scale-105"
@@ -262,14 +304,23 @@ export function BeachIntelSection({
               <p className="text-sm text-gray-600">
                 Unable to load intel posts
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                className="mt-2"
-              >
-                Try Again
-              </Button>
+              <div className="mt-2 flex items-center justify-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                  Try Again
+                </Button>
+                {/* Dev-only: Always allow mock users to add intel even if list failed to load */}
+                {typeof window !== "undefined" &&
+                  process.env.NODE_ENV !== "production" && (
+                    <Button
+                      data-testid="add-intel"
+                      size="sm"
+                      onClick={() => setShowPostForm(true)}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Intel
+                    </Button>
+                  )}
+              </div>
             </div>
           ) : posts.length === 0 ? (
             <div className="text-center py-8">
@@ -283,6 +334,7 @@ export function BeachIntelSection({
                 Be the first to share intel about {beachName}
               </p>
               <Button
+                data-testid="add-intel"
                 onClick={() => setShowPostForm(true)}
                 size="sm"
                 variant="outline"
@@ -343,6 +395,7 @@ export function BeachIntelSection({
         isOpen={showPostForm}
         onClose={() => setShowPostForm(false)}
         onSuccess={handlePostCreated}
+        beachId={beachId}
         initialLocation={{ latitude, longitude }}
       />
     </>

@@ -3,7 +3,7 @@ import { MapPin, Loader2 } from "lucide-react";
 import { MapImage } from "@/components/map-image";
 import { getStaticMapImageUrlWithWaveHeight } from "@/lib/map-utils";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Beach } from "@/types/database";
 
 interface MapDisplayProps {
@@ -44,22 +44,32 @@ export function MapDisplay({
   const [waveHeight, setWaveHeight] = useState<number | undefined>(undefined);
 
   // Calculate map coordinates - prioritize search results when searching
-  const mapCoordinates = {
-    lat:
-      selectedBeach?.latitude ||
-      (searchQuery && filteredBeaches.length > 0
-        ? filteredBeaches[0].latitude
-        : null) ||
-      userLocation?.lat ||
-      OCEAN_BEACH_LAT,
-    lng:
-      selectedBeach?.longitude ||
-      (searchQuery && filteredBeaches.length > 0
-        ? filteredBeaches[0].longitude
-        : null) ||
-      userLocation?.lng ||
-      OCEAN_BEACH_LNG,
-  };
+  const mapCoordinates = useMemo(
+    () => ({
+      lat:
+        selectedBeach?.latitude ||
+        (searchQuery && filteredBeaches.length > 0
+          ? filteredBeaches[0].latitude
+          : null) ||
+        userLocation?.lat ||
+        OCEAN_BEACH_LAT,
+      lng:
+        selectedBeach?.longitude ||
+        (searchQuery && filteredBeaches.length > 0
+          ? filteredBeaches[0].longitude
+          : null) ||
+        userLocation?.lng ||
+        OCEAN_BEACH_LNG,
+    }),
+    [
+      selectedBeach?.latitude,
+      selectedBeach?.longitude,
+      searchQuery,
+      filteredBeaches,
+      userLocation?.lat,
+      userLocation?.lng,
+    ]
+  );
 
   // Fetch wave height data for the current location
   const fetchWaveHeight = useCallback(async () => {
@@ -79,7 +89,7 @@ export function MapDisplay({
     }
 
     return undefined;
-  }, [mapCoordinates.lat, mapCoordinates.lng]);
+  }, [mapCoordinates]);
 
   const {
     data: fetchedWaveHeight,

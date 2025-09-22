@@ -86,7 +86,6 @@ jest.mock("@/lib/utils/distance-utils", () => ({
 
 jest.mock("@/hooks/use-cached-api", () => ({
   createCachedMapFetch: jest.fn(() => jest.fn().mockResolvedValue({ data: [] })),
-  createLocationCacheKey: jest.fn(() => "cache-key"),
 }));
 
 jest.mock("@/lib/constants/ui", () => ({

@@ -1,7 +1,7 @@
 import { toast } from "@/components/ui/use-toast";
 
 // Success toast utilities
-export const showSuccessToast = (title: string, description?: string) => {
+const showSuccessToast = (title: string, description?: string) => {
   toast({
     title,
     description,
@@ -9,7 +9,7 @@ export const showSuccessToast = (title: string, description?: string) => {
 };
 
 // Error toast utilities
-export const showErrorToast = (title: string, description?: string) => {
+const showErrorToast = (title: string, description?: string) => {
   toast({
     title,
     description,

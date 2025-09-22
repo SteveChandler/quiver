@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,14 +20,14 @@ import {
   Accessibility,
 } from "lucide-react";
 import {
-  getFavoriteBeaches,
   removeFavoriteBeach,
   reorderFavoriteBeaches,
-} from "@/actions/beach-actions";
+} from "@/actions/beach/beach-favorite-actions";
 import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { toast } from "@/components/ui/use-toast";
 import type { Beach } from "@/types/database";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
 
 export function FavoriteBeaches() {
   const { user } = useAuth();
@@ -36,46 +36,44 @@ export function FavoriteBeaches() {
   const [removing, setRemoving] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
 
-  useEffect(() => {
-    async function loadFavoriteBeaches() {
-      if (!user) return;
-
-      setLoading(true);
-      try {
-        const result = await getFavoriteBeaches(user.id);
-        if (result.success) {
-          setBeaches(result.data || []);
-        } else {
-          console.error("Error loading favorite beaches:", result.error);
-          toast({
-            title: "Error",
-            description:
-              "Failed to load favorite beaches. Please refresh the page.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Error loading favorite beaches:", error);
-        toast({
-          title: "Error",
-          description:
-            "Failed to load favorite beaches. Please refresh the page.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
+  // Standard data fetching pattern
+  const fetchFavorites = useCallback(async () => {
+    if (!user?.id) return [] as Beach[];
+    try {
+      const res = await fetch("/api/beaches/favorites", {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!res.ok) return [] as Beach[];
+      const json = await res.json();
+      return (json?.data?.beaches || []) as Beach[];
+    } catch (e) {
+      console.error("FavoriteBeaches: failed to fetch favorites via API", e);
+      return [] as Beach[];
     }
+  }, [user?.id]);
 
-    loadFavoriteBeaches();
-  }, [user]);
+  const { data: favorites, loading: favLoading } = useDataFetcher(
+    fetchFavorites,
+    {
+      immediate: true,
+      skip: !user,
+      initialData: [] as Beach[],
+    }
+  );
+
+  useEffect(() => {
+    setBeaches(favorites || []);
+    setLoading(favLoading);
+  }, [favorites, favLoading]);
 
   const handleRemoveFavorite = async (beachId: string) => {
     if (!user) return;
 
     setRemoving(beachId);
     try {
-      const result = await removeFavoriteBeach(user.id, beachId);
+      const result = await removeFavoriteBeach(beachId);
       if (result.success) {
         setBeaches((prev) => prev.filter((beach) => beach.id !== beachId));
         toast({
@@ -145,7 +143,7 @@ export function FavoriteBeaches() {
   if (beaches.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        <p>You don't have any favorite beaches yet.</p>
+        <p>You don&apos;t have any favorite beaches yet.</p>
         <Button variant="link" asChild>
           <Link href="/map">Explore beaches</Link>
         </Button>

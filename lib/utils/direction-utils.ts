@@ -1,7 +1,7 @@
 /**
  * Normalize degrees to [0, 360)
  */
-export function normalizeDegrees(
+function normalizeDegrees(
   value: number | null | undefined
 ): number | null {
   if (value == null || isNaN(value)) return null;

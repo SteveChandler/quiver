@@ -18,7 +18,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 
-import { useSessionForm, SessionFormMode } from "@/hooks/use-session-form";
+import {
+  useSessionForm,
+  SessionFormMode,
+  SessionFormState,
+} from "@/hooks/use-session-form";
 import { useAuth } from "@/context/auth-context";
 import { WIZARD_MOTION, PHASE2_ANIMATIONS } from "@/lib/constants/animations";
 import { LocationStep } from "@/components/session-forms/LocationStep";
@@ -164,6 +168,49 @@ export function AnimatedSessionWizard({
     isPlanning,
   } = useSessionForm(initialMode);
 
+  const sendInvitations = useCallback(
+    async (
+      sessionId: string,
+      invitees: SessionFormState["invitees"],
+      message?: string
+    ) => {
+      if (!Array.isArray(invitees) || invitees.length === 0) {
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/session-planner/invitations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId, invitees, message }),
+        });
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok || !payload?.success) {
+          const errMessage =
+            payload?.error ||
+            (typeof payload?.details === "string"
+              ? payload.details
+              : response.statusText) ||
+            "Failed to send invitations";
+          console.error("Invitation API error:", errMessage, payload);
+          toast.error("Failed to send invitations");
+          return;
+        }
+
+        const inviteErrors: string[] = payload?.data?.errors ?? [];
+        if (inviteErrors.length > 0) {
+          console.warn("Invitation warnings:", inviteErrors);
+          toast.warning(inviteErrors[0]);
+        }
+      } catch (error) {
+        console.error("Error sending invitations:", error);
+        toast.error("Failed to send invitations");
+      }
+    },
+    []
+  );
+
   const steps = WIZARD_STEPS[mode];
   const currentWizardStep = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;
@@ -247,6 +294,10 @@ export function AnimatedSessionWizard({
         boardId: formState.boardId,
         notes: formState.notes,
         photos: selectedPhotos,
+        invitees: Array.isArray(formState.invitees)
+          ? formState.invitees
+          : [],
+        invitationMessage: formState.invitationMessage,
         // Log mode specific fields
         duration: formState.duration,
         waveQuality: formState.waveQuality,
@@ -312,6 +363,13 @@ export function AnimatedSessionWizard({
       const result = await createPlannedSession(baseSessionData);
       if (!result.success) {
         throw new Error(result.error);
+      }
+      if (result.data?.id) {
+        await sendInvitations(
+          result.data.id,
+          sessionData.invitees,
+          sessionData.invitationMessage
+        );
       }
       toast.success("Session planned successfully!");
     } else {

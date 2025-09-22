@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -13,14 +14,29 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { TideChart } from "@/components/forecast/tide-chart-recharts";
-import { BeachIntelSection } from "@/components/intel/beach-intel-section";
-import { SessionForecastComparison } from "@/components/forecast/session-forecast-comparison";
-import { DetailedSwellModal } from "@/components/beach-detail/detailed-swell-modal";
+const BeachIntelSection = dynamic(
+  () =>
+    import("@/components/intel/beach-intel-section").then(
+      (m) => m.BeachIntelSection
+    ),
+  { ssr: false }
+);
+const SessionForecastComparison = dynamic(
+  () =>
+    import("@/components/forecast/session-forecast-comparison").then(
+      (m) => m.SessionForecastComparison
+    ),
+  { ssr: false }
+);
+const DetailedSwellModal = dynamic(
+  () =>
+    import("@/components/beach-detail/detailed-swell-modal").then(
+      (m) => m.DetailedSwellModal
+    ),
+  { ssr: false }
+);
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
-import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
-import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import {
@@ -33,11 +49,51 @@ import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import { MapPin, MessageSquare, Waves, Star } from "lucide-react";
 import { SpotOverview } from "@/components/beach-detail/spot-overview";
 import { FavoriteButton } from "@/components/favorite-button";
+import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 // Replacing BeachCheckIns with BeachIntelSection in Local Intel section
-import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
-import { BeachReviewSummary } from "@/components/beach/beach-review-summary";
-import { BeachReviewsList } from "@/components/beach/beach-reviews-list";
+const ForecastAndTides = dynamic(
+  () =>
+    import("@/components/beach-detail/forecast-and-tides").then(
+      (m) => m.ForecastAndTides
+    ),
+  { ssr: false }
+);
+const BeachReviewSummary = dynamic(
+  () =>
+    import("@/components/beach/beach-review-summary").then(
+      (m) => m.BeachReviewSummary
+    ),
+  { ssr: false }
+);
+const BeachReviewsList = dynamic(
+  () =>
+    import("@/components/beach/beach-reviews-list").then(
+      (m) => m.BeachReviewsList
+    ),
+  { ssr: false }
+);
+const CamsSection = dynamic(
+  () =>
+    import("@/components/beach-detail/cams-section").then((m) => m.CamsSection),
+  { ssr: false }
+);
+const RecentSessionsSection = dynamic(
+  () =>
+    import("@/components/beach-detail/recent-sessions-section").then(
+      (m) => m.RecentSessionsSection
+    ),
+  { ssr: false }
+);
+const CrowdTipsSection = dynamic(
+  () =>
+    import("@/components/beach-detail/crowd-tips-section").then(
+      (m) => m.CrowdTipsSection
+    ),
+  { ssr: false }
+);
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
+import { track, slugify } from "@/lib/analytics";
+import { FullPageLoader } from "@/components/ui/loading-states";
 
 interface BeachDetailProps {
   id: string;
@@ -108,15 +164,23 @@ export function BeachDetail({ id }: BeachDetailProps) {
     setReviewRefreshTrigger((prev) => prev + 1);
   }, []);
 
-  // Fetch beach information
+  // Fetch beach information via API (avoid server actions from client)
   const fetchBeach = useCallback(async () => {
-    console.log("🏖️ Fetching beach data for:", id);
-    const result = await getBeachById(id);
-    if (result.success && result.data) {
-      console.log("✅ Beach data:", result.data);
-      return result.data;
+    console.log("🏖️ Fetching beach data (API) for:", id);
+    const res = await fetch(`/api/beaches/${id}`, { cache: "no-store" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || `Failed to fetch beach: ${res.status}`);
     }
-    throw new Error(result.error || "Failed to fetch beach data");
+    const body = (await res.json().catch(() => ({}))) as {
+      data?: { beach?: Beach } | Beach;
+      beach?: Beach;
+    };
+    const beachData =
+      (body as any)?.data?.beach || (body as any)?.beach || (body as any)?.data;
+    if (!beachData) throw new Error("Beach data not found");
+    console.log("✅ Beach data:", beachData);
+    return beachData as Beach;
   }, [id]);
 
   const {
@@ -127,27 +191,41 @@ export function BeachDetail({ id }: BeachDetailProps) {
     immediate: true,
   });
 
-  // Single data fetch - 10-day enhanced forecast
+  // Single data fetch - 10-day enhanced forecast via API
   const fetchForecasts = useCallback(async () => {
-    console.log("🚀 Starting fresh forecast fetch for beach:", id);
-    const result = await getEnhancedBeachForecasts(id, 10);
-    if (result.success && result.data) {
-      console.log("🔍 Raw forecast data:", {
-        totalForecasts: result.data.length,
-        dateRange: {
-          first: result.data[0]?.forecast_date,
-          last: result.data[result.data.length - 1]?.forecast_date,
-        },
-        sampleForecast: result.data[0],
-        uniqueDates: [...new Set(result.data.map((f) => f.forecast_date))],
-        forecastsByDate: result.data.reduce((acc, f) => {
-          acc[f.forecast_date] = (acc[f.forecast_date] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>),
-      });
-      return result.data;
+    console.log("🚀 Starting enhanced forecast fetch (API) for beach:", id);
+    const res = await fetch(
+      `/api/forecasts/update-enhanced?beachId=${id}&days=10`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(
+        body?.error || `Failed to fetch enhanced forecasts: ${res.status}`
+      );
     }
-    throw new Error(result.error || "Failed to fetch forecasts");
+    const body = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      data?: { forecasts?: EnhancedForecastEntity[] };
+      forecasts?: EnhancedForecastEntity[];
+      error?: string;
+    };
+    const forecasts: EnhancedForecastEntity[] =
+      body?.data?.forecasts || (body as any)?.forecasts || [];
+    console.log("🔍 Raw forecast data:", {
+      totalForecasts: forecasts.length,
+      dateRange: {
+        first: forecasts[0]?.forecast_date,
+        last: forecasts[forecasts.length - 1]?.forecast_date,
+      },
+      sampleForecast: forecasts[0],
+      uniqueDates: [...new Set(forecasts.map((f) => f.forecast_date))],
+      forecastsByDate: forecasts.reduce((acc, f) => {
+        acc[f.forecast_date] = (acc[f.forecast_date] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    });
+    return forecasts;
   }, [id]);
 
   const {
@@ -163,6 +241,22 @@ export function BeachDetail({ id }: BeachDetailProps) {
   // Combined loading and error states
   const loading = beachLoading || forecastsLoading;
   const error = beachError || forecastsError;
+
+  // Track beach view once we have data
+  // Note: Hooks must run unconditionally on every render (before any return)
+  useEffect(() => {
+    if (!beach) return;
+    try {
+      const isHome = (searchParams?.get("from") || "") === "home";
+      track("beach_view", {
+        beach_slug: slugify(beach.name),
+        region: (beach as any).region || (beach as any).location || undefined,
+        is_home: isHome,
+      });
+    } catch {}
+    // only on first load per beach id
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beach?.id]);
 
   // Select the best forecast using the same time-aware logic as home page
   const currentForecast = useMemo(() => {
@@ -226,15 +320,13 @@ export function BeachDetail({ id }: BeachDetailProps) {
     [forecastsByDate]
   );
 
+  // Prioritize loading state to prevent erroneous "not found" flash
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-        <Loader2 className="h-8 w-8 animate-spin text-ocean-blue" />
-      </div>
-    );
+    return <FullPageLoader />;
   }
 
-  if (error || !forecasts || !beach) {
+  // After loading finishes, show error only if we truly have an error or no beach
+  if (error || !beach) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sandy-beige via-white to-blue-50">
         <div className="text-center">
@@ -280,75 +372,63 @@ export function BeachDetail({ id }: BeachDetailProps) {
           {beach.name}
         </h1>
 
-        {/* Quick actions: Favorite */}
-        <div className="flex justify-end mb-4">
+        {/* Quick actions: Favorite + Set Home Beach */}
+        <div className="flex items-center justify-between mb-4 gap-3">
           <FavoriteButton beachId={beach.id} variant="outline" size="sm" />
+          <div className="w-48">
+            <HomeBeachBanner
+              selectedBeachId={beach.id}
+              selectedBeachName={beach.name}
+            />
+          </div>
         </div>
 
-        {/* Today's Overview (compact metrics) */}
+        {/* Above the fold: Today → Next tides → Wind → Swell */}
         {forecasts && forecasts.length > 0 && (
-          <Card className="rounded-2xl shadow-xl mb-8 overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-ocean-blue to-blue-600 text-white">
-              <CardTitle className="text-xl md:text-2xl font-roboto font-bold">
-                Today's Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-ocean-blue">Wave Height:</strong>{" "}
-                <span className="text-ocean-blue/80">
-                  {currentForecast?.wave_height || "Data Unavailable"}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-ocean-blue">Wave Period:</strong>{" "}
-                <span className="text-ocean-blue/80">
-                  {currentForecast?.wave_period || "Data Unavailable"}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-blue-700">Water Temp:</strong>{" "}
-                <span className="text-blue-600">
-                  {currentForecast?.water_temp}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-blue-700">Wind Speed:</strong>{" "}
-                <span className="text-blue-600">
-                  {currentForecast?.wind_speed}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-cyan-700">Wind Dir:</strong>{" "}
-                <span className="text-cyan-600">
-                  {currentForecast?.wind_direction}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-cyan-700">Condition:</strong>{" "}
-                <span className="text-cyan-600">
-                  {currentForecast?.weather_condition}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-teal-700">Tide Status:</strong>{" "}
-                <span className="text-teal-600">
-                  {currentForecast?.tide_status}
-                </span>
-              </div>
-              <div className="bg-white/60 rounded-lg border p-3">
-                <strong className="text-emerald-700">
-                  Forecast window confidence:
-                </strong>{" "}
-                <span className="text-emerald-600">
-                  {currentForecast
-                    ? Math.round(currentForecast.confidence_score)
-                    : "–"}
-                  %
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Today</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <div>Wave: {currentForecast?.wave_height ?? "–"}</div>
+                <div>Period: {currentForecast?.wave_period ?? "–"}</div>
+                <div>Cond: {currentForecast?.weather_condition ?? "–"}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Next Tides</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <div>Status: {currentForecast?.tide_status ?? "–"}</div>
+                <div>
+                  Next: {currentForecast?.next_tide_type ?? "–"}{" "}
+                  {currentForecast?.next_tide_height ?? ""} @{" "}
+                  {currentForecast?.next_tide_time ?? ""}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Wind</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <div>Speed: {currentForecast?.wind_speed ?? "–"}</div>
+                <div>Dir: {currentForecast?.wind_direction ?? "–"}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Swell</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm">
+                <div>Height: {currentForecast?.wave_height ?? "–"}</div>
+                <div>Period: {currentForecast?.wave_period ?? "–"}</div>
+                <div>Dir: {currentForecast?.wave_direction ?? "–"}</div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Accordion Sections */}
@@ -357,12 +437,40 @@ export function BeachDetail({ id }: BeachDetailProps) {
           value={openSections}
           onValueChange={handleAccordionChange}
           className="space-y-4"
+          data-testid="beach-accordion"
         >
-          {/* Forecast & Tides */}
-          <AccordionItem value="forecast">
+          {/* Live Cam */}
+          <AccordionItem value="cams" data-testid="accordion-item-cams">
             <AccordionTrigger className="text-lg">
               <span className="flex items-center gap-2">
-                <Waves className="h-4 w-4" /> Forecast & Tides
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-camera h-4 w-4"
+                >
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                Live Cam
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CamsSection beachId={id} />
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* 5 Day Outlook */}
+          <AccordionItem value="forecast" data-testid="accordion-item-forecast">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <Waves className="h-4 w-4" /> 5 Day Outlook
               </span>
             </AccordionTrigger>
             <AccordionContent>
@@ -411,6 +519,64 @@ export function BeachDetail({ id }: BeachDetailProps) {
                   refreshTrigger={reviewRefreshTrigger}
                 />
               </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Recent Sessions */}
+          <AccordionItem value="sessions">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-calendar h-4 w-4"
+                >
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                  <line x1="16" x2="16" y1="2" y2="6"></line>
+                  <line x1="8" x2="8" y1="2" y2="6"></line>
+                  <line x1="3" x2="21" y1="10" y2="10"></line>
+                </svg>
+                Recent Sessions
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <RecentSessionsSection beachId={id} />
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Crowd Tips */}
+          <AccordionItem value="tips">
+            <AccordionTrigger className="text-lg">
+              <span className="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="lucide lucide-users h-4 w-4"
+                >
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                Crowd Tips
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CrowdTipsSection beachId={id} />
             </AccordionContent>
           </AccordionItem>
 

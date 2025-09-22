@@ -393,13 +393,7 @@ export function ForecastTable({
       grouped[date].push(forecast);
     });
 
-    // Sort dates and ensure today is expanded by default
-    const sortedDates = Object.keys(grouped).sort();
-    const today = getCurrentDate();
-    if (sortedDates.includes(today)) {
-      setExpandedDates(new Set([today]));
-    }
-
+    // Only group and return; initial expansion is handled in an effect below
     return grouped;
   }, [forecasts]);
 

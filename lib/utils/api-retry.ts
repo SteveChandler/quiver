@@ -3,7 +3,7 @@
  * Implements exponential backoff with jitter and circuit breaker patterns
  */
 
-export interface RetryOptions {
+interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
   maxDelay?: number;
@@ -13,13 +13,13 @@ export interface RetryOptions {
   retryCondition?: (error: any) => boolean;
 }
 
-export interface CircuitBreakerOptions {
+interface CircuitBreakerOptions {
   failureThreshold?: number;
   recoveryTimeoutMs?: number;
   monitoringPeriodMs?: number;
 }
 
-export class CircuitBreaker {
+class CircuitBreaker {
   private failureCount = 0;
   private lastFailureTime = 0;
   private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
@@ -75,7 +75,7 @@ export class CircuitBreaker {
   }
 }
 
-export class RetryableAPIClient {
+class RetryableAPIClient {
   private circuitBreakers = new Map<string, CircuitBreaker>();
 
   constructor(private defaultOptions: RetryOptions = {}) {

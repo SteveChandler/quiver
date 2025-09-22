@@ -1,7 +1,7 @@
 import { fetchWithTimeout } from "@/lib/utils/fetch-utils";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 
-export type TidePrediction = {
+type TidePrediction = {
   ts: string;
   tide_height_m: number;
   tide_phase: string | null;
@@ -14,7 +14,7 @@ const tideStationsCache: { at: number; stations: StationMeta[] } = {
   stations: [],
 };
 
-export async function getTideStations(): Promise<StationMeta[]> {
+async function getTideStations(): Promise<StationMeta[]> {
   const now = Date.now();
   if (
     tideStationsCache.stations.length &&

@@ -14,6 +14,8 @@ interface FollowButtonProps {
   showCounts?: boolean;
   className?: string;
   onFollowersCountChange?: (newCount: number) => void;
+  followingLabel?: string;
+  notFollowingLabel?: string;
 }
 
 export function FollowButton({
@@ -25,6 +27,8 @@ export function FollowButton({
   showCounts = false,
   className = "",
   onFollowersCountChange,
+  followingLabel = "Unfollow",
+  notFollowingLabel = "Follow",
 }: FollowButtonProps) {
   const { user } = useAuth();
   const {
@@ -47,6 +51,7 @@ export function FollowButton({
   }
 
   const buttonSize = size === "sm" ? "sm" : size === "lg" ? "lg" : "default";
+  const buttonText = following ? followingLabel : notFollowingLabel;
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
@@ -62,9 +67,7 @@ export function FollowButton({
         }`}
         data-testid="follow-button"
         aria-pressed={following}
-        aria-label={`${
-          following ? "Unfollow" : "Follow"
-        } this user. Currently has ${followersCount} ${
+        aria-label={`${buttonText} this user. Currently has ${followersCount} ${
           followersCount === 1 ? "follower" : "followers"
         }`}
         style={{
@@ -79,7 +82,7 @@ export function FollowButton({
           <UserPlus className="h-4 w-4" />
         )}
         <span className="hidden sm:inline">
-          {following ? "Unfollow" : "Follow"}
+          {buttonText}
         </span>
       </Button>
 

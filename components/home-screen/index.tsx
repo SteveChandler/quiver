@@ -22,6 +22,7 @@ import { FloatingInteractionHint } from "@/components/engagement/micro-interacti
 import { ForecastTab } from "./forecast-tab";
 import { NearbyTab } from "./nearby-tab";
 import { CommunityTab } from "./community-tab";
+import { NearbyBeachChips } from "./nearby-beach-chips";
 
 // Loading component for tabs
 function TabSkeleton() {
@@ -118,7 +119,7 @@ export function HomeScreen() {
               The waves are looking good today. Ready to catch some?
             </p>
           </div>
-          
+
           {/* Action Buttons */}
           <div className="flex gap-2">
             <Button
@@ -157,6 +158,11 @@ export function HomeScreen() {
             </TabsList>
 
             <TabsContent value="forecast">
+              {/* Nearby chip row for quick first-time selection */}
+              <NearbyBeachChips
+                className="mb-3"
+                onSelect={(b) => setSelectedBeachOverride(b as any)}
+              />
               {/* Centered Search Bar under the tabs */}
               <BeachSearchBar
                 onSelect={(b) => setSelectedBeachOverride(b)}

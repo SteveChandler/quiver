@@ -10,6 +10,7 @@ import type { Database } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/auth-context";
+import { useCallback } from "react";
 import { Trash2 } from "lucide-react";
 
 type Comment = Database["public"]["Tables"]["comments"]["Row"] & {
@@ -36,21 +37,21 @@ export function SessionComments({
   const [submitting, setSubmitting] = useState(false);
   const supabase = createClient();
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const list = await gateway.sessions.comments.listTopLevel(sessionId);
       setComments(list || []);
 
       // Notify parent of comment count change
       if (onCommentCountChange) {
-        onCommentCountChange(data?.length || 0);
+        onCommentCountChange((list || []).length);
       }
     } catch (error) {
       console.error("Error fetching comments:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId, onCommentCountChange]);
 
   useEffect(() => {
     fetchComments();
@@ -75,7 +76,7 @@ export function SessionComments({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, sessionId]);
+  }, [supabase, sessionId, fetchComments]);
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();

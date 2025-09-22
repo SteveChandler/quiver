@@ -178,6 +178,7 @@ export default function DiscoverPage() {
                       initialFollowersCount={searchUser.followers_count || 0}
                       variant="default"
                       size="sm"
+                      followingLabel="Following"
                       onFollowersCountChange={(newCount) =>
                         updateUserFollowerCount(searchUser.id, newCount)
                       }
@@ -231,7 +232,7 @@ export default function DiscoverPage() {
                 No suggested users right now
               </p>
               <p className="text-sm">
-                As more people join Quiver, you'll see suggested surfers to
+                As more people join Quiver, you&apos;ll see suggested surfers to
                 follow here. Invite friends to join the community!
               </p>
             </div>
@@ -263,6 +264,7 @@ export default function DiscoverPage() {
                     initialFollowersCount={suggestedUser.followers_count || 0}
                     variant="default"
                     size="sm"
+                    followingLabel="Following"
                     onFollowersCountChange={(newCount) =>
                       updateUserFollowerCount(suggestedUser.id, newCount)
                     }

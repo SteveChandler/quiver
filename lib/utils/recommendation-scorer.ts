@@ -1,6 +1,6 @@
 import type { Beach } from "@/types/database";
 
-export type RecommendationSnapshot = {
+type RecommendationSnapshot = {
   wave_direction_deg?: number | null;
   wind_direction_deg?: number | null;
   wind_speed_kts?: number | null;
@@ -8,7 +8,7 @@ export type RecommendationSnapshot = {
   user_skill?: string | null; // beginner|intermediate|advanced
 };
 
-export type RecommendationScore = {
+type RecommendationScore = {
   score: number; // 0-100
   reasons: string[];
 };
@@ -120,7 +120,3 @@ export function scoreRecommendation(
   const finalScore = Math.max(0, Math.min(100, score));
   return { score: finalScore, reasons };
 }
-
-export const RecommendationMath = { degNorm, angDiff, inWrappedWindow };
-
-

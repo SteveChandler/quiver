@@ -69,3 +69,4 @@ lighthouse-results/
 .env.test
 # Playwright MCP testing artifacts
 .playwright-mcp/
+e2e/.auth/state.json

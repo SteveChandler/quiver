@@ -81,7 +81,7 @@ export function MapContent({
               <p>To enable location:</p>
               <div className="text-left bg-muted p-3 rounded-lg">
                 <p>1. Click the 🔒 lock icon next to the URL</p>
-                <p>2. Set Location to "Allow"</p>
+                <p>2. Set Location to &quot;Allow&quot;</p>
                 <p>3. Refresh the page</p>
               </div>
             </div>
@@ -127,10 +127,10 @@ export function MapContent({
               ? filteredBeaches.length > 0
                 ? `Found ${filteredBeaches.length} ${
                     filteredBeaches.length === 1 ? "beach" : "beaches"
-                  } for "${searchQuery}"`
+                  } for \"${searchQuery}\"`
                 : isLikelyOutOfAreaSearch(searchQuery)
-                ? `"${searchQuery}" is outside our coverage area`
-                : `No beaches found for "${searchQuery}"`
+                ? `\"${searchQuery}\" is outside our coverage area`
+                : `No beaches found for \"${searchQuery}\"`
               : userLocation
               ? usingDefaultLocation
                 ? `Showing beaches near Ocean Beach, San Diego`

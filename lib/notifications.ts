@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 export interface CreateInviteActivityInput {
   actorId: string; // inviter user id
@@ -31,5 +31,29 @@ export async function createActivityForInvite(
   }
 
   return activityId as string;
+}
+
+/**
+ * Uses SECURITY DEFINER RPC notify_session_invite to write an activity owned by the recipient.
+ * Returns the created activity id.
+ */
+export async function notifySessionInvite(input: CreateInviteActivityInput) {
+  const supabase = await createSupabaseServiceRoleClient();
+
+  const payload = input.metadata ?? {};
+
+  const { data, error } = await supabase.rpc("notify_session_invite", {
+    p_actor_id: input.actorId,
+    p_recipient_id: input.recipientId,
+    p_session_id: input.sessionId,
+    p_payload: payload,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  // data is the inserted row (public.user_activities)
+  return (data as any)?.id as string | undefined;
 }
 

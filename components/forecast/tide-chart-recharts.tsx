@@ -306,7 +306,7 @@ export function TideChart({
     // Round domain values to clean numbers to prevent floating point precision issues
     const domain: [number, number] = [
       Math.round((minH - 0.5) * 10) / 10,
-      Math.round((maxH + 0.5) * 10) / 10
+      Math.round((maxH + 0.5) * 10) / 10,
     ];
 
     // X-axis domain and day ticks from line points
@@ -405,8 +405,20 @@ export function TideChart({
     []
   );
 
-  // Filter ticks to show one per day (derived above from normalized data)
-  const xTicks = dayTicks && dayTicks.length ? dayTicks : undefined;
+  // Filter ticks to show one per day and de-duplicate by normalized day label
+  const xTicks = useMemo(() => {
+    if (!dayTicks || dayTicks.length === 0) return undefined;
+    const seen = new Set<string>();
+    const out: number[] = [];
+    for (const t of dayTicks) {
+      const key = getNormalizedDateString(new Date(t));
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(t);
+      }
+    }
+    return out.length ? out : undefined;
+  }, [dayTicks]);
 
   if (lineData.length === 0 && extremaData.length === 0) {
     return (
@@ -472,9 +484,12 @@ export function TideChart({
                   type="number"
                   scale="time"
                   domain={xDomain}
-                  ticks={isMobile ? undefined : xTicks}
+                  ticks={xTicks}
                   tickFormatter={formatXAxisTick}
-                  interval={isMobile ? "preserveStartEnd" : 0}
+                  interval={0}
+                  minTickGap={12}
+                  tickMargin={8}
+                  allowDuplicatedCategory={false}
                   axisLine={{ stroke: "#9CA3AF" }}
                   tickLine={{ stroke: "#9CA3AF" }}
                   tick={{ fontSize: isMobile ? 10 : 12 }}

@@ -13,6 +13,7 @@ components/home-screen/
 ├── nearby-tab.tsx      # Nearby beaches with ratings and distance
 ├── community-tab.tsx   # Local intel dashboard (replaces community feed)
 └── use-home-data.ts    # Shared data fetching hook
+└── nearby-beach-chips.tsx # Location-permissioned chip row for nearest beaches
 ```
 
 ## 🏗️ **ARCHITECTURE PATTERNS**
@@ -51,6 +52,27 @@ const { beaches, sessions, loading } = useHomeData();
 const { profile, homeBeach, profileLoading, hasCachedData } =
   useCachedProfile();
 ```
+
+### **Location-Permissioned Nearby Chips**
+
+```typescript
+// Follows useDataFetcher pattern and useGeo for permissioned location
+<NearbyBeachChips onSelect={(b) => setSelectedBeachOverride(b)} />
+
+// Chip click sets override beach to immediately preview Today at <beach>
+<ForecastTab overrideBeach={selectedBeachOverride} />
+```
+
+Behavior:
+
+- Prominent "Use my location" CTA for first-time visitors (no auto-prompt).
+- After grant, fetches `/api/beaches/nearby?latitude&longitude&limit=5`.
+- Renders horizontally scrollable chips; tap to preview and optionally Set Home Beach.
+
+Constraints:
+
+- Uses `useDataFetcher` and `useGeo` per hooks/ARCHITECTURE.md.
+- No new data fetching patterns introduced.
 
 ## 📊 **COMPONENT RESPONSIBILITIES**
 

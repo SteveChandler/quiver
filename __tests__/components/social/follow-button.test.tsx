@@ -58,6 +58,37 @@ describe("FollowButton", () => {
       expect(button).toHaveClass("hover:bg-destructive");
     });
 
+    it("should support custom follow state labels", () => {
+      const { rerender } = render(
+        <FollowButton
+          userId="user-2"
+          followingLabel="Following"
+          notFollowingLabel="Send Wave"
+        />
+      );
+
+      let button = screen.getByRole("button");
+      expect(button).toHaveTextContent("Send Wave");
+      expect(button.getAttribute("aria-label")).toContain("Send Wave");
+
+      mockUseUserFollow.mockReturnValue({
+        ...defaultUseUserFollowReturn,
+        following: true,
+      });
+
+      rerender(
+        <FollowButton
+          userId="user-2"
+          followingLabel="Following"
+          notFollowingLabel="Send Wave"
+        />
+      );
+
+      button = screen.getByRole("button");
+      expect(button).toHaveTextContent("Following");
+      expect(button.getAttribute("aria-label")).toContain("Following");
+    });
+
     it("should show loading state when toggling", () => {
       mockUseUserFollow.mockReturnValue({
         ...defaultUseUserFollowReturn,

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";
@@ -259,11 +260,14 @@ function IntelFeedCard({
 
           {/* Photo */}
           {post.photo_url && (
-            <div className="rounded-lg overflow-hidden">
-              <img
+            <div className="relative h-32 rounded-lg overflow-hidden">
+              <Image
                 src={post.photo_url}
                 alt="Intel photo"
-                className="w-full h-32 object-cover"
+                fill
+                sizes="100vw"
+                className="object-cover"
+                priority={false}
               />
             </div>
           )}

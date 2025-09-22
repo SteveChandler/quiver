@@ -33,7 +33,7 @@ jest.mock("@/components/forecast/tide-chart-recharts", () => ({
 }));
 
 describe("ForecastAndTides (smoke)", () => {
-  it("renders without throwing and shows Coach Pick card", () => {
+  it("renders without throwing and shows chips header", () => {
     const beach = {
       id: "beach-uuid",
       name: "Test Beach",
@@ -44,8 +44,9 @@ describe("ForecastAndTides (smoke)", () => {
 
     render(<ForecastAndTides beach={beach} forecasts={forecasts} />);
 
-    // Coach Pick rendered (title text)
-    const matches = screen.getAllByText(/^Coach Pick$/i);
-    expect(matches.length).toBeGreaterThan(0);
+    // Heuristic: chips/header present
+    expect(
+      screen.getByText(/Sunrise\/Sunset shown in charts/i)
+    ).toBeInTheDocument();
   });
 });

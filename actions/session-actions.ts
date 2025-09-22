@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   withAuthenticatedAction,
   withServerAction,
@@ -498,8 +498,20 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
         if (existingBeach) {
           cleaned.beach_id = existingBeach.id;
         } else {
-          // Beach doesn't exist - require user to select from existing beaches
-          throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
+          // Dev-only fallback for mock users: use TEST_BEACH_ID when allowed
+          try {
+            const allow = (process.env.ALLOW_E2E_MUTATIONS_DEV === '1' || (process.env.ALLOW_E2E_MUTATIONS_DEV || '').toLowerCase() === 'true');
+            if (allow) {
+              const { data: me } = await supabase.from('profiles').select('is_mock').eq('id', user.id).single();
+              const fallbackId = process.env.TEST_BEACH_ID;
+              if (me?.is_mock && fallbackId) {
+                cleaned.beach_id = fallbackId as any;
+              }
+            }
+          } catch {}
+          if (!cleaned.beach_id) {
+            throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
+          }
         }
       } else {
         // No beach_id or beach_name provided
@@ -514,7 +526,25 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
       status: "completed",
     };
 
-    const { data: session, error } = await supabase
+    // Choose write client: allow dev E2E mutations for mock users via service role
+    let writeClient = supabase as any;
+    try {
+      if (
+        (process.env.ALLOW_E2E_MUTATIONS_DEV === "1" ||
+          (process.env.ALLOW_E2E_MUTATIONS_DEV || "").toLowerCase() === "true")
+      ) {
+        const { data: me } = await supabase
+          .from("profiles")
+          .select("is_mock")
+          .eq("id", user.id)
+          .single();
+        if (me?.is_mock === true) {
+          writeClient = createSupabaseServiceRoleClient();
+        }
+      }
+    } catch {}
+
+    const { data: session, error } = await writeClient
       .from("sessions")
       .insert(finalPayload)
       .select()
@@ -578,8 +608,20 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
         if (existingBeach) {
           cleaned.beach_id = existingBeach.id;
         } else {
-          // Beach doesn't exist - require user to select from existing beaches
-          throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
+          // Dev-only fallback for mock users: use TEST_BEACH_ID when allowed
+          try {
+            const allow = (process.env.ALLOW_E2E_MUTATIONS_DEV === '1' || (process.env.ALLOW_E2E_MUTATIONS_DEV || '').toLowerCase() === 'true');
+            if (allow) {
+              const { data: me } = await supabase.from('profiles').select('is_mock').eq('id', user.id).single();
+              const fallbackId = process.env.TEST_BEACH_ID;
+              if (me?.is_mock && fallbackId) {
+                cleaned.beach_id = fallbackId as any;
+              }
+            }
+          } catch {}
+          if (!cleaned.beach_id) {
+            throw new Error(`Beach "${cleaned.beach_name}" not found. Please select a beach from the dropdown menu.`);
+          }
         }
       } else {
         // No beach_id or beach_name provided
@@ -594,7 +636,25 @@ export async function createPlannedSession(data: SessionFormState | SessionInput
       status: "planned",
     };
 
-    const { data: session, error } = await supabase
+    // Choose write client: allow dev E2E mutations for mock users via service role
+    let writeClient = supabase as any;
+    try {
+      if (
+        (process.env.ALLOW_E2E_MUTATIONS_DEV === "1" ||
+          (process.env.ALLOW_E2E_MUTATIONS_DEV || "").toLowerCase() === "true")
+      ) {
+        const { data: me } = await supabase
+          .from("profiles")
+          .select("is_mock")
+          .eq("id", user.id)
+          .single();
+        if (me?.is_mock === true) {
+          writeClient = createSupabaseServiceRoleClient();
+        }
+      }
+    } catch {}
+
+    const { data: session, error } = await writeClient
       .from("sessions")
       .insert(finalPayload)
       .select()

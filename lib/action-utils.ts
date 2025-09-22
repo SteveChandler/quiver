@@ -33,16 +33,3 @@ export function handleSupabaseError(error: any, context: string): never {
   console.error(`Supabase error in ${context}:`, error);
   throw new Error(error.message || `Database error in ${context}`);
 }
-
-/**
- * Helper to validate required parameters
- */
-export function validateRequired<T>(
-  value: T | null | undefined,
-  fieldName: string
-): T {
-  if (value === null || value === undefined) {
-    throw new Error(`${fieldName} is required`);
-  }
-  return value;
-}

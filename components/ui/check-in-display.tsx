@@ -196,7 +196,7 @@ export function CheckInDisplay({
         {/* Vibe/Notes */}
         {checkIn.vibe && (
           <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-700 italic">"{checkIn.vibe}"</p>
+            <p className="text-sm text-gray-700 italic">“{checkIn.vibe}”</p>
           </div>
         )}
 

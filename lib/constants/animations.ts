@@ -38,14 +38,6 @@ export const ANIMATION_VARIANTS = {
   },
 };
 
-// Standard durations
-export const DURATIONS = {
-  fast: 0.3,
-  standard: 0.6,
-  slow: 0.8,
-  hero: 1,
-} as const;
-
 // Enhanced animation variants for viral growth motion
 export const ENHANCED_ANIMATIONS = {
   // Social sharing animations
@@ -117,16 +109,6 @@ export const ENHANCED_ANIMATIONS = {
     }
   }
 };
-
-// Motion timing system for consistent durations
-export const MOTION_TIMING = {
-  micro: 0.1,      // Button press feedback
-  quick: 0.2,      // Hover states, focus changes  
-  standard: 0.4,   // Page transitions, modal open/close
-  deliberate: 0.6, // Complex state changes
-  slow: 0.8,       // Success celebrations
-  bounce: 0.8,     // Playful interactions
-} as const;
 
 // Viral growth motion system
 export const QUIVER_MOTION = {
@@ -265,15 +247,6 @@ export const PHASE2_ANIMATIONS = {
   }
 };
 
-// Add Phase 2 specific easing functions
-export const PHASE2_EASING = {
-  spring: [0.4, 0.0, 0.2, 1], // Material Design
-  bounce: [0.68, -0.55, 0.265, 1.55], // Bouncy
-  smooth: [0.25, 0.46, 0.45, 0.94], // Smooth
-  quick: [0.4, 0.0, 1, 1], // Quick out
-  slow: [0.0, 0.0, 0.2, 1] // Slow in
-};
-
 // Session Wizard Motion Specifications
 export const WIZARD_MOTION = {
   step: {
@@ -325,13 +298,6 @@ export const WIZARD_MOTION = {
       }
     }
   }
-} as const;
-
-// Enhanced Motion Timing System - consolidated with the main MOTION_TIMING above
-export const ENHANCED_MOTION_TIMING = { 
-  fast: 0.18, 
-  base: 0.28, 
-  slow: 0.45 
 } as const;
 
 // MAP_MOTION - Priority 1: Geographic Expansion & Beach Discovery
@@ -420,14 +386,3 @@ export const MAP_MOTION = {
     }
   }
 } as const;
-
-// Export everything together
-export const ALL_MOTION = {
-  ...ANIMATION_VARIANTS,
-  ...ENHANCED_ANIMATIONS,
-  ...PHASE2_ANIMATIONS,
-  wizard: WIZARD_MOTION,
-  map: MAP_MOTION,
-  timing: { ...MOTION_TIMING, ...PHASE2_ANIMATIONS.timing },
-  easing: PHASE2_EASING
-};

@@ -195,15 +195,15 @@ export function SignInForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-                      <Input
-            id="email"
-            type="email"
-            placeholder="your.email@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            required
-          />
+            <Input
+              id="email"
+              type="email"
+              placeholder="your.email@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
@@ -280,7 +280,7 @@ export function SignInForm() {
       </CardContent>
       <CardFooter className="flex justify-center">
         <p className="text-sm text-muted-foreground">
-          Don't have an account?{" "}
+          Don’t have an account?{" "}
           <Link href="/auth/sign-up" className="text-primary hover:underline">
             Sign Up
           </Link>

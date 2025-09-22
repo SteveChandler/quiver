@@ -8,6 +8,7 @@ import { data as gateway } from "@/lib/data/client";
 import type { Database } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
+import { useCallback } from "react";
 
 type Comment = Database["public"]["Tables"]["comments"]["Row"] & {
   session: {
@@ -27,7 +28,7 @@ export function UserComments({ userId }: UserCommentsProps) {
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const list = await gateway.users.comments.listByUser(userId);
       setComments(list || []);
@@ -36,7 +37,7 @@ export function UserComments({ userId }: UserCommentsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchComments();
@@ -61,7 +62,7 @@ export function UserComments({ userId }: UserCommentsProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, userId]);
+  }, [supabase, userId, fetchComments]);
 
   const handleDeleteComment = async (commentId: string) => {
     try {

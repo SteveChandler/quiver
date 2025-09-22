@@ -259,6 +259,38 @@ describe("BeachIntelSection", () => {
       expect(screen.getByText("Post 2")).toBeInTheDocument();
       expect(screen.queryByText("Post 3")).not.toBeInTheDocument();
     });
+
+    it("shows newest posts before higher-confirmed older posts (recency first)", () => {
+      const olderHighConfirmed = {
+        ...mockIntelPost,
+        id: "older-high",
+        title: "Older with confirmations",
+        confirmations_count: 10,
+        created_at: "2023-01-01T00:00:00Z",
+        user: { full_name: "Old User", avatar_url: null },
+      };
+      const newestLowConfirmed = {
+        ...mockIntelPost,
+        id: "newest-low",
+        title: "Newest with few confirmations",
+        confirmations_count: 0,
+        created_at: "2025-01-01T00:00:00Z",
+        user: { full_name: "New User", avatar_url: null },
+      };
+
+      mockUseIntelData.mockReturnValue({
+        data: { posts: [olderHighConfirmed, newestLowConfirmed] },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<BeachIntelSection {...defaultProps} />);
+
+      // With recency-first ordering, the newest post should render before the older one
+      const firstTitle = screen.getAllByText(/with/)[0];
+      expect(firstTitle).toHaveTextContent("Newest with few confirmations");
+    });
   });
 
   describe("Post Form Integration", () => {

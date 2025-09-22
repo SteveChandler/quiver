@@ -8,7 +8,7 @@ import type {
  * Provides functions for calculating and analyzing forecast accuracy metrics
  */
 
-export interface AccuracyMetric {
+interface AccuracyMetric {
   name: string;
   forecast: number;
   actual: number;
@@ -17,7 +17,7 @@ export interface AccuracyMetric {
   accuracy: number; // 0-100 score
 }
 
-export interface AccuracyAnalysis {
+interface AccuracyAnalysis {
   overallAccuracy: number;
   metrics: AccuracyMetric[];
   confidenceCorrelation: number; // How well confidence scores predict accuracy
@@ -25,7 +25,7 @@ export interface AccuracyAnalysis {
   recommendations: string[];
 }
 
-export interface TrendPoint {
+interface TrendPoint {
   date: string;
   accuracy: number;
   sessionCount: number;
