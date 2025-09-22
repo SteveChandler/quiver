@@ -154,6 +154,12 @@ const nextConfig = {
         pathname: "/storage/v1/object/**",
       },
     ],
+    // Some environments require explicit domains allowlist in addition to remotePatterns
+    domains: [
+      "images.unsplash.com",
+      ...(supabaseHostname ? [supabaseHostname] : []),
+      "i0.wp.com", // defensive: common proxy hosts
+    ],
     // Security for SVGs
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
