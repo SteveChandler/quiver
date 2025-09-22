@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { ActionResult } from "@/lib/action-utils";
 
 // Create alias for consistency with existing code
 const withAuth = withAuthenticatedAction;
@@ -19,19 +20,13 @@ import {
   type StorageUsageInfo,
 } from "@/lib/supabase/storage";
 
-export interface ActionResult {
-  success: boolean;
-  error?: string;
-  data?: any;
-}
-
 /**
  * Upload photos to a session
  */
 export async function uploadSessionPhotosAction(
   sessionId: string,
   formData: FormData
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   return withAuth(async (userId) => {
     try {
       const supabase = await createSupabaseServerClient();
@@ -131,7 +126,7 @@ export async function uploadSessionPhotosAction(
  */
 export async function deleteSessionPhotoAction(
   photoId: string
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   return withAuth(async (userId) => {
     try {
       const supabase = await createSupabaseServerClient();
@@ -178,7 +173,7 @@ export async function deleteSessionPhotoAction(
 export async function updatePhotoCaptionAction(
   photoId: string,
   caption: string
-): Promise<ActionResult> {
+): Promise<ActionResult<any>> {
   return withAuth(async (userId) => {
     try {
       const supabase = await createSupabaseServerClient();
@@ -216,7 +211,7 @@ export async function updatePhotoCaptionAction(
  */
 export async function getSessionPhotosAction(
   sessionId: string
-): Promise<ActionResult> {
+): Promise<ActionResult<SessionPhoto[]>> {
   try {
     const photos = await getSessionPhotos(sessionId);
     return { success: true, data: photos };
@@ -232,7 +227,7 @@ export async function getSessionPhotosAction(
 /**
  * Get user storage usage statistics
  */
-export async function getUserStorageUsageAction(): Promise<ActionResult> {
+export async function getUserStorageUsageAction(): Promise<ActionResult<StorageUsageInfo>> {
   return withAuth(async (userId) => {
     try {
       const usage = await getUserStorageUsage(userId);
@@ -253,7 +248,7 @@ export async function getUserStorageUsageAction(): Promise<ActionResult> {
 /**
  * Get detailed storage statistics via database function
  */
-export async function getStorageStatsAction(): Promise<ActionResult> {
+export async function getStorageStatsAction(): Promise<ActionResult<any>> {
   return withAuth(async (userId) => {
     try {
       const supabase = await createSupabaseServerClient();

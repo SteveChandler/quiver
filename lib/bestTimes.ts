@@ -24,26 +24,3 @@ export async function fetchBestTimes(
 /**
  * Fetch windows via API (edge cached) which prefers materialized view.
  */
-export async function fetchBestTimesApi(
-  beachId: string,
-  hours = 48,
-  limit = 6
-): Promise<{
-  windows: Array<{
-    start_ts: string;
-    end_ts: string;
-    grade: string;
-    score: number;
-  }>;
-}> {
-  const params = new URLSearchParams({
-    beachId,
-    hours: String(hours),
-    limit: String(limit),
-  });
-  const res = await fetch(`/api/recommendations/best-times?${params}`, {
-    cache: "no-store",
-  });
-  const json = await res.json();
-  return json.data || { windows: [] };
-}

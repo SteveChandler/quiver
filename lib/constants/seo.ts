@@ -179,35 +179,3 @@ export const SEO_CONFIG = {
     ICBM: "32.7157, -117.1611",
   },
 } as const;
-
-// Page-specific SEO configurations
-export const PAGE_SEO = {
-  home: {
-    title:
-      "Quiver - Ultimate Surf Community | Find Surf Buddies & Track Sessions",
-    description:
-      "Join a growing surf community using Quiver to find surf buddies, track epic sessions, and discover the best spots. Never surf alone again. Free to join!",
-    canonicalUrl: "/",
-  },
-
-  map: {
-    title: "Surf Spots Map - Discover Epic Waves | Quiver Surf Community",
-    description:
-      "Explore surf spots worldwide with community reviews, live conditions, and local insights. Find your next epic surf adventure with Quiver.",
-    canonicalUrl: "/map",
-  },
-
-  planSession: {
-    title: "Plan Your Next Surf Session | AI-Powered Surf Planning - Quiver",
-    description:
-      "Plan the perfect surf session with AI-powered timing, gear recommendations, and group invites. Get optimal conditions for epic waves.",
-    canonicalUrl: "/plan-session",
-  },
-
-  logSession: {
-    title: "Log Your Surf Session | Track & Share Epic Waves - Quiver",
-    description:
-      "Log your surf sessions, share epic moments, and track your progression. Connect with the surf community and share the stoke.",
-    canonicalUrl: "/log-session",
-  },
-} as const;

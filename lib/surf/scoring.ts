@@ -2,7 +2,7 @@
 // These utilities intentionally mirror the logic used in DB scoring but can be
 // extended or tuned independently for client/server usage.
 
-export type Grade = "epic" | "good" | "fair" | "poor";
+type Grade = "epic" | "good" | "fair" | "poor";
 
 // Generalized types used by range-based window picker
 export interface BeachMeta {
@@ -31,7 +31,7 @@ export interface HourlyTide {
   tide_ft: number; // tide height in feet
 }
 
-export interface BeachScoringParams {
+interface BeachScoringParams {
   windOffshoreDeg: number; // degrees (0-360)
   windCrossOkKts: number; // knots
   swellWindowMinDeg: number; // degrees (0-360)
@@ -53,7 +53,7 @@ export interface HourInputs {
   params: BeachScoringParams;
 }
 
-export interface HourScoreBreakdown {
+interface HourScoreBreakdown {
   windScore: number; // 0..1
   tideScore: number; // 0..1
   swellDirScore: number; // 0..1
@@ -62,24 +62,24 @@ export interface HourScoreBreakdown {
   total0to100: number; // 0..100
 }
 
-export function toKnots(ms: number | null): number {
+function toKnots(ms: number | null): number {
   return ms == null ? 0 : ms * 1.94384449;
 }
 
-export function normalizeDeg(deg: number): number {
+function normalizeDeg(deg: number): number {
   // Normalize any number to [0,360)
   const d = ((deg % 360) + 360) % 360;
   return d;
 }
 
-export function angularDistance(aDeg: number, bDeg: number): number {
+function angularDistance(aDeg: number, bDeg: number): number {
   const a = normalizeDeg(aDeg);
   const b = normalizeDeg(bDeg);
   const diff = Math.abs(((a - b + 540) % 360) - 180);
   return diff; // 0..180
 }
 
-export function computeWindScore(
+function computeWindScore(
   windDirectionDeg: number | null,
   windSpeedMs: number | null,
   offshoreDeg: number,
@@ -94,7 +94,7 @@ export function computeWindScore(
   return clamp01(facing * (1 - onshorePenalty));
 }
 
-export function computeTideScore(
+function computeTideScore(
   tideHeightM: number | null,
   tideMinFt: number,
   tideMaxFt: number
@@ -109,7 +109,7 @@ export function computeTideScore(
   return clamp01(score);
 }
 
-export function computeSwellDirScore(
+function computeSwellDirScore(
   waveDirectionDeg: number | null,
   windowMinDeg: number,
   windowMaxDeg: number
@@ -235,5 +235,3 @@ export function clamp01(n: number): number {
   if (Number.isNaN(n)) return 0;
   return Math.max(0, Math.min(1, n));
 }
-
-

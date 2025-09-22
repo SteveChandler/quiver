@@ -22,7 +22,7 @@ import {
 import {
   removeFavoriteBeach,
   reorderFavoriteBeaches,
-} from "@/actions/beach-actions";
+} from "@/actions/beach/beach-favorite-actions";
 import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { toast } from "@/components/ui/use-toast";

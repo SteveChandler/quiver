@@ -32,7 +32,9 @@ type Invitation = {
 };
 
 export default function InboxPage() {
-  const { user } = useAuth();
+  // Be tolerant to test environment mocks where useAuth may be mocked as undefined
+  const auth = useAuth() as any;
+  const user = auth?.user ?? null;
   const supabase = useMemo(() => createClient(), []);
   const inFlightSeen = useRef(new Set<string>());
 

@@ -5,7 +5,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 /**
  * Get singleton instance of EnhancedForecastService
  */
-export function getEnhancedForecastService(): EnhancedForecastService {
+function getEnhancedForecastService(): EnhancedForecastService {
   return new EnhancedForecastService();
 }
 

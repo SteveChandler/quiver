@@ -10,7 +10,7 @@ function toTitleCase(name: string): string {
     .join(" ");
 }
 
-export function getNearestBeach(
+function getNearestBeach(
   lat: number,
   lng: number
 ): {

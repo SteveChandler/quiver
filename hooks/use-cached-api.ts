@@ -1,10 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  apiCache,
-  forecastCache,
-  beachCache,
-  RequestCache,
-} from "@/lib/utils/request-cache";
+import { apiCache, RequestCache } from "@/lib/utils/request-cache";
 
 interface CachedApiState<T> {
   data: T | null;
@@ -143,68 +138,14 @@ export function useCachedApi<T>(
   };
 }
 
-// Specialized hook for beach data
-export function useCachedBeachData<T>(
-  fetchFn: () => Promise<T>,
-  beachId: string,
-  options: Omit<CachedApiOptions, "cache" | "cacheKey"> = {}
-) {
-  const cacheKey = RequestCache.createKey("beach", beachId);
-  return useCachedApi(fetchFn, cacheKey, {
-    ...options,
-    cache: beachCache,
-  });
-}
-
-// Specialized hook for forecast data
-export function useCachedForecastData<T>(
-  fetchFn: () => Promise<T>,
-  beachId: string,
-  days?: number,
-  options: Omit<CachedApiOptions, "cache" | "cacheKey"> = {}
-) {
-  const cacheKey = RequestCache.createKey("forecast", beachId, days);
-  return useCachedApi(fetchFn, cacheKey, {
-    ...options,
-    cache: forecastCache,
-  });
-}
-
-// Map-specific caching helpers
-export function useCachedMapData<T>(
-  fetchFn: () => Promise<T>,
-  cacheKey: string,
-  options: Omit<CachedApiOptions, "cache" | "cacheKey"> = {}
-) {
-  return useCachedApi(fetchFn, cacheKey, {
-    ...options,
-    cache: apiCache,
-  });
-}
-
-// Helper to create location-based cache keys with reasonable precision
-export function createLocationCacheKey(
-  prefix: string,
-  latitude: number,
-  longitude: number,
-  precision: number = 3 // 3 decimal places ≈ 100m precision
-): string {
-  const lat = latitude.toFixed(precision);
-  const lng = longitude.toFixed(precision);
-  return RequestCache.createKey(prefix, lat, lng);
-}
-
 // Helper to create cached fetch function for map API calls
 export function createCachedMapFetch<T>(apiPath: string, ttl: number) {
   return (latitude: number, longitude: number): Promise<T> => {
     // Use aggressive rounding for buoy conditions since it's fallback data
     const precision = apiPath.includes("buoys/conditions") ? 1 : 3; // 1 decimal = ~10km zones
-    const cacheKey = createLocationCacheKey(
-      apiPath,
-      latitude,
-      longitude,
-      precision
-    );
+    const latKey = latitude.toFixed(precision);
+    const lngKey = longitude.toFixed(precision);
+    const cacheKey = RequestCache.createKey(apiPath, latKey, lngKey);
 
     // Check cache first
     const cached = apiCache.get<T>(cacheKey);

@@ -78,12 +78,12 @@ export const MAP_IMAGE_PRESETS = {
 /**
  * Type for map image preset keys
  */
-export type MapImagePreset = keyof typeof MAP_IMAGE_PRESETS;
+type MapImagePreset = keyof typeof MAP_IMAGE_PRESETS;
 
 /**
  * Type for map image options
  */
-export type MapImageOptions = {
+type MapImageOptions = {
   width?: number;
   height?: number;
   zoom?: number;

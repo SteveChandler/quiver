@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { SessionWizard } from "@/components/session/wizard/SessionWizard";
-import { SessionFormMode } from "@/hooks/useSessionWizard";
+import { SessionFormMode } from "@/hooks/use-session-form";
 import {
   createPlannedSession,
   createLoggedSession,

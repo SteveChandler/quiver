@@ -6,10 +6,7 @@ import { debounce } from "lodash";
 import type { Beach } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
-import {
-  createCachedMapFetch,
-  createLocationCacheKey,
-} from "@/hooks/use-cached-api";
+import { createCachedMapFetch } from "@/hooks/use-cached-api";
 import {
   formatWaveHeight,
   getWaveHeightValue,
@@ -70,20 +67,6 @@ export function InteractiveMap({
     )
   );
 
-  // Load favorites when user changes
-  useEffect(() => {
-    if (user?.id) {
-      loadFavoriteBeaches();
-    } else {
-      setFavoriteBeachIds(new Set());
-    }
-  }, [user?.id, loadFavoriteBeaches]);
-
-  // Ensure access token
-  useEffect(() => {
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
-  }, []);
-
   // Helper: remove all markers
   const cleanupMarkers = useCallback(() => {
     Object.values(markersRef.current).forEach((marker) => marker.remove());
@@ -125,6 +108,20 @@ export function InteractiveMap({
       setFavoriteBeachIds(new Set());
     }
   }, [user?.id]);
+
+  // Load favorites when user changes
+  useEffect(() => {
+    if (user?.id) {
+      loadFavoriteBeaches();
+    } else {
+      setFavoriteBeachIds(new Set());
+    }
+  }, [user?.id, loadFavoriteBeaches]);
+
+  // Ensure access token
+  useEffect(() => {
+    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
+  }, []);
 
   // Wave height formatting moved to utility function
 

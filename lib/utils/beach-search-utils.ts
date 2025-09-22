@@ -6,7 +6,7 @@ import {
 } from "@/lib/constants/coverage-areas";
 import type { Beach } from "@/types/database";
 
-export interface SearchResult {
+interface SearchResult {
   beach: Beach | null;
   isOutOfAreaSearch: boolean;
   detectedLocation?: string;
@@ -156,7 +156,7 @@ export async function searchBeachesByName(
 /**
  * Enhanced search with out-of-area detection and messaging
  */
-export async function searchBeachesWithAreaDetection(
+async function searchBeachesWithAreaDetection(
   searchText: string
 ): Promise<SearchResult> {
   try {
@@ -213,7 +213,7 @@ export async function searchBeachesWithAreaDetection(
 /**
  * Get the best current forecast for a beach using forward-looking time logic
  */
-export async function getBeachCurrentForecast(beachId: string) {
+async function getBeachCurrentForecast(beachId: string) {
   try {
     // Fetch forecasts for today and tomorrow to handle forward-looking logic
     const response = await fetch(
@@ -319,49 +319,6 @@ export async function searchBeachWithForecast(beachName: string) {
         detectedLocation: undefined,
         suggestedMessage: undefined,
       },
-    };
-  }
-}
-
-/**
- * Legacy function for backward compatibility
- */
-export async function searchBeachWithForecastLegacy(beachName: string) {
-  try {
-    const beach = await searchBeachesByName(beachName);
-
-    if (!beach) {
-      return {
-        success: false,
-        error: `No beach found matching "${beachName}"`,
-        data: null,
-      };
-    }
-
-    const forecast = await getBeachCurrentForecast(beach.id);
-
-    if (!forecast) {
-      return {
-        success: false,
-        error: "No forecast data available for this beach",
-        data: null,
-      };
-    }
-
-    return {
-      success: true,
-      error: null,
-      data: {
-        beach,
-        forecast,
-      },
-    };
-  } catch (error) {
-    console.error("Error in searchBeachWithForecastLegacy:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Search failed",
-      data: null,
     };
   }
 }

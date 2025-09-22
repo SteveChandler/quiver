@@ -2,13 +2,15 @@ import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { FavoriteButton } from "@/components/favorite-button";
 import { useAuth } from "@/context/auth-context";
-import * as beachActions from "@/actions/beach-actions";
+import * as favoriteBeachActions from "@/actions/beach/beach-favorite-actions";
 
 jest.mock("@/context/auth-context");
-jest.mock("@/actions/beach-actions");
+jest.mock("@/actions/beach/beach-favorite-actions");
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
-const actions = beachActions as jest.Mocked<typeof beachActions>;
+const actions = favoriteBeachActions as jest.Mocked<
+  typeof favoriteBeachActions
+>;
 const originalFetch = global.fetch as any;
 
 describe("FavoriteButton", () => {

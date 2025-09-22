@@ -22,18 +22,6 @@ const profileRequestCache = new Map<string, Promise<any>>();
 const PROFILE_CACHE_TTL = 30000; // 30 seconds
 const DEFAULT_TIMEOUT = 10000; // 10 seconds
 
-// Global cache invalidation function
-export function invalidateProfileCache(userId?: string) {
-  if (userId) {
-    // Clear specific user's profile cache
-    const cacheKey = `profile-${userId}`;
-    profileRequestCache.delete(cacheKey);
-  } else {
-    // Clear all profile cache
-    profileRequestCache.clear();
-  }
-}
-
 export function useUserProfile({
   userId,
   enabled = true,

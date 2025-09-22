@@ -1,4 +1,4 @@
-export type CamEmbedIntent =
+type CamEmbedIntent =
   | { kind: "none" }
   | { kind: "iframe"; src: string; title?: string; allow?: string }
   | { kind: "video"; src: string }
@@ -50,5 +50,4 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
     return { kind: "iframe", src: String(url), title: "Live Cam" };
   }
 }
-
 

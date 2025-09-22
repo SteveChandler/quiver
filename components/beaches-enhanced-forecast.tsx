@@ -88,7 +88,7 @@ export function BeachesEnhancedForecast({
   }
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner label="Loading enhanced forecasts..." />;
   }
 
   if (error) {

@@ -6,9 +6,13 @@ import { AuthProvider, useAuth } from "@/context/auth-context";
 
 jest.mock("@/lib/supabase/client", () => {
   const mock = require("@/__tests__/setup/mock-supabase");
+  const getClient =
+    typeof mock.createClient === "function"
+      ? mock.createClient
+      : () => mock.default;
   return {
     __esModule: true,
-    createClient: () => mock.default,
+    createClient: () => getClient(),
   };
 });
 
@@ -32,7 +36,11 @@ describe("AuthContext error paths", () => {
 
   it("handles getSession error and sets unauthenticated", async () => {
     const mock = require("@/__tests__/setup/mock-supabase");
-    const client = mock.default; // module exports client directly
+    const getClient =
+      typeof mock.createClient === "function"
+        ? mock.createClient
+        : () => mock.default;
+    const client = getClient();
     client.auth.getSession.mockResolvedValueOnce({
       data: { session: null },
       error: new Error("boom"),

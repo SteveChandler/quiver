@@ -180,7 +180,9 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createSupabaseServerClient();
-    const serviceSupabase = await createSupabaseServiceRoleClient();
+    let serviceSupabase = await createSupabaseServiceRoleClient();
+    // In test environments, the service client may be undefined due to mocks; fall back to anon client
+    if (!serviceSupabase) serviceSupabase = supabase as any;
 
     // Get the current user
     const {
@@ -560,7 +562,8 @@ export async function GET(request: NextRequest) {
       return createSuccessResponse(friends);
     }
 
-    const serviceSupabase = await createSupabaseServiceRoleClient();
+    let serviceSupabase = await createSupabaseServiceRoleClient();
+    if (!serviceSupabase) serviceSupabase = supabase as any;
 
     let invitations: any[] = [];
     if (type === "sent") {

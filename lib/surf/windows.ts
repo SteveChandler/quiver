@@ -1,10 +1,10 @@
 import { boardCall, computeHourScore, HourInputs, BeachMeta, HourlyMarine, HourlyTide } from "./scoring";
 
-export interface HourSample extends HourInputs {
+interface HourSample extends HourInputs {
   ts: string; // ISO timestamp (hourly)
 }
 
-export interface SurfWindow {
+interface SurfWindow {
   startTs: string;
   endTs: string;
   score: number; // 0..100
@@ -32,7 +32,7 @@ export function buildTwoHourWindows(hours: HourSample[]): SurfWindow[] {
   return results.sort((a, b) => b.score - a.score || a.startTs.localeCompare(b.startTs));
 }
 
-export interface TopWindowOptions {
+interface TopWindowOptions {
   tz?: string; // IANA TZ, defaults to America/Los_Angeles
   startHour?: number; // inclusive, 0-23
   endHour?: number; // exclusive, 1-24
@@ -70,15 +70,6 @@ export function topMorningWindows(
     }
   }
   return picks;
-}
-
-export function windowBlurb(
-  w: SurfWindow,
-  tz: string = "America/Los_Angeles"
-): string {
-  const range = formatLocalTwoHourRange(w.startTs, tz);
-  const label = capitalize(w.grade);
-  return `${range} — ${label} (${w.score})`;
 }
 
 function localHour(ts: string, tz: string): number {
@@ -195,5 +186,3 @@ export function windowBlurbDetailed(w: any) {
     ],
   };
 }
-
-

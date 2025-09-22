@@ -90,7 +90,7 @@ function generateEnhancedMapPlaceholder(
 }
 
 // Option 1: Mapbox Static Images API with custom marker text
-export function getMapboxStaticImageUrl(
+function getMapboxStaticImageUrl(
   latitude: number,
   longitude: number,
   options: {
@@ -163,7 +163,7 @@ export function getMapboxStaticImageUrl(
 }
 
 // Option 2: Google Maps Static API with custom marker labels
-export function getGoogleMapsStaticImageUrl(
+function getGoogleMapsStaticImageUrl(
   latitude: number,
   longitude: number,
   options: {
@@ -235,7 +235,7 @@ export function getGoogleMapsStaticImageUrl(
 }
 
 // Option 3: OpenStreetMap via Geoapify (with API key)
-export function getGeoapifyStaticImageUrl(
+function getGeoapifyStaticImageUrl(
   latitude: number,
   longitude: number,
   options: {
@@ -262,7 +262,7 @@ export function getGeoapifyStaticImageUrl(
 }
 
 // Option 4: Free OpenStreetMap static image (no API key required)
-export function getOpenStreetMapStaticImageUrl(
+function getOpenStreetMapStaticImageUrl(
   latitude: number,
   longitude: number,
   options: {

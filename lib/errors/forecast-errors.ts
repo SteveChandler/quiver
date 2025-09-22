@@ -5,7 +5,6 @@ export enum ForecastErrorCode {
   WAVE_DATA_UNAVAILABLE = "WAVE_DATA_UNAVAILABLE",
   TIDE_DATA_UNAVAILABLE = "TIDE_DATA_UNAVAILABLE",
   WEATHER_DATA_UNAVAILABLE = "WEATHER_DATA_UNAVAILABLE",
-  BUOY_DATA_UNAVAILABLE = "BUOY_DATA_UNAVAILABLE",
 
   // API errors
   NOAA_API_ERROR = "NOAA_API_ERROR",
@@ -20,7 +19,6 @@ export enum ForecastErrorCode {
 
   // Processing errors
   FORECAST_GENERATION_FAILED = "FORECAST_GENERATION_FAILED",
-  DATA_COMBINATION_FAILED = "DATA_COMBINATION_FAILED",
   STORAGE_FAILED = "STORAGE_FAILED",
 
   // Rate limiting
@@ -30,7 +28,7 @@ export enum ForecastErrorCode {
   UNKNOWN_ERROR = "UNKNOWN_ERROR",
 }
 
-export interface ForecastErrorContext {
+interface ForecastErrorContext {
   readonly beachId?: string;
   readonly location?: { lat: number; lng: number };
   readonly timeRange?: { start: Date; end: Date };
@@ -309,11 +307,4 @@ export function logError(
   };
 
   console.error(`[ForecastError] ${error.code}: ${error.message}`, logData);
-}
-
-/**
- * Check if an error is retryable
- */
-export function isRetryableError(error: unknown): boolean {
-  return error instanceof ForecastError && error.isRetryable;
 }

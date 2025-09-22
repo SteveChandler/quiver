@@ -182,5 +182,3 @@ export const data = {
     },
   },
 };
-
-export type { Beach };

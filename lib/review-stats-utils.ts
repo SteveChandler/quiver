@@ -2,7 +2,7 @@
  * Utility functions for calculating review statistics
  */
 
-export interface ReviewRatings {
+interface ReviewRatings {
   overall_rating: number;
   wave_quality_rating: number;
   crowd_density_rating: number;

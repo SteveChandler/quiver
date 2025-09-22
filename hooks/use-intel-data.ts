@@ -144,7 +144,7 @@ export function useIntelData({
  * Hook for fetching all intel posts without location filtering
  * Useful for fallback/demo mode when location is unavailable
  */
-export function useAllIntelData({
+function useAllIntelData({
   tag = "all",
   limit = 50,
   enabled = true,

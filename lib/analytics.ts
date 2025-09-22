@@ -1,4 +1,4 @@
-export const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "";
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "";
 
 declare global {
   interface Window {
@@ -29,7 +29,7 @@ export function slugify(input: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function currentPlatform(): "ios" | "android" | "desktop" {
+function currentPlatform(): "ios" | "android" | "desktop" {
   if (typeof navigator === "undefined") return "desktop";
   const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
   if (/android/i.test(ua)) return "android";
@@ -41,10 +41,3 @@ export function currentPlatform(): "ios" | "android" | "desktop" {
 export function trackInstallPWA() {
   track("install_pwa", { platform: currentPlatform() });
 }
-
-export function trackPushPermission(permission?: NotificationPermission) {
-  const p = permission || (typeof Notification !== "undefined" ? Notification.permission : undefined);
-  if (!p) return;
-  track("enable_push", { permission: p });
-}
-

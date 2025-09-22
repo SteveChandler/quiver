@@ -8,7 +8,7 @@ export interface Post {
   avatar: string;
 }
 
-export interface ApiPost {
+interface ApiPost {
   id: string;
   author?: {
     name?: string;

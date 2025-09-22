@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 
 // Standardized error response interface
-export interface ApiError {
+interface ApiError {
   success: false;
   error: string;
   details?: any;
   timestamp: string;
 }
 
-export interface ApiSuccess<T = any> {
+interface ApiSuccess<T = any> {
   success: true;
   data: T;
   timestamp: string;
 }
 
-export type ApiResponse<T = any> = ApiSuccess<T> | ApiError;
+type ApiResponse<T = any> = ApiSuccess<T> | ApiError;
 
 // Centralized error handler for API routes
 export function handleApiError(
@@ -98,47 +96,6 @@ export function createAuthError(
       headers: DEFAULT_SECURITY_HEADERS,
     }
   );
-}
-
-// Common Supabase client creation with error handling
-export async function createAuthenticatedSupabaseClient() {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name, value, options) {
-            cookieStore.set(name, value, options);
-          },
-          remove(name, options) {
-            cookieStore.delete(name);
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error) {
-      throw new Error(`Auth error: ${error.message}`);
-    }
-
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-
-    return { supabase, user };
-  } catch (error) {
-    throw error;
-  }
 }
 
 // Common parameter validation

@@ -30,31 +30,6 @@ export async function getUserBoards(userId: string) {
   });
 }
 
-export async function getBoardById(id: string, userId: string) {
-  const supabase = await createSupabaseServerClient();
-
-  try {
-    const { data, error } = await supabase
-      .from("boards")
-      .select("*")
-      .eq("id", id)
-      .eq("user_id", userId)
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return { success: true, data: data as Board };
-  } catch (error) {
-    console.error("Error fetching board:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
 export async function createBoard(
   boardData: Omit<
     Board,

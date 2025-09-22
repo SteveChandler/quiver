@@ -1,26 +1,6 @@
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
-import { startOfDay, endOfDay, addHours, setHours, setMinutes, min } from 'date-fns';
+import { startOfDay, addHours, setHours, setMinutes, min } from 'date-fns';
 import * as SunCalc from 'suncalc';
-
-/**
- * Get UTC start and end times for a local date in the specified timezone
- * @param dateLocal - The local date (Date object or string)
- * @param tz - The timezone string (e.g., 'America/New_York', 'UTC')
- * @returns [startUtc, endUtc] - Array containing start and end of day in UTC
- */
-export function startEndUtcForLocalDate(dateLocal: Date | string, tz: string): [Date, Date] {
-  const date = typeof dateLocal === 'string' ? new Date(dateLocal) : dateLocal;
-  
-  // Get start and end of day in the local timezone
-  const startOfDayLocal = startOfDay(date);
-  const endOfDayLocal = endOfDay(date);
-  
-  // Convert to UTC
-  const startUtc = fromZonedTime(startOfDayLocal, tz);
-  const endUtc = fromZonedTime(endOfDayLocal, tz);
-  
-  return [startUtc, endUtc];
-}
 
 /**
  * Get morning window: sunrise → sunrise + horizon_hours (or 11:00 local, whichever comes first)

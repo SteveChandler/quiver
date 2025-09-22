@@ -71,9 +71,19 @@ export async function toggleSessionLike(sessionId: string) {
 
       if (!sessionError && session && session.user_id !== user.id) {
         // Credit the author with XP (async, don't block the response)
-        creditAuthorWithXP(session.user_id, 'session', sessionId).catch(err => 
-          console.error("Failed to credit author XP:", err)
-        );
+        try {
+          const xpResult = creditAuthorWithXP(
+            session.user_id,
+            "session",
+            sessionId
+          );
+          xpResult?.catch?.((err: unknown) =>
+            console.error("Failed to credit author XP:", err)
+          );
+        } catch (err) {
+          console.error("Failed to credit author XP:", err);
+        }
+        // Track liker XP for engaging with community (non-blocking)
       }
 
       return {

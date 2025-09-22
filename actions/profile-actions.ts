@@ -137,7 +137,7 @@ export async function fetchProfile(userId: string) {
   }
 }
 
-export async function createProfile(userId: string) {
+async function createProfile(userId: string) {
   if (!userId) {
     return { success: false, error: "No user ID provided" };
   }

@@ -1,15 +1,16 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { FavoriteBeaches } from "@/components/favorite-beaches";
 import { useAuth } from "@/context/auth-context";
-import * as beachActions from "@/actions/beach-actions";
+import * as favoriteBeachActions from "@/actions/beach/beach-favorite-actions";
 
 // Mock auth context to provide a user (required to attempt loading favorites)
 jest.mock("@/context/auth-context");
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 
 // Mock actions to return empty favorites list
-jest.mock("@/actions/beach-actions");
-const mockBeachActions = beachActions as jest.Mocked<typeof beachActions>;
+jest.mock("@/actions/beach/beach-favorite-actions");
+const mockBeachActions =
+  favoriteBeachActions as jest.Mocked<typeof favoriteBeachActions>;
 
 // Set up mocks before tests
 beforeEach(() => {
