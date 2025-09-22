@@ -127,6 +127,11 @@ const nextConfig = {
         protocol: "https",
         hostname: "maps.geoapify.com",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
       // Add specific Supabase hostname if available
       ...(supabaseHostname
         ? [

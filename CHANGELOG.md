@@ -165,6 +165,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Landing page session tiles images not displaying on login page: added `images.unsplash.com` to `next.config.mjs` `images.remotePatterns` so Unsplash fallback images render.
 - Profile: "Add Beach" button on `ProfileView` now navigates to `/map` instead of opening the Edit Profile modal. Removes DOM click hack to force Beaches tab active. Updated `e2e/profile.spec.ts` to assert navigation and map presence. Follows `components/ARCHITECTURE.md` and growth-first navigation patterns.
 - E2E map acceptance: `e2e/map-enhanced.spec.ts` now robustly returns to Map after selecting a list item by clicking `[data-testid="view-mode-map"]` when present, or falling back to bottom nav `Map` link, then waiting for `load`. Prevents timeouts when list item navigates to beach detail.
 - **Priority 3: Forecast Component Test Failures** (E2E testing stability):
