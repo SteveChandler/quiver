@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createServiceRoleClient } from "@/lib/supabase";
 import { cookies } from "next/headers";
 import {
   createSuccessResponse,
@@ -114,7 +115,25 @@ export async function POST(request: NextRequest) {
     };
 
     // Create the session
-    const { data: session, error } = await supabase
+    // Dev-only bypass for mock users
+    let writeClient = supabase as any;
+    try {
+      if (
+        (process.env.ALLOW_E2E_MUTATIONS_DEV === "1" ||
+          (process.env.ALLOW_E2E_MUTATIONS_DEV || "").toLowerCase() === "true")
+      ) {
+        const { data: me } = await supabase
+          .from("profiles")
+          .select("is_mock")
+          .eq("id", user.id)
+          .single();
+        if (me?.is_mock === true) {
+          writeClient = createServiceRoleClient();
+        }
+      }
+    } catch {}
+
+    const { data: session, error } = await writeClient
       .from("sessions")
       .insert(sessionRecord)
       .select()

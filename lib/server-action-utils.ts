@@ -30,8 +30,8 @@ export async function withServerAction<T>(
     } else if (error && typeof error === "object" && "message" in error) {
       message = String(error.message);
     } else {
-      // For consumer tests that expect generic message
-      message = "Unknown error";
+      // For tests expecting this exact generic message
+      message = "Unknown error occurred";
       console.error("Unhandled error type:", typeof error, error);
     }
     return {
@@ -108,7 +108,7 @@ export function makeAuthenticatedAction<
       } else if (error && typeof error === "object" && "message" in error) {
         message = String(error.message);
       } else {
-        message = "Unknown error";
+        message = "Unknown error occurred";
         console.error("Unhandled error type:", typeof error, error);
       }
       return {

@@ -4,17 +4,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 jest.unmock("@/context/auth-context");
 import { AuthProvider, useAuth } from "@/context/auth-context";
 
-jest.mock("@/lib/supabase/client", () => {
-  const mock = require("@/__tests__/setup/mock-supabase");
-  const getClient =
-    typeof mock.createClient === "function"
-      ? mock.createClient
-      : () => mock.default;
-  return {
-    __esModule: true,
-    createClient: () => getClient(),
-  };
-});
+jest.mock("@/lib/supabase/client", () => ({
+  __esModule: true,
+  createClient: () => require("@/__tests__/setup/mock-supabase").default,
+}));
 
 function Consumer() {
   const { isLoading, isAuthenticated, refreshSession } = useAuth();
@@ -35,13 +28,8 @@ describe("AuthContext error paths", () => {
   });
 
   it("handles getSession error and sets unauthenticated", async () => {
-    const mock = require("@/__tests__/setup/mock-supabase");
-    const getClient =
-      typeof mock.createClient === "function"
-        ? mock.createClient
-        : () => mock.default;
-    const client = getClient();
-    client.auth.getSession.mockResolvedValueOnce({
+    const { mockSupabaseClient } = require("@/__tests__/setup/mock-supabase");
+    mockSupabaseClient.auth.getSession.mockResolvedValueOnce({
       data: { session: null },
       error: new Error("boom"),
     });

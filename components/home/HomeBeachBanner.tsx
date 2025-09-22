@@ -3,7 +3,8 @@
 import { useState, startTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useProfile } from "@/lib/hooks/useProfile";
-import { updateProfile } from "@/actions/profile-actions";
+// Import via namespace to ensure jest.mock binding works consistently
+import * as ProfileActions from "@/actions/profile-actions";
 
 interface HomeBeachBannerProps {
   selectedBeachId: string;
@@ -12,7 +13,10 @@ interface HomeBeachBannerProps {
 
 import { track, slugify } from "@/lib/analytics";
 
-export function HomeBeachBanner({ selectedBeachId, selectedBeachName }: HomeBeachBannerProps) {
+export function HomeBeachBanner({
+  selectedBeachId,
+  selectedBeachName,
+}: HomeBeachBannerProps) {
   const { profile, mutate } = useProfile();
   const [saving, setSaving] = useState(false);
 
@@ -22,10 +26,13 @@ export function HomeBeachBanner({ selectedBeachId, selectedBeachName }: HomeBeac
       console.debug("[HomeBeach/UI] submit payload", {
         home_beach_id: selectedBeachId,
       });
+      const { updateProfile } = await import("@/actions/profile-actions");
       await updateProfile({ home_beach_id: selectedBeachId });
       // Analytics: set_home_beach (mark as conversion in GA UI)
       try {
-        const slug = selectedBeachName ? slugify(selectedBeachName) : selectedBeachId;
+        const slug = selectedBeachName
+          ? slugify(selectedBeachName)
+          : selectedBeachId;
         track("set_home_beach", { beach_slug: slug });
       } catch {}
       // optimistic refetch

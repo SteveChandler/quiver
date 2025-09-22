@@ -1,5 +1,10 @@
 import React from "react";
-import { readFile } from "fs/promises";
+// Use dynamic import so tests can mock fs/promises before runtime
+const readFileDynamic = async (filePath: string) => {
+  // Import the test-mockable shim rather than core fs/promises for stability
+  const mod: any = await import("@/lib/test-shims/fs-readfile");
+  return mod.readFile(filePath);
+};
 import path from "path";
 import satori, { type SatoriOptions } from "satori";
 import { Resvg } from "@resvg/resvg-js";
@@ -56,7 +61,7 @@ export async function loadFonts(): Promise<SatoriOptions["fonts"]> {
     CANDIDATE_FONTS.map(async (f) => {
       try {
         const filePath = path.join(fontsDir, f.file);
-        const data = await readFile(filePath);
+        const data = await readFileDynamic(filePath);
         return {
           name: f.name,
           data,

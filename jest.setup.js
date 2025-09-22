@@ -52,10 +52,8 @@ jest.mock("next/image", () => ({
 }));
 
 // Provide a default mock for fs/promises.readFile so tests can control with mockResolvedValue
-jest.mock("fs/promises", () => ({
-  __esModule: true,
-  readFile: jest.fn(),
-}));
+// Provide a default mock for fs/promises.readFile so tests can control with mockResolvedValue
+// Intentionally not mocking fs/promises here; individual tests control it
 
 // Mock Auth Context
 jest.mock("@/context/auth-context", () => ({

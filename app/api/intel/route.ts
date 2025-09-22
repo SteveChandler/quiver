@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { INTEL_CONFIG } from "@/lib/constants/intel";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
@@ -286,8 +286,26 @@ export async function POST(request: NextRequest) {
     if (forecast_accuracy !== undefined && forecast_accuracy !== null)
       surfConditions.forecast_accuracy = forecast_accuracy;
 
+    // Determine write client: allow dev E2E mutations for mock users via service role
+    let writeClient = supabase;
+    try {
+      if (
+        (process.env.ALLOW_E2E_MUTATIONS_DEV === "1" ||
+          (process.env.ALLOW_E2E_MUTATIONS_DEV || "").toLowerCase() === "true")
+      ) {
+        const { data: me } = await supabase
+          .from("profiles")
+          .select("is_mock")
+          .eq("id", user.id)
+          .single();
+        if (me?.is_mock === true) {
+          writeClient = createSupabaseServiceRoleClient();
+        }
+      }
+    } catch {}
+
     // Create intel post
-    const { data: intelPost, error: createError } = await supabase
+    const { data: intelPost, error: createError } = await writeClient
       .from("intel_posts")
       .insert({
         user_id: user.id,
@@ -312,7 +330,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user profile for response
-    const { data: profile } = await supabase
+    const { data: profile } = await writeClient
       .from("profiles")
       .select("id, full_name, avatar_url")
       .eq("id", user.id)

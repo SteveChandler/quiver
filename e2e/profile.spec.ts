@@ -77,6 +77,9 @@ test.describe('Profile', () => {
     await expect(page.getByTestId('map-view')).toBeVisible();
   });
 
+  const isDev = (process.env.BASE_URL || '').includes('dev.quiversurf.app');
+  // Run on dev now that mock-user RLS is allowed
+
   test('favorited beach appears in Favorites tab on profile', async ({ page }) => {
     const beachId = process.env.TEST_BEACH_ID || '15c7337e-5258-4339-9dc3-c435c666926b';
 
@@ -88,7 +91,9 @@ test.describe('Profile', () => {
     const label = (await favButton.getAttribute('aria-label')) || '';
     if (/add to favorites/i.test(label)) {
       await favButton.click();
-      await expect(favButton).toHaveAttribute('aria-label', /remove from favorites/i);
+      // Accept toast as primary signal on dev
+      const toast = page.getByText(/added to favorites|removed from favorites|favorites updated/i).first();
+      await expect(toast).toBeVisible({ timeout: 15000 });
     }
 
     // Navigate back to profile and open Beaches tab

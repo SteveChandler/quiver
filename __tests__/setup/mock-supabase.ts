@@ -4,7 +4,7 @@
  */
 
 // Mock the client creation functions
-const createClient = jest.fn(() => mockSupabaseClient);
+const createClient = () => mockSupabaseClient as any;
 // Support both named and default-style access in tests using require()
 export { createClient };
 export const createClientComponentClient = jest.fn(() => mockSupabaseClient);

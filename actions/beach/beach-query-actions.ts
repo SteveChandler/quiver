@@ -5,7 +5,12 @@ import type { Beach } from "@/types/database";
 
 export async function getBeaches() {
   return withDatabaseOperation<Beach[]>(async (supabase) => {
-    return supabase.from("beaches").select("*").order("name");
+    try {
+      return await supabase.from("beaches").select("*").order("name");
+    } catch (err) {
+      // Normalize non-Error throws to a standard shape
+      return { data: null, error: { message: err instanceof Error ? err.message : "Unknown error" } } as any;
+    }
   });
 }
 

@@ -304,14 +304,23 @@ export function BeachIntelSection({
               <p className="text-sm text-gray-600">
                 Unable to load intel posts
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                className="mt-2"
-              >
-                Try Again
-              </Button>
+              <div className="mt-2 flex items-center justify-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                  Try Again
+                </Button>
+                {/* Dev-only: Always allow mock users to add intel even if list failed to load */}
+                {typeof window !== "undefined" &&
+                  process.env.NODE_ENV !== "production" && (
+                    <Button
+                      data-testid="add-intel"
+                      size="sm"
+                      onClick={() => setShowPostForm(true)}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Intel
+                    </Button>
+                  )}
+              </div>
             </div>
           ) : posts.length === 0 ? (
             <div className="text-center py-8">
