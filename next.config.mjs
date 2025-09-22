@@ -127,6 +127,11 @@ const nextConfig = {
         protocol: "https",
         hostname: "maps.geoapify.com",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
       // Add specific Supabase hostname if available
       ...(supabaseHostname
         ? [
@@ -148,6 +153,12 @@ const nextConfig = {
         hostname: "*.supabase.co",
         pathname: "/storage/v1/object/**",
       },
+    ],
+    // Some environments require explicit domains allowlist in addition to remotePatterns
+    domains: [
+      "images.unsplash.com",
+      ...(supabaseHostname ? [supabaseHostname] : []),
+      "i0.wp.com", // defensive: common proxy hosts
     ],
     // Security for SVGs
     dangerouslyAllowSVG: true,

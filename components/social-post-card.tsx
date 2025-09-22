@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -21,6 +22,7 @@ export default function SocialPostCard({
   avatar,
   index,
 }: SocialPostCardProps) {
+  const [imageError, setImageError] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -31,14 +33,20 @@ export default function SocialPostCard({
       <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer relative aspect-square">
         {/* Background Image */}
         <div className="absolute inset-0">
-          <Image
-            src={imageUrl}
-            alt={`${name || "User"}'s surf session`}
-            fill
-            sizes="(max-width: 640px) 100vw, 33vw"
-            className="object-cover"
-            priority={false}
-          />
+          {!imageError ? (
+            <Image
+              src={imageUrl}
+              alt={`${name || "User"}'s surf session`}
+              fill
+              sizes="(max-width: 640px) 100vw, 33vw"
+              className="object-cover"
+              priority={false}
+              unoptimized
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-200" />
+          )}
         </div>
 
         {/* Bottom overlay with user info */}
