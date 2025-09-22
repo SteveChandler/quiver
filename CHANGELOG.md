@@ -322,6 +322,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Server-side fallback: `updateProfile` now resolves `home_beach_text` to a valid `home_beach_id` when no ID is provided
 - Discover page follow-status infinite request loop resolved: stabilized `hooks/use-user-follow` effect dependencies and callback handling; memoized follower count updater in `app/discover/page.tsx`. Follows `hooks/ARCHITECTURE.md` realtime subscription pattern and centralized data gateway in `lib/data/client.ts`.
 
+### Added
+
+- Landing page fallback images updated to real user photos: `John.png`, `Livie.png`, `annie.png`, `olga.png` in `public/images/`. Updated `FALLBACK_POSTS` in `lib/constants/mock-data.ts` to use these images for both `imageUrl` and `avatar`, following `components/ARCHITECTURE.md` content sourcing patterns.
+
 - E2E Gamification auth hardening: `e2e/gamification-integration.spec.ts` now enforces authentication via `ensureAuthenticated(page)` from `e2e/test-helpers.ts` and fails fast if redirected to `/auth`. Prevents false-positive passes when unauthenticated and improves headed dev reliability. Follows `e2e/ARCHITECTURE.md` testing patterns and existing helper utilities.
 - E2E Discover stabilization: `e2e/user-discovery.spec.ts` and `e2e/social-discovery.spec.ts` now call `ensureAuthenticated(page)` in `beforeEach` to guarantee signed-in state before asserting Discover UI ("Discover Surfers", search, suggestions). Aligns with dev `/api/e2e-login` helper and Playwright config headers described above.
 - E2E auth persistence across contexts: global setup now creates the context with `x-vercel-protection-bypass` from the first request, waits for `networkidle`, verifies non-`/auth` URL and presence of cookies for `quiversurf.app` before saving `storageState`. Ensures deterministic auth state and prevents surprise redirects.
