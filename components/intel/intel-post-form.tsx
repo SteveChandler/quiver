@@ -756,7 +756,7 @@ export function IntelPostForm({
 
               {/* Forecast Accuracy */}
               <div className="space-y-3">
-                <Label>Was today's forecast accurate?</Label>
+                <Label>Was today&apos;s forecast accurate?</Label>
                 <div className="grid grid-cols-3 gap-3">
                   {accuracyOptions.map((option) => {
                     const IconComponent = option.icon;

@@ -149,6 +149,9 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
 
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0f172a" />
+
         {/* DNS prefetch for external resources */}
         <link rel="dns-prefetch" href="//api.mapbox.com" />
         <link rel="dns-prefetch" href="//maps.googleapis.com" />

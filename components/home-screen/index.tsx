@@ -17,6 +17,7 @@ import {
   useOnboardingFlow,
 } from "@/components/onboarding/onboarding-flow";
 import { FloatingInteractionHint } from "@/components/engagement/micro-interactions";
+import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
@@ -50,6 +51,15 @@ export function HomeScreen() {
     completeOnboarding,
     closeOnboarding,
   } = useOnboardingFlow();
+  const { requestPushOptIn, canPrompt, status: pushStatus } =
+    useNativePushRegistration();
+
+  const handleOnboardingComplete = useCallback(() => {
+    completeOnboarding();
+    if (canPrompt) {
+      void requestPushOptIn();
+    }
+  }, [completeOnboarding, canPrompt, requestPushOptIn]);
 
   // Use cached profile hook to prevent flickering on navigation
   const { profile, homeBeach, profileLoading, hasCachedData } =
@@ -78,6 +88,18 @@ export function HomeScreen() {
     return () => controller.abort();
   }, [coords]);
 
+  useEffect(() => {
+    if (!hasCompletedOnboarding) return;
+    if (!canPrompt) return;
+    if (pushStatus !== "idle") return;
+
+    const timer = window.setTimeout(() => {
+      void requestPushOptIn();
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [hasCompletedOnboarding, canPrompt, pushStatus, requestPushOptIn]);
+
   console.log("🏠 HomeScreen Summary:", {
     hasUser: !!user,
     hasProfile: !!profile,
@@ -93,7 +115,7 @@ export function HomeScreen() {
       <OnboardingFlow
         isOpen={showOnboarding}
         onClose={closeOnboarding}
-        onComplete={completeOnboarding}
+        onComplete={handleOnboardingComplete}
       />
 
       {/* Note: EngagementProgressTracker removed - only needed for unauthenticated landing page visitors */}

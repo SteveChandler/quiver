@@ -14,6 +14,7 @@ import {
 import { useEnhancedForecast } from "@/hooks/use-enhanced-forecast";
 import { ForecastStats } from "./forecast/forecast-stats";
 import { LoadingSpinner, ErrorDisplay } from "@/lib/utils/forecast-ui-utils";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   ForecastDataTransparency,
   createMockDataSources,
@@ -59,6 +60,9 @@ export function BeachesEnhancedForecast({
     error,
     updating,
     autoGenerating,
+    isOfflineData,
+    isStale,
+    cacheAgeMs,
     setSelectedDate,
     refetch,
     handleRefresh,
@@ -68,6 +72,11 @@ export function BeachesEnhancedForecast({
     immediate: Boolean(beachId),
     autoGenerate,
   });
+
+  const staleHours =
+    typeof cacheAgeMs === "number"
+      ? Math.max(1, Math.round(cacheAgeMs / (1000 * 60 * 60)))
+      : null;
 
   // If advanced transparency is requested, use the enhanced version
   if (showTransparency || showQualitySummary || allowToggleTransparency) {
@@ -136,6 +145,28 @@ export function BeachesEnhancedForecast({
       )}
 
       <CardContent className="space-y-4">
+        {(isOfflineData || isStale) && (
+          <Alert className="border-amber-200/70 bg-amber-50 text-amber-900">
+            <AlertTitle>
+              {isStale ? "Forecast data may be out of date" : "Offline preview"}
+            </AlertTitle>
+            <AlertDescription>
+              {isStale ? (
+                <span>
+                  Last refreshed {staleHours ? `${staleHours}h` : "recently"} ago.
+                  Tap refresh once you have a connection for the latest tide
+                  and swell details.
+                </span>
+              ) : (
+                <span>
+                  You’re viewing the most recent forecast saved on this
+                  device. We’ll sync updated data automatically when you’re
+                  back online.
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
         {autoGenerating ? (
           <div className="text-center py-6">
             <div className="relative">

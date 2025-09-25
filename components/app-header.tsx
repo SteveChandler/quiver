@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
-import { Menu, X, Loader2, User, LogOut, Bell } from "lucide-react";
+import { Loader2, User, LogOut, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function AppHeader() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isLoading: authLoading, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -182,20 +181,6 @@ export function AppHeader() {
 
         {/* Right Side Actions - Positioned at screen edge with small padding */}
         <div className="flex items-center space-x-2 ml-auto pr-3">
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="md:hidden"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </Button>
-
           {/* Auth Section - Far Right */}
           {authLoading ? (
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -284,53 +269,6 @@ export function AppHeader() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden border-t bg-background">
-          <nav className="container px-4 py-4 space-y-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                href={getPreservedHref(item.href)}
-                className={cn(
-                  "block text-sm font-medium transition-colors hover:text-primary",
-                  isActiveRoute(item.href)
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                )}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {item.name}
-              </Link>
-            ))}
-
-            {/* Mobile Auth Buttons */}
-            {!user && (
-              <div className="space-y-2 pt-2 border-t">
-                <Link
-                  href={getPreservedHref("/auth/sign-in")}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Button variant="outline" size="sm" className="w-full">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link
-                  href={getPreservedHref("/auth/sign-up")}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Button
-                    size="sm"
-                    className="w-full bg-ocean-blue hover:bg-ocean-blue/90"
-                  >
-                    Sign Up
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </nav>
-        </div>
-      )}
     </header>
   );
 }
