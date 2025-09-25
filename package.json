@@ -56,9 +56,19 @@
     "perf:test": "node scripts/performance-test.mjs",
     "geocode:beaches": "tsx scripts/geocodeBeaches.ts",
     "seed:beaches:dry": "node scripts/seed_beaches_from_csv.mjs --file ./docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv --dry-run",
-    "seed:beaches": "node scripts/seed_beaches_from_csv.mjs --file ./docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv"
+    "seed:beaches": "node scripts/seed_beaches_from_csv.mjs --file ./docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv",
+    "mobile:sync": "cap sync",
+    "mobile:sync:dev": "NODE_ENV=development cap sync",
+    "mobile:build:ios": "cap sync ios && cap open ios",
+    "mobile:build:android": "cap sync android && cap open android",
+    "mobile:assets": "capacitor-assets generate --config mobile/capacitor-assets.config.ts"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/ios": "^7.4.3",
+    "@capacitor/push-notifications": "^7.0.3",
+    "@capacitor/share": "^7.0.2",
     "@hookform/resolvers": "3.3.4",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
@@ -129,6 +139,8 @@
     "zod": "^4.0.17"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.4.3",
     "@jest/globals": "^29.7.0",
     "@lhci/cli": "^0.14.0",
     "@playwright/mcp": "^0.0.34",

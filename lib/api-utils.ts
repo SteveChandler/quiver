@@ -128,7 +128,8 @@ export const DEFAULT_SECURITY_HEADERS = {
   "X-XSS-Protection": "1; mode=block",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  // Allow geolocation for first-party context while keeping camera/microphone disabled.
+  "Permissions-Policy": "geolocation=(self), camera=(), microphone=()",
 };
 
 // Apply security headers to any NextResponse

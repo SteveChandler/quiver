@@ -3,6 +3,11 @@
 - `app/(journal)/new/steps/ConditionsStep.tsx` client component with fallback questionnaire and RHF bindings
 - New route `app/journal/new/page.tsx` to expose Conditions step for tests
 - Playwright test `e2e/journal/conditions.spec.ts` asserting core fields are visible
+- Deep-link metadata routes under `app/.well-known` serving Android `assetlinks.json` and Apple `apple-app-site-association`, configured by env vars (`ANDROID_APP_PACKAGE`, `ANDROID_SHA256_FINGERPRINTS`, `APPLE_TEAM_ID`/`APPLE_APP_BUNDLE_ID` or `APPLE_APP_ID`).
+
+### Changed
+
+- Mobile header navigation: Removed hamburger menu (3 bars) and mobile dropdown menu to simplify mobile UX. Authenticated users rely on bottom navigation as primary mobile navigation, making the hamburger menu redundant. Desktop navigation remains unchanged for unauthenticated users.
 
 ### Changed
 
@@ -112,6 +117,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- Documentation: `docs/MOBILE_LAUNCH_ARCHITECTURE.md` — Mobile launch architecture plan (Capacitor shell, native value surface, offline caching, deep links, CI/CD). Linked from `docs/README.md`. Aligns with established patterns in `hooks/ARCHITECTURE.md`, `components/ARCHITECTURE.md`, and `lib/ARCHITECTURE.md`.
+- Mobile architecture status update: Phase 1 complete with comprehensive implementation tracking, next steps roadmap, and risk mitigation status. Ready for native build generation and store submission preparation.
+
 - Daily NPC activity volume controls:
 
   - Env-driven knobs in `scripts/npc-daily-activity.ts`: `NPC_DAILY_MIN/MAX`, `NPC_INTEL_PER_NPC_MIN/MAX`, `NPC_RUN_MAX_TOTAL`
@@ -152,16 +160,39 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - New tables: `public.beach_sources` and `public.beach_calibration` with RLS (public read) and FK indexes
 
 - Beach detail enhancements:
+
   - New slug route `app/beach/[slug]/page.tsx` with server-side slug resolution
   - Per-beach metadata via `buildPageMetadata` (canonical + OpenGraph)
   - JSON-LD Place for beach pages via `BeachPageStructuredData`
   - Above-the-fold summary cards: Today → Next tides → Wind → Swell
   - Inline “Set Home Beach” button using `updateProfile`
 
+- Mobile PWA and offline caching:
+
+  - Added `public/manifest.json`, `public/sw.js`, and icon set under `public/icons/`
+  - Service worker caches last‑viewed forecasts and tides with timestamp validation to avoid stale data, following anti‑stale‑data policy
+
+- Capacitor mobile scaffolding and native features:
+
+  - Added `capacitor.config.ts` and project scaffolding for iOS/Android via Capacitor
+  - Installed Capacitor packages: `@capacitor/core`, `@capacitor/share`, `@capacitor/push-notifications` (dev: `@capacitor/cli`, `@capacitor/assets`)
+  - Added mobile scripts in `package.json`: `mobile:sync`, `mobile:build:ios`, `mobile:build:android`, `mobile:assets`
+  - Introduced native bridge adapters under `lib/mobile/` (share and push scaffolding)
+  - Added `hooks/use-native-push-registration.ts` and `actions/mobile-actions.ts` for device token capture and registration
+
+- Database for push device registration:
+  - Migration `supabase/migrations/20250922100000_create_push_devices_table.sql` creates `public.push_devices` with indexes and RLS policies for secure per‑user ownership
+
 ### Changed
 
 - E2E Beach Detail consolidation and coverage:
+
   - Added consolidated spec `e2e/beach-detail.spec.ts` covering Forecast & Tides visibility, intel deep-linking, favorite toggle via accessible label, reviews dialog open/close, Spot Overview fields, intel view-all toggle, and back navigation to `/map`.
+
+- Mobile readiness updates:
+  - `package.json`: added mobile scripts (`mobile:sync`, `mobile:build:ios`, `mobile:build:android`, `mobile:assets`) and Capacitor dependencies/plugins
+  - `app/layout.tsx`: ensured service worker registration and mobile listeners mount per `app/ARCHITECTURE.md`
+  - `components/analytics/pwa-and-push-listeners.tsx`: registers SW and orchestrates push permission prompts in web/Capacitor contexts
 
 ### Fixed
 
@@ -232,6 +263,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
   - Enabled RLS on `public.spatial_ref_sys` with a permissive SELECT policy to satisfy Supabase linter while preserving read-only behavior
 
+- Push devices table security:
+
+  - Enforced strict RLS on `public.push_devices` (owner‑only visibility and CRUD), aligning with `supabase/ARCHITECTURE.md` patterns; tokens stored per user/device with appropriate indexes
+
 - Bundle analysis build and report generation via `ANALYZE=true npm run build` using `webpack-bundle-analyzer`. Report saved to `.next/bundle-analyzer-report.html`.
 
 ### Changed
@@ -263,6 +298,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Types architecture updated to reflect 0–100 confidence scale.
 
 - Notifications system documented in `docs/notifications-architecture.md`: current architecture, known breakage (invited user not receiving in-app notification), proposed security changes (RPC auth, RLS), inbox source-of-truth, read-state consideration, realtime subscription patterns for header and inbox, inviter-response notifications, email idempotency/compliance, and rate limiting recommendations.
+
+- Updated `docs/README.md` to link `docs/MOBILE_LAUNCH_ARCHITECTURE.md` and outline Week 0‑2 mobile readiness checklist
 
 - `components/BeachSelector.tsx` now uses `useDataFetcher` + `data.beaches.getAll()`
 - `hooks/use-session-like.ts` uses gateway for initial state + toggle; realtime kept

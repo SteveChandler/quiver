@@ -876,9 +876,18 @@ describe("Session Actions", () => {
         select: mockSessionSelect,
       });
 
-      mockSupabaseClient.from
-        .mockReturnValueOnce({ select: mockBeachSelect }) // Beach lookup
-        .mockReturnValueOnce({ insert: mockInsert }); // Session creation
+      const mockBeachFrom = jest.fn().mockReturnValue({ select: mockBeachSelect });
+      const mockSessionFrom = jest.fn().mockReturnValue({ insert: mockInsert });
+
+      mockSupabaseClient.from.mockImplementation((table: string) => {
+        if (table === "beaches") {
+          return mockBeachFrom(table);
+        }
+        if (table === "sessions") {
+          return mockSessionFrom(table);
+        }
+        throw new Error(`Unexpected table ${table}`);
+      });
 
       const result = await createLoggedSession(inputWithoutId);
 

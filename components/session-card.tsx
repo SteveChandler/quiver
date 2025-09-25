@@ -15,13 +15,17 @@ import {
 } from "lucide-react";
 import { MapImage } from "@/components/map-image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import type { MouseEvent } from "react";
 import { useCommentCount } from "@/hooks/use-comment-count";
 import { useSessionLike } from "@/hooks/use-session-like";
 import { CommentsModal } from "@/components/comments-modal";
 import { ShareModal } from "@/components/share-modal";
 import { Share2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useToast } from "@/hooks/use-toast";
+import type { ShareFallbackContext } from "@/lib/mobile/share";
+import { shareSession } from "@/lib/mobile/share";
 import type { SessionWithDetails } from "@/types/database";
 
 interface SessionCardProps {
@@ -56,6 +60,7 @@ export function SessionCard({
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
 
   // Use dynamic comment count if session ID is available
   const { commentCount: dynamicCommentCount, isLoading } = useCommentCount(
@@ -85,6 +90,50 @@ export function SessionCard({
       await toggleLike();
     }
   };
+
+  const handleShareClick = useCallback(
+    async (e: MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!id) return;
+
+      const beachLabel = session?.beach?.name || beachName;
+      const noteSource = session?.notes || description || "";
+      const shareText = noteSource
+        ? `${noteSource.slice(0, 140)}${noteSource.length > 140 ? "…" : ""}`
+        : undefined;
+
+      const result = await shareSession(id, {
+        title: beachLabel ? `Session at ${beachLabel}` : "Quiver session",
+        text: shareText,
+        analytics: {
+          surface: "session_card",
+          sessionId: id,
+          beachId: session?.beach?.id,
+          variant: session?.status ?? "unknown",
+        },
+        fallback: ({ reason, channel, error }: ShareFallbackContext) => {
+          const message =
+            reason === "unsupported"
+              ? "Share sheet unavailable"
+              : "Share failed";
+
+          toast({
+            title: message,
+            description:
+              error || `Opening social poster instead (from ${channel} share).`,
+          });
+          setShareOpen(true);
+        },
+      });
+
+      if (result.method === "unsupported") {
+        setShareOpen(true);
+      }
+    },
+    [id, session, beachName, description, toast]
+  );
 
   const cardContent = (
     <CardContent className="p-4 space-y-4 motion-optimized session-card-hover">
@@ -308,11 +357,7 @@ export function SessionCard({
         {id && (
           <button
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShareOpen(true);
-            }}
+            onClick={handleShareClick}
           >
             <Share2 className="h-4 w-4" />
             <span>Share</span>
