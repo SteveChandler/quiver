@@ -7,6 +7,7 @@ This directory contains the essential documentation for the Quiver surf app, foc
 ### **Architecture & Strategy**
 
 - **`ARCHITECTURE_REVIEW.md`** - Comprehensive system overview, current status, and growth strategy
+- **`MOBILE_LAUNCH_ARCHITECTURE.md`** - iOS/Android launch plan via Capacitor with native value and CI/CD
 - **`prd.txt`** - Product requirements document with current state and roadmap
 - **`DESIGN_PRINCIPLES.md`** - Core design philosophy and technical patterns
 
