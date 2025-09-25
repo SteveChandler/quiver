@@ -1,0 +1,43 @@
+{
+  "name": "Quiver",
+  "short_name": "Quiver",
+  "description": "Surf community, live forecasts, and session logging brought to mobile.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "en-US",
+  "categories": ["sports", "lifestyle"],
+  "protocol_handlers": [
+    {
+      "protocol": "web+quiver",
+      "url": "/sessions/new?deepLink=%s"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log Session",
+      "short_name": "Log",
+      "url": "/sessions/new?mode=log"
+    },
+    {
+      "name": "Check Forecast",
+      "short_name": "Forecast",
+      "url": "/#forecast"
+    }
+  ]
+}
