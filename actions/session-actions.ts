@@ -522,7 +522,7 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
     const finalPayload = {
       ...cleaned,
       user_id: user.id,
-      profile_id: user.id, // Add profile_id to satisfy the constraint
+      profile_id: user.id,
       status: "completed",
     };
 

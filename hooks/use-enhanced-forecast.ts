@@ -7,6 +7,9 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 interface ForecastData {
   forecasts: EnhancedForecastEntity[];
   forecastsByDate: Record<string, EnhancedForecastEntity[]>;
+  servedFromCache: boolean;
+  isStale: boolean;
+  cacheAgeMs?: number;
 }
 
 interface UseEnhancedForecastOptions {
@@ -27,6 +30,9 @@ interface UseEnhancedForecastReturn {
   error: string | null;
   updating: boolean;
   autoGenerating: boolean;
+  isOfflineData: boolean;
+  isStale: boolean;
+  cacheAgeMs?: number;
   setSelectedDate: (date: string) => void;
   refetch: () => Promise<ForecastData>;
   invalidateCache: () => void;
@@ -64,9 +70,22 @@ export function useEnhancedForecast({
       throw new Error(data.error || "Failed to fetch forecasts");
     }
 
+    const cacheSource = response.headers.get("x-quiver-cache-source");
+    const staleHeader = response.headers.get("x-quiver-cache-stale");
+    const ageHeader = response.headers.get("x-quiver-cache-age");
+    const timestampHeader = response.headers.get("x-quiver-cache-timestamp");
+    const cacheAgeMs = ageHeader
+      ? Number(ageHeader)
+      : timestampHeader
+      ? Date.now() - Number(timestampHeader)
+      : undefined;
+
     return {
       forecasts: data.data?.forecasts || [],
       forecastsByDate: data.data?.forecastsByDate || {},
+      servedFromCache: cacheSource === "offline",
+      isStale: staleHeader === "true",
+      cacheAgeMs: Number.isFinite(cacheAgeMs) ? cacheAgeMs : undefined,
     };
   }, [beachId, defaultDays]);
 
@@ -171,6 +190,9 @@ export function useEnhancedForecast({
   const selectedDateForecasts = selectedDate
     ? forecastsByDate[selectedDate] || []
     : [];
+  const isOfflineData = Boolean(forecastData?.servedFromCache);
+  const isStale = Boolean(forecastData?.isStale);
+  const cacheAgeMs = forecastData?.cacheAgeMs;
 
   // Set default selected date when data loads
   useEffect(() => {
@@ -202,6 +224,9 @@ export function useEnhancedForecast({
     error,
     updating,
     autoGenerating,
+    isOfflineData,
+    isStale,
+    cacheAgeMs,
     setSelectedDate,
     refetch,
     invalidateCache,
