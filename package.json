@@ -59,8 +59,11 @@
     "seed:beaches": "node scripts/seed_beaches_from_csv.mjs --file ./docs/quiver_owner_cams_seed_CA_HI_WA_OR.csv",
     "mobile:sync": "cap sync",
     "mobile:sync:dev": "NODE_ENV=development cap sync",
+    "mobile:sync:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync",
+    "mobile:dev:tunnel": "bash scripts/dev-tunnel.sh",
     "mobile:build:ios": "cap sync ios && cap open ios",
     "mobile:build:android": "cap sync android && cap open android",
+    "mobile:build:android:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync android && cap open android",
     "mobile:assets": "capacitor-assets generate --config mobile/capacitor-assets.config.ts"
   },
   "dependencies": {

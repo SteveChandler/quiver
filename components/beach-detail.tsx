@@ -339,7 +339,10 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
   const formatMetric = (
     value: string | number | null | undefined,
-    { decimals = 1, fallback = "—" }: { decimals?: number; fallback?: string } = {}
+    {
+      decimals = 1,
+      fallback = "—",
+    }: { decimals?: number; fallback?: string } = {}
   ) => {
     if (value === null || value === undefined) {
       return fallback;
@@ -380,8 +383,8 @@ export function BeachDetail({ id }: BeachDetailProps) {
     tideTrend === "rising"
       ? ArrowUp
       : tideTrend === "falling"
-        ? ArrowDown
-        : Waves;
+      ? ArrowDown
+      : Waves;
 
   const hasForecasts = Array.isArray(forecasts) && forecasts.length > 0;
 
@@ -446,7 +449,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
             <div className="absolute -top-24 right-0 h-64 w-64 rounded-full bg-white/30 blur-3xl" />
             <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-blue-400/30 blur-3xl" />
           </div>
-          <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-4 py-12 lg:flex-row lg:items-center">
+          <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-2 sm:px-4 py-12 lg:flex-row lg:items-center">
             <div className="flex-1 space-y-6">
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-white/70">
                 Today
@@ -481,7 +484,11 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <FavoriteButton beachId={beach.id} variant="outline" size="sm" />
+                <FavoriteButton
+                  beachId={beach.id}
+                  variant="outline"
+                  size="sm"
+                />
                 <div className="w-48">
                   <HomeBeachBanner
                     selectedBeachId={beach.id}
@@ -504,7 +511,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
                     <span className="text-6xl font-roboto font-extrabold text-ocean-blue">
                       {heroWaveHeight}
                     </span>
-                    <span className="text-xl font-semibold text-slate-500">ft</span>
+                    <span className="text-xl font-semibold text-slate-500">
+                      ft
+                    </span>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-sm">
@@ -537,7 +546,8 @@ export function BeachDetail({ id }: BeachDetailProps) {
                       {heroNextTideType}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {heroNextTideHeight} · {formatTimeString(currentForecast?.next_tide_time)}
+                      {heroNextTideHeight} ·{" "}
+                      {formatTimeString(currentForecast?.next_tide_time)}
                     </div>
                   </div>
                 </div>
@@ -546,9 +556,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
           </div>
         </section>
 
-        <div className="relative z-10 mx-auto -mt-12 max-w-6xl space-y-12 px-4">
+        <div className="relative z-10 mx-auto -mt-12 max-w-6xl space-y-12 px-2 sm:px-4">
           {hasForecasts ? (
-            <section className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
+            <section className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur">
               <div className="flex flex-col gap-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <h2 className="text-xl font-roboto font-semibold text-dark-grey">
@@ -568,7 +578,8 @@ export function BeachDetail({ id }: BeachDetailProps) {
                         {heroNextTideType}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {heroNextTideHeight} · {formatTimeString(currentForecast?.next_tide_time)}
+                        {heroNextTideHeight} ·{" "}
+                        {formatTimeString(currentForecast?.next_tide_time)}
                       </div>
                     </div>
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10">
@@ -625,7 +636,10 @@ export function BeachDetail({ id }: BeachDetailProps) {
           </section>
 
           {hasForecasts ? (
-            <section id="outlook" className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
+            <section
+              id="outlook"
+              className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur"
+            >
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <h2 className="text-xl font-roboto font-semibold text-dark-grey">
                   5-Day Outlook
@@ -675,7 +689,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
                           <span className="text-2xl font-bold text-ocean-blue">
                             {formatMetric(forecast.wave_height)}
                           </span>
-                          <span className="text-sm text-muted-foreground">ft</span>
+                          <span className="text-sm text-muted-foreground">
+                            ft
+                          </span>
                         </div>
                         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                           <Wind className="h-3 w-3" />
@@ -691,18 +707,22 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 </div>
               ) : null}
               <div className="mt-6">
-                <ForecastAndTides beach={beach as Beach} forecasts={forecasts || []} />
+                <ForecastAndTides
+                  beach={beach as Beach}
+                  forecasts={forecasts || []}
+                />
               </div>
             </section>
           ) : null}
 
           <section
             id="intel-section"
-            className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur"
+            className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur"
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
               <h2 className="flex items-center gap-2 text-xl font-roboto font-semibold text-dark-grey">
-                <MessageSquare className="h-5 w-5 text-ocean-blue" /> Local Intel
+                <MessageSquare className="h-5 w-5 text-ocean-blue" /> Local
+                Intel
               </h2>
               <span className="text-sm text-muted-foreground">
                 Recent check-ins, crowd buzz, and surf notes
@@ -726,7 +746,10 @@ export function BeachDetail({ id }: BeachDetailProps) {
               onWriteReview={handleWriteReview}
               refreshTrigger={reviewRefreshTrigger}
             />
-            <BeachReviewsList beachId={beach.id} refreshTrigger={reviewRefreshTrigger} />
+            <BeachReviewsList
+              beachId={beach.id}
+              refreshTrigger={reviewRefreshTrigger}
+            />
           </section>
 
           <section className="grid gap-6 lg:grid-cols-2">

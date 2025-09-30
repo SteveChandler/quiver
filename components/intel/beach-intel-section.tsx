@@ -297,7 +297,7 @@ export function BeachIntelSection({
           </div>
         </CardHeader>
 
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           {error ? (
             <div className="text-center py-6">
               <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />

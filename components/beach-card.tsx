@@ -39,7 +39,7 @@ export function BeachCard({
   showForecastPreview = false,
 }: BeachCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   // Use shared forecast preview hook
   const {
     forecastPreview,
@@ -67,7 +67,7 @@ export function BeachCard({
       window.location.href = `/beach/${id}?tab=reviews`;
     }
   };
-  
+
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
   };
@@ -78,28 +78,33 @@ export function BeachCard({
         scale: 1.02,
         y: -4,
         boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-        transition: { duration: 0.3 }
+        transition: { duration: 0.3 },
       }}
       whileTap={{ scale: 0.98 }}
       layout
     >
-      <Card className="overflow-hidden" data-testid="beach-card" data-beach-id={id}>
-        <motion.div 
-          className="relative h-48 cursor-pointer" 
+      <Card
+        className="overflow-hidden"
+        data-testid="beach-card"
+        data-beach-id={id}
+      >
+        <motion.div
+          className="relative h-48 cursor-pointer"
           onClick={handleMapClick}
           whileHover={{ scale: 1.05 }}
           transition={{ duration: 0.3 }}
         >
-        <MapImage
-          src={imageUrl || "/placeholder.svg"}
-          alt={name}
-          latitude={latitude}
-          longitude={longitude}
-          fill
-          className="object-cover"
-        />
+          <MapImage
+            src={imageUrl || "/placeholder.svg"}
+            alt={name}
+            latitude={latitude}
+            longitude={longitude}
+            fill
+            className="object-cover"
+            beachName={name}
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-          <motion.div 
+          <motion.div
             className="absolute bottom-0 left-0 p-3 text-white"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -130,7 +135,7 @@ export function BeachCard({
                 ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
               </span>
             </motion.div>
-            
+
             <div className="flex items-center gap-2">
               {/* Expand/Collapse Button */}
               <motion.button
@@ -147,7 +152,7 @@ export function BeachCard({
                   <ChevronDown className="h-4 w-4" />
                 )}
               </motion.button>
-              
+
               {id ? (
                 <Link
                   href={`/beach/${id}`}
@@ -176,8 +181,8 @@ export function BeachCard({
           {/* Expandable Forecast Preview */}
           <AnimatePresence>
             {(showForecastPreview || isExpanded) && (
-              <motion.div 
-                className="mt-3 pt-3 border-t" 
+              <motion.div
+                className="mt-3 pt-3 border-t"
                 data-testid="expanded-content"
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -185,13 +190,15 @@ export function BeachCard({
                 transition={{ duration: 0.3, ease: "easeInOut" }}
                 style={{ overflow: "hidden" }}
               >
-                <motion.div 
+                <motion.div
                   className="forecast-info"
                   initial={{ y: -10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.1, duration: 0.3 }}
                 >
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Current Conditions</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                    Current Conditions
+                  </h4>
                   <ForecastPreview
                     forecastPreview={forecastPreview}
                     loading={loadingForecast}
@@ -199,7 +206,7 @@ export function BeachCard({
                     variant="grid"
                   />
                 </motion.div>
-                <motion.div 
+                <motion.div
                   className="conditions-grid mt-3"
                   initial={{ y: -10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -207,12 +214,20 @@ export function BeachCard({
                 >
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-blue-50 p-2 rounded">
-                      <div className="text-blue-600 font-medium">Wave Height</div>
-                      <div className="text-blue-800">{forecastPreview?.wave_height || "N/A"}</div>
+                      <div className="text-blue-600 font-medium">
+                        Wave Height
+                      </div>
+                      <div className="text-blue-800">
+                        {forecastPreview?.wave_height || "N/A"}
+                      </div>
                     </div>
                     <div className="bg-green-50 p-2 rounded">
-                      <div className="text-green-600 font-medium">Wind Speed</div>
-                      <div className="text-green-800">{forecastPreview?.wind_speed || "N/A"}</div>
+                      <div className="text-green-600 font-medium">
+                        Wind Speed
+                      </div>
+                      <div className="text-green-800">
+                        {forecastPreview?.wind_speed || "N/A"}
+                      </div>
                     </div>
                   </div>
                 </motion.div>

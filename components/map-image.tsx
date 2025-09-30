@@ -12,6 +12,7 @@ interface MapImageProps {
   height?: number;
   className?: string;
   fill?: boolean;
+  beachName?: string; // Optional beach name to display in fallback
 }
 
 export function MapImage({
@@ -23,6 +24,7 @@ export function MapImage({
   height = 200,
   className,
   fill = false,
+  beachName,
 }: MapImageProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -58,7 +60,7 @@ export function MapImage({
               d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
             />
           </svg>
-          <p className="text-sm font-medium">Beach Location</p>
+          <p className="text-sm font-medium">{beachName || "Beach Location"}</p>
           {latitude && longitude && (
             <p className="text-xs text-gray-500 mt-1">
               {latitude.toFixed(4)}, {longitude.toFixed(4)}

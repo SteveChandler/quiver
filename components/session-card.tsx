@@ -308,6 +308,9 @@ export function SessionCard({
           alt="Session location map"
           fill
           className="object-cover"
+          beachName={beachName}
+          latitude={session?.beach?.latitude || session?.beach?.location?.y}
+          longitude={session?.beach?.longitude || session?.beach?.location?.x}
         />
       </div>
 

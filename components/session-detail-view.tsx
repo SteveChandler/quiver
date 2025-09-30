@@ -338,6 +338,9 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             longitude={session.beach?.longitude || session.beach?.location?.x}
             fill={true}
             className="object-cover"
+            beachName={
+              session.beach?.name || session.beach_name || "Session Location"
+            }
           />
         </div>
 

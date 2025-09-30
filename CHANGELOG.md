@@ -1,5 +1,6 @@
 ### Added
 
+- **Local Mobile Development with Secure Tunnels**: Added `capacitor.config.dev.ts` support to bypass Vercel entirely during mobile development. Use Cloudflare Tunnel or ngrok to expose local Next.js server to mobile emulators/devices. New npm scripts: `mobile:sync:local` and `mobile:build:android:local`. Complete guide in `docs/MOBILE_LOCAL_DEV.md`.
 - Beach review stats now include rating distribution data from `lib/review-stats-utils.ts`, powering the refreshed `components/beach/beach-review-summary.tsx` grid with gradient meters and stacked spread.
 - `app/(journal)/new/steps/ConditionsStep.tsx` client component with fallback questionnaire and RHF bindings
 - New route `app/journal/new/page.tsx` to expose Conditions step for tests
@@ -8,12 +9,14 @@
 
 ### Changed
 
+- **Mobile Spacing Optimization**: Reduced horizontal padding on beach detail and profile pages from `px-4` to `px-2` on mobile (keeping `px-4` on sm+ screens) to better utilize screen space. Section cards now use `p-4` on mobile and `p-6` on md+ or sm+ screens. Intel section card content uses `p-3` on mobile and `p-4` on sm+ screens. This prevents UI elements like "View all intel posts" button and profile tab content from being cut off on mobile devices (`components/beach-detail.tsx`, `components/intel/beach-intel-section.tsx`, `components/profile-view.tsx`).
 - Favorite button (heart icon) now displays with visible gray outline in unfavorited state instead of appearing as a white box, with smooth hover transitions to red (`components/favorite-button.tsx`).
 - Beach detail page reimagined into a surf-report flow: gradient hero with wave card, forecast snapshot row, mini 5-day strip, and streamlined sections for live cam, intel, reviews, sessions, and spot overview (`components/beach-detail.tsx`).
 - Live cam module now handles loading, missing, and fallback states with a "Suggest a cam" CTA and refreshed styling (`components/beach-detail/cams-section.tsx`).
 - 5-Day Outlook tabs switched to iconified pills with elevated card layouts for each dataset (`components/beach-detail/forecast-and-tides.tsx`).
 - Bottom navigation highlights the active route with an Ocean Blue capsule badge for clearer wayfinding (`components/bottom-navigation.tsx`).
 - Mobile header navigation: Removed hamburger menu (3 bars) and mobile dropdown menu to simplify mobile UX. Authenticated users rely on bottom navigation as primary mobile navigation, making the hamburger menu redundant. Desktop navigation remains unchanged for unauthenticated users.
+- Beach detail E2E tests (`e2e/beach-detail.spec.ts`) updated to match new page structure: removed accordion-based tests, added tests for hero section, forecast snapshot cards, and 5-Day Outlook tabs. Updated "Spot Overview" references to "Spot Summary" to match component refactor. All 13 tests passing.
 
 ### Changed
 
@@ -30,6 +33,7 @@
 
 ### Fixed
 
+- Session cards on profile page now display beach name (e.g., "Mission Beach") in map placeholder fallback instead of generic "Beach Location" text. Updated `MapImage` component to accept optional `beachName` prop and display it in the fallback state. Applied to `SessionCard`, `SessionDetailView`, and `BeachCard` components.
 - Live cam now renders for beaches with camera URLs (including fallback to beaches table if `beach_sources` lacks `camera_url`).
 - Build failure on `/journal/new`: wrapped `useSearchParams()` usage in a Suspense boundary in `app/journal/new/page.tsx` per `app/ARCHITECTURE.md` routing/loading patterns. Vercel `next build` now succeeds.
 - Map hover popups no longer display "Location: Unknown"; the row is omitted when location metadata is missing (`components/map/interactive-map.tsx`). Also suppressed "Location Unknown" placeholder text in static map generation (`lib/map-utils.ts`).

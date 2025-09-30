@@ -79,3 +79,6 @@ ios/App/App.xcworkspace/xcuserdata/
 ios/App/App.xcodeproj/xcuserdata/
 ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 .env.playwright
+
+# Local development tunnel config (contains temporary tunnel URLs)
+capacitor.config.dev.ts
