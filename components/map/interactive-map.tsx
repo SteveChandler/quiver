@@ -24,6 +24,13 @@ interface InteractiveMapProps {
   onMapClick?: (latlng: mapboxgl.LngLat) => void;
   onLocationMove?: (latlng: mapboxgl.LngLat, beach: Beach) => void;
   className?: string;
+  regionViewport?: {
+    region: string;
+    key: string;
+    center: [number, number];
+    bounds?: [[number, number], [number, number]];
+    zoom?: number;
+  } | null;
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
@@ -35,6 +42,7 @@ export function InteractiveMap({
   onMapClick,
   onLocationMove,
   className = "h-full w-full",
+  regionViewport,
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -57,6 +65,7 @@ export function InteractiveMap({
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
   const selectedBeachIdRef = useRef<string | null>(null);
   const hoveredBeachIdRef = useRef<string | null>(null);
+  const lastRegionViewportKeyRef = useRef<string | null>(null);
 
   const { user } = useAuth();
   const router = useRouter();
@@ -563,6 +572,40 @@ export function InteractiveMap({
       populateLocations(center.lat, center.lng);
     }
   }, [isMapReady, populateLocations]);
+
+  // Apply region viewport focus when provided
+  useEffect(() => {
+    if (!isMapReady || !mapRef.current) {
+      return;
+    }
+
+    if (!regionViewport) {
+      lastRegionViewportKeyRef.current = null;
+      return;
+    }
+
+    if (lastRegionViewportKeyRef.current === regionViewport.key) {
+      return;
+    }
+
+    const map = mapRef.current;
+
+    if (regionViewport.bounds) {
+      map.fitBounds(regionViewport.bounds, {
+        padding: 48,
+        animate: true,
+        maxZoom: regionViewport.zoom ?? 13,
+      });
+    } else {
+      map.easeTo({
+        center: [regionViewport.center[1], regionViewport.center[0]],
+        zoom: regionViewport.zoom ?? Math.min(map.getZoom(), 13),
+        duration: 800,
+      });
+    }
+
+    lastRegionViewportKeyRef.current = regionViewport.key;
+  }, [regionViewport, isMapReady]);
 
   // Update markers when selection state changes
   useEffect(() => {

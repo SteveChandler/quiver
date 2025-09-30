@@ -19,6 +19,15 @@ interface MapContentProps {
   selectedBeach: Beach | null;
   filteredBeaches: Beach[];
   searchQuery: string;
+  regionViewport:
+    | {
+        region: string;
+        key: string;
+        center: [number, number];
+        bounds?: [[number, number], [number, number]];
+        zoom?: number;
+      }
+    | null;
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
   onBeachSelect: (beach: Beach) => void;
@@ -42,6 +51,7 @@ export function MapContent({
   selectedBeach,
   filteredBeaches,
   searchQuery,
+  regionViewport,
   onGetUserLocation,
   onUseDefaultLocation,
   onBeachSelect,
@@ -117,6 +127,7 @@ export function MapContent({
           initialCenter={[mapCenter.lat, mapCenter.lng]}
           initialZoom={12}
           onLocationClick={onBeachSelect}
+          regionViewport={regionViewport}
           className="absolute inset-0 z-0 w-full h-full"
         />
 

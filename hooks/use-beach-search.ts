@@ -126,15 +126,30 @@ export function useBeachSearch() {
       state.filters
     );
 
-    setState((prev) => ({
-      ...prev,
-      filteredBeaches: filtered,
-      selectedBeach: state.searchQuery
-        ? filtered.length > 0
-          ? filtered[0]
-          : null
-        : prev.selectedBeach || (filtered.length > 0 ? filtered[0] : null),
-    }));
+    const hasSearchQuery = state.searchQuery.trim().length > 0;
+
+    setState((prev) => {
+      const prevSelection = prev.selectedBeach;
+      const selectionStillValid = prevSelection
+        ? filtered.some((beach) => beach.id === prevSelection.id)
+        : false;
+
+      let nextSelection: Beach | null = null;
+
+      if (hasSearchQuery) {
+        nextSelection = filtered.length > 0 ? filtered[0] : null;
+      } else if (selectionStillValid) {
+        nextSelection = prevSelection;
+      } else {
+        nextSelection = filtered.length > 0 ? filtered[0] : null;
+      }
+
+      return {
+        ...prev,
+        filteredBeaches: filtered,
+        selectedBeach: nextSelection,
+      };
+    });
   }, [beaches, state.searchQuery, state.activeRegion, state.filters, applyFiltersAndSearch]);
 
   // Debounced search effect - separate from the main update logic
