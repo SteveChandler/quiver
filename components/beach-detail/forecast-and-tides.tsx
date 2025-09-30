@@ -105,7 +105,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
           <TabsContent value="tides" className="mt-4">
             <Card>
               <CardContent className="pt-6">
-                <TideChart forecasts={safeForecasts} />
+                <TideChart forecasts={safeForecasts} now={new Date()} compact />
               </CardContent>
             </Card>
           </TabsContent>

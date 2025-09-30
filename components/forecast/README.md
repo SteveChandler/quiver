@@ -10,19 +10,19 @@ import { TideChart } from "@/components/forecast/tide-chart-recharts";
 // Option 1: Direct tide data
 const tideData = [
   {
-    time: new Date("2024-01-15T06:00:00Z"),
-    height: 5.2,
-    type: "high",
+    t: "2024-01-15T06:00:00Z",
+    h: 5.2,
+    isHigh: true,
   },
   {
-    time: new Date("2024-01-15T12:30:00Z"),
-    height: -1.1,
-    type: "low",
+    t: "2024-01-15T12:30:00Z",
+    h: -1.1,
+    isLow: true,
   },
   // ... more data points
 ];
 
-<TideChart data={tideData} />
+<TideChart data={tideData} now={new Date()} />
 
 // Option 2: Legacy forecast data (backward compatible)
 <TideChart forecasts={enhancedForecastEntities} />
@@ -32,17 +32,30 @@ const tideData = [
 
 ```tsx
 interface TideChartProps {
-  data?: TideDataPoint[]; // Direct tide data
+  data?: TidePoint[]; // Direct tide data (preferred)
   forecasts?: EnhancedForecastEntity[]; // Legacy forecast entities
-  className?: string; // Custom CSS classes
-  showNowLine?: boolean; // Show current time reference line (default: true)
-  isAnimationActive?: boolean; // Enable chart animations (default: false in production)
+  hourly?: { ts: string; height_m?: number | null; height_ft?: number | null }[];
+  events?: {
+    ts: string;
+    type: "HIGH" | "LOW";
+    height_m?: number | null;
+    height_ft?: number | null;
+  }[];
+  dayFormatter?: (d: Date) => string;
+  now?: Date;
+  yDomain?: [number, number] | "auto";
+  unit?: string; // default "ft"
+  compact?: boolean; // removes outer card styling
+  className?: string; // Custom CSS classes for wrapper
+  showNowLine?: boolean; // Toggle the "now" reference line (default: true)
+  isAnimationActive?: boolean; // Control Recharts line animation
 }
 
-interface TideDataPoint {
-  time: Date; // Tide event timestamp
-  height: number; // Tide height in feet
-  type: "high" | "low"; // Tide type
+interface TidePoint {
+  t: string | number | Date; // Tide sample timestamp
+  h: number; // Tide height in feet
+  isHigh?: boolean; // Highlight as high tide
+  isLow?: boolean; // Highlight as low tide
 }
 ```
 
@@ -50,21 +63,19 @@ interface TideDataPoint {
 
 ### 🎨 **Visual Design**
 
-- **Ocean-blue area + line charts** (`#0077B6`) for smooth tide flow
-- **High tide markers**: Orange circles (`#FF7F11`) with labels above
-- **Low tide markers**: Grey circles (`#6B7280`) with labels below
-- **Zero baseline reference line**: Subtle dashed line at 0ft
-- **"Now" reference line**: Red dashed line showing current time
-- **Clean grid**: Minimal horizontal-only grid for readability
-- **Visible axis lines**: Professional grey (`#9CA3AF`) axis and tick lines
-- **Clear axis labels**: "Day" on X-axis and "Tide (ft)" on Y-axis
+- **Indigo line + soft gradient fill** (line `#2563EB`, fill `#60A5FA`) for smooth tide flow
+- **High/Low emphasis halos**: Semi-transparent rings around peak dots, plus optional legend badges
+- **Zero baseline reference line**: Subtle dashed line at 0 ft for context
+- **"Now" reference line**: Red dashed line when the `now` value sits within range
+- **Minimal grid**: Horizontal dashed guides only, no heavy axis chrome
+- **Compact mode**: Toggle card chrome/legend off for embedding inside existing shells
 
 ### 📊 **Data Processing**
 
 - **5-day limit**: Automatically filters to max 5 days from first data point
 - **Smart Y-axis**: Calculates domain with 10% padding around data range
-- **Today/Tomorrow labels**: X-axis shows "Today", "Tomorrow", then day names
-- **Dual data support**: Works with both direct `TideDataPoint[]` and legacy `EnhancedForecastEntity[]`
+- **Custom day formatter**: Defaults to weekday shorthand, override via `dayFormatter`
+- **Dual data support**: Works with direct `TidePoint[]`, hourly/event feeds, or legacy forecasts
 
 ### ♿ **Accessibility**
 
@@ -72,14 +83,14 @@ interface TideDataPoint {
 - **High contrast colors**: WCAG-compliant color choices
 - **Keyboard navigation**: Full Recharts accessibility support
 - **Screen reader friendly**: Semantic structure and labels
-- **Clear axis labels**: Readable "Day" and "Tide (ft)" labels for context
+- **Descriptive tooltip**: Day/time + height strings surfaced for assistive tech
 
 ### ⚡ **Performance**
 
 - **Memoized processing**: `useMemo` for data transformation and tick calculation
 - **Animation control**: Disabled by default in production for better mobile performance
 - **Responsive**: Uses `ResponsiveContainer` for automatic resizing
-- **Optimized margins**: `top: 50px, bottom: 50px` prevents label clipping
+- **Optimized margins**: Compact chart padding keeps ticks legible on mobile
 
 ## Examples
 
@@ -115,18 +126,18 @@ interface TideDataPoint {
 - **Extreme values**: Smart Y-axis scaling handles any height range
 - **All negative/positive**: Proper domain calculation for any data range
 - **Same timestamps**: Handles duplicate times gracefully
-- **Extended datasets**: Automatically truncates to 10-day window
+- **Extended datasets**: Automatically truncates to a 5-day window
 
 ## Integration Points
 
 ### Current Usage
 
-- `components/beach-detail.tsx` - Beach detail page tide charts
+- `components/beach-detail/forecast-and-tides.tsx` - Beach detail page tide chart tab
 - `components/beaches-enhanced-forecast.tsx` - Enhanced forecast displays
 
 ### Data Sources
 
-- **Direct**: `TideDataPoint[]` arrays from external APIs
+- **Direct**: `TidePoint[]` arrays from external APIs
 - **Legacy**: `EnhancedForecastEntity[]` from existing forecast system
 - **Future**: Easily extensible for new data sources
 
@@ -135,14 +146,14 @@ interface TideDataPoint {
 Comprehensive test coverage includes:
 
 - **Rendering**: Basic component rendering and styling
-- **Data processing**: 10-day limits, Y-axis domains, scatter separation
+- **Data processing**: 5-day limit, Y-axis domains, smoothing
 - **Accessibility**: ARIA labels, color contrast, semantic structure
 - **Performance**: Animation controls, memoization
 - **Edge cases**: Empty data, extreme values, negative/positive ranges
 - **Backward compatibility**: Legacy forecast data support
 - **Axis configuration**: Proper styling, labels, and tick marks
 
-Run tests: `npm test -- tide-chart-recharts.test.tsx`
+Run tests: `npx jest __tests__/components/forecast/tide-chart-recharts.*`
 
 ## Architecture Notes
 

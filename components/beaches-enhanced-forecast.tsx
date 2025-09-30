@@ -228,7 +228,7 @@ export function BeachesEnhancedForecast({
             </div>
 
             {/* Multi-Day Tide Chart Display */}
-            <TideChart forecasts={forecasts} />
+            <TideChart forecasts={forecasts} now={new Date()} />
 
             {/* Simplified Forecast Table */}
             <SimplifiedForecastTable forecasts={forecasts} />
