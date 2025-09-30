@@ -6,48 +6,52 @@ import { test, expect } from '@playwright/test';
 const BEACH_ID = process.env.TEST_BEACH_ID || '15c7337e-5258-4339-9dc3-c435c666926b';
 
 test.describe('@beach - Beach Detail Page', () => {
-  test('loads beach detail and shows 5 Day Outlook section (default open)', async ({ page }) => {
+  test('loads beach detail and shows hero section with wave height card', async ({ page }) => {
     await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
 
-    // Assert accordion trigger is present
-    const forecastTrigger = page.getByRole('button', { name: /5 day outlook/i });
-    await expect(forecastTrigger).toBeVisible({ timeout: 20000 });
-
-    // Content heuristics inside 5 Day Outlook (scope to region, avoid strict-mode ambiguity)
-    const forecastRegion = page.getByRole('region', { name: /5 day outlook/i });
-    await expect(forecastRegion).toBeVisible({ timeout: 20000 });
-    const anyChip = forecastRegion
-      .getByText(/(tide chart included|wind in forecast table)/i)
-      .first();
-    await expect(anyChip).toBeVisible({ timeout: 20000 });
+    // Assert hero section elements are present
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 20000 });
+    
+    // Check for wave height card in hero
+    await expect(page.getByText(/wave height/i)).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText(/ft/i).first()).toBeVisible({ timeout: 20000 });
   });
 
-  test('defaults to Tides tab with 5-Day Tide Chart visible', async ({ page }) => {
+  test('loads beach detail and shows 5 Day Outlook section', async ({ page }) => {
     await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
 
-    const forecastRegion = page.getByRole('region', { name: /5 day outlook/i });
-    await expect(forecastRegion).toBeVisible({ timeout: 20000 });
+    // 5-Day Outlook is now a section heading (not accordion)
+    const outlookHeading = page.getByRole('heading', { name: /5-day outlook/i });
+    await expect(outlookHeading).toBeVisible({ timeout: 20000 });
 
-    // The tide chart card header should be visible by default
-    await expect(forecastRegion.getByText(/5-day tide chart/i)).toBeVisible({ timeout: 20000 });
+    // Check for overview chips in the forecast section
+    const tideChartChip = page.getByText(/tide chart included/i);
+    await expect(tideChartChip).toBeVisible({ timeout: 20000 });
+  });
 
-    // The Tides tab trigger should be active
-    const tidesTab = forecastRegion.getByRole('tab', { name: /tides/i });
+  test('defaults to Tides tab in 5-Day Outlook section', async ({ page }) => {
+    await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
+
+    // Wait for 5-Day Outlook section to be visible
+    const outlookHeading = page.getByRole('heading', { name: /5-day outlook/i });
+    await expect(outlookHeading).toBeVisible({ timeout: 20000 });
+
+    // The Tides tab should be active by default
+    const tidesTab = page.getByRole('tab', { name: /tides/i });
+    await expect(tidesTab).toBeVisible({ timeout: 20000 });
     await expect(tidesTab).toHaveAttribute('data-state', /active/);
   });
 
   test('deep-link to intel section scrolls into view and is visible', async ({ page }) => {
     await page.goto(`/beach/${BEACH_ID}?section=intel`, { waitUntil: 'domcontentloaded' });
 
-    // Prefer section IDs when present
+    // Intel is now a section with heading (not accordion)
     const intelSectionById = page.locator('#intel, #intel-section');
-    if (await intelSectionById.count()) {
-      await expect(intelSectionById.first()).toBeVisible({ timeout: 20000 });
-    }
+    await expect(intelSectionById.first()).toBeVisible({ timeout: 20000 });
 
-    // Fallback: the accordion trigger text
-    const intelTrigger = page.getByRole('button', { name: /local intel/i });
-    await expect(intelTrigger).toBeVisible({ timeout: 20000 });
+    // Check for the Local Intel heading
+    const intelHeading = page.getByRole('heading', { name: /local intel/i });
+    await expect(intelHeading).toBeVisible({ timeout: 20000 });
   });
 
   test('favorite toggle via accessible label', async ({ page }) => {
@@ -70,19 +74,20 @@ test.describe('@beach - Beach Detail Page', () => {
   test('reviews: open write review dialog from Reviews section', async ({ page }) => {
     await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
 
-    // Open Reviews accordion
-    const reviewsTrigger = page.getByRole('button', { name: /reviews/i });
-    await reviewsTrigger.click();
+    // Scroll to reviews section (it's visible by default, no accordion)
+    const reviewsSection = page.locator('#reviews');
+    await reviewsSection.scrollIntoViewIfNeeded();
 
-    // Try primary CTA first (when reviews exist)
+    // Try to find write review button
     const writeButtons = page.getByRole('button', { name: /write review|write the first review/i });
-    if (await writeButtons.count()) {
-      await writeButtons.first().click();
-    } else {
-      // If no CTA (unlikely when authed), skip gracefully
+    const buttonCount = await writeButtons.count();
+    
+    if (buttonCount === 0) {
       test.info().annotations.push({ type: 'note', description: 'No write review CTA available' });
       return;
     }
+
+    await writeButtons.first().click();
 
     // Dialog should open
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 20000 });
@@ -92,43 +97,118 @@ test.describe('@beach - Beach Detail Page', () => {
     await expect(page.getByRole('dialog')).toBeHidden({ timeout: 20000 });
   });
 
-  test('spot overview expands and shows key fields', async ({ page }) => {
+  test('spot overview section is visible and shows key fields', async ({ page }) => {
     await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
 
-    const overviewTrigger = page.getByRole('button', { name: /spot overview/i });
-    // Ensure the trigger is in view and activate via keyboard to avoid overlay interception
-    await overviewTrigger.scrollIntoViewIfNeeded();
-    await overviewTrigger.evaluate((el) => (el as HTMLElement).scrollIntoView({ block: 'center' }));
-    await overviewTrigger.focus();
-    await expect(overviewTrigger).toBeFocused();
-    await page.keyboard.press('Enter');
+    // Scroll to spot overview section
+    const spotOverviewHeading = page.getByRole('heading', { name: /spot overview/i });
+    await spotOverviewHeading.scrollIntoViewIfNeeded();
+    await expect(spotOverviewHeading).toBeVisible({ timeout: 20000 });
 
-    await expect(page.getByText(/break type/i)).toBeVisible();
-    await expect(page.getByText(/best swell/i)).toBeVisible();
-    await expect(page.getByText(/best wind\s*\/\s*tide/i)).toBeVisible();
+    // Check for key fields (may be in cards or sections)
+    await expect(page.getByText(/break type/i).first()).toBeVisible();
+    await expect(page.getByText(/best swell/i).first()).toBeVisible();
   });
 
   test('intel section: view all toggles to show less when available', async ({ page }) => {
     await page.goto(`/beach/${BEACH_ID}?section=intel`, { waitUntil: 'domcontentloaded' });
 
-    // Expand intel if not already
-    const intelTrigger = page.getByRole('button', { name: /local intel/i });
-    if (await intelTrigger.isVisible().catch(() => false)) {
-      await intelTrigger.click();
-    }
+    // Wait for intel section to be visible
+    const intelSection = page.locator('#intel-section, #intel');
+    await expect(intelSection.first()).toBeVisible({ timeout: 20000 });
 
     // Button only appears when posts > 3; guard with conditional
     const viewAllBtn = page.getByRole('button', { name: /view all .* intel posts/i });
-    if (await viewAllBtn.count()) {
+    const btnCount = await viewAllBtn.count();
+    
+    if (btnCount > 0) {
       await viewAllBtn.first().click();
       await expect(page.getByRole('button', { name: /show less/i })).toBeVisible();
+    } else {
+      test.info().annotations.push({ type: 'note', description: 'Not enough intel posts to test view all' });
     }
   });
 
-  
+  test('forecast snapshot section shows tide, wind, and swell cards', async ({ page }) => {
+    await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
+
+    // Check for forecast snapshot heading
+    const snapshotHeading = page.getByRole('heading', { name: /forecast snapshot/i });
+    await expect(snapshotHeading).toBeVisible({ timeout: 20000 });
+
+    // Check for the three main forecast cards
+    await expect(page.getByText(/next tide/i).first()).toBeVisible();
+    await expect(page.getByText(/wind/i).first()).toBeVisible();
+    await expect(page.getByText(/swell/i).first()).toBeVisible();
+  });
+
+  test('live cam section is visible', async ({ page }) => {
+    await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
+
+    // Live cam is now a standalone section
+    const liveCamHeading = page.getByRole('heading', { name: /live cam/i });
+    await liveCamHeading.scrollIntoViewIfNeeded();
+    await expect(liveCamHeading).toBeVisible({ timeout: 20000 });
+  });
+
+  test('5-day mini forecast cards are interactive', async ({ page }) => {
+    await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
+
+    // Scroll to 5-Day Outlook section
+    const outlookHeading = page.getByRole('heading', { name: /5-day outlook/i });
+    await outlookHeading.scrollIntoViewIfNeeded();
+    await expect(outlookHeading).toBeVisible({ timeout: 20000 });
+
+    // Find mini forecast cards (buttons with wave height)
+    const forecastCards = page.locator('button:has-text("ft")');
+    const cardCount = await forecastCards.count();
+    
+    if (cardCount > 0) {
+      // Click first card to open detailed modal
+      await forecastCards.first().click();
+      
+      // Check if modal/dialog opens (DetailedSwellModal)
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
+      
+      // Close modal
+      await page.keyboard.press('Escape');
+    } else {
+      test.info().annotations.push({ type: 'note', description: 'No forecast cards available' });
+    }
+  });
+
+  test('tabs in 5-Day Outlook section are functional', async ({ page }) => {
+    await page.goto(`/beach/${BEACH_ID}`, { waitUntil: 'domcontentloaded' });
+
+    // Scroll to outlook section
+    const outlookHeading = page.getByRole('heading', { name: /5-day outlook/i });
+    await outlookHeading.scrollIntoViewIfNeeded();
+
+    // Check that tabs exist
+    const todayTab = page.getByRole('tab', { name: /today/i });
+    const tidesTab = page.getByRole('tab', { name: /tides/i });
+    const windTab = page.getByRole('tab', { name: /wind/i });
+    const swellTab = page.getByRole('tab', { name: /swell/i });
+    const weekTab = page.getByRole('tab', { name: /week/i });
+
+    // All tabs should be visible
+    await expect(todayTab).toBeVisible();
+    await expect(tidesTab).toBeVisible();
+    await expect(windTab).toBeVisible();
+    await expect(swellTab).toBeVisible();
+    await expect(weekTab).toBeVisible();
+
+    // Click Today tab
+    await todayTab.click();
+    await expect(todayTab).toHaveAttribute('data-state', /active/);
+
+    // Click Week tab
+    await weekTab.click();
+    await expect(weekTab).toHaveAttribute('data-state', /active/);
+  });
 });
 
-test.describe('Beach Detail', () => {
+test.describe('Beach Detail - Navigation', () => {
   test('navigates to beach detail and shows expected sections', async ({ page }) => {
     const isDev = (process.env.BASE_URL || '').includes('dev.quiversurf.app');
     const envId = process.env.TEST_BEACH_ID;
@@ -149,14 +229,17 @@ test.describe('Beach Detail', () => {
       await expect(page).toHaveURL(/\/beach\//);
     }
 
-    // Expect at least two accordion triggers to be visible
-    await expect(page.getByRole('button', { name: /5 day outlook/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /local intel/i })).toBeVisible();
-
-    // Expand Local Intel to ensure it responds
-    await page.getByRole('button', { name: /local intel/i }).click();
-
-    // Heading present (pick first h1 to avoid strict-mode conflict)
+    // Beach name heading should be visible (h1)
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+
+    // Expect main section headings to be visible
+    await expect(page.getByRole('heading', { name: /5-day outlook/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /local intel/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /live cam/i })).toBeVisible();
+
+    // Spot overview should be present (may need to scroll)
+    const spotOverview = page.getByRole('heading', { name: /spot overview/i });
+    await spotOverview.scrollIntoViewIfNeeded();
+    await expect(spotOverview).toBeVisible();
   });
 });

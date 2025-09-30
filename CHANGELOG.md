@@ -8,8 +8,9 @@
 
 ### Changed
 
+- Favorite button (heart icon) now displays with visible gray outline in unfavorited state instead of appearing as a white box, with smooth hover transitions to red (`components/favorite-button.tsx`).
 - Beach detail page reimagined into a surf-report flow: gradient hero with wave card, forecast snapshot row, mini 5-day strip, and streamlined sections for live cam, intel, reviews, sessions, and spot overview (`components/beach-detail.tsx`).
-- Live cam module now handles loading, missing, and fallback states with a “Suggest a cam” CTA and refreshed styling (`components/beach-detail/cams-section.tsx`).
+- Live cam module now handles loading, missing, and fallback states with a "Suggest a cam" CTA and refreshed styling (`components/beach-detail/cams-section.tsx`).
 - 5-Day Outlook tabs switched to iconified pills with elevated card layouts for each dataset (`components/beach-detail/forecast-and-tides.tsx`).
 - Bottom navigation highlights the active route with an Ocean Blue capsule badge for clearer wayfinding (`components/bottom-navigation.tsx`).
 - Mobile header navigation: Removed hamburger menu (3 bars) and mobile dropdown menu to simplify mobile UX. Authenticated users rely on bottom navigation as primary mobile navigation, making the hamburger menu redundant. Desktop navigation remains unchanged for unauthenticated users.
