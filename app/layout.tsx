@@ -8,6 +8,8 @@ import "./globals.css";
 
 import { AuthProvider } from "@/context/auth-context";
 import { AppHeader } from "@/components/app-header";
+import { ReactQueryProvider } from "@/components/providers/react-query-provider";
+import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -236,34 +238,38 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
         <AuthProvider>
-          {/* Track page views on client-side route changes */}
-          <Suspense fallback={null}>
-            <GoogleAnalytics />
-          </Suspense>
-          <Suspense fallback={null}>
-            <PWAAndPushListeners />
-          </Suspense>
-          <Suspense fallback={null}>
-            <AppHeader />
-          </Suspense>
-          <main id="main-content" role="main">
-            {children}
-          </main>
-          {/* Toast systems: shadcn UI (in-app) and Sonner (global) */}
-          <Toaster />
-          <SonnerToaster />
-          {/* Expose a lightweight confetti availability flag for E2E */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function(){
-                  try {
-                    window.confetti = window.confetti || function(){};
-                  } catch(_) {}
-                })();
-              `,
-            }}
-          />
+          <ReactQueryProvider>
+            <SelectedBeachProvider>
+              {/* Track page views on client-side route changes */}
+              <Suspense fallback={null}>
+                <GoogleAnalytics />
+              </Suspense>
+              <Suspense fallback={null}>
+                <PWAAndPushListeners />
+              </Suspense>
+              <Suspense fallback={null}>
+                <AppHeader />
+              </Suspense>
+              <main id="main-content" role="main">
+                {children}
+              </main>
+              {/* Toast systems: shadcn UI (in-app) and Sonner (global) */}
+              <Toaster />
+              <SonnerToaster />
+              {/* Expose a lightweight confetti availability flag for E2E */}
+              <script
+                dangerouslySetInnerHTML={{
+                  __html: `
+                    (function(){
+                      try {
+                        window.confetti = window.confetti || function(){};
+                      } catch(_) {}
+                    })();
+                  `,
+                }}
+              />
+            </SelectedBeachProvider>
+          </ReactQueryProvider>
         </AuthProvider>
       </body>
     </html>
