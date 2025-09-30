@@ -39,16 +39,60 @@ function generateMapPlaceholder(
   return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
-// Generate enhanced SVG placeholder with wave height data
+// Generate enhanced SVG placeholder with wave height data or beach name
 function generateEnhancedMapPlaceholder(
   latitude: number,
   longitude: number,
   width: number = 300,
   height: number = 120,
-  waveHeight?: string
+  labelText?: string
 ): string {
-  const displayWaveHeight = waveHeight || "0-1ft";
+  // Determine if this is wave height data (contains "ft" or is numeric-ish) or a beach name
+  const isWaveHeight = labelText && (labelText.includes('ft') || labelText.includes('-') || /^\d/.test(labelText));
+  const displayLabel = labelText || (isWaveHeight ? "0-1ft" : "Beach Location");
 
+  // If it's wave height, show the orange badge with wave height and generic location label
+  if (isWaveHeight) {
+    const svg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#e0f2fe;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#b3e5fc;stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg)"/>
+        
+        <!-- Wave height badge -->
+        <rect x="${width / 2 - 30}" y="${height / 2 - 15}" width="60" height="30" 
+              rx="15" fill="url(#waveGradient)" stroke="white" stroke-width="2"/>
+        <text x="${width / 2}" y="${
+      height / 2 + 5
+    }" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="white">
+          ${displayLabel}
+        </text>
+        
+        <!-- Location label -->
+        <text x="${width / 2}" y="${
+      height / 2 + 35
+    }" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#424242">
+          Beach Location
+        </text>
+        <text x="${width / 2}" y="${
+      height / 2 + 48
+    }" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">
+          ${latitude.toFixed(4)}, ${longitude.toFixed(4)}
+        </text>
+      </svg>
+    `;
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  }
+  
+  // Otherwise, show beach name prominently without the wave height badge
   const svg = `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -56,33 +100,24 @@ function generateEnhancedMapPlaceholder(
           <stop offset="0%" style="stop-color:#e0f2fe;stop-opacity:1" />
           <stop offset="100%" style="stop-color:#b3e5fc;stop-opacity:1" />
         </linearGradient>
-        <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
-        </linearGradient>
       </defs>
       <rect width="100%" height="100%" fill="url(#bg)"/>
       
-      <!-- Wave height badge -->
-      <rect x="${width / 2 - 30}" y="${height / 2 - 15}" width="60" height="30" 
-            rx="15" fill="url(#waveGradient)" stroke="white" stroke-width="2"/>
+      <!-- Beach name -->
       <text x="${width / 2}" y="${
     height / 2 + 5
-  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="white">
-        ${displayWaveHeight}
+  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#1976d2">
+        ${displayLabel}
       </text>
       
-      <!-- Location label -->
+      ${latitude && longitude && latitude !== 0 && longitude !== 0 ? `
+      <!-- Coordinates -->
       <text x="${width / 2}" y="${
-    height / 2 + 35
-  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#424242">
-        Beach Location
-      </text>
-      <text x="${width / 2}" y="${
-    height / 2 + 48
-  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#666">
+    height / 2 + 25
+  }" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">
         ${latitude.toFixed(4)}, ${longitude.toFixed(4)}
       </text>
+      ` : ''}
     </svg>
   `;
 

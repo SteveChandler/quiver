@@ -33,7 +33,7 @@
 
 ### Fixed
 
-- Session cards on profile page now display beach name (e.g., "Mission Beach") in map placeholder fallback instead of generic "Beach Location" text. Updated `MapImage` component to accept optional `beachName` prop and display it in the fallback state. Applied to `SessionCard`, `SessionDetailView`, and `BeachCard` components.
+- Session cards on profile page now display beach name (e.g., "Mission Beach") prominently in map placeholder/fallback images instead of generic "Beach Location" text. Updated `generateEnhancedMapPlaceholder` in `lib/map-utils.ts` to intelligently detect and display beach names vs. wave height data. When a beach name is provided, it shows the name in large blue text; when wave height data is provided, it shows the orange wave badge. Also updated `MapImage` component to accept optional `beachName` prop for React component fallback state.
 - Live cam now renders for beaches with camera URLs (including fallback to beaches table if `beach_sources` lacks `camera_url`).
 - Build failure on `/journal/new`: wrapped `useSearchParams()` usage in a Suspense boundary in `app/journal/new/page.tsx` per `app/ARCHITECTURE.md` routing/loading patterns. Vercel `next build` now succeeds.
 - Map hover popups no longer display "Location: Unknown"; the row is omitted when location metadata is missing (`components/map/interactive-map.tsx`). Also suppressed "Location Unknown" placeholder text in static map generation (`lib/map-utils.ts`).
