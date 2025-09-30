@@ -122,17 +122,21 @@ export function BottomNavigation() {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex flex-col items-center py-2 px-4 text-xs",
-                isActive ? "text-primary" : "text-muted-foreground"
+                "flex flex-col items-center py-2 px-4 text-xs transition-colors",
+                isActive ? "text-ocean-blue" : "text-muted-foreground"
               )}
-              onClick={handleUserActivity} // Show nav when user taps a nav item
+              onClick={handleUserActivity}
             >
-              <item.icon
+              <span
                 className={cn(
-                  "h-6 w-6 mb-1",
-                  isActive ? "text-primary" : "text-muted-foreground"
+                  "mb-1 flex h-9 w-9 items-center justify-center rounded-full transition-all",
+                  isActive
+                    ? "bg-ocean-blue/10 text-ocean-blue"
+                    : "text-muted-foreground"
                 )}
-              />
+              >
+                <item.icon className="h-5 w-5" />
+              </span>
               <span>{item.name}</span>
             </Link>
           );

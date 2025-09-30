@@ -2,15 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getMultipleBeachReviewStats } from "@/actions/beach-review-actions";
-
-interface ReviewStats {
-  total_reviews: number;
-  average_overall: number;
-  average_wave_quality: number;
-  average_crowd_density: number;
-  average_parking: number;
-  average_accessibility: number;
-}
+import type { ReviewStats } from "@/lib/review-stats-utils";
 
 export function useMultipleBeachReviews(beachIds: string[]) {
   const [reviewStats, setReviewStats] = useState<Record<string, ReviewStats>>({});

@@ -1,28 +1,18 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/ui/star-rating";
-import { Progress } from "@/components/ui/progress";
 import { Waves, Users, Car, MapPin, Star, Plus, Loader2 } from "lucide-react";
 import { getBeachReviewStats } from "@/actions/beach-review-actions";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import type { ReviewStats } from "@/lib/review-stats-utils";
 
 interface BeachReviewSummaryProps {
   beachId: string;
   onWriteReview?: () => void;
   refreshTrigger?: number;
-}
-
-interface ReviewStats {
-  total_reviews: number;
-  average_overall: number;
-  average_wave_quality: number;
-  average_crowd_density: number;
-  average_parking: number;
-  average_accessibility: number;
 }
 
 export function BeachReviewSummary({
@@ -54,13 +44,14 @@ export function BeachReviewSummary({
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        </CardContent>
-      </Card>
+      <div
+        id="reviews-ratings-section"
+        className="rounded-3xl border border-blue-100/60 bg-white/95 p-6 shadow-lg"
+      >
+        <div className="flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-ocean-blue" />
+        </div>
+      </div>
     );
   }
 
@@ -68,124 +59,166 @@ export function BeachReviewSummary({
     return null;
   }
 
-  const { total_reviews, average_overall } = stats;
+  const totalReviews = stats.total_reviews;
+  const averageOverall = stats.average_overall;
 
   const categories = [
     {
       name: "Wave Quality",
       value: stats.average_wave_quality,
-      icon: <Waves className="h-4 w-4 text-primary" />,
+      icon: <Waves className="h-4 w-4" />,
     },
     {
       name: "Crowd Level",
       value: stats.average_crowd_density,
-      icon: <Users className="h-4 w-4 text-primary" />,
+      icon: <Users className="h-4 w-4" />,
     },
     {
       name: "Parking",
       value: stats.average_parking,
-      icon: <Car className="h-4 w-4 text-primary" />,
+      icon: <Car className="h-4 w-4" />,
     },
     {
       name: "Accessibility",
       value: stats.average_accessibility,
-      icon: <MapPin className="h-4 w-4 text-primary" />,
+      icon: <MapPin className="h-4 w-4" />,
     },
   ];
 
-  return (
-    <Card id="reviews-ratings-section">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Star className="h-5 w-5 text-yellow-500" />
-            Reviews & Ratings
-          </CardTitle>
+  const distribution = stats.distribution || [];
+  const distributionGradients: Record<number, string> = {
+    5: "from-ocean-blue to-blue-500",
+    4: "from-blue-400 to-blue-300",
+    3: "from-amber-400 to-amber-300",
+    2: "from-orange-400 to-orange-300",
+    1: "from-red-400 to-red-300",
+  };
+
+  if (totalReviews === 0) {
+    return (
+      <div
+        id="reviews-ratings-section"
+        className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-blue-100/60 bg-blue-50/70 p-6">
+          <h2 className="flex items-center gap-2 text-lg font-roboto font-semibold text-dark-grey">
+            <Star className="h-5 w-5 text-yellow-500" /> Reviews & Ratings
+          </h2>
           {user && onWriteReview && (
-            <Button onClick={onWriteReview} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Write Review
+            <Button onClick={onWriteReview} size="sm" className="bg-ocean-blue text-white hover:bg-ocean-blue/90">
+              <Plus className="mr-2 h-4 w-4" /> Write a review
             </Button>
           )}
         </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {total_reviews === 0 ? (
-          <div className="text-center py-6 text-muted-foreground">
-            <Star className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-            <p className="text-lg font-medium mb-2">No reviews yet</p>
-            <p className="text-sm">Be the first to review this beach!</p>
-            {user && onWriteReview && (
-              <Button onClick={onWriteReview} className="mt-4">
-                <Plus className="h-4 w-4 mr-2" />
-                Write the First Review
-              </Button>
-            )}
+        <div className="flex flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
+          <Star className="h-12 w-12 text-yellow-500/60" />
+          <p className="text-lg font-medium text-dark-grey">No reviews yet</p>
+          <p className="text-sm">Be the first to share how this spot breaks.</p>
+          {user && onWriteReview && (
+            <Button onClick={onWriteReview} size="sm" className="bg-ocean-blue text-white hover:bg-ocean-blue/90">
+              <Plus className="mr-2 h-4 w-4" /> Write the first review
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      id="reviews-ratings-section"
+      className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-blue-100/60 bg-blue-50/80 p-6">
+        <h2 className="flex items-center gap-2 text-lg font-roboto font-semibold text-dark-grey">
+          <Star className="h-5 w-5 text-yellow-500" /> Reviews & Ratings
+        </h2>
+        {user && onWriteReview && (
+          <Button onClick={onWriteReview} size="sm" className="bg-ocean-blue text-white hover:bg-ocean-blue/90">
+            <Plus className="mr-2 h-4 w-4" /> Write a review
+          </Button>
+        )}
+      </div>
+      <div className="grid gap-8 p-6 lg:grid-cols-[280px,1fr]">
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              Overall score
+            </div>
+            <div className="flex items-end gap-3">
+              <span className="text-5xl font-roboto font-extrabold text-ocean-blue">
+                {averageOverall.toFixed(1)}
+              </span>
+              <StarRating rating={Math.round(averageOverall)} size="lg" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Based on {totalReviews} {totalReviews === 1 ? "review" : "reviews"}
+            </p>
           </div>
-        ) : (
-          <>
-            {/* Overall Rating */}
-            <div className="text-center space-y-2">
-              <div className="text-3xl font-bold">
-                {average_overall.toFixed(1)}
-              </div>
-              <StarRating rating={Math.round(average_overall)} size="lg" />
-              <p className="text-sm text-muted-foreground">
-                Based on {total_reviews}{" "}
-                {total_reviews === 1 ? "review" : "reviews"}
-              </p>
-            </div>
 
-            {/* Category Breakdown */}
-            <div className="space-y-4">
-              <h4 className="font-medium">Rating Breakdown</h4>
-              <div className="grid gap-3">
-                {categories.map((category) => (
-                  <div key={category.name} className="flex items-center gap-3">
-                    {category.icon}
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium">
-                          {category.name}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <StarRating
-                            rating={Math.round(category.value)}
-                            size="sm"
-                          />
-                          <span className="text-xs text-muted-foreground ml-1">
-                            {category.value.toFixed(1)}
-                          </span>
-                        </div>
-                      </div>
-                      <Progress
-                        value={(category.value / 5) * 100}
-                        className="h-2"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <div className="space-y-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              Ratings spread
             </div>
-
-            {/* Rating Distribution */}
-            <div className="space-y-3">
-              <h4 className="font-medium">Rating Distribution</h4>
-              {[5, 4, 3, 2, 1].map((rating) => (
-                <div key={rating} className="flex items-center gap-2 text-sm">
-                  <span className="w-2">{rating}</span>
-                  <Star className="h-3 w-3 text-yellow-500" />
-                  <Progress
-                    value={0} // We'd need to calculate this from individual reviews
-                    className="flex-1 h-2"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">0</span>
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-blue-100">
+              {distribution.filter((item) => item.count > 0).map((item) => (
+                <div
+                  key={item.rating}
+                  className={`h-full bg-gradient-to-r ${distributionGradients[item.rating]}`}
+                  style={{ flexGrow: item.count, flexBasis: 0, minWidth: item.count ? "6px" : undefined }}
+                />
+              ))}
+            </div>
+            <div className="mt-1 grid grid-cols-5 gap-2 text-center text-xs font-medium text-muted-foreground">
+              {distribution.map((item) => (
+                <div key={item.rating}>
+                  <div className="font-semibold text-dark-grey">{item.rating}★</div>
+                  <div>{item.count}</div>
                 </div>
               ))}
             </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+              Rating breakdown
+            </h3>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {categories.map((category) => {
+                const percent = Math.min(100, Math.max(0, (category.value / 5) * 100));
+                return (
+                  <div
+                    key={category.name}
+                    className="rounded-2xl border border-blue-100/60 bg-blue-50/60 p-4 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ocean-blue/10 text-ocean-blue">
+                          {category.icon}
+                        </div>
+                        <span className="text-sm font-semibold text-dark-grey">
+                          {category.name}
+                        </span>
+                      </div>
+                      <span className="text-sm font-semibold text-ocean-blue">
+                        {category.value.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-ocean-blue to-blue-400"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

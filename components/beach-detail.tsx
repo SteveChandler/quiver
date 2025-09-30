@@ -3,7 +3,18 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  CloudSun,
+  Compass,
+  MapPin,
+  MessageSquare,
+  Star,
+  Waves,
+  Wind,
+} from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,14 +50,6 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { useLocalStorageState } from "@/hooks/use-local-storage-state";
-import { MapPin, MessageSquare, Waves, Star } from "lucide-react";
 import { SpotOverview } from "@/components/beach-detail/spot-overview";
 import { FavoriteButton } from "@/components/favorite-button";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
@@ -105,12 +108,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewRefreshTrigger, setReviewRefreshTrigger] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedForecastEntry, setSelectedForecastEntry] =
+    useState<EnhancedForecastEntity | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // Persisted accordion open/closed sections (Spot Overview default open)
-  const [openSections, setOpenSections] = useLocalStorageState<string[]>(
-    `quiver:beach:${id}:sections`,
-    ["forecast"]
-  );
 
   // Handle URL parameters and default section opening
   useEffect(() => {
@@ -121,10 +121,6 @@ export function BeachDetail({ id }: BeachDetailProps) {
     const wantsIntel = sectionParam === "intel" || hash === "#intel";
 
     if (wantsIntel) {
-      // For intel deep-links, ensure intel is open (don't force forecast)
-      if (!openSections.includes("intel")) {
-        setOpenSections([...(openSections || []), "intel"]);
-      }
       // Scroll into view after layout settles, accounting for sticky header
       const stickyOffset = 80; // px; header + spacing
       setTimeout(() => {
@@ -142,11 +138,6 @@ export function BeachDetail({ id }: BeachDetailProps) {
           window.scrollTo({ top: y, behavior: "smooth" });
         }
       }, 120);
-    } else {
-      // Only set forecast as default if no specific section is requested
-      if (!openSections.includes("forecast")) {
-        setOpenSections(["forecast", ...openSections]);
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -320,6 +311,91 @@ export function BeachDetail({ id }: BeachDetailProps) {
     [forecastsByDate]
   );
 
+  const miniForecastDays = useMemo(
+    () =>
+      sortedDates
+        .slice(0, 5)
+        .map((date) => {
+          const dayEntries = forecastsByDate[date] || [];
+          if (!dayEntries.length) {
+            return null;
+          }
+          const middayEntry = dayEntries.find((entry) =>
+            (entry.forecast_time || "").startsWith("12")
+          );
+          const fallbackEntry =
+            dayEntries[Math.floor(dayEntries.length / 2)] || dayEntries[0];
+          return {
+            date,
+            forecast: middayEntry || fallbackEntry,
+          };
+        })
+        .filter(Boolean) as {
+        date: string;
+        forecast: EnhancedForecastEntity;
+      }[],
+    [sortedDates, forecastsByDate]
+  );
+
+  const formatMetric = (
+    value: string | number | null | undefined,
+    { decimals = 1, fallback = "—" }: { decimals?: number; fallback?: string } = {}
+  ) => {
+    if (value === null || value === undefined) {
+      return fallback;
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value.toFixed(decimals);
+    }
+    if (typeof value === "string") {
+      const numeric = parseFloat(value);
+      if (!Number.isNaN(numeric)) {
+        return numeric.toFixed(decimals);
+      }
+      return value;
+    }
+    return fallback;
+  };
+
+  const formatTimeString = (time?: string | null) => {
+    if (!time) return "—";
+    if (time.includes("T")) {
+      try {
+        return new Date(time).toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      } catch {
+        return time;
+      }
+    }
+    return time;
+  };
+
+  const locationLabel =
+    beach.location || beach.region || beach.country || "Untitled coastline";
+
+  const tideTrend = (currentForecast?.tide_status || "").toLowerCase();
+  const TideIcon =
+    tideTrend === "rising"
+      ? ArrowUp
+      : tideTrend === "falling"
+        ? ArrowDown
+        : Waves;
+
+  const hasForecasts = Array.isArray(forecasts) && forecasts.length > 0;
+
+  const heroWaveHeight = formatMetric(currentForecast?.wave_height);
+  const heroPeriod = formatMetric(currentForecast?.wave_period);
+  const heroNextTideHeight = currentForecast?.next_tide_height ?? "";
+  const heroNextTideType = currentForecast?.next_tide_type ?? "—";
+  const snapshotSwellPeriod = formatMetric(currentForecast?.wave_period);
+  const snapshotDirection = currentForecast?.wave_direction ?? "—";
+  const snapshotSwellDetails =
+    snapshotSwellPeriod === "—"
+      ? `— · ${snapshotDirection}`
+      : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
+
   // Prioritize loading state to prevent erroneous "not found" flash
   if (loading) {
     return <FullPageLoader />;
@@ -344,151 +420,295 @@ export function BeachDetail({ id }: BeachDetailProps) {
     );
   }
 
-  const handleAccordionChange = (values: string | string[]) => {
-    setOpenSections(Array.isArray(values) ? values : [values]);
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b">
-        <div className="container flex items-center h-16 px-4 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-b from-sandy-beige via-white to-blue-50">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-gradient-to-r from-ocean-blue/95 via-blue-700/90 to-blue-600/90 text-white backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-6xl items-center px-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/map")}
-            className="mr-2"
+            className="text-white hover:bg-white/10"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="mr-2 h-5 w-5" />
+            Map
           </Button>
-          <h1 className="text-xl font-roboto font-bold text-dark-grey">
-            {beach.name}
-          </h1>
+          <span className="ml-3 text-xs uppercase tracking-[0.35em] text-white/70">
+            Surf Guide
+          </span>
+          <span className="ml-auto text-base font-semibold">{beach.name}</span>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
-        <h1 className="text-3xl md:text-4xl font-roboto font-extrabold mb-8 text-center bg-gradient-to-r from-ocean-blue to-blue-600 bg-clip-text text-transparent">
-          {beach.name}
-        </h1>
-
-        {/* Quick actions: Favorite + Set Home Beach */}
-        <div className="flex items-center justify-between mb-4 gap-3">
-          <FavoriteButton beachId={beach.id} variant="outline" size="sm" />
-          <div className="w-48">
-            <HomeBeachBanner
-              selectedBeachId={beach.id}
-              selectedBeachName={beach.name}
-            />
+      <main className="pb-24">
+        <section className="relative overflow-hidden bg-gradient-to-br from-ocean-blue via-blue-700 to-blue-600 text-white">
+          <div className="absolute inset-0 opacity-30">
+            <div className="absolute -top-24 right-0 h-64 w-64 rounded-full bg-white/30 blur-3xl" />
+            <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-blue-400/30 blur-3xl" />
           </div>
-        </div>
-
-        {/* Above the fold: Today → Next tides → Wind → Swell */}
-        {forecasts && forecasts.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-            <Card>
-              <CardHeader>
-                <CardTitle>Today</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm">
-                <div>Wave: {currentForecast?.wave_height ?? "–"}</div>
-                <div>Period: {currentForecast?.wave_period ?? "–"}</div>
-                <div>Cond: {currentForecast?.weather_condition ?? "–"}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Next Tides</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm">
-                <div>Status: {currentForecast?.tide_status ?? "–"}</div>
+          <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-4 py-12 lg:flex-row lg:items-center">
+            <div className="flex-1 space-y-6">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-white/70">
+                Today
+              </div>
+              <h1 className="text-4xl font-roboto font-extrabold tracking-tight md:text-5xl">
+                {beach.name}
+              </h1>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-white/80">
+                <span className="inline-flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  {locationLabel}
+                </span>
+                {beach.latitude != null && beach.longitude != null ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Compass className="h-4 w-4" />
+                    {beach.latitude.toFixed(2)}°, {beach.longitude.toFixed(2)}°
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm text-white/85">
+                {currentForecast?.weather_condition ? (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
+                    <CloudSun className="h-4 w-4" />
+                    {currentForecast.weather_condition}
+                  </span>
+                ) : null}
+                {currentForecast?.tide_status ? (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
+                    <Waves className="h-4 w-4" />
+                    {currentForecast.tide_status} tide
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <FavoriteButton beachId={beach.id} variant="outline" size="sm" />
+                <div className="w-48">
+                  <HomeBeachBanner
+                    selectedBeachId={beach.id}
+                    selectedBeachName={beach.name}
+                  />
+                </div>
+              </div>
+              <p className="max-w-xl text-sm text-white/80">
+                Live conditions, short-term tides, and crew intel—everything you
+                need before you paddle out.
+              </p>
+            </div>
+            <Card className="w-full max-w-sm border-none bg-white/95 shadow-2xl">
+              <CardContent className="space-y-6 p-6">
                 <div>
-                  Next: {currentForecast?.next_tide_type ?? "–"}{" "}
-                  {currentForecast?.next_tide_height ?? ""} @{" "}
-                  {currentForecast?.next_tide_time ?? ""}
+                  <span className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                    Wave Height
+                  </span>
+                  <div className="mt-2 flex items-end gap-2">
+                    <span className="text-6xl font-roboto font-extrabold text-ocean-blue">
+                      {heroWaveHeight}
+                    </span>
+                    <span className="text-xl font-semibold text-slate-500">ft</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="rounded-2xl bg-slate-100/70 p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Period
+                    </div>
+                    <div className="mt-2 text-lg font-semibold text-slate-800">
+                      {heroPeriod}
+                      {heroPeriod === "—" ? null : (
+                        <span className="ml-1 text-xs font-medium text-slate-500">
+                          s
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-slate-100/70 p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Conditions
+                    </div>
+                    <div className="mt-2 text-base font-semibold text-slate-800">
+                      {currentForecast?.weather_condition ?? "—"}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-slate-100/70 p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Next Tide
+                    </div>
+                    <div className="mt-2 text-base font-semibold text-slate-800">
+                      {heroNextTideType}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {heroNextTideHeight} · {formatTimeString(currentForecast?.next_tide_time)}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Wind</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm">
-                <div>Speed: {currentForecast?.wind_speed ?? "–"}</div>
-                <div>Dir: {currentForecast?.wind_direction ?? "–"}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Swell</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm">
-                <div>Height: {currentForecast?.wave_height ?? "–"}</div>
-                <div>Period: {currentForecast?.wave_period ?? "–"}</div>
-                <div>Dir: {currentForecast?.wave_direction ?? "–"}</div>
-              </CardContent>
-            </Card>
           </div>
-        )}
+        </section>
 
-        {/* Accordion Sections */}
-        <Accordion
-          type="multiple"
-          value={openSections}
-          onValueChange={handleAccordionChange}
-          className="space-y-4"
-          data-testid="beach-accordion"
-        >
-          {/* Live Cam */}
-          <AccordionItem value="cams" data-testid="accordion-item-cams">
-            <AccordionTrigger className="text-lg">
-              <span className="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-camera h-4 w-4"
-                >
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path>
-                  <circle cx="12" cy="13" r="4"></circle>
-                </svg>
+        <div className="relative z-10 mx-auto -mt-12 max-w-6xl space-y-12 px-4">
+          {hasForecasts ? (
+            <section className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                    Forecast Snapshot
+                  </h2>
+                  <span className="text-sm text-muted-foreground">
+                    Dialed for the next few hours
+                  </span>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="flex items-center justify-between rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-5 shadow-sm">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                        Next Tide
+                      </div>
+                      <div className="mt-2 text-2xl font-bold text-dark-grey">
+                        {heroNextTideType}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {heroNextTideHeight} · {formatTimeString(currentForecast?.next_tide_time)}
+                      </div>
+                    </div>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10">
+                      <TideIcon className="h-8 w-8 text-ocean-blue" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/40 to-white p-5 shadow-sm">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                        Wind
+                      </div>
+                      <div className="mt-2 text-2xl font-bold text-dark-grey">
+                        {currentForecast?.wind_speed ?? "—"}
+                      </div>
+                      <div className="text-sm text-muted-foreground uppercase">
+                        {currentForecast?.wind_direction ?? "—"}
+                      </div>
+                    </div>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10">
+                      <Wind className="h-8 w-8 text-ocean-blue" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/30 to-white p-5 shadow-sm">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                        Swell
+                      </div>
+                      <div className="mt-2 text-2xl font-bold text-dark-grey">
+                        {heroWaveHeight} ft
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {snapshotSwellDetails}
+                      </div>
+                    </div>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10">
+                      <Waves className="h-8 w-8 text-ocean-blue" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          <section id="live-cam" className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <h2 className="text-xl font-roboto font-semibold text-dark-grey">
                 Live Cam
+              </h2>
+              <span className="text-sm text-muted-foreground">
+                Watch the lineup in real time
               </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <CamsSection beachId={id} />
-            </AccordionContent>
-          </AccordionItem>
+            </div>
+            <CamsSection beachId={id} />
+          </section>
 
-          {/* 5 Day Outlook */}
-          <AccordionItem value="forecast" data-testid="accordion-item-forecast">
-            <AccordionTrigger className="text-lg">
-              <span className="flex items-center gap-2">
-                <Waves className="h-4 w-4" /> 5 Day Outlook
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <ForecastAndTides
-                beach={beach as Beach}
-                forecasts={forecasts || []}
-              />
-            </AccordionContent>
-          </AccordionItem>
+          {hasForecasts ? (
+            <section id="outlook" className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                  5-Day Outlook
+                </h2>
+                <span className="text-sm text-muted-foreground">
+                  Switch between tides, wind, swell, and week views
+                </span>
+              </div>
+              {miniForecastDays.length > 0 ? (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                  {miniForecastDays.map(({ date, forecast }) => {
+                    const label = (() => {
+                      try {
+                        return new Date(`${date}T00:00:00`).toLocaleDateString(
+                          undefined,
+                          { weekday: "short" }
+                        );
+                      } catch {
+                        return date;
+                      }
+                    })();
+                    const periodDisplay = formatMetric(forecast.wave_period);
+                    const windDirection = forecast.wind_direction ?? "";
+                    const swellDirection = forecast.wave_direction ?? "—";
+                    const swellDetails =
+                      periodDisplay === "—"
+                        ? `— · ${swellDirection}`
+                        : `${periodDisplay} s · ${swellDirection}`;
+                    return (
+                      <button
+                        key={date}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDay(date);
+                          setSelectedForecastEntry(forecast);
+                          setIsModalOpen(true);
+                        }}
+                        className="group rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-50/60 to-white p-3 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ocean-blue/40"
+                      >
+                        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                          <span>{label}</span>
+                          <span className="text-[10px] uppercase text-ocean-blue/80">
+                            {forecast.tide_status || "—"}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-baseline gap-1">
+                          <span className="text-2xl font-bold text-ocean-blue">
+                            {formatMetric(forecast.wave_height)}
+                          </span>
+                          <span className="text-sm text-muted-foreground">ft</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                          <Wind className="h-3 w-3" />
+                          <span>{forecast.wind_speed ?? "—"}</span>
+                          <span className="uppercase">{windDirection}</span>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {swellDetails}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              <div className="mt-6">
+                <ForecastAndTides beach={beach as Beach} forecasts={forecasts || []} />
+              </div>
+            </section>
+          ) : null}
 
-          {/* Local Intel */}
-          <AccordionItem value="intel" id="intel-section">
-            <AccordionTrigger className="text-lg">
-              <span className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" /> Local Intel
+          <section
+            id="intel-section"
+            className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <h2 className="flex items-center gap-2 text-xl font-roboto font-semibold text-dark-grey">
+                <MessageSquare className="h-5 w-5 text-ocean-blue" /> Local Intel
+              </h2>
+              <span className="text-sm text-muted-foreground">
+                Recent check-ins, crowd buzz, and surf notes
               </span>
-            </AccordionTrigger>
-            <AccordionContent id="intel" className="scroll-mt-24">
+            </div>
+            <div id="intel" className="mt-4 scroll-mt-24">
               <BeachIntelSection
                 beachId={id}
                 beachName={beach.name}
@@ -497,143 +717,72 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 navigateOnViewAll={false}
                 initialShowAll={searchParams?.get("show") === "all"}
               />
-            </AccordionContent>
-          </AccordionItem>
+            </div>
+          </section>
 
-          {/* Reviews */}
-          <AccordionItem value="reviews">
-            <AccordionTrigger className="text-lg">
-              <span className="flex items-center gap-2">
-                <Star className="h-4 w-4" /> Reviews
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-6">
-                <BeachReviewSummary
-                  beachId={beach.id}
-                  onWriteReview={handleWriteReview}
-                  refreshTrigger={reviewRefreshTrigger}
-                />
-                <BeachReviewsList
-                  beachId={beach.id}
-                  refreshTrigger={reviewRefreshTrigger}
+          <section id="reviews" className="space-y-6">
+            <BeachReviewSummary
+              beachId={beach.id}
+              onWriteReview={handleWriteReview}
+              refreshTrigger={reviewRefreshTrigger}
+            />
+            <BeachReviewsList beachId={beach.id} refreshTrigger={reviewRefreshTrigger} />
+          </section>
+
+          <section className="grid gap-6 lg:grid-cols-2">
+            <RecentSessionsSection beachId={id} />
+            <CrowdTipsSection beachId={id} />
+          </section>
+
+          <section>
+            <SpotOverview beach={beach as Beach} />
+          </section>
+
+          {sessionSnapshots && sessionSnapshots.length > 0 ? (
+            <section className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
+              <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                Forecast Accuracy
+              </h2>
+              <div className="mt-4">
+                <SessionForecastComparison
+                  snapshots={sessionSnapshots}
+                  maxItems={5}
+                  className="bg-white/80 backdrop-blur-sm border-ocean-blue/20"
                 />
               </div>
-            </AccordionContent>
-          </AccordionItem>
+            </section>
+          ) : null}
+        </div>
+      </main>
 
-          {/* Recent Sessions */}
-          <AccordionItem value="sessions">
-            <AccordionTrigger className="text-lg">
-              <span className="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-calendar h-4 w-4"
-                >
-                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
-                  <line x1="16" x2="16" y1="2" y2="6"></line>
-                  <line x1="8" x2="8" y1="2" y2="6"></line>
-                  <line x1="3" x2="21" y1="10" y2="10"></line>
-                </svg>
-                Recent Sessions
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <RecentSessionsSection beachId={id} />
-            </AccordionContent>
-          </AccordionItem>
+      <DetailedSwellModal
+        forecast={
+          selectedForecastEntry ||
+          (selectedDay ? forecastsByDate[selectedDay]?.[0] || null : null)
+        }
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedDay(null);
+          setSelectedForecastEntry(null);
+        }}
+        selectedDate={selectedDay}
+      />
 
-          {/* Crowd Tips */}
-          <AccordionItem value="tips">
-            <AccordionTrigger className="text-lg">
-              <span className="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-users h-4 w-4"
-                >
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="9" cy="7" r="4"></circle>
-                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                </svg>
-                Crowd Tips
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <CrowdTipsSection beachId={id} />
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* Spot Overview (moved last) */}
-          <AccordionItem value="overview">
-            <AccordionTrigger className="text-lg">
-              <span className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" /> Spot Overview
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <SpotOverview beach={beach as Beach} />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-
-        {/* Forecast Accuracy Section */}
-        {sessionSnapshots && sessionSnapshots.length > 0 && (
-          <div className="space-y-6 mt-8">
-            <h2 className="text-2xl md:text-3xl font-roboto font-bold bg-gradient-to-r from-ocean-blue to-blue-600 bg-clip-text text-transparent">
-              Forecast Accuracy
-            </h2>
-            <SessionForecastComparison
-              snapshots={sessionSnapshots}
-              maxItems={5}
-              className="bg-white/80 backdrop-blur-sm border-ocean-blue/20"
-            />
-          </div>
-        )}
-
-        {/* Detailed Swell Modal */}
-        <DetailedSwellModal
-          forecast={selectedDay ? forecastsByDate[selectedDay]?.[0] : null}
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedDay(null);
-          }}
-          selectedDate={selectedDay}
-        />
-
-        {/* Review Form Dialog */}
-        <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Write a Review for {beach?.name}</DialogTitle>
-            </DialogHeader>
-            <BeachReviewForm
-              beachId={id}
-              beachName={beach?.name || ""}
-              onSuccess={handleReviewSuccess}
-              onCancel={() => setReviewDialogOpen(false)}
-              isInDialog={true}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Write a Review for {beach?.name}</DialogTitle>
+          </DialogHeader>
+          <BeachReviewForm
+            beachId={id}
+            beachName={beach?.name || ""}
+            onSuccess={handleReviewSuccess}
+            onCancel={() => setReviewDialogOpen(false)}
+            isInDialog={true}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

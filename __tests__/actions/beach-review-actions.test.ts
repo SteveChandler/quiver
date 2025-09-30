@@ -275,6 +275,13 @@ describe("Beach Review Actions", () => {
         average_crowd_density: 3.5,
         average_parking: 3.5,
         average_accessibility: 4.5,
+        distribution: [
+          { rating: 5, count: 1 },
+          { rating: 4, count: 1 },
+          { rating: 3, count: 0 },
+          { rating: 2, count: 0 },
+          { rating: 1, count: 0 },
+        ],
       });
     });
 
@@ -293,6 +300,13 @@ describe("Beach Review Actions", () => {
         average_crowd_density: 0,
         average_parking: 0,
         average_accessibility: 0,
+        distribution: [
+          { rating: 5, count: 0 },
+          { rating: 4, count: 0 },
+          { rating: 3, count: 0 },
+          { rating: 2, count: 0 },
+          { rating: 1, count: 0 },
+        ],
       });
     });
 
@@ -360,6 +374,13 @@ describe("Beach Review Actions", () => {
           average_crowd_density: 3,
           average_parking: 3.5,
           average_accessibility: 4.5,
+          distribution: [
+            { rating: 5, count: 1 },
+            { rating: 4, count: 1 },
+            { rating: 3, count: 0 },
+            { rating: 2, count: 0 },
+            { rating: 1, count: 0 },
+          ],
         },
         "beach-2": {
           total_reviews: 1,
@@ -368,6 +389,13 @@ describe("Beach Review Actions", () => {
           average_crowd_density: 4,
           average_parking: 2,
           average_accessibility: 3,
+          distribution: [
+            { rating: 5, count: 0 },
+            { rating: 4, count: 0 },
+            { rating: 3, count: 1 },
+            { rating: 2, count: 0 },
+            { rating: 1, count: 0 },
+          ],
         },
         "beach-3": {
           total_reviews: 0,
@@ -376,6 +404,13 @@ describe("Beach Review Actions", () => {
           average_crowd_density: 0,
           average_parking: 0,
           average_accessibility: 0,
+          distribution: [
+            { rating: 5, count: 0 },
+            { rating: 4, count: 0 },
+            { rating: 3, count: 0 },
+            { rating: 2, count: 0 },
+            { rating: 1, count: 0 },
+          ],
         },
       });
     });
@@ -418,6 +453,13 @@ describe("Beach Review Actions", () => {
           average_crowd_density: 0,
           average_parking: 0,
           average_accessibility: 0,
+          distribution: [
+            { rating: 5, count: 0 },
+            { rating: 4, count: 0 },
+            { rating: 3, count: 0 },
+            { rating: 2, count: 0 },
+            { rating: 1, count: 0 },
+          ],
         },
         "beach-2": {
           total_reviews: 0,
@@ -426,6 +468,13 @@ describe("Beach Review Actions", () => {
           average_crowd_density: 0,
           average_parking: 0,
           average_accessibility: 0,
+          distribution: [
+            { rating: 5, count: 0 },
+            { rating: 4, count: 0 },
+            { rating: 3, count: 0 },
+            { rating: 2, count: 0 },
+            { rating: 1, count: 0 },
+          ],
         },
       });
     });

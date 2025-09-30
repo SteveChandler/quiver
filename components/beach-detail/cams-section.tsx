@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Camera } from "lucide-react";
+import { Loader2, CameraOff, PlayCircle, RefreshCw } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 
@@ -18,13 +17,11 @@ export function CamsSection({ beachId }: CamsSectionProps) {
         cache: "no-store",
       });
       if (!res.ok) {
-        // Soften failures: treat as no cam available
         return null;
       }
       const json = await res.json().catch(() => ({} as any));
       return (json as any)?.data?.sources || (json as any)?.sources || null;
     } catch {
-      // Network or parsing error: gracefully fall back
       return null;
     }
   }, [beachId]);
@@ -32,13 +29,13 @@ export function CamsSection({ beachId }: CamsSectionProps) {
   const {
     data: sources,
     loading,
-    error,
     refetch,
   } = useDataFetcher(fetchSources, { immediate: true });
 
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
   useEffect(() => {
     setIframeBlocked(false);
     setIframeLoaded(false);
@@ -51,100 +48,107 @@ export function CamsSection({ beachId }: CamsSectionProps) {
     return () => clearTimeout(timeout);
   }, [sources?.camera_url, iframeLoaded]);
 
+  const cameraUrl = sources?.camera_url as string | undefined;
+  const intent = cameraUrl ? buildCamEmbed(cameraUrl) : null;
+  const allowIframe =
+    intent && intent.kind === "iframe" && iframeBlocked === false &&
+    (sources as any)?.embed_allowed !== false;
+
+  let visual: React.ReactNode;
+
+  if (loading) {
+    visual = (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/70 via-white to-blue-50 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-ocean-blue" />
+        <span className="text-sm">Fetching live feed…</span>
+      </div>
+    );
+  } else if (!cameraUrl) {
+    visual = (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-100/80 via-white to-blue-50 text-center">
+        <CameraOff className="h-10 w-10 text-ocean-blue" />
+        <div className="max-w-sm text-sm text-muted-foreground">
+          No live cam available yet. Know a good angle? Let the crew know.
+        </div>
+        <Button asChild size="sm" className="bg-ocean-blue text-white hover:bg-ocean-blue/90">
+          <a
+            href="mailto:hello@withquiver.com?subject=Cam%20suggestion"
+            rel="noopener noreferrer"
+          >
+            Suggest a cam
+          </a>
+        </Button>
+      </div>
+    );
+  } else if (allowIframe && intent) {
+    visual = (
+      <div className="relative aspect-video w-full overflow-hidden bg-black">
+        <iframe
+          ref={iframeRef}
+          src={intent.src}
+          title={intent.title || "Live Cam"}
+          allow={intent.allow}
+          className="h-full w-full"
+          loading="lazy"
+          onLoad={() => setIframeLoaded(true)}
+          onError={() => setIframeBlocked(true)}
+        />
+      </div>
+    );
+  } else if (intent?.kind === "video") {
+    visual = (
+      <div className="relative aspect-video w-full overflow-hidden bg-black">
+        <video src={intent.src} controls playsInline className="h-full w-full" />
+      </div>
+    );
+  } else {
+    visual = (
+      <div className="relative flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 text-white">
+        <PlayCircle className="h-12 w-12 text-white/80" />
+        <div className="text-sm text-white/80">Preview unavailable. Pop open the cam instead.</div>
+        <Button asChild variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30">
+          <a
+            href={cameraUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open camera
+          </a>
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Camera className="h-5 w-5" /> Live Cam
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {loading && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading cams...
-          </div>
-        )}
-
-        {!loading && !sources?.camera_url && (
-          <div className="text-sm text-muted-foreground">
-            No camera link available for this beach.
-          </div>
-        )}
-
-        {sources?.camera_url && (
-          <div className="space-y-3">
-            {(() => {
-              const intent = buildCamEmbed(sources.camera_url as string);
-              const allowIframe =
-                (sources as any)?.embed_allowed !== false &&
-                intent.kind === "iframe" &&
-                !iframeBlocked;
-              if (allowIframe) {
-                return (
-                  <div className="w-full aspect-video rounded-lg overflow-hidden border">
-                    <iframe
-                      ref={iframeRef}
-                      src={intent.src}
-                      title={intent.title || "Live Cam"}
-                      allow={intent.allow}
-                      className="w-full h-full"
-                      loading="lazy"
-                      onLoad={() => setIframeLoaded(true)}
-                      onError={() => setIframeBlocked(true)}
-                    />
-                  </div>
-                );
-              }
-              if (intent.kind === "video") {
-                return (
-                  <div className="w-full aspect-video rounded-lg overflow-hidden border">
-                    <video
-                      src={intent.src}
-                      controls
-                      playsInline
-                      className="w-full h-full"
-                    />
-                  </div>
-                );
-              }
-              // HLS or blocked iframe → fallback
-              return (
-                <div className="w-full aspect-video rounded-lg overflow-hidden flex items-center justify-center bg-muted">
-                  <div className="text-center space-y-2">
-                    <div className="text-sm text-muted-foreground">
-                      Preview unavailable
-                    </div>
-                    <a
-                      href={sources.camera_url as string}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-primary underline"
-                    >
-                      Open camera
-                    </a>
-                  </div>
-                </div>
-              );
-            })()}
-
-            <div className="flex items-center justify-between">
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                Refresh
-              </Button>
-              <a
-                href={sources.camera_url as string}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary underline"
-              >
-                Open camera
+    <div className="overflow-hidden rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
+      {visual}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-blue-100/60 bg-blue-50/70 px-4 py-3 text-sm">
+        <span className="text-muted-foreground">
+          Refresh for the latest frame or open the feed in a new tab.
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetch()}
+            className="text-ocean-blue hover:bg-ocean-blue/10"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          {cameraUrl ? (
+            <Button
+              asChild
+              size="sm"
+              className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
+            >
+              <a href={cameraUrl} target="_blank" rel="noopener noreferrer">
+                Open cam
               </a>
-            </div>
-          </div>
-        )}
-
-        {/* Errors are softened to a neutral empty state; no explicit error UI */}
-      </CardContent>
-    </Card>
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }

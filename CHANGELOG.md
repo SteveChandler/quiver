@@ -1,5 +1,6 @@
 ### Added
 
+- Beach review stats now include rating distribution data from `lib/review-stats-utils.ts`, powering the refreshed `components/beach/beach-review-summary.tsx` grid with gradient meters and stacked spread.
 - `app/(journal)/new/steps/ConditionsStep.tsx` client component with fallback questionnaire and RHF bindings
 - New route `app/journal/new/page.tsx` to expose Conditions step for tests
 - Playwright test `e2e/journal/conditions.spec.ts` asserting core fields are visible
@@ -7,6 +8,10 @@
 
 ### Changed
 
+- Beach detail page reimagined into a surf-report flow: gradient hero with wave card, forecast snapshot row, mini 5-day strip, and streamlined sections for live cam, intel, reviews, sessions, and spot overview (`components/beach-detail.tsx`).
+- Live cam module now handles loading, missing, and fallback states with a “Suggest a cam” CTA and refreshed styling (`components/beach-detail/cams-section.tsx`).
+- 5-Day Outlook tabs switched to iconified pills with elevated card layouts for each dataset (`components/beach-detail/forecast-and-tides.tsx`).
+- Bottom navigation highlights the active route with an Ocean Blue capsule badge for clearer wayfinding (`components/bottom-navigation.tsx`).
 - Mobile header navigation: Removed hamburger menu (3 bars) and mobile dropdown menu to simplify mobile UX. Authenticated users rely on bottom navigation as primary mobile navigation, making the hamburger menu redundant. Desktop navigation remains unchanged for unauthenticated users.
 
 ### Changed
