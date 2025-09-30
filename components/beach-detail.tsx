@@ -373,7 +373,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
   };
 
   const locationLabel =
-    beach.location || beach.region || beach.country || "Untitled coastline";
+    beach?.location || beach?.region || beach?.country || "Untitled coastline";
 
   const tideTrend = (currentForecast?.tide_status || "").toLowerCase();
   const TideIcon =
