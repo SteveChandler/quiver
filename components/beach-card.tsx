@@ -12,7 +12,7 @@ import { ForecastPreview } from "@/components/ui/forecast-preview";
 interface BeachCardProps {
   id?: string;
   name: string;
-  distance: string;
+  distance?: string;
   rating: number;
   reviewCount: number;
   imageUrl: string;
@@ -106,10 +106,12 @@ export function BeachCard({
             transition={{ duration: 0.4, delay: 0.1 }}
           >
             <h3 className="font-semibold text-lg">{name}</h3>
-            <div className="flex items-center text-sm">
-              <MapPin className="h-4 w-4 mr-1" />
-              <span>{distance}</span>
-            </div>
+            {distance ? (
+              <div className="flex items-center text-sm">
+                <MapPin className="h-4 w-4 mr-1" />
+                <span>{distance}</span>
+              </div>
+            ) : null}
           </motion.div>
         </motion.div>
         <CardContent className="p-3">

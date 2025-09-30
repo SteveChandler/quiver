@@ -46,7 +46,7 @@ export function NearbyBeaches({ limit = 4 }: NearbyBeachesProps) {
             const distanceLabel =
               typeof distanceMiles === "number" && distanceMiles >= 0.1
                 ? formatMiles(distanceMiles)
-                : "";
+                : undefined;
 
             return (
               <BeachCard
