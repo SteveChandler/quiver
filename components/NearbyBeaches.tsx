@@ -38,26 +38,35 @@ export function NearbyBeaches({ limit = 4 }: NearbyBeachesProps) {
         <div className="h-28 animate-pulse rounded-2xl bg-muted" />
       ) : (
         <div className="grid gap-4 md:grid-cols-4">
-          {otherBeaches.map((beach) => (
-            <BeachCard
-              key={beach.id}
-              id={beach.id}
-              name={beach.name}
-              distance={formatMiles(
-                typeof beach.meters === "number"
-                  ? beach.meters / 1609.344
-                  : undefined
-              )}
-              rating={
-                typeof beach.rating === "number" ? beach.rating : Number.NaN
-              }
-              reviewCount={beach.reviewCount ?? 0}
-              imageUrl={beach.imageUrl ?? "/images/beach-placeholder.jpg"}
-              latitude={beach.lat ?? undefined}
-              longitude={beach.lon ?? undefined}
-              showForecastPreview={false}
-            />
-          ))}
+          {otherBeaches.map((beach) => {
+            const distanceMiles =
+              typeof beach.meters === "number"
+                ? beach.meters / 1609.344
+                : undefined;
+            const distanceLabel =
+              typeof distanceMiles === "number" && distanceMiles >= 0.1
+                ? formatMiles(distanceMiles)
+                : "";
+
+            return (
+              <BeachCard
+                key={beach.id}
+                id={beach.id}
+                name={beach.name}
+                distance={distanceLabel}
+                rating={
+                  typeof beach.rating === "number" ? beach.rating : Number.NaN
+                }
+                reviewCount={beach.reviewCount ?? 0}
+                imageUrl={
+                  beach.imageUrl ?? "/images/beach-placeholder.jpg"
+                }
+                latitude={beach.lat ?? undefined}
+                longitude={beach.lon ?? undefined}
+                showForecastPreview={false}
+              />
+            );
+          })}
         </div>
       )}
     </section>

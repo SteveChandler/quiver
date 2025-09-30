@@ -74,6 +74,11 @@ describe("NearbyBeaches component", () => {
           reviewCount: 5,
           imageUrl: "https://example.com/south.jpg",
         },
+        {
+          id: "b-3",
+          name: "Harbor Cove",
+          meters: 40,
+        },
       ],
       error: null,
     });
@@ -91,11 +96,15 @@ describe("NearbyBeaches component", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getAllByTestId("beach-card")).toHaveLength(2);
+      expect(screen.getAllByTestId("beach-card")).toHaveLength(3);
     });
 
-    expect(screen.getByText(/North Point/).textContent).toContain("5.0 mi");
-    expect(screen.getByText(/South Point/).textContent).toContain("1.0 mi");
+    const cards = screen.getAllByTestId("beach-card");
+
+    expect(cards[0].textContent).toContain("5.0 mi");
+    expect(cards[1].textContent).toContain("1.0 mi");
+    expect(cards[2].textContent).toBe("Harbor Cove - ");
+    expect(cards[2].textContent?.includes("mi")).toBe(false);
   });
 
   it("returns null when no beach is selected", () => {
