@@ -73,10 +73,10 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
   
   // Get beach coordinates using the unified resolution function
   const coords = session.beach ? resolveBeachCoordinates(session.beach) : null;
+  const beachName = session.beach?.name || session.beach_name;
 
   // If no coordinates from beach object, try beach_name fallback
-  if (!coords && (session.beach?.name || session.beach_name)) {
-    const beachName = session.beach?.name || session.beach_name;
+  if (!coords && beachName) {
     console.log(`No coordinates for beach: ${beachName}, trying hardcoded fallback`);
     
     // Use hardcoded coordinates for known beaches if available
@@ -91,7 +91,6 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
           width: 500,
           height: 350,
           zoom: 12,
-          markerText: beachName,
         });
       }
     } catch (error) {
@@ -100,11 +99,13 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
   }
 
   // Generate the map image URL with coordinates or fallback
+  // If we have coordinates: don't pass markerText (so we get real Mapbox maps)
+  // If we don't have coordinates: pass beach name so it shows in placeholder
   const mapUrl = getStaticMapImageUrl(coords?.latitude, coords?.longitude, {
     width: 500,
     height: 350,
     zoom: 12,
-    markerText: session.beach?.name || session.beach_name || "Session Location",
+    markerText: coords ? undefined : beachName,
   });
   
   console.log('Generated map URL:', mapUrl);
