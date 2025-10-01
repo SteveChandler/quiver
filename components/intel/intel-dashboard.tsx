@@ -11,6 +11,8 @@ import { IntelPostForm } from "./intel-post-form";
 import { CheckInForm } from "@/components/ui/check-in-form";
 import { CheckInFeed } from "@/components/ui/check-in-display";
 import { useLocationIntelData, useIntelFilters } from "@/hooks/use-intel-data";
+import { useProfile } from "@/lib/hooks/useProfile";
+import { useNearbyBeaches } from "@/hooks/useNearbyBeaches";
 import { useRealtimeBeachCheckIns } from "@/hooks/use-check-ins";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
@@ -51,6 +53,7 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
   const [mapCenter, setMapCenter] = useState<[number, number] | undefined>();
 
   const { user } = useAuth();
+  const { profile } = useProfile();
   const router = useRouter();
 
   // Intel filters state
@@ -78,6 +81,42 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
     refreshInterval: 30000,
     showAll: locationMode === "all",
   });
+
+  const homeBeachId = profile?.home_beach_id || profile?.home_beach?.id || null;
+
+  const { data: nearbyBeaches = [] } = useNearbyBeaches(
+    location?.latitude,
+    location?.longitude,
+    1
+  );
+
+  const defaultBeach = useMemo(() => {
+    if (homeBeachId) {
+      return {
+        id: homeBeachId,
+        name:
+          profile?.homeBeachName || profile?.home_beach?.name || "Home Break",
+        source: "home" as const,
+      };
+    }
+
+    if (nearbyBeaches[0]) {
+      return {
+        id: nearbyBeaches[0].id,
+        name: nearbyBeaches[0].name,
+        source: "nearby" as const,
+      };
+    }
+
+    return null;
+  }, [
+    homeBeachId,
+    profile?.homeBeachName,
+    profile?.home_beach?.name,
+    nearbyBeaches,
+  ]);
+
+  const isCheckInReady = !!defaultBeach;
 
   const [pendingPosts, setPendingPosts] = useState<IntelPostWithUser[]>([]);
   const posts = useMemo(() => {
@@ -201,10 +240,7 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
           newPost,
           ...prev.filter((post) => post.id !== newPost.id),
         ]);
-        setMapCenter([
-          Number(newPost.longitude),
-          Number(newPost.latitude),
-        ]);
+        setMapCenter([Number(newPost.longitude), Number(newPost.latitude)]);
       }
       refetch();
     },
@@ -331,11 +367,20 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
               <Button
                 variant="default"
                 size="sm"
-                onClick={() => setShowCheckInForm(true)}
-                className="h-8 bg-blue-600 hover:bg-blue-700"
+                onClick={() => {
+                  if (!isCheckInReady) {
+                    toast.error(
+                      "Set a home beach or enable location services to choose a spot before checking in."
+                    );
+                    return;
+                  }
+                  setShowCheckInForm(true);
+                }}
+                disabled={!isCheckInReady}
+                className="h-8 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:hover:bg-blue-600"
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Check-In
+                {isCheckInReady ? "Check-In" : "Select a Beach"}
               </Button>
             )}
 
@@ -520,12 +565,12 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
       />
 
       {/* Check-In Form */}
-      {showCheckInForm && (
+      {showCheckInForm && isCheckInReady && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             <CheckInForm
-              beachId="default" // TODO: Get from selected beach or user location
-              beachName="Local Spot"
+              beachId={defaultBeach!.id}
+              beachName={defaultBeach!.name}
               onSuccess={() => {
                 setShowCheckInForm(false);
                 refetch(); // Refresh the intel data
