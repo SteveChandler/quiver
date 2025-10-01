@@ -71,7 +71,10 @@ describe("CheckInForm", () => {
 
   it("submits with default accuracy when user confirms", async () => {
     const user = userEvent.setup();
-    mockSubmitCheckIn.mockResolvedValueOnce({ id: "checkin-1" } as any);
+    mockSubmitCheckIn.mockResolvedValueOnce({
+      success: true,
+      data: { id: "checkin-1" },
+    } as any);
 
     render(<CheckInForm {...defaultProps} />);
 
@@ -84,9 +87,12 @@ describe("CheckInForm", () => {
   it("submits form with valid data", async () => {
     const user = userEvent.setup();
     mockSubmitCheckIn.mockResolvedValueOnce({
-      id: "checkin-123",
-      user_id: "user-123",
-      beach_id: "beach-123",
+      success: true,
+      data: {
+        id: "checkin-123",
+        user_id: "user-123",
+        beach_id: "beach-123",
+      },
     } as any);
 
     render(<CheckInForm {...defaultProps} />);
@@ -148,7 +154,10 @@ describe("CheckInForm", () => {
 
   it("handles submission errors gracefully", async () => {
     const user = userEvent.setup();
-    mockSubmitCheckIn.mockRejectedValueOnce(new Error("Submission failed"));
+    mockSubmitCheckIn.mockResolvedValueOnce({
+      success: false,
+      error: "Submission failed",
+    } as any);
 
     render(<CheckInForm {...defaultProps} />);
 
@@ -161,11 +170,14 @@ describe("CheckInForm", () => {
     await user.click(submitButton);
 
     await waitFor(() => {
-      // Either a toast is shown or not; the goal is that onSuccess is not fired
       expect(defaultProps.onSuccess).not.toHaveBeenCalled();
     });
 
-    expect(defaultProps.onSuccess).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith({
+      title: "Failed to submit check-in",
+      description: "Submission failed",
+      variant: "destructive",
+    });
   });
 
   it("shows loading state during submission", async () => {

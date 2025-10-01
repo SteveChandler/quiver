@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "../setup/vitest-shim";
 import * as CheckInActionsModule from "@/actions/check-in-actions";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 // unwrap server action wrappers to direct functions if needed
+const submitCheckIn = CheckInActionsModule.submitCheckIn;
 const getRecentCheckIns = CheckInActionsModule.getRecentCheckIns;
 const getForecastAccuracyStats = CheckInActionsModule.getForecastAccuracyStats;
 const getUserCheckIns = CheckInActionsModule.getUserCheckIns;
@@ -11,6 +13,11 @@ import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 jest.mock("@/lib/supabase/api-server-client", () => ({
   __esModule: true,
   createAPIServerClient: jest.fn(),
+}));
+
+jest.mock("@/lib/supabase/server", () => ({
+  __esModule: true,
+  createSupabaseServerClient: jest.fn(),
 }));
 
 const makeChain = () => {
@@ -29,10 +36,15 @@ const makeChain = () => {
 
 const beachesChain = makeChain();
 const checkinsChain = makeChain();
+const conditionReportsChain = makeChain();
 const mockSupabaseClient: any = {
+  auth: {
+    getUser: jest.fn(),
+  },
   from: jest.fn((table: string) => {
     if (table === "beaches") return beachesChain;
     if (table === "check_ins") return checkinsChain;
+    if (table === "condition_reports") return conditionReportsChain;
     return makeChain();
   }),
   rpc: jest.fn(),
@@ -43,9 +55,83 @@ beforeEach(() => {
   (createAPIServerClient as unknown as jest.Mock).mockReturnValue(
     mockSupabaseClient
   );
+  (createSupabaseServerClient as unknown as jest.Mock).mockResolvedValue(
+    mockSupabaseClient
+  );
+  mockSupabaseClient.auth.getUser.mockResolvedValue({
+    data: { user: { id: "user-123" } },
+    error: null,
+  });
 });
 
 describe("Check-in Actions", () => {
+
+  describe("submitCheckIn", () => {
+    it("creates condition report with normalized values", async () => {
+      const mockResponse = {
+        id: "report-1",
+      };
+
+      beachesChain.select().eq().single.mockResolvedValueOnce({ data: { id: "beach-123" }, error: null });
+      conditionReportsChain
+        .insert
+        .mockReturnValueOnce(conditionReportsChain);
+      conditionReportsChain.select.mockReturnValueOnce(conditionReportsChain);
+      conditionReportsChain.single.mockResolvedValueOnce({ data: mockResponse, error: null });
+      checkinsChain
+        .select.mockReturnValueOnce(checkinsChain);
+      checkinsChain.eq.mockReturnValueOnce(checkinsChain);
+      checkinsChain.single.mockResolvedValueOnce({
+        data: {
+          id: "report-1",
+          profiles: { username: "surfer", profile_picture_url: null },
+        },
+        error: null,
+      });
+
+      const result = await submitCheckIn("beach-123", {
+        wave_height: 6,
+        wind_speed: 12,
+        wind_direction: "NE",
+        water_temp: 65,
+        crowd_level: 4,
+        vibe: "Fun session",
+        forecast_accuracy_rating: "accurate",
+      });
+
+      expect(conditionReportsChain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          beach_id: "beach-123",
+          kind: "check_in",
+          wave_height_m: expect.any(Number),
+          wind_speed_ms: expect.any(Number),
+          wind_direction_deg: 45,
+          water_temp_c: expect.any(Number),
+          crowd_level: 4,
+          vibe: "Fun session",
+          forecast_accuracy: "accurate",
+        })
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.data?.id).toBe("report-1");
+    });
+
+    it("returns error when Supabase insert fails", async () => {
+      beachesChain.select().eq().single.mockResolvedValueOnce({ data: { id: "beach-123" }, error: null });
+      conditionReportsChain
+        .insert.mockReturnValueOnce(conditionReportsChain);
+      conditionReportsChain.select.mockReturnValueOnce(conditionReportsChain);
+      conditionReportsChain.single.mockResolvedValueOnce({ data: null, error: { message: "insert failed" } });
+
+      const result = await submitCheckIn("beach-123", {
+        forecast_accuracy_rating: "accurate",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Failed to submit check-in");
+    });
+  });
 
   describe("getRecentCheckIns", () => {
     it("should fetch recent check-ins using RPC function", async () => {

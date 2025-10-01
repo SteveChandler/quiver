@@ -146,7 +146,7 @@ export function CheckInForm({
     try {
       setIsSubmitting(true);
 
-      await submitCheckIn(beachId, {
+      const response = await submitCheckIn(beachId, {
         wave_height: data.wave_height,
         wind_speed: data.wind_speed,
         wind_direction: data.wind_direction,
@@ -155,6 +155,10 @@ export function CheckInForm({
         vibe: data.vibe || null,
         forecast_accuracy_rating: data.forecast_accuracy_rating,
       });
+
+      if (!response.success) {
+        throw new Error(response.error || "Failed to submit check-in");
+      }
 
       toast({
         title: "Check-in submitted!",
@@ -169,7 +173,9 @@ export function CheckInForm({
       toast({
         title: "Failed to submit check-in",
         description:
-          "Please try again. Make sure you're connected to the internet.",
+          error instanceof Error && error.message
+            ? error.message
+            : "Please try again. Make sure you're connected to the internet.",
         variant: "destructive",
       });
     } finally {
