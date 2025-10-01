@@ -168,7 +168,7 @@ export const SEO_CONFIG = {
     viewport: "width=device-width, initial-scale=1",
     "theme-color": "#1e40af", // ocean-blue
     "msapplication-TileColor": "#1e40af",
-    "apple-mobile-web-app-capable": "yes",
+    "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "default",
     "format-detection": "telephone=no",
     "google-site-verification": "", // Add when Google Search Console is set up

@@ -15,23 +15,28 @@ npm run mobile:dev:tunnel
 # 3. Sync once
 npm run mobile:sync:local
 
-# 4. Open and run in Android Studio
-npm run mobile:build:android:local
+# 4. Open and run
+npm run mobile:build:ios:local      # For iOS (Xcode)
+npm run mobile:build:android:local  # For Android (Android Studio)
 ```
 
 ### 📋 Common Commands
 
 ```bash
-# Mobile Development
-npm run mobile:dev:tunnel          # Start dev + tunnel (auto)
+# Local Development (Tunnel-based)
+npm run mobile:dev:tunnel           # Start dev + tunnel (auto)
 npm run mobile:sync:local           # Sync with local tunnel config
-npm run mobile:build:android:local  # Sync & open Android Studio
+npm run mobile:build:ios:local      # Sync & open Xcode (local)
+npm run mobile:build:android:local  # Sync & open Android Studio (local)
 
-# Standard Mobile Commands
-npm run mobile:sync                 # Production sync
+# Production Testing
+npm run mobile:sync:prod            # Sync with production server
+npm run mobile:build:ios            # Production iOS (quiversurf.app)
+npm run mobile:build:android        # Production Android (quiversurf.app)
+
+# Legacy Commands
+npm run mobile:sync                 # Default sync (uses capacitor.config.ts)
 npm run mobile:sync:dev             # Vercel dev sync
-npm run mobile:build:android        # Production Android
-npm run mobile:build:ios            # Production iOS
 ```
 
 ### 🛠 Setup (First Time Only)
@@ -63,8 +68,32 @@ npm run mobile:dev:tunnel
 export CAPACITOR_DEV_URL='https://YOUR-URL-FROM-TERMINAL-1'
 npm run mobile:sync:local
 
-# Run in Android Studio - hot reload works! ✨
+# Run in Android Studio or Xcode - hot reload works! ✨
+
+# For iOS:
+npm run mobile:build:ios:local
+# Then press Cmd+R in Xcode to build and run
 ```
+
+### 🍎 iOS-Specific Notes
+
+**Production Testing:**
+
+```bash
+npm run mobile:build:ios   # Connects to https://quiversurf.app
+```
+
+**Local Development:**
+
+```bash
+npm run mobile:build:ios:local   # Connects to tunnel URL
+```
+
+**Requirements:**
+
+- CocoaPods installed: `brew install cocoapods`
+- UTF-8 encoding in shell: `export LANG=en_US.UTF-8` (add to `~/.zshrc`)
+- Xcode with iOS development tools
 
 ### 🌐 Tunnel URLs
 

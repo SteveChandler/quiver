@@ -167,6 +167,9 @@ function IntelFeedCard({
   canConfirm,
 }: IntelFeedCardProps) {
   const [isConfirming, setIsConfirming] = useState(false);
+  const hasUserConfirmed = Boolean(
+    (post as any).user_has_confirmed ?? post.user_confirmed
+  );
 
   const tagConfig = getIntelTagConfig(post.tag);
   const confidenceColor = getConfidenceColor(post.confirmations_count);
@@ -184,7 +187,7 @@ function IntelFeedCard({
 
     setIsConfirming(true);
     try {
-      await onConfirm(post.id, post.user_confirmed || false);
+      await onConfirm(post.id, hasUserConfirmed);
     } finally {
       setIsConfirming(false);
     }
@@ -293,7 +296,7 @@ function IntelFeedCard({
               {/* Confirm Button */}
               {canConfirm && !isExpired && (
                 <Button
-                  variant={post.user_confirmed ? "secondary" : "default"}
+                  variant={hasUserConfirmed ? "secondary" : "default"}
                   size="sm"
                   onClick={handleConfirm}
                   disabled={isConfirming}
@@ -301,7 +304,7 @@ function IntelFeedCard({
                 >
                   {isConfirming ? (
                     <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  ) : post.user_confirmed ? (
+                  ) : hasUserConfirmed ? (
                     <CheckCheck className="h-3 w-3" />
                   ) : (
                     <Check className="h-3 w-3" />

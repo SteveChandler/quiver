@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createSupabaseServerClient,
+  createSupabaseServiceRoleClient,
+} from "@/lib/supabase/server";
 import { getExpiryDate } from "@/lib/constants/intel";
 import { creditAuthorWithXP } from "@/lib/gamification-actions";
 import type { ActionResult } from "@/lib/action-utils";
@@ -31,6 +34,12 @@ interface IntelDeps {
   trackXP?: TrackXPFn;
   authWrapper?: typeof withAuthenticatedAction;
 }
+
+const GLOBAL_INTEL_FALLBACK = {
+  latitude: 32.7507, // Ocean Beach, San Diego acts as seeded demo hub
+  longitude: -117.254,
+  radius: 400,
+};
 
 export async function createIntelPost(
   data: CreateIntelPostData,
@@ -732,21 +741,25 @@ export async function getAllIntelPosts(
   } = {}
 ): Promise<ActionResult> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const [serviceClient, supabase] = await Promise.all([
+      createSupabaseServiceRoleClient(),
+      createSupabaseServerClient(),
+    ]);
 
-    // Get authenticated user (optional for this function)
+    // Get authenticated user (optional; used to hydrate confirmation state)
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     const { tag, limit = 50 } = params;
 
-    let query = supabase
+    let postsQuery = serviceClient
       .from("intel_posts")
       .select(
         `
         id,
         user_id,
+        beach_id,
         latitude,
         longitude,
         tag,
@@ -754,6 +767,7 @@ export async function getAllIntelPosts(
         description,
         photo_url,
         photo_storage_path,
+        surf_conditions,
         confirmations_count,
         is_active,
         expires_at,
@@ -766,12 +780,11 @@ export async function getAllIntelPosts(
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    // Apply tag filter if specified
     if (tag && tag !== "all") {
-      query = query.eq("tag", tag);
+      postsQuery = postsQuery.eq("tag", tag);
     }
 
-    const { data: intelPosts, error: intelError } = await query;
+    const { data: intelPosts, error: intelError } = await postsQuery;
 
     if (intelError) {
       console.error("Error fetching all intel posts:", intelError);
@@ -782,6 +795,25 @@ export async function getAllIntelPosts(
     }
 
     if (!intelPosts || intelPosts.length === 0) {
+      const fallback = await getNearbyIntelPosts({
+        latitude: GLOBAL_INTEL_FALLBACK.latitude,
+        longitude: GLOBAL_INTEL_FALLBACK.longitude,
+        radius: GLOBAL_INTEL_FALLBACK.radius,
+        tag,
+        limit,
+      });
+
+      if (fallback.success && fallback.data?.posts?.length) {
+        return {
+          success: true,
+          data: {
+            posts: fallback.data.posts,
+            total: fallback.data.posts.length,
+            filters: { tag: tag || "all", limit },
+          },
+        };
+      }
+
       return {
         success: true,
         data: {
@@ -794,7 +826,7 @@ export async function getAllIntelPosts(
 
     // Get user details for posts
     const userIds = [...new Set(intelPosts.map((post) => post.user_id))];
-    const { data: profiles, error: profilesError } = await supabase
+    const { data: profiles, error: profilesError } = await serviceClient
       .from("profiles")
       .select("id, full_name, avatar_url")
       .in("id", userIds);
@@ -811,11 +843,12 @@ export async function getAllIntelPosts(
     let userConfirmations: any[] = [];
     if (user) {
       const postIds = intelPosts.map((post) => post.id);
-      const { data: confirmations, error: confirmationsError } = await supabase
-        .from("intel_post_confirmations")
-        .select("intel_post_id")
-        .eq("user_id", user.id)
-        .in("intel_post_id", postIds);
+      const { data: confirmations, error: confirmationsError } =
+        await serviceClient
+          .from("intel_post_confirmations")
+          .select("intel_post_id")
+          .eq("user_id", user.id)
+          .in("intel_post_id", postIds);
 
       if (!confirmationsError && confirmations) {
         userConfirmations = confirmations;

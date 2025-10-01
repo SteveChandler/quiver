@@ -449,7 +449,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
             <div className="absolute -top-24 right-0 h-64 w-64 rounded-full bg-white/30 blur-3xl" />
             <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-blue-400/30 blur-3xl" />
           </div>
-          <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-2 sm:px-4 py-12 lg:flex-row lg:items-center">
+          <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-4 sm:px-6 py-12 lg:flex-row lg:items-center">
             <div className="flex-1 space-y-6">
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-white/70">
                 Today
@@ -516,8 +516,8 @@ export function BeachDetail({ id }: BeachDetailProps) {
                     </span>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3 text-sm">
-                  <div className="rounded-2xl bg-slate-100/70 p-3">
+                <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3 sm:gap-3">
+                  <div className="rounded-2xl bg-slate-100/70 p-4">
                     <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Period
                     </div>
@@ -530,7 +530,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                       )}
                     </div>
                   </div>
-                  <div className="rounded-2xl bg-slate-100/70 p-3">
+                  <div className="rounded-2xl bg-slate-100/70 p-4">
                     <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Conditions
                     </div>
@@ -538,7 +538,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                       {currentForecast?.weather_condition ?? "—"}
                     </div>
                   </div>
-                  <div className="rounded-2xl bg-slate-100/70 p-3">
+                  <div className="rounded-2xl bg-slate-100/70 p-4">
                     <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Next Tide
                     </div>
@@ -556,7 +556,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
           </div>
         </section>
 
-        <div className="relative z-10 mx-auto -mt-12 max-w-6xl space-y-12 px-2 sm:px-4">
+        <div className="relative z-10 mx-auto -mt-8 max-w-6xl space-y-10 px-4 sm:-mt-12 sm:space-y-12 sm:px-6">
           {hasForecasts ? (
             <section className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur">
               <div className="flex flex-col gap-6">
@@ -568,9 +568,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
                     Dialed for the next few hours
                   </span>
                 </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="flex items-center justify-between rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-5 shadow-sm">
-                    <div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+                  <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex-1">
                       <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
                         Next Tide
                       </div>
@@ -582,12 +582,12 @@ export function BeachDetail({ id }: BeachDetailProps) {
                         {formatTimeString(currentForecast?.next_tide_time)}
                       </div>
                     </div>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
                       <TideIcon className="h-8 w-8 text-ocean-blue" />
                     </div>
                   </div>
-                  <div className="flex items-center justify-between rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/40 to-white p-5 shadow-sm">
-                    <div>
+                  <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/40 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex-1">
                       <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
                         Wind
                       </div>
@@ -598,12 +598,12 @@ export function BeachDetail({ id }: BeachDetailProps) {
                         {currentForecast?.wind_direction ?? "—"}
                       </div>
                     </div>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
                       <Wind className="h-8 w-8 text-ocean-blue" />
                     </div>
                   </div>
-                  <div className="flex items-center justify-between rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/30 to-white p-5 shadow-sm">
-                    <div>
+                  <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/30 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex-1">
                       <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
                         Swell
                       </div>
@@ -614,7 +614,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                         {snapshotSwellDetails}
                       </div>
                     </div>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
                       <Waves className="h-8 w-8 text-ocean-blue" />
                     </div>
                   </div>
@@ -649,7 +649,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                 </span>
               </div>
               {miniForecastDays.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
                   {miniForecastDays.map(({ date, forecast }) => {
                     const label = (() => {
                       try {

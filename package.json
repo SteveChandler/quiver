@@ -60,9 +60,11 @@
     "mobile:sync": "cap sync",
     "mobile:sync:dev": "NODE_ENV=development cap sync",
     "mobile:sync:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync",
+    "mobile:sync:prod": "CAPACITOR_CONFIG=capacitor.config.prod.ts cap sync",
     "mobile:dev:tunnel": "bash scripts/dev-tunnel.sh",
-    "mobile:build:ios": "cap sync ios && cap open ios",
-    "mobile:build:android": "cap sync android && cap open android",
+    "mobile:build:ios": "CAPACITOR_CONFIG=capacitor.config.prod.ts cap sync ios && cap open ios",
+    "mobile:build:ios:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync ios && cap open ios",
+    "mobile:build:android": "CAPACITOR_CONFIG=capacitor.config.prod.ts cap sync android && cap open android",
     "mobile:build:android:local": "CAPACITOR_CONFIG=capacitor.config.dev.ts cap sync android && cap open android",
     "mobile:assets": "capacitor-assets generate --config mobile/capacitor-assets.config.ts"
   },

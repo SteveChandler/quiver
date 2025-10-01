@@ -9,6 +9,7 @@
 
 ### Changed
 
+- Beach detail mobile spacing adjustments: increased gutter and vertical rhythm for forecast cards, outlook tiles, and metric grid to prevent cramped stacking on phones while retaining desktop layout (`components/beach-detail.tsx`).
 - **Mobile Spacing Optimization**: Reduced horizontal padding on beach detail and profile pages from `px-4` to `px-2` on mobile (keeping `px-4` on sm+ screens) to better utilize screen space. Section cards now use `p-4` on mobile and `p-6` on md+ or sm+ screens. Intel section card content uses `p-3` on mobile and `p-4` on sm+ screens. This prevents UI elements like "View all intel posts" button and profile tab content from being cut off on mobile devices (`components/beach-detail.tsx`, `components/intel/beach-intel-section.tsx`, `components/profile-view.tsx`).
 - Favorite button (heart icon) now displays with visible gray outline in unfavorited state instead of appearing as a white box, with smooth hover transitions to red (`components/favorite-button.tsx`).
 - Beach detail page reimagined into a surf-report flow: gradient hero with wave card, forecast snapshot row, mini 5-day strip, and streamlined sections for live cam, intel, reviews, sessions, and spot overview (`components/beach-detail.tsx`).
@@ -124,6 +125,16 @@ All notable changes to the Quiver surf app are documented in this file.
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning.
 
 ## [Unreleased]
+
+### Fixed
+
+- Dev tunnel (Cloudflare): Bound Next.js dev server to 0.0.0.0 so `/_next/static/*` and font assets resolve over `*.trycloudflare.com`, eliminating HTML 404 responses and MIME type errors when loading CSS/JS.
+
+### Changed
+
+- Replaced deprecated `apple-mobile-web-app-capable` meta with `mobile-web-app-capable` via `SEO_CONFIG` → `app/layout.tsx` metadata pipeline.
+- Mobile header spacing tuned for notch devices: `components/app-header.tsx` now honors `env(safe-area-inset-top)` and reduces mobile padding while keeping desktop height per `components/ARCHITECTURE.md` responsive patterns.
+- Live cam "Suggest a cam" CTA now emails `support@quiversurf.app` to route submissions directly to the support crew (`components/beach-detail/cams-section.tsx`).
 
 ### Added
 

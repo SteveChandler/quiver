@@ -51,7 +51,9 @@ export function CamsSection({ beachId }: CamsSectionProps) {
   const cameraUrl = sources?.camera_url as string | undefined;
   const intent = cameraUrl ? buildCamEmbed(cameraUrl) : null;
   const allowIframe =
-    intent && intent.kind === "iframe" && iframeBlocked === false &&
+    intent &&
+    intent.kind === "iframe" &&
+    iframeBlocked === false &&
     (sources as any)?.embed_allowed !== false;
 
   let visual: React.ReactNode;
@@ -70,9 +72,13 @@ export function CamsSection({ beachId }: CamsSectionProps) {
         <div className="max-w-sm text-sm text-muted-foreground">
           No live cam available yet. Know a good angle? Let the crew know.
         </div>
-        <Button asChild size="sm" className="bg-ocean-blue text-white hover:bg-ocean-blue/90">
+        <Button
+          asChild
+          size="sm"
+          className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
+        >
           <a
-            href="mailto:hello@withquiver.com?subject=Cam%20suggestion"
+            href="mailto:support@quiversurf.app?subject=Cam%20suggestion"
             rel="noopener noreferrer"
           >
             Suggest a cam
@@ -98,20 +104,28 @@ export function CamsSection({ beachId }: CamsSectionProps) {
   } else if (intent?.kind === "video") {
     visual = (
       <div className="relative aspect-video w-full overflow-hidden bg-black">
-        <video src={intent.src} controls playsInline className="h-full w-full" />
+        <video
+          src={intent.src}
+          controls
+          playsInline
+          className="h-full w-full"
+        />
       </div>
     );
   } else {
     visual = (
       <div className="relative flex h-64 flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 text-white">
         <PlayCircle className="h-12 w-12 text-white/80" />
-        <div className="text-sm text-white/80">Preview unavailable. Pop open the cam instead.</div>
-        <Button asChild variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30">
-          <a
-            href={cameraUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+        <div className="text-sm text-white/80">
+          Preview unavailable. Pop open the cam instead.
+        </div>
+        <Button
+          asChild
+          variant="secondary"
+          size="sm"
+          className="bg-white/20 hover:bg-white/30"
+        >
+          <a href={cameraUrl} target="_blank" rel="noopener noreferrer">
             Open camera
           </a>
         </Button>

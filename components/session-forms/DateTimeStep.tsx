@@ -5,7 +5,13 @@ import { Calendar, Clock, Timer } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SessionFormState } from "@/hooks/use-session-form";
 
 // Support both old and new session form interfaces
@@ -18,12 +24,16 @@ interface DateTimeStepProps {
   mode?: "plan" | "log";
 }
 
-export function DateTimeStep({ formState, updateField, mode = "plan" }: DateTimeStepProps) {
+export function DateTimeStep({
+  formState,
+  updateField,
+  mode = "plan",
+}: DateTimeStepProps) {
   const isPlanning = mode === "plan";
+  const baseInputClass = "h-12 min-w-0 appearance-none";
 
   return (
     <div className="space-y-6">
-      
       {/* Date Selection */}
       <div className="space-y-3">
         <div className="flex items-center space-x-2">
@@ -37,9 +47,9 @@ export function DateTimeStep({ formState, updateField, mode = "plan" }: DateTime
           type="date"
           value={formState.selectedDate}
           onChange={(e) => updateField("selectedDate", e.target.value)}
-          min={isPlanning ? new Date().toISOString().split('T')[0] : undefined}
-          max={isPlanning ? undefined : new Date().toISOString().split('T')[0]}
-          className="w-full"
+          min={isPlanning ? new Date().toISOString().split("T")[0] : undefined}
+          max={isPlanning ? undefined : new Date().toISOString().split("T")[0]}
+          className={`w-full ${baseInputClass}`}
           data-testid="date-input"
         />
         {isPlanning && (
@@ -63,7 +73,7 @@ export function DateTimeStep({ formState, updateField, mode = "plan" }: DateTime
             type="time"
             value={formState.selectedTime}
             onChange={(e) => updateField("selectedTime", e.target.value)}
-            className="w-full"
+            className={`w-full ${baseInputClass}`}
             data-testid="time-input"
           />
           {isPlanning && (
@@ -114,11 +124,13 @@ export function DateTimeStep({ formState, updateField, mode = "plan" }: DateTime
             <div className="text-sm text-blue-800">
               {isPlanning ? (
                 <span>
-                  <strong>Pro tip:</strong> Check tide times and weather forecasts to pick the optimal time for your session.
+                  <strong>Pro tip:</strong> Check tide times and weather
+                  forecasts to pick the optimal time for your session.
                 </span>
               ) : (
                 <span>
-                  <strong>Note:</strong> Time and duration help track your surfing patterns and progress over time.
+                  <strong>Note:</strong> Time and duration help track your
+                  surfing patterns and progress over time.
                 </span>
               )}
             </div>

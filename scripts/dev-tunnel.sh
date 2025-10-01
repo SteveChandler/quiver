@@ -28,9 +28,9 @@ fi
 if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null 2>&1 ; then
     echo "✅ Next.js dev server already running on port 3000"
 else
-    echo "🚀 Starting Next.js dev server..."
+    echo "🚀 Starting Next.js dev server (bound to 0.0.0.0)..."
     echo ""
-    npm run dev &
+    npx next dev -H 0.0.0.0 -p 3000 &
     DEV_PID=$!
     
     # Wait for dev server to start
@@ -57,3 +57,6 @@ cloudflared tunnel --url http://localhost:3000
 
 # Cleanup on exit
 trap "echo ''; echo '🛑 Stopping dev server...'; kill $DEV_PID 2>/dev/null; exit" INT TERM
+
+
+
