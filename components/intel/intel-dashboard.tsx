@@ -8,7 +8,7 @@ import { IntelMap } from "./intel-map";
 import { IntelFeed } from "./intel-feed";
 import { IntelFilters } from "./intel-filters";
 import { IntelPostForm } from "./intel-post-form";
-import { CheckInForm } from "@/components/ui/check-in-form";
+import { CheckInDialog } from "@/components/ui/check-in-form";
 import { CheckInFeed } from "@/components/ui/check-in-display";
 import { useLocationIntelData, useIntelFilters } from "@/hooks/use-intel-data";
 import { useProfile } from "@/lib/hooks/useProfile";
@@ -566,19 +566,16 @@ export function IntelDashboard({ className = "" }: IntelDashboardProps) {
 
       {/* Check-In Form */}
       {showCheckInForm && isCheckInReady && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <CheckInForm
-              beachId={defaultBeach!.id}
-              beachName={defaultBeach!.name}
-              onSuccess={() => {
-                setShowCheckInForm(false);
-                refetch(); // Refresh the intel data
-              }}
-              onCancel={() => setShowCheckInForm(false)}
-            />
-          </div>
-        </div>
+        <CheckInDialog
+          isOpen={showCheckInForm}
+          beachId={defaultBeach!.id}
+          beachName={defaultBeach!.name}
+          onClose={() => setShowCheckInForm(false)}
+          onSuccess={() => {
+            setShowCheckInForm(false);
+            refetch();
+          }}
+        />
       )}
     </div>
   );
