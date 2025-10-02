@@ -317,12 +317,44 @@ export function IntelPostForm({
     setUploading(true);
 
     try {
+      // If beforeSubmit is provided (e.g., for check-ins), handle it separately
       if (beforeSubmit) {
         await beforeSubmit({
           values: data,
           location,
           beachId,
         });
+
+        // Show success message
+        if (successToastOverride) {
+          toast.success(successToastOverride.title, {
+            description: successToastOverride.description,
+          });
+        } else {
+          toast.success(INTEL_UI_TEXT.SUCCESS.POST_CREATED);
+        }
+
+        // Reset form
+        form.reset({
+          tag: lockedTag ?? "other",
+          title: "",
+          description: "",
+          wave_height: null,
+          wind_speed: null,
+          wind_direction: null,
+          water_temp: null,
+          crowd_level: 3,
+          wave_types: [],
+          forecast_accuracy: variant === "check-in" ? "accurate" : null,
+        });
+        setLocation(initialLocation || null);
+        setSelectedPhoto(null);
+        setPhotoPreview(null);
+
+        // Call success callback to refresh feeds
+        onSuccess?.(null);
+        onClose();
+        return; // Early return - beforeSubmit handled the submission
       }
 
       let photoUrl: string | undefined;

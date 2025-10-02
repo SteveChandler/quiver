@@ -1,5 +1,6 @@
 ### Added
 
+- **Simplified Intel Tab**: Created new `components/intel/intel-tab-simple.tsx` component to replace complex `IntelDashboard` in the home screen's Local Intel tab. Removes map views, split views, complex location handling, and real-time subscriptions that were causing 500 errors. Focuses on core functionality: viewing all intel posts, filtering by tag, creating posts, and confirming posts. Uses `getAllIntelPosts` action with proper error handling and loading states.
 - **Local Mobile Development with Secure Tunnels**: Added `capacitor.config.dev.ts` support to bypass Vercel entirely during mobile development. Use Cloudflare Tunnel or ngrok to expose local Next.js server to mobile emulators/devices. New npm scripts: `mobile:sync:local` and `mobile:build:android:local`. Complete guide in `docs/MOBILE_LOCAL_DEV.md`.
 - Beach review stats now include rating distribution data from `lib/review-stats-utils.ts`, powering the refreshed `components/beach/beach-review-summary.tsx` grid with gradient meters and stacked spread.
 - `app/(journal)/new/steps/ConditionsStep.tsx` client component with fallback questionnaire and RHF bindings
@@ -9,6 +10,8 @@
 
 ### Changed
 
+- **Intel Feed Component Refactor**: Exported `IntelFeedCard` component from `components/intel/intel-feed.tsx` with optional `isConfirming` prop to support external confirmation state management. Updated to handle optional user ID property for avatar display.
+- **Community Tab Simplification**: Updated `components/home-screen/community-tab.tsx` to use new `IntelTabSimple` component instead of the complex `IntelDashboard`, improving reliability and reducing complexity.
 - Beach detail mobile spacing adjustments: increased gutter and vertical rhythm for forecast cards, outlook tiles, and metric grid to prevent cramped stacking on phones while retaining desktop layout (`components/beach-detail.tsx`).
 - **Mobile Spacing Optimization**: Reduced horizontal padding on beach detail and profile pages from `px-4` to `px-2` on mobile (keeping `px-4` on sm+ screens) to better utilize screen space. Section cards now use `p-4` on mobile and `p-6` on md+ or sm+ screens. Intel section card content uses `p-3` on mobile and `p-4` on sm+ screens. This prevents UI elements like "View all intel posts" button and profile tab content from being cut off on mobile devices (`components/beach-detail.tsx`, `components/intel/beach-intel-section.tsx`, `components/profile-view.tsx`).
 - Favorite button (heart icon) now displays with visible gray outline in unfavorited state instead of appearing as a white box, with smooth hover transitions to red (`components/favorite-button.tsx`).
@@ -37,6 +40,7 @@
 
 ### Fixed
 
+- **Intel check-in 500 error**: Fixed check-in submissions from Intel tab causing 500 errors by posting to root URL. Issue was in `components/intel/intel-post-form.tsx` where `beforeSubmit` handler was called (submitting check-in) but then continuing to call `createIntelPost`, causing double submission. Now returns early after `beforeSubmit` completes, properly showing success toast and refreshing intel feed. Follows `components/ARCHITECTURE.md` form submission patterns.
 - Session cards now show actual Mapbox map images instead of placeholders when coordinates are available. Fixed `getSessionMapImageUrl` to only pass `markerText` when coordinates are missing (so beach name shows in fallback), but not when coordinates exist (which was forcing Mapbox to use placeholder). Updated `generateEnhancedMapPlaceholder` in `lib/map-utils.ts` to intelligently detect and display beach names vs. wave height data - beach names show in large blue text, wave heights show in orange badge. Also updated `MapImage` component to accept optional `beachName` prop for React component fallback state.
 - Live cam now renders for beaches with camera URLs (including fallback to beaches table if `beach_sources` lacks `camera_url`).
 - Build failure on `/journal/new`: wrapped `useSearchParams()` usage in a Suspense boundary in `app/journal/new/page.tsx` per `app/ARCHITECTURE.md` routing/loading patterns. Vercel `next build` now succeeds.
