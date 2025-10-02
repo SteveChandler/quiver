@@ -11,6 +11,8 @@ import {
 const FEET_TO_METERS = 0.3048;
 const MPH_TO_METERS_PER_SECOND = 0.44704;
 
+const LEGACY_FALLBACK_CODES = new Set(["42P01", "42501", "42703"]);
+
 function round(value: number, precision = 2) {
   const factor = Math.pow(10, precision);
   return Math.round(value * factor) / factor;
@@ -70,6 +72,41 @@ const normalizeWindSpeedMs = (value: number | null) =>
 
 const normalizeWaterTempCelsius = (value: number | null) =>
   convertNullable(value, (fahrenheit) => round(((fahrenheit - 32) * 5) / 9, 3));
+
+function shouldFallbackToLegacy(error: any) {
+  if (!error) return false;
+
+  const code = typeof error.code === "string" ? error.code : undefined;
+  if (code && LEGACY_FALLBACK_CODES.has(code)) {
+    return true;
+  }
+
+  const message = [error.message, error.details, error.hint]
+    .filter(Boolean)
+    .map((part) => String(part).toLowerCase())
+    .join(" ");
+
+  return message.includes("condition_reports") || message.includes("relation") || message.includes("permission");
+}
+
+function buildLegacyCheckInPayload(
+  userId: string,
+  beachId: string,
+  data: SubmitCheckInInput
+) {
+  return {
+    beach_id: beachId,
+    user_id: userId,
+    checked_in_at: new Date().toISOString(),
+    wave_height: parseNullableNumber(data.wave_height),
+    wind_speed: parseNullableNumber(data.wind_speed),
+    wind_direction: data.wind_direction ?? null,
+    water_temp: parseNullableNumber(data.water_temp),
+    crowd_level: parseNullableNumber(data.crowd_level),
+    vibe: data.vibe ?? null,
+    forecast_accuracy_rating: data.forecast_accuracy_rating,
+  };
+}
 
 async function fetchCheckInWithUser(
   supabase: ReturnType<typeof createSupabaseServerClient>,
@@ -148,12 +185,40 @@ export const submitCheckIn = makeAuthenticatedAction(
         .select()
         .single();
 
-      if (error || !report) {
-        console.error("Error submitting condition report:", error);
+      let createdId = report?.id as string | undefined;
+      let conditionReportsError = error;
+
+      if (!createdId && shouldFallbackToLegacy(error)) {
+        console.warn(
+          "condition_reports insert failed, attempting legacy check_ins fallback",
+          error
+        );
+
+        const legacyPayload = buildLegacyCheckInPayload(user.id, beachId, data);
+        const { data: legacyCheckIn, error: legacyError } = await supabase
+          .from("check_ins")
+          .insert(legacyPayload)
+          .select()
+          .single();
+
+        if (legacyError || !legacyCheckIn) {
+          console.error(
+            "Legacy check_in fallback failed:",
+            legacyError || conditionReportsError
+          );
+          throw new Error("Failed to submit check-in");
+        }
+
+        createdId = legacyCheckIn.id as string;
+        conditionReportsError = null;
+      }
+
+      if (!createdId) {
+        console.error("Error submitting condition report:", conditionReportsError);
         throw new Error("Failed to submit check-in");
       }
 
-      const checkIn = await fetchCheckInWithUser(supabase, report.id);
+      const checkIn = await fetchCheckInWithUser(supabase, createdId);
       return checkIn;
     } catch (error) {
       console.error("Error submitting check-in:", error);

@@ -22,7 +22,7 @@ import type {
  * Create a new intel post
  */
 import type { XPAction } from "@/lib/gamification-actions";
-import { withAuthenticatedAction } from "@/lib/server-action-utils";
+import { withAuthenticatedAction, type ServerActionResponse } from "@/lib/server-action-utils";
 
 type TrackXPFn = (
   action: XPAction,
@@ -41,6 +41,69 @@ const GLOBAL_INTEL_FALLBACK = {
   radius: 400,
 };
 
+const FEET_TO_METERS = 0.3048;
+const MPH_TO_METERS_PER_SECOND = 0.44704;
+
+const INTEL_FALLBACK_ERROR_CODES = new Set(["0A000", "42P01", "42501", "42703"]);
+
+const WIND_DIRECTION_DEGREES: Record<string, number> = {
+  N: 0,
+  NE: 45,
+  E: 90,
+  SE: 135,
+  S: 180,
+  SW: 225,
+  W: 270,
+  NW: 315,
+  OFFSHORE: 180,
+  ONSHORE: 0,
+  CROSS: 90,
+};
+
+const toMetricWaveHeight = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  return Number((value * FEET_TO_METERS).toFixed(3));
+};
+
+const toMetricWindSpeed = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  return Number((value * MPH_TO_METERS_PER_SECOND).toFixed(3));
+};
+
+const toMetricWaterTemp = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  return Number((((value - 32) * 5) / 9).toFixed(3));
+};
+
+const toWindDirectionDegreesFallback = (direction?: string | null) => {
+  if (!direction) return null;
+  const key = direction.toUpperCase();
+  return WIND_DIRECTION_DEGREES[key] ?? null;
+};
+
+const parseNullableNumber = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const shouldFallbackToConditionReports = (error: any) => {
+  if (!error) return false;
+  const code = typeof error.code === "string" ? error.code : undefined;
+  if (code && INTEL_FALLBACK_ERROR_CODES.has(code)) return true;
+
+  const message = [error.message, error.details, error.hint]
+    .filter(Boolean)
+    .map((part) => String(part).toLowerCase())
+    .join(" ");
+
+  return (
+    message.includes("condition_reports") ||
+    message.includes("cannot insert into view") ||
+    message.includes("intel_posts")
+  );
+};
+
 export async function createIntelPost(
   data: CreateIntelPostData,
   deps?: IntelDeps
@@ -48,7 +111,7 @@ export async function createIntelPost(
   try {
     const authWrapper = deps?.authWrapper ?? withAuthenticatedAction;
 
-    return await authWrapper(async (user, supabase) => {
+    const response = await authWrapper(async (user, supabase) => {
       const {
         latitude,
         longitude,
@@ -92,8 +155,8 @@ export async function createIntelPost(
         const { data: nearbyBeaches, error: nearestError } = await supabase.rpc(
           "get_nearby_beaches",
           {
-            lat: latitude,
-            lng: longitude,
+            input_lat: latitude,
+            input_lng: longitude,
             limit_count: 1,
           }
         );
@@ -154,15 +217,78 @@ export async function createIntelPost(
         .select()
         .single();
 
-      if (createError) {
-        console.error("Error creating intel post:", createError);
+      let createdIntelPost = intelPost;
+      let intelError = createError;
+
+      if (intelError && shouldFallbackToConditionReports(intelError)) {
+        console.warn(
+          "intel_posts insert failed, attempting condition_reports fallback",
+          intelError
+        );
+
+        const conditionPayload = {
+          beach_id: normalizedBeachId,
+          reporter_id: user.id,
+          reported_at: new Date().toISOString(),
+          kind: "intel" as const,
+          latitude,
+          longitude,
+          tag,
+          title: title.trim(),
+          description: description.trim(),
+          photo_url,
+          photo_storage_path,
+          wave_height_m: toMetricWaveHeight(wave_height ?? null),
+          wind_speed_ms: toMetricWindSpeed(wind_speed ?? null),
+          wind_direction_deg: toWindDirectionDegreesFallback(wind_direction),
+          water_temp_c: toMetricWaterTemp(water_temp ?? null),
+          crowd_level: parseNullableNumber(crowd_level),
+          forecast_accuracy: forecast_accuracy ?? null,
+        };
+
+        const { data: fallbackReport, error: fallbackError } = await supabase
+          .from("condition_reports")
+          .insert(conditionPayload)
+          .select("id")
+          .single();
+
+        if (fallbackError || !fallbackReport?.id) {
+          console.error(
+            "Condition reports fallback insert failed:",
+            fallbackError || intelError
+          );
+          return { success: false, error: "Failed to create intel post" };
+        }
+
+        const { data: fetchedIntel, error: fetchFallbackError } = await supabase
+          .from("intel_posts")
+          .select(
+            `id, user_id, beach_id, latitude, longitude, tag, title, description, photo_url, photo_storage_path, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
+          )
+          .eq("id", fallbackReport.id)
+          .single();
+
+        if (fetchFallbackError || !fetchedIntel) {
+          console.error(
+            "Failed to load intel post after fallback insert:",
+            fetchFallbackError
+          );
+          return { success: false, error: "Failed to create intel post" };
+        }
+
+        createdIntelPost = fetchedIntel as IntelPost;
+        intelError = null;
+      }
+
+      if (intelError || !createdIntelPost) {
+        console.error("Error creating intel post:", intelError);
         return { success: false, error: "Failed to create intel post" };
       }
 
-      if (!intelPost?.beach_id) {
+      if (!createdIntelPost?.beach_id) {
         console.error(
           "Intel post created without beach_id despite guard",
-          intelPost
+          createdIntelPost
         );
         return {
           success: false,
@@ -177,7 +303,7 @@ export async function createIntelPost(
         .single();
 
       const enrichedPost: IntelPostWithUser = {
-        ...intelPost,
+        ...createdIntelPost,
         user: {
           full_name: profile?.full_name || "Anonymous",
           avatar_url: profile?.avatar_url || null,
@@ -191,7 +317,7 @@ export async function createIntelPost(
         const track = deps?.trackXP
           ? deps.trackXP
           : (await import("@/lib/gamification-actions")).trackXP;
-        await track("post_beach_intel", intelPost.id, "intel_post");
+        await track("post_beach_intel", createdIntelPost.id, "intel_post");
       } catch (xpErr) {
         console.warn("XP tracking failed for intel post:", xpErr);
       }
@@ -201,6 +327,35 @@ export async function createIntelPost(
         data: enrichedPost,
       } as ActionResult;
     });
+
+    if (!response) {
+      return {
+        success: false,
+        error: "Failed to create intel post",
+      };
+    }
+
+    // Normalise the response to an ActionResult regardless of wrapper shape
+    const looksLikeServerActionResult =
+      typeof response === "object" &&
+      response !== null &&
+      "success" in response &&
+      ("data" in response || "error" in response);
+
+    if (!looksLikeServerActionResult) {
+      return {
+        success: false,
+        error: "Unexpected response from intel post action",
+      };
+    }
+
+    const serverResult = response as ActionResult | (ServerActionResponse<ActionResult>);
+
+    if ("data" in serverResult && serverResult?.data && typeof serverResult.data === "object" && "success" in serverResult.data) {
+      return serverResult.data as ActionResult;
+    }
+
+    return serverResult as ActionResult;
   } catch (error) {
     console.error("Error in createIntelPost:", error);
     return {
