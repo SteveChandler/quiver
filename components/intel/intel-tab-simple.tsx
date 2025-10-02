@@ -166,11 +166,11 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
       ? posts
       : posts.filter((post) => post.tag === selectedTag);
 
-  // Calculate map center from posts
+  // Calculate map center from posts - returns [lat, lng] format for IntelMap
   const getMapCenter = (): [number, number] => {
     if (filteredPosts.length === 0) {
-      // Default to San Diego
-      return [-117.1611, 32.7157];
+      // Default to San Diego [lat, lng]
+      return [32.7157, -117.1611];
     }
 
     // Calculate average position from all posts
@@ -181,7 +181,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
       filteredPosts.reduce((sum, post) => sum + Number(post.latitude), 0) /
       filteredPosts.length;
 
-    return [avgLng, avgLat];
+    return [avgLat, avgLng]; // Return [lat, lng] format
   };
 
   return (
