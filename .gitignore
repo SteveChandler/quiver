@@ -85,3 +85,4 @@ ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Local development tunnel config (contains temporary tunnel URLs)
 capacitor.config.dev.ts
+e2e/.auth/state.json
