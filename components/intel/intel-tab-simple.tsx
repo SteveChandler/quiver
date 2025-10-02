@@ -4,9 +4,17 @@ import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IntelPostForm } from "./intel-post-form";
+import { IntelMap } from "./intel-map";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  RefreshCw,
+  AlertCircle,
+  MapIcon,
+  List,
+} from "lucide-react";
 import { INTEL_UI_TEXT, INTEL_FILTERS } from "@/lib/constants/intel";
 import {
   confirmIntelPost,
@@ -24,12 +32,15 @@ interface IntelTabSimpleProps {
   className?: string;
 }
 
+type ViewMode = "feed" | "map";
+
 export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
   const [posts, setPosts] = useState<IntelPostWithUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPostForm, setShowPostForm] = useState(false);
   const [selectedTag, setSelectedTag] = useState<IntelPostTag | "all">("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("feed");
   const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(
     new Set()
   );
@@ -155,6 +166,24 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
       ? posts
       : posts.filter((post) => post.tag === selectedTag);
 
+  // Calculate map center from posts
+  const getMapCenter = (): [number, number] => {
+    if (filteredPosts.length === 0) {
+      // Default to San Diego
+      return [-117.1611, 32.7157];
+    }
+
+    // Calculate average position from all posts
+    const avgLng =
+      filteredPosts.reduce((sum, post) => sum + Number(post.longitude), 0) /
+      filteredPosts.length;
+    const avgLat =
+      filteredPosts.reduce((sum, post) => sum + Number(post.latitude), 0) /
+      filteredPosts.length;
+
+    return [avgLng, avgLat];
+  };
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Header with Actions */}
@@ -168,6 +197,26 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
               </p>
             </div>
             <div className="flex gap-2">
+              {/* View Mode Toggle */}
+              <div className="flex gap-1 border rounded-lg p-1">
+                <Button
+                  variant={viewMode === "feed" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("feed")}
+                  className="h-8 px-3"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "map" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("map")}
+                  className="h-8 px-3"
+                >
+                  <MapIcon className="h-4 w-4" />
+                </Button>
+              </div>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -222,8 +271,21 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
         </Alert>
       )}
 
+      {/* Map View */}
+      {viewMode === "map" && !loading && !error && (
+        <div className="h-[600px] rounded-lg overflow-hidden border">
+          <IntelMap
+            posts={filteredPosts}
+            selectedTag={selectedTag}
+            initialCenter={getMapCenter()}
+            onMapMove={() => {}}
+            className="h-full"
+          />
+        </div>
+      )}
+
       {/* Loading State */}
-      {loading && !error && (
+      {viewMode === "feed" && loading && !error && (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
@@ -243,7 +305,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
       )}
 
       {/* Intel Feed */}
-      {!loading && !error && (
+      {viewMode === "feed" && !loading && !error && (
         <div className="space-y-4">
           {filteredPosts.length === 0 ? (
             <Card>
