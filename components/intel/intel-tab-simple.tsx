@@ -160,11 +160,16 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
     [user, router]
   );
 
-  // Filter posts by tag
-  const filteredPosts =
+  // Filter posts by tag and ensure coordinates are numbers
+  const filteredPosts = (
     selectedTag === "all"
       ? posts
-      : posts.filter((post) => post.tag === selectedTag);
+      : posts.filter((post) => post.tag === selectedTag)
+  ).map((post) => ({
+    ...post,
+    latitude: Number(post.latitude),
+    longitude: Number(post.longitude),
+  }));
 
   // Calculate map center from posts - returns [lat, lng] format for IntelMap
   const getMapCenter = (): [number, number] => {
@@ -274,13 +279,39 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
       {/* Map View */}
       {viewMode === "map" && !loading && !error && (
         <div className="h-[600px] rounded-lg overflow-hidden border">
-          <IntelMap
-            posts={filteredPosts}
-            selectedTag={selectedTag}
-            initialCenter={getMapCenter()}
-            onMapMove={() => {}}
-            className="h-full"
-          />
+          {filteredPosts.length === 0 ? (
+            <div className="h-full flex items-center justify-center bg-muted">
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 mx-auto bg-background rounded-full flex items-center justify-center">
+                  <MapIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium">
+                    No Intel Posts to Display
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {selectedTag === "all"
+                      ? "Be the first to share intel!"
+                      : "No posts for this tag. Try a different filter."}
+                  </p>
+                </div>
+                {canPost && (
+                  <Button onClick={() => setShowPostForm(true)}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Share Intel
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <IntelMap
+              posts={filteredPosts}
+              selectedTag={selectedTag}
+              initialCenter={getMapCenter()}
+              onMapMove={() => {}}
+              className="h-full"
+            />
+          )}
         </div>
       )}
 
