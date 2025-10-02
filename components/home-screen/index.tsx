@@ -51,8 +51,11 @@ export function HomeScreen() {
     completeOnboarding,
     closeOnboarding,
   } = useOnboardingFlow();
-  const { requestPushOptIn, canPrompt, status: pushStatus } =
-    useNativePushRegistration();
+  const {
+    requestPushOptIn,
+    canPrompt,
+    status: pushStatus,
+  } = useNativePushRegistration();
 
   const handleOnboardingComplete = useCallback(() => {
     completeOnboarding();
@@ -202,7 +205,9 @@ export function HomeScreen() {
             </TabsContent>
 
             <TabsContent value="community">
-              <CommunityTab sessions={sessions} loading={loading} />
+              {activeTab === "community" && (
+                <CommunityTab sessions={sessions} loading={loading} />
+              )}
             </TabsContent>
           </Tabs>
         </section>

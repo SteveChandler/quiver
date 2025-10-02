@@ -278,7 +278,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
 
       {/* Map View */}
       {viewMode === "map" && !loading && !error && (
-        <div className="h-[600px] rounded-lg overflow-hidden border">
+        <div className="h-[600px] rounded-lg overflow-hidden border relative z-0">
           {filteredPosts.length === 0 ? (
             <div className="h-full flex items-center justify-center bg-muted">
               <div className="text-center space-y-3">
@@ -305,6 +305,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
             </div>
           ) : (
             <IntelMap
+              key={`intel-map-${selectedTag}`}
               posts={filteredPosts}
               selectedTag={selectedTag}
               initialCenter={getMapCenter()}
