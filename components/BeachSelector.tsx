@@ -153,43 +153,41 @@ export function BeachSelector({
   };
 
   return (
-    <div className="flex flex-col space-y-1">
-      <div className="relative">
-        <input
-          id="beach-input"
-          className="border rounded p-2 w-full"
-          value={query}
-          placeholder="Type or select a beach"
-          onChange={handleInputChange}
-          onBlur={handleBlur}
-          onFocus={handleFocus}
-          data-testid="beach-search-input"
-          list="beach-list"
-        />
-        {selectionMade && query && (
-          <button
-            type="button"
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            onClick={() => {
-              setQuery("");
-              setSelectionMade(false);
-              // Clear the selection in the parent component
-              const emptyBeach = {
-                id: "",
-                name: "",
-                latitude: 0,
-                longitude: 0,
-                created_at: "",
-                updated_at: "",
-              };
-              onBeachSelected(emptyBeach);
-            }}
-            title="Clear selection"
-          >
-            ×
-          </button>
-        )}
-      </div>
+    <div className="relative">
+      <input
+        id="beach-input"
+        className="border rounded p-2 w-full"
+        value={query}
+        placeholder="Type or select a beach"
+        onChange={handleInputChange}
+        onBlur={handleBlur}
+        onFocus={handleFocus}
+        data-testid="beach-search-input"
+        list="beach-list"
+      />
+      {selectionMade && query && (
+        <button
+          type="button"
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+          onClick={() => {
+            setQuery("");
+            setSelectionMade(false);
+            // Clear the selection in the parent component
+            const emptyBeach = {
+              id: "",
+              name: "",
+              latitude: 0,
+              longitude: 0,
+              created_at: "",
+              updated_at: "",
+            };
+            onBeachSelected(emptyBeach);
+          }}
+          title="Clear selection"
+        >
+          ×
+        </button>
+      )}
 
       {!selectionMade && query && (
         <>
@@ -199,9 +197,7 @@ export function BeachSelector({
             ))}
           </datalist>
 
-          {/* Intentionally hide dropdown-only error to allow free-typed entries */}
-
-          <ul className="absolute z-50 w-full border rounded bg-white shadow-lg max-h-60 overflow-auto mt-1">
+          <ul className="absolute top-full left-0 right-0 z-50 mt-1 border rounded bg-white shadow-lg max-h-60 overflow-auto">
             {isSearching ? (
               <li className="p-2 text-gray-500 text-sm">Searching...</li>
             ) : matches.length > 0 ? (
