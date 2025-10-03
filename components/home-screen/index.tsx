@@ -103,15 +103,6 @@ export function HomeScreen() {
     return () => window.clearTimeout(timer);
   }, [hasCompletedOnboarding, canPrompt, pushStatus, requestPushOptIn]);
 
-  console.log("🏠 HomeScreen Summary:", {
-    hasUser: !!user,
-    hasProfile: !!profile,
-    hasHomeBeach: !!homeBeach,
-    homeBeachName: homeBeach?.name,
-    profileLoading,
-    hasCachedData,
-  });
-
   return (
     <div className="flex flex-col min-h-screen">
       {/* 🚨 EMERGENCY: Onboarding Flow - Fix 0% retention */}
