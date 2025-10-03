@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { data } from "@/lib/data/client";
 import { useCallback } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Beach } from "@/types/database";
-import { searchBeachesByName } from "@/lib/utils/beach-search-utils";
+import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
 
 export function BeachSelector({
   onBeachSelected,
@@ -18,6 +18,8 @@ export function BeachSelector({
   const [query, setQuery] = useState(initialValue || "");
   const [matches, setMatches] = useState<Beach[]>([]);
   const [selectionMade, setSelectionMade] = useState(!!initialValue);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 1. Fetch all beaches once on mount via data gateway
   const fetchBeaches = useCallback(async () => {
@@ -36,19 +38,41 @@ export function BeachSelector({
     }
   }, [beaches]);
 
-  // 2. Whenever query changes, recompute our filtered list
+  // 2. Debounced search using searchBeachesMultiple (fuzzy matching)
   useEffect(() => {
-    if (!query) {
-      setMatches(allBeaches.slice(0, 50)); // show first 50 by default
-    } else {
-      const q = query.toLowerCase();
-      const filtered = allBeaches.filter((b) => {
-        const beachName = b.name.toLowerCase();
-        return beachName.includes(q) || q.includes(beachName);
-      });
-      setMatches(filtered);
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
-  }, [query, allBeaches]);
+
+    if (!query || selectionMade) {
+      // Show first 50 beaches when no query or after selection
+      setMatches(allBeaches.slice(0, 50));
+      setIsSearching(false);
+      return;
+    }
+
+    // Debounce search by 300ms
+    setIsSearching(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await searchBeachesMultiple(query);
+        setMatches(results);
+      } catch (error) {
+        console.error("Error searching beaches:", error);
+        setMatches([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [query, allBeaches, selectionMade]);
 
   // Set initial value when it changes
   useEffect(() => {
@@ -103,7 +127,7 @@ export function BeachSelector({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
-    setSelectionMade(false); // Reset selection state when input changes
+    setSelectionMade(false); // Reset selection state when input changes to show dropdown
 
     // Keep parent form in sync with free-typed input so required field logic can enable submit
     const typed: Beach = {
@@ -115,22 +139,10 @@ export function BeachSelector({
       updated_at: "",
     } as any;
     onBeachSelected(typed);
-
-    // Use shared home-page search to auto-recognize exact matches immediately
-    // without requiring a dropdown click, while still allowing free-typed entries
-    if (value.trim()) {
-      void searchBeachesByName(value).then((found) => {
-        if (found && found.name.toLowerCase() === value.toLowerCase().trim()) {
-          setQuery(found.name);
-          setSelectionMade(true);
-          onBeachSelected(found);
-        }
-      });
-    }
   };
 
   const handleFocus = () => {
-    setSelectionMade(false); // Always show options when focusing
+    setSelectionMade(false); // Always show dropdown when focusing
   };
 
   const handleBlur = () => {
@@ -179,7 +191,7 @@ export function BeachSelector({
         )}
       </div>
 
-      {!selectionMade && (
+      {!selectionMade && query && (
         <>
           <datalist id="beach-list">
             {matches.map((b) => (
@@ -189,19 +201,25 @@ export function BeachSelector({
 
           {/* Intentionally hide dropdown-only error to allow free-typed entries */}
 
-          <ul className="border rounded max-h-60 overflow-auto mt-1">
-            {matches.map((b) => (
-              <li
-                key={b.id}
-                className="p-2 hover:bg-gray-100 cursor-pointer"
-                onMouseDown={() => {
-                  setQuery(b.name);
-                  trySelect(b.name);
-                }}
-              >
-                {b.name}
-              </li>
-            ))}
+          <ul className="absolute z-50 w-full border rounded bg-white shadow-lg max-h-60 overflow-auto mt-1">
+            {isSearching ? (
+              <li className="p-2 text-gray-500 text-sm">Searching...</li>
+            ) : matches.length > 0 ? (
+              matches.map((b) => (
+                <li
+                  key={b.id}
+                  className="p-2 hover:bg-gray-100 cursor-pointer"
+                  onMouseDown={() => {
+                    setQuery(b.name);
+                    trySelect(b.name);
+                  }}
+                >
+                  {b.name}
+                </li>
+              ))
+            ) : (
+              <li className="p-2 text-gray-500 text-sm">No beaches found</li>
+            )}
           </ul>
         </>
       )}

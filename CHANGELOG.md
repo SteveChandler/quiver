@@ -1,3 +1,54 @@
+## [2025.10.03] - Session Wizard Location Typeahead Fix
+
+### Fixed
+
+- **Session Wizard Location Typeahead Not Showing Results**: Fixed critical bug where typing in the Location step (e.g., "la jo") would show matches in the console but not render in the UI dropdown. Root cause: `BeachSelector` component used simple local filtering (`includes()`) for the dropdown UI while `searchBeachesByName()` used sophisticated fuzzy matching. The server search found 5 beaches but the UI dropdown only showed results from the basic filter. Solution: Created new `searchBeachesMultiple()` function that returns array of all matches (not just best match), updated `BeachSelector` to use debounced calls to this function with proper loading states, fixed dropdown visibility logic to stay open while typing, and added proper z-index/positioning to prevent clipping. Now typing "la jo" reliably shows all 5 La Jolla beaches (La Jolla Shores, Scripps, Blacks, Horseshoe, Windansea) in a visible, styled dropdown.
+
+### Added
+
+- **Beach Search Multi-Result Function**: New `searchBeachesMultiple()` function in `lib/utils/beach-search-utils.ts` that returns array of all matching beaches using fuzzy matching, word-by-word matching, abbreviation expansion, and relevance sorting. Refactored existing `searchBeachesByName()` to use this function for backward compatibility.
+- **Debounced Typeahead Search**: Enhanced `BeachSelector` component with 300ms debounced search using `searchBeachesMultiple()`, replacing simple local filtering with sophisticated fuzzy matching.
+- **Loading State Indicators**: Added "Searching..." loading state in beach selector dropdown during debounced search.
+- **Improved Dropdown Styling**: Updated dropdown with `absolute z-50` positioning, white background, shadow, and "No beaches found" empty state message.
+- **Unit Tests**: Comprehensive test suite in `__tests__/lib/beach-search-utils.test.ts` covering fuzzy matching, case sensitivity, abbreviations, error handling, and relevance sorting.
+- **E2E Tests**: Playwright test suite in `e2e/session-wizard-location-typeahead.spec.ts` with 11 tests covering typeahead behavior, selection flow, debouncing, mobile viewport, and step navigation.
+
+### Changed
+
+- **BeachSelector Search Logic**: Removed auto-selection code that closed dropdown prematurely when exact matches were found. Now keeps dropdown open until user explicitly selects a beach or navigates away.
+- **BeachSelector Dropdown Visibility**: Fixed `selectionMade` state logic to properly show/hide dropdown based on user typing vs. selection state.
+
+### Performance
+
+- **Debounced Search Requests**: Reduced unnecessary API calls by debouncing search input by 300ms, preventing search on every keystroke.
+- **Fuzzy Matching Reuse**: Eliminated duplicate search logic by consolidating fuzzy matching algorithm into single reusable function.
+
+---
+
+## [2025.10.03] - Frontend Architecture Improvements
+
+### Added
+
+- **Comprehensive Accessibility Testing Infrastructure**: Integrated @axe-core/playwright for E2E accessibility testing, jest-axe for component-level testing, and eslint-plugin-jsx-a11y for static analysis during development.
+- **Lighthouse CI Configuration**: Created `.lighthouserc.json` with strict accessibility thresholds (90% minimum score) and comprehensive WCAG 2.1 AA assertions for color contrast, ARIA attributes, and semantic HTML.
+- **E2E Accessibility Test Suite**: New `e2e/accessibility.spec.ts` with 11 comprehensive tests covering landing page, authentication flows, navigation, keyboard accessibility, color contrast, alt text, heading hierarchy, and interactive element names.
+- **Accessibility Testing Documentation**: Complete guide in `docs/ACCESSIBILITY_TESTING.md` covering tools, testing strategies, WCAG standards, common patterns, CI/CD integration, and troubleshooting.
+- **ESLint Accessibility Rules**: Extended ESLint configuration with jsx-a11y plugin and recommended rules for catching accessibility issues during development.
+- **Test Script for Accessibility**: Added `npm run test:e2e:a11y` for running accessibility-specific E2E tests.
+
+### Changed
+
+- **Auth Context Optimization**: Removed 11+ verbose console.log statements from `context/auth-context.tsx`, keeping only development-mode error logging. Added comprehensive lifecycle documentation explaining initialization, subscription management, and memory leak prevention.
+- **Auth Context Performance**: Improved subscription cleanup to prevent memory leaks, added detailed comments explaining race condition prevention and timeout handling.
+- **Jest Configuration**: Integrated jest-axe extend-expect for accessibility assertions in component tests.
+
+### Performance
+
+- **Reduced Client Bundle Logging**: Eliminated production console.log statements from auth context, reducing client-side JavaScript execution and improving performance.
+- **Better Subscription Lifecycle**: Enhanced cleanup function with proper unmount handling to prevent memory leaks in long-running sessions.
+
+---
+
 ### Added
 
 - **Simplified Intel Tab with Map View**: Created new `components/intel/intel-tab-simple.tsx` component to replace complex `IntelDashboard` in the home screen's Local Intel tab. Features simple toggle between feed and map views, removes complex location handling and real-time subscriptions that were causing 500 errors. Focuses on core functionality: viewing all intel posts, filtering by tag, creating posts, confirming posts, and visualizing posts on an interactive map. Uses `getAllIntelPosts` action with proper error handling and loading states. Map view calculates center from average post positions or defaults to San Diego.
