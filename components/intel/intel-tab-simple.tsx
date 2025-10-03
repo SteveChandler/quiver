@@ -51,6 +51,11 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
   const canPost = !!user;
   const canConfirm = !!user;
 
+  // Reset to feed view when component mounts to prevent map interference
+  useEffect(() => {
+    setViewMode("feed");
+  }, []);
+
   // Fetch intel posts
   const fetchPosts = useCallback(async () => {
     try {

@@ -182,38 +182,30 @@ export function HomeScreen() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="forecast" className="relative z-10">
-              {activeTab === "forecast" && (
-                <>
-                  {/* Nearby chip row for quick first-time selection */}
-                  <NearbyBeachChips
-                    className="mb-3"
-                    onSelect={(b) => setSelectedBeachOverride(b as any)}
-                  />
-                  {/* Centered Search Bar under the tabs */}
-                  <BeachSearchBar
-                    onSelect={(b) => setSelectedBeachOverride(b)}
-                    className="mb-4"
-                  />
-                  <ForecastTab
-                    profile={profile}
-                    homeBeach={homeBeach}
-                    overrideBeach={selectedBeachOverride}
-                  />
-                </>
-              )}
+            <TabsContent value="forecast" className="relative z-0">
+              {/* Nearby chip row for quick first-time selection */}
+              <NearbyBeachChips
+                className="mb-3"
+                onSelect={(b) => setSelectedBeachOverride(b as any)}
+              />
+              {/* Centered Search Bar under the tabs */}
+              <BeachSearchBar
+                onSelect={(b) => setSelectedBeachOverride(b)}
+                className="mb-4"
+              />
+              <ForecastTab
+                profile={profile}
+                homeBeach={homeBeach}
+                overrideBeach={selectedBeachOverride}
+              />
             </TabsContent>
 
-            <TabsContent value="nearby" className="relative z-10">
-              {activeTab === "nearby" && (
-                <NearbyTab beaches={beaches} loading={loading} />
-              )}
+            <TabsContent value="nearby" className="relative z-0">
+              <NearbyTab beaches={beaches} loading={loading} />
             </TabsContent>
 
-            <TabsContent value="community" className="relative z-10">
-              {activeTab === "community" && (
-                <CommunityTab sessions={sessions} loading={loading} />
-              )}
+            <TabsContent value="community" className="relative z-0">
+              <CommunityTab sessions={sessions} loading={loading} />
             </TabsContent>
           </Tabs>
         </section>
