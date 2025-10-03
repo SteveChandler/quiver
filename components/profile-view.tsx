@@ -38,6 +38,7 @@ import { data as gateway } from "@/lib/data/client";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 // Removed ad-hoc beach lookup; rely on DTO fields for home beach name
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
+import { getUserBoards } from "@/actions/board-actions";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
@@ -112,7 +113,18 @@ export function ProfileView() {
     setProfile(profileData as Profile);
     const userSessions = await gateway.users.sessions.list(user.id, 5);
     setSessions(userSessions as SessionWithDetails[]);
-    return { profile: profileData, sessions: userSessions };
+
+    // Fetch user boards
+    const userBoardsResult = await getUserBoards(user.id);
+    if (userBoardsResult.success && userBoardsResult.data) {
+      setBoards(userBoardsResult.data);
+    }
+
+    return {
+      profile: profileData,
+      sessions: userSessions,
+      boards: userBoardsResult.data || [],
+    };
   }, [user]);
 
   const {

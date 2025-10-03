@@ -1,3 +1,15 @@
+## [2025.10.03] - Profile Quiver Tab Board Display Fix
+
+### Fixed
+
+- **Profile Quiver Tab Not Displaying User Boards**: Fixed bug where the profile page Quiver tab showed "You haven't added any boards yet" even when boards existed in the database. The `ProfileView` component's `fetchData` callback only fetched profile and sessions data but never fetched boards, leaving the empty `boards` state array unchanged. Added `getUserBoards` call to fetch user boards along with other profile data, ensuring boards are populated and displayed correctly in the `BoardsManager` component. Now boards that appear in session logging forms are also visible on the profile page.
+
+### Changed
+
+- **ProfileView Data Fetching**: Enhanced `fetchData` callback in `components/profile-view.tsx` to include board fetching using the `getUserBoards` server action, following the same pattern used in `hooks/use-session-form.ts`.
+
+---
+
 ## [2025.10.03] - Session Wizard Location Typeahead Fix
 
 ### Fixed
