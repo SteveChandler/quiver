@@ -6,6 +6,7 @@ For architecture, development standards, and navigation, see:
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — Top-level overview and index to detailed docs
 - [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) — Development troubleshooting guide
+- [docs/MOBILE_LOCAL_DEV.md](./docs/MOBILE_LOCAL_DEV.md) — Mobile development with local tunnels (bypasses Vercel)
 
 Key directories:
 

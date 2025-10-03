@@ -17,6 +17,7 @@ import {
   useOnboardingFlow,
 } from "@/components/onboarding/onboarding-flow";
 import { FloatingInteractionHint } from "@/components/engagement/micro-interactions";
+import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
@@ -50,6 +51,18 @@ export function HomeScreen() {
     completeOnboarding,
     closeOnboarding,
   } = useOnboardingFlow();
+  const {
+    requestPushOptIn,
+    canPrompt,
+    status: pushStatus,
+  } = useNativePushRegistration();
+
+  const handleOnboardingComplete = useCallback(() => {
+    completeOnboarding();
+    if (canPrompt) {
+      void requestPushOptIn();
+    }
+  }, [completeOnboarding, canPrompt, requestPushOptIn]);
 
   // Use cached profile hook to prevent flickering on navigation
   const { profile, homeBeach, profileLoading, hasCachedData } =
@@ -78,14 +91,17 @@ export function HomeScreen() {
     return () => controller.abort();
   }, [coords]);
 
-  console.log("🏠 HomeScreen Summary:", {
-    hasUser: !!user,
-    hasProfile: !!profile,
-    hasHomeBeach: !!homeBeach,
-    homeBeachName: homeBeach?.name,
-    profileLoading,
-    hasCachedData,
-  });
+  useEffect(() => {
+    if (!hasCompletedOnboarding) return;
+    if (!canPrompt) return;
+    if (pushStatus !== "idle") return;
+
+    const timer = window.setTimeout(() => {
+      void requestPushOptIn();
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [hasCompletedOnboarding, canPrompt, pushStatus, requestPushOptIn]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -93,7 +109,7 @@ export function HomeScreen() {
       <OnboardingFlow
         isOpen={showOnboarding}
         onClose={closeOnboarding}
-        onComplete={completeOnboarding}
+        onComplete={handleOnboardingComplete}
       />
 
       {/* Note: EngagementProgressTracker removed - only needed for unauthenticated landing page visitors */}
@@ -157,7 +173,7 @@ export function HomeScreen() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="forecast">
+            <TabsContent value="forecast" className="relative z-0">
               {/* Nearby chip row for quick first-time selection */}
               <NearbyBeachChips
                 className="mb-3"
@@ -175,11 +191,11 @@ export function HomeScreen() {
               />
             </TabsContent>
 
-            <TabsContent value="nearby">
+            <TabsContent value="nearby" className="relative z-0">
               <NearbyTab beaches={beaches} loading={loading} />
             </TabsContent>
 
-            <TabsContent value="community">
+            <TabsContent value="community" className="relative z-0">
               <CommunityTab sessions={sessions} loading={loading} />
             </TabsContent>
           </Tabs>

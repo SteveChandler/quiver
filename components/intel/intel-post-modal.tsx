@@ -50,6 +50,9 @@ export function IntelPostModal({
   canConfirm,
 }: IntelPostModalProps) {
   const [isConfirming, setIsConfirming] = useState(false);
+  const hasUserConfirmed = Boolean(
+    (post as any).user_has_confirmed ?? post.user_confirmed
+  );
 
   const tagConfig = getIntelTagConfig(post.tag);
   const confidenceLevel = getConfidenceLevel(post.confirmations_count);
@@ -61,7 +64,7 @@ export function IntelPostModal({
 
     setIsConfirming(true);
     try {
-      await onConfirm(post.id, post.user_confirmed || false);
+      await onConfirm(post.id, hasUserConfirmed);
     } finally {
       setIsConfirming(false);
     }
@@ -194,7 +197,7 @@ export function IntelPostModal({
             {/* Confirm Button */}
             {canConfirm && !isExpired && (
               <Button
-                variant={post.user_confirmed ? "secondary" : "default"}
+                variant={hasUserConfirmed ? "secondary" : "default"}
                 size="sm"
                 onClick={handleConfirm}
                 disabled={isConfirming}
@@ -205,7 +208,7 @@ export function IntelPostModal({
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     <span>Updating...</span>
                   </div>
-                ) : post.user_confirmed ? (
+                ) : hasUserConfirmed ? (
                   <div className="flex items-center gap-2">
                     <CheckCheck className="h-4 w-4" />
                     <span>{INTEL_UI_TEXT.CONFIRMED_BUTTON}</span>

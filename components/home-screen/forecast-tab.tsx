@@ -83,24 +83,11 @@ export function ForecastTab({
 
   // Get forecast for effective beach
   const fetchTodaysForecast = useCallback(async () => {
-    console.log("🌊 ForecastTab fetchTodaysForecast called:", {
-      hasHomeBeach: !!homeBeach,
-      usingFallback: isFallback,
-      beachId: effectiveBeach?.id,
-      beachName: effectiveBeach?.name,
-    });
-
     if (!effectiveBeach?.id) {
-      console.log("❌ No homeBeach.id, returning null");
       return null;
     }
 
-    console.log(
-      "📞 Calling getForecastForToday with beachId:",
-      effectiveBeach.id
-    );
     const result = await getForecastForToday(effectiveBeach.id);
-    console.log("📊 getForecastForToday result:", result);
     return result;
   }, [effectiveBeach?.id, effectiveBeach?.name, isFallback, homeBeach]);
 
@@ -113,13 +100,6 @@ export function ForecastTab({
     // Skip until we know which beach to use
     skip: !effectiveBeach?.id,
     initialData: null,
-  });
-
-  console.log("🏖️ ForecastTab useDataFetcher result:", {
-    todaysForecast,
-    forecastLoading,
-    forecastError,
-    willShowUnavailable: !!(forecastError || !todaysForecast),
   });
 
   // Avoid flashing "Unavailable" on first load; retry once if we get null

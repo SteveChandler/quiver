@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
-import { Menu, X, Loader2, User, LogOut, Bell } from "lucide-react";
+import { Loader2, User, LogOut, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function AppHeader() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isLoading: authLoading, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -66,10 +65,8 @@ export function AppHeader() {
     }
   }, [user]);
 
-  const {
-    data: unreadCount = 0,
-    refetch: refetchUnreadCount,
-  } = useDataFetcher<number>(fetchNotificationsCount);
+  const { data: unreadCount = 0, refetch: refetchUnreadCount } =
+    useDataFetcher<number>(fetchNotificationsCount);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -147,11 +144,21 @@ export function AppHeader() {
     return preserveQueryParams(href, searchParams);
   };
 
+  const safeAreaStyles: CSSProperties & { "--app-safe-area-top": string } = {
+    "--app-safe-area-top": "env(safe-area-inset-top, 0px)",
+  };
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center w-full">
+    <header
+      className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-2 pt-[calc(var(--app-safe-area-top)+1.5rem)] md:py-0"
+      style={safeAreaStyles}
+    >
+      <div
+        className="flex w-full items-center md:h-16"
+        style={{ minHeight: "calc(var(--app-safe-area-top) + 4rem)" }}
+      >
         {/* Left side with logo - uses container padding */}
-        <div className="container flex items-center pl-4">
+        <div className="container flex items-center pl-2 md:pl-4">
           <Link
             href={getPreservedHref("/")}
             className="flex items-center space-x-2"
@@ -181,21 +188,7 @@ export function AppHeader() {
         </div>
 
         {/* Right Side Actions - Positioned at screen edge with small padding */}
-        <div className="flex items-center space-x-2 ml-auto pr-3">
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="md:hidden"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </Button>
-
+        <div className="ml-auto flex items-center space-x-2 pr-2 md:pr-3">
           {/* Auth Section - Far Right */}
           {authLoading ? (
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -283,54 +276,6 @@ export function AppHeader() {
           )}
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden border-t bg-background">
-          <nav className="container px-4 py-4 space-y-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                href={getPreservedHref(item.href)}
-                className={cn(
-                  "block text-sm font-medium transition-colors hover:text-primary",
-                  isActiveRoute(item.href)
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                )}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {item.name}
-              </Link>
-            ))}
-
-            {/* Mobile Auth Buttons */}
-            {!user && (
-              <div className="space-y-2 pt-2 border-t">
-                <Link
-                  href={getPreservedHref("/auth/sign-in")}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Button variant="outline" size="sm" className="w-full">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link
-                  href={getPreservedHref("/auth/sign-up")}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Button
-                    size="sm"
-                    className="w-full bg-ocean-blue hover:bg-ocean-blue/90"
-                  >
-                    Sign Up
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </nav>
-        </div>
-      )}
     </header>
   );
 }

@@ -19,6 +19,18 @@ export function MapView() {
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
   const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
 
+  type RegionViewport = {
+    region: string;
+    key: string;
+    center: [number, number];
+    bounds?: [[number, number], [number, number]];
+    zoom?: number;
+  };
+
+  const [regionViewport, setRegionViewport] = useState<RegionViewport | null>(
+    null
+  );
+
   // Custom hooks for state management
   const {
     userLocation,
@@ -37,6 +49,7 @@ export function MapView() {
     beaches,
     nearbyBeachesForScroll,
     regions,
+    activeRegion,
     loadBeaches,
     loadNearbyBeaches,
     setSearchQuery,
@@ -106,6 +119,70 @@ export function MapView() {
   );
 
   const loading = locationLoading || beachLoading;
+
+  // Update region viewport when the active region changes
+  useEffect(() => {
+    if (!activeRegion || activeRegion === "ALL") {
+      setRegionViewport(null);
+      return;
+    }
+
+    const regionBeaches = (beaches || []).filter(
+      (beach) => (beach.region || "") === activeRegion
+    );
+
+    const coordinates = regionBeaches
+      .map((beach) => {
+        if (
+          typeof beach.latitude === "number" &&
+          typeof beach.longitude === "number"
+        ) {
+          return { lat: beach.latitude, lng: beach.longitude };
+        }
+        return null;
+      })
+      .filter(Boolean) as Array<{ lat: number; lng: number }>;
+
+    if (coordinates.length === 0) {
+      setRegionViewport(null);
+      return;
+    }
+
+    const lats = coordinates.map((coord) => coord.lat);
+    const lngs = coordinates.map((coord) => coord.lng);
+
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+
+    const latSpan = Math.abs(maxLat - minLat);
+    const lngSpan = Math.abs(maxLng - minLng);
+    const keyBase = `${minLat.toFixed(5)}-${minLng.toFixed(5)}-${maxLat.toFixed(5)}-${maxLng.toFixed(5)}`;
+
+    if (latSpan < 0.002 && lngSpan < 0.002) {
+      setRegionViewport({
+        region: activeRegion,
+        key: `${activeRegion}-center-${keyBase}`,
+        center: [centerLat, centerLng],
+        zoom: 13,
+      });
+      return;
+    }
+
+    setRegionViewport({
+      region: activeRegion,
+      key: `${activeRegion}-bounds-${keyBase}`,
+      center: [centerLat, centerLng],
+      bounds: [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ],
+    });
+  }, [activeRegion, beaches]);
 
   return (
     <div className="flex-1 flex flex-col" data-testid="map-view">
@@ -205,6 +282,7 @@ export function MapView() {
             selectedBeach={selectedBeach}
             filteredBeaches={filteredBeaches}
             searchQuery={searchQuery}
+            regionViewport={regionViewport}
             onGetUserLocation={getUserLocation}
             onUseDefaultLocation={useDefaultLocation}
             onBeachSelect={handleBeachSelect}

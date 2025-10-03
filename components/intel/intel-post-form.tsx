@@ -109,7 +109,18 @@ interface IntelPostFormProps {
   onSuccess?: (post: IntelPostWithUser | null) => void;
   initialLocation?: { latitude: number; longitude: number };
   beachId?: string;
+  beachName?: string;
+  variant?: "intel" | "check-in";
+  beforeSubmit?: (context: IntelPostFormBeforeSubmitContext) => Promise<void>;
+  successToastOverride?: { title: string; description?: string };
+  submitButtonLabel?: string;
 }
+
+export type IntelPostFormBeforeSubmitContext = {
+  values: IntelPostFormData;
+  location: { latitude: number; longitude: number };
+  beachId?: string;
+};
 
 const windDirections = [
   { value: "N", label: "North" },
@@ -158,6 +169,11 @@ export function IntelPostForm({
   onSuccess,
   initialLocation,
   beachId,
+  beachName,
+  variant = "intel",
+  beforeSubmit,
+  successToastOverride,
+  submitButtonLabel,
 }: IntelPostFormProps) {
   const [location, setLocation] = useState<{
     latitude: number;
@@ -169,10 +185,11 @@ export function IntelPostForm({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  const lockedTag = variant === "check-in" ? "conditions" : undefined;
   const form = useForm<IntelPostFormData>({
     resolver: zodResolver(intelPostSchema),
     defaultValues: {
-      tag: "other",
+      tag: lockedTag ?? "other",
       title: "",
       description: "",
       wave_height: null,
@@ -181,9 +198,15 @@ export function IntelPostForm({
       water_temp: null,
       crowd_level: 3,
       wave_types: [],
-      forecast_accuracy: null,
+      forecast_accuracy: variant === "check-in" ? "accurate" : null,
     },
   });
+
+  useEffect(() => {
+    if (lockedTag) {
+      form.setValue("tag", lockedTag);
+    }
+  }, [form, lockedTag]);
 
   // Get user's current location
   const getCurrentLocation = useCallback(() => {
@@ -294,6 +317,46 @@ export function IntelPostForm({
     setUploading(true);
 
     try {
+      // If beforeSubmit is provided (e.g., for check-ins), handle it separately
+      if (beforeSubmit) {
+        await beforeSubmit({
+          values: data,
+          location,
+          beachId,
+        });
+
+        // Show success message
+        if (successToastOverride) {
+          toast.success(successToastOverride.title, {
+            description: successToastOverride.description,
+          });
+        } else {
+          toast.success(INTEL_UI_TEXT.SUCCESS.POST_CREATED);
+        }
+
+        // Reset form
+        form.reset({
+          tag: lockedTag ?? "other",
+          title: "",
+          description: "",
+          wave_height: null,
+          wind_speed: null,
+          wind_direction: null,
+          water_temp: null,
+          crowd_level: 3,
+          wave_types: [],
+          forecast_accuracy: variant === "check-in" ? "accurate" : null,
+        });
+        setLocation(initialLocation || null);
+        setSelectedPhoto(null);
+        setPhotoPreview(null);
+
+        // Call success callback to refresh feeds
+        onSuccess?.(null);
+        onClose();
+        return; // Early return - beforeSubmit handled the submission
+      }
+
       let photoUrl: string | undefined;
       let photoStoragePath: string | undefined;
 
@@ -339,9 +402,15 @@ export function IntelPostForm({
 
       if (result.success) {
         const newPost = result.data as IntelPostWithUser | undefined;
-        toast.success(INTEL_UI_TEXT.SUCCESS.POST_CREATED);
+        if (successToastOverride) {
+          toast.success(successToastOverride.title, {
+            description: successToastOverride.description,
+          });
+        } else {
+          toast.success(INTEL_UI_TEXT.SUCCESS.POST_CREATED);
+        }
         form.reset({
-          tag: "other",
+          tag: lockedTag ?? "other",
           title: "",
           description: "",
           wave_height: null,
@@ -350,9 +419,9 @@ export function IntelPostForm({
           water_temp: null,
           crowd_level: 3,
           wave_types: [],
-          forecast_accuracy: null,
+          forecast_accuracy: variant === "check-in" ? "accurate" : null,
         });
-        setLocation(null);
+        setLocation(initialLocation || null);
         setSelectedPhoto(null);
         setPhotoPreview(null);
         onSuccess?.(newPost ?? null);
@@ -362,7 +431,11 @@ export function IntelPostForm({
       }
     } catch (error) {
       console.error("Error creating intel post:", error);
-      toast.error(INTEL_UI_TEXT.ERROR.POST_FAILED);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : INTEL_UI_TEXT.ERROR.POST_FAILED;
+      toast.error(message);
     } finally {
       setUploading(false);
     }
@@ -374,7 +447,7 @@ export function IntelPostForm({
     try {
       let values = form.getValues();
 
-      // For quick "conditions" posts, auto-generate content if fields are blank
+      // For check-in variant or quick "conditions" posts, auto-generate content if fields are blank
       if (values.tag === "conditions") {
         const needsTitle = !values.title || !values.title.trim();
         const needsDesc = !values.description || !values.description.trim();
@@ -428,6 +501,11 @@ export function IntelPostForm({
             missing.length > 1 ? "s" : ""
           } before sharing.`.replace("$", "")
         );
+        return;
+      }
+
+      if (variant === "check-in" && !values.forecast_accuracy) {
+        toast.error("Please rate the forecast accuracy before sharing.");
         return;
       }
 
@@ -509,6 +587,11 @@ export function IntelPostForm({
                         <CheckCircle className="h-3 w-3 text-green-500" />
                         <span className="text-sm">Location captured</span>
                       </div>
+                      {beachName && (
+                        <div className="text-xs font-medium text-gray-700">
+                          {beachName}
+                        </div>
+                      )}
                       <div className="text-xs text-muted-foreground">
                         {location.latitude.toFixed(4)},{" "}
                         {location.longitude.toFixed(4)}
@@ -538,8 +621,9 @@ export function IntelPostForm({
               onValueChange={(value: IntelPostTag) =>
                 form.setValue("tag", value)
               }
+              disabled={!!lockedTag}
             >
-              <SelectTrigger>
+              <SelectTrigger disabled={!!lockedTag}>
                 <SelectValue placeholder={INTEL_UI_TEXT.FORM.TAG_PLACEHOLDER} />
               </SelectTrigger>
               <SelectContent>
@@ -756,7 +840,7 @@ export function IntelPostForm({
 
               {/* Forecast Accuracy */}
               <div className="space-y-3">
-                <Label>Was today's forecast accurate?</Label>
+                <Label>Was today&apos;s forecast accurate?</Label>
                 <div className="grid grid-cols-3 gap-3">
                   {accuracyOptions.map((option) => {
                     const IconComponent = option.icon;
@@ -883,7 +967,7 @@ export function IntelPostForm({
                   <span>Sharing...</span>
                 </div>
               ) : (
-                INTEL_UI_TEXT.FORM.SUBMIT_BUTTON
+                submitButtonLabel || INTEL_UI_TEXT.FORM.SUBMIT_BUTTON
               )}
             </Button>
           </div>

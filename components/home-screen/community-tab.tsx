@@ -1,6 +1,6 @@
 "use client";
 
-import { IntelDashboard } from "@/components/intel/intel-dashboard";
+import { IntelTabSimple } from "@/components/intel/intel-tab-simple";
 
 interface CommunityTabProps {
   // Legacy props that are no longer needed but kept for compatibility
@@ -9,11 +9,11 @@ interface CommunityTabProps {
 }
 
 export function CommunityTab({ sessions, loading }: CommunityTabProps) {
-  // The Local Intel Club has replaced the community feed
-  // All the functionality is now handled by the IntelDashboard component
+  // The Local Intel tab shows community intel posts
+  // Using simplified implementation for better reliability
   return (
-    <div className="h-[calc(100vh-200px)] max-w-full mx-auto">
-      <IntelDashboard />
+    <div className="max-w-full mx-auto">
+      <IntelTabSimple />
     </div>
   );
 }

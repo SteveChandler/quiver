@@ -3,19 +3,8 @@
  * This replaces all Supabase imports to avoid ES module issues in Jest
  */
 
-// Mock the client creation functions
-const createClient = () => mockSupabaseClient as any;
-// Support both named and default-style access in tests using require()
-export { createClient };
-export const createClientComponentClient = jest.fn(() => mockSupabaseClient);
-export const createServerComponentClient = jest.fn(() => mockSupabaseClient);
-export const createSupabaseServerClient = jest.fn(() =>
-  Promise.resolve(mockSupabaseClient)
-);
-export const createBrowserClient = jest.fn(() => mockSupabaseClient);
-
 // Create a comprehensive mock Supabase client
-const mockSupabaseClient = {
+const mockSupabaseClient: any = {
   auth: {
     getSession: jest.fn(() =>
       Promise.resolve({ data: { session: null }, error: null })
@@ -33,43 +22,36 @@ const mockSupabaseClient = {
     refreshSession: jest.fn(),
   },
   rpc: jest.fn(() => Promise.resolve({ data: "activity-id", error: null })),
-  from: jest.fn(() => ({
-    select: jest.fn(() => ({
-      eq: jest.fn(() => ({
-        order: jest.fn(() => Promise.resolve({ data: [], error: null })),
-        single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-        limit: jest.fn(() => Promise.resolve({ data: [], error: null })),
-        maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
-      })),
-      neq: jest.fn(() => ({
-        order: jest.fn(() => Promise.resolve({ data: [], error: null })),
-      })),
-      in: jest.fn(() => Promise.resolve({ data: [], error: null })),
-      order: jest.fn(() => Promise.resolve({ data: [], error: null })),
-      limit: jest.fn(() => Promise.resolve({ data: [], error: null })),
-      range: jest.fn(() => Promise.resolve({ data: [], error: null })),
-      // Add these missing methods that can be called directly after select
+  __tableMocks: {} as Record<string, any>,
+  setTableMock(table: string, mockImpl: any) {
+    mockSupabaseClient.__tableMocks = mockSupabaseClient.__tableMocks || {};
+    mockSupabaseClient.__tableMocks[table] = mockImpl;
+    return mockSupabaseClient;
+  },
+  from: jest.fn((table: string) => {
+    const tableMock = mockSupabaseClient.__tableMocks[table];
+    if (tableMock) {
+      return typeof tableMock === "function" ? tableMock(table) : tableMock;
+    }
+
+    const chain = {
+      select: jest.fn(() => chain),
+      eq: jest.fn(() => chain),
+      ilike: jest.fn(() => chain),
+      limit: jest.fn(() => chain),
+      maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+      single: jest.fn(async () => ({ data: null, error: null })),
+      order: jest.fn(() => chain),
+      insert: jest.fn(() => chain),
+      update: jest.fn(() => chain),
+      delete: jest.fn(() => chain),
+      upsert: jest.fn(() => chain),
+      range: jest.fn(() => chain),
       then: jest.fn((callback) => callback({ data: [], error: null })),
-    })),
-    insert: jest.fn(() => ({
-      select: jest.fn(() => ({
-        single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-      })),
-    })),
-    update: jest.fn(() => ({
-      eq: jest.fn(() => ({
-        select: jest.fn(() => ({
-          single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-        })),
-      })),
-    })),
-    delete: jest.fn(() => ({
-      eq: jest.fn(() => Promise.resolve({ error: null })),
-    })),
-    upsert: jest.fn(() => ({
-      select: jest.fn(() => Promise.resolve({ data: [], error: null })),
-    })),
-  })),
+    } as any;
+
+    return chain;
+  }),
   storage: {
     from: jest.fn(() => ({
       upload: jest.fn(() => Promise.resolve({ data: null, error: null })),
@@ -99,20 +81,24 @@ const mockSupabaseClient = {
   },
 };
 
-// Default export for ES module compatibility
-const defaultExport: any = mockSupabaseClient;
-defaultExport.createClient = createClient;
-export default defaultExport;
+function createClient() {
+  return mockSupabaseClient as any;
+}
 
-// Named exports that might be imported
-export { mockSupabaseClient as supabase };
+const createClientComponentClient = jest.fn(() => mockSupabaseClient);
+const createServerComponentClient = jest.fn(() => mockSupabaseClient);
+const createSupabaseServerClient = jest.fn(() =>
+  Promise.resolve(mockSupabaseClient)
+);
+const createBrowserClient = jest.fn(() => mockSupabaseClient);
+const createSupabaseServiceRoleClient = jest.fn(() =>
+  Promise.resolve(mockSupabaseClient)
+);
 
-// Mock any other Supabase utilities
-export const createServerClient = jest.fn(() => mockSupabaseClient);
-export const createMiddlewareClient = jest.fn(() => mockSupabaseClient);
+const createServerClient = jest.fn(() => mockSupabaseClient);
+const createMiddlewareClient = jest.fn(() => mockSupabaseClient);
 
-// Mock RealtimeClient specifically
-export const RealtimeClient = jest.fn().mockImplementation(() => ({
+const RealtimeClient = jest.fn().mockImplementation(() => ({
   connect: jest.fn(),
   disconnect: jest.fn(),
   channel: jest.fn(() => ({
@@ -122,5 +108,48 @@ export const RealtimeClient = jest.fn().mockImplementation(() => ({
   }))
 }));
 
-// Export for use in other test files
-export { mockSupabaseClient };
+mockSupabaseClient.createClient = createClient;
+mockSupabaseClient.createClientComponentClient = createClientComponentClient;
+mockSupabaseClient.createServerComponentClient = createServerComponentClient;
+mockSupabaseClient.createSupabaseServerClient = createSupabaseServerClient;
+mockSupabaseClient.createBrowserClient = createBrowserClient;
+mockSupabaseClient.createSupabaseServiceRoleClient =
+  createSupabaseServiceRoleClient;
+mockSupabaseClient.createServerClient = createServerClient;
+mockSupabaseClient.createMiddlewareClient = createMiddlewareClient;
+mockSupabaseClient.RealtimeClient = RealtimeClient;
+
+const exportsForModule = {
+  __esModule: true,
+  default: mockSupabaseClient,
+  mockSupabaseClient,
+  supabase: mockSupabaseClient,
+  createClient,
+  createClientComponentClient,
+  createServerComponentClient,
+  createSupabaseServerClient,
+  createBrowserClient,
+  createSupabaseServiceRoleClient,
+  createServerClient,
+  createMiddlewareClient,
+  RealtimeClient,
+};
+
+export default mockSupabaseClient;
+export {
+  mockSupabaseClient,
+  mockSupabaseClient as supabase,
+  createClient,
+  createClientComponentClient,
+  createServerComponentClient,
+  createSupabaseServerClient,
+  createBrowserClient,
+  createSupabaseServiceRoleClient,
+  createServerClient,
+  createMiddlewareClient,
+  RealtimeClient,
+};
+
+if (typeof module !== "undefined") {
+  module.exports = exportsForModule;
+}

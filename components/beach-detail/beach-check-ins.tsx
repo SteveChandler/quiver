@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckInFeed } from "@/components/ui/check-in-display";
-import { CheckInForm } from "@/components/ui/check-in-form";
+import { CheckInDialog } from "@/components/ui/check-in-form";
 import {
   useRecentCheckIns,
   useForecastAccuracyStats,
@@ -58,19 +58,16 @@ export function BeachCheckIns({ beachId, beachName }: BeachCheckInsProps) {
       )}
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-background rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <CheckInForm
-              beachId={beachId}
-              beachName={beachName}
-              onSuccess={() => {
-                setShowForm(false);
-                refetch();
-              }}
-              onCancel={() => setShowForm(false)}
-            />
-          </div>
-        </div>
+        <CheckInDialog
+          isOpen={showForm}
+          beachId={beachId}
+          beachName={beachName}
+          onClose={() => setShowForm(false)}
+          onSuccess={() => {
+            setShowForm(false);
+            refetch();
+          }}
+        />
       )}
     </div>
   );

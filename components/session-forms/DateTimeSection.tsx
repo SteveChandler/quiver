@@ -2,7 +2,7 @@
 
 import { CalendarDays, Timer } from "lucide-react";
 import { SimpleCardLayout } from "@/components/ui/form-layout";
-import { FormInput } from "@/components/ui/form-fields";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
 import { useCallback, useMemo, useRef, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 interface DateTimeSectionProps {
   mode: SessionFormMode;
@@ -37,6 +38,7 @@ export function DateTimeSection({
   const text = getFormText(mode);
   const isPlanning = mode === "plan";
   const isDisabled = !isPlanning && sessionCreated;
+  const baseInputClass = "h-12 min-w-0 appearance-none";
 
   const handleDurationChange = useCallback(
     (value: string) => {
@@ -116,14 +118,17 @@ export function DateTimeSection({
       <div className="space-y-4">
         {/* Date and Time in same row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <div className="min-w-0">
             <label className="block text-sm font-medium mb-2">
               {isPlanning ? "Session Date" : "Date Surfed"}
             </label>
-            <input
+            <Input
               ref={dateInputRef}
               type="date"
-              className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={cn(
+                baseInputClass,
+                "w-full rounded-lg border border-input bg-background px-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
+              )}
               defaultValue={formState.selectedDate || ""}
               onChange={handleDateChange}
               disabled={isDisabled}
@@ -139,15 +144,18 @@ export function DateTimeSection({
             )}
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-sm font-medium mb-2">
               {isPlanning ? "Start Time" : "Time Started"}
             </label>
             <div className="relative">
               <Timer className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
+              <Input
                 type="time"
-                className="w-full border rounded-lg p-3 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={cn(
+                  baseInputClass,
+                  "w-full rounded-lg border border-input bg-background pl-10 pr-3 text-base shadow-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
+                )}
                 value={formState.selectedTime || ""}
                 onChange={handleTimeChange}
                 disabled={isDisabled}

@@ -9,7 +9,8 @@ import {
   MultiDayForecastTable,
 } from "@/components/forecast/forecast-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sun, Waves, Wind } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { CalendarDays, Globe2, Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { track, slugify } from "@/lib/analytics";
@@ -26,6 +27,14 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
   const [subTab, setSubTab] = useState<
     "today" | "tides" | "wind" | "swell" | "week"
   >("tides");
+
+  const tabOptions: { value: typeof subTab; label: string; icon: LucideIcon }[] = [
+    { value: "today", label: "Today", icon: Sun },
+    { value: "tides", label: "Tides", icon: Waves },
+    { value: "wind", label: "Wind", icon: Wind },
+    { value: "swell", label: "Swell", icon: Globe2 },
+    { value: "week", label: "Week", icon: CalendarDays },
+  ];
 
   const todayStr = useMemo(() => {
     const d = new Date();
@@ -71,48 +80,44 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
           onValueChange={(v) => setSubTab(v as any)}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-5 w-full">
-            {(["today", "tides", "wind", "swell", "week"] as const).map(
-              (tab) => (
-                <TabsTrigger
-                  key={tab}
-                  value={tab}
-                  onClick={() =>
-                    track("forecast_tab_click", {
-                      beach_slug: slugify(beach.name),
-                      tab,
-                    })
-                  }
-                >
-                  {tab === "today" && "Today"}
-                  {tab === "tides" && "Tides"}
-                  {tab === "wind" && "Wind"}
-                  {tab === "swell" && "Swell"}
-                  {tab === "week" && "Week"}
-                </TabsTrigger>
-              )
-            )}
+          <TabsList className="grid w-full grid-cols-5 gap-2 rounded-full bg-blue-100/60 p-1">
+            {tabOptions.map(({ value, label, icon: Icon }) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                onClick={() =>
+                  track("forecast_tab_click", {
+                    beach_slug: slugify(beach.name),
+                    tab: value,
+                  })
+                }
+                className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md"
+              >
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <TabsContent value="today" className="mt-4">
-            <Card>
-              <CardContent className="pt-6">
+            <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
+              <CardContent className="p-6">
                 <SimplifiedForecastTable forecasts={todaysForecasts} />
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="tides" className="mt-4">
-            <Card>
-              <CardContent className="pt-6">
-                <TideChart forecasts={safeForecasts} />
+            <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
+              <CardContent className="p-6">
+                <TideChart forecasts={safeForecasts} now={new Date()} compact />
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="wind" className="mt-4">
-            <Card>
-              <CardContent className="pt-6">
+            <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
+              <CardContent className="p-6">
                 {/* For now, reuse simplified table; wind column is included */}
                 <SimplifiedForecastTable forecasts={safeForecasts} />
               </CardContent>
@@ -120,8 +125,8 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
           </TabsContent>
 
           <TabsContent value="swell" className="mt-4">
-            <Card>
-              <CardContent className="pt-6">
+            <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
+              <CardContent className="p-6">
                 {/* For now, reuse simplified table; swell columns are included */}
                 <SimplifiedForecastTable forecasts={safeForecasts} />
               </CardContent>
@@ -129,8 +134,8 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
           </TabsContent>
 
           <TabsContent value="week" className="mt-4">
-            <Card>
-              <CardContent className="pt-6">
+            <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
+              <CardContent className="p-6">
                 <MultiDayForecastTable forecasts={safeForecasts} />
               </CardContent>
             </Card>

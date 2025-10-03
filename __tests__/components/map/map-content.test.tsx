@@ -40,6 +40,7 @@ describe("MapContent", () => {
     selectedBeach: null,
     filteredBeaches: mockBeaches,
     searchQuery: "",
+    regionViewport: null,
     onGetUserLocation: jest.fn(),
     onUseDefaultLocation: jest.fn(),
     onBeachSelect: jest.fn(),

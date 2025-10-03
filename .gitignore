@@ -21,6 +21,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+jest-run*.log
+jest-run*.pid
 
 # local env files
 .env*.local
@@ -34,6 +36,7 @@ next-env.d.ts
 
 # Playwright
 /test-results/
+/test-results.json/
 /playwright-report/
 /playwright/.cache/
 
@@ -69,4 +72,17 @@ lighthouse-results/
 .env.test
 # Playwright MCP testing artifacts
 .playwright-mcp/
+e2e/.auth/state.json
+
+# Mobile build artifacts
+android/app/build/
+android/.gradle/
+android/build/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+.env.playwright
+
+# Local development tunnel config (contains temporary tunnel URLs)
+capacitor.config.dev.ts
 e2e/.auth/state.json

@@ -1,166 +1,378 @@
 "use client";
 
-import React, { useMemo, useEffect } from "react";
+import * as React from "react";
 import {
+  ResponsiveContainer,
   LineChart,
   Line,
-  CartesianGrid,
-  ResponsiveContainer,
-  ReferenceLine,
-  ReferenceDot,
   XAxis,
   YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+  Area,
+  DotProps,
 } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  TideTooltipContent,
-  getTideChartConfig,
-} from "@/components/ui/chart";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EnhancedForecastEntity } from "@/types/forecast";
-import { useIsMobile } from "@/components/ui/use-mobile";
+import { cn } from "@/lib/utils";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
-// Tide data structure
-export interface TideDataPoint {
-  time: Date;
-  height: number;
-  type: "high" | "low";
-}
+// Public types for the chart API
+export type TidePoint = {
+  /** JS date or ISO string */
+  t: string | number | Date;
+  /** tide height in feet */
+  h: number;
+  /** optional flags */
+  isHigh?: boolean;
+  isLow?: boolean;
+};
 
-interface TideEvent {
-  time: Date;
-  height: number;
-  type: "high" | "low";
-  day: string;
-  dayLabel: string;
-}
-
-interface TideChartProps {
-  data?: TideDataPoint[];
+export type TideChartProps = {
+  /** direct data points for the line */
+  data?: TidePoint[];
+  /** legacy inputs kept for backwards compatibility */
   forecasts?: EnhancedForecastEntity[];
-  hourly?: { ts: string; height_m?: number; height_ft?: number }[];
+  hourly?: { ts: string; height_m?: number | null; height_ft?: number | null }[];
   events?: {
     ts: string;
     type: "HIGH" | "LOW";
-    height_m?: number;
-    height_ft?: number;
+    height_m?: number | null;
+    height_ft?: number | null;
   }[];
+  /** label shown above x-axis ticks, e.g. Mon/Tue or Today/Tomorrow */
+  dayFormatter?: (d: Date) => string;
+  /** shows a dashed vertical "now" line if within the range */
+  now?: Date;
+  /** y-axis nice domain, default auto */
+  yDomain?: [number, number] | "auto";
+  /** unit label for tooltip */
+  unit?: string; // default "ft"
+  /** compact mode removes outer card styling */
+  compact?: boolean;
+  /** optional className for wrapper */
   className?: string;
+  /** legacy flag retained for compatibility */
   showNowLine?: boolean;
+  /** legacy flag retained for compatibility */
   isAnimationActive?: boolean;
-}
+};
 
-// Helper functions for data extraction (from old component)
-function getNormalizedDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+// --- Helpers ---------------------------------------------------------------
 
-function getDayLabel(dateString: string): string {
-  const today = getNormalizedDateString(new Date());
-  const tomorrow = getNormalizedDateString(
-    new Date(Date.now() + 24 * 60 * 60 * 1000)
-  );
+type InternalPoint = TidePoint & { timestamp: number };
 
-  if (dateString === today) return "Today";
-  if (dateString === tomorrow) return "Tomorrow";
+const toDate = (t: TidePoint["t"]) => (t instanceof Date ? t : new Date(t));
 
-  const date = new Date(dateString + "T00:00:00");
-  return date.toLocaleDateString("en-US", { weekday: "short" });
-}
+const defaultDayFmt = (d: Date) =>
+  d.toLocaleDateString(undefined, { weekday: "short" });
 
-function parseTideHeight(tideHeight: string | null): number {
-  if (!tideHeight) return 0;
-  const cleanHeight = tideHeight.replace(/ft|'|"/g, "").trim();
-  const parsed = parseFloat(cleanHeight) || 0;
-  // Round to 1 decimal place to prevent floating point precision issues
-  return Math.round(parsed * 10) / 10;
-}
+const metersToFeet = (m?: number | null) =>
+  typeof m === "number" && Number.isFinite(m) ? m * 3.28084 : undefined;
 
-// Extract tide events from forecast data
-function extractTideEvents(forecasts: EnhancedForecastEntity[]): TideEvent[] {
-  const tideEvents: TideEvent[] = [];
-  const seenTides = new Set<string>();
+const parseHeight = (value?: string | null) => {
+  if (!value) return undefined;
+  const match = /-?\d+(?:\.\d+)?/.exec(value);
+  return match ? Number.parseFloat(match[0]) : undefined;
+};
 
-  forecasts.forEach((forecast) => {
-    if (
-      !forecast.next_tide_time ||
-      !forecast.next_tide_type ||
-      forecast.next_tide_time === "Unknown"
-    ) {
-      return;
+const parseForecastDateTime = (
+  dateStr: string,
+  timeStr: string
+): Date | undefined => {
+  const trimmedTime = (timeStr ?? "").trim();
+  if (!dateStr) return undefined;
+  const datePart = dateStr.includes("T")
+    ? dateStr.split("T")[0]?.trim() ?? dateStr.trim()
+    : dateStr.trim();
+
+  const candidates: string[] = [];
+
+  if (trimmedTime) {
+    const timeUpper = trimmedTime.toUpperCase();
+
+    if (/^\d{1,2}:\d{2}$/.test(trimmedTime)) {
+      candidates.push(`${datePart}T${trimmedTime.padStart(5, "0")}:00`);
+    } else if (/^\d{1,2}:\d{2}:\d{2}$/.test(trimmedTime)) {
+      candidates.push(`${datePart}T${trimmedTime}`);
+    } else if (/^\d{1,2}:\d{2}\s?[AP]M$/.test(timeUpper)) {
+      const [hh, mm] = timeUpper.replace(/\s+/g, "").split(/[:APM]/);
+      let hours = Number.parseInt(hh ?? "0", 10) % 12;
+      if (timeUpper.includes("PM")) hours += 12;
+      candidates.push(
+        `${datePart}T${hours.toString().padStart(2, "0")}:${
+          mm ?? "00"
+        }:00`
+      );
+    } else if (/^\d{1,2}\s?[AP]M$/.test(timeUpper)) {
+      const match = /^\d{1,2}/.exec(timeUpper);
+      let hours = Number.parseInt(match?.[0] ?? "0", 10) % 12;
+      if (timeUpper.includes("PM")) hours += 12;
+      candidates.push(`${datePart}T${hours.toString().padStart(2, "0")}:00:00`);
     }
 
-    const forecastDate = new Date(
-      forecast.forecast_date + "T" + forecast.forecast_time
-    );
-    let tideTime: Date;
+    candidates.push(`${datePart}T${trimmedTime}`);
+    candidates.push(`${datePart} ${trimmedTime}`);
+  }
 
-    // Handle different time formats
-    if (forecast.next_tide_time.includes(":")) {
-      const timeString = forecast.next_tide_time;
-      const datePart = forecast.forecast_date.includes("T")
-        ? forecast.forecast_date.split("T")[0]
-        : forecast.forecast_date;
+  candidates.push(`${dateStr}T${trimmedTime}`);
+  candidates.push(`${dateStr} ${trimmedTime}`);
 
-      if (/^\d{1,2}:\d{2}$/.test(timeString)) {
-        tideTime = new Date(`${datePart}T${timeString.padStart(5, "0")}:00`);
-      } else {
-        tideTime = new Date(`${datePart} ${timeString}`);
-      }
+  for (const candidate of candidates) {
+    const parsed = new Date(candidate);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  if (!/^\d{1,2}$/.test(trimmedTime)) {
+    const fallback = new Date(trimmedTime);
+    if (!Number.isNaN(fallback.getTime())) {
+      return fallback;
+    }
+  }
+
+  return undefined;
+};
+
+type LegacyTidePoint = {
+  time: Date;
+  height: number;
+  type: "high" | "low" | "HIGH" | "LOW";
+};
+
+const normalizeDirectData = (points?: TideChartProps["data"]): InternalPoint[] => {
+  if (!Array.isArray(points)) return [];
+  return points
+    .map((p) => {
+      if (!p) return undefined;
+      const dateValue = toDate((p as TidePoint).t ?? (p as any).time);
+      if (Number.isNaN(dateValue.getTime())) return undefined;
+      const height = (p as TidePoint).h ?? (p as any).height;
+      if (!Number.isFinite(height)) return undefined;
+      const normalized: InternalPoint = {
+        t: dateValue,
+        h: Number(height),
+        isHigh: (p as TidePoint).isHigh ?? (p as LegacyTidePoint).type?.toLowerCase() === "high",
+        isLow: (p as TidePoint).isLow ?? (p as LegacyTidePoint).type?.toLowerCase() === "low",
+        timestamp: dateValue.getTime(),
+      };
+      return normalized;
+    })
+    .filter(Boolean) as InternalPoint[];
+};
+
+const normalizeHourly = (
+  hourly?: TideChartProps["hourly"]
+): InternalPoint[] => {
+  if (!Array.isArray(hourly)) return [];
+  return hourly
+    .map((h) => {
+      if (!h || !h.ts) return undefined;
+      const ts = new Date(h.ts);
+      if (Number.isNaN(ts.getTime())) return undefined;
+      const heightFt = h.height_ft ?? metersToFeet(h.height_m ?? undefined);
+      if (!Number.isFinite(heightFt)) return undefined;
+      return {
+        t: ts,
+        h: Number(heightFt),
+        timestamp: ts.getTime(),
+      } satisfies InternalPoint;
+    })
+    .filter(Boolean) as InternalPoint[];
+};
+
+const normalizeEvents = (
+  events?: TideChartProps["events"]
+): InternalPoint[] => {
+  if (!Array.isArray(events)) return [];
+  return events
+    .map((event) => {
+      if (!event || !event.ts) return undefined;
+      const ts = new Date(event.ts);
+      if (Number.isNaN(ts.getTime())) return undefined;
+      const heightFt = event.height_ft ?? metersToFeet(event.height_m ?? undefined);
+      if (!Number.isFinite(heightFt)) return undefined;
+      const isHigh = event.type === "HIGH";
+      return {
+        t: ts,
+        h: Number(heightFt),
+        isHigh,
+        isLow: !isHigh,
+        timestamp: ts.getTime(),
+      } satisfies InternalPoint;
+    })
+    .filter(Boolean) as InternalPoint[];
+};
+
+const normalizeForecasts = (
+  forecasts?: EnhancedForecastEntity[]
+): InternalPoint[] => {
+  if (!Array.isArray(forecasts)) return [];
+  return forecasts
+    .map((forecast) => {
+      if (!forecast?.forecast_date || !forecast.forecast_time) return undefined;
+      const date =
+        parseForecastDateTime(
+          forecast.forecast_date,
+          forecast.forecast_time
+        ) ?? new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
+      if (Number.isNaN(date.getTime())) return undefined;
+      const heightFt =
+        parseHeight(forecast.tide_height) ?? parseHeight(forecast.next_tide_height);
+      if (!Number.isFinite(heightFt)) return undefined;
+      const type = forecast.tide_status ?? forecast.next_tide_type ?? "";
+      const isHigh = typeof type === "string" && /high/i.test(type);
+      const isLow = typeof type === "string" && /low/i.test(type);
+      return {
+        t: date,
+        h: Number(heightFt),
+        isHigh,
+        isLow,
+        timestamp: date.getTime(),
+      } satisfies InternalPoint;
+    })
+    .filter(Boolean) as InternalPoint[];
+};
+
+const sortAndUnique = (points: InternalPoint[]): InternalPoint[] => {
+  const byTs = new Map<number, InternalPoint>();
+  for (const point of points) {
+    if (!point) continue;
+    const existing = byTs.get(point.timestamp);
+    if (!existing) {
+      byTs.set(point.timestamp, point);
     } else {
-      return;
-    }
-
-    if (isNaN(tideTime.getTime())) {
-      return;
-    }
-
-    const height = parseTideHeight(forecast.next_tide_height);
-    const type = forecast.next_tide_type.toLowerCase().includes("high")
-      ? "high"
-      : "low";
-    const tideKey = `${tideTime.getTime()}-${type}`;
-
-    if (!seenTides.has(tideKey)) {
-      seenTides.add(tideKey);
-
-      const dayString = getNormalizedDateString(tideTime);
-      tideEvents.push({
-        time: tideTime,
-        height,
-        type,
-        day: dayString,
-        dayLabel: getDayLabel(dayString),
+      byTs.set(point.timestamp, {
+        ...existing,
+        ...point,
+        isHigh: existing.isHigh || point.isHigh,
+        isLow: existing.isLow || point.isLow,
       });
     }
+  }
+  return Array.from(byTs.values()).sort((a, b) => a.timestamp - b.timestamp);
+};
+
+const synthesizeFromExtrema = (extrema: InternalPoint[]): InternalPoint[] => {
+  if (extrema.length < 2) return extrema;
+  const sorted = sortAndUnique(extrema);
+  const result: InternalPoint[] = [];
+  const step = 60 * 60 * 1000; // 1 hour granularity for smoothing
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const current = sorted[i];
+    const next = sorted[i + 1];
+    const dt = next.timestamp - current.timestamp;
+    if (dt <= 0) continue;
+    for (let t = current.timestamp; t < next.timestamp; t += step) {
+      const u = (t - current.timestamp) / dt;
+      const h =
+        current.h + ((next.h - current.h) * (1 - Math.cos(Math.PI * u))) / 2;
+      result.push({
+        t,
+        h,
+        timestamp: t,
+        isHigh: u === 0 ? current.isHigh : undefined,
+        isLow: u === 0 ? current.isLow : undefined,
+      });
+    }
+  }
+  // include final point explicitly
+  result.push(sorted[sorted.length - 1]);
+  return sortAndUnique(result);
+};
+
+const limitToFiveDays = (points: InternalPoint[]): InternalPoint[] => {
+  if (!points.length) return points;
+  const firstTs = points[0].timestamp;
+  const maxTs = firstTs + 5 * 24 * 60 * 60 * 1000;
+  return points.filter((point) => point.timestamp <= maxTs);
+};
+
+const annotateWithExtrema = (
+  data: InternalPoint[],
+  extrema: InternalPoint[]
+): InternalPoint[] => {
+  if (!extrema.length || !data.length) return data;
+
+  const emphasisLookup = new Map<number, { isHigh?: boolean; isLow?: boolean }>();
+  extrema.forEach((point) => {
+    emphasisLookup.set(point.timestamp, {
+      isHigh: point.isHigh,
+      isLow: point.isLow,
+    });
   });
 
-  return tideEvents.sort((a, b) => a.time.getTime() - b.time.getTime());
-}
+  return data.map((point) => {
+    const emphasis = emphasisLookup.get(point.timestamp);
+    if (!emphasis) return point;
+    return { ...point, ...emphasis };
+  });
+};
 
-// Custom label component for tide markers
-const TideLabel = (props: any) => {
-  const { payload, x, y, value } = props;
-  if (!payload || value === undefined) return null;
-
-  const t = (payload.type ?? "").toString().toLowerCase();
-  const isHigh = t === "high" || t === "h" || t === "HIGH";
-  const labelY = isHigh ? y - 15 : y + 20; // Above for high, below for low
-
+// Smooth curve dot that emphasizes highs/lows
+const EmphasisDot: React.FC<DotProps & { isHigh?: boolean; isLow?: boolean }> = (
+  props
+) => {
+  const { cx, cy, payload } = props as DotProps & { payload: any };
+  if (cx == null || cy == null) return null;
+  const isHigh = (payload?.isHigh as boolean) ?? false;
+  const isLow = (payload?.isLow as boolean) ?? false;
+  const r = isHigh || isLow ? 4.5 : 2.5;
   return (
-    <text
-      x={x}
-      y={labelY}
-      textAnchor="middle"
-      className="fill-gray-700 text-xs font-medium"
-      dominantBaseline={isHigh ? "auto" : "hanging"}
-    >
-      {Math.abs(value).toFixed(1)}ft
-    </text>
+    <g>
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r + 3}
+        fill="rgba(59,130,246,0.25)"
+        opacity={isHigh || isLow ? 1 : 0}
+      />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="#2563eb"
+        stroke="#1d4ed8"
+        strokeWidth={1}
+      />
+    </g>
+  );
+};
+
+// Gradient id must be stable per instance
+const useGradientId = () => React.useId().replace(/:/g, "");
+
+// Tooltip
+const TideTooltip: React.FC<{
+  active?: boolean;
+  payload?: any;
+  label?: any;
+  unit: string;
+}> = ({ active, payload, unit }) => {
+  if (!active || !payload?.length) return null;
+  const p = payload[0]?.payload as TidePoint & { t: any };
+  const d = toDate(p.t);
+  const time = d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const day = d.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/90 backdrop-blur px-3 py-2 shadow-md">
+      <div className="text-[11px] text-slate-500">
+        {day} • {time}
+      </div>
+      <div className="text-sm font-semibold text-slate-900">
+        {p.h.toFixed(1)} {unit}
+      </div>
+      {p.isHigh && <div className="text-[11px] text-emerald-600">High tide</div>}
+      {p.isLow && <div className="text-[11px] text-rose-600">Low tide</div>}
+    </div>
   );
 };
 
@@ -169,426 +381,215 @@ export function TideChart({
   forecasts,
   hourly,
   events,
+  dayFormatter = defaultDayFmt,
+  now,
+  yDomain = "auto",
+  unit = "ft",
+  compact,
   className,
   showNowLine = true,
-  isAnimationActive = process.env.NODE_ENV !== "production",
+  isAnimationActive,
 }: TideChartProps) {
-  const chartConfig = getTideChartConfig();
-  const isMobile = useIsMobile();
+  const gradId = useGradientId();
+  const animationEnabled =
+    typeof isAnimationActive === "boolean"
+      ? isAnimationActive
+      : process.env.NODE_ENV !== "production";
 
-  // Helpers per requirements with proper rounding
-  const toFt = (m?: number, ft?: number) => {
-    const result = Number.isFinite(ft as number)
-      ? (ft as number)
-      : ((m ?? NaN) as number) * 3.28084;
-    // Round to 1 decimal place to prevent floating point precision issues
-    return Number.isFinite(result) ? Math.round(result * 10) / 10 : result;
-  };
-
-  // Cosine-easing fallback between extrema
-  const synthesizeFromExtrema = (ext: { t: number; h: number }[]) => {
-    const pts = [...ext]
-      .filter((p) => Number.isFinite(p.h))
-      .sort((a, b) => a.t - b.t);
-    if (pts.length < 2) return pts;
-    const out: { t: number; h: number }[] = [];
-    const step = 60 * 60 * 1000; // 1h
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i];
-      const b = pts[i + 1];
-      const dt = b.t - a.t;
-      if (!(dt > 0)) {
-        // skip zero/negative intervals to avoid NaN
-        if (out.length === 0) out.push({ t: a.t, h: a.h });
-        continue;
-      }
-      for (let t = a.t; t <= b.t; t += step) {
-        const u = (t - a.t) / dt;
-        const h = a.h + ((b.h - a.h) * (1 - Math.cos(Math.PI * u))) / 2;
-        out.push({ t, h });
-      }
-    }
-    return out.length ? out : pts;
-  };
-
-  // Process and normalize to shared shapes: line[{t,h}], extrema[{t,h,type}]
-  const normalized = useMemo(() => {
-    // Derive extrema from priority: events → data → forecasts
-    let extrema: { t: number; h: number; type: "HIGH" | "LOW" }[] = [];
-    if (Array.isArray(events) && events.length) {
-      extrema = events
-        .map((e) => ({
-          t: +new Date(e.ts),
-          h: toFt(e.height_m, e.height_ft),
-          type: (e.type === "HIGH" ? "HIGH" : "LOW") as "HIGH" | "LOW",
-        }))
-        .filter((d) => Number.isFinite(d.h));
-    } else if (data && data.length > 0) {
-      extrema = data
-        .map((d) => ({
-          t: d.time.getTime(),
-          h: toFt(undefined, d.height),
-          type: (d.type.toLowerCase() === "high" ? "HIGH" : "LOW") as
-            | "HIGH"
-            | "LOW",
-        }))
-        .filter((d) => Number.isFinite(d.h));
-    } else if (forecasts && forecasts.length > 0) {
-      const tideEvents = extractTideEvents(forecasts);
-      extrema = tideEvents
-        .map((e) => ({
-          t: e.time.getTime(),
-          h: toFt(undefined, e.height),
-          type: ((e.type as string).toLowerCase().includes("high")
-            ? "HIGH"
-            : "LOW") as "HIGH" | "LOW",
-        }))
-        .filter((d) => Number.isFinite(d.h));
-    }
-
-    // Prefer hourly for line; else synthesize from extrema
-    let line: { t: number; h: number }[] = [];
-    if (Array.isArray(hourly) && hourly.length) {
-      const seen = new Set<number>();
-      line = hourly
-        .map((d) => ({ t: +new Date(d.ts), h: toFt(d.height_m, d.height_ft) }))
-        .filter((d) => Number.isFinite(d.h) && Number.isFinite(d.t))
-        .sort((a, b) => a.t - b.t)
-        .filter((d) => {
-          if (seen.has(d.t)) return false;
-          seen.add(d.t);
-          return true;
-        });
-    } else {
-      const seen = new Set<number>();
-      const ext = extrema
-        .filter((e) => Number.isFinite(e.t) && Number.isFinite(e.h))
-        .sort((a, b) => a.t - b.t)
-        .filter((e) => {
-          if (seen.has(e.t)) return false;
-          seen.add(e.t);
-          return true;
-        })
-        .map((e) => ({ t: e.t, h: e.h }));
-      line = synthesizeFromExtrema(ext);
-    }
-
-    if (line.length === 0) {
-      return {
-        line: [] as { t: number; h: number }[],
-        extrema: [] as { t: number; h: number; type: "HIGH" | "LOW" }[],
-        domain: [-8, 8] as [number, number],
-        ticks: [] as number[],
-      };
-    }
-
-    // Limit to 5 days from first point
-    const firstT = line[0].t;
-    const fiveDaysLater = new Date(firstT);
-    fiveDaysLater.setDate(fiveDaysLater.getDate() + 5);
-    const endT = fiveDaysLater.getTime();
-    const line5 = line.filter((p) => Number.isFinite(p.t) && p.t <= endT);
-    const extrema5 = extrema.filter((p) => Number.isFinite(p.t) && p.t <= endT);
-
-    const allH = [...line5.map((d) => d.h), ...extrema5.map((d) => d.h)].filter(
-      (n) => Number.isFinite(n)
-    );
-    let minH = Math.min(...allH);
-    let maxH = Math.max(...allH);
-    if (!Number.isFinite(minH) || !Number.isFinite(maxH)) {
-      minH = -1;
-      maxH = 1;
-    }
-    if (minH === maxH) {
-      minH -= 0.5;
-      maxH += 0.5;
-    }
-    // Round domain values to clean numbers to prevent floating point precision issues
-    const domain: [number, number] = [
-      Math.round((minH - 0.5) * 10) / 10,
-      Math.round((maxH + 0.5) * 10) / 10,
-    ];
-
-    // X-axis domain and day ticks from line points
-    const seenDays = new Set<string>();
-    const ticks: number[] = [];
-    let minT = Number.POSITIVE_INFINITY;
-    let maxT = Number.NEGATIVE_INFINITY;
-    for (const p of line5) {
-      const d = new Date(p.t);
-      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-      if (!seenDays.has(key)) {
-        seenDays.add(key);
-        ticks.push(p.t);
-      }
-      if (p.t < minT) minT = p.t;
-      if (p.t > maxT) maxT = p.t;
-    }
-
-    const xDomain: [number, number] =
-      Number.isFinite(minT) && Number.isFinite(maxT) && minT < maxT
-        ? [minT, maxT]
-        : [Date.now() - 12 * 3600 * 1000, Date.now() + 12 * 3600 * 1000];
-
-    return { line: line5, extrema: extrema5, domain, ticks, xDomain } as any;
-  }, [data, forecasts, hourly, events]);
-
-  const {
-    line: lineData,
-    extrema: extremaData,
-    domain: yDomain,
-    ticks: dayTicks,
-    xDomain,
-  } = normalized;
-
-  // Dev-only: flag inversions where LOW >= HIGH within a day
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    const byDay = new Map<string, { high: number[]; low: number[] }>();
-    extremaData.forEach((p: { t: number; h: number; type: "HIGH" | "LOW" }) => {
-      const d = new Date(p.t);
-      d.setHours(0, 0, 0, 0);
-      const k = d.toISOString();
-      const v = byDay.get(k) ?? { high: [], low: [] };
-      (p.type === "HIGH" ? v.high : v.low).push(p.h);
-      byDay.set(k, v);
-    });
-    const issues: string[] = [];
-    byDay.forEach((v, k) => {
-      const maxLow = Math.max(...(v.low.length ? v.low : [-Infinity]));
-      const minHigh = Math.min(...(v.high.length ? v.high : [Infinity]));
-      if (maxLow >= minHigh)
-        issues.push(
-          `${k}: maxLow ${maxLow.toFixed(1)} ≥ minHigh ${minHigh.toFixed(1)}`
-        );
-    });
-    if (issues.length) console.warn("Tide inversion detected:", issues);
-  }, [extremaData]);
-
-  // Dev-only: log data sanity snapshot
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    const hasNaNLine = lineData.some(
-      (d: { t: number; h: number }) =>
-        !Number.isFinite(d.t) || !Number.isFinite(d.h)
-    );
-    const hasNaNExt = extremaData.some(
-      (d: { t: number; h: number }) =>
-        !Number.isFinite(d.t) || !Number.isFinite(d.h)
-    );
-    const sortedAsc = lineData.every(
-      (d: { t: number }, i: number, arr: { t: number }[]) =>
-        i === 0 || d.t >= arr[i - 1].t
-    );
-    console.info("TideChart sanity:", {
-      lineCount: lineData.length,
-      extremaCount: extremaData.length,
-      yDomain,
-      hasNaNLine,
-      hasNaNExt,
-      sortedAsc,
-      sampleLine: lineData.slice(0, 4),
-      sampleExtrema: extremaData.slice(0, 4),
-    });
-  }, [lineData, extremaData, yDomain]);
-
-  // Get current timestamp for "Now" line
-  const nowTimestamp = Date.now();
-
-  // Custom tick formatter for Today/Tomorrow/Day names
-  const formatXAxisTick = useMemo(
-    () => (tickItem: any) => {
-      const date = new Date(tickItem);
-      const dayString = getNormalizedDateString(date);
-      return getDayLabel(dayString);
-    },
-    []
+  const directData = React.useMemo(() => normalizeDirectData(data), [data]);
+  const hourlyData = React.useMemo(() => normalizeHourly(hourly), [hourly]);
+  const eventData = React.useMemo(() => normalizeEvents(events), [events]);
+  const forecastData = React.useMemo(
+    () => normalizeForecasts(forecasts),
+    [forecasts]
   );
 
-  // Filter ticks to show one per day and de-duplicate by normalized day label
-  const xTicks = useMemo(() => {
-    if (!dayTicks || dayTicks.length === 0) return undefined;
-    const seen = new Set<string>();
-    const out: number[] = [];
-    for (const t of dayTicks) {
-      const key = getNormalizedDateString(new Date(t));
-      if (!seen.has(key)) {
-        seen.add(key);
-        out.push(t);
-      }
-    }
-    return out.length ? out : undefined;
-  }, [dayTicks]);
+  const rawLine = React.useMemo(() => {
+    if (directData.length) return directData;
+    if (hourlyData.length) return hourlyData;
+    if (eventData.length) return synthesizeFromExtrema(eventData);
+    if (forecastData.length) return forecastData;
+    return [] as InternalPoint[];
+  }, [directData, hourlyData, eventData, forecastData]);
 
-  if (lineData.length === 0 && extremaData.length === 0) {
+  const emphasizedLine = React.useMemo(() => {
+    if (!rawLine.length) return rawLine;
+    if (eventData.length) return annotateWithExtrema(rawLine, eventData);
+    if (forecastData.length)
+      return annotateWithExtrema(rawLine, forecastData.filter((p) => p.isHigh || p.isLow));
+    return rawLine;
+  }, [rawLine, eventData, forecastData]);
+
+  const chartData = React.useMemo(() => {
+    const sorted = sortAndUnique(emphasizedLine);
+    return limitToFiveDays(sorted).map((point) => ({
+      t: new Date(point.timestamp),
+      h: point.h,
+      isHigh: point.isHigh,
+      isLow: point.isLow,
+    }));
+  }, [emphasizedLine]);
+
+  const days = React.useMemo(() => {
+    const map = new Map<string, Date>();
+    chartData.forEach((p) => {
+      const d = toDate(p.t);
+      const key = d.toDateString();
+      if (!map.has(key))
+        map.set(key, new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+    });
+    return Array.from(map.values());
+  }, [chartData]);
+
+  const showNow = React.useMemo(() => {
+    if (!showNowLine || !now || chartData.length === 0) return undefined;
+    const min = +toDate(chartData[0].t);
+    const max = +toDate(chartData[chartData.length - 1].t);
+    const n = +now;
+    if (n < min || n > max) return undefined;
+    return now;
+  }, [showNowLine, now, chartData]);
+
+  const computedYDomain: [number, number] = React.useMemo(() => {
+    if (yDomain !== "auto") return yDomain;
+    if (!chartData.length) return [0, 1];
+    const vals = chartData.map((d) => d.h);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const pad = Math.max(0.5, (max - min) * 0.15);
+    const low = Math.floor((min - pad) * 2) / 2;
+    const high = Math.ceil((max + pad) * 2) / 2;
+    return [low, high];
+  }, [yDomain, chartData]);
+
+  if (!chartData.length) {
     return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle>5-Day Tide Chart</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No tide data available</p>
+      <div className={cn(compact ? "" : "rounded-3xl border bg-white p-4 shadow-sm", className)}>
+        {!compact && (
+          <div className="mb-2 flex items-baseline justify-between">
+            <h3 className="text-lg font-semibold tracking-tight">5-Day Tide Chart</h3>
+            <span className="text-xs text-slate-500">Heights in {unit}</span>
           </div>
-        </CardContent>
-      </Card>
+        )}
+        <div className="flex h-48 w-full items-center justify-center text-sm text-slate-500">
+          No tide data available
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>5-Day Tide Chart</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div
-          role="img"
-          aria-label="5-day tide chart showing high and low tide heights over time"
-          className="w-full"
-        >
-          <ChartContainer
-            config={chartConfig}
-            className={`w-full ${isMobile ? "aspect-[4/3]" : "aspect-[8/3]"}`}
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={lineData}
-                margin={
-                  isMobile
-                    ? { top: 30, right: 20, left: 24, bottom: 36 }
-                    : { top: 50, right: 30, left: 30, bottom: 50 }
-                }
-              >
-                {/* Minimal, subtle grid */}
-                <CartesianGrid
-                  strokeDasharray="2 4"
-                  stroke="#E5E7EB"
-                  strokeOpacity={0.3}
-                  horizontal={true}
-                  vertical={false}
-                />
-
-                {/* Zero baseline reference line - subtle */}
-                <ReferenceLine
-                  yAxisId="y"
-                  y={0}
-                  stroke="#D1D5DB"
-                  strokeWidth={1}
-                  strokeDasharray="4 2"
-                  strokeOpacity={0.6}
-                />
-
-                {/* X-axis with Today/Tomorrow labels and visible axis lines */}
-                <XAxis
-                  dataKey="t"
-                  type="number"
-                  scale="time"
-                  domain={xDomain}
-                  ticks={xTicks}
-                  tickFormatter={formatXAxisTick}
-                  interval={0}
-                  minTickGap={12}
-                  tickMargin={8}
-                  allowDuplicatedCategory={false}
-                  axisLine={{ stroke: "#9CA3AF" }}
-                  tickLine={{ stroke: "#9CA3AF" }}
-                  tick={{ fontSize: isMobile ? 10 : 12 }}
-                  label={{
-                    value: "Day",
-                    position: "bottom",
-                    offset: -5,
-                    fill: "#4B5563",
-                  }}
-                />
-
-                {/* Y-axis with tide height label and visible axis lines */}
-                <YAxis
-                  yAxisId="y"
-                  domain={yDomain}
-                  tickCount={isMobile ? 5 : 7}
-                  axisLine={{ stroke: "#9CA3AF" }}
-                  tickLine={{ stroke: "#9CA3AF" }}
-                  tick={{ fontSize: isMobile ? 10 : 12 }}
-                  tickFormatter={(value: number) => Math.round(value * 10) / 10}
-                  label={{
-                    value: "Tide (ft)",
-                    angle: -90,
-                    position: "insideLeft",
-                    offset: 0,
-                    fill: "#4B5563",
-                  }}
-                />
-
-                {/* "Now" reference line - subtle */}
-                {showNowLine && (
-                  <ReferenceLine
-                    yAxisId="y"
-                    x={nowTimestamp}
-                    stroke="#EF4444"
-                    strokeWidth={1.5}
-                    strokeDasharray="3 3"
-                    strokeOpacity={0.8}
-                  />
-                )}
-
-                {/* Main line - clean and prominent */}
-                <Line
-                  yAxisId="y"
-                  type="monotone"
-                  dataKey="h"
-                  stroke="#0077B6"
-                  strokeWidth={2.5}
-                  dot={false}
-                  activeDot={{
-                    r: 4,
-                    stroke: "#0077B6",
-                    strokeWidth: 2,
-                    fill: "#FFFFFF",
-                  }}
-                  isAnimationActive={isAnimationActive}
-                />
-
-                {/* Extrema as reference dots on same axis */}
-                {extremaData.map(
-                  (
-                    p: { t: number; h: number; type: "HIGH" | "LOW" },
-                    index: number
-                  ) => (
-                    <ReferenceDot
-                      key={`extrema-${index}-${p.t}-${p.type}`}
-                      x={p.t}
-                      y={p.h}
-                      yAxisId="y"
-                      r={isMobile ? 3 : 4}
-                      fill={p.type === "HIGH" ? "#FF7F11" : "#6B7280"}
-                      stroke="#FFFFFF"
-                      strokeWidth={1}
-                    />
-                  )
-                )}
-
-                {/* Enhanced, accessible tooltip */}
-                <ChartTooltip
-                  content={<TideTooltipContent />}
-                  formatter={(v: any) =>
-                    typeof v === "number" ? `${v.toFixed(1)} ft` : v
-                  }
-                  labelFormatter={(value) => {
-                    const date = new Date(value);
-                    return date.toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    });
-                  }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+    <div
+      className={cn(compact ? "" : "rounded-3xl border bg-white p-4 shadow-sm", className)}
+    >
+      {!compact && (
+        <div className="mb-2 flex items-baseline justify-between">
+          <h3 className="text-lg font-semibold tracking-tight">5-Day Tide Chart</h3>
+          <span className="text-xs text-slate-500">Heights in {unit}</span>
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      <div
+        role="img"
+        aria-label="5-day tide chart showing high and low tide heights over time"
+        className="h-64 w-full"
+      >
+        <ResponsiveContainer>
+          <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 8, left: 12 }}>
+            <defs>
+              <linearGradient id={`fill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.03} />
+              </linearGradient>
+            </defs>
+
+            <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+
+            <XAxis
+              dataKey={(p: TidePoint) => +toDate(p.t)}
+              type="number"
+              domain={["dataMin", "dataMax"]}
+              tickFormatter={(v) => dayFormatter(new Date(v))}
+              ticks={days.map((d) => +d)}
+              axisLine={false}
+              tickLine={false}
+              interval={0}
+              tick={{ fontSize: 12, fill: "#64748b" }}
+              height={28}
+            />
+
+            <YAxis
+              domain={computedYDomain}
+              axisLine={false}
+              tickLine={false}
+              width={36}
+              tick={{ fontSize: 12, fill: "#64748b" }}
+              tickFormatter={(v) => v.toFixed(0)}
+            />
+
+            <Area type="monotone" dataKey="h" stroke="none" fill={`url(#fill-${gradId})`} />
+
+            <Line
+              type="monotone"
+              dataKey="h"
+              stroke="#2563eb"
+              strokeWidth={2.5}
+              dot={<EmphasisDot />}
+              activeDot={{ r: 6 }}
+              isAnimationActive={animationEnabled}
+            />
+
+            <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
+
+            {showNow && (
+              <ReferenceLine x={+showNow} stroke="#ef4444" strokeDasharray="3 3" />
+            )}
+
+            <Tooltip
+              content={<TideTooltip unit={unit} />}
+              cursor={{ stroke: "#cbd5e1", strokeDasharray: "2 2" }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {!compact && (
+        <div className="mt-3 flex gap-3 text-xs text-slate-600">
+          <div className="inline-flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-blue-600" />
+            Tide height
+          </div>
+          <div className="inline-flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-blue-600/30" />
+            High/Low emphasis
+          </div>
+          <div className="inline-flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-slate-400" />
+            Sea level (0)
+          </div>
+        </div>
+      )}
+    </div>
   );
+}
+
+// --- Example usage (remove in prod)
+export function Example() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const pts: TidePoint[] = [];
+  for (let i = 0; i < 5 * 6; i++) {
+    const d = new Date(start.getTime() + i * 4 * 60 * 60 * 1000);
+    const wave =
+      Math.sin((i / 3) * Math.PI) * 2.2 +
+      2.0 +
+      (Math.random() - 0.5) * 0.2;
+    pts.push({
+      t: d.toISOString(),
+      h: Number(wave.toFixed(2)),
+      isHigh: i % 6 === 2,
+      isLow: i % 6 === 5,
+    });
+  }
+  return <TideChart data={pts} now={new Date()} />;
 }

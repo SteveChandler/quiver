@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { HomeScreen } from "@/components/home-screen";
-import LandingPage from "@/components/landing-page.tsx";
+import LandingPage from "@/components/landing-page";
 
 // Performance-optimized loading component
 function ComponentLoadingFallback({ type }: { type: "home" | "landing" }) {

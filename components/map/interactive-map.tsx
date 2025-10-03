@@ -24,6 +24,13 @@ interface InteractiveMapProps {
   onMapClick?: (latlng: mapboxgl.LngLat) => void;
   onLocationMove?: (latlng: mapboxgl.LngLat, beach: Beach) => void;
   className?: string;
+  regionViewport?: {
+    region: string;
+    key: string;
+    center: [number, number];
+    bounds?: [[number, number], [number, number]];
+    zoom?: number;
+  } | null;
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
@@ -35,10 +42,12 @@ export function InteractiveMap({
   onMapClick,
   onLocationMove,
   className = "h-full w-full",
+  regionViewport,
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
+  const lastPopulateKeyRef = useRef<string | null>(null);
   // Popup instance used for displaying click coordinates on the map
   const mapClickPopupRef = useRef<mapboxgl.Popup | null>(null);
   const lastViewportRef = useRef<{
@@ -50,14 +59,32 @@ export function InteractiveMap({
   const [favoriteBeachIds, setFavoriteBeachIds] = useState<Set<string>>(
     new Set()
   );
-  const [beachConditions, setBeachConditions] = useState<
-    Record<string, { wave_height?: number | string }>
-  >({});
   const [selectedBeachId, setSelectedBeachId] = useState<string | null>(null);
   const [hoveredBeachId, setHoveredBeachId] = useState<string | null>(null);
+  const isMapReadyRef = useRef(false);
+  const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
+  const selectedBeachIdRef = useRef<string | null>(null);
+  const hoveredBeachIdRef = useRef<string | null>(null);
+  const lastRegionViewportKeyRef = useRef<string | null>(null);
 
   const { user } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    isMapReadyRef.current = isMapReady;
+  }, [isMapReady]);
+
+  useEffect(() => {
+    favoriteBeachIdsRef.current = new Set(favoriteBeachIds);
+  }, [favoriteBeachIds]);
+
+  useEffect(() => {
+    selectedBeachIdRef.current = selectedBeachId;
+  }, [selectedBeachId]);
+
+  useEffect(() => {
+    hoveredBeachIdRef.current = hoveredBeachId;
+  }, [hoveredBeachId]);
 
   // Create cached fetch functions for map APIs
   const fetchNearbyBeaches = useRef(
@@ -81,6 +108,11 @@ export function InteractiveMap({
       mapRef.current.remove();
       mapRef.current = null;
     }
+    lastPopulateKeyRef.current = null;
+    selectedBeachIdRef.current = null;
+    hoveredBeachIdRef.current = null;
+    favoriteBeachIdsRef.current = new Set();
+    isMapReadyRef.current = false;
     setIsMapReady(false);
   }, [cleanupMarkers]);
 
@@ -129,10 +161,10 @@ export function InteractiveMap({
   const createWaveHeightBadge = useCallback(
     (location: Beach, waveHeight?: number | string): HTMLElement => {
       try {
-        const isFavorite = favoriteBeachIds.has(location.id);
+        const isFavorite = favoriteBeachIdsRef.current.has(location.id);
         const waveText = formatWaveHeight(waveHeight);
-        const isSelected = selectedBeachId === location.id;
-        const isHovered = hoveredBeachId === location.id;
+        const isSelected = selectedBeachIdRef.current === location.id;
+        const isHovered = hoveredBeachIdRef.current === location.id;
 
         // Create wrapper element that Mapbox will position
         const wrapper = document.createElement("div");
@@ -260,7 +292,7 @@ export function InteractiveMap({
         return fallbackWrapper;
       }
     },
-    [favoriteBeachIds, selectedBeachId, hoveredBeachId, onLocationClick, router]
+    [onLocationClick, router]
   );
 
   // Offshore position calculation moved to utility function
@@ -268,7 +300,16 @@ export function InteractiveMap({
   /** Populate beach markers with enhanced forecast data */
   const populateLocations = useCallback(
     async (latitude: number, longitude: number) => {
-      if (!mapRef.current || !isMapReady) return;
+      const map = mapRef.current;
+      if (!map || !isMapReadyRef.current) return;
+      const zoom = map.getZoom();
+      const populateKey = `${latitude.toFixed(4)}-${longitude.toFixed(4)}-${zoom.toFixed(2)}`;
+
+      if (lastPopulateKeyRef.current === populateKey) {
+        return;
+      }
+
+      lastPopulateKeyRef.current = populateKey;
       try {
         // Prefer nearby endpoint first (faster and already filtered), fallback to public list
         let locations: Beach[] = [];
@@ -373,16 +414,6 @@ export function InteractiveMap({
           waveHeightMap.set(beachId, waveHeight);
         });
 
-        // Update beach conditions state for consistency
-        const updatedConditions: Record<
-          string,
-          { wave_height?: number | string }
-        > = {};
-        beachForecasts.forEach(({ beachId, waveHeight }) => {
-          updatedConditions[beachId] = { wave_height: waveHeight };
-        });
-        setBeachConditions((prev) => ({ ...prev, ...updatedConditions }));
-
         // Create markers for each beach
         locations.forEach((location) => {
           const markerId = `location-${location.id}`;
@@ -465,10 +496,11 @@ export function InteractiveMap({
           markersRef.current[markerId] = marker;
         });
       } catch (e) {
+        lastPopulateKeyRef.current = null;
         console.error("Error populating locations", e);
       }
     },
-    [isMapReady, createWaveHeightBadge]
+    [createWaveHeightBadge]
   );
 
   // Optimized and debounced map move handler with viewport change detection
@@ -540,6 +572,40 @@ export function InteractiveMap({
       populateLocations(center.lat, center.lng);
     }
   }, [isMapReady, populateLocations]);
+
+  // Apply region viewport focus when provided
+  useEffect(() => {
+    if (!isMapReady || !mapRef.current) {
+      return;
+    }
+
+    if (!regionViewport) {
+      lastRegionViewportKeyRef.current = null;
+      return;
+    }
+
+    if (lastRegionViewportKeyRef.current === regionViewport.key) {
+      return;
+    }
+
+    const map = mapRef.current;
+
+    if (regionViewport.bounds) {
+      map.fitBounds(regionViewport.bounds, {
+        padding: 48,
+        animate: true,
+        maxZoom: regionViewport.zoom ?? 13,
+      });
+    } else {
+      map.easeTo({
+        center: [regionViewport.center[1], regionViewport.center[0]],
+        zoom: regionViewport.zoom ?? Math.min(map.getZoom(), 13),
+        duration: 800,
+      });
+    }
+
+    lastRegionViewportKeyRef.current = regionViewport.key;
+  }, [regionViewport, isMapReady]);
 
   // Update markers when selection state changes
   useEffect(() => {

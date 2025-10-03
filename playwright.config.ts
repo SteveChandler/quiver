@@ -1,5 +1,9 @@
 import 'dotenv/config';
+import { config } from 'dotenv';
 import { defineConfig, devices } from "@playwright/test";
+
+// Load Playwright-specific env file if it exists
+config({ path: '.env.playwright', override: true });
 
 // Minimal fresh Playwright configuration
 export default defineConfig({

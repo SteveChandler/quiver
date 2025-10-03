@@ -17,12 +17,18 @@ export interface ReviewStats {
   average_crowd_density: number;
   average_parking: number;
   average_accessibility: number;
+  distribution: { rating: number; count: number }[];
 }
 
 /**
  * Calculate review statistics from an array of reviews
  */
 export function calculateReviewStats(reviews: ReviewRatings[]): ReviewStats {
+  const emptyDistribution = [5, 4, 3, 2, 1].map((rating) => ({
+    rating,
+    count: 0,
+  }));
+
   if (reviews.length === 0) {
     return {
       total_reviews: 0,
@@ -31,8 +37,31 @@ export function calculateReviewStats(reviews: ReviewRatings[]): ReviewStats {
       average_crowd_density: 0,
       average_parking: 0,
       average_accessibility: 0,
+      distribution: emptyDistribution,
     };
   }
+
+  const distributionCounts: Record<1 | 2 | 3 | 4 | 5, number> = {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  };
+
+  reviews.forEach((review) => {
+    const raw = review?.overall_rating;
+    if (typeof raw !== "number" || Number.isNaN(raw)) {
+      return;
+    }
+    const clamped = Math.min(5, Math.max(1, Math.round(raw))) as 1 | 2 | 3 | 4 | 5;
+    distributionCounts[clamped] += 1;
+  });
+
+  const distribution = emptyDistribution.map(({ rating }) => ({
+    rating,
+    count: distributionCounts[rating as 1 | 2 | 3 | 4 | 5] ?? 0,
+  }));
 
   return {
     total_reviews: reviews.length,
@@ -49,6 +78,7 @@ export function calculateReviewStats(reviews: ReviewRatings[]): ReviewStats {
     average_accessibility:
       reviews.reduce((sum, r) => sum + r.accessibility_rating, 0) /
       reviews.length,
+    distribution,
   };
 }
 

@@ -265,6 +265,10 @@ export const createMockReviewStats = (beachIds: string[]) =>
         average_crowd_density: Math.round((3.0 + index * 0.4) * 10) / 10,
         average_parking: Math.round((3.2 + index * 0.3) * 10) / 10,
         average_accessibility: Math.round((4.0 + index * 0.1) * 10) / 10,
+        distribution: [5, 4, 3, 2, 1].map((rating, offset) => ({
+          rating,
+          count: Math.max(0, (index + 1) - offset),
+        })),
       },
     }),
     {}

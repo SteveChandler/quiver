@@ -1,8 +1,103 @@
+## [2025.10.03] - Profile Quiver Tab Board Display Fix
+
+### Fixed
+
+- **Profile Quiver Tab Not Displaying User Boards**: Fixed bug where the profile page Quiver tab showed "You haven't added any boards yet" even when boards existed in the database. The `ProfileView` component's `fetchData` callback only fetched profile and sessions data but never fetched boards, leaving the empty `boards` state array unchanged. Added `getUserBoards` call to fetch user boards along with other profile data, ensuring boards are populated and displayed correctly in the `BoardsManager` component. Now boards that appear in session logging forms are also visible on the profile page.
+
+### Changed
+
+- **ProfileView Data Fetching**: Enhanced `fetchData` callback in `components/profile-view.tsx` to include board fetching using the `getUserBoards` server action, following the same pattern used in `hooks/use-session-form.ts`.
+
+---
+
+## [2025.10.03] - Session Wizard Location Typeahead Fix
+
+### Fixed
+
+- **Session Wizard Location Typeahead Not Showing Results**: Fixed critical bug where typing in the Location step (e.g., "la jo") would show matches in the console but not render in the UI dropdown. Root cause: `BeachSelector` component used simple local filtering (`includes()`) for the dropdown UI while `searchBeachesByName()` used sophisticated fuzzy matching. The server search found 5 beaches but the UI dropdown only showed results from the basic filter. Solution: Created new `searchBeachesMultiple()` function that returns array of all matches (not just best match), updated `BeachSelector` to use debounced calls to this function with proper loading states, fixed dropdown visibility logic to stay open while typing, and added proper z-index/positioning to prevent clipping. Now typing "la jo" reliably shows all 5 La Jolla beaches (La Jolla Shores, Scripps, Blacks, Horseshoe, Windansea) in a visible, styled dropdown.
+
 ### Added
 
+- **Beach Search Multi-Result Function**: New `searchBeachesMultiple()` function in `lib/utils/beach-search-utils.ts` that returns array of all matching beaches using fuzzy matching, word-by-word matching, abbreviation expansion, and relevance sorting. Refactored existing `searchBeachesByName()` to use this function for backward compatibility.
+- **Debounced Typeahead Search**: Enhanced `BeachSelector` component with 300ms debounced search using `searchBeachesMultiple()`, replacing simple local filtering with sophisticated fuzzy matching.
+- **Loading State Indicators**: Added "Searching..." loading state in beach selector dropdown during debounced search.
+- **Improved Dropdown Styling**: Updated dropdown with `absolute z-50` positioning, white background, shadow, and "No beaches found" empty state message.
+- **Unit Tests**: Comprehensive test suite in `__tests__/lib/beach-search-utils.test.ts` covering fuzzy matching, case sensitivity, abbreviations, error handling, and relevance sorting.
+- **E2E Tests**: Playwright test suite in `e2e/session-wizard-location-typeahead.spec.ts` with 11 tests covering typeahead behavior, selection flow, debouncing, mobile viewport, and step navigation.
+
+### Changed
+
+- **BeachSelector Search Logic**: Removed auto-selection code that closed dropdown prematurely when exact matches were found. Now keeps dropdown open until user explicitly selects a beach or navigates away.
+- **BeachSelector Dropdown Visibility**: Fixed `selectionMade` state logic to properly show/hide dropdown based on user typing vs. selection state.
+
+### Performance
+
+- **Debounced Search Requests**: Reduced unnecessary API calls by debouncing search input by 300ms, preventing search on every keystroke.
+- **Fuzzy Matching Reuse**: Eliminated duplicate search logic by consolidating fuzzy matching algorithm into single reusable function.
+
+---
+
+## [2025.10.03] - Frontend Architecture Improvements
+
+### Added
+
+- **Comprehensive Accessibility Testing Infrastructure**: Integrated @axe-core/playwright for E2E accessibility testing, jest-axe for component-level testing, and eslint-plugin-jsx-a11y for static analysis during development.
+- **Lighthouse CI Configuration**: Created `.lighthouserc.json` with strict accessibility thresholds (90% minimum score) and comprehensive WCAG 2.1 AA assertions for color contrast, ARIA attributes, and semantic HTML.
+- **E2E Accessibility Test Suite**: New `e2e/accessibility.spec.ts` with 11 comprehensive tests covering landing page, authentication flows, navigation, keyboard accessibility, color contrast, alt text, heading hierarchy, and interactive element names.
+- **Accessibility Testing Documentation**: Complete guide in `docs/ACCESSIBILITY_TESTING.md` covering tools, testing strategies, WCAG standards, common patterns, CI/CD integration, and troubleshooting.
+- **ESLint Accessibility Rules**: Extended ESLint configuration with jsx-a11y plugin and recommended rules for catching accessibility issues during development.
+- **Test Script for Accessibility**: Added `npm run test:e2e:a11y` for running accessibility-specific E2E tests.
+
+### Changed
+
+- **Auth Context Optimization**: Removed 11+ verbose console.log statements from `context/auth-context.tsx`, keeping only development-mode error logging. Added comprehensive lifecycle documentation explaining initialization, subscription management, and memory leak prevention.
+- **Auth Context Performance**: Improved subscription cleanup to prevent memory leaks, added detailed comments explaining race condition prevention and timeout handling.
+- **Jest Configuration**: Integrated jest-axe extend-expect for accessibility assertions in component tests.
+
+### Performance
+
+- **Reduced Client Bundle Logging**: Eliminated production console.log statements from auth context, reducing client-side JavaScript execution and improving performance.
+- **Better Subscription Lifecycle**: Enhanced cleanup function with proper unmount handling to prevent memory leaks in long-running sessions.
+
+---
+
+### Added
+
+- **Simplified Intel Tab with Map View**: Created new `components/intel/intel-tab-simple.tsx` component to replace complex `IntelDashboard` in the home screen's Local Intel tab. Features simple toggle between feed and map views, removes complex location handling and real-time subscriptions that were causing 500 errors. Focuses on core functionality: viewing all intel posts, filtering by tag, creating posts, confirming posts, and visualizing posts on an interactive map. Uses `getAllIntelPosts` action with proper error handling and loading states. Map view calculates center from average post positions or defaults to San Diego.
+- **Local Mobile Development with Secure Tunnels**: Added `capacitor.config.dev.ts` support to bypass Vercel entirely during mobile development. Use Cloudflare Tunnel or ngrok to expose local Next.js server to mobile emulators/devices. New npm scripts: `mobile:sync:local` and `mobile:build:android:local`. Complete guide in `docs/MOBILE_LOCAL_DEV.md`.
+- Beach review stats now include rating distribution data from `lib/review-stats-utils.ts`, powering the refreshed `components/beach/beach-review-summary.tsx` grid with gradient meters and stacked spread.
 - `app/(journal)/new/steps/ConditionsStep.tsx` client component with fallback questionnaire and RHF bindings
 - New route `app/journal/new/page.tsx` to expose Conditions step for tests
 - Playwright test `e2e/journal/conditions.spec.ts` asserting core fields are visible
+- Deep-link metadata routes under `app/.well-known` serving Android `assetlinks.json` and Apple `apple-app-site-association`, configured by env vars (`ANDROID_APP_PACKAGE`, `ANDROID_SHA256_FINGERPRINTS`, `APPLE_TEAM_ID`/`APPLE_APP_BUNDLE_ID` or `APPLE_APP_ID`).
+
+### Changed
+
+- **Intel Feed Component Refactor**: Exported `IntelFeedCard` component from `components/intel/intel-feed.tsx` with optional `isConfirming` prop to support external confirmation state management. Updated to handle optional user ID property for avatar display.
+- **Community Tab Simplification**: Updated `components/home-screen/community-tab.tsx` to use new `IntelTabSimple` component instead of the complex `IntelDashboard`, improving reliability and reducing complexity.
+
+### Removed
+
+- **Unused Intel Components Cleanup**: Removed `intel-dashboard.tsx`, `intel-filters.tsx`, and `intel-map-beaches.tsx` components that were replaced by the simplified `intel-tab-simple.tsx`. Removed associated unit test `__tests__/components/intel/intel-dashboard.test.tsx`. Updated `components/intel/index.ts` to export new simplified components. Updated E2E test `e2e/intel-dashboard.spec.ts` to test basic intel tab functionality (tab loads content successfully); temporarily skipped detailed UI element tests pending UI refinement.
+
+### Fixed
+
+- **Intel Map Coordinate Order**: Fixed map center calculation in `intel-tab-simple.tsx` to return coordinates in `[lat, lng]` format as expected by IntelMap component, resolving map initialization errors.
+- **Intel Map Marker Display**: Fixed intel posts not displaying on map by explicitly converting latitude/longitude from database DECIMAL format to JavaScript numbers before passing to IntelMap component. Added empty state message when no posts exist for map view.
+- **"Unknown sessions" Error on Tab Switching**: Fixed critical bug where switching from Intel or Nearby tabs to Forecast tab would display "Unknown sessions" text. Root cause was `useForecastCalibration` hook returning error objects `{ success: false, error: "Not implemented", data: null }` instead of `null`, causing React to render undefined values. Components checking `{beachAccuracy && (` would pass (truthy object), but accessing `beachAccuracy.total_sessions_count` returned undefined, rendering as "Unknown sessions". Changed hook to return `null` and `[]` for unimplemented methods.
+- **Intel Tab State Leakage**: Fixed issue where Intel tab's map view would persist/interfere with Forecast tab when switching tabs. Added view mode reset on component mount in `intel-tab-simple.tsx` to ensure tab always starts in feed view. Fixed z-index stacking context by adding `relative z-0` to all TabsContent components in home screen to prevent map overlays. Added unique key prop to IntelMap for proper cleanup on filter changes.
+- Beach detail mobile spacing adjustments: increased gutter and vertical rhythm for forecast cards, outlook tiles, and metric grid to prevent cramped stacking on phones while retaining desktop layout (`components/beach-detail.tsx`).
+- **Mobile Spacing Optimization**: Reduced horizontal padding on beach detail and profile pages from `px-4` to `px-2` on mobile (keeping `px-4` on sm+ screens) to better utilize screen space. Section cards now use `p-4` on mobile and `p-6` on md+ or sm+ screens. Intel section card content uses `p-3` on mobile and `p-4` on sm+ screens. This prevents UI elements like "View all intel posts" button and profile tab content from being cut off on mobile devices (`components/beach-detail.tsx`, `components/intel/beach-intel-section.tsx`, `components/profile-view.tsx`).
+- Favorite button (heart icon) now displays with visible gray outline in unfavorited state instead of appearing as a white box, with smooth hover transitions to red (`components/favorite-button.tsx`).
+- Beach detail page reimagined into a surf-report flow: gradient hero with wave card, forecast snapshot row, mini 5-day strip, and streamlined sections for live cam, intel, reviews, sessions, and spot overview (`components/beach-detail.tsx`).
+- Live cam module now handles loading, missing, and fallback states with a "Suggest a cam" CTA and refreshed styling (`components/beach-detail/cams-section.tsx`).
+- 5-Day Outlook tabs switched to iconified pills with elevated card layouts for each dataset (`components/beach-detail/forecast-and-tides.tsx`).
+- Local intel check-ins now target a real beach by default: `components/intel/intel-dashboard.tsx` looks up the user's home beach or falls back to the nearest location, preventing `beach_id` "default" inserts and resulting 500s during condition submissions.
+- **Local intel check-ins** share the same "Share Intel" modal experience: `components/ui/check-in-form.tsx` now wraps `IntelPostForm` with a check-in variant that preselects "conditions", requires forecast accuracy, and triggers `submitCheckIn` before creating the intel post. Both the Intel dashboard and beach detail check-in flows reuse this dialog via the new `CheckInDialog` component and `beforeSubmit` hook.
+- Added dedicated tests (`__tests__/components/ui/check-in-form.test.tsx`) to validate the new check-in dialog wiring and ensure `submitCheckIn` is invoked with normalized payloads before the intel post is created.
+- Bottom navigation highlights the active route with an Ocean Blue capsule badge for clearer wayfinding (`components/bottom-navigation.tsx`).
+- Mobile header navigation: Removed hamburger menu (3 bars) and mobile dropdown menu to simplify mobile UX. Authenticated users rely on bottom navigation as primary mobile navigation, making the hamburger menu redundant. Desktop navigation remains unchanged for unauthenticated users.
+- Beach detail E2E tests (`e2e/beach-detail.spec.ts`) updated to match new page structure: removed accordion-based tests, added tests for hero section, forecast snapshot cards, and 5-Day Outlook tabs. Updated "Spot Overview" references to "Spot Summary" to match component refactor. All 13 tests passing.
 
 ### Changed
 
@@ -19,9 +114,12 @@
 
 ### Fixed
 
+- **Intel check-in 500 error**: Fixed check-in submissions from Intel tab causing 500 errors by posting to root URL. Issue was in `components/intel/intel-post-form.tsx` where `beforeSubmit` handler was called (submitting check-in) but then continuing to call `createIntelPost`, causing double submission. Now returns early after `beforeSubmit` completes, properly showing success toast and refreshing intel feed. Follows `components/ARCHITECTURE.md` form submission patterns.
+- Session cards now show actual Mapbox map images instead of placeholders when coordinates are available. Fixed `getSessionMapImageUrl` to only pass `markerText` when coordinates are missing (so beach name shows in fallback), but not when coordinates exist (which was forcing Mapbox to use placeholder). Updated `generateEnhancedMapPlaceholder` in `lib/map-utils.ts` to intelligently detect and display beach names vs. wave height data - beach names show in large blue text, wave heights show in orange badge. Also updated `MapImage` component to accept optional `beachName` prop for React component fallback state.
 - Live cam now renders for beaches with camera URLs (including fallback to beaches table if `beach_sources` lacks `camera_url`).
 - Build failure on `/journal/new`: wrapped `useSearchParams()` usage in a Suspense boundary in `app/journal/new/page.tsx` per `app/ARCHITECTURE.md` routing/loading patterns. Vercel `next build` now succeeds.
 - Map hover popups no longer display "Location: Unknown"; the row is omitted when location metadata is missing (`components/map/interactive-map.tsx`). Also suppressed "Location Unknown" placeholder text in static map generation (`lib/map-utils.ts`).
+- Surf check-ins now insert via `condition_reports` with proper unit normalization, restoring submission success and aligning with `supabase/ARCHITECTURE.md`. Updated `components/ui/check-in-form.tsx` toast handling and `__tests__/actions/check-in-actions.test.ts` coverage.
 - Map directory: fixed filters not applying and removed stray text `beachpointreef.map` displayed beside chips by cleaning up JSX in `components/map-view.tsx`. Selecting a search result now snaps the map to that beach by wiring dropdown selection → `setSelectedBeach` via `onResultSelect` in `components/map/map-search-header.tsx`. Follows `hooks/ARCHITECTURE.md` data-fetcher and component composition patterns.
 - Invitations feed attribution: session invite activities are now owned by the invitee so they appear in the recipient's feed. Implemented SECURITY DEFINER RPC `public.notify_session_invite` and updated `app/api/session-planner/invitations/route.ts` to call it via service-role client, preserving inviter as `metadata.actor_id`. Follows `lib/ARCHITECTURE.md` Supabase patterns and centralized API utils.
 - Session invitations visibility: normalized `invitee_email` casing and made lookups case-insensitive so recipients always see pending invites regardless of email case.
@@ -110,7 +208,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- Dev tunnel (Cloudflare): Bound Next.js dev server to 0.0.0.0 so `/_next/static/*` and font assets resolve over `*.trycloudflare.com`, eliminating HTML 404 responses and MIME type errors when loading CSS/JS.
+
+### Changed
+
+- Replaced deprecated `apple-mobile-web-app-capable` meta with `mobile-web-app-capable` via `SEO_CONFIG` → `app/layout.tsx` metadata pipeline.
+- Mobile header spacing tuned for notch devices: `components/app-header.tsx` now honors `env(safe-area-inset-top)` and reduces mobile padding while keeping desktop height per `components/ARCHITECTURE.md` responsive patterns.
+- Live cam "Suggest a cam" CTA now emails `support@quiversurf.app` to route submissions directly to the support crew (`components/beach-detail/cams-section.tsx`).
+
 ### Added
+
+- Documentation: `docs/MOBILE_LAUNCH_ARCHITECTURE.md` — Mobile launch architecture plan (Capacitor shell, native value surface, offline caching, deep links, CI/CD). Linked from `docs/README.md`. Aligns with established patterns in `hooks/ARCHITECTURE.md`, `components/ARCHITECTURE.md`, and `lib/ARCHITECTURE.md`.
+- Mobile architecture status update: Phase 1 complete with comprehensive implementation tracking, next steps roadmap, and risk mitigation status. Ready for native build generation and store submission preparation.
 
 - Daily NPC activity volume controls:
 
@@ -152,16 +263,39 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - New tables: `public.beach_sources` and `public.beach_calibration` with RLS (public read) and FK indexes
 
 - Beach detail enhancements:
+
   - New slug route `app/beach/[slug]/page.tsx` with server-side slug resolution
   - Per-beach metadata via `buildPageMetadata` (canonical + OpenGraph)
   - JSON-LD Place for beach pages via `BeachPageStructuredData`
   - Above-the-fold summary cards: Today → Next tides → Wind → Swell
   - Inline “Set Home Beach” button using `updateProfile`
 
+- Mobile PWA and offline caching:
+
+  - Added `public/manifest.json`, `public/sw.js`, and icon set under `public/icons/`
+  - Service worker caches last‑viewed forecasts and tides with timestamp validation to avoid stale data, following anti‑stale‑data policy
+
+- Capacitor mobile scaffolding and native features:
+
+  - Added `capacitor.config.ts` and project scaffolding for iOS/Android via Capacitor
+  - Installed Capacitor packages: `@capacitor/core`, `@capacitor/share`, `@capacitor/push-notifications` (dev: `@capacitor/cli`, `@capacitor/assets`)
+  - Added mobile scripts in `package.json`: `mobile:sync`, `mobile:build:ios`, `mobile:build:android`, `mobile:assets`
+  - Introduced native bridge adapters under `lib/mobile/` (share and push scaffolding)
+  - Added `hooks/use-native-push-registration.ts` and `actions/mobile-actions.ts` for device token capture and registration
+
+- Database for push device registration:
+  - Migration `supabase/migrations/20250922100000_create_push_devices_table.sql` creates `public.push_devices` with indexes and RLS policies for secure per‑user ownership
+
 ### Changed
 
 - E2E Beach Detail consolidation and coverage:
+
   - Added consolidated spec `e2e/beach-detail.spec.ts` covering Forecast & Tides visibility, intel deep-linking, favorite toggle via accessible label, reviews dialog open/close, Spot Overview fields, intel view-all toggle, and back navigation to `/map`.
+
+- Mobile readiness updates:
+  - `package.json`: added mobile scripts (`mobile:sync`, `mobile:build:ios`, `mobile:build:android`, `mobile:assets`) and Capacitor dependencies/plugins
+  - `app/layout.tsx`: ensured service worker registration and mobile listeners mount per `app/ARCHITECTURE.md`
+  - `components/analytics/pwa-and-push-listeners.tsx`: registers SW and orchestrates push permission prompts in web/Capacitor contexts
 
 ### Fixed
 
@@ -232,6 +366,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
   - Enabled RLS on `public.spatial_ref_sys` with a permissive SELECT policy to satisfy Supabase linter while preserving read-only behavior
 
+- Push devices table security:
+
+  - Enforced strict RLS on `public.push_devices` (owner‑only visibility and CRUD), aligning with `supabase/ARCHITECTURE.md` patterns; tokens stored per user/device with appropriate indexes
+
 - Bundle analysis build and report generation via `ANALYZE=true npm run build` using `webpack-bundle-analyzer`. Report saved to `.next/bundle-analyzer-report.html`.
 
 ### Changed
@@ -263,6 +401,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Types architecture updated to reflect 0–100 confidence scale.
 
 - Notifications system documented in `docs/notifications-architecture.md`: current architecture, known breakage (invited user not receiving in-app notification), proposed security changes (RPC auth, RLS), inbox source-of-truth, read-state consideration, realtime subscription patterns for header and inbox, inviter-response notifications, email idempotency/compliance, and rate limiting recommendations.
+
+- Updated `docs/README.md` to link `docs/MOBILE_LAUNCH_ARCHITECTURE.md` and outline Week 0‑2 mobile readiness checklist
 
 - `components/BeachSelector.tsx` now uses `useDataFetcher` + `data.beaches.getAll()`
 - `hooks/use-session-like.ts` uses gateway for initial state + toggle; realtime kept

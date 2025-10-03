@@ -38,6 +38,7 @@ import { data as gateway } from "@/lib/data/client";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 // Removed ad-hoc beach lookup; rely on DTO fields for home beach name
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
+import { getUserBoards } from "@/actions/board-actions";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
@@ -112,7 +113,18 @@ export function ProfileView() {
     setProfile(profileData as Profile);
     const userSessions = await gateway.users.sessions.list(user.id, 5);
     setSessions(userSessions as SessionWithDetails[]);
-    return { profile: profileData, sessions: userSessions };
+
+    // Fetch user boards
+    const userBoardsResult = await getUserBoards(user.id);
+    if (userBoardsResult.success && userBoardsResult.data) {
+      setBoards(userBoardsResult.data);
+    }
+
+    return {
+      profile: profileData,
+      sessions: userSessions,
+      boards: userBoardsResult.data || [],
+    };
   }, [user]);
 
   const {
@@ -184,7 +196,7 @@ export function ProfileView() {
         {...ANIMATION_VARIANTS.fadeInView}
         className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-white/20 shadow-sm"
       >
-        <div className="container flex items-center h-16 px-4">
+        <div className="container flex items-center h-16 px-2 sm:px-4">
           <h1 className="text-xl font-roboto font-bold text-dark-grey flex items-center gap-2">
             <User className="h-5 w-5 text-ocean-blue" />
             {profile?.full_name
@@ -199,7 +211,7 @@ export function ProfileView() {
         {error ? (
           <motion.div
             {...ANIMATION_VARIANTS.fadeInView}
-            className="max-w-4xl mx-auto px-4 space-y-4"
+            className="max-w-4xl mx-auto px-2 sm:px-4 space-y-4"
           >
             <Alert
               variant="destructive"
@@ -230,7 +242,7 @@ export function ProfileView() {
               {/* Gradient Background */}
               <div className="absolute inset-0 bg-gradient-to-r from-ocean-blue/10 via-transparent to-sunset-orange/10" />
 
-              <div className="relative max-w-3xl mx-auto px-4">
+              <div className="relative max-w-3xl mx-auto px-2 sm:px-4">
                 <Card className="overflow-hidden bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow duration-300 border-white/50">
                   <CardContent className="p-3 sm:p-4 lg:p-5">
                     <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
@@ -327,9 +339,9 @@ export function ProfileView() {
             {/* Enhanced User Stats */}
             <motion.section
               {...ANIMATION_VARIANTS.fadeUpWithDelay(0.2)}
-              className="max-w-6xl mx-auto px-4"
+              className="max-w-6xl mx-auto px-2 sm:px-4"
             >
-              <div className="bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/50">
+              <div className="bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-lg border border-white/50">
                 {user && (
                   <UserStats
                     userId={user.id}
@@ -342,7 +354,7 @@ export function ProfileView() {
             {/* Modern Tabs Section */}
             <motion.section
               {...ANIMATION_VARIANTS.fadeUpWithDelay(0.3)}
-              className="max-w-6xl mx-auto px-4"
+              className="max-w-6xl mx-auto px-2 sm:px-4"
             >
               <Tabs defaultValue="sessions" className="space-y-8">
                 <TabsList className="grid grid-cols-4 w-full h-14 lg:h-16 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg">
@@ -377,13 +389,19 @@ export function ProfileView() {
                 </TabsList>
 
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg overflow-hidden">
-                  <TabsContent value="sessions" className="p-6 space-y-4 m-0">
+                  <TabsContent
+                    value="sessions"
+                    className="p-4 sm:p-6 space-y-4 m-0"
+                  >
                     <Suspense fallback={<TabLoadingSkeleton type="Journal" />}>
                       <JournalView />
                     </Suspense>
                   </TabsContent>
 
-                  <TabsContent value="quiver" className="p-6 space-y-4 m-0">
+                  <TabsContent
+                    value="quiver"
+                    className="p-4 sm:p-6 space-y-4 m-0"
+                  >
                     {user && (
                       <Suspense fallback={<TabLoadingSkeleton type="Boards" />}>
                         <BoardsManager userId={user.id} boards={boards} />
@@ -391,7 +409,10 @@ export function ProfileView() {
                     )}
                   </TabsContent>
 
-                  <TabsContent value="beaches" className="p-6 space-y-4 m-0">
+                  <TabsContent
+                    value="beaches"
+                    className="p-4 sm:p-6 space-y-4 m-0"
+                  >
                     <div className="flex justify-between items-center mb-6">
                       <h3 className="text-xl font-roboto font-semibold text-dark-grey">
                         Favorite Beaches
@@ -412,7 +433,10 @@ export function ProfileView() {
                     </Suspense>
                   </TabsContent>
 
-                  <TabsContent value="comments" className="p-6 space-y-4 m-0">
+                  <TabsContent
+                    value="comments"
+                    className="p-4 sm:p-6 space-y-4 m-0"
+                  >
                     {user && (
                       <Suspense
                         fallback={<TabLoadingSkeleton type="Comments" />}

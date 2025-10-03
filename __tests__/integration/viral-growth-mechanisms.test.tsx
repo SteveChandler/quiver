@@ -32,8 +32,11 @@ const mockSupabaseClient = {
 };
 
 const mockFollowUser = followUser as jest.MockedFunction<typeof followUser>;
-const mockGetSuggestedUsers = getSuggestedUsers as jest.MockedFunction<typeof getSuggestedUsers>;
-const mockSendSessionInviteEmail = sendSessionInviteEmail as jest.MockedFunction<typeof sendSessionInviteEmail>;
+const mockGetSuggestedUsers = getSuggestedUsers as jest.MockedFunction<
+  typeof getSuggestedUsers
+>;
+const mockSendSessionInviteEmail =
+  sendSessionInviteEmail as jest.MockedFunction<typeof sendSessionInviteEmail>;
 
 // Helper to create mock chain methods
 const createMockChain = (finalResult: any) => {
@@ -61,21 +64,28 @@ const mockUser = {
 describe("Viral Growth Mechanisms", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // Mock Supabase imports
-    const { createSupabaseServerClient } = require("@/lib/supabase/server");
+
+    const {
+      createSupabaseServerClient,
+      createSupabaseServiceRoleClient,
+    } = require("@/lib/supabase/server");
     createSupabaseServerClient.mockResolvedValue(mockSupabaseClient);
-    
-    // Mock API response utils
-    const { createSuccessResponse, createErrorResponse } = require("@/lib/api-response-utils");
-    createSuccessResponse.mockImplementation((data: any) => NextResponse.json({ success: true, data }));
-    createErrorResponse.mockImplementation((message: string) => NextResponse.json({ success: false, error: message }));
-    
-    // Mock notifications
+    createSupabaseServiceRoleClient.mockResolvedValue(mockSupabaseClient);
+
+    const {
+      createSuccessResponse,
+      createErrorResponse,
+    } = require("@/lib/api-response-utils");
+    createSuccessResponse.mockImplementation((data: any) =>
+      NextResponse.json({ success: true, data })
+    );
+    createErrorResponse.mockImplementation((message: string) =>
+      NextResponse.json({ success: false, error: message })
+    );
+
     const { createActivityForInvite } = require("@/lib/notifications");
     createActivityForInvite.mockResolvedValue(true);
-    
-    // Default auth mock
+
     mockSupabaseClient.auth.getUser.mockResolvedValue({
       data: { user: mockUser },
       error: null,
@@ -84,68 +94,50 @@ describe("Viral Growth Mechanisms", () => {
 
   describe("Session Invitations (Viral Invites)", () => {
     it("should send invitations to friends for viral growth", async () => {
-      // Mock session lookup
-      mockSupabaseClient.from.mockReturnValueOnce(
-        createMockChain({
-          data: {
-            id: "session-1",
-            user_id: "user-1",
-            beach_name: "Viral Beach",
-            arrival_time: "2024-01-15T08:00:00Z",
-            status: "planned",
-          },
-          error: null,
-        })
-      );
-
-      // No prior invitation found (invitee 1)
-      mockSupabaseClient.from.mockReturnValueOnce(
-        createMockChain({
-          data: null,
-          error: null,
-        })
-      );
-
-      // Mock invitation creation (invitee 1)
-      mockSupabaseClient.from.mockReturnValueOnce(
-        createMockChain({
-          data: [
-            {
-              id: "invite-1",
-              session_id: "session-1",
-              inviter_id: "user-1",
-              invitee_email: "friend@example.com",
-              status: "pending",
+      const fromMock = jest.fn((table: string) => {
+        if (table === "sessions") {
+          return createMockChain({
+            data: {
+              id: "session-1",
+              user_id: "user-1",
+              beach_name: "Viral Beach",
+              arrival_time: "2024-01-15T08:00:00Z",
+              status: "planned",
             },
-          ],
-          error: null,
-        })
-      );
+            error: null,
+          });
+        }
 
-      // No prior invitation found (invitee 2)
-      mockSupabaseClient.from.mockReturnValueOnce(
-        createMockChain({
-          data: null,
-          error: null,
-        })
-      );
+        if (table === "session_invitations") {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                maybeSingle: jest.fn(() => ({ data: null, error: null })),
+              })),
+            })),
+            insert: jest.fn(() => ({
+              select: jest.fn(() => ({
+                single: jest.fn(() =>
+                  Promise.resolve({
+                    data: {
+                      id: "invite-1",
+                      session_id: "session-1",
+                      inviter_id: "user-1",
+                      invitee_email: "friend1@example.com",
+                      status: "pending",
+                    },
+                    error: null,
+                  })
+                ),
+              })),
+            })),
+          } as any;
+        }
 
-      // Mock invitation creation (invitee 2)
-      mockSupabaseClient.from.mockReturnValueOnce(
-        createMockChain({
-          data: [
-            {
-              id: "invite-2",
-              session_id: "session-1",
-              inviter_id: "user-1",
-              invitee_email: "friend2@example.com",
-              status: "pending",
-            },
-          ],
-          error: null,
-        })
-      );
+        throw new Error(`Unexpected table ${table}`);
+      });
 
+      mockSupabaseClient.from.mockImplementation(fromMock);
       mockSendSessionInviteEmail.mockResolvedValue(true);
 
       const requestBody = {
@@ -157,63 +149,83 @@ describe("Viral Growth Mechanisms", () => {
         message: "Join me for an epic surf session! 🏄‍♂️",
       };
 
-      const request = new NextRequest("http://localhost:3000/api/session-planner/invitations", {
-        method: "POST",
-        body: JSON.stringify(requestBody),
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": "invite-key-123",
-        },
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/session-planner/invitations",
+        {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": "invite-key-123",
+          },
+        }
+      );
 
       const response = await InvitationsAPI(request);
       const responseData = await response.json();
-      // eslint-disable-next-line no-console
-      if (!responseData.success) console.log('invite success test payload', responseData);
+      if (!responseData.success)
+        console.log("invite success test payload", responseData);
 
       expect(responseData.success).toBe(true);
-      // In CI we relax email call count due to varying mock chains; success response is primary signal
-      expect(mockSendSessionInviteEmail.mock.calls.length).toBeGreaterThanOrEqual(0);
+      expect(mockSendSessionInviteEmail).toHaveBeenCalledTimes(2);
     });
 
     it("should track invitation success rates for growth analytics", async () => {
-      mockSupabaseClient.from.mockReturnValueOnce(
-        createMockChain({
-          data: { id: "session-1", user_id: "user-1", status: 'planned' },
-          error: null,
-        })
-      );
+      const fromMock = jest.fn((table: string) => {
+        if (table === "sessions") {
+          return createMockChain({
+            data: { id: "session-1", user_id: "user-1", status: "planned" },
+            error: null,
+          });
+        }
 
-      // No prior invitation
-      mockSupabaseClient.from.mockReturnValueOnce(
-        createMockChain({
-          data: null,
-          error: null,
-        })
-      );
+        if (table === "session_invitations") {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                maybeSingle: jest.fn(() => ({ data: null, error: null })),
+              })),
+            })),
+            insert: jest.fn(() => ({
+              select: jest.fn(() => ({
+                single: jest.fn(() =>
+                  Promise.resolve({
+                    data: { id: "invite-1", status: "pending" },
+                    error: null,
+                  })
+                ),
+              })),
+            })),
+          } as any;
+        }
 
-      // Mock created invitation
-      mockSupabaseClient.from.mockReturnValueOnce(
-        createMockChain({
-          data: [{ id: "invite-1", status: "pending" }],
-          error: null,
-        })
-      );
+        if (table === "session_invitation_analytics") {
+          return createMockChain({
+            data: { invitationsSent: 1, uniqueInvitees: 1 },
+            error: null,
+          });
+        }
 
+        throw new Error(`Unexpected table ${table}`);
+      });
+
+      mockSupabaseClient.from.mockImplementation(fromMock);
       mockSendSessionInviteEmail.mockResolvedValue(true);
 
-      const request = new NextRequest("http://localhost:3000/api/session-planner/invitations", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: "session-1",
-          invitees: [{ email: "test@example.com" }],
-        }),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/session-planner/invitations",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "session-1",
+            invitees: [{ email: "test@example.com" }],
+          }),
+        }
+      );
 
       const response = await InvitationsAPI(request);
       const data = await response.json();
-      // eslint-disable-next-line no-console
-      if (!data.success) console.log('invite analytics payload', data);
+      if (!data.success) console.log("invite analytics payload", data);
 
       expect(data.success).toBe(true);
       expect(data.data.invitationsSent).toBeDefined();
@@ -234,13 +246,16 @@ describe("Viral Growth Mechanisms", () => {
         })
       );
 
-      const request = new NextRequest("http://localhost:3000/api/session-planner/invitations", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: "session-1",
-          invitees: [{ email: "test@example.com" }],
-        }),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/session-planner/invitations",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "session-1",
+            invitees: [{ email: "test@example.com" }],
+          }),
+        }
+      );
 
       const response = await InvitationsAPI(request);
       const data = await response.json();
@@ -261,19 +276,26 @@ describe("Viral Growth Mechanisms", () => {
       mockSupabaseClient.from.mockReturnValue(
         createMockChain({
           data: [
-            { id: "existing-1", invitee_email: "test@example.com", created_at: "2024-01-15T07:00:00Z" },
+            {
+              id: "existing-1",
+              invitee_email: "test@example.com",
+              created_at: "2024-01-15T07:00:00Z",
+            },
           ],
           error: null,
         })
       );
 
-      const request = new NextRequest("http://localhost:3000/api/session-planner/invitations", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: "session-1",
-          invitees: [{ email: "test@example.com" }],
-        }),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/session-planner/invitations",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "session-1",
+            invitees: [{ email: "test@example.com" }],
+          }),
+        }
+      );
 
       // Should handle duplicate invitations gracefully
       const response = await InvitationsAPI(request);
@@ -335,16 +357,22 @@ describe("Viral Growth Mechanisms", () => {
         );
       };
 
-      const React = require('react');
+      const React = require("react");
       render(<SuggestedUsersComponent />);
 
       await waitFor(() => {
         expect(screen.getByTestId("suggestions-list")).toBeInTheDocument();
       });
 
-      expect(screen.getByText("Popular Surfer (1000 followers)")).toBeInTheDocument();
-      expect(screen.getByText("Pro Surfer (500 followers)")).toBeInTheDocument();
-      expect(screen.getByText("Local Legend (250 followers)")).toBeInTheDocument();
+      expect(
+        screen.getByText("Popular Surfer (1000 followers)")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Pro Surfer (500 followers)")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Local Legend (250 followers)")
+      ).toBeInTheDocument();
     });
 
     it("should enable easy following for viral growth", async () => {
@@ -370,7 +398,7 @@ describe("Viral Growth Mechanisms", () => {
         );
       };
 
-      const React = require('react');
+      const React = require("react");
       render(<FollowButton userId="user-2" />);
 
       const followButton = screen.getByTestId("follow-button");
@@ -413,16 +441,26 @@ describe("Viral Growth Mechanisms", () => {
       render(<SocialProofComponent />);
 
       expect(screen.getByText("Join 10,500+ surfers")).toBeInTheDocument();
-      expect(screen.getByText("234 sessions happening now")).toBeInTheDocument();
+      expect(
+        screen.getByText("234 sessions happening now")
+      ).toBeInTheDocument();
       expect(screen.getByText("5,600 epic photos shared")).toBeInTheDocument();
     });
 
     it("should create FOMO with active user indicators", async () => {
       const FOMOIndicator = () => {
         const recentActivity = [
-          { user: "Sarah", action: "logged epic session at Malibu", time: "2 min ago" },
+          {
+            user: "Sarah",
+            action: "logged epic session at Malibu",
+            time: "2 min ago",
+          },
           { user: "Mike", action: "shared amazing photo", time: "5 min ago" },
-          { user: "Alex", action: "planned session for tomorrow", time: "8 min ago" },
+          {
+            user: "Alex",
+            action: "planned session for tomorrow",
+            time: "8 min ago",
+          },
         ];
 
         return (
@@ -430,7 +468,8 @@ describe("Viral Growth Mechanisms", () => {
             <h3>Live Activity</h3>
             {recentActivity.map((activity, index) => (
               <div key={index} data-testid={`activity-${index}`}>
-                <strong>{activity.user}</strong> {activity.action} • {activity.time}
+                <strong>{activity.user}</strong> {activity.action} •{" "}
+                {activity.time}
               </div>
             ))}
           </div>
@@ -440,18 +479,18 @@ describe("Viral Growth Mechanisms", () => {
       render(<FOMOIndicator />);
 
       // Be robust to potential text splitting within elements
-      const a0 = screen.getByTestId('activity-0');
-      const a1 = screen.getByTestId('activity-1');
-      const a2 = screen.getByTestId('activity-2');
-      expect(a0.textContent || '').toMatch(/Sarah/);
-      expect(a0.textContent || '').toMatch(/Malibu/);
-      expect(a0.textContent || '').toMatch(/2 min ago/);
-      expect(a1.textContent || '').toMatch(/Mike/);
-      expect(a1.textContent || '').toMatch(/shared amazing photo/);
-      expect(a1.textContent || '').toMatch(/5 min ago/);
-      expect(a2.textContent || '').toMatch(/Alex/);
-      expect(a2.textContent || '').toMatch(/planned session for tomorrow/);
-      expect(a2.textContent || '').toMatch(/8 min ago/);
+      const a0 = screen.getByTestId("activity-0");
+      const a1 = screen.getByTestId("activity-1");
+      const a2 = screen.getByTestId("activity-2");
+      expect(a0.textContent || "").toMatch(/Sarah/);
+      expect(a0.textContent || "").toMatch(/Malibu/);
+      expect(a0.textContent || "").toMatch(/2 min ago/);
+      expect(a1.textContent || "").toMatch(/Mike/);
+      expect(a1.textContent || "").toMatch(/shared amazing photo/);
+      expect(a1.textContent || "").toMatch(/5 min ago/);
+      expect(a2.textContent || "").toMatch(/Alex/);
+      expect(a2.textContent || "").toMatch(/planned session for tomorrow/);
+      expect(a2.textContent || "").toMatch(/8 min ago/);
     });
   });
 
@@ -462,7 +501,7 @@ describe("Viral Growth Mechanisms", () => {
           <div data-testid="sharing-incentives">
             <h3>Share Your Epic Sessions</h3>
             <p data-testid="viral-message">
-              Tag @QuiverSurf and inspire other surfers to join the community! 
+              Tag @QuiverSurf and inspire other surfers to join the community!
               Every share helps grow our surf family 🌊
             </p>
             <div data-testid="sharing-benefits">
@@ -476,10 +515,18 @@ describe("Viral Growth Mechanisms", () => {
 
       render(<SharingIncentives />);
 
-      expect(screen.getByText(/inspire other surfers to join the community/)).toBeInTheDocument();
-      expect(screen.getByText(/Get featured in our weekly highlights/)).toBeInTheDocument();
-      expect(screen.getByText(/Build your surf reputation/)).toBeInTheDocument();
-      expect(screen.getByText(/Connect with local surf communities/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/inspire other surfers to join the community/)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Get featured in our weekly highlights/)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Build your surf reputation/)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Connect with local surf communities/)
+      ).toBeInTheDocument();
     });
 
     it("should track referral attribution for growth analysis", async () => {
@@ -492,10 +539,12 @@ describe("Viral Growth Mechanisms", () => {
 
         React.useEffect(() => {
           // Simulate UTM tracking
-          const urlParams = new URLSearchParams("?utm_source=instagram&utm_medium=story&utm_campaign=surf-session");
+          const urlParams = new URLSearchParams(
+            "?utm_source=instagram&utm_medium=story&utm_campaign=surf-session"
+          );
           const source = urlParams.get("utm_source");
           const medium = urlParams.get("utm_medium");
-          
+
           if (source && medium) {
             trackReferral(source, medium);
           }
@@ -508,15 +557,19 @@ describe("Viral Growth Mechanisms", () => {
         );
       };
 
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      const React = require('react');
-      
+      const consoleSpy = jest.spyOn(console, "log").mockImplementation();
+      const React = require("react");
+
       render(<ReferralTracker />);
 
-      expect(screen.getByText("Tracking referral attribution...")).toBeInTheDocument();
-      
+      expect(
+        screen.getByText("Tracking referral attribution...")
+      ).toBeInTheDocument();
+
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith("Referral tracked: instagram/story");
+        expect(consoleSpy).toHaveBeenCalledWith(
+          "Referral tracked: instagram/story"
+        );
       });
 
       consoleSpy.mockRestore();
@@ -528,9 +581,21 @@ describe("Viral Growth Mechanisms", () => {
       const InviteRewards = () => {
         const [inviteCount, setInviteCount] = React.useState(3);
         const rewards = [
-          { threshold: 1, reward: "🥉 Invite Rookie", unlocked: inviteCount >= 1 },
-          { threshold: 5, reward: "🥈 Social Surfer", unlocked: inviteCount >= 5 },
-          { threshold: 10, reward: "🥇 Community Builder", unlocked: inviteCount >= 10 },
+          {
+            threshold: 1,
+            reward: "🥉 Invite Rookie",
+            unlocked: inviteCount >= 1,
+          },
+          {
+            threshold: 5,
+            reward: "🥈 Social Surfer",
+            unlocked: inviteCount >= 5,
+          },
+          {
+            threshold: 10,
+            reward: "🥇 Community Builder",
+            unlocked: inviteCount >= 10,
+          },
         ];
 
         return (
@@ -538,25 +603,30 @@ describe("Viral Growth Mechanisms", () => {
             <h3>Invite Achievements</h3>
             <div data-testid="invite-count">Invited: {inviteCount} friends</div>
             {rewards.map((reward, index) => (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 data-testid={`reward-${index}`}
                 className={reward.unlocked ? "unlocked" : "locked"}
               >
-                {reward.reward} {reward.unlocked ? "✅" : `(${reward.threshold} invites)`}
+                {reward.reward}{" "}
+                {reward.unlocked ? "✅" : `(${reward.threshold} invites)`}
               </div>
             ))}
           </div>
         );
       };
 
-      const React = require('react');
+      const React = require("react");
       render(<InviteRewards />);
 
       expect(screen.getByText("Invited: 3 friends")).toBeInTheDocument();
       expect(screen.getByText("🥉 Invite Rookie ✅")).toBeInTheDocument();
-      expect(screen.getByText("🥈 Social Surfer (5 invites)")).toBeInTheDocument();
-      expect(screen.getByText("🥇 Community Builder (10 invites)")).toBeInTheDocument();
+      expect(
+        screen.getByText("🥈 Social Surfer (5 invites)")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("🥇 Community Builder (10 invites)")
+      ).toBeInTheDocument();
     });
 
     it("should create leaderboards for social engagement", async () => {
@@ -572,7 +642,8 @@ describe("Viral Growth Mechanisms", () => {
             <h3>Social Champions</h3>
             {leaderboard.map((entry) => (
               <div key={entry.rank} data-testid={`leader-${entry.rank}`}>
-                #{entry.rank} {entry.user} - {entry.sessions} sessions, {entry.shares} shares
+                #{entry.rank} {entry.user} - {entry.sessions} sessions,{" "}
+                {entry.shares} shares
               </div>
             ))}
           </div>
@@ -581,9 +652,15 @@ describe("Viral Growth Mechanisms", () => {
 
       render(<SocialLeaderboard />);
 
-      expect(screen.getByText("#1 WaveRider - 156 sessions, 89 shares")).toBeInTheDocument();
-      expect(screen.getByText("#2 OceanExplorer - 142 sessions, 76 shares")).toBeInTheDocument();
-      expect(screen.getByText("#3 SurfPro - 138 sessions, 71 shares")).toBeInTheDocument();
+      expect(
+        screen.getByText("#1 WaveRider - 156 sessions, 89 shares")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("#2 OceanExplorer - 142 sessions, 76 shares")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("#3 SurfPro - 138 sessions, 71 shares")
+      ).toBeInTheDocument();
     });
   });
 
@@ -596,13 +673,16 @@ describe("Viral Growth Mechanisms", () => {
         })
       );
 
-      const request = new NextRequest("http://localhost:3000/api/session-planner/invitations", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: "session-1",
-          invitees: [{ email: "test@example.com" }],
-        }),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/session-planner/invitations",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "session-1",
+            invitees: [{ email: "test@example.com" }],
+          }),
+        }
+      );
 
       const response = await InvitationsAPI(request);
       const data = await response.json();
@@ -611,10 +691,13 @@ describe("Viral Growth Mechanisms", () => {
     });
 
     it("should handle malformed invitation requests", async () => {
-      const request = new NextRequest("http://localhost:3000/api/session-planner/invitations", {
-        method: "POST",
-        body: "invalid json",
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/session-planner/invitations",
+        {
+          method: "POST",
+          body: "invalid json",
+        }
+      );
 
       const response = await InvitationsAPI(request);
       const data = await response.json();
@@ -637,15 +720,20 @@ describe("Viral Growth Mechanisms", () => {
         })
       );
 
-      mockSendSessionInviteEmail.mockRejectedValue(new Error("Email service down"));
+      mockSendSessionInviteEmail.mockRejectedValue(
+        new Error("Email service down")
+      );
 
-      const request = new NextRequest("http://localhost:3000/api/session-planner/invitations", {
-        method: "POST",
-        body: JSON.stringify({
-          sessionId: "session-1",
-          invitees: [{ email: "test@example.com" }],
-        }),
-      });
+      const request = new NextRequest(
+        "http://localhost:3000/api/session-planner/invitations",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "session-1",
+            invitees: [{ email: "test@example.com" }],
+          }),
+        }
+      );
 
       // Should handle email failures gracefully
       const response = await InvitationsAPI(request);
@@ -666,11 +754,21 @@ describe("Viral Growth Mechanisms", () => {
 
         return (
           <div data-testid="viral-metrics">
-            <div data-testid="invites-sent">Invites sent: {metrics.invitationsSent}</div>
-            <div data-testid="invites-accepted">Invites accepted: {metrics.invitationsAccepted}</div>
-            <div data-testid="viral-coefficient">Viral coefficient: {metrics.viralCoefficient}</div>
-            <div data-testid="avg-invites">Avg invites/user: {metrics.avgInvitesPerUser}</div>
-            <div data-testid="shares-generated">Shares generated: {metrics.sharesGenerated}</div>
+            <div data-testid="invites-sent">
+              Invites sent: {metrics.invitationsSent}
+            </div>
+            <div data-testid="invites-accepted">
+              Invites accepted: {metrics.invitationsAccepted}
+            </div>
+            <div data-testid="viral-coefficient">
+              Viral coefficient: {metrics.viralCoefficient}
+            </div>
+            <div data-testid="avg-invites">
+              Avg invites/user: {metrics.avgInvitesPerUser}
+            </div>
+            <div data-testid="shares-generated">
+              Shares generated: {metrics.sharesGenerated}
+            </div>
           </div>
         );
       };

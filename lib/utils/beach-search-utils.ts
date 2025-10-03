@@ -14,18 +14,18 @@ interface SearchResult {
 }
 
 /**
- * Search for beaches by name with fuzzy matching and out-of-area detection
+ * Search for beaches by name with fuzzy matching - returns array of all matches
  */
-export async function searchBeachesByName(
+export async function searchBeachesMultiple(
   searchText: string
-): Promise<Beach | null> {
+): Promise<Beach[]> {
   try {
-    console.log(`🔍 searchBeachesByName called with: "${searchText}"`);
+    console.log(`🔍 searchBeachesMultiple called with: "${searchText}"`);
     const allBeachesResult = await getBeaches();
 
     if (!allBeachesResult.success || !allBeachesResult.data) {
       console.log(`❌ Failed to get beaches:`, allBeachesResult.error);
-      return null;
+      return [];
     }
 
     console.log(`📊 Found ${allBeachesResult.data.length} beaches in database`);
@@ -122,35 +122,63 @@ export async function searchBeachesByName(
       return false;
     });
 
+    // Sort matches by relevance
+    matchingBeaches.sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      const aLocation = (a.location || "").toLowerCase();
+      const bLocation = (b.location || "").toLowerCase();
+
+      // 1. Exact name matches first
+      if (aName === normalizedSearch && bName !== normalizedSearch) return -1;
+      if (bName === normalizedSearch && aName !== normalizedSearch) return 1;
+
+      // 2. Name contains search term (higher priority)
+      const aNameContains = aName.includes(normalizedSearch);
+      const bNameContains = bName.includes(normalizedSearch);
+      if (aNameContains && !bNameContains) return -1;
+      if (bNameContains && !aNameContains) return 1;
+
+      // 3. Among name matches, shorter names are more specific
+      if (aNameContains && bNameContains) {
+        return aName.length - bName.length;
+      }
+
+      // 4. Location matches (secondary priority)
+      const aLocationContains = aLocation.includes(normalizedSearch);
+      const bLocationContains = bLocation.includes(normalizedSearch);
+      if (aLocationContains && !bLocationContains) return -1;
+      if (bLocationContains && !aLocationContains) return 1;
+
+      // 5. Finally, sort by name length
+      return aName.length - bName.length;
+    });
+
     console.log(
       `🎯 Found ${matchingBeaches.length} matching beaches:`,
       matchingBeaches.map((b) => b.name)
     );
 
     if (matchingBeaches.length > 0) {
-      // Sort matches by relevance (exact matches first, then by name length)
-      matchingBeaches.sort((a, b) => {
-        const aName = a.name.toLowerCase();
-        const bName = b.name.toLowerCase();
-
-        // Exact matches first
-        if (aName === normalizedSearch && bName !== normalizedSearch) return -1;
-        if (bName === normalizedSearch && aName !== normalizedSearch) return 1;
-
-        // Then by how well the search term matches (shorter names are better matches)
-        return aName.length - bName.length;
-      });
-
       console.log(`🏆 Returning best match: "${matchingBeaches[0].name}"`);
-      return matchingBeaches[0];
     }
 
-    console.log(`❌ No matches found for: "${searchText}"`);
-    return null;
+    return matchingBeaches;
   } catch (error) {
     console.error("💥 Error searching beaches by name:", error);
-    return null;
+    return [];
   }
+}
+
+/**
+ * Search for beaches by name with fuzzy matching and out-of-area detection
+ * Returns single best match for backward compatibility
+ */
+export async function searchBeachesByName(
+  searchText: string
+): Promise<Beach | null> {
+  const matches = await searchBeachesMultiple(searchText);
+  return matches.length > 0 ? matches[0] : null;
 }
 
 /**

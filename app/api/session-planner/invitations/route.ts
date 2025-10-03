@@ -299,6 +299,31 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: recentInvitation } = await serviceSupabase
+          .from("session_invitations")
+          .select("id, created_at")
+          .eq(
+            inviteeUserId ? "invitee_id" : "invitee_email",
+            inviteeUserId || normalizedEmail
+          )
+          .gt("created_at", sevenDaysAgo)
+          .order("created_at", { ascending: false })
+          .maybeSingle();
+
+        if (recentInvitation) {
+          errors.push(
+            `Invitation already sent recently to ${
+              invitee.email || invitee.name || "user"
+            }`
+          );
+          debug("Recent invitation detected within 7 days, skipping", {
+            inviteeUserId: inviteeUserId || null,
+            inviteeEmail: invitee.email || null,
+          });
+          continue;
+        }
+
         // Create invitation record
         const perInviteeIdempKey = idempotencyKey
           ? `${idempotencyKey}:${inviteeUserId || invitee.email || "unknown"}`
