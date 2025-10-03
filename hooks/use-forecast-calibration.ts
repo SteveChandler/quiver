@@ -33,7 +33,8 @@ export function useForecastCalibration({
   const fetchBeachAccuracy = useCallback(async () => {
     if (!beachId) return null;
     // TODO: Implement getBeachAccuracy when available
-    return { success: false, error: "Not implemented", data: null };
+    // Return null for now instead of error object to prevent rendering issues
+    return null;
   }, [beachId]);
 
   const {
@@ -47,7 +48,8 @@ export function useForecastCalibration({
   const fetchSessionSnapshots = useCallback(async () => {
     if (!beachId) return [];
     // TODO: Implement getSessionForecastSnapshots when available
-    return { success: false, error: "Not implemented", data: [] };
+    // Return empty array for now instead of error object
+    return [];
   }, [beachId]);
 
   const {
