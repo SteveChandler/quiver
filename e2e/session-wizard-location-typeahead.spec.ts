@@ -34,9 +34,9 @@ test.describe("Session Wizard - Location Typeahead", () => {
 
     // Verify specific beaches appear in the dropdown
     await expect(page.getByText("La Jolla Shores", { exact: true })).toBeVisible();
-    await expect(page.getByText("Scripps Pier", { exact: true })).toBeVisible();
-    await expect(page.getByText("Blacks Beach", { exact: true })).toBeVisible();
-    await expect(page.getByText("Windansea Beach", { exact: true })).toBeVisible();
+    await expect(page.getByText("Scripps", { exact: true })).toBeVisible();
+    await expect(page.getByText("Birdrock", { exact: true })).toBeVisible();
+    await expect(page.getByText("Windansea", { exact: true })).toBeVisible();
     await expect(page.getByText("Horseshoe", { exact: true })).toBeVisible();
   });
 
@@ -70,7 +70,7 @@ test.describe("Session Wizard - Location Typeahead", () => {
     await beachInput.click();
     await beachInput.fill("scripps");
     await page.waitForTimeout(500);
-    await page.getByText("Scripps Pier", { exact: true }).click();
+    await page.getByText("Scripps", { exact: true }).click();
 
     // Verify clear button appears
     const clearButton = page.locator("button[title='Clear selection']");
@@ -88,12 +88,14 @@ test.describe("Session Wizard - Location Typeahead", () => {
   }) => {
     const beachInput = page.getByTestId("beach-search-input");
     await beachInput.click();
-    await beachInput.fill("xyz123nonexistent");
+    await beachInput.fill("zzz999impossible");
 
     // Wait for debounced search
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(600);
 
-    // Verify "No beaches found" message appears
+    // Verify "No beaches found" message appears in the dropdown list
+    const dropdown = page.locator("ul").filter({ hasText: "No beaches found" });
+    await expect(dropdown).toBeVisible();
     await expect(page.getByText("No beaches found")).toBeVisible();
   });
 
@@ -121,7 +123,7 @@ test.describe("Session Wizard - Location Typeahead", () => {
     await beachInput.click();
     await beachInput.fill("scripps");
     await page.waitForTimeout(500);
-    await page.getByText("Scripps Pier", { exact: true }).click();
+    await page.getByText("Scripps", { exact: true }).click();
 
     // Next button should now be enabled
     await expect(nextButton).toBeEnabled();
@@ -135,14 +137,14 @@ test.describe("Session Wizard - Location Typeahead", () => {
     await beachInput.click();
     await beachInput.fill("scripps");
     await page.waitForTimeout(500);
-    await page.getByText("Scripps Pier", { exact: true }).click();
+    await page.getByText("Scripps", { exact: true }).click();
 
     // Click Next button
     const nextButton = page.getByRole("button", { name: "Next" });
     await nextButton.click();
 
     // Verify we advanced to the datetime step
-    await expect(page.getByText("When")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "When" })).toBeVisible();
     await expect(page.getByText("When did you surf?")).toBeVisible();
   });
 
