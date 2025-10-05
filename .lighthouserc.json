@@ -1,0 +1,51 @@
+{
+  "ci": {
+    "collect": {
+      "url": [
+        "http://localhost:3000",
+        "http://localhost:3000/discover",
+        "http://localhost:3000/map",
+        "http://localhost:3000/forecast/1"
+      ],
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "onlyCategories": [
+          "performance",
+          "accessibility",
+          "best-practices",
+          "seo"
+        ],
+        "skipAudits": ["uses-http2"]
+      }
+    },
+    "assert": {
+      "preset": "lighthouse:recommended",
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.8 }],
+        "categories:accessibility": ["error", { "minScore": 0.9 }],
+        "categories:best-practices": ["error", { "minScore": 0.9 }],
+        "categories:seo": ["error", { "minScore": 0.9 }],
+        "first-contentful-paint": ["warn", { "maxNumericValue": 2000 }],
+        "largest-contentful-paint": ["warn", { "maxNumericValue": 2500 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+        "total-blocking-time": ["warn", { "maxNumericValue": 300 }],
+        "color-contrast": "error",
+        "image-alt": "error",
+        "label": "error",
+        "link-name": "error",
+        "button-name": "error",
+        "aria-allowed-attr": "error",
+        "aria-required-attr": "error",
+        "aria-valid-attr-value": "error",
+        "aria-valid-attr": "error",
+        "document-title": "error",
+        "html-has-lang": "error",
+        "valid-lang": "error"
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}

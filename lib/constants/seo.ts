@@ -168,8 +168,15 @@ export const SEO_CONFIG = {
     viewport: "width=device-width, initial-scale=1",
     "theme-color": "#1e40af", // ocean-blue
     "msapplication-TileColor": "#1e40af",
+    
+    // Progressive Web App (PWA) support
     "mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "default",
+    
+    // iOS PWA support - enables standalone mode and native app-like experience
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "Quiver",
+    
     "format-detection": "telephone=no",
     "google-site-verification": "", // Add when Google Search Console is set up
     // Geographic targeting for surf communities

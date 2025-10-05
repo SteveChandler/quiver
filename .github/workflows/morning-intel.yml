@@ -1,0 +1,125 @@
+name: Daily Morning Surf Intel
+
+on:
+    schedule:
+        # Run daily at 6:00 AM PT
+        # PT is UTC-8 (standard) or UTC-7 (daylight)
+        # 6 AM PT = 1 PM UTC (standard) or 2 PM UTC (daylight)
+        # Run both hours to handle DST, script will check if already posted
+        - cron: "0 13 * * *" # 6 AM PST (Nov-Mar)
+        - cron: "0 14 * * *" # 6 AM PDT (Mar-Nov)
+    workflow_dispatch:
+        inputs:
+            force_run:
+                description: "Force run even if already posted today"
+                required: false
+                default: false
+                type: boolean
+            test_mode:
+                description: "Run in test mode (prints data without posting)"
+                required: false
+                default: false
+                type: boolean
+
+env:
+    NODE_VERSION: "18"
+
+jobs:
+    morning-intel:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "npm"
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Set environment variables
+              run: |
+                  echo "TZ=America/Los_Angeles" >> $GITHUB_ENV
+                  echo "MORNING_INTEL_ENABLED=true" >> $GITHUB_ENV
+
+            - name: Check if should run
+              id: should_run
+              run: |
+                  CURRENT_HOUR=$(TZ=America/Los_Angeles date +%H)
+                  echo "Current PT hour: $CURRENT_HOUR"
+
+                  if [ "$CURRENT_HOUR" != "06" ] && [ "${{ github.event.inputs.force_run }}" != "true" ]; then
+                    echo "Not 6 AM PT and not forced - skipping"
+                    echo "should_run=false" >> $GITHUB_OUTPUT
+                  else
+                    echo "should_run=true" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Run Morning Surf Intel
+              if: steps.should_run.outputs.should_run == 'true'
+              id: morning_intel
+              run: |
+                  echo "🌊 Generating Morning Surf Intel..."
+                  echo "📅 $(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z')"
+
+                  if npm run morning-intel 2>&1 | tee morning_intel_output.log; then
+                    echo "✅ Morning Intel completed successfully"
+                    echo "success=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "❌ Morning Intel failed"
+                    echo "success=false" >> $GITHUB_OUTPUT
+                    exit 1
+                  fi
+              env:
+                  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+                  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+                  MORNING_INTEL_USER_EMAIL: ${{ secrets.MORNING_INTEL_USER_EMAIL }}
+                  MORNING_INTEL_USER_PASSWORD: ${{ secrets.MORNING_INTEL_USER_PASSWORD }}
+                  MORNING_INTEL_SPOT_ID: ${{ secrets.MORNING_INTEL_SPOT_ID }}
+                  MORNING_INTEL_SPOT_NAME: "Ocean Beach, San Diego"
+
+            - name: Upload logs
+              if: always() && steps.should_run.outputs.should_run == 'true'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: morning-intel-log-${{ github.run_number }}
+                  path: morning_intel_output.log
+                  retention-days: 7
+
+            - name: Create summary report
+              if: always() && steps.should_run.outputs.should_run == 'true'
+              run: |
+                  echo "## 🌊 Morning Surf Intel Report" >> $GITHUB_STEP_SUMMARY
+                  echo "**Date:** $(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z')" >> $GITHUB_STEP_SUMMARY
+                  echo "**Location:** Ocean Beach, San Diego" >> $GITHUB_STEP_SUMMARY
+                  echo "**Status:** ${{ steps.morning_intel.outputs.success == 'true' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  if [ -f morning_intel_output.log ]; then
+                    echo "### Output Log" >> $GITHUB_STEP_SUMMARY
+                    echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                    cat morning_intel_output.log >> $GITHUB_STEP_SUMMARY
+                    echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  fi
+
+            - name: Notify on failure
+              if: failure() && steps.should_run.outputs.should_run == 'true'
+              run: |
+                  echo "🚨 Morning Surf Intel Failed"
+                  echo "Check the logs for detailed error information"
+
+                  if [ -f morning_intel_output.log ]; then
+                    echo "Last 10 lines of output:"
+                    tail -10 morning_intel_output.log
+                  fi
+
+            - name: Skip notification
+              if: steps.should_run.outputs.should_run == 'false'
+              run: |
+                  echo "⏭️  Skipped - not the target hour (6 AM PT)"
+                  echo "This is normal for DST handling"

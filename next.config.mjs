@@ -1,4 +1,6 @@
 import { createRequire } from "node:module";
+import withPWA from "next-pwa";
+
 const require = createRequire(import.meta.url);
 
 // Extract Supabase project ID from URL for image patterns
@@ -16,6 +18,8 @@ const getSupabaseHostname = () => {
 };
 
 const supabaseHostname = getSupabaseHostname();
+
+const isProd = process.env.NODE_ENV === "production";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -224,4 +228,77 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Configure PWA with Workbox
+const pwaConfig = withPWA({
+  dest: "public",
+  disable: !isProd,
+  register: true,
+  skipWaiting: true,
+  runtimeCaching: [
+    // Forecast API - NetworkFirst with 3s timeout (fresh data priority, short cache for offline)
+    {
+      urlPattern: ({ url }) => url.pathname.startsWith("/api/forecast"),
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "forecast-api",
+        networkTimeoutSeconds: 3,
+        expiration: {
+          maxEntries: 60,
+          maxAgeSeconds: 60 * 30, // 30 minutes - respects anti-stale-data policy
+        },
+      },
+    },
+    // Beach API - NetworkFirst (similar to forecasts)
+    {
+      urlPattern: ({ url }) => url.pathname.startsWith("/api/beaches"),
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "beaches-api",
+        networkTimeoutSeconds: 3,
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 60 * 60, // 1 hour
+        },
+      },
+    },
+    // Buoy API - NetworkFirst with short cache
+    {
+      urlPattern: ({ url }) => url.pathname.startsWith("/api/buoys"),
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "buoy-api",
+        networkTimeoutSeconds: 3,
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 60 * 15, // 15 minutes (real-time data)
+        },
+      },
+    },
+    // Images - StaleWhileRevalidate (serve fast, update in background)
+    {
+      urlPattern: ({ request }) => request.destination === "image",
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "images",
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+        },
+      },
+    },
+    // Static assets - CacheFirst (immutable assets)
+    {
+      urlPattern: ({ url }) => url.pathname.startsWith("/_next/static"),
+      handler: "CacheFirst",
+      options: {
+        cacheName: "next-static",
+        expiration: {
+          maxEntries: 200,
+          maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+        },
+      },
+    },
+  ],
+});
+
+export default pwaConfig(nextConfig);

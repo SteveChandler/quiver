@@ -139,7 +139,11 @@ export default function RootLayout({
               function gtag(){dataLayer.push(arguments);} 
               gtag('js', new Date());
               gtag('config', '${GA_ID}', { anonymize_ip: true, send_page_view: false });
-              ${process.env.NODE_ENV !== "production" ? "try{gtag('set','debug_mode',true);}catch(_){}" : ""}
+              ${
+                process.env.NODE_ENV !== "production"
+                  ? "try{gtag('set','debug_mode',true);}catch(_){}"
+                  : ""
+              }
             `,
           }}
         />
@@ -153,6 +157,29 @@ export default function RootLayout({
 
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0f172a" />
+
+        {/* Apple Touch Icons for iOS PWA support */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link
+          rel="apple-touch-icon"
+          sizes="180x180"
+          href="/apple-touch-icon-180x180.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="167x167"
+          href="/apple-touch-icon-167x167.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="152x152"
+          href="/apple-touch-icon-152x152.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="120x120"
+          href="/apple-touch-icon-120x120.png"
+        />
 
         {/* DNS prefetch for external resources */}
         <link rel="dns-prefetch" href="//api.mapbox.com" />
