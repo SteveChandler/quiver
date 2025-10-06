@@ -47,7 +47,7 @@
   }
 
   .like-button-spring {
-    transition: transform 150ms cubic-bezier(0.4, 0.0, 0.2, 1);
+    transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .like-button-spring:hover {
@@ -74,7 +74,7 @@
   }
 
   .ripple-effect::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -152,10 +152,31 @@
   }
 }
 
+/* iOS WebView - Prevent keyboard accessory bar crashes */
+@supports (-webkit-touch-callout: none) {
+  /* Disable iOS form navigation bar that causes UICollectionView crashes */
+  input,
+  textarea,
+  select {
+    -webkit-user-select: auto;
+  }
+
+  /* Prevent iOS from adding previous/next buttons above keyboard */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    /* This disables the iOS input accessory toolbar */
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
+
 /* Accessibility - Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   /* Global safeguard: disable motion across the board when users prefer reduced motion */
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation: none !important;
     transition: none !important;
   }

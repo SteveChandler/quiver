@@ -60,27 +60,27 @@ export function BeachReviewSummary({
   }
 
   const totalReviews = stats.total_reviews;
-  const averageOverall = stats.average_overall;
+  const averageOverall = stats.average_overall ?? 0;
 
   const categories = [
     {
       name: "Wave Quality",
-      value: stats.average_wave_quality,
+      value: stats.average_wave_quality ?? 0,
       icon: <Waves className="h-4 w-4" />,
     },
     {
       name: "Crowd Level",
-      value: stats.average_crowd_density,
+      value: stats.average_crowd_density ?? 0,
       icon: <Users className="h-4 w-4" />,
     },
     {
       name: "Parking",
-      value: stats.average_parking,
+      value: stats.average_parking ?? 0,
       icon: <Car className="h-4 w-4" />,
     },
     {
       name: "Accessibility",
-      value: stats.average_accessibility,
+      value: stats.average_accessibility ?? 0,
       icon: <MapPin className="h-4 w-4" />,
     },
   ];
@@ -105,7 +105,11 @@ export function BeachReviewSummary({
             <Star className="h-5 w-5 text-yellow-500" /> Reviews & Ratings
           </h2>
           {user && onWriteReview && (
-            <Button onClick={onWriteReview} size="sm" className="bg-ocean-blue text-white hover:bg-ocean-blue/90">
+            <Button
+              onClick={onWriteReview}
+              size="sm"
+              className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
+            >
               <Plus className="mr-2 h-4 w-4" /> Write a review
             </Button>
           )}
@@ -115,7 +119,11 @@ export function BeachReviewSummary({
           <p className="text-lg font-medium text-dark-grey">No reviews yet</p>
           <p className="text-sm">Be the first to share how this spot breaks.</p>
           {user && onWriteReview && (
-            <Button onClick={onWriteReview} size="sm" className="bg-ocean-blue text-white hover:bg-ocean-blue/90">
+            <Button
+              onClick={onWriteReview}
+              size="sm"
+              className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
+            >
               <Plus className="mr-2 h-4 w-4" /> Write the first review
             </Button>
           )}
@@ -134,7 +142,11 @@ export function BeachReviewSummary({
           <Star className="h-5 w-5 text-yellow-500" /> Reviews & Ratings
         </h2>
         {user && onWriteReview && (
-          <Button onClick={onWriteReview} size="sm" className="bg-ocean-blue text-white hover:bg-ocean-blue/90">
+          <Button
+            onClick={onWriteReview}
+            size="sm"
+            className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
+          >
             <Plus className="mr-2 h-4 w-4" /> Write a review
           </Button>
         )}
@@ -152,7 +164,8 @@ export function BeachReviewSummary({
               <StarRating rating={Math.round(averageOverall)} size="lg" />
             </div>
             <p className="text-sm text-muted-foreground">
-              Based on {totalReviews} {totalReviews === 1 ? "review" : "reviews"}
+              Based on {totalReviews}{" "}
+              {totalReviews === 1 ? "review" : "reviews"}
             </p>
           </div>
 
@@ -161,18 +174,28 @@ export function BeachReviewSummary({
               Ratings spread
             </div>
             <div className="flex h-3 w-full overflow-hidden rounded-full bg-blue-100">
-              {distribution.filter((item) => item.count > 0).map((item) => (
-                <div
-                  key={item.rating}
-                  className={`h-full bg-gradient-to-r ${distributionGradients[item.rating]}`}
-                  style={{ flexGrow: item.count, flexBasis: 0, minWidth: item.count ? "6px" : undefined }}
-                />
-              ))}
+              {distribution
+                .filter((item) => item.count > 0)
+                .map((item) => (
+                  <div
+                    key={item.rating}
+                    className={`h-full bg-gradient-to-r ${
+                      distributionGradients[item.rating]
+                    }`}
+                    style={{
+                      flexGrow: item.count,
+                      flexBasis: 0,
+                      minWidth: item.count ? "6px" : undefined,
+                    }}
+                  />
+                ))}
             </div>
             <div className="mt-1 grid grid-cols-5 gap-2 text-center text-xs font-medium text-muted-foreground">
               {distribution.map((item) => (
                 <div key={item.rating}>
-                  <div className="font-semibold text-dark-grey">{item.rating}★</div>
+                  <div className="font-semibold text-dark-grey">
+                    {item.rating}★
+                  </div>
                   <div>{item.count}</div>
                 </div>
               ))}
@@ -187,7 +210,10 @@ export function BeachReviewSummary({
             </h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {categories.map((category) => {
-                const percent = Math.min(100, Math.max(0, (category.value / 5) * 100));
+                const percent = Math.min(
+                  100,
+                  Math.max(0, (category.value / 5) * 100)
+                );
                 return (
                   <div
                     key={category.name}

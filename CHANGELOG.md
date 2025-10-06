@@ -1,3 +1,59 @@
+## [2025.10.06] - Tide Chart Optimization & iOS Crash Fix & Real-Time Intel Updates
+
+### Added
+
+- **Real-Time Intel Updates**: Added Supabase real-time subscriptions to Intel tab
+  - Automatically refreshes intel posts when new posts are created
+  - Updates confirmation counts in real-time when users confirm posts
+  - Follows established architecture pattern from `components/ARCHITECTURE.md`
+  - Listens to both `intel_posts` and `intel_post_confirmations` tables
+  - Ensures users always see up-to-date intel without manual refresh
+  - **Migration Required**: Created `20251006000001_enable_realtime_for_intel_tables.sql` to enable realtime replication
+    - Enables `REPLICA IDENTITY FULL` for both intel tables
+    - Adds tables to `supabase_realtime` publication
+    - Required for frontend subscriptions to receive database changes
+  - **Debugging**: Added console logging to track subscription status
+    - See `REALTIME_VERIFICATION_GUIDE.md` for testing instructions
+    - Test script available: `scripts/test-realtime-subscription.mjs`
+
+### Changed
+
+- **5-Day Outlook Display**: Removed tide status indicator (e.g., "FALLING") from the 5-Day Outlook cards
+
+  - Simplified display to focus on wave height, wind, and swell information
+  - Tide information is still available in dedicated tide charts and detailed views
+  - Reduces visual clutter and improves clarity of daily forecast cards
+
+- **Tide Chart Display**: Reduced tide chart from 5 days to 48 hours (2 days) for better focus and clarity
+  - Updated `TideChart` component to limit data to 2 days using `limitToTwoDays()` helper
+  - Changed chart titles and accessibility labels from "5-Day" to "2-Day"
+  - Maintains all existing functionality and props (backward compatible)
+  - Updated component documentation to reflect 2-day (48-hour) timeframe
+  - Updated unit tests to match new labels (all tests passing)
+
+### Fixed
+
+- **Intel Posts with NULL expires_at**: Fixed bug where intel posts with NULL `expires_at` (never expire) were being filtered out
+  - Updated `getAllIntelPosts`, `getNearbyIntelPosts`, and `getPublicIntelPosts` to include posts with NULL expires_at
+  - Changed query from `.gt("expires_at", NOW())` to `.or("expires_at.is.null,expires_at.gt.NOW()")`
+  - Fixes issue where newer posts weren't showing in the intel feed
+  - Updated seed migrations to include `expires_at` dates (7 days after creation) for mock data
+- **iOS Keyboard Accessory View Crash**: Fixed critical iOS crash in Capacitor app
+  - **Issue**: UICollectionView crash when iOS keyboard toolbar tries to create Previous/Next navigation buttons for form inputs
+  - **Root Cause**: WKWebView keyboard accessory view attempting to scroll to non-existent items in forms with multiple select elements
+  - **Solution 1**: Disabled keyboard input accessory view in `ios/App/App/AppDelegate.swift` via `UserDefaults` flag
+  - **Solution 2**: Added `KeyboardDisplayRequiresUserAction` and `WKWebViewConfiguration` to `ios/App/App/Info.plist`
+  - **Solution 3**: Added iOS-specific CSS to disable form navigation toolbar in `app/globals.css`
+  - Prevents crash: `NSInternalInconsistencyException: Attempted to scroll the collection view to an out-of-bounds item`
+  - Improves form stability on iOS, especially for intel post form and session logging forms
+- **Intel Data Hook**: Added optional chaining to prevent crashes when `data.posts` is undefined
+  - Fixed `use-intel-data.ts` hook to safely check `data.posts?.length`
+  - Prevents TypeError when intel data hasn't loaded yet
+- **Beach Review Summary**: Added null coalescing for review statistics
+  - Prevents crashes when beach has no reviews yet
+  - All review averages now default to 0 instead of undefined
+  - Improves stability of beach detail page with new beaches
+
 ## [2025.10.05] - Daily Morning Surf Intel Automation
 
 ### Added

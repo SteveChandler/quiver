@@ -1,6 +1,6 @@
 # TideChart Component
 
-A production-ready, accessible Recharts-based component for displaying 5-day tide data with high/low tide markers and labels.
+A production-ready, accessible Recharts-based component for displaying 2-day (48-hour) tide data with high/low tide markers and labels.
 
 ## Usage
 
@@ -34,7 +34,11 @@ const tideData = [
 interface TideChartProps {
   data?: TidePoint[]; // Direct tide data (preferred)
   forecasts?: EnhancedForecastEntity[]; // Legacy forecast entities
-  hourly?: { ts: string; height_m?: number | null; height_ft?: number | null }[];
+  hourly?: {
+    ts: string;
+    height_m?: number | null;
+    height_ft?: number | null;
+  }[];
   events?: {
     ts: string;
     type: "HIGH" | "LOW";

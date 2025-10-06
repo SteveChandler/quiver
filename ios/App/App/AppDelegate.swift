@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import WebKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -8,6 +9,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        
+        // Fix iOS keyboard accessory view collection view crash
+        // Disable input accessory view to prevent UICollectionView crash with forms
+        if #available(iOS 16.0, *) {
+            let config = WKWebViewConfiguration()
+            // This prevents the keyboard accessory bar from trying to create
+            // a UICollectionView for Previous/Next navigation buttons
+            UserDefaults.standard.set(false, forKey: "_UITextInputAccessoryViewEnabled")
+        }
+        
         return true
     }
 

@@ -32,7 +32,11 @@ export type TideChartProps = {
   data?: TidePoint[];
   /** legacy inputs kept for backwards compatibility */
   forecasts?: EnhancedForecastEntity[];
-  hourly?: { ts: string; height_m?: number | null; height_ft?: number | null }[];
+  hourly?: {
+    ts: string;
+    height_m?: number | null;
+    height_ft?: number | null;
+  }[];
   events?: {
     ts: string;
     type: "HIGH" | "LOW";
@@ -99,9 +103,7 @@ const parseForecastDateTime = (
       let hours = Number.parseInt(hh ?? "0", 10) % 12;
       if (timeUpper.includes("PM")) hours += 12;
       candidates.push(
-        `${datePart}T${hours.toString().padStart(2, "0")}:${
-          mm ?? "00"
-        }:00`
+        `${datePart}T${hours.toString().padStart(2, "0")}:${mm ?? "00"}:00`
       );
     } else if (/^\d{1,2}\s?[AP]M$/.test(timeUpper)) {
       const match = /^\d{1,2}/.exec(timeUpper);
@@ -140,7 +142,9 @@ type LegacyTidePoint = {
   type: "high" | "low" | "HIGH" | "LOW";
 };
 
-const normalizeDirectData = (points?: TideChartProps["data"]): InternalPoint[] => {
+const normalizeDirectData = (
+  points?: TideChartProps["data"]
+): InternalPoint[] => {
   if (!Array.isArray(points)) return [];
   return points
     .map((p) => {
@@ -152,8 +156,12 @@ const normalizeDirectData = (points?: TideChartProps["data"]): InternalPoint[] =
       const normalized: InternalPoint = {
         t: dateValue,
         h: Number(height),
-        isHigh: (p as TidePoint).isHigh ?? (p as LegacyTidePoint).type?.toLowerCase() === "high",
-        isLow: (p as TidePoint).isLow ?? (p as LegacyTidePoint).type?.toLowerCase() === "low",
+        isHigh:
+          (p as TidePoint).isHigh ??
+          (p as LegacyTidePoint).type?.toLowerCase() === "high",
+        isLow:
+          (p as TidePoint).isLow ??
+          (p as LegacyTidePoint).type?.toLowerCase() === "low",
         timestamp: dateValue.getTime(),
       };
       return normalized;
@@ -190,7 +198,8 @@ const normalizeEvents = (
       if (!event || !event.ts) return undefined;
       const ts = new Date(event.ts);
       if (Number.isNaN(ts.getTime())) return undefined;
-      const heightFt = event.height_ft ?? metersToFeet(event.height_m ?? undefined);
+      const heightFt =
+        event.height_ft ?? metersToFeet(event.height_m ?? undefined);
       if (!Number.isFinite(heightFt)) return undefined;
       const isHigh = event.type === "HIGH";
       return {
@@ -212,13 +221,12 @@ const normalizeForecasts = (
     .map((forecast) => {
       if (!forecast?.forecast_date || !forecast.forecast_time) return undefined;
       const date =
-        parseForecastDateTime(
-          forecast.forecast_date,
-          forecast.forecast_time
-        ) ?? new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
+        parseForecastDateTime(forecast.forecast_date, forecast.forecast_time) ??
+        new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
       if (Number.isNaN(date.getTime())) return undefined;
       const heightFt =
-        parseHeight(forecast.tide_height) ?? parseHeight(forecast.next_tide_height);
+        parseHeight(forecast.tide_height) ??
+        parseHeight(forecast.next_tide_height);
       if (!Number.isFinite(heightFt)) return undefined;
       const type = forecast.tide_status ?? forecast.next_tide_type ?? "";
       const isHigh = typeof type === "string" && /high/i.test(type);
@@ -282,10 +290,10 @@ const synthesizeFromExtrema = (extrema: InternalPoint[]): InternalPoint[] => {
   return sortAndUnique(result);
 };
 
-const limitToFiveDays = (points: InternalPoint[]): InternalPoint[] => {
+const limitToTwoDays = (points: InternalPoint[]): InternalPoint[] => {
   if (!points.length) return points;
   const firstTs = points[0].timestamp;
-  const maxTs = firstTs + 5 * 24 * 60 * 60 * 1000;
+  const maxTs = firstTs + 2 * 24 * 60 * 60 * 1000; // 48 hours
   return points.filter((point) => point.timestamp <= maxTs);
 };
 
@@ -295,7 +303,10 @@ const annotateWithExtrema = (
 ): InternalPoint[] => {
   if (!extrema.length || !data.length) return data;
 
-  const emphasisLookup = new Map<number, { isHigh?: boolean; isLow?: boolean }>();
+  const emphasisLookup = new Map<
+    number,
+    { isHigh?: boolean; isLow?: boolean }
+  >();
   extrema.forEach((point) => {
     emphasisLookup.set(point.timestamp, {
       isHigh: point.isHigh,
@@ -311,9 +322,9 @@ const annotateWithExtrema = (
 };
 
 // Smooth curve dot that emphasizes highs/lows
-const EmphasisDot: React.FC<DotProps & { isHigh?: boolean; isLow?: boolean }> = (
-  props
-) => {
+const EmphasisDot: React.FC<
+  DotProps & { isHigh?: boolean; isLow?: boolean }
+> = (props) => {
   const { cx, cy, payload } = props as DotProps & { payload: any };
   if (cx == null || cy == null) return null;
   const isHigh = (payload?.isHigh as boolean) ?? false;
@@ -370,7 +381,9 @@ const TideTooltip: React.FC<{
       <div className="text-sm font-semibold text-slate-900">
         {p.h.toFixed(1)} {unit}
       </div>
-      {p.isHigh && <div className="text-[11px] text-emerald-600">High tide</div>}
+      {p.isHigh && (
+        <div className="text-[11px] text-emerald-600">High tide</div>
+      )}
       {p.isLow && <div className="text-[11px] text-rose-600">Low tide</div>}
     </div>
   );
@@ -416,13 +429,16 @@ export function TideChart({
     if (!rawLine.length) return rawLine;
     if (eventData.length) return annotateWithExtrema(rawLine, eventData);
     if (forecastData.length)
-      return annotateWithExtrema(rawLine, forecastData.filter((p) => p.isHigh || p.isLow));
+      return annotateWithExtrema(
+        rawLine,
+        forecastData.filter((p) => p.isHigh || p.isLow)
+      );
     return rawLine;
   }, [rawLine, eventData, forecastData]);
 
   const chartData = React.useMemo(() => {
     const sorted = sortAndUnique(emphasizedLine);
-    return limitToFiveDays(sorted).map((point) => ({
+    return limitToTwoDays(sorted).map((point) => ({
       t: new Date(point.timestamp),
       h: point.h,
       isHigh: point.isHigh,
@@ -464,10 +480,17 @@ export function TideChart({
 
   if (!chartData.length) {
     return (
-      <div className={cn(compact ? "" : "rounded-3xl border bg-white p-4 shadow-sm", className)}>
+      <div
+        className={cn(
+          compact ? "" : "rounded-3xl border bg-white p-4 shadow-sm",
+          className
+        )}
+      >
         {!compact && (
           <div className="mb-2 flex items-baseline justify-between">
-            <h3 className="text-lg font-semibold tracking-tight">5-Day Tide Chart</h3>
+            <h3 className="text-lg font-semibold tracking-tight">
+              2-Day Tide Chart
+            </h3>
             <span className="text-xs text-slate-500">Heights in {unit}</span>
           </div>
         )}
@@ -480,22 +503,30 @@ export function TideChart({
 
   return (
     <div
-      className={cn(compact ? "" : "rounded-3xl border bg-white p-4 shadow-sm", className)}
+      className={cn(
+        compact ? "" : "rounded-3xl border bg-white p-4 shadow-sm",
+        className
+      )}
     >
       {!compact && (
         <div className="mb-2 flex items-baseline justify-between">
-          <h3 className="text-lg font-semibold tracking-tight">5-Day Tide Chart</h3>
+          <h3 className="text-lg font-semibold tracking-tight">
+            2-Day Tide Chart
+          </h3>
           <span className="text-xs text-slate-500">Heights in {unit}</span>
         </div>
       )}
 
       <div
         role="img"
-        aria-label="5-day tide chart showing high and low tide heights over time"
+        aria-label="2-day tide chart showing high and low tide heights over time"
         className="h-64 w-full"
       >
         <ResponsiveContainer>
-          <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 8, left: 12 }}>
+          <LineChart
+            data={chartData}
+            margin={{ top: 8, right: 12, bottom: 8, left: 12 }}
+          >
             <defs>
               <linearGradient id={`fill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.35} />
@@ -503,7 +534,11 @@ export function TideChart({
               </linearGradient>
             </defs>
 
-            <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+            <CartesianGrid
+              vertical={false}
+              stroke="#e2e8f0"
+              strokeDasharray="3 3"
+            />
 
             <XAxis
               dataKey={(p: TidePoint) => +toDate(p.t)}
@@ -527,7 +562,12 @@ export function TideChart({
               tickFormatter={(v) => v.toFixed(0)}
             />
 
-            <Area type="monotone" dataKey="h" stroke="none" fill={`url(#fill-${gradId})`} />
+            <Area
+              type="monotone"
+              dataKey="h"
+              stroke="none"
+              fill={`url(#fill-${gradId})`}
+            />
 
             <Line
               type="monotone"
@@ -542,7 +582,11 @@ export function TideChart({
             <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
 
             {showNow && (
-              <ReferenceLine x={+showNow} stroke="#ef4444" strokeDasharray="3 3" />
+              <ReferenceLine
+                x={+showNow}
+                stroke="#ef4444"
+                strokeDasharray="3 3"
+              />
             )}
 
             <Tooltip
@@ -581,9 +625,7 @@ export function Example() {
   for (let i = 0; i < 5 * 6; i++) {
     const d = new Date(start.getTime() + i * 4 * 60 * 60 * 1000);
     const wave =
-      Math.sin((i / 3) * Math.PI) * 2.2 +
-      2.0 +
-      (Math.random() - 0.5) * 0.2;
+      Math.sin((i / 3) * Math.PI) * 2.2 + 2.0 + (Math.random() - 0.5) * 0.2;
     pts.push({
       t: d.toISOString(),
       h: Number(wave.toFixed(2)),

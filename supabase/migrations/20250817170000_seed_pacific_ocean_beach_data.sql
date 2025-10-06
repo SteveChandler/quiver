@@ -27,59 +27,59 @@ BEGIN
     -- Add specific intel posts for Pacific Beach
     INSERT INTO public.intel_posts (
         user_id, beach_id, latitude, longitude, tag, title, description, 
-        surf_conditions, confirmations_count, created_at
+        surf_conditions, confirmations_count, created_at, expires_at
     ) VALUES
     -- Pacific Beach intel posts
     (user_ids[1], pacific_beach_id, 32.7979, -117.255, 'parking', 'Free Beach Parking After 6PM', 
      'All the metered spots are free after 6pm and on weekends. There''s also a big lot behind the restaurants that''s usually pretty open.', 
      '{"parking_cost": "free_evenings", "availability": "good", "location": "street_and_lot"}'::jsonb, 
-     8, current_date - INTERVAL '2 days'),
+     8, current_date - INTERVAL '2 days', current_date + INTERVAL '5 days'),
     
     (user_ids[2], pacific_beach_id, 32.7979, -117.255, 'conditions', 'Perfect Morning Glass-Off', 
      'This morning was absolutely firing! 3-4ft clean waves with offshore winds until about 10am. Water temp is perfect around 70°F right now.', 
      '{"wave_height_ft": "3-4", "wind": "offshore", "water_temp_f": 70, "time": "morning", "quality": "excellent"}'::jsonb, 
-     12, current_date - INTERVAL '1 day'),
+     12, current_date - INTERVAL '1 day', current_date + INTERVAL '6 days'),
     
     (user_ids[3], pacific_beach_id, 32.7979, -117.255, 'crowd', 'Busy on Weekends', 
      'Weekends get pretty crowded here, especially the main peak near the pier. If you want less crowds, paddle out north of the pier or hit it early morning.', 
      '{"crowd_size": "high_weekends", "less_crowded_areas": "north_of_pier", "best_time": "early_morning"}'::jsonb, 
-     6, current_date - INTERVAL '3 days'),
+     6, current_date - INTERVAL '3 days', current_date + INTERVAL '4 days'),
     
     (user_ids[4], pacific_beach_id, 32.7979, -117.255, 'access', 'Easy Beach Access', 
      'Super easy access right from the boardwalk. No hiking required! Great for families and beginners. Restrooms and showers available.', 
      '{"difficulty": "easy", "facilities": ["restrooms", "showers"], "family_friendly": true}'::jsonb, 
-     9, current_date - INTERVAL '1 week'),
+     9, current_date - INTERVAL '1 week', current_date),
     
     (user_ids[5], pacific_beach_id, 32.7979, -117.255, 'other', 'Best at Higher Tides', 
      'This spot really works best on mid to high tide. At low tide it gets pretty shallow and rocky near the pier. Check the tide charts!', 
      '{"optimal_tide": "mid_to_high", "low_tide_warning": "shallow_rocky"}'::jsonb, 
-     7, current_date - INTERVAL '5 days'),
+     7, current_date - INTERVAL '5 days', current_date + INTERVAL '2 days'),
     
     -- Ocean Beach intel posts
     (user_ids[6], ocean_beach_id, 32.7493, -117.2511, 'conditions', 'Heavy Local Scene', 
      'OB is a classic but the locals run a tight ship here. Show respect, wait your turn, and you''ll be welcomed. Some of the best waves in SD when it''s working.', 
      '{"local_vibe": "heavy", "respect_required": true, "wave_quality": "excellent", "etiquette": "important"}'::jsonb, 
-     15, current_date - INTERVAL '1 day'),
+     15, current_date - INTERVAL '1 day', current_date + INTERVAL '6 days'),
     
     (user_ids[7], ocean_beach_id, 32.7493, -117.2511, 'parking', 'Parking Challenge', 
      'Parking is tough here. The lot fills up fast and street parking is limited. Get here early or be prepared to walk. Some paid lots nearby but they''re pricey.', 
      '{"parking_difficulty": "high", "recommendation": "arrive_early", "paid_options": "expensive"}'::jsonb, 
-     11, current_date - INTERVAL '2 days'),
+     11, current_date - INTERVAL '2 days', current_date + INTERVAL '5 days'),
     
     (user_ids[8], ocean_beach_id, 32.7493, -117.2511, 'hazard', 'Strong Currents and Rips', 
      'OB can have some gnarly rips, especially on bigger days. The pier creates some funky currents too. Know your limits and watch for rip channels.', 
      '{"hazard_type": "currents", "severity": "high", "pier_effects": true, "skill_recommendation": "intermediate_plus"}'::jsonb, 
-     18, current_date - INTERVAL '4 days'),
+     18, current_date - INTERVAL '4 days', current_date + INTERVAL '3 days'),
     
     (user_ids[9], ocean_beach_id, 32.7493, -117.2511, 'other', 'Classic San Diego Break', 
      'This is quintessential San Diego surfing. When the swell hits just right, OB can produce some world-class waves. The pier section is legendary.', 
      '{"break_type": "classic", "reputation": "legendary", "best_section": "pier"}'::jsonb, 
-     13, current_date - INTERVAL '6 days'),
+     13, current_date - INTERVAL '6 days', current_date + INTERVAL '1 day'),
     
     (user_ids[10], ocean_beach_id, 32.7493, -117.2511, 'access', 'Multiple Access Points', 
      'You can access the beach from several points - by the pier, Dog Beach to the north, or the main OB area. Each has different vibes and wave characteristics.', 
      '{"access_points": ["pier", "dog_beach", "main_ob"], "varied_conditions": true}'::jsonb, 
-     8, current_date - INTERVAL '1 week');
+     8, current_date - INTERVAL '1 week', current_date);
 
     -- Add specific beach reviews for Pacific Beach
     INSERT INTO public.beach_reviews (
