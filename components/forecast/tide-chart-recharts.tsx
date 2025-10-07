@@ -292,9 +292,10 @@ const synthesizeFromExtrema = (extrema: InternalPoint[]): InternalPoint[] => {
 
 const limitToTwoDays = (points: InternalPoint[]): InternalPoint[] => {
   if (!points.length) return points;
-  const firstTs = points[0].timestamp;
-  const maxTs = firstTs + 2 * 24 * 60 * 60 * 1000; // 48 hours
-  return points.filter((point) => point.timestamp <= maxTs);
+  const now = Date.now();
+  const maxTs = now + 2 * 24 * 60 * 60 * 1000; // 48 hours from now
+  // Filter to show data from now to 48 hours in the future
+  return points.filter((point) => point.timestamp >= now && point.timestamp <= maxTs);
 };
 
 const annotateWithExtrema = (
