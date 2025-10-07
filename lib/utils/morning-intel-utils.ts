@@ -4,7 +4,7 @@
  */
 
 import { format, parseISO } from "date-fns";
-import { zonedTimeToUtc, utcToZonedTime, formatInTimeZone } from "date-fns-tz";
+import { fromZonedTime, toZonedTime, formatInTimeZone } from "date-fns-tz";
 import type {
   SurfMetrics,
   TideMetrics,
@@ -83,7 +83,7 @@ export function tideAt(
   const now = new Date();
   const todayStr = format(now, "yyyy-MM-dd");
   const targetDateStr = `${todayStr}T${targetTime}:00`;
-  const targetDate = zonedTimeToUtc(targetDateStr, timezone);
+  const targetDate = fromZonedTime(new Date(targetDateStr), timezone);
 
   // Find closest tide reading
   let closestTide = tides[0];
@@ -216,7 +216,7 @@ export function windAt(
   const now = new Date();
   const todayStr = format(now, "yyyy-MM-dd");
   const targetDateStr = `${todayStr}T${targetTime}:00`;
-  const targetDate = zonedTimeToUtc(targetDateStr, timezone);
+  const targetDate = fromZonedTime(new Date(targetDateStr), timezone);
 
   let closestForecast = forecasts[0];
   let minDiff = Math.abs(
