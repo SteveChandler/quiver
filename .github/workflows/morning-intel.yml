@@ -7,18 +7,7 @@ on:
     # 6 AM PST = 14:00 UTC (Nov-Mar), 6 AM PDT = 13:00 UTC (Mar-Nov)
     - cron: "0 13 * * *" # 6 AM PDT (Mar-Nov)
     - cron: "0 14 * * *" # 6 AM PST (Nov-Mar)
-  workflow_dispatch:
-    inputs:
-      force_run:
-        description: "Force run even if already posted today"
-        required: false
-        default: false
-        type: boolean
-      test_mode:
-        description: "Run in test mode (prints data without posting)"
-        required: false
-        default: false
-        type: boolean
+  workflow_dispatch: # Allows manual triggering from GitHub Actions UI
 
 env:
   NODE_VERSION: "18"
@@ -64,7 +53,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           MORNING_INTEL_USER_EMAIL: ${{ secrets.MORNING_INTEL_USER_EMAIL }}
-          MORNING_INTEL_USER_PASSWORD: ${{ secrets.MORNING_INTEL_USER_PASSWORD }}
           MORNING_INTEL_SPOT_ID: "65d177de-e75a-4ad8-aa0d-48a67c0851b0"
           MORNING_INTEL_SPOT_NAME: "Ocean Beach Pier"
 

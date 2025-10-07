@@ -43,7 +43,7 @@ function getConfig(): MorningIntelConfig {
       "Ocean Beach, San Diego",
     userEmail:
       process.env.MORNING_INTEL_USER_EMAIL || "morning.intel@quiversurf.app",
-    userPassword: process.env.MORNING_INTEL_USER_PASSWORD || "",
+    userPassword: "", // No longer needed - using service role key
     timezone: TIMEZONE,
     targetHour: TARGET_HOUR,
     enabled: process.env.MORNING_INTEL_ENABLED !== "false",
@@ -70,26 +70,30 @@ function getSupabaseClient() {
 }
 
 /**
- * Authenticate as morning intel bot user
+ * Get bot user ID by email from profiles table
+ * Using service role key, we don't need password authentication
  */
-async function authenticateUser(
+async function getBotUserId(
   supabase: ReturnType<typeof getSupabaseClient>,
-  email: string,
-  password: string
-) {
-  console.log(`🔐 Authenticating as ${email}...`);
+  email: string
+): Promise<string> {
+  console.log(`🔐 Looking up bot user: ${email}...`);
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .single();
 
-  if (error || !data.user) {
-    throw new Error(`Authentication failed: ${error?.message || "Unknown error"}`);
+  if (error || !data) {
+    throw new Error(
+      `Bot user not found: ${error?.message || "No user with that email"}. ` +
+      "Run scripts/create-morning-intel-bot.sql to create the user."
+    );
   }
 
-  console.log(`✅ Authenticated as user ID: ${data.user.id}`);
-  return data.user;
+  console.log(`✅ Found bot user ID: ${data.id}`);
+  return data.id;
 }
 
 /**
@@ -451,19 +455,11 @@ export async function runMorningIntel(): Promise<{
       return { success: true };
     }
 
-    if (!config.userPassword) {
-      throw new Error("Missing MORNING_INTEL_USER_PASSWORD environment variable");
-    }
-
-    // Initialize Supabase
+    // Initialize Supabase with service role key
     const supabase = getSupabaseClient();
 
-    // Authenticate
-    const user = await authenticateUser(
-      supabase,
-      config.userEmail,
-      config.userPassword
-    );
+    // Get bot user ID (no password needed with service role key)
+    const userId = await getBotUserId(supabase, config.userEmail);
 
     // Get beach ID
     const beachId = await getOceanBeachId(supabase, config.spotId);
@@ -493,7 +489,7 @@ export async function runMorningIntel(): Promise<{
     console.log(`  - Confidence: ${intelData.confidence}`);
 
     // Create/update post
-    const postId = await upsertIntelPost(supabase, user.id, beachId, intelData);
+    const postId = await upsertIntelPost(supabase, userId, beachId, intelData);
 
     console.log("🎉 Morning Surf Intel completed successfully!");
 
