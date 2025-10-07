@@ -253,8 +253,9 @@ export class IntelGenerationService {
   ): Promise<void> {
     const today = new Date().toISOString().split("T")[0];
 
-    // Parse best window string (e.g., "06:00-08:30 on the drop")
-    const windowMatch = intel.bestWindow.match(/(\d{2}:\d{2})-(\d{2}:\d{2})/);
+    // Parse best window string (e.g., "06:00–08:30 on the drop" or "06:00-08:30")
+    // Handle both regular dash (-) and em-dash (–)
+    const windowMatch = intel.bestWindow.match(/(\d{2}:\d{2})[\-–](\d{2}:\d{2})/);
     const windowStart = windowMatch ? windowMatch[1] : null;
     const windowEnd = windowMatch ? windowMatch[2] : null;
 
