@@ -253,57 +253,77 @@ export class IntelGenerationService {
   ): Promise<void> {
     const today = new Date().toISOString().split("T")[0];
 
-    const { error } = await this.supabase.from("beach_daily_intel").upsert({
-      beach_id: beachId,
-      forecast_date: today,
-      generation_time: generationTime,
-      generated_at: new Date().toISOString(),
+    // Parse best window string (e.g., "06:00-08:30 on the drop")
+    const windowMatch = intel.bestWindow.match(/(\d{2}:\d{2})-(\d{2}:\d{2})/);
+    const windowStart = windowMatch ? windowMatch[1] : null;
+    const windowEnd = windowMatch ? windowMatch[2] : null;
 
-      // Best window
-      best_window_start: intel.bestWindow.start,
-      best_window_end: intel.bestWindow.end,
-      best_window_description: `${intel.bestWindow.start || ""}-${intel.bestWindow.end || ""}`,
+    // Determine wind quality from offshore boolean and description
+    const windQuality = intel.wind.offshore
+      ? "offshore"
+      : intel.wind.description.toLowerCase().includes("onshore")
+      ? "onshore"
+      : "cross-shore";
 
-      // Surf
-      surf_min_ft: intel.surf.min,
-      surf_max_ft: intel.surf.max,
-      surf_description: intel.surf.dominant,
+    const { error } = await this.supabase
+      .from("beach_daily_intel")
+      .upsert(
+        {
+          beach_id: beachId,
+          forecast_date: today,
+          generation_time: generationTime,
+          generated_at: new Date().toISOString(),
 
-      // Tide
-      tide_height_ft: intel.tide.height,
-      tide_time: (intel.tide as any).recommendedTime || null,
-      tide_status: intel.tide.direction,
-      tide_optimal_range: (intel.tide as any).optimalRange || null,
-      next_tide_type: intel.tide.nextEvent?.type || null,
-      next_tide_time: intel.tide.nextEvent?.time || null,
-      next_tide_height_ft: intel.tide.nextEvent?.height || null,
+          // Best window (parsed from string)
+          best_window_start: windowStart,
+          best_window_end: windowEnd,
+          best_window_description: intel.bestWindow,
 
-      // Wind
-      wind_speed_mph: intel.wind.speed,
-      wind_direction_deg: intel.wind.direction,
-      wind_direction_text: intel.wind.cardinal,
-      wind_quality: intel.wind.quality,
-      wind_description: `${intel.wind.speed} mph ${intel.wind.cardinal} (${intel.wind.quality})`,
+          // Surf
+          surf_min_ft: intel.surf.min,
+          surf_max_ft: intel.surf.max,
+          surf_description: intel.surf.dominant,
 
-      // Swells
-      primary_swell_height_ft: intel.swells.primary?.height || null,
-      primary_swell_period_s: intel.swells.primary?.period || null,
-      primary_swell_direction_deg: intel.swells.primary?.direction || null,
-      primary_swell_direction_text: intel.swells.primary?.cardinal || null,
+          // Tide
+          tide_height_ft: intel.tide.height,
+          tide_time: (intel.tide as any).recommendedTime || null,
+          tide_status: intel.tide.direction,
+          tide_optimal_range: (intel.tide as any).optimalRange || null,
+          next_tide_type: intel.tide.nextEvent?.type || null,
+          next_tide_time: intel.tide.nextEvent?.time || null,
+          next_tide_height_ft: intel.tide.nextEvent?.height || null,
 
-      secondary_swell_height_ft: intel.swells.secondary?.height || null,
-      secondary_swell_period_s: intel.swells.secondary?.period || null,
-      secondary_swell_direction_deg: intel.swells.secondary?.direction || null,
-      secondary_swell_direction_text: intel.swells.secondary?.cardinal || null,
+          // Wind
+          wind_speed_mph: intel.wind.speed,
+          wind_direction_deg: intel.wind.direction,
+          wind_direction_text: intel.wind.cardinal,
+          wind_quality: windQuality,
+          wind_description: intel.wind.description,
 
-      // Analysis
-      confidence: intel.confidence,
-      recommendation: intel.notes,
-      conditions_score: intel.conditions?.score || null,
+          // Swells
+          primary_swell_height_ft: intel.swells.primary?.height || null,
+          primary_swell_period_s: intel.swells.primary?.period || null,
+          primary_swell_direction_deg: intel.swells.primary?.direction || null,
+          primary_swell_direction_text: intel.swells.primary?.cardinal || null,
 
-      // Full data
-      raw_intel_data: intel as any,
-    });
+          secondary_swell_height_ft: intel.swells.secondary?.height || null,
+          secondary_swell_period_s: intel.swells.secondary?.period || null,
+          secondary_swell_direction_deg: intel.swells.secondary?.direction || null,
+          secondary_swell_direction_text: intel.swells.secondary?.cardinal || null,
+
+          // Analysis
+          confidence: intel.confidence,
+          recommendation: intel.notes,
+          conditions_score: intel.conditions?.score || null,
+
+          // Full data
+          raw_intel_data: intel as any,
+        },
+        {
+          onConflict: "beach_id,forecast_date,generation_time",
+          ignoreDuplicates: false,
+        }
+      );
 
     if (error) {
       throw new Error(`Failed to save intel: ${error.message}`);

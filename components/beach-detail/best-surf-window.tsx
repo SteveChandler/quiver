@@ -70,7 +70,8 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
               Surf intel not available yet
             </p>
             <p className="text-xs text-yellow-700">
-              Intel is generated daily for select beaches. Check back soon or view the detailed forecast below.
+              Intel is generated daily for select beaches. Check back soon or
+              view the detailed forecast below.
             </p>
           </div>
         </CardContent>
@@ -201,11 +202,12 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
               </span>
             </div>
             <p className="font-semibold text-gray-900">{intel.confidence}</p>
-            {intel.conditions_score !== null && intel.conditions_score !== undefined && (
-              <p className="text-xs text-muted-foreground">
-                Score: {intel.conditions_score}/100
-              </p>
-            )}
+            {intel.conditions_score !== null &&
+              intel.conditions_score !== undefined && (
+                <p className="text-xs text-muted-foreground">
+                  Score: {intel.conditions_score}/100
+                </p>
+              )}
           </div>
         </div>
 
@@ -221,12 +223,11 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
         {/* Next tide info */}
         {intel.next_tide_type && intel.next_tide_time && (
           <p className="text-xs text-muted-foreground text-center">
-            Next {intel.next_tide_type}: {intel.next_tide_height_ft?.toFixed(1)}ft @{" "}
-            {intel.next_tide_time}
+            Next {intel.next_tide_type}: {intel.next_tide_height_ft?.toFixed(1)}
+            ft @ {intel.next_tide_time}
           </p>
         )}
       </CardContent>
     </Card>
   );
 }
-
