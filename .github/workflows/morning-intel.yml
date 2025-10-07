@@ -53,11 +53,13 @@ jobs:
           CURRENT_HOUR=$(TZ=America/Los_Angeles date +%H)
           echo "Current PT hour: $CURRENT_HOUR"
 
-          if [ "$CURRENT_HOUR" != "06" ] && [ "${{ github.event.inputs.force_run }}" != "true" ]; then
-            echo "Not 6 AM PT and not forced - skipping"
-            echo "should_run=false" >> $GITHUB_OUTPUT
-          else
+          # Allow 6 AM or 7 AM to handle DST transitions
+          if [ "$CURRENT_HOUR" = "06" ] || [ "$CURRENT_HOUR" = "07" ] || [ "${{ github.event.inputs.force_run }}" = "true" ]; then
+            echo "Time check passed or forced run - proceeding"
             echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "Not 6-7 AM PT and not forced - skipping"
+            echo "should_run=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Run Morning Surf Intel
