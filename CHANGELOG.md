@@ -1,3 +1,70 @@
+## [2025.10.07] - Multi-Beach Daily Intel System with 3x Daily Updates
+
+### Added
+
+- **Beach Daily Intel System**: Automated surf window recommendations for top 10 San Diego beaches
+  - **Database Table**: `beach_daily_intel` - Stores pre-computed intel for instant client access
+  - **Intel Generation Service** (`lib/services/intel-generation-service.ts`):
+    - Reusable service for generating surf intelligence
+    - Fetches and parses forecast data (handles text values with units)
+    - Analyzes optimal tide windows based on beach preferences
+    - Calculates surf range, swell components, wind quality
+    - Generates human-readable recommendations
+  - **Batch Generation Script** (`scripts/generate-daily-intel.ts`):
+    - Generates intel for top 10 manually curated beaches
+    - Runs 3x daily via GitHub Actions (6am, 10am, 2pm PT)
+    - Validates beach has required preferences before generating
+    - Stores results in database with 4-hour freshness
+  - **GitHub Workflow** (`.github/workflows/daily-intel.yml`):
+    - Automated execution 3 times per day
+    - Handles DST with dual cron schedules
+    - Comprehensive logging and error reporting
+  - **Best Surf Window Component** (`components/beach-detail/best-surf-window.tsx`):
+    - Displays AI-generated surf window recommendations
+    - Shows optimal time, surf size, tide, wind, confidence
+    - Graceful fallback for beaches without intel
+    - Mobile-first responsive design
+    - Direct Supabase query (zero edge function costs)
+  - **Top 10 Beaches**: Curated San Diego surf spots
+    - Ocean Beach Pier, Tourmaline, Crystal Pier, Mission Beach
+    - PB Point, Scripps, Ocean Beach, Birdrock
+    - Sunset Cliffs (Garbage), Horseshoe
+    - Balanced by skill level (beginner, intermediate, advanced)
+    - Geographic diversity (South SD, Mission/PB, La Jolla)
+
+### Changed
+
+- **Today Tab in Beach Detail**: Now shows "Best Time to Surf Today" intel widget
+  - Replaces raw forecast table as primary view
+  - Detailed forecast table moved to collapsible section
+  - Follows DRY patterns with `useDataFetcher`
+- **Morning Intel Script**: Enhanced to use new `IntelGenerationService`
+  - Fixed authentication (uses service role instead of password)
+  - Fixed forecast column names (swell_1_*, swell_2_* instead of swell_*, secondary_swell_*)
+  - Added text value parsing for units ("2.5 ft", "SSW", "5 mph")
+  - Fixed date-fns-tz imports (fromZonedTime, toZonedTime)
+  - Added `recommendTideWindow()` for optimal tide recommendations
+
+### Performance
+
+- **Zero Edge Function Costs**: Pre-computed intel stored in Supabase
+  - Instant loading (direct database reads)
+  - No Vercel free tier limits consumed
+  - Scalable to 100+ beaches
+- **Efficient Generation**: ~100-200ms per beach
+  - 10 beaches processed in ~5-10 seconds
+  - Well within GitHub Actions limits
+- **Smart Caching**: Data updated 3x daily, cached between updates
+
+### Fixed
+
+- **Morning Intel Workflow**: Removed redundant time check that was causing skips
+- **Authentication**: Service role key lookup instead of password (more reliable)
+- **Forecast Data Parsing**: Handles text values with units from enhanced_forecasts table
+- **Tide Data**: Uses embedded tide data from forecasts (tide_status, next_tide_time, etc.)
+
+---
+
 ## [2025.10.07] - Enhanced Morning Intel with Beach Conditions Analysis
 
 ### Added

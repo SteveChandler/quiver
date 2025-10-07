@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
 import {
@@ -9,11 +10,17 @@ import {
   MultiDayForecastTable,
 } from "@/components/forecast/forecast-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, Globe2, Sun, Waves, Wind } from "lucide-react";
+import { CalendarDays, ChevronDown, Globe2, Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { track, slugify } from "@/lib/analytics";
+import { BestSurfWindow } from "./best-surf-window";
 
 interface ForecastAndTidesProps {
   beach: Beach;
@@ -100,11 +107,28 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
           </TabsList>
 
           <TabsContent value="today" className="mt-4">
-            <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
-              <CardContent className="p-6">
-                <SimplifiedForecastTable forecasts={todaysForecasts} />
-              </CardContent>
-            </Card>
+            {/* Best Surf Window Intel */}
+            <BestSurfWindow beachId={beach.id} beachName={beach.name} />
+
+            {/* Collapsible Detailed Forecast Table */}
+            <Collapsible className="mt-4">
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-between rounded-2xl hover:bg-blue-50/50"
+                >
+                  <span className="text-sm font-medium">View Detailed Forecast</span>
+                  <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg mt-2">
+                  <CardContent className="p-6">
+                    <SimplifiedForecastTable forecasts={todaysForecasts} />
+                  </CardContent>
+                </Card>
+              </CollapsibleContent>
+            </Collapsible>
           </TabsContent>
 
           <TabsContent value="tides" className="mt-4">
