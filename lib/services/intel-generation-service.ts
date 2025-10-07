@@ -5,7 +5,8 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { formatInTimeZone, addDays } from "date-fns-tz";
+import { addDays } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import type { Database } from "@/types/database";
 import type { BeachPreferences, ForecastSlice, MorningIntelData } from "@/types/morning-intel";
 import {
