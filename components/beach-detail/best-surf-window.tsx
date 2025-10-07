@@ -92,6 +92,53 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
     }
   };
 
+  // Check if window has passed, is current, or upcoming
+  const getWindowStatus = () => {
+    if (!intel.best_window_start || !intel.best_window_end) {
+      return { status: "unknown", message: "" };
+    }
+
+    const now = new Date();
+    const today = new Date().toISOString().split('T')[0];
+    
+    const startTime = new Date(`${today}T${intel.best_window_start}`);
+    const endTime = new Date(`${today}T${intel.best_window_end}`);
+    
+    if (now < startTime) {
+      // Window hasn't started yet
+      const hoursUntil = Math.round((startTime.getTime() - now.getTime()) / (1000 * 60 * 60));
+      const minsUntil = Math.round((startTime.getTime() - now.getTime()) / (1000 * 60));
+      
+      if (hoursUntil >= 1) {
+        return {
+          status: "upcoming",
+          message: `Starts in ${hoursUntil} hour${hoursUntil > 1 ? 's' : ''}`,
+        };
+      } else {
+        return {
+          status: "upcoming",
+          message: `Starts in ${minsUntil} minutes`,
+        };
+      }
+    } else if (now >= startTime && now <= endTime) {
+      // Currently in the window
+      const minsRemaining = Math.round((endTime.getTime() - now.getTime()) / (1000 * 60));
+      return {
+        status: "current",
+        message: minsRemaining > 60 
+          ? `${Math.floor(minsRemaining / 60)}h ${minsRemaining % 60}m remaining`
+          : `${minsRemaining} mins remaining`,
+      };
+    } else {
+      // Window has passed
+      return {
+        status: "passed",
+        message: "Window has passed",
+      };
+    }
+  };
+
+  const windowStatus = getWindowStatus();
   const generatedTime = new Date(intel.generated_at).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
@@ -125,22 +172,83 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Optimal Window - Highlighted */}
-        <div className="bg-blue-100/50 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="h-5 w-5 text-blue-600" />
-            <h4 className="font-semibold text-blue-900">Optimal Window</h4>
+        {/* Optimal Window - Highlighted with status */}
+        <div className={`rounded-2xl p-4 ${
+          windowStatus.status === "current"
+            ? "bg-green-100/50 border border-green-200"
+            : windowStatus.status === "passed"
+            ? "bg-gray-100/50 border border-gray-200"
+            : "bg-blue-100/50"
+        }`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Clock className={`h-5 w-5 ${
+                windowStatus.status === "current"
+                  ? "text-green-600"
+                  : windowStatus.status === "passed"
+                  ? "text-gray-600"
+                  : "text-blue-600"
+              }`} />
+              <h4 className={`font-semibold ${
+                windowStatus.status === "current"
+                  ? "text-green-900"
+                  : windowStatus.status === "passed"
+                  ? "text-gray-900"
+                  : "text-blue-900"
+              }`}>
+                {windowStatus.status === "current"
+                  ? "🏄 SURF NOW!"
+                  : windowStatus.status === "passed"
+                  ? "Best Window (Passed)"
+                  : "Optimal Window"}
+              </h4>
+            </div>
+            {windowStatus.message && (
+              <span className={`text-xs font-medium px-2 py-1 rounded ${
+                windowStatus.status === "current"
+                  ? "bg-green-200 text-green-800"
+                  : windowStatus.status === "passed"
+                  ? "bg-gray-200 text-gray-700"
+                  : "bg-blue-200 text-blue-800"
+              }`}>
+                {windowStatus.message}
+              </span>
+            )}
           </div>
-          <p className="text-2xl font-bold text-blue-600">
+          <p className={`text-2xl font-bold ${
+            windowStatus.status === "current"
+              ? "text-green-600"
+              : windowStatus.status === "passed"
+              ? "text-gray-600"
+              : "text-blue-600"
+          }`}>
             {formatTime(intel.best_window_start)} -{" "}
             {formatTime(intel.best_window_end)}
           </p>
           {intel.best_window_description && (
-            <p className="text-sm text-blue-700 mt-1">
+            <p className={`text-sm mt-1 ${
+              windowStatus.status === "current"
+                ? "text-green-700"
+                : windowStatus.status === "passed"
+                ? "text-gray-600"
+                : "text-blue-700"
+            }`}>
               {intel.best_window_description}
             </p>
           )}
         </div>
+
+        {/* Show current conditions if window has passed */}
+        {windowStatus.status === "passed" && (
+          <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100/50">
+            <h4 className="font-semibold text-blue-900 mb-2 text-sm">
+              📍 Current Conditions
+            </h4>
+            <p className="text-sm text-gray-700">
+              Right now: {intel.surf_min_ft}-{intel.surf_max_ft} ft, {intel.wind_speed_mph} mph {intel.wind_direction_text} ({intel.wind_quality}). Check back at 10 AM or 2 PM for updated windows.
+            </p>
+          </div>
+        )}
 
         {/* Conditions Grid - 2x2 on mobile, 4 cols on desktop */}
         <div className="grid grid-cols-2 gap-3">
