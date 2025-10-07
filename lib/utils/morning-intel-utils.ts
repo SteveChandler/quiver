@@ -12,6 +12,9 @@ import type {
   WindMetrics,
   MorningIntelData,
   ForecastSlice,
+  BeachPreferences,
+  ConditionEvaluation,
+  ConditionsAnalysis,
 } from "@/types/morning-intel";
 
 const FEET_TO_METERS = 0.3048;
@@ -398,11 +401,217 @@ export function confidenceHeuristic(
 }
 
 /**
+ * Check if angle is within window (handles 0/360 wraparound)
+ */
+function isAngleInWindow(
+  angle: number,
+  minDeg: number,
+  maxDeg: number
+): boolean {
+  // Normalize all angles to 0-360
+  const norm = (deg: number) => ((deg % 360) + 360) % 360;
+  const a = norm(angle);
+  const min = norm(minDeg);
+  const max = norm(maxDeg);
+
+  if (min <= max) {
+    // Normal case: window doesn't cross 0°
+    return a >= min && a <= max;
+  } else {
+    // Window crosses 0° (e.g., 350° to 10°)
+    return a >= min || a <= max;
+  }
+}
+
+/**
+ * Analyze swell direction match with beach preferences
+ */
+export function analyzeSwellMatch(
+  swellDirection: number | null | undefined,
+  beach: BeachPreferences
+): ConditionEvaluation {
+  if (!swellDirection) {
+    return {
+      status: "poor",
+      emoji: "❌",
+      message: "No swell data available",
+    };
+  }
+
+  if (!beach.swellWindowMin || !beach.swellWindowMax) {
+    return {
+      status: "acceptable",
+      emoji: "⚠️",
+      message: `${Math.round(swellDirection)}° (No preference data)`,
+    };
+  }
+
+  const inWindow = isAngleInWindow(
+    swellDirection,
+    beach.swellWindowMin,
+    beach.swellWindowMax
+  );
+
+  if (inWindow) {
+    return {
+      status: "optimal",
+      emoji: "✅",
+      message: `${Math.round(swellDirection)}° (Perfect! In window ${beach.swellWindowMin}-${beach.swellWindowMax}°)`,
+    };
+  } else {
+    return {
+      status: "poor",
+      emoji: "❌",
+      message: `${Math.round(swellDirection)}° (Outside preferred window ${beach.swellWindowMin}-${beach.swellWindowMax}°)`,
+    };
+  }
+}
+
+/**
+ * Analyze wind conditions relative to beach preferences
+ */
+export function analyzeWindConditions(
+  wind: WindMetrics,
+  beach: BeachPreferences
+): ConditionEvaluation {
+  if (!wind.speed || !wind.direction) {
+    return {
+      status: "poor",
+      emoji: "❌",
+      message: "No wind data available",
+    };
+  }
+
+  if (!beach.windOffshoreDeg) {
+    // Fallback to basic offshore check
+    if (wind.offshore) {
+      return {
+        status: "optimal",
+        emoji: "✅",
+        message: `${wind.speed} mph ${wind.cardinal} (Offshore!)`,
+      };
+    } else {
+      return {
+        status: "acceptable",
+        emoji: "⚠️",
+        message: `${wind.speed} mph ${wind.cardinal} (${wind.description})`,
+      };
+    }
+  }
+
+  const tolerance = beach.windOffshoreTol || 45;
+  const windDiff = Math.abs(
+    normalizeAngle(wind.direction - beach.windOffshoreDeg)
+  );
+  const adjustedDiff = windDiff > 180 ? 360 - windDiff : windDiff;
+
+  if (adjustedDiff <= tolerance && wind.speed < 15) {
+    return {
+      status: "optimal",
+      emoji: "✅",
+      message: `${wind.speed} mph ${wind.cardinal} (Offshore - Clean conditions!)`,
+    };
+  } else if (adjustedDiff <= tolerance * 1.5 || wind.speed < 8) {
+    return {
+      status: "acceptable",
+      emoji: "⚠️",
+      message: `${wind.speed} mph ${wind.cardinal} (${wind.description})`,
+    };
+  } else {
+    return {
+      status: "poor",
+      emoji: "❌",
+      message: `${wind.speed} mph ${wind.cardinal} (Onshore - Choppy conditions)`,
+    };
+  }
+}
+
+/**
+ * Analyze tide conditions relative to beach preferences
+ */
+export function analyzeTideConditions(
+  tideHeight: number,
+  beach: BeachPreferences
+): ConditionEvaluation {
+  if (!beach.tideMinFt || !beach.tideMaxFt) {
+    return {
+      status: "acceptable",
+      emoji: "⚠️",
+      message: `${tideHeight} ft (No preference data)`,
+    };
+  }
+
+  if (tideHeight >= beach.tideMinFt && tideHeight <= beach.tideMaxFt) {
+    return {
+      status: "optimal",
+      emoji: "✅",
+      message: `${tideHeight} ft (In optimal range ${beach.tideMinFt}-${beach.tideMaxFt} ft)`,
+    };
+  } else if (tideHeight < beach.tideMinFt) {
+    const diff = (beach.tideMinFt - tideHeight).toFixed(1);
+    return {
+      status: "acceptable",
+      emoji: "⚠️",
+      message: `${tideHeight} ft (${diff} ft below preferred min ${beach.tideMinFt} ft)`,
+    };
+  } else {
+    const diff = (tideHeight - beach.tideMaxFt).toFixed(1);
+    return {
+      status: "acceptable",
+      emoji: "⚠️",
+      message: `${tideHeight} ft (${diff} ft above preferred max ${beach.tideMaxFt} ft)`,
+    };
+  }
+}
+
+/**
+ * Calculate overall conditions score and analysis
+ */
+export function analyzeConditions(
+  forecast: {
+    swellDirection?: number | null;
+    wind: WindMetrics;
+    tide: TideMetrics;
+  },
+  beach: BeachPreferences
+): ConditionsAnalysis {
+  const swellEval = analyzeSwellMatch(forecast.swellDirection, beach);
+  const windEval = analyzeWindConditions(forecast.wind, beach);
+  const tideEval = analyzeTideConditions(forecast.tide.height, beach);
+
+  // Calculate score: optimal = 3.33 points, acceptable = 1.67 points, poor = 0 points
+  const scoreMap = { optimal: 3.33, acceptable: 1.67, poor: 0 };
+  const score = Math.round(
+    scoreMap[swellEval.status] +
+      scoreMap[windEval.status] +
+      scoreMap[tideEval.status]
+  );
+
+  return {
+    score: Math.min(10, score),
+    swell: swellEval,
+    wind: windEval,
+    tide: tideEval,
+  };
+}
+
+/**
  * Render Markdown body for intel post
  */
 export function renderIntelMarkdown(data: MorningIntelData): string {
-  const { spotName, time, surf, tide, swells, wind, bestWindow, confidence, notes } =
-    data;
+  const {
+    spotName,
+    time,
+    surf,
+    tide,
+    swells,
+    wind,
+    bestWindow,
+    confidence,
+    notes,
+    conditions,
+    beachPreferences,
+  } = data;
 
   const tideDirection =
     tide.direction === "rising"
@@ -423,8 +632,29 @@ export function renderIntelMarkdown(data: MorningIntelData): string {
     ? `${swells.secondary.height} ft @ ${swells.secondary.period}s from ${swells.secondary.cardinal} (${swells.secondary.direction}°)`
     : "N/A";
 
-  return `**${spotName} — Morning Surf Intel (${time})**
+  // Build conditions section if available
+  let conditionsSection = "";
+  if (conditions && beachPreferences) {
+    conditionsSection = `
+📊 **CONDITIONS SCORE: ${conditions.score}/10**
 
+${conditions.swell.emoji} **Swell Direction:** ${conditions.swell.message}
+${conditions.wind.emoji} **Wind:** ${conditions.wind.message}
+${conditions.tide.emoji} **Tide:** ${conditions.tide.message}`;
+
+    if (beachPreferences.skillLevel) {
+      conditionsSection += `\n🏄 **Skill Level:** ${beachPreferences.skillLevel}`;
+    }
+
+    if (beachPreferences.hazards && beachPreferences.hazards.length > 0) {
+      conditionsSection += `\n\n⚠️ **HAZARDS:** ${beachPreferences.hazards.join(", ")}`;
+    }
+
+    conditionsSection += "\n";
+  }
+
+  return `**${spotName} — Morning Surf Intel (${time})**
+${conditionsSection}
 - **Surf:** ${surf.min}–${surf.max} ft (${surf.dominant})
 - **Tide @ ${time}:** ${tide.height} ft, ${tideDirection} (${tideNext})
 - **Swell:**

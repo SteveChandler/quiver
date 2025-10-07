@@ -1,3 +1,96 @@
+## [2025.10.07] - Enhanced Morning Intel with Beach Conditions Analysis
+
+### Added
+
+- **Enhanced Morning Surf Intel System**: Intelligent condition analysis using beach preference data
+  - **Beach Preferences Integration**: Fetches swell windows, wind preferences, tide ranges, hazards, skill level from beach data
+  - **Condition Analysis Utilities**:
+    - `analyzeSwellMatch()` - Checks if swell direction is in beach's preferred window (handles 0/360° wraparound)
+    - `analyzeWindConditions()` - Evaluates offshore vs onshore vs cross-shore conditions
+    - `analyzeTideConditions()` - Compares tide height against beach's optimal range
+    - `analyzeConditions()` - Calculates overall score (0-10) and condition breakdowns
+  - **Enhanced Forecast Display**: Morning intel now shows:
+    - 📊 **CONDITIONS SCORE: X/10** with color-coded evaluations
+    - ✅/⚠️/❌ **Swell Direction**: with window match status
+    - ✅/⚠️/❌ **Wind**: offshore/onshore analysis with detailed messaging
+    - ✅/⚠️/❌ **Tide**: optimal range comparison with deviation details
+    - 🏄 **Skill Level**: beach difficulty rating
+    - ⚠️ **HAZARDS**: crowds, pier pylons, pollution, etc.
+  - **Intelligent Notes Generation**: Contextual recommendations based on condition analysis
+  - **Beach-Specific Configuration**: Updated to Ocean Beach Pier (65d177de-e75a-4ad8-aa0d-48a67c0851b0)
+  - **Type Extensions**: New interfaces `BeachPreferences`, `ConditionEvaluation`, `ConditionsAnalysis`
+  - **Files Modified**:
+    - `.github/workflows/morning-intel.yml` - Updated beach ID and name
+    - `types/morning-intel.ts` - Added beach preference and condition analysis types
+    - `lib/utils/morning-intel-utils.ts` - Added condition analysis functions (~200 lines)
+    - `scripts/morningIntel.ts` - Integrated beach data fetching and condition evaluation
+
+### Changed
+
+- **Morning Intel Output**: Enhanced from basic forecast to intelligent condition analysis
+  - Before: Simple surf/wind/tide stats
+  - After: Scored condition evaluation with recommendations based on beach characteristics
+- **Target Beach**: Changed from generic "Ocean Beach, San Diego" to specific "Ocean Beach Pier" with detailed preferences
+
+### Performance
+
+- **Smart Condition Matching**: Efficient angle calculations with 0/360° wraparound handling
+- **Non-blocking Beach Data**: Gracefully degrades if beach preferences unavailable
+
+---
+
+## [2025.10.07] - Beach Data Update & Camera URLs Import
+
+### Added
+
+- **Fuzzy Matching Beach Update Script**: Created intelligent update system for surf_spots_next20.json
+
+  - **Fuzzy Name Matching**: Levenshtein distance algorithm (85%+ similarity threshold)
+  - **Coordinate Proximity Search**: Matches beaches within 2km tolerance using Haversine formula
+  - **Smart Confidence Scoring**: 60-100% confidence based on match quality and distance
+  - **Non-Destructive Updates**: Only fills NULL/empty fields, preserves existing data
+  - **Success Rate**: 100% match rate (20/20 beaches), 16 successful updates
+  - **Updated Fields**: hazards, break_type, skill_level, swell windows, wind thresholds, tide ranges, preference models
+  - **Updated Beaches**: Beacons, Grandview, D Street, Pipes, Cardiff Reef, Seaside Reef, Ponto, Tamarack, Terra Mar Point, Oceanside Harbor, Oceanside Pier Northside, Birdrock, Blacks Beach, Church (Trestles), PB Point, Carlsbad State Beach
+  - **Scripts**: `update-beaches-from-surf-spots-next20.ts`, documentation in `scripts/README-surf-spots-update.md`
+  - **Reporting**: Generates detailed JSON reports with match details and confidence scores
+
+- **Beach Data Update & Creation System**: Comprehensive beach database enhancement
+
+  - **Similarity Checker (`scripts/check-missing-beaches.ts`)**:
+    - Fuzzy name matching using Levenshtein distance + geographic proximity
+    - Found 1 duplicate: "Windansea Beach" → existing "Windansea" (0.54 miles apart)
+    - Identified 14 beaches needing creation
+  - **Beach Creator (`scripts/create-missing-beaches.ts`)**:
+    - Created 14 new San Diego surf spots with complete data
+    - Normalizes break types, skill levels, hazards arrays
+    - Handles decimal→integer rounding for database constraints
+    - New beaches: Tijuana Sloughs, Silver Strand, Coronado North Jetty, Hotel Del Coronado, Sunset Cliffs (Garbage), Osprey Point, New Break (Nubes), Avalanche, Big Jetty, Ocean Beach Pier, Mission Beach (Central), Crystal Pier, Tourmaline Surf Park, Marine Street Beach
+  - **Update Script (`scripts/update-beaches-from-json.ts`)**:
+    - Handles two JSON formats: UUID-based (V1) and integer ID with name lookup (V2)
+    - Non-destructive updates: only fills null/empty fields, never overwrites existing data
+    - Verifies beach UUIDs exist before updating
+    - Test mode (`--test` flag) for safe verification on single beach first
+    - Successfully updated 10 existing beaches with 15 fields each (150 total field updates):
+      - break_type, skill_level, shoreline_aspect_deg
+      - swell_window parameters (min, max, center, halfwidth)
+      - wind_offshore parameters (deg, tolerance)
+      - tide preference parameters (min, max)
+      - aspect_deg, offshore_deg
+      - preference_model (jsonb with sources and confidence scores 0.45-0.78)
+    - Beaches updated: Blacks, Birdrock, La Jolla Shores, Scripps, Horseshoe, PB Point, Tourmaline, Mission Beach, Ocean Beach, Imperial Beach
+  - **Result**: 24 beaches now have complete surf condition data with source attribution
+  - **Documentation**: `scripts/README-update-beaches.md`, `docs/BEACH_UPDATE_SUMMARY.md`, `docs/BEACH_CREATION_SUMMARY.md`
+  - **Migration**: `supabase/migrations/20250107000000_create_update_beach_coordinates_function.sql` for coordinates backfill
+
+- **Beach Camera URLs**: Imported camera URLs for 32 beaches from `docs/quiver_cams_by_spot.csv`
+  - Created `scripts/import_camera_urls.mjs` to bulk import camera URLs into `beach_sources` table
+  - Prioritizes most embeddable cameras: licensed-widget > platform-allowed > link-only > unknown
+  - Successfully imported 8 licensed-widget cameras (HDOnTap, EarthCam), 2 platform-allowed (YouTube), 20 link-only, and 2 unknown
+  - Cameras now visible on beach detail pages via `CamsSection` component
+  - Beaches with multiple cameras automatically select the best one for embedding
+  - Covers beaches in California, Hawaii, Oregon, and Washington
+
 ## [2025.10.06] - Tide Chart Optimization & iOS Crash Fix & Real-Time Intel Updates
 
 ### Added

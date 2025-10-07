@@ -34,6 +34,32 @@ export interface WindMetrics {
   description: string; // e.g., "offshore", "light onshore", "strong cross-shore"
 }
 
+export interface BeachPreferences {
+  name: string;
+  swellWindowMin?: number | null;
+  swellWindowMax?: number | null;
+  windOffshoreDeg?: number | null;
+  windOffshoreTol?: number | null;
+  tideMinFt?: number | null;
+  tideMaxFt?: number | null;
+  hazards?: string[] | null;
+  skillLevel?: string | null;
+  breakType?: string | null;
+}
+
+export interface ConditionEvaluation {
+  status: "optimal" | "acceptable" | "poor";
+  emoji: "✅" | "⚠️" | "❌";
+  message: string;
+}
+
+export interface ConditionsAnalysis {
+  score: number; // 0-10
+  swell: ConditionEvaluation;
+  wind: ConditionEvaluation;
+  tide: ConditionEvaluation;
+}
+
 export interface MorningIntelData {
   spotName: string;
   date: string; // YYYY-MM-DD
@@ -48,6 +74,8 @@ export interface MorningIntelData {
   bestWindow: string;
   confidence: "Low" | "Medium" | "High";
   notes: string;
+  beachPreferences?: BeachPreferences;
+  conditions?: ConditionsAnalysis;
   payload: {
     generatedAt: string;
     dataCompleteness: number; // 0-1

@@ -12,6 +12,7 @@ import type {
   MorningIntelConfig,
   MorningIntelData,
   ForecastSlice,
+  BeachPreferences,
 } from "@/types/morning-intel";
 import {
   deriveSurfRange,
@@ -21,6 +22,7 @@ import {
   bestWindowHeuristic,
   confidenceHeuristic,
   renderIntelMarkdown,
+  analyzeConditions,
 } from "@/lib/utils/morning-intel-utils";
 
 const TIMEZONE = "America/Los_Angeles";
@@ -126,6 +128,44 @@ async function getOceanBeachId(
 }
 
 /**
+ * Fetch beach preferences and metadata
+ */
+async function fetchBeachData(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  beachId: string
+): Promise<BeachPreferences | null> {
+  console.log("🏖️  Fetching beach preferences...");
+
+  const { data: beach, error } = await supabase
+    .from("beaches")
+    .select(
+      "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, tide_min_ft, tide_max_ft, hazards, skill_level, break_type"
+    )
+    .eq("id", beachId)
+    .single();
+
+  if (error || !beach) {
+    console.warn(`⚠️  Could not fetch beach data: ${error?.message || "Not found"}`);
+    return null;
+  }
+
+  console.log(`✅ Loaded preferences for ${beach.name}`);
+
+  return {
+    name: beach.name,
+    swellWindowMin: beach.swell_window_min_deg,
+    swellWindowMax: beach.swell_window_max_deg,
+    windOffshoreDeg: beach.wind_offshore_deg,
+    windOffshoreTol: beach.wind_offshore_tol_deg,
+    tideMinFt: beach.tide_min_ft,
+    tideMaxFt: beach.tide_max_ft,
+    hazards: beach.hazards,
+    skillLevel: beach.skill_level,
+    breakType: beach.break_type,
+  };
+}
+
+/**
  * Fetch forecast data for the morning window (04:00 - 12:00)
  */
 async function fetchForecastData(
@@ -187,7 +227,8 @@ async function fetchForecastData(
 function generateIntelData(
   slice: ForecastSlice,
   spotName: string,
-  timezone: string
+  timezone: string,
+  beachPrefs: BeachPreferences | null
 ): MorningIntelData {
   console.log("🔍 Analyzing forecast data...");
 
@@ -207,16 +248,47 @@ function generateIntelData(
   );
   const confidence = confidenceHeuristic(slice.forecasts, slice.tides);
 
+  // Analyze conditions against beach preferences
+  let conditions = undefined;
+  if (beachPrefs) {
+    conditions = analyzeConditions(
+      {
+        swellDirection: swells.primary?.direction,
+        wind,
+        tide,
+      },
+      beachPrefs
+    );
+    console.log(`📊 Conditions Score: ${conditions.score}/10`);
+  }
+
   // Generate notes based on conditions
   let notes = "";
-  if (surf.max < 2) {
-    notes = "Small surf; best for longboards or beginners";
-  } else if (surf.max > 6) {
-    notes = "Solid swell; experienced surfers only";
-  } else if (wind.offshore) {
-    notes = "Clean conditions with offshore winds";
+  if (conditions) {
+    // Enhanced notes based on condition analysis
+    const issues = [];
+    if (conditions.swell.status === "poor") issues.push("swell direction");
+    if (conditions.wind.status === "poor") issues.push("wind");
+    if (conditions.tide.status === "poor") issues.push("tide");
+
+    if (issues.length === 0) {
+      notes = "Excellent conditions - all factors optimal!";
+    } else if (issues.length === 1) {
+      notes = `Good conditions overall, but watch the ${issues[0]}`;
+    } else {
+      notes = `Challenging conditions: ${issues.join(", ")} not ideal`;
+    }
   } else {
-    notes = "Standard morning conditions";
+    // Fallback to original notes
+    if (surf.max < 2) {
+      notes = "Small surf; best for longboards or beginners";
+    } else if (surf.max > 6) {
+      notes = "Solid swell; experienced surfers only";
+    } else if (wind.offshore) {
+      notes = "Clean conditions with offshore winds";
+    } else {
+      notes = "Standard morning conditions";
+    }
   }
 
   // Calculate data completeness
@@ -248,6 +320,8 @@ function generateIntelData(
     bestWindow,
     confidence,
     notes,
+    beachPreferences: beachPrefs || undefined,
+    conditions,
     payload: {
       generatedAt: new Date().toISOString(),
       dataCompleteness,
@@ -394,6 +468,9 @@ export async function runMorningIntel(): Promise<{
     // Get beach ID
     const beachId = await getOceanBeachId(supabase, config.spotId);
 
+    // Fetch beach preferences
+    const beachPrefs = await fetchBeachData(supabase, beachId);
+
     // Fetch forecast data
     const forecastSlice = await fetchForecastData(
       supabase,
@@ -405,7 +482,8 @@ export async function runMorningIntel(): Promise<{
     const intelData = generateIntelData(
       forecastSlice,
       config.spotName,
-      config.timezone
+      config.timezone,
+      beachPrefs
     );
 
     console.log("📊 Intel Summary:");

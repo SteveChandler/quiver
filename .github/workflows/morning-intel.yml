@@ -80,8 +80,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           MORNING_INTEL_USER_EMAIL: ${{ secrets.MORNING_INTEL_USER_EMAIL }}
           MORNING_INTEL_USER_PASSWORD: ${{ secrets.MORNING_INTEL_USER_PASSWORD }}
-          MORNING_INTEL_SPOT_ID: ${{ secrets.MORNING_INTEL_SPOT_ID }}
-          MORNING_INTEL_SPOT_NAME: "Ocean Beach, San Diego"
+          MORNING_INTEL_SPOT_ID: "65d177de-e75a-4ad8-aa0d-48a67c0851b0"
+          MORNING_INTEL_SPOT_NAME: "Ocean Beach Pier"
 
       - name: Upload logs
         if: always() && steps.should_run.outputs.should_run == 'true'
@@ -96,7 +96,7 @@ jobs:
         run: |
           echo "## 🌊 Morning Surf Intel Report" >> $GITHUB_STEP_SUMMARY
           echo "**Date:** $(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z')" >> $GITHUB_STEP_SUMMARY
-          echo "**Location:** Ocean Beach, San Diego" >> $GITHUB_STEP_SUMMARY
+          echo "**Location:** Ocean Beach Pier, San Diego" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ${{ steps.morning_intel.outputs.success == 'true' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
