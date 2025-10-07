@@ -179,6 +179,37 @@ async function fetchBeachData(
 }
 
 /**
+ * Parse numeric value from text with units (e.g., "2.5 ft" -> 2.5)
+ */
+function parseNumericValue(value: string | number | null): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return value;
+  
+  // Extract first number from string like "2.5 ft", "10.5s", "5 mph"
+  const match = String(value).match(/(\d+(?:\.\d+)?)/);
+  return match ? parseFloat(match[1]) : null;
+}
+
+/**
+ * Parse direction from text or number (e.g., "SSW" -> degrees, or numeric pass-through)
+ */
+function parseDirection(value: string | number | null): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return value;
+  
+  // Cardinal direction to degrees mapping
+  const cardinalMap: Record<string, number> = {
+    "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
+    "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
+    "S": 180, "SSW": 202.5, "SW": 225, "WSW": 247.5,
+    "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5,
+  };
+  
+  const direction = String(value).trim().toUpperCase();
+  return cardinalMap[direction] ?? parseNumericValue(value);
+}
+
+/**
  * Fetch forecast data for the morning window (04:00 - 12:00)
  */
 async function fetchForecastData(
@@ -228,8 +259,25 @@ async function fetchForecastData(
     `📈 Fetched ${forecasts?.length || 0} forecast records, ${tides?.length || 0} tide records`
   );
 
+  // Parse text values to numbers
+  const parsedForecasts = (forecasts || []).map((f: any) => ({
+    ...f,
+    wave_height: parseNumericValue(f.wave_height),
+    wave_period: parseNumericValue(f.wave_period),
+    wave_direction: parseDirection(f.wave_direction),
+    swell_1_height: parseNumericValue(f.swell_1_height),
+    swell_1_period: parseNumericValue(f.swell_1_period),
+    swell_1_direction: parseDirection(f.swell_1_direction),
+    swell_2_height: parseNumericValue(f.swell_2_height),
+    swell_2_period: parseNumericValue(f.swell_2_period),
+    swell_2_direction: parseDirection(f.swell_2_direction),
+    wind_speed: parseNumericValue(f.wind_speed),
+    wind_direction: parseDirection(f.wind_direction),
+    tide_height: parseNumericValue(f.tide_height),
+  }));
+
   return {
-    forecasts: forecasts || [],
+    forecasts: parsedForecasts,
     tides: tides || [],
   };
 }
