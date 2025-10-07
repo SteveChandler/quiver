@@ -102,4 +102,3 @@ jobs:
             echo "Last 10 lines of output:"
             tail -10 morning_intel_output.log
           fi
-
