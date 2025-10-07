@@ -196,7 +196,7 @@ async function fetchForecastData(
   const { data: forecasts, error: forecastError } = await supabase
     .from("enhanced_forecasts")
     .select(
-      "forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction, tide_height, tide_status, swell_height, swell_period, swell_direction, secondary_swell_height, secondary_swell_period, secondary_swell_direction, confidence_score"
+      "forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction, tide_height, tide_status, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, confidence_score"
     )
     .eq("beach_id", beachId)
     .in("forecast_date", [today, tomorrow])
@@ -314,9 +314,9 @@ function generateIntelData(
     if (f.wave_period) presentFields++;
     if (f.wind_speed) presentFields++;
     if (f.wind_direction) presentFields++;
-    if (f.swell_height) presentFields++;
-    if (f.swell_period) presentFields++;
-    if (f.swell_direction) presentFields++;
+    if (f.swell_1_height) presentFields++;
+    if (f.swell_1_period) presentFields++;
+    if (f.swell_1_direction) presentFields++;
   });
 
   const dataCompleteness =
@@ -342,7 +342,7 @@ function generateIntelData(
         wave: slice.forecasts.some((f) => f.wave_height !== null),
         tide: slice.tides.length > 0,
         wind: slice.forecasts.some((f) => f.wind_speed !== null),
-        swell: slice.forecasts.some((f) => f.swell_height !== null),
+        swell: slice.forecasts.some((f) => f.swell_1_height !== null),
       },
     },
   };

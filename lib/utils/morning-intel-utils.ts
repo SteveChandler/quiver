@@ -45,7 +45,7 @@ export function deriveSurfRange(
   forecasts: ForecastSlice["forecasts"]
 ): SurfMetrics {
   const waveHeights = forecasts
-    .map((f) => f.wave_height || f.swell_height || null)
+    .map((f) => f.wave_height || f.swell_1_height || null)
     .filter((h): h is number => h !== null);
 
   if (waveHeights.length === 0) {
@@ -159,34 +159,34 @@ export function primarySecondarySwell(
   // Get most recent forecast with swell data
   const forecastWithSwell = forecasts.find(
     (f) =>
-      f.swell_height !== null &&
-      f.swell_period !== null &&
-      f.swell_direction !== null
+      f.swell_1_height !== null &&
+      f.swell_1_period !== null &&
+      f.swell_1_direction !== null
   );
 
   if (!forecastWithSwell) {
     return { primary: null, secondary: null };
   }
 
-  const primary: SwellComponent | null = forecastWithSwell.swell_height
+  const primary: SwellComponent | null = forecastWithSwell.swell_1_height
     ? {
-        height: Number(forecastWithSwell.swell_height.toFixed(1)),
-        period: Math.round(forecastWithSwell.swell_period || 0),
-        direction: Math.round(forecastWithSwell.swell_direction || 0),
-        cardinal: degreesToCardinal(forecastWithSwell.swell_direction || 0),
+        height: Number(forecastWithSwell.swell_1_height.toFixed(1)),
+        period: Math.round(forecastWithSwell.swell_1_period || 0),
+        direction: Math.round(forecastWithSwell.swell_1_direction || 0),
+        cardinal: degreesToCardinal(forecastWithSwell.swell_1_direction || 0),
       }
     : null;
 
   const secondary: SwellComponent | null =
-    forecastWithSwell.secondary_swell_height
+    forecastWithSwell.swell_2_height
       ? {
-          height: Number(forecastWithSwell.secondary_swell_height.toFixed(1)),
-          period: Math.round(forecastWithSwell.secondary_swell_period || 0),
+          height: Number(forecastWithSwell.swell_2_height.toFixed(1)),
+          period: Math.round(forecastWithSwell.swell_2_period || 0),
           direction: Math.round(
-            forecastWithSwell.secondary_swell_direction || 0
+            forecastWithSwell.swell_2_direction || 0
           ),
           cardinal: degreesToCardinal(
-            forecastWithSwell.secondary_swell_direction || 0
+            forecastWithSwell.swell_2_direction || 0
           ),
         }
       : null;
@@ -317,7 +317,7 @@ export function bestWindowHeuristic(
     if (time < 6 || time > 10) return false;
 
     const windSpeed = f.wind_speed || 999;
-    const period = f.wave_period || f.swell_period || 0;
+    const period = f.wave_period || f.swell_1_period || 0;
     const windDir = f.wind_direction || 0;
 
     const isWindGood =
@@ -373,9 +373,9 @@ export function confidenceHeuristic(
     "wave_period",
     "wind_speed",
     "wind_direction",
-    "swell_height",
-    "swell_period",
-    "swell_direction",
+    "swell_1_height",
+    "swell_1_period",
+    "swell_1_direction",
   ];
 
   forecasts.forEach((f) => {
