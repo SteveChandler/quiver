@@ -4,8 +4,7 @@ on:
   schedule:
     # Run daily at 6:00 AM PT
     # PT is UTC-8 (standard) or UTC-7 (daylight)
-    # 6 AM PST = 2 PM UTC (Nov-Mar), 6 AM PDT = 1 PM UTC (Mar-Nov)
-    # Run both hours to handle DST, script will check if already posted
+    # 6 AM PST = 14:00 UTC (Nov-Mar), 6 AM PDT = 13:00 UTC (Mar-Nov)
     - cron: "0 13 * * *" # 6 AM PDT (Mar-Nov)
     - cron: "0 14 * * *" # 6 AM PST (Nov-Mar)
   workflow_dispatch:
@@ -47,23 +46,7 @@ jobs:
           echo "TZ=America/Los_Angeles" >> $GITHUB_ENV
           echo "MORNING_INTEL_ENABLED=true" >> $GITHUB_ENV
 
-      - name: Check if should run
-        id: should_run
-        run: |
-          CURRENT_HOUR=$(TZ=America/Los_Angeles date +%H)
-          echo "Current PT hour: $CURRENT_HOUR"
-
-          # Allow 6 AM or 7 AM to handle DST transitions
-          if [ "$CURRENT_HOUR" = "06" ] || [ "$CURRENT_HOUR" = "07" ] || [ "${{ github.event.inputs.force_run }}" = "true" ]; then
-            echo "Time check passed or forced run - proceeding"
-            echo "should_run=true" >> $GITHUB_OUTPUT
-          else
-            echo "Not 6-7 AM PT and not forced - skipping"
-            echo "should_run=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Run Morning Surf Intel
-        if: steps.should_run.outputs.should_run == 'true'
         id: morning_intel
         run: |
           echo "🌊 Generating Morning Surf Intel..."
@@ -86,7 +69,7 @@ jobs:
           MORNING_INTEL_SPOT_NAME: "Ocean Beach Pier"
 
       - name: Upload logs
-        if: always() && steps.should_run.outputs.should_run == 'true'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: morning-intel-log-${{ github.run_number }}
@@ -94,7 +77,7 @@ jobs:
           retention-days: 7
 
       - name: Create summary report
-        if: always() && steps.should_run.outputs.should_run == 'true'
+        if: always()
         run: |
           echo "## 🌊 Morning Surf Intel Report" >> $GITHUB_STEP_SUMMARY
           echo "**Date:** $(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z')" >> $GITHUB_STEP_SUMMARY
@@ -110,7 +93,7 @@ jobs:
           fi
 
       - name: Notify on failure
-        if: failure() && steps.should_run.outputs.should_run == 'true'
+        if: failure()
         run: |
           echo "🚨 Morning Surf Intel Failed"
           echo "Check the logs for detailed error information"
@@ -120,8 +103,3 @@ jobs:
             tail -10 morning_intel_output.log
           fi
 
-      - name: Skip notification
-        if: steps.should_run.outputs.should_run == 'false'
-        run: |
-          echo "⏭️  Skipped - not the target hour (6 AM PT)"
-          echo "This is normal for DST handling"
