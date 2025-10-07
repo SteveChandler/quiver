@@ -39,6 +39,79 @@ export function getWaveHeightDescription(heightFeet: number): string {
 }
 
 /**
+ * Recommend best tide window based on beach preferences and forecast data
+ */
+export function recommendTideWindow(
+  forecasts: ForecastSlice["forecasts"],
+  beachPrefs: BeachPreferences | null
+): TideMetrics & { recommendedTime?: string; optimalRange?: string | null } {
+  if (!forecasts || forecasts.length === 0) {
+    return { height: 0, direction: "slack", nextEvent: null };
+  }
+
+  // Get morning forecasts (6am-10am) with tide data
+  const morningForecasts = forecasts.filter((f) => {
+    const hour = parseInt(f.forecast_time.split(":")[0]);
+    return hour >= 6 && hour <= 10 && f.tide_height !== null;
+  });
+
+  if (morningForecasts.length === 0) {
+    // Fallback to first forecast with tide data
+    const forecastWithTide = forecasts.find((f) => f.tide_height !== null);
+    return {
+      height: forecastWithTide?.tide_height || 0,
+      direction: (forecastWithTide?.tide_status?.toLowerCase() as any) || "slack",
+      nextEvent: forecastWithTide?.next_tide_time
+        ? {
+            type: forecastWithTide.next_tide_type || "HIGH",
+            height: parseFloat(forecastWithTide.next_tide_height || "0"),
+            time: forecastWithTide.next_tide_time,
+          }
+        : null,
+    };
+  }
+
+  // Find best tide based on beach preferences
+  let bestForecast = morningForecasts[0];
+
+  if (beachPrefs && beachPrefs.tideMinFt !== null && beachPrefs.tideMaxFt !== null) {
+    // Score each forecast based on how close it is to optimal tide range
+    const scoredForecasts = morningForecasts.map((f) => {
+      const tideHeight = f.tide_height || 0;
+      const midTide = (beachPrefs.tideMinFt! + beachPrefs.tideMaxFt!) / 2;
+      const distance = Math.abs(tideHeight - midTide);
+      const isInRange =
+        tideHeight >= beachPrefs.tideMinFt! && tideHeight <= beachPrefs.tideMaxFt!;
+      return {
+        forecast: f,
+        score: isInRange ? 100 - distance : -distance,
+      };
+    });
+
+    // Get forecast with best score
+    scoredForecasts.sort((a, b) => b.score - a.score);
+    bestForecast = scoredForecasts[0].forecast;
+  }
+
+  return {
+    height: bestForecast.tide_height || 0,
+    direction: (bestForecast.tide_status?.toLowerCase() as any) || "slack",
+    nextEvent: bestForecast.next_tide_time
+      ? {
+          type: bestForecast.next_tide_type || "HIGH",
+          height: parseFloat(bestForecast.next_tide_height || "0"),
+          time: bestForecast.next_tide_time,
+        }
+      : null,
+    recommendedTime: bestForecast.forecast_time,
+    optimalRange:
+      beachPrefs && beachPrefs.tideMinFt !== null && beachPrefs.tideMaxFt !== null
+        ? `${beachPrefs.tideMinFt}-${beachPrefs.tideMaxFt} ft`
+        : null,
+  };
+}
+
+/**
  * Derive surf range from forecast data
  */
 export function deriveSurfRange(

@@ -16,7 +16,7 @@ import type {
 } from "@/types/morning-intel";
 import {
   deriveSurfRange,
-  tideAt,
+  recommendTideWindow,
   primarySecondarySwell,
   windAt,
   bestWindowHeuristic,
@@ -227,7 +227,7 @@ async function fetchForecastData(
   const { data: forecasts, error: forecastError } = await supabase
     .from("enhanced_forecasts")
     .select(
-      "forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction, tide_height, tide_status, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, confidence_score"
+      "forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction, tide_height, tide_status, next_tide_time, next_tide_type, next_tide_height, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, confidence_score"
     )
     .eq("beach_id", beachId)
     .in("forecast_date", [today, tomorrow])
@@ -242,24 +242,11 @@ async function fetchForecastData(
     );
   }
 
-  // Fetch tide data for the day
-  const { data: tides, error: tideError } = await supabase
-    .from("tide_forecasts")
-    .select("ts, tide_height_m, tide_phase")
-    .eq("beach_id", beachId)
-    .gte("ts", `${today}T00:00:00Z`)
-    .lte("ts", `${tomorrow}T23:59:59Z`)
-    .order("ts", { ascending: true });
-
-  if (tideError) {
-    console.warn(`⚠️  Tide forecast query failed: ${tideError.message}`);
-  }
-
   console.log(
-    `📈 Fetched ${forecasts?.length || 0} forecast records, ${tides?.length || 0} tide records`
+    `📈 Fetched ${forecasts?.length || 0} forecast records`
   );
 
-  // Parse text values to numbers
+  // Parse text values to numbers (tide data is embedded in forecasts)
   const parsedForecasts = (forecasts || []).map((f: any) => ({
     ...f,
     wave_height: parseNumericValue(f.wave_height),
@@ -274,11 +261,16 @@ async function fetchForecastData(
     wind_speed: parseNumericValue(f.wind_speed),
     wind_direction: parseDirection(f.wind_direction),
     tide_height: parseNumericValue(f.tide_height),
+    // Keep tide text fields as-is for status and type
+    tide_status: f.tide_status,
+    next_tide_time: f.next_tide_time,
+    next_tide_type: f.next_tide_type,
+    next_tide_height: f.next_tide_height,
   }));
 
   return {
     forecasts: parsedForecasts,
-    tides: tides || [],
+    tides: [], // Not using separate tide table - tide data is in forecasts
   };
 }
 
@@ -299,7 +291,7 @@ function generateIntelData(
 
   // Calculate metrics
   const surf = deriveSurfRange(slice.forecasts);
-  const tide = tideAt(targetTime, slice.tides, timezone);
+  const tide = recommendTideWindow(slice.forecasts, beachPrefs);
   const swells = primarySecondarySwell(slice.forecasts);
   const wind = windAt(targetTime, slice.forecasts, timezone);
   const bestWindow = bestWindowHeuristic(
