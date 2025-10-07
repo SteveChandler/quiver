@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { createBrowserClient } from "@/lib/supabase";
+import { getClientBrowserClient } from "@/lib/supabase";
 import {
   Clock,
   Waves,
@@ -23,7 +23,7 @@ interface BestSurfWindowProps {
 export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
   // Fetch latest intel directly from Supabase (no edge function needed!)
   const fetchIntel = useCallback(async () => {
-    const supabase = createBrowserClient();
+    const supabase = getClientBrowserClient();
     const today = new Date().toISOString().split("T")[0];
 
     const { data, error } = await supabase
