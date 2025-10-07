@@ -77,23 +77,32 @@ async function getBotUserId(
   supabase: ReturnType<typeof getSupabaseClient>,
   email: string
 ): Promise<string> {
-  console.log(`🔐 Looking up bot user: ${email}...`);
+  // Trim and lowercase for comparison
+  const cleanEmail = email.trim().toLowerCase();
+  console.log(`🔐 Looking up bot user: ${cleanEmail}...`);
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id")
-    .eq("email", email)
-    .single();
+    .select("id, email, full_name")
+    .ilike("email", cleanEmail)
+    .limit(1);
 
-  if (error || !data) {
+  if (error) {
     throw new Error(
-      `Bot user not found: ${error?.message || "No user with that email"}. ` +
+      `Database error looking up bot user: ${error.message}`
+    );
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error(
+      `Bot user not found with email: ${cleanEmail}. ` +
       "Run scripts/create-morning-intel-bot.sql to create the user."
     );
   }
 
-  console.log(`✅ Found bot user ID: ${data.id}`);
-  return data.id;
+  const user = data[0];
+  console.log(`✅ Found bot user: ${user.full_name} (${user.id})`);
+  return user.id;
 }
 
 /**
