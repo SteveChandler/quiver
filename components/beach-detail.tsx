@@ -10,7 +10,6 @@ import {
   CloudSun,
   Compass,
   MapPin,
-  MessageSquare,
   Star,
   Waves,
   Wind,
@@ -645,7 +644,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                   5-Day Outlook
                 </h2>
                 <span className="text-sm text-muted-foreground">
-                  Switch between tides, wind, swell, and week views
+                  Switch between Today, Tides, and Conditions
                 </span>
               </div>
               {miniForecastDays.length > 0 ? (
@@ -716,16 +715,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
             id="intel-section"
             className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur"
           >
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h2 className="flex items-center gap-2 text-xl font-roboto font-semibold text-dark-grey">
-                <MessageSquare className="h-5 w-5 text-ocean-blue" /> Local
-                Intel
-              </h2>
-              <span className="text-sm text-muted-foreground">
-                Recent check-ins, crowd buzz, and surf notes
-              </span>
-            </div>
-            <div id="intel" className="mt-4 scroll-mt-24">
+            <div id="intel" className="scroll-mt-24">
               <BeachIntelSection
                 beachId={id}
                 beachName={beach.name}

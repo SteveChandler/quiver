@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Changed
+
+- Beach Detail forecast tabs simplified: combined Swell and Wind into a single `Conditions` tab and removed `Week` tab. Updated header copy accordingly. Follows `components/ARCHITECTURE.md` UI patterns and reuses `SimplifiedForecastTable` for combined data.
+
 ### Fixed
 
 - **Best Surf Window HTTP 406 Error**: Fixed Supabase query that was causing 406 errors when multiple intel records exist for the same day

@@ -16,7 +16,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, ChevronDown, Globe2, Sun, Waves, Wind } from "lucide-react";
+import { ChevronDown, Globe2, Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { track, slugify } from "@/lib/analytics";
@@ -31,16 +31,18 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
   // Ensure forecasts is always a stable array reference
   const safeForecasts = useMemo(() => forecasts || [], [forecasts]);
   // Default to showing the 5-day tide chart
-  const [subTab, setSubTab] = useState<
-    "today" | "tides" | "wind" | "swell" | "week"
-  >("tides");
+  const [subTab, setSubTab] = useState<"today" | "tides" | "conditions">(
+    "tides"
+  );
 
-  const tabOptions: { value: typeof subTab; label: string; icon: LucideIcon }[] = [
+  const tabOptions: {
+    value: typeof subTab;
+    label: string;
+    icon: LucideIcon;
+  }[] = [
     { value: "today", label: "Today", icon: Sun },
     { value: "tides", label: "Tides", icon: Waves },
-    { value: "wind", label: "Wind", icon: Wind },
-    { value: "swell", label: "Swell", icon: Globe2 },
-    { value: "week", label: "Week", icon: CalendarDays },
+    { value: "conditions", label: "Conditions", icon: Globe2 },
   ];
 
   const todayStr = useMemo(() => {
@@ -87,7 +89,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
           onValueChange={(v) => setSubTab(v as any)}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-5 gap-2 rounded-full bg-blue-100/60 p-1">
+          <TabsList className="grid w-full grid-cols-3 gap-2 rounded-full bg-blue-100/60 p-1">
             {tabOptions.map(({ value, label, icon: Icon }) => (
               <TabsTrigger
                 key={value}
@@ -117,7 +119,9 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
                   variant="ghost"
                   className="w-full justify-between rounded-2xl hover:bg-blue-50/50"
                 >
-                  <span className="text-sm font-medium">View Detailed Forecast</span>
+                  <span className="text-sm font-medium">
+                    View Detailed Forecast
+                  </span>
                   <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
                 </Button>
               </CollapsibleTrigger>
@@ -139,28 +143,11 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
             </Card>
           </TabsContent>
 
-          <TabsContent value="wind" className="mt-4">
+          <TabsContent value="conditions" className="mt-4">
             <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
               <CardContent className="p-6">
-                {/* For now, reuse simplified table; wind column is included */}
+                {/* Combined view: table already includes swell + wind */}
                 <SimplifiedForecastTable forecasts={safeForecasts} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="swell" className="mt-4">
-            <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
-              <CardContent className="p-6">
-                {/* For now, reuse simplified table; swell columns are included */}
-                <SimplifiedForecastTable forecasts={safeForecasts} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="week" className="mt-4">
-            <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
-              <CardContent className="p-6">
-                <MultiDayForecastTable forecasts={safeForecasts} />
               </CardContent>
             </Card>
           </TabsContent>
