@@ -153,15 +153,18 @@ const normalizeDirectData = (
       if (Number.isNaN(dateValue.getTime())) return undefined;
       const height = (p as TidePoint).h ?? (p as any).height;
       if (!Number.isFinite(height)) return undefined;
+      const legacyType = (p as any)?.type as string | undefined;
       const normalized: InternalPoint = {
         t: dateValue,
         h: Number(height),
         isHigh:
           (p as TidePoint).isHigh ??
-          (p as LegacyTidePoint).type?.toLowerCase() === "high",
+          (typeof legacyType === "string" &&
+            legacyType.toLowerCase() === "high"),
         isLow:
           (p as TidePoint).isLow ??
-          (p as LegacyTidePoint).type?.toLowerCase() === "low",
+          (typeof legacyType === "string" &&
+            legacyType.toLowerCase() === "low"),
         timestamp: dateValue.getTime(),
       };
       return normalized;
@@ -295,7 +298,9 @@ const limitToTwoDays = (points: InternalPoint[]): InternalPoint[] => {
   const now = Date.now();
   const maxTs = now + 2 * 24 * 60 * 60 * 1000; // 48 hours from now
   // Filter to show data from now to 48 hours in the future
-  return points.filter((point) => point.timestamp >= now && point.timestamp <= maxTs);
+  return points.filter(
+    (point) => point.timestamp >= now && point.timestamp <= maxTs
+  );
 };
 
 const annotateWithExtrema = (
@@ -458,14 +463,22 @@ export function TideChart({
     return Array.from(map.values());
   }, [chartData]);
 
-  const showNow = React.useMemo(() => {
-    if (!showNowLine || !now || chartData.length === 0) return undefined;
+  // Compute domain and time ticks for bottom axis (every 3 hours)
+  const [minTs, maxTs] = React.useMemo(() => {
+    if (!chartData.length) return [0, 0] as [number, number];
     const min = +toDate(chartData[0].t);
     const max = +toDate(chartData[chartData.length - 1].t);
-    const n = +now;
-    if (n < min || n > max) return undefined;
-    return now;
-  }, [showNowLine, now, chartData]);
+    return [min, max] as [number, number];
+  }, [chartData]);
+
+  const timeTicks = React.useMemo(() => {
+    if (!chartData.length) return [] as number[];
+    const interval = 3 * 60 * 60 * 1000; // 3 hours
+    const start = Math.floor(minTs / interval) * interval;
+    const ticks: number[] = [];
+    for (let t = start; t <= maxTs; t += interval) ticks.push(t);
+    return ticks;
+  }, [chartData, minTs, maxTs]);
 
   const computedYDomain: [number, number] = React.useMemo(() => {
     if (yDomain !== "auto") return yDomain;
@@ -526,7 +539,7 @@ export function TideChart({
         <ResponsiveContainer>
           <LineChart
             data={chartData}
-            margin={{ top: 8, right: 12, bottom: 8, left: 12 }}
+            margin={{ top: 24, right: 12, bottom: 24, left: 12 }}
           >
             <defs>
               <linearGradient id={`fill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
@@ -541,17 +554,37 @@ export function TideChart({
               strokeDasharray="3 3"
             />
 
+            {/** Top axis: days */}
             <XAxis
               dataKey={(p: TidePoint) => +toDate(p.t)}
               type="number"
-              domain={["dataMin", "dataMax"]}
+              domain={[minTs, maxTs]}
               tickFormatter={(v) => dayFormatter(new Date(v))}
               ticks={days.map((d) => +d)}
               axisLine={false}
               tickLine={false}
               interval={0}
               tick={{ fontSize: 12, fill: "#64748b" }}
+              height={22}
+              orientation="top"
+            />
+
+            {/** Bottom axis: time (every 3 hours) */}
+            <XAxis
+              xAxisId="time"
+              dataKey={(p: TidePoint) => +toDate(p.t)}
+              type="number"
+              domain={[minTs, maxTs]}
+              ticks={timeTicks}
+              tickFormatter={(v) =>
+                new Date(v).toLocaleTimeString(undefined, { hour: "numeric" })
+              }
+              axisLine={false}
+              tickLine={false}
+              interval={0}
+              tick={{ fontSize: 12, fill: "#64748b" }}
               height={28}
+              orientation="bottom"
             />
 
             <YAxis
@@ -564,6 +597,7 @@ export function TideChart({
             />
 
             <Area
+              xAxisId="time"
               type="monotone"
               dataKey="h"
               stroke="none"
@@ -571,6 +605,7 @@ export function TideChart({
             />
 
             <Line
+              xAxisId="time"
               type="monotone"
               dataKey="h"
               stroke="#2563eb"
@@ -581,14 +616,6 @@ export function TideChart({
             />
 
             <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
-
-            {showNow && (
-              <ReferenceLine
-                x={+showNow}
-                stroke="#ef4444"
-                strokeDasharray="3 3"
-              />
-            )}
 
             <Tooltip
               content={<TideTooltip unit={unit} />}

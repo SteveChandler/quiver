@@ -1,3 +1,17 @@
+## [Unreleased]
+
+### Fixed
+
+- **Best Surf Window HTTP 406 Error**: Fixed Supabase query that was causing 406 errors when multiple intel records exist for the same day
+  - Removed `.single()` method which throws 406 when multiple rows match the query
+  - Changed to use `.limit(1)` with array handling to safely get the most recent intel record
+  - Handles multiple generation times per day (6 AM, 10 AM, 2 PM) gracefully
+  - Component now shows most recent intel record when multiple exist
+- **Best Surf Window Time Range**: Fixed single-time window display issue in intel generation
+  - When only one forecast period meets optimal conditions, now extends window by 2 hours
+  - Prevents showing same start/end time (e.g., "6:00 AM - 6:00 AM")
+  - Creates meaningful surf windows (e.g., "6:00 AM - 8:00 AM") for better user experience
+
 ## [2025.10.07] - Multi-Beach Daily Intel System with 3x Daily Updates
 
 ### Added
@@ -40,7 +54,7 @@
   - Follows DRY patterns with `useDataFetcher`
 - **Morning Intel Script**: Enhanced to use new `IntelGenerationService`
   - Fixed authentication (uses service role instead of password)
-  - Fixed forecast column names (swell_1_*, swell_2_* instead of swell_*, secondary_swell_*)
+  - Fixed forecast column names (swell*1*_, swell*2*_ instead of swell*\*, secondary_swell*\*)
   - Added text value parsing for units ("2.5 ft", "SSW", "5 mph")
   - Fixed date-fns-tz imports (fromZonedTime, toZonedTime)
   - Added `recommendTideWindow()` for optimal tide recommendations

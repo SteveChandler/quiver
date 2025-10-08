@@ -32,11 +32,11 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
       .eq("beach_id", beachId)
       .eq("forecast_date", today)
       .order("generated_at", { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
 
     if (error) throw error;
-    return data;
+    // Return first record from array (or null if empty)
+    return data && data.length > 0 ? data[0] : null;
   }, [beachId]);
 
   const { data: intel, loading, error } = useDataFetcher(fetchIntel);
