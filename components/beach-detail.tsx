@@ -10,7 +10,6 @@ import {
   CloudSun,
   Compass,
   MapPin,
-  MessageSquare,
   Star,
   Waves,
   Wind,
@@ -645,7 +644,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
                   5-Day Outlook
                 </h2>
                 <span className="text-sm text-muted-foreground">
-                  Switch between tides, wind, swell, and week views
+                  Switch between Today, Tides, and Conditions
                 </span>
               </div>
               {miniForecastDays.length > 0 ? (
@@ -679,11 +678,8 @@ export function BeachDetail({ id }: BeachDetailProps) {
                         }}
                         className="group rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-50/60 to-white p-3 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ocean-blue/40"
                       >
-                        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                        <div className="text-xs font-medium text-muted-foreground">
                           <span>{label}</span>
-                          <span className="text-[10px] uppercase text-ocean-blue/80">
-                            {forecast.tide_status || "—"}
-                          </span>
                         </div>
                         <div className="mt-2 flex items-baseline gap-1">
                           <span className="text-2xl font-bold text-ocean-blue">
@@ -719,16 +715,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
             id="intel-section"
             className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur"
           >
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h2 className="flex items-center gap-2 text-xl font-roboto font-semibold text-dark-grey">
-                <MessageSquare className="h-5 w-5 text-ocean-blue" /> Local
-                Intel
-              </h2>
-              <span className="text-sm text-muted-foreground">
-                Recent check-ins, crowd buzz, and surf notes
-              </span>
-            </div>
-            <div id="intel" className="mt-4 scroll-mt-24">
+            <div id="intel" className="scroll-mt-24">
               <BeachIntelSection
                 beachId={id}
                 beachName={beach.name}

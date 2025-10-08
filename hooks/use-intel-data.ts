@@ -136,7 +136,7 @@ export function useIntelData({
     error,
     refetch,
     updateFilters,
-    hasData: !!data && data.posts.length > 0,
+    hasData: !!data && data.posts?.length > 0,
   };
 }
 
@@ -231,7 +231,7 @@ function useAllIntelData({
     error,
     refetch,
     updateFilters,
-    hasData: !!data && data.posts.length > 0,
+    hasData: !!data && data.posts?.length > 0,
   };
 }
 

@@ -2,11 +2,31 @@
 
 import type React from "react";
 
-import { createContext, useContext, useEffect, useState, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  memo,
+} from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
-console.log("AuthContext module loaded - " + new Date().toISOString());
+/**
+ * AuthContext provides authentication state and methods throughout the application.
+ *
+ * Lifecycle:
+ * 1. On mount (client-side only), initializes auth state from Supabase
+ * 2. Sets up auth state change listener for real-time updates
+ * 3. Manages session refresh and user account setup
+ * 4. Cleans up subscriptions on unmount to prevent memory leaks
+ *
+ * Performance considerations:
+ * - Uses refs to prevent race conditions during initialization
+ * - Memoized to prevent unnecessary re-renders
+ * - 8-second timeout for auth initialization to prevent blocking UI
+ */
 
 type AuthContextType = {
   user: User | null;
@@ -61,14 +81,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } = await supabase.auth.getSession();
 
       if (error) {
-        console.error("AuthContext: Error getting session:", error);
+        // Only log critical errors in development
+        if (process.env.NODE_ENV === "development") {
+          console.error("AuthContext: Error getting session:", error);
+        }
         updateAuthState(null);
         return;
       }
 
       updateAuthState(session);
     } catch (error) {
-      console.error("AuthContext: Exception during session refresh:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("AuthContext: Exception during session refresh:", error);
+      }
       updateAuthState(null);
     } finally {
       setIsLoading(false);
@@ -85,7 +110,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Add any user setup logic here (create profile, etc.)
       setupCompleteRef.current = true;
     } catch (error) {
-      console.error("AuthContext: User setup failed:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("AuthContext: User setup failed:", error);
+      }
       // Don't fail auth if setup fails
     }
   };
@@ -105,9 +132,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Set a reasonable timeout for better UX - 8 seconds should be sufficient
       timeoutId = setTimeout(() => {
         if (mounted && initializingRef.current) {
-          console.warn(
-            "AuthContext: Auth initialization timed out after 8s, proceeding as unauthenticated"
-          );
+          if (process.env.NODE_ENV === "development") {
+            console.warn("AuthContext: Auth initialization timed out after 8s");
+          }
           updateAuthState(null);
           setIsLoading(false);
           setIsInitialized(true);
@@ -116,8 +143,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }, 8000); // 8 second timeout for better UX
 
       try {
-        console.log("AuthContext: Starting initialization...");
-
         const {
           data: { session },
           error,
@@ -125,49 +150,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!mounted) return;
 
-        console.log("AuthContext: Got session response", {
-          hasSession: !!session,
-          userId: session?.user?.id || "none",
-          error: error?.message || "none",
-        });
-
         // Clear timeout since we got a response
         clearTimeout(timeoutId);
 
         if (error) {
-          console.error("AuthContext: Error during initialization:", error);
+          if (process.env.NODE_ENV === "development") {
+            console.error("AuthContext: Error during initialization:", error);
+          }
           // Don't immediately clear auth state on error - session might still be valid
-          console.log("AuthContext: Continuing with session despite error");
           updateAuthState(session);
         } else {
           updateAuthState(session);
         }
 
-        // Set up auth state listener
+        // Set up auth state listener for real-time updates
         const {
           data: { subscription: authSubscription },
         } = supabase.auth.onAuthStateChange((event, session) => {
           if (!mounted) return;
-
-          console.log("AuthContext: Auth state changed:", {
-            event,
-            hasSession: !!session,
-            userId: session?.user?.id || "none",
-          });
           updateAuthState(session);
         });
 
         subscription = authSubscription;
       } catch (error) {
         if (mounted) {
-          console.error("AuthContext: Exception during initialization:", error);
+          if (process.env.NODE_ENV === "development") {
+            console.error(
+              "AuthContext: Exception during initialization:",
+              error
+            );
+          }
           clearTimeout(timeoutId);
           // Only clear auth state on critical exceptions
           updateAuthState(null);
         }
       } finally {
         if (mounted) {
-          console.log("AuthContext: Initialization complete");
           setIsLoading(false);
           setIsInitialized(true);
           initializingRef.current = false;
@@ -177,18 +195,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Only initialize on client side
     if (typeof window !== "undefined") {
-      console.log("AuthContext: Browser detected, initializing...");
       initializeAuth();
     } else {
       // Server side - set defaults immediately
-      console.log("AuthContext: Server side, setting defaults");
       setIsLoading(false);
       setIsInitialized(true);
     }
 
+    // Cleanup function to prevent memory leaks
     return () => {
       mounted = false;
-      console.log("AuthContext: Cleanup");
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
@@ -218,7 +234,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
     } catch (error) {
-      console.error("AuthContext: Sign up error:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("AuthContext: Sign up error:", error);
+      }
       throw error;
     } finally {
       setIsLoading(false);
@@ -244,7 +262,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // The onAuthStateChange listener will handle updating the state
     } catch (error) {
-      console.error("AuthContext: Sign in error:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("AuthContext: Sign in error:", error);
+      }
       updateAuthState(null);
       throw error;
     } finally {
@@ -265,7 +285,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // The onAuthStateChange listener will handle clearing the state
     } catch (error) {
-      console.error("AuthContext: Sign out error:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("AuthContext: Sign out error:", error);
+      }
       throw error;
     } finally {
       setIsLoading(false);

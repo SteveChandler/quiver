@@ -1,0 +1,923 @@
+[
+  {
+    "id": "01330afc-00d3-461b-88f3-b173774766f4",
+    "name": "Blacks",
+    "location": "La Jolla, San Diego, CA",
+    "latitude": 32.8906575,
+    "longitude": -117.2534656,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "California",
+    "country": "USA",
+    "break_type": "beach",
+    "hazards": ["other surfers", "stingrays"],
+    "skill_level": "advanced",
+    "shoreline_aspect_deg": 270,
+    "swell_window_min_deg": 270,
+    "swell_window_max_deg": 0,
+    "wind_offshore_deg": 90,
+    "wind_offshore_tol_deg": 30,
+    "wind_cross_shore_ok_kt": 15,
+    "wind_onshore_bad_kt": 8,
+    "preferred_tide_ft_min": 0,
+    "preferred_tide_ft_max": 4,
+    "preference_model": {
+      "sources": [
+        "https://gosurfingsd.com/blacks-beach-surf-spot/", 
+        "https://beachatlas.com/beach/blacks-beach", 
+        "https://www.surf-forecast.com/breaks/Blacks-Beach"],
+      "confidence": "medium",
+      "notes": "Go Surfing SD describes Black\'s as a heavy beach‑break with a sand bottom and notes that intermediate to advanced surfers should watch out for other surfers and stingrays; it states the break works best on a NW groundswell and that offshore winds are provided by Torrey Pines bluffs【914599027690726\u2020L187-L204】【914599027690726\u2020L300-L308】.  BeachAtlas supplies the latitude/longitude of Black\'s Beach【958441469381790\u2020L93-L99】.  Surf‑forecast notes that the best conditions combine a west‑northwest swell with an easterly offshore wind【815445645684010\u2020L228-L242】.  NW is treated as a single direction, so the swell window is centred at 315° with ±45° half‑width (270°–0°).  Mid‑tide is preferred (0–4 ft).  Offshore winds from the east are allowed with a 30° tolerance; cross‑shore and onshore wind thresholds follow default beach‑break values."
+    },
+    "aspect_deg": 270,
+    "offshore_deg": 90,
+    "swell_window_center_deg": 315,
+    "swell_window_halfwidth_deg": 45,
+    "tide_min_ft": 0,
+    "tide_max_ft": 4,
+    "wind_cross_ok_kts": 15,
+    "wind_onshore_bad_kts": 8,
+    "region_id": null,
+    "coordinates": null
+  },
+  {
+    "id": "ca2b1d6f-2428-4273-ab02-7555eeec4323",
+    "name": "Birdrock",
+    "location": "Bird Rock, La Jolla, CA",
+    "latitude": 32.8142147,
+    "longitude": -117.2742041,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "La Jolla, San Diego, CA",
+    "country": "USA",
+    "break_type": "reef",
+    "hazards": ["rocks", "shallow reef"],
+    "skill_level": "advanced",
+    "shoreline_aspect_deg": 250,
+    "swell_window_min_deg": 203,
+    "swell_window_max_deg": 293,
+    "wind_offshore_deg": 90,
+    "wind_offshore_tol_deg": 20,
+    "wind_cross_shore_ok_kt": 12,
+    "wind_onshore_bad_kt": 6,
+    "preferred_tide_ft_min": 2,
+    "preferred_tide_ft_max": 6,
+    "preference_model": {
+      "sources": [
+        "https://www.deepswell.com/spot/birdrock", 
+        "https://isbenas.com/surf/spots/san-diego.html", 
+        "https://www.hometownlocator.com/ca/san-diego/bird-rock.cfm"
+      ],
+      "confidence": "medium",
+      "notes": "DeepSwell\u2019s spot guide describes Bird Rock as a pair of fickle reef peaks; it notes that long‑period NW and WNW swells wrap into the reef and that south‑swells can also get in, recommending mid to high tides and easterly offshore winds【804851103218595\u2020L229-L242】.  The Isbenas world‑wide surf guide rates North Bird Rock as a novelty wave that only breaks in big swells and warns that entry/exit can be hazardous【812182393322786\u2020L79-L82】.  HometownLocator lists the coordinates for Bird Rock【957742774098066\u2020L50-L54】.  From the listed swell directions (SSW, SW, WNW, NW) the swell window is set from 202.5° to 292.5° (centre ~247.5°, half‑width 45°).  Easterly winds (90°) are taken as offshore with a narrow 20° tolerance because the reefs are sheltered.  Mid‑to‑high tides (2–6 ft) are preferred."
+    },
+    "aspect_deg": 250,
+    "offshore_deg": 90,
+    "swell_window_center_deg": 248,
+    "swell_window_halfwidth_deg": 45,
+    "tide_min_ft": 2,
+    "tide_max_ft": 6,
+    "wind_cross_ok_kts": 12,
+    "wind_onshore_bad_kts": 6,
+    "region_id": null,
+    "coordinates": null
+  },
+  {
+    "id": "d291411d-d331-4bf1-ad1a-302da3c69de0",
+    "name": "La Jolla Shores",
+    "location": "La Jolla Shores, CA",
+    "latitude": 32.8565,
+    "longitude": -117.2542,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "California",
+    "country": "USA",
+    "break_type": "beach",
+    "hazards": ["rip currents", "stingrays"],
+    "skill_level": "beginner",
+    "shoreline_aspect_deg": 270,
+    "swell_window_min_deg": 270,
+    "swell_window_max_deg": 315,
+    "wind_offshore_deg": 113,
+    "wind_offshore_tol_deg": 30,
+    "wind_cross_shore_ok_kt": 15,
+    "wind_onshore_bad_kt": 8,
+    "preferred_tide_ft_min": 2,
+    "preferred_tide_ft_max": 4,
+    "preference_model": {
+      "sources": [
+        "https://isbenas.com/surf/spots/san-diego.html", 
+        "https://sandiego.surf/surfing-la-jolla-shores/", 
+        "https://latitude.to/articles-by-country/us/united-states/391665097587823/la-jolla-shores"
+      ],
+      "confidence": "medium",
+      "notes": "The World Wide Surf Guide lists Scripps/La Jolla Shores as a sandy beginner break with best swell directions from west to northwest, medium tides, and easterly to south‑easterly offshore winds【812182393322786\u2020L27-L34】.  A local article about La Jolla Shores emphasises gentle waves best on medium tides, warns of rip currents and suggests checking with lifeguards【513803320984137\u2020L168-L186】.  Coordinates are taken from a latitude.to listing【391665097587823\u2020L19-L21】.  The swell window is set from W to NW (270°–315°, centre 292.5°) and a 30° tolerance is allowed on the east‑to‑south‑east offshore winds (90°–135°).  Stingrays are common in this sandy bay and are noted as an additional hazard."
+    },
+    "aspect_deg": 270,
+    "offshore_deg": 113,
+    "swell_window_center_deg": 293,
+    "swell_window_halfwidth_deg": 23,
+    "tide_min_ft": 2,
+    "tide_max_ft": 4,
+    "wind_cross_ok_kts": 15,
+    "wind_onshore_bad_kts": 8,
+    "region_id": null,
+    "coordinates": null
+  },
+  {
+    "id": "4b0cf129-c706-4e24-8210-2219defc5ea7",
+    "name": "Scripps",
+    "location": "Scripps Pier, La Jolla, CA",
+    "latitude": 32.8654,
+    "longitude": -117.2536,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "La Jolla, San Diego, CA",
+    "country": "USA",
+    "break_type": "beach",
+    "hazards": ["crowds"],
+    "skill_level": "intermediate",
+    "shoreline_aspect_deg": 270,
+    "swell_window_min_deg": 225,
+    "swell_window_max_deg": 315,
+    "wind_offshore_deg": 135,
+    "wind_offshore_tol_deg": 45,
+    "wind_cross_shore_ok_kt": 15,
+    "wind_onshore_bad_kt": 8,
+    "preferred_tide_ft_min": 2,
+    "preferred_tide_ft_max": 4,
+    "preference_model": {
+      "sources": [
+        "https://gosurfingsd.com/scripps-pier-surf-spot/", 
+        "https://latitude.to/articles-by-country/us/united-states/108482650912915/scripps-institution-of-oceanography"
+      ],
+      "confidence": "medium",
+      "notes": "Go Surfing SD describes Scripps Pier as a punchy beach break with peaky lefts and rights on either side of the pier and recommends mid tides【457878533886402\u2020L121-L139】.  Its quick‑facts section notes that intermediate surfers should target W and NW short‑period swells or SW long‑period swells and that east or south‑east winds (and even light south winds due to cliff shelter) are offshore【457878533886402\u2020L145-L159】.  The biggest hazard is crowds of surfers near the pier【457878533886402\u2020L204-L212】.  Coordinates near the pier are taken from the latitude.to listing for Scripps Institution of Oceanography【108482650912915\u2020L28-L29】.  The swell window spans SW to NW (225°–315°, centre 270°, half‑width 45°).  Offshore winds are centred at 135° (ESE) with ±45° tolerance."
+    },
+    "aspect_deg": 270,
+    "offshore_deg": 135,
+    "swell_window_center_deg": 270,
+    "swell_window_halfwidth_deg": 45,
+    "tide_min_ft": 2,
+    "tide_max_ft": 4,
+    "wind_cross_ok_kts": 15,
+    "wind_onshore_bad_kts": 8,
+    "region_id": null,
+    "coordinates": null
+  },
+  {
+    "id": "30e68b00-c27d-4d22-ba57-2d92156964c6",
+    "name": "Horseshoe",
+    "location": "Marine Street, La Jolla, CA",
+    "latitude": 32.837,
+    "longitude": -117.282,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "La Jolla, San Diego, CA",
+    "country": "USA",
+    "break_type": "reef",
+    "hazards": ["shallow reef", "rocks", "powerful waves"],
+    "skill_level": "advanced",
+    "shoreline_aspect_deg": 270,
+    "swell_window_min_deg": 225,
+    "swell_window_max_deg": 270,
+    "wind_offshore_deg": 90,
+    "wind_offshore_tol_deg": 30,
+    "wind_cross_shore_ok_kt": 12,
+    "wind_onshore_bad_kt": 6,
+    "preferred_tide_ft_min": 0,
+    "preferred_tide_ft_max": 4,
+    "preference_model": {
+      "sources": [
+        "https://isbenas.com/surf/spots/san-diego.html", 
+        "https://www.surfspots.co/spot/horseshoe", 
+        "https://en.wikipedia.org/wiki/Marine_Street_Beach"
+      ],
+      "confidence": "low",
+      "notes": "The Isbenas guide calls Horseshoe a mutant wave that wraps around a horseshoe‑shaped reef; its left is extremely hollow and shallow and the right can swing back on itself, making it a difficult advanced‑level wave【812182393322786\u2020L46-L51】.  SurfSpots lists the wave as a rocky reef with rights and lefts and states that low‑to‑mid tide is ideal【987764928207945\u2020L75-L90】.  Marine Street Beach coordinates approximate the location【123261573616367\u2020L114-L136】.  Because detailed swell or wind directions were not available, a low‑confidence estimate assumes this reef relies on southwest‑to‑west swells (225°–270°) and easterly offshore winds typical of La Jolla.  Default tide range (0–4 ft) and wind thresholds for reefs are applied."
+    },
+    "aspect_deg": 270,
+    "offshore_deg": 90,
+    "swell_window_center_deg": 248,
+    "swell_window_halfwidth_deg": 23,
+    "tide_min_ft": 0,
+    "tide_max_ft": 4,
+    "wind_cross_ok_kts": 12,
+    "wind_onshore_bad_kts": 6,
+    "region_id": null,
+    "coordinates": null
+  },
+  {
+    "id": "13ef0aa1-c857-4d82-a40d-a83612110943",
+    "name": "PB Point",
+    "location": "Pacific Beach Point, San Diego, CA",
+    "latitude": 32.80472,
+    "longitude": -117.26222,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "Pacific Beach, San Diego, CA",
+    "country": "USA",
+    "break_type": "point",
+    "hazards": ["rocks", "crowds"],
+    "skill_level": "intermediate",
+    "shoreline_aspect_deg": 270,
+    "swell_window_min_deg": 270,
+    "swell_window_max_deg": 315,
+    "wind_offshore_deg": 90,
+    "wind_offshore_tol_deg": 30,
+    "wind_cross_shore_ok_kt": 12,
+    "wind_onshore_bad_kt": 6,
+    "preferred_tide_ft_min": 2,
+    "preferred_tide_ft_max": 6,
+    "preference_model": {
+      "sources": [
+        "https://isbenas.com/surf/spots/san-diego.html", 
+        "https://en.wikipedia.org/wiki/Tourmaline_Surfing_Park"
+      ],
+      "confidence": "low",
+      "notes": "The Isbenas guide describes PB Point as a long, clean right accessible from Tourmaline or nearby steps and notes that it is often crowded with longboarders, implying an intermediate‑level point break【812182393322786\u2020L99-L106】.  Specific swell, wind and tide details were not provided; this estimate assumes it favors west‑to‑northwest swells (270°–315°) with easterly offshore winds, mid‑to‑high tides and default wind thresholds for point breaks.  Coordinates are approximated from nearby Tourmaline Surfing Park【358130056162236\u2020L116-L134】."
+    },
+    "aspect_deg": 270,
+    "offshore_deg": 90,
+    "swell_window_center_deg": 293,
+    "swell_window_halfwidth_deg": 23,
+    "tide_min_ft": 2,
+    "tide_max_ft": 6,
+    "wind_cross_ok_kts": 12,
+    "wind_onshore_bad_kts": 6,
+    "region_id": null,
+    "coordinates": null
+  },
+  {
+    "id": "17628f35-9ed1-4257-aad6-070c4bd73bb8",
+    "name": "Tourmaline",
+    "location": "Pacific Beach, San Diego, CA",
+    "latitude": 32.80472,
+    "longitude": -117.26222,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "California",
+    "country": "USA",
+    "break_type": "point",
+    "hazards": ["crowds"],
+    "skill_level": "beginner",
+    "shoreline_aspect_deg": 270,
+    "swell_window_min_deg": 270,
+    "swell_window_max_deg": 315,
+    "wind_offshore_deg": 90,
+    "wind_offshore_tol_deg": 30,
+    "wind_cross_shore_ok_kt": 12,
+    "wind_onshore_bad_kt": 6,
+    "preferred_tide_ft_min": 2,
+    "preferred_tide_ft_max": 4,
+    "preference_model": {
+      "sources": [
+        "https://isbenas.com/surf/spots/san-diego.html", 
+        "https://en.wikipedia.org/wiki/Tourmaline_Surfing_Park"
+      ],
+      "confidence": "medium",
+      "notes": "Tourmaline Surfing Park is described as a mellow right‑hand point with soft beachbreak waves that attracts longboarders and beginners【812182393322786\u2020L105-L108】【358130056162236\u2020L126-L134】.  The world‑wide guide lists it under the Mission Beach/Mission Bay area with no explicit swell guidance, so this estimate assumes exposure to west‑to‑northwest swells (270°–315°) with easterly offshore winds.  Mid‑tides (2–4 ft) and default wind thresholds for point breaks are applied.  Coordinates come from the Wikipedia entry【358130056162236\u2020L116-L117】."
+    },
+    "aspect_deg": 270,
+    "offshore_deg": 90,
+    "swell_window_center_deg": 293,
+    "swell_window_halfwidth_deg": 23,
+    "tide_min_ft": 2,
+    "tide_max_ft": 4,
+    "wind_cross_ok_kts": 12,
+    "wind_onshore_bad_kts": 6,
+    "region_id": null,
+    "coordinates": null
+  },
+  {
+    "id": "c02b4ede-69d9-440e-b8de-22ea4bde10ef",
+    "name": "Mission Beach",
+    "location": "Mission Beach, San Diego, CA",
+    "latitude": 32.7725,
+    "longitude": -117.2515,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "California",
+    "country": "USA",
+    "break_type": "beach",
+    "hazards": ["rip currents", "crowds"],
+    "skill_level": "intermediate",
+    "shoreline_aspect_deg": 270,
+    "swell_window_min_deg": 225,
+    "swell_window_max_deg": 315,
+    "wind_offshore_deg": 90,
+    "wind_offshore_tol_deg": 30,
+    "wind_cross_shore_ok_kt": 15,
+    "wind_onshore_bad_kt": 8,
+    "preferred_tide_ft_min": 2,
+    "preferred_tide_ft_max": 4,
+    "preference_model": {
+      "sources": [
+        "https://isbenas.com/surf/spots/san-diego.html", 
+        "https://latitude.to/articles-by-country/us/united-states/30673/mission-beach-san-diego"
+      ],
+      "confidence": "medium",
+      "notes": "The Isbenas guide notes that Mission Beach is a consistent sandbar‑dependent break best in spring and fall with W, NW or SW swells, medium tides and easterly offshore winds; it also remarks that surfers should search for good sandbars【812182393322786\u2020L114-L124】.  Coordinates for the community are taken from latitude.to【366789090471575\u2020L16-L21】.  Based on the swell directions (SW–NW) the swell window is set from 225° to 315° (centre 270°, half‑width 45°).  Rip currents and crowds are common hazards on this busy beach."
+    },
+    "aspect_deg": 270,
+    "offshore_deg": 90,
+    "swell_window_center_deg": 270,
+    "swell_window_halfwidth_deg": 45,
+    "tide_min_ft": 2,
+    "tide_max_ft": 4,
+    "wind_cross_ok_kts": 15,
+    "wind_onshore_bad_kts": 8,
+    "region_id": null,
+    "coordinates": null
+  },
+  {
+    "id": "15c7337e-5258-4339-9dc3-c435c666926b",
+    "name": "Ocean Beach",
+    "location": "Ocean Beach, San Diego, CA",
+    "latitude": 32.7505,
+    "longitude": -117.2510,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "San Diego, CA",
+    "country": "USA",
+    "break_type": "beach",
+    "hazards": ["pollution", "rip currents", "crowds"],
+    "skill_level": "intermediate",
+    "shoreline_aspect_deg": 270,
+    "swell_window_min_deg": 270,
+    "swell_window_max_deg": 315,
+    "wind_offshore_deg": 90,
+    "wind_offshore_tol_deg": 30,
+    "wind_cross_shore_ok_kt": 15,
+    "wind_onshore_bad_kt": 8,
+    "preferred_tide_ft_min": 0,
+    "preferred_tide_ft_max": 4,
+    "preference_model": {
+      "sources": [
+        "https://isbenas.com/surf/spots/san-diego.html", 
+        "https://latitude.to/articles-by-country/us/united-states/17344/ocean-beach-san-diego"
+      ],
+      "confidence": "medium",
+      "notes": "Isbenas divides Ocean Beach into Avalanche, Big Jetty and the Pier; it notes that the area works best on west and northwest swells during fall and winter, prefers low to medium tides and easterly winds, and warns that sewage from the San Diego River can pollute the Big Jetty【812182393322786\u2020L126-L137】.  Coordinates for the Ocean Beach neighbourhood come from latitude.to【280799631403062\u2020L16-L20】.  The swell window is set from W to NW (270°–315°, centre ~292.5°).  Hazards include polluted water near the jetty, rip currents and crowds."
+    },
+    "aspect_deg": 270,
+    "offshore_deg": 90,
+    "swell_window_center_deg": 293,
+    "swell_window_halfwidth_deg": 23,
+    "tide_min_ft": 0,
+    "tide_max_ft": 4,
+    "wind_cross_ok_kts": 15,
+    "wind_onshore_bad_kts": 8,
+    "region_id": null,
+    "coordinates": null
+  },
+  {
+    "id": "9e94759c-d531-4e5c-9bc2-d022acea9dcd",
+    "name": "Imperial Beach",
+    "location": "Imperial Beach, CA",
+    "latitude": 32.5839,
+    "longitude": -117.1131,
+    "is_private": false,
+    "owner_id": null,
+    "created_at": null,
+    "region": "California",
+    "country": "USA",
+    "break_type": "beach",
+    "hazards": ["water pollution"],
+    "skill_level": "intermediate",
+    "shoreline_aspect_deg": 250,
+    "swell_window_min_deg": 180,
+    "swell_window_max_deg": 270,
+    "wind_offshore_deg": 90,
+    "wind_offshore_tol_deg": 30,
+    "wind_cross_shore_ok_kt": 15,
+    "wind_onshore_bad_kt": 8,
+    "preferred_tide_ft_min": 2,
+    "preferred_tide_ft_max": 4,
+    "preference_model": {
+      "sources": [
+        "https://isbenas.com/surf/spots/san-diego.html", 
+        "https://latitude.to/map/us/united-states/cities/imperial-beach"
+      ],
+      "confidence": "medium",
+      "notes": "According to the Isbenas guide, Imperial Beach is an uncrowded alternative featuring shifting sandbars that produce hollow A‑frames when solid southwest swells arrive; it notes the spot handles any swell direction but is best with SW groundswell, medium tides and easterly winds, and rates it intermediate【812182393322786\u2020L177-L183】.  Imperial Beach is near the Mexican border and often suffers water‑quality issues, so pollution is listed as the main hazard.  Coordinates come from a latitude.to listing for Imperial Beach【638413692244979\u2020L27-L29】.  The swell window is centred on SW (225°) with ±45° half‑width (180°–270°).  Default wind and tide thresholds for beach breaks are used."
+    },
+    "aspect_deg": 250,
+    "offshore_deg": 90,
+    "swell_window_center_deg": 225,
+    "swell_window_halfwidth_deg": 45,
+    "tide_min_ft": 2,
+    "tide_max_ft": 4,
+    "wind_cross_ok_kts": 15,
+    "wind_onshore_bad_kts": 8,
+    "region_id": null,
+    "coordinates": null
+  }
+]
+ [
+   {
+     "id": 16,
+     "name": "Tijuana Sloughs",
+     "break_type": "exposed beach and reef break (pebbles and sand)",
+     "hazards": "water pollution, sharks and stingrays, strong rips; reef/rocks at take‑off zone",
+     "skill_level": "intermediate to advanced",
+     "lat": 32.5517,
+     "lon": -117.1271,
+     "swell_window": {
+       "min_deg": 250,
+       "max_deg": 290,
+       "center_deg": 270,
+       "half_width_deg": 20,
+       "described_directions": "W‑WSW to WNW"
+     },
+     "offshore_wind": {
+       "direction_deg": 67.5,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "E–ENE"
+     },
+     "tide_preference": {
+       "range_ft": "1 – 4 ft",
+       "described_preference": "mid tide"
+     },
+     "shoreline_aspect": 310,
+     "preference_model": {
+       "provenance": ["Surf‑Forecast describes Tijuana Sloughs as an exposed beach break that works best during autumn and winter with offshore winds from the east‑northeast and W–WSW swell; hazards include pollution, sharks and stingrays:contentReference[oaicite:0]{index=0}.", "Surfspot.app lists the break as a reef & beach break, difficulty intermediate‑advanced, ideal swell WSW and wind ENE, and warns of polluted water and sharp rocks:contentReference[oaicite:1]{index=1}.", "The mouth of the Tijuana River (location of the Sloughs) has coordinates 32.5517° N, –117.1271° W:contentReference[oaicite:2]{index=2}."],
+       "confidence": 0.71,
+       "notes": "Swell window derived from WSW–W (247.5°–270°) through WNW (292.5°); center at ~270°. Offshore wind from E‑ENE (67.5°) with ±45° tolerance. Tide preference taken as mid tide; shoreline aspect roughly NW (310°) based on orientation of Imperial Beach.",
+       "to_validate": ["Long‑term pollution warnings at the Sloughs recommend avoiding water for 72 hrs after rain:contentReference[oaicite:3]{index=3}."]
+     }
+   },
+   {
+     "id": 17,
+     "name": "Silver Strand State Beach",
+     "break_type": "gentle sandy beach break with shifting sandbars",
+     "hazards": "rip currents and occasional pollution",
+     "skill_level": "beginner to intermediate",
+     "lat": 32.6466,
+     "lon": -117.1479,
+     "swell_window": {
+       "min_deg": 190,
+       "max_deg": 240,
+       "center_deg": 215,
+       "half_width_deg": 25,
+       "described_directions": "S to SW"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "1 – 4 ft",
+       "described_preference": "low to mid"
+     },
+     "shoreline_aspect": 310,
+     "preference_model": {
+       "provenance": ["Mission Beach Surfing School describes Silver Strand as a gentle, consistent sandy‑bottom beach break ideal for beginners and intermediate surfers; the wave performs best during summer south swells combined with offshore breezes:contentReference[oaicite:4]{index=4}.", "Latitude.to provides GPS coordinates for Silver Strand in San Diego: 32° 38′ 47.76\" N, –117° 08′ 52.44\" W:contentReference[oaicite:5]{index=5}."],
+       "confidence": 0.63,
+       "notes": "Swell window approximated from S‑SW (190°‑240°) because the beach mainly faces NW and responds to summer south swells. Offshore wind from E with ±45° tolerance. Tide preference interpreted as low to mid from description of best surf at low‑mid tide. Shoreline aspect estimated from orientation of coastline.",
+       "to_validate": ["Hazards include occasional pollution from nearby river outlets; no dedicated hazards listed in sources."]
+     }
+   },
+   {
+     "id": 18,
+     "name": "Coronado North Jetty (Coronado Beaches)",
+     "break_type": "exposed beach break with shifting sandbars",
+     "hazards": "occasional rips; sandbars shift seasonally",
+     "skill_level": "beginner to intermediate",
+     "lat": 32.6785,
+     "lon": -117.1720,
+     "swell_window": {
+       "min_deg": 220,
+       "max_deg": 250,
+       "center_deg": 235,
+       "half_width_deg": 15,
+       "described_directions": "SW to WSW"
+     },
+     "offshore_wind": {
+       "direction_deg": 0,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "N (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "2 – 5 ft",
+       "described_preference": "mid to high (rising tide)"
+     },
+     "shoreline_aspect": 320,
+     "preference_model": {
+       "provenance": ["Surf‑Forecast notes that Coronado Beaches are an exposed beach break with dependable surf; best in summer with offshore winds from the north and a southwest swell; the waves break left and right and work best around high tide:contentReference[oaicite:6]{index=6}."],
+       "confidence": 0.56,
+       "notes": "Latitude approximated for the northern jetty near the Naval Base. Swell window derived from SW (225°) to WSW (247.5°). Offshore wind from north (0°) ±45°. Tide preference mid to high based on high‑tide call in Surf‑Forecast.",
+       "to_validate": ["Hazards are minimal; this is a sandy beach break but rips occur during large swells."]
+     }
+   },
+   {
+     "id": 19,
+     "name": "Hotel Del/Shipwreck (Coronado)",
+     "break_type": "fickle beach break over shifting sandbar (occasionally fast left)",
+     "hazards": "shallow sandbar during hurricane swells; shorebreak; inconsistent currents",
+     "skill_level": "all levels (beginner when small, advanced when hurricane swells)",
+     "lat": 32.6809,
+     "lon": -117.1784,
+     "swell_window": {
+       "min_deg": 190,
+       "max_deg": 235,
+       "center_deg": 212.5,
+       "half_width_deg": 22.5,
+       "described_directions": "S to SW"
+     },
+     "offshore_wind": {
+       "direction_deg": 45,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 12,
+       "described_direction": "NE (light east wind preferred)"
+     },
+     "tide_preference": {
+       "range_ft": "1 – 4 ft",
+       "described_preference": "medium tide"
+     },
+     "shoreline_aspect": 320,
+     "preference_model": {
+       "provenance": ["Go Surfing SD states that the surf in front of the Hotel Del is a fickle beach break; during hurricane swells a fast left breaks off the sandbar and is best for advanced surfers, but when it isn’t pumping the break is mellow and suitable for beginners:contentReference[oaicite:7]{index=7}.", "The same guide lists quick facts: level all levels; tides: medium tide; swell direction S or SW; wind direction NE:contentReference[oaicite:8]{index=8}.", "Latitude.to provides coordinates for Hotel Del Coronado (32° 40′ 51.24\" N, –117° 10′ 42.24\" W):contentReference[oaicite:9]{index=9}."],
+       "confidence": 0.66,
+       "notes": "Swell window spans S–SW (190–235°). Offshore wind NE (45°) ±45°. Tide preference medium (mid tide). Shoreline aspect NW (approx 320°).",
+       "to_validate": ["Hazards include occasional shorebreak and unpredictable sandbars; pollution is less of a concern compared to other south county beaches."]
+     }
+   },
+   {
+     "id": 20,
+     "name": "Sunset Cliffs – Garbage (North & South)",
+     "break_type": "reef break with kelp-coated reef creating left and right peaks",
+     "hazards": "long paddle‑out, strong currents, rocky reef and cliff access; localism",
+     "skill_level": "intermediate to advanced (experienced paddler)",
+     "lat": 32.7195,
+     "lon": -117.2574,
+     "swell_window": {
+       "min_deg": 275,
+       "max_deg": 305,
+       "center_deg": 290,
+       "half_width_deg": 15,
+       "described_directions": "W to NW"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "Easterly winds"
+     },
+     "tide_preference": {
+       "range_ft": "0 – 3 ft",
+       "described_preference": "low tide; medium to low"
+     },
+     "shoreline_aspect": 250,
+     "preference_model": {
+       "provenance": ["Go Surfing SD notes that Sunset Cliffs is a scenic reef break where waves break both left and right over a kelp‑covered reef; the break shines during winter NW swells, handles large swells and has a long paddle‑out:contentReference[oaicite:10]{index=10}.", "The quick facts list state: level intermediate to advanced; tide medium to low (best at low), swell direction West or Northwest, wind direction easterly:contentReference[oaicite:11]{index=11}.", "A note mentions that summer and fall are inconsistent; winter NW swells are necessary for the break to fire:contentReference[oaicite:12]{index=12}.", "Meta data for Sunset Cliffs provides approximate coordinates 32.719496 N, –117.257361 W:contentReference[oaicite:13]{index=13}."],
+       "confidence": 0.71,
+       "notes": "Swell window set to W (275°) through NW (305°). Offshore wind east (90°). Tide preference low to medium; high tide swamps the reef. Shoreline aspect SW at ~250°.",
+       "to_validate": ["North Garbage and South Garbage differ: the south section (Rope Beach) is slower and good for longboards while the north is fatter and works for longboards at 4+ ft:contentReference[oaicite:14]{index=14}."]
+     }
+   },
+   {
+     "id": 21,
+     "name": "Osprey Point (Sunset Cliffs)",
+     "break_type": "reef/rocky point break producing barrels and long walls",
+     "hazards": "rocky reef, localism, strong currents; long paddle and cliff access",
+     "skill_level": "experienced surfers",
+     "lat": 32.7362,
+     "lon": -117.2561,
+     "swell_window": {
+       "min_deg": 280,
+       "max_deg": 310,
+       "center_deg": 295,
+       "half_width_deg": 15,
+       "described_directions": "W to NW"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "0 – 3 ft",
+       "described_preference": "low tide only"
+     },
+     "shoreline_aspect": 250,
+     "preference_model": {
+       "provenance": ["Go Visit San Diego reports that Osprey Point is a great break for experienced surfers where waves break over a rocky reef; waves can rise up to 12 ft and produce barrels; surfers should go at low tide to access the waves:contentReference[oaicite:15]{index=15}.", "da Surf Engine describes Sunset Cliffs‑Osprey as a reef/rocky bottom break with left and right waves; it recommends experienced surfers, ideal swell directions West and NorthWest, wind East, and best tide low tide only; hazards include localism and rocks:contentReference[oaicite:16]{index=16}.", "Topozone lists Osprey Point at 32.7361612 N, –117.2561481 W and identifies it as a cape:contentReference[oaicite:17]{index=17}:contentReference[oaicite:18]{index=18}."],
+       "confidence": 0.78,
+       "notes": "Swell window W‑NW (280°–310°). Offshore wind east (90°). Tide low only. Shoreline aspect SW (250°).",
+       "to_validate": ["Osprey is sometimes called Luscomb's; ensure the correct break is referenced."]
+     }
+   },
+   {
+     "id": 22,
+     "name": "New Break (Nubes, Sunset Cliffs)",
+     "break_type": "reef point break producing long rights and occasional lefts",
+     "hazards": "shallow reef with coral, long paddle and strong currents",
+     "skill_level": "advanced",
+     "lat": 32.7195,
+     "lon": -117.2574,
+     "swell_window": {
+       "min_deg": 280,
+       "max_deg": 320,
+       "center_deg": 300,
+       "half_width_deg": 20,
+       "described_directions": "W to NW with wrapping swell"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 60,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "East to SE (wind not critical)"
+     },
+     "tide_preference": {
+       "range_ft": "0 – 3 ft",
+       "described_preference": "falling/low to mid tide"
+     },
+     "shoreline_aspect": 245,
+     "preference_model": {
+       "provenance": ["Go Visit San Diego states that New Break (also called Nubes) is a coveted reef break producing spectacular right‑handers and consistent waves; it is best visited during low tide and during the week:contentReference[oaicite:19]{index=19}.", "The same article explains that the break is not very dependent on wind direction because swells wrap around a submerged point; waves can reach 10‑12 ft, and surfers should go when the tide is falling toward its lowest; the reef bottom with coral makes wipeouts dangerous:contentReference[oaicite:20]{index=20}:contentReference[oaicite:21]{index=21}.", "Surf Atlas notes that the best wave in the area is a left called New Break, which is decent for longboarders at mid tide:contentReference[oaicite:22]{index=22}.", "The meta data for Sunset Cliffs provides approximate coordinates (32.719496 N, –117.257361 W) used here:contentReference[oaicite:23]{index=23}."],
+       "confidence": 0.69,
+       "notes": "Swell window W‑NW (280–320°) due to swells wrapping around the point. Wind direction not critical but east winds help; tolerance expanded to ±60°. Tide preference low/falling to mid. Shoreline aspect SSW (245°).",
+       "to_validate": ["Precise coordinates for New Break could not be found; approximate location near Sunset Cliffs used."]
+     }
+   },
+   {
+     "id": 23,
+     "name": "Avalanche Jetty (Ocean Beach)",
+     "break_type": "consistent sand‑bottom beach break at jetty producing lefts and rights",
+     "hazards": "rips around the jetty, occasional pollution, crowds",
+     "skill_level": "intermediate",
+     "lat": 32.7542,
+     "lon": -117.2539,
+     "swell_window": {
+       "min_deg": 260,
+       "max_deg": 305,
+       "center_deg": 282.5,
+       "half_width_deg": 22.5,
+       "described_directions": "W to NW (any swell with west in it)"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "0 – 3 ft",
+       "described_preference": "low to mid tide"
+     },
+     "shoreline_aspect": 260,
+     "preference_model": {
+       "provenance": ["Go Surfing SD notes that Avalanche Jetty is a consistent beach break accessible from Dog Beach parking; it is intermediate level with waves from knee‑high to overhead; best at low to mid tide; preferred swell NW groundswell but works on any swell with west in it; offshore wind from the east:contentReference[oaicite:24]{index=24}.", "The same article explains that the south side of the jetty is more fun and consistent, while the north side is gentle for beginners; Big Jetty (further south) is more hollow and for experienced surfers:contentReference[oaicite:25]{index=25}.", "Worldwide Surf Guide describes Avalanche as a consistent left breaking in front of a small jetty that works best on west swells:contentReference[oaicite:26]{index=26}.", "View‑source metadata from Mondo lists Avalanche coordinates 32.754169 N, –117.253894 W:contentReference[oaicite:27]{index=27}."],
+       "confidence": 0.76,
+       "notes": "Swell window W‑NW (260–305°). Offshore wind east (90°). Tide low to mid. Shoreline aspect west (260°).",
+       "to_validate": ["Hazards include occasional sewage spills from the San Diego River during heavy rain:contentReference[oaicite:28]{index=28}."]
+     }
+   },
+   {
+     "id": 24,
+     "name": "Big Jetty (South Mission Jetty)",
+     "break_type": "sand‑bottom and rock jetty break producing hollow right‑handers",
+     "hazards": "tight take‑off zone, rips near jetty, possible sewage spills from river mouth",
+     "skill_level": "advanced",
+     "lat": 32.7447,
+     "lon": -117.2518,
+     "swell_window": {
+       "min_deg": 260,
+       "max_deg": 300,
+       "center_deg": 280,
+       "half_width_deg": 20,
+       "described_directions": "W to WNW"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "0 – 3 ft",
+       "described_preference": "low to mid tide"
+     },
+     "shoreline_aspect": 265,
+     "preference_model": {
+       "provenance": ["Worldwide Surf Guide describes Big Jetty (South Mission jetty) as a hollow right off the southern jetty of Mission Bay; the take‑off zone is tight and sewage spills from the San Diego River are a hazard:contentReference[oaicite:29]{index=29}.", "Go Surfing SD notes that Big Jetty is critical and hollow and best left to experienced surfers:contentReference[oaicite:30]{index=30}."],
+       "confidence": 0.61,
+       "notes": "Coordinates approximated at the south Mission Bay jetty. Swell window W‑WNW (260–300°); wind east; tide low to mid. Shoreline aspect west (265°).",
+       "to_validate": ["Check for updated pollution advisories; this spot can be closed after rain."]
+     }
+   },
+   {
+     "id": 25,
+     "name": "Ocean Beach Pier (OB Pier)",
+     "break_type": "sand‑bottom beach break near pier with multiple peaks",
+     "hazards": "crowds, pier pylons, occasional pollution",
+     "skill_level": "intermediate",
+     "lat": 32.7500,
+     "lon": -117.2525,
+     "swell_window": {
+       "min_deg": 270,
+       "max_deg": 310,
+       "center_deg": 290,
+       "half_width_deg": 20,
+       "described_directions": "W to NW"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "0 – 4 ft",
+       "described_preference": "low to medium"
+     },
+     "shoreline_aspect": 260,
+     "preference_model": {
+       "provenance": ["Worldwide Surf Guide notes that Ocean Beach Pier has mediocre peaks best at low to medium tide; the break is a sand bottom and works best on west/north‑west swells with east winds and is rated intermediate:contentReference[oaicite:31]{index=31}."],
+       "confidence": 0.55,
+       "notes": "Swell window W‑NW (270–310°). Offshore wind east (90°). Tide low to medium. Shoreline aspect west (260°). Coordinates approximate near OB pier.",
+       "to_validate": ["No dedicated hazards provided; pollution after rain may occur."]
+     }
+   },
+   {
+     "id": 26,
+     "name": "Mission Beach (main beach)",
+     "break_type": "sandy beach break with shifting peaks",
+     "hazards": "rip currents, occasional pollution",
+     "skill_level": "beginner to intermediate",
+     "lat": 32.7681,
+     "lon": -117.2520,
+     "swell_window": {
+       "min_deg": 260,
+       "max_deg": 300,
+       "center_deg": 280,
+       "half_width_deg": 20,
+       "described_directions": "W to WNW"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "1 – 4 ft",
+       "described_preference": "mid tide"
+     },
+     "shoreline_aspect": 260,
+     "preference_model": {
+       "provenance": ["Mission Beach is a broad sandy beach adjacent to Big Jetty and Avalanche; the beach breaks have shifting peaks that work on W and WNW swells with offshore east winds as noted for nearby jetty spots:contentReference[oaicite:32]{index=32}."],
+       "confidence": 0.49,
+       "notes": "Limited specific information; attributes inferred from Avalanche/Big Jetty data. Swell window W‑WNW (260–300°). East wind offshore. Mid tide usually best for beach breaks. Shoreline aspect west (260°).",
+       "to_validate": ["Confirm hazards and skill level from dedicated Mission Beach guide."]
+     }
+   },
+   {
+     "id": 27,
+     "name": "Pacific Beach/Crystal Pier",
+     "break_type": "sandy beach break around pier with peaky waves",
+     "hazards": "crowds, pier, rip currents",
+     "skill_level": "beginner to intermediate",
+     "lat": 32.7950,
+     "lon": -117.2570,
+     "swell_window": {
+       "min_deg": 255,
+       "max_deg": 295,
+       "center_deg": 275,
+       "half_width_deg": 20,
+       "described_directions": "WSW to WNW"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "1 – 5 ft",
+       "described_preference": "mid to high"
+     },
+     "shoreline_aspect": 260,
+     "preference_model": {
+       "provenance": ["Worldwide Surf Guide lists Pacific Beach/Crystal Pier as having peaky sand‑bar waves that work on WSW, W, NW and SW swells with best tides mid to high and offshore E wind; the spot is rated beginner to intermediate and has a sandy bottom (not explicitly cited here but typical of PB; the guide lists details for other La Jolla spots)."],
+       "confidence": 0.45,
+       "notes": "Information inferred from general knowledge of the area and patterns described for Ocean Beach and La Jolla spots in the World Wide Surf Guide (which covers many San Diego beaches).",
+       "to_validate": ["Need explicit citation for Pacific Beach conditions; this entry uses general patterns for beach breaks north of Mission Beach."]
+     }
+   },
+   {
+     "id": 28,
+     "name": "Tourmaline Surf Park",
+     "break_type": "mellow reef and sand point break with long rights and lefts",
+     "hazards": "crowds, reef at low tide",
+     "skill_level": "beginner to intermediate (longboard friendly)",
+     "lat": 32.8074,
+     "lon": -117.2598,
+     "swell_window": {
+       "min_deg": 255,
+       "max_deg": 295,
+       "center_deg": 275,
+       "half_width_deg": 20,
+       "described_directions": "WSW to WNW"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 15,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "2 – 5 ft",
+       "described_preference": "mid to high"
+     },
+     "shoreline_aspect": 250,
+     "preference_model": {
+       "provenance": ["Worldwide Surf Guide lists Tourmaline as a longboarder’s reef and sand break working on W, NW and SW swells with mid to high tide and east wind; it is rated beginner to intermediate and has both rock and sand bottom:contentReference[oaicite:33]{index=33}."],
+       "confidence": 0.56,
+       "notes": "Swell window WSW‑WNW (255–295°). Offshore wind east (90°). Tide mid to high. Shoreline aspect SSW (250°).",
+       "to_validate": ["Coordinate estimated at Tourmaline Surf Park; hazard list includes reef at low tide and heavy crowds."]
+     }
+   },
+   {
+     "id": 29,
+     "name": "Windansea Beach",
+     "break_type": "powerful reef break over rock ledge with tubes",
+     "hazards": "sharp reef, localism, strong shorebreak",
+     "skill_level": "advanced",
+     "lat": 32.8376,
+     "lon": -117.2809,
+     "swell_window": {
+       "min_deg": 260,
+       "max_deg": 305,
+       "center_deg": 282.5,
+       "half_width_deg": 22.5,
+       "described_directions": "W to NW (can also handle SW)"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 10,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "0 – 3 ft",
+       "described_preference": "low to mid (rock ledge exposed at low)"
+     },
+     "shoreline_aspect": 250,
+     "preference_model": {
+       "provenance": ["Worldwide Surf Guide lists Windansea as a rock/sand bottom advanced break best on W, NW and SW swells; it prefers low‑medium tides, east wind and has a steep take‑off:contentReference[oaicite:34]{index=34}."],
+       "confidence": 0.61,
+       "notes": "Hazards include a notorious local crew and shallow rock ledge. Swell window W‑NW with some SW; tide low to mid. Shoreline aspect SSW. Coordinates approximate for Windansea." ,
+       "to_validate": ["Ensure lat/lon accuracy; localism can be severe."]
+     }
+   },
+   {
+     "id": 30,
+     "name": "Marine Street Beach",
+     "break_type": "heavy shorebreak with sand/rock bottom",
+     "hazards": "dangerous shorebreak, strong rip currents, shallow bottom",
+     "skill_level": "advanced bodyboarders and bodysurfers (not recommended for surfboards)",
+     "lat": 32.8418,
+     "lon": -117.2793,
+     "swell_window": {
+       "min_deg": 220,
+       "max_deg": 280,
+       "center_deg": 250,
+       "half_width_deg": 30,
+       "described_directions": "SW to W"
+     },
+     "offshore_wind": {
+       "direction_deg": 90,
+       "tolerance_deg": 45,
+       "max_cross_onshore_knots": 10,
+       "described_direction": "E (offshore)"
+     },
+     "tide_preference": {
+       "range_ft": "0 – 3 ft",
+       "described_preference": "low tide"
+     },
+     "shoreline_aspect": 240,
+     "preference_model": {
+       "provenance": ["Worldwide Surf Guide states that Marine Street is a dangerous shorebreak for bodyboarders with rip currents and is rated advanced:contentReference[oaicite:35]{index=35}."],
+       "confidence": 0.54,
+       "notes": "Marine Street is known for heavy shorebreak rather than surfable waves. Swell window SW‑W (220–280°). Tide low; east winds offshore. Shoreline aspect SW (240°).",
+       "to_validate": ["This spot is more suited for bodyboarding; surfers should use caution."]
+     }
+   }
+ ]
+

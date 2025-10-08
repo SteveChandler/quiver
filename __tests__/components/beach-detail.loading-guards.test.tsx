@@ -4,6 +4,26 @@ jest.mock("@/hooks/use-data-fetcher", () => ({
 jest.mock("@/hooks/use-forecast-calibration", () => ({
   useForecastCalibration: () => ({ sessionSnapshots: [] }),
 }));
+jest.mock("@/hooks/use-intel-data", () => ({
+  useIntelData: () => ({
+    data: { posts: [] },
+    posts: [],
+    loading: false,
+    error: null,
+    hasData: false,
+    refetch: jest.fn(),
+    updateFilters: jest.fn(),
+  }),
+  useNearbyIntelData: () => ({
+    data: { posts: [] },
+    posts: [],
+    loading: false,
+    error: null,
+    hasData: false,
+    refetch: jest.fn(),
+    updateFilters: jest.fn(),
+  }),
+}));
 jest.mock("@/components/favorite-button", () => ({
   FavoriteButton: () => <button data-testid="favorite-mock" />,
 }));
@@ -94,7 +114,7 @@ describe("BeachDetail loading and error guards", () => {
   it("renders when beach exists even if forecasts empty", () => {
     const spy = mockDataFetcherSequence([
       {
-        data: { id: "beach-1", name: "Test", latitude: 0, longitude: 0 },
+        data: { id: "beach-1", name: "Test Beach", latitude: 0, longitude: 0 },
         loading: false,
         error: null,
       },
@@ -103,8 +123,10 @@ describe("BeachDetail loading and error guards", () => {
 
     render(<BeachDetail id="beach-1" />);
 
-    // Assert the main accordion renders to confirm content is present
-    expect(screen.getByTestId("beach-accordion")).toBeInTheDocument();
+    // Assert the beach name is rendered to confirm content is present
+    expect(
+      screen.getByRole("heading", { name: "Test Beach" })
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Beach data not found/i)).not.toBeInTheDocument();
     expect(spy).toHaveBeenCalled();
   });

@@ -412,7 +412,7 @@ export async function getNearbyIntelPosts(
           `id, user_id, beach_id, latitude, longitude, tag, title, description, photo_url, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
         )
         .eq("is_active", true)
-        .gt("expires_at", new Date().toISOString())
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
         .order("created_at", { ascending: false })
         .limit(Math.max(limit, 50));
 
@@ -796,7 +796,7 @@ export async function getPublicIntelPosts(
           `id, user_id, beach_id, latitude, longitude, tag, title, description, photo_url, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
         )
         .eq("is_active", true)
-        .gt("expires_at", new Date().toISOString())
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
         .order("created_at", { ascending: false })
         .limit(Math.max(limit, 50));
 
@@ -931,7 +931,7 @@ export async function getAllIntelPosts(
       `
       )
       .eq("is_active", true)
-      .gt("expires_at", new Date().toISOString())
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order("created_at", { ascending: false })
       .limit(limit);
 

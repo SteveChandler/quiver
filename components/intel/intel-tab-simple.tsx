@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IntelPostForm } from "./intel-post-form";
@@ -27,6 +27,7 @@ import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 import { IntelFeedCard } from "./intel-feed";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { createClient } from "@/lib/supabase/client";
 
 interface IntelTabSimpleProps {
   className?: string;
@@ -47,6 +48,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
 
   const { user } = useAuth();
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
 
   const canPost = !!user;
   const canConfirm = !!user;
@@ -84,6 +86,69 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
+
+  // Real-time subscription for intel posts updates
+  useEffect(() => {
+    console.log("[IntelTab] Setting up realtime subscriptions...");
+
+    const channels = [
+      // Listen for changes to intel_posts table
+      supabase
+        .channel("intel_posts_updates")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "intel_posts",
+          },
+          (payload) => {
+            console.log(
+              "[IntelTab] Received intel_posts change:",
+              payload.eventType
+            );
+            // Refetch posts when any intel post is created, updated, or deleted
+            fetchPosts();
+          }
+        )
+        .subscribe((status) => {
+          console.log("[IntelTab] intel_posts subscription status:", status);
+        }),
+
+      // Listen for changes to intel_post_confirmations table
+      supabase
+        .channel("intel_post_confirmations_updates")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "intel_post_confirmations",
+          },
+          (payload) => {
+            console.log(
+              "[IntelTab] Received intel_post_confirmations change:",
+              payload.eventType
+            );
+            // Refetch posts when confirmations change
+            fetchPosts();
+          }
+        )
+        .subscribe((status) => {
+          console.log(
+            "[IntelTab] intel_post_confirmations subscription status:",
+            status
+          );
+        }),
+    ];
+
+    return () => {
+      console.log("[IntelTab] Cleaning up realtime subscriptions...");
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+    };
+  }, [supabase, fetchPosts]);
 
   // Handle post creation success
   const handlePostSuccess = useCallback(

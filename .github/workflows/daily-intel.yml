@@ -1,0 +1,95 @@
+name: Generate Beach Intel (3x Daily)
+
+on:
+    schedule:
+        # 6:00 AM PT (13:00 UTC PDT / 14:00 UTC PST)
+        - cron: "0 13 * * *" # PDT
+        - cron: "0 14 * * *" # PST
+
+        # 10:00 AM PT (17:00 UTC PDT / 18:00 UTC PST)
+        - cron: "0 17 * * *" # PDT
+        - cron: "0 18 * * *" # PST
+
+        # 2:00 PM PT (21:00 UTC PDT / 22:00 UTC PST)
+        - cron: "0 21 * * *" # PDT
+        - cron: "0 22 * * *" # PST
+
+    workflow_dispatch: # Allows manual triggering from GitHub Actions UI
+
+env:
+    NODE_VERSION: "18"
+
+jobs:
+    generate-intel:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "npm"
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Set environment variables
+              run: |
+                  echo "TZ=America/Los_Angeles" >> $GITHUB_ENV
+                  echo "Current PT time: $(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z')"
+
+            - name: Generate Beach Intel
+              id: generate
+              run: |
+                  echo "🌊 Generating beach intel for top 10 beaches..."
+                  echo "📅 $(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z')"
+
+                  if npm run generate-daily-intel 2>&1 | tee intel_output.log; then
+                    echo "✅ Intel generation completed"
+                    echo "success=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "❌ Intel generation failed"
+                    echo "success=false" >> $GITHUB_OUTPUT
+                    exit 1
+                  fi
+              env:
+                  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+                  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+            - name: Upload logs
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: intel-generation-log-${{ github.run_number }}
+                  path: intel_output.log
+                  retention-days: 7
+
+            - name: Create summary report
+              if: always()
+              run: |
+                  echo "## 🌊 Beach Intel Generation Report" >> $GITHUB_STEP_SUMMARY
+                  echo "**Date:** $(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z')" >> $GITHUB_STEP_SUMMARY
+                  echo "**Status:** ${{ steps.generate.outputs.success == 'true' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+
+                  if [ -f intel_output.log ]; then
+                    echo "### Output Log" >> $GITHUB_STEP_SUMMARY
+                    echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                    cat intel_output.log >> $GITHUB_STEP_SUMMARY
+                    echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  fi
+
+            - name: Notify on failure
+              if: failure()
+              run: |
+                  echo "🚨 Beach Intel Generation Failed"
+                  echo "Check the logs for detailed error information"
+
+                  if [ -f intel_output.log ]; then
+                    echo "Last 10 lines of output:"
+                    tail -10 intel_output.log
+                  fi

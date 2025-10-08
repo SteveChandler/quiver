@@ -19,7 +19,7 @@ WITH beach_users AS (
 )
 INSERT INTO public.intel_posts (
     user_id, beach_id, latitude, longitude, tag, title, description, 
-    surf_conditions, confirmations_count, created_at
+    surf_conditions, confirmations_count, created_at, expires_at
 )
 SELECT 
     (bu.user_ids)[FLOOR(RANDOM() * array_length(bu.user_ids, 1)) + 1] as user_id,
@@ -31,7 +31,8 @@ SELECT
     tag_data.description,
     tag_data.surf_conditions,
     FLOOR(RANDOM() * 15 + 1)::INTEGER, -- 1-15 confirmations
-    NOW() - INTERVAL '1 day' * FLOOR(RANDOM() * 30) -- Last 30 days
+    NOW() - INTERVAL '1 day' * FLOOR(RANDOM() * 30), -- Last 30 days
+    NOW() - INTERVAL '1 day' * FLOOR(RANDOM() * 30) + INTERVAL '7 days' -- Expires 7 days after creation
 FROM beach_users bu
 CROSS JOIN (
     VALUES 

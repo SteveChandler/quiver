@@ -41,7 +41,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: "https",
     // Your current tunnel URL - update when it changes
-    url: process.env.CAPACITOR_DEV_URL || 'https://scanners-closes-firm-partition.trycloudflare.com',
+    url: process.env.CAPACITOR_DEV_URL || 'https://corp-sequences-passive-judicial.trycloudflare.com',
     cleartext: false,
     allowNavigation: ['*']
   },
