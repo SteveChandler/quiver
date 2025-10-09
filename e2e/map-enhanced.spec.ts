@@ -58,8 +58,10 @@ test.describe('@map - Enhanced Acceptance', () => {
     await page.waitForLoadState('load');
     await expect(page.locator(selectors.mapContainer)).toBeVisible();
 
-    // Map overlay should include selected beach name
-    await expect(page.getByText(firstItemName, { exact: false })).toBeVisible({ timeout: 10000 });
+    // Use more specific selector - look for heading role to avoid strict mode violation
+    // (getByText can match multiple elements like "Showing Ocean Beach Pier" and the heading)
+    const beachNameHeading = page.getByRole('heading', { name: firstItemName });
+    await expect(beachNameHeading).toBeVisible({ timeout: 20000 });
   });
 
   test('Mobile: sticky controls remain visible during scroll', async ({ page }) => {

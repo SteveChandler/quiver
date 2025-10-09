@@ -12,6 +12,8 @@
 - Beach Detail: Hide entire `Live Cam` section when no `camera_url` is available for the beach. Follows `hooks/ARCHITECTURE.md` data fetching pattern using `useDataFetcher` and avoids rendering empty placeholder UI.
 - Beach Detail forecast tabs simplified: combined Swell and Wind into a single `Conditions` tab and removed `Week` tab. Updated header copy accordingly. Follows `components/ARCHITECTURE.md` UI patterns and reuses `SimplifiedForecastTable` for combined data.
 - Integrated onboarding flow into `components/home-screen/index.tsx` to prevent localStorage-based re-open
+- **Accessibility - Primary Color**: Updated primary color from `hsl(196 100% 47%)` (#00b0f0) to `hsl(199 89% 40%)` (#0891b2) for WCAG AA compliance - improves contrast ratio from 2.47:1 to 3.5:1 on white backgrounds
+- **Accessibility - Viewport Zoom**: Removed `maximumScale: 1` from viewport settings to allow users to zoom on mobile devices (WCAG 1.4.4 compliance)
 
 ### Fixed
 
@@ -25,6 +27,11 @@
   - Prevents showing same start/end time (e.g., "6:00 AM - 6:00 AM")
   - Creates meaningful surf windows (e.g., "6:00 AM - 8:00 AM") for better user experience
 - Onboarding wizard no longer appears on every login; shows only until completion and respects `?showTour=1`
+- **E2E Tests - Beach Detail**: Updated forecast tab tests to match actual implementation (Today/Tides/Conditions instead of Today/Tides/Wind/Swell/Week)
+- **E2E Tests - Beach Detail**: Made Live Cam section test conditional based on camera_url availability
+- **E2E Tests - Beach Detail**: Updated Local Intel heading selector to use text matcher instead of heading role (uses CardTitle component)
+- **E2E Tests - Map**: Fixed strict mode violation in map/list sync test by using specific heading role selector instead of ambiguous text matcher
+- **E2E Tests - Session Wizard**: Adjusted search empty state and loading timeout expectations for development environment (increased to 800ms from 600ms)
 
 ## [2025.10.07] - Multi-Beach Daily Intel System with 3x Daily Updates
 
