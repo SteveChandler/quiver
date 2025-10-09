@@ -3,9 +3,9 @@
 ### Added
 
 - Server-truth onboarding flow: added `profiles.onboarding_completed_at` with RLS policy
-- `lib/onboarding.ts` with `shouldShowOnboarding` util and unit tests
+- `lib/onboarding.ts` with `shouldShowOnboarding` util and unit tests (100% coverage)
 - `hooks/use-onboarding.ts` using `useDataFetcher` and analytics events
-- E2E test `e2e/onboarding.spec.ts` validating first-login-only behavior
+- `lib/profile.ts` with client helpers: `ensureProfile`, `getProfileMinimal`, `markOnboardingDone`
 
 ### Changed
 

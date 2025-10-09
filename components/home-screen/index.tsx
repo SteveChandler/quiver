@@ -14,7 +14,6 @@ import { BeachSearchBar } from "./beach-search-bar";
 import { useGeo } from "@/hooks/useGeo";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { useOnboarding } from "@/hooks/use-onboarding";
-import { FloatingInteractionHint } from "@/components/engagement/micro-interactions";
 import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 
 // Import tab components directly to debug lazy loading issue
@@ -88,17 +87,7 @@ export function HomeScreen() {
     return () => controller.abort();
   }, [coords]);
 
-  useEffect(() => {
-    if (!hasCompletedOnboarding) return;
-    if (!canPrompt) return;
-    if (pushStatus !== "idle") return;
-
-    const timer = window.setTimeout(() => {
-      void requestPushOptIn();
-    }, 1500);
-
-    return () => window.clearTimeout(timer);
-  }, [hasCompletedOnboarding, canPrompt, pushStatus, requestPushOptIn]);
+  // Push opt-in is requested in handleOnboardingComplete; no additional effect needed
 
   return (
     <div className="flex flex-col min-h-screen">
