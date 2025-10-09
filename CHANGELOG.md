@@ -1,8 +1,17 @@
 ## [Unreleased]
 
+### Added
+
+- Server-truth onboarding flow: added `profiles.onboarding_completed_at` with RLS policy
+- `lib/onboarding.ts` with `shouldShowOnboarding` util and unit tests
+- `hooks/use-onboarding.ts` using `useDataFetcher` and analytics events
+- E2E test `e2e/onboarding.spec.ts` validating first-login-only behavior
+
 ### Changed
 
+- Beach Detail: Hide entire `Live Cam` section when no `camera_url` is available for the beach. Follows `hooks/ARCHITECTURE.md` data fetching pattern using `useDataFetcher` and avoids rendering empty placeholder UI.
 - Beach Detail forecast tabs simplified: combined Swell and Wind into a single `Conditions` tab and removed `Week` tab. Updated header copy accordingly. Follows `components/ARCHITECTURE.md` UI patterns and reuses `SimplifiedForecastTable` for combined data.
+- Integrated onboarding flow into `components/home-screen/index.tsx` to prevent localStorage-based re-open
 
 ### Fixed
 
@@ -15,6 +24,7 @@
   - When only one forecast period meets optimal conditions, now extends window by 2 hours
   - Prevents showing same start/end time (e.g., "6:00 AM - 6:00 AM")
   - Creates meaningful surf windows (e.g., "6:00 AM - 8:00 AM") for better user experience
+- Onboarding wizard no longer appears on every login; shows only until completion and respects `?showTour=1`
 
 ## [2025.10.07] - Multi-Beach Daily Intel System with 3x Daily Updates
 
