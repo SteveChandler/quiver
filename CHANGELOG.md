@@ -26,6 +26,11 @@
   - When only one forecast period meets optimal conditions, now extends window by 2 hours
   - Prevents showing same start/end time (e.g., "6:00 AM - 6:00 AM")
   - Creates meaningful surf windows (e.g., "6:00 AM - 8:00 AM") for better user experience
+- **Best Surf Window Blank Display**: Fixed " - " showing when optimal time window can't be determined
+  - Component now displays fallback message (e.g., "Variable conditions" or "N/A") instead of blank times
+  - Added conditional rendering to check for valid time values before formatting
+  - Intel generation service now stores original message in `best_window_description` when times can't be parsed
+  - Added debug logging to track data structure for troubleshooting
 - Onboarding wizard no longer appears on every login; shows only until completion and respects `?showTour=1`
 - **E2E Tests - Beach Detail**: Updated forecast tab tests to match actual implementation (Today/Tides/Conditions instead of Today/Tides/Wind/Swell/Week)
 - **E2E Tests - Beach Detail**: Made Live Cam section test conditional based on camera_url availability

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +40,18 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
   }, [beachId]);
 
   const { data: intel, loading, error } = useDataFetcher(fetchIntel);
+
+  // DEBUG: Log the actual data
+  useEffect(() => {
+    if (intel) {
+      console.log("Intel data:", {
+        best_window_start: intel.best_window_start,
+        best_window_end: intel.best_window_end,
+        best_window_description: intel.best_window_description,
+        raw_intel_data: intel.raw_intel_data,
+      });
+    }
+  }, [intel]);
 
   // Loading state
   if (loading) {
@@ -232,31 +244,49 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
               </span>
             )}
           </div>
-          <p
-            className={`text-2xl font-bold ${
-              windowStatus.status === "current"
-                ? "text-green-600"
-                : windowStatus.status === "passed"
-                ? "text-gray-600"
-                : "text-blue-600"
-            }`}
-          >
-            {formatTime(intel.best_window_start)} -{" "}
-            {formatTime(intel.best_window_end)}
-          </p>
-          {intel.best_window_description && (
+          {intel.best_window_start && intel.best_window_end ? (
             <p
-              className={`text-sm mt-1 ${
+              className={`text-2xl font-bold ${
                 windowStatus.status === "current"
-                  ? "text-green-700"
+                  ? "text-green-600"
                   : windowStatus.status === "passed"
                   ? "text-gray-600"
-                  : "text-blue-700"
+                  : "text-blue-600"
               }`}
             >
-              {intel.best_window_description}
+              {formatTime(intel.best_window_start)} -{" "}
+              {formatTime(intel.best_window_end)}
+            </p>
+          ) : (
+            <p
+              className={`text-lg font-medium ${
+                windowStatus.status === "current"
+                  ? "text-green-600"
+                  : windowStatus.status === "passed"
+                  ? "text-gray-600"
+                  : "text-blue-600"
+              }`}
+            >
+              {intel.best_window_description ||
+                intel.raw_intel_data?.bestWindow ||
+                "Variable conditions"}
             </p>
           )}
+          {intel.best_window_description &&
+            intel.best_window_start &&
+            intel.best_window_end && (
+              <p
+                className={`text-sm mt-1 ${
+                  windowStatus.status === "current"
+                    ? "text-green-700"
+                    : windowStatus.status === "passed"
+                    ? "text-gray-600"
+                    : "text-blue-700"
+                }`}
+              >
+                {intel.best_window_description}
+              </p>
+            )}
         </div>
 
         {/* Show current conditions if window has passed */}
