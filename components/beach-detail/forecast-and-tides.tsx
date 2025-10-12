@@ -58,6 +58,8 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
     [safeForecasts, todayStr]
   );
 
+  // No need to transform - TideChart accepts forecasts directly
+
   // Early return if no beach data
   if (!beach || !beach.id) {
     return (
@@ -136,11 +138,7 @@ export function ForecastAndTides({ beach, forecasts }: ForecastAndTidesProps) {
           </TabsContent>
 
           <TabsContent value="tides" className="mt-4">
-            <Card className="rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
-              <CardContent className="p-6">
-                <TideChart forecasts={safeForecasts} now={new Date()} compact />
-              </CardContent>
-            </Card>
+            <TideChart forecasts={safeForecasts} compact now={new Date()} />
           </TabsContent>
 
           <TabsContent value="conditions" className="mt-4">

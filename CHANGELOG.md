@@ -2,6 +2,34 @@
 
 ### Added
 
+- **Enhanced Tide Interpolation Utilities**: New utility functions for accurate tide height calculations
+  - `lib/utils/tide-interpolation.ts`: Linear interpolation between tide data points with support for Date, ISO strings, and Unix timestamps
+  - `lib/utils/tide-window.ts`: Dynamic time window calculation with configurable "now" marker positioning
+  - Comprehensive test coverage: 60+ tests ensuring accuracy across edge cases
+  - Supports mixed data formats and graceful degradation with sparse data
+
+### Removed
+
+- **TideCard48h Component**: Removed duplicate tide chart component in favor of enhanced `TideChart`
+  - Deleted `components/forecast/tide-card-48h.tsx` (568 lines)
+  - Deleted `__tests__/components/tide-card-48h.test.tsx`
+  - Updated `components/beach-detail/forecast-and-tides.tsx` to use `TideChart` instead
+  - Simplified codebase by consolidating on single, superior tide chart implementation
+  - Replaces legacy TideChart with more compact, mobile-optimized design
+  - Interpolates current tide height when exact timestamp is unavailable
+  - Always displays "Now" reference line with current tide height and trend indicator (rising/falling/stable)
+  - Smooth area chart with blue gradient fill (25% → 5% opacity) for better visibility
+  - Prominent time labels on X-axis (12px, darker color, bold weight)
+  - Mobile-first: defaults to 18h view with horizontal pan to full 48h range
+  - SSR-safe with Next.js App Router (no hydration warnings)
+  - Full accessibility: figcaption, aria-live regions, keyboard navigation
+  - Graceful empty states with helpful messages
+  - Performance: renders <16ms with 300 data points
+  - **Testing**: 93 comprehensive tests (30 interpolation + 36 windowing + 27 component)
+  - **Utilities**: `lib/utils/tide-interpolation.ts` (binary search, linear interpolation, trend detection)
+  - **Utilities**: `lib/utils/tide-window.ts` (data normalization, windowing, statistics)
+  - **Documentation**: Complete usage guide in `components/forecast/README.md`
+  - **Library Research**: Comprehensive comparison in `docs/TIDE_CHART_LIBRARY_COMPARISON.md` (Recharts recommended)
 - **Forecast Data Transparency**: New forecast freshness indicators showing when data was last updated
   - `ForecastFreshnessBadge` component with visual status indicators (green/yellow/gray)
   - Displays "Updated X minutes/hours ago" with refresh button
@@ -19,6 +47,24 @@
 
 ### Changed
 
+- **Tide Chart Optimized for User Experience**: Rewrote `tide-chart-recharts.tsx` with 18-hour focused window
+  - **Reduced Time Window**: Now shows 18 hours (9 hours past, 9 hours future) instead of 48 hours for better mobile UX
+  - **Centered "Now" Positioning**: "Now" marker centered in middle (configurable via `nowBias` prop) for balanced view
+  - **Interpolated Current Height**: Displays exact tide height at "now" using linear interpolation between data points
+  - **Flexible Window Configuration**: New props `windowHours` (default: 18), `nowBias` (default: 0.5 for centered), `bufferHours` (default: 1)
+  - **Smooth Edge Rendering**: Automatic 1-hour buffer on each edge prevents curve clipping
+  - **Dynamic Title**: Chart title automatically reflects window duration (e.g., "18-Hour Tide Forecast")
+  - **Backward Compatible**: Accepts `data`, `forecasts`, `hourly`, or `events` props with automatic normalization
+  - **Enhanced Label**: "Now" line shows "Now • 4.2 ft" with interpolated height value
+  - **Cleaner Area Chart**: Switched from LineChart to AreaChart with smooth gradient fill
+  - **Performance**: Optimized data filtering using utility functions, memoized window calculations
+- **Tide Chart Time Window**: Updated TideChart component to display a fixed 48-hour window starting from current time
+  - X-axis domain is now always `[now, now + 48 hours]` regardless of available data points
+  - Time ticks generated at 3-hour intervals starting from current time
+  - Added red "Now" reference line at the left edge of the chart
+  - Day labels dynamically show date boundaries within the 48-hour window
+  - Component title updated from "2-Day Tide Chart" to "48-Hour Tide Forecast" for clarity
+  - Improved user experience by showing relevant future tide data only
 - **Route Protection**: Beach detail and forecast pages now require authentication to view - unauthenticated users are redirected to sign-in with preserved redirect URL
 - **Forecast Data Consistency**: Standardized forecast data fetching across all pages
 

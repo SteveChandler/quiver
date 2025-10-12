@@ -3,17 +3,22 @@
 import * as React from "react";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ReferenceLine,
-  Area,
-  DotProps,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { interpolateTideHeight } from "@/lib/utils/tide-interpolation";
+import {
+  calculateTideWindow,
+  filterToWindow,
+  generateTicks,
+  formatWindowDuration,
+} from "@/lib/utils/tide-window";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
 // Public types for the chart API
@@ -59,6 +64,12 @@ export type TideChartProps = {
   showNowLine?: boolean;
   /** legacy flag retained for compatibility */
   isAnimationActive?: boolean;
+  /** visible window hours (default: 18) */
+  windowHours?: number;
+  /** position of "now" marker (0=left, 1=right, default: 0.5 for centered) */
+  nowBias?: number;
+  /** buffer hours on each edge (default: 1) */
+  bufferHours?: number;
 };
 
 // --- Helpers ---------------------------------------------------------------
@@ -134,12 +145,6 @@ const parseForecastDateTime = (
   }
 
   return undefined;
-};
-
-type LegacyTidePoint = {
-  time: Date;
-  height: number;
-  type: "high" | "low" | "HIGH" | "LOW";
 };
 
 const normalizeDirectData = (
@@ -293,16 +298,6 @@ const synthesizeFromExtrema = (extrema: InternalPoint[]): InternalPoint[] => {
   return sortAndUnique(result);
 };
 
-const limitToTwoDays = (points: InternalPoint[]): InternalPoint[] => {
-  if (!points.length) return points;
-  const now = Date.now();
-  const maxTs = now + 2 * 24 * 60 * 60 * 1000; // 48 hours from now
-  // Filter to show data from now to 48 hours in the future
-  return points.filter(
-    (point) => point.timestamp >= now && point.timestamp <= maxTs
-  );
-};
-
 const annotateWithExtrema = (
   data: InternalPoint[],
   extrema: InternalPoint[]
@@ -325,36 +320,6 @@ const annotateWithExtrema = (
     if (!emphasis) return point;
     return { ...point, ...emphasis };
   });
-};
-
-// Smooth curve dot that emphasizes highs/lows
-const EmphasisDot: React.FC<
-  DotProps & { isHigh?: boolean; isLow?: boolean }
-> = (props) => {
-  const { cx, cy, payload } = props as DotProps & { payload: any };
-  if (cx == null || cy == null) return null;
-  const isHigh = (payload?.isHigh as boolean) ?? false;
-  const isLow = (payload?.isLow as boolean) ?? false;
-  const r = isHigh || isLow ? 4.5 : 2.5;
-  return (
-    <g>
-      <circle
-        cx={cx}
-        cy={cy}
-        r={r + 3}
-        fill="rgba(59,130,246,0.25)"
-        opacity={isHigh || isLow ? 1 : 0}
-      />
-      <circle
-        cx={cx}
-        cy={cy}
-        r={r}
-        fill="#2563eb"
-        stroke="#1d4ed8"
-        strokeWidth={1}
-      />
-    </g>
-  );
 };
 
 // Gradient id must be stable per instance
@@ -408,6 +373,9 @@ export function TideChart({
   className,
   showNowLine = true,
   isAnimationActive,
+  windowHours = 18,
+  nowBias = 0.5,
+  bufferHours = 1,
 }: TideChartProps) {
   const gradId = useGradientId();
   const animationEnabled =
@@ -433,6 +401,18 @@ export function TideChart({
       return () => query.removeListener(handleChange);
     }
   }, []);
+
+  // Calculate window bounds using utility
+  const windowBounds = React.useMemo(
+    () =>
+      calculateTideWindow({
+        windowHours,
+        nowBias,
+        bufferHours,
+        now: now ?? new Date(),
+      }),
+    [windowHours, nowBias, bufferHours, now]
+  );
 
   const directData = React.useMemo(() => normalizeDirectData(data), [data]);
   const hourlyData = React.useMemo(() => normalizeHourly(hourly), [hourly]);
@@ -461,43 +441,62 @@ export function TideChart({
     return rawLine;
   }, [rawLine, eventData, forecastData]);
 
+  // Filter to window with buffer
   const chartData = React.useMemo(() => {
     const sorted = sortAndUnique(emphasizedLine);
-    return limitToTwoDays(sorted).map((point) => ({
+    const filtered = filterToWindow(
+      sorted.map((p) => ({ ...p, time: p.timestamp })),
+      windowBounds,
+      true // include buffer
+    );
+    return filtered.map((point) => ({
       t: new Date(point.timestamp),
       h: point.h,
       isHigh: point.isHigh,
       isLow: point.isLow,
     }));
-  }, [emphasizedLine]);
+  }, [emphasizedLine, windowBounds]);
+
+  // Interpolate tide height at "now"
+  const nowHeight = React.useMemo(() => {
+    if (!chartData.length) return null;
+    return interpolateTideHeight(
+      chartData.map((p) => ({ time: p.t, height: p.h })),
+      windowBounds.nowTs
+    );
+  }, [chartData, windowBounds.nowTs]);
+
+  const [minTs, maxTs] = React.useMemo(() => {
+    return [windowBounds.windowStart, windowBounds.windowEnd] as [
+      number,
+      number
+    ];
+  }, [windowBounds]);
 
   const days = React.useMemo(() => {
     const map = new Map<string, Date>();
-    chartData.forEach((p) => {
-      const d = toDate(p.t);
-      const key = d.toDateString();
-      if (!map.has(key))
-        map.set(key, new Date(d.getFullYear(), d.getMonth(), d.getDate()));
-    });
-    return Array.from(map.values());
-  }, [chartData]);
+    const startDate = new Date(minTs);
+    const endDate = new Date(maxTs);
+    let currentDate = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate()
+    );
 
-  // Compute domain and time ticks for bottom axis (every 3 hours)
-  const [minTs, maxTs] = React.useMemo(() => {
-    if (!chartData.length) return [0, 0] as [number, number];
-    const min = +toDate(chartData[0].t);
-    const max = +toDate(chartData[chartData.length - 1].t);
-    return [min, max] as [number, number];
-  }, [chartData]);
+    while (currentDate <= endDate) {
+      const key = currentDate.toDateString();
+      if (!map.has(key)) {
+        map.set(key, new Date(currentDate));
+      }
+      currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
+    }
+    return Array.from(map.values());
+  }, [minTs, maxTs]);
 
   const baseTimeTicks = React.useMemo(() => {
-    if (!chartData.length) return [] as number[];
-    const interval = 3 * 60 * 60 * 1000; // 3 hours
-    const start = Math.floor(minTs / interval) * interval;
-    const ticks: number[] = [];
-    for (let t = start; t <= maxTs; t += interval) ticks.push(t);
-    return ticks;
-  }, [chartData, minTs, maxTs]);
+    // For 18-hour window, show ticks every 3 hours
+    return generateTicks(windowBounds, 3);
+  }, [windowBounds]);
 
   const timeTicks = React.useMemo(() => {
     if (!baseTimeTicks.length) return baseTimeTicks;
@@ -525,6 +524,11 @@ export function TideChart({
     return [low, high];
   }, [yDomain, chartData]);
 
+  const windowDurationLabel = React.useMemo(
+    () => formatWindowDuration(windowBounds),
+    [windowBounds]
+  );
+
   if (!chartData.length) {
     return (
       <div
@@ -536,7 +540,7 @@ export function TideChart({
         {!compact && (
           <div className="mb-2 flex items-baseline justify-between">
             <h3 className="text-lg font-semibold tracking-tight">
-              2-Day Tide Chart
+              Tide Forecast
             </h3>
             <span className="text-xs text-slate-500">Heights in {unit}</span>
           </div>
@@ -558,7 +562,7 @@ export function TideChart({
       {!compact && (
         <div className="mb-2 flex items-baseline justify-between">
           <h3 className="text-lg font-semibold tracking-tight">
-            2-Day Tide Chart
+            {windowDurationLabel} Tide Forecast
           </h3>
           <span className="text-xs text-slate-500">Heights in {unit}</span>
         </div>
@@ -566,11 +570,11 @@ export function TideChart({
 
       <div
         role="img"
-        aria-label="2-day tide chart showing high and low tide heights over time"
+        aria-label={`${windowDurationLabel} tide forecast showing high and low tide heights over time`}
         className="h-64 w-full"
       >
         <ResponsiveContainer>
-          <LineChart
+          <AreaChart
             data={chartData}
             margin={{ top: 24, right: 12, bottom: 24, left: 12 }}
           >
@@ -633,28 +637,39 @@ export function TideChart({
               xAxisId="time"
               type="monotone"
               dataKey="h"
-              stroke="none"
-              fill={`url(#fill-${gradId})`}
-            />
-
-            <Line
-              xAxisId="time"
-              type="monotone"
-              dataKey="h"
               stroke="#2563eb"
               strokeWidth={2.5}
-              dot={<EmphasisDot />}
-              activeDot={{ r: 6 }}
+              fill={`url(#fill-${gradId})`}
               isAnimationActive={animationEnabled}
             />
 
             <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
 
+            {showNowLine && (
+              <ReferenceLine
+                xAxisId="time"
+                x={windowBounds.nowTs}
+                stroke="#ef4444"
+                strokeDasharray="3 3"
+                strokeWidth={1.5}
+                label={{
+                  value:
+                    nowHeight !== null
+                      ? `Now • ${nowHeight.toFixed(1)} ${unit}`
+                      : "Now",
+                  position: "top",
+                  fill: "#ef4444",
+                  fontSize: 11,
+                  fontWeight: 500,
+                }}
+              />
+            )}
+
             <Tooltip
               content={<TideTooltip unit={unit} />}
               cursor={{ stroke: "#cbd5e1", strokeDasharray: "2 2" }}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
 
@@ -664,10 +679,12 @@ export function TideChart({
             <span className="inline-block h-2 w-2 rounded-full bg-blue-600" />
             Tide height
           </div>
-          <div className="inline-flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-full bg-blue-600/30" />
-            High/Low emphasis
-          </div>
+          {showNowLine && (
+            <div className="inline-flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
+              Current time
+            </div>
+          )}
           <div className="inline-flex items-center gap-1">
             <span className="inline-block h-2 w-2 rounded-full bg-slate-400" />
             Sea level (0)
@@ -681,18 +698,21 @@ export function TideChart({
 // --- Example usage (remove in prod)
 export function Example() {
   const start = new Date();
-  start.setHours(0, 0, 0, 0);
+  start.setHours(start.getHours() - 6); // Start 6 hours ago
   const pts: TidePoint[] = [];
-  for (let i = 0; i < 5 * 6; i++) {
-    const d = new Date(start.getTime() + i * 4 * 60 * 60 * 1000);
+  for (let i = 0; i < 8; i++) {
+    // 8 points over ~21 hours
+    const d = new Date(start.getTime() + i * 2.5 * 60 * 60 * 1000);
     const wave =
       Math.sin((i / 3) * Math.PI) * 2.2 + 2.0 + (Math.random() - 0.5) * 0.2;
     pts.push({
       t: d.toISOString(),
       h: Number(wave.toFixed(2)),
-      isHigh: i % 6 === 2,
-      isLow: i % 6 === 5,
+      isHigh: i % 4 === 1,
+      isLow: i % 4 === 3,
     });
   }
-  return <TideChart data={pts} now={new Date()} />;
+  return (
+    <TideChart data={pts} now={new Date()} windowHours={18} nowBias={1 / 3} />
+  );
 }
