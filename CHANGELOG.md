@@ -19,6 +19,7 @@
 
 ### Changed
 
+- **Route Protection**: Beach detail and forecast pages now require authentication to view - unauthenticated users are redirected to sign-in with preserved redirect URL
 - **Forecast Data Consistency**: Standardized forecast data fetching across all pages
 
   - Home page now uses same API endpoint (`/api/forecasts/update-enhanced`) as beach detail page
