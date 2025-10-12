@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,18 +40,6 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
   }, [beachId]);
 
   const { data: intel, loading, error } = useDataFetcher(fetchIntel);
-
-  // DEBUG: Log the actual data
-  useEffect(() => {
-    if (intel) {
-      console.log("Intel data:", {
-        best_window_start: intel.best_window_start,
-        best_window_end: intel.best_window_end,
-        best_window_description: intel.best_window_description,
-        raw_intel_data: intel.raw_intel_data,
-      });
-    }
-  }, [intel]);
 
   // Loading state
   if (loading) {
