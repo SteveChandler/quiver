@@ -2,12 +2,30 @@
 
 ### Added
 
+- **Forecast Data Transparency**: New forecast freshness indicators showing when data was last updated
+  - `ForecastFreshnessBadge` component with visual status indicators (green/yellow/gray)
+  - Displays "Updated X minutes/hours ago" with refresh button
+  - Added to both home page forecast tab and beach detail page
+  - Compact version for space-constrained displays
+- **Data Source Attribution**: Enhanced wave height display with detailed data source information
+  - Shows whether using CDIP buoy (most accurate), NOAA model, or regional fallback data
+  - Visual indicators for data quality (excellent/good/standard/approximate)
+  - Confidence score display in tooltips
+  - Data priority hierarchy clearly explained to users
 - Server-truth onboarding flow: added `profiles.onboarding_completed_at` with RLS policy
 - `lib/onboarding.ts` with `shouldShowOnboarding` util and unit tests (100% coverage)
 - `hooks/use-onboarding.ts` using `useDataFetcher` and analytics events
 - `lib/profile.ts` with client helpers: `ensureProfile`, `getProfileMinimal`, `markOnboardingDone`
 
 ### Changed
+
+- **Forecast Data Consistency**: Standardized forecast data fetching across all pages
+
+  - Home page now uses same API endpoint (`/api/forecasts/update-enhanced`) as beach detail page
+  - Both pages use identical time-aware forecast selection logic via `getCurrentForecast` utility
+  - Eliminates inconsistencies where home and detail pages showed different wave heights
+  - Added comprehensive debug logging to track forecast selection and cache behavior
+  - Ensures 6-hour cache window is respected consistently across the app
 
 - Beach Detail: Hide entire `Live Cam` section when no `camera_url` is available for the beach. Follows `hooks/ARCHITECTURE.md` data fetching pattern using `useDataFetcher` and avoids rendering empty placeholder UI.
 - Beach Detail forecast tabs simplified: combined Swell and Wind into a single `Conditions` tab and removed `Week` tab. Updated header copy accordingly. Follows `components/ARCHITECTURE.md` UI patterns and reuses `SimplifiedForecastTable` for combined data.

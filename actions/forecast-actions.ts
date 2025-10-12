@@ -348,6 +348,9 @@ export async function updateAllBeachForecasts() {
 }
 
 // Get today's forecast for a beach (used by home page)
+// NOTE: This function is being deprecated in favor of direct API calls to /api/forecasts/update-enhanced
+// for better consistency across pages. New code should use the API endpoint directly.
+// Keeping this for backwards compatibility with any remaining consumers.
 export async function getForecastForToday(beachId: string) {
   try {
     console.log("🏠 getForecastForToday called with beachId:", beachId);
