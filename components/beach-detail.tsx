@@ -228,6 +228,18 @@ export function BeachDetail({ id }: BeachDetailProps) {
     initialData: [] as EnhancedForecastEntity[],
   });
 
+  // Determine if this beach has a live camera available
+  const fetchSources = useCallback(async () => {
+    const res = await fetch(`/api/beaches/${id}/sources`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => ({}));
+    return (body as any)?.data?.sources || (body as any)?.sources || null;
+  }, [id]);
+
+  const { data: sources } = useDataFetcher(fetchSources, { immediate: true });
+
   // Combined loading and error states
   const loading = beachLoading || forecastsLoading;
   const error = beachError || forecastsError;
@@ -386,6 +398,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
       : Waves;
 
   const hasForecasts = Array.isArray(forecasts) && forecasts.length > 0;
+  const hasCamera = Boolean((sources as any)?.camera_url);
 
   const heroWaveHeight = formatMetric(currentForecast?.wave_height);
   const heroPeriod = formatMetric(currentForecast?.wave_period);
@@ -622,17 +635,19 @@ export function BeachDetail({ id }: BeachDetailProps) {
             </section>
           ) : null}
 
-          <section id="live-cam" className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h2 className="text-xl font-roboto font-semibold text-dark-grey">
-                Live Cam
-              </h2>
-              <span className="text-sm text-muted-foreground">
-                Watch the lineup in real time
-              </span>
-            </div>
-            <CamsSection beachId={id} />
-          </section>
+          {hasCamera ? (
+            <section id="live-cam" className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                  Live Cam
+                </h2>
+                <span className="text-sm text-muted-foreground">
+                  Watch the lineup in real time
+                </span>
+              </div>
+              <CamsSection beachId={id} />
+            </section>
+          ) : null}
 
           {hasForecasts ? (
             <section

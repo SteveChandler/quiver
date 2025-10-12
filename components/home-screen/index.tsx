@@ -12,11 +12,8 @@ import { useCachedProfile } from "@/hooks/use-cached-profile";
 import type { Beach } from "@/types/database";
 import { BeachSearchBar } from "./beach-search-bar";
 import { useGeo } from "@/hooks/useGeo";
-import {
-  OnboardingFlow,
-  useOnboardingFlow,
-} from "@/components/onboarding/onboarding-flow";
-import { FloatingInteractionHint } from "@/components/engagement/micro-interactions";
+import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
+import { useOnboarding } from "@/hooks/use-onboarding";
 import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 
 // Import tab components directly to debug lazy loading issue
@@ -44,13 +41,12 @@ export function HomeScreen() {
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
 
-  // 🚨 EMERGENCY: Onboarding flow to fix 0% retention
+  // Server-truth onboarding flow
   const {
-    showOnboarding,
-    hasCompletedOnboarding,
-    completeOnboarding,
-    closeOnboarding,
-  } = useOnboardingFlow();
+    open,
+    loading: onboardingLoading,
+    complete,
+  } = useOnboarding(user?.id);
   const {
     requestPushOptIn,
     canPrompt,
@@ -58,11 +54,11 @@ export function HomeScreen() {
   } = useNativePushRegistration();
 
   const handleOnboardingComplete = useCallback(() => {
-    completeOnboarding();
+    void complete("completed");
     if (canPrompt) {
       void requestPushOptIn();
     }
-  }, [completeOnboarding, canPrompt, requestPushOptIn]);
+  }, [complete, canPrompt, requestPushOptIn]);
 
   // Use cached profile hook to prevent flickering on navigation
   const { profile, homeBeach, profileLoading, hasCachedData } =
@@ -91,37 +87,22 @@ export function HomeScreen() {
     return () => controller.abort();
   }, [coords]);
 
-  useEffect(() => {
-    if (!hasCompletedOnboarding) return;
-    if (!canPrompt) return;
-    if (pushStatus !== "idle") return;
-
-    const timer = window.setTimeout(() => {
-      void requestPushOptIn();
-    }, 1500);
-
-    return () => window.clearTimeout(timer);
-  }, [hasCompletedOnboarding, canPrompt, pushStatus, requestPushOptIn]);
+  // Push opt-in is requested in handleOnboardingComplete; no additional effect needed
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* 🚨 EMERGENCY: Onboarding Flow - Fix 0% retention */}
-      <OnboardingFlow
-        isOpen={showOnboarding}
-        onClose={closeOnboarding}
-        onComplete={handleOnboardingComplete}
-      />
+      {/* Onboarding Flow (no flash: gated by onboardingLoading) */}
+      {!onboardingLoading && (
+        <OnboardingFlow
+          isOpen={open}
+          onClose={() => complete("skipped")}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
 
       {/* Note: EngagementProgressTracker removed - only needed for unauthenticated landing page visitors */}
 
-      {/* Interaction hints for new users */}
-      {!hasCompletedOnboarding && (
-        <FloatingInteractionHint
-          target="tabs"
-          hint="Try exploring different tabs to see forecasts and community intel!"
-          delay={5000}
-        />
-      )}
+      {/* Optional: Interaction hints can be reintroduced with server flag if desired */}
 
       {/* Main Content */}
       <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pt-6">

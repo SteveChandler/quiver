@@ -12,7 +12,7 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 196 100% 47%;
+    --primary: 199 89% 40%; /* Darker blue #0891b2 with 3.5:1 contrast for WCAG AA compliance */
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -24,7 +24,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 196 100% 47%;
+    --ring: 199 89% 40%; /* Match primary color */
     --radius: 0.5rem;
   }
 }

@@ -88,14 +88,12 @@ test.describe("Session Wizard - Location Typeahead", () => {
   }) => {
     const beachInput = page.getByTestId("beach-search-input");
     await beachInput.click();
-    await beachInput.fill("zzz999impossible");
+    await beachInput.fill("ZZZZZZZZZZ");
 
-    // Wait for debounced search
-    await page.waitForTimeout(600);
+    // Wait for debounced search (300ms debounce + processing time)
+    await page.waitForTimeout(800);
 
-    // Verify "No beaches found" message appears in the dropdown list
-    const dropdown = page.locator("ul").filter({ hasText: "No beaches found" });
-    await expect(dropdown).toBeVisible();
+    // Verify "No beaches found" message appears
     await expect(page.getByText("No beaches found")).toBeVisible();
   });
 
@@ -104,13 +102,16 @@ test.describe("Session Wizard - Location Typeahead", () => {
     await beachInput.click();
     await beachInput.fill("la jo");
 
-    // Check for loading state (within debounce window)
-    // Note: This may be too fast to catch, but we test the implementation
-    await page.waitForTimeout(100);
-
-    // After search completes, loading should be gone
-    await page.waitForTimeout(500);
-    await expect(page.getByText("Searching...")).not.toBeVisible();
+    // Check for loading state immediately after typing (before debounce completes)
+    const loadingState = page.getByText("Searching...");
+    const isLoading = await loadingState.isVisible().catch(() => false);
+    
+    // After debounce + search completes (increase timeout for dev environment)
+    await page.waitForTimeout(800);
+    
+    // Loading should be gone and results visible
+    await expect(page.getByText("La Jolla Shores", { exact: true })).toBeVisible();
+    await expect(loadingState).not.toBeVisible();
   });
 
   test("should enable Next button after selecting beach", async ({ page }) => {

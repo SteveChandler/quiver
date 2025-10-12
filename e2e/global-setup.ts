@@ -34,12 +34,40 @@ export default async function globalSetup(config: FullConfig) {
     }
 
     await page.goto('/auth/sign-in?redirectTo=/', { waitUntil: 'domcontentloaded' });
-    await page.locator('#email').fill(email);
-    await page.locator('#password').fill(password);
-    await page.locator('form button[type="submit"]').click();
-    // Wait until not on an auth page and app is idle
-    await page.waitForURL(/^(?!.*\/auth\/)/, { timeout: 30000 });
-    await page.waitForLoadState('networkidle', { timeout: 10000 });
+    
+    // Wait for form inputs to be ready and fill them using accessible selectors
+    const emailInput = page.getByRole('textbox', { name: 'Email' });
+    const passwordInput = page.getByRole('textbox', { name: 'Password' });
+    await emailInput.waitFor({ state: 'visible', timeout: 10000 });
+    await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
+    
+    // Type slowly to ensure form validation triggers properly
+    await emailInput.click();
+    await emailInput.fill('');
+    await emailInput.type(email, { delay: 50 });
+    await passwordInput.click();
+    await passwordInput.fill('');
+    await passwordInput.type(password, { delay: 50 });
+    
+    // Small delay to let validation complete
+    await page.waitForTimeout(500);
+    await page.locator('button[type="submit"]').click();
+    
+    // Wait for navigation away from auth page (can take 5-10s for Supabase auth)
+    try {
+      await page.waitForURL(/^(?!.*\/auth\/)/, { timeout: 45000 });
+    } catch (e) {
+      // Capture diagnostics on timeout
+      const url = page.url();
+      await page.screenshot({ path: 'e2e/.auth/failed-login.png' });
+      const errorText = await page.locator('div[role="alert"], .alert, [data-testid="error"], .text-destructive').allTextContents();
+      console.error(`[global-setup] Login failed. URL: ${url}`);
+      throw new Error(
+        `[global-setup] Login timeout after 45s. URL: ${url}\nError elements: ${JSON.stringify(errorText)}\nPage snapshot: e2e/.auth/failed-login.png`
+      );
+    }
+    
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
     await context.storageState({ path: 'e2e/.auth/state.json' });
     console.log('[global-setup] Auth storage state saved to e2e/.auth/state.json');

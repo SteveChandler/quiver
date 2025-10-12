@@ -415,6 +415,25 @@ export function TideChart({
       ? isAnimationActive
       : process.env.NODE_ENV !== "production";
 
+  const [isCompactViewport, setIsCompactViewport] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia("(max-width: 480px)");
+    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => {
+      setIsCompactViewport(event.matches);
+    };
+
+    handleChange(query);
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", handleChange);
+      return () => query.removeEventListener("change", handleChange);
+    } else {
+      query.addListener(handleChange);
+      return () => query.removeListener(handleChange);
+    }
+  }, []);
+
   const directData = React.useMemo(() => normalizeDirectData(data), [data]);
   const hourlyData = React.useMemo(() => normalizeHourly(hourly), [hourly]);
   const eventData = React.useMemo(() => normalizeEvents(events), [events]);
@@ -471,7 +490,7 @@ export function TideChart({
     return [min, max] as [number, number];
   }, [chartData]);
 
-  const timeTicks = React.useMemo(() => {
+  const baseTimeTicks = React.useMemo(() => {
     if (!chartData.length) return [] as number[];
     const interval = 3 * 60 * 60 * 1000; // 3 hours
     const start = Math.floor(minTs / interval) * interval;
@@ -479,6 +498,20 @@ export function TideChart({
     for (let t = start; t <= maxTs; t += interval) ticks.push(t);
     return ticks;
   }, [chartData, minTs, maxTs]);
+
+  const timeTicks = React.useMemo(() => {
+    if (!baseTimeTicks.length) return baseTimeTicks;
+    if (!isCompactViewport) return baseTimeTicks;
+    const uniqueTicks = Array.from(new Set(baseTimeTicks));
+    if (uniqueTicks.length <= 3) return uniqueTicks;
+    const first = uniqueTicks[0];
+    const last = uniqueTicks[uniqueTicks.length - 1];
+    if (first === last) return [first];
+    const middle = uniqueTicks[Math.round((uniqueTicks.length - 1) / 2)];
+    return [first, middle, last].filter(
+      (tick, index, arr) => arr.indexOf(tick) === index
+    );
+  }, [baseTimeTicks, isCompactViewport]);
 
   const computedYDomain: [number, number] = React.useMemo(() => {
     if (yDomain !== "auto") return yDomain;

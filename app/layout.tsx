@@ -59,10 +59,10 @@ const montserrat = Montserrat({
 });
 
 // Optimize viewport for mobile performance
+// Note: maximumScale removed for WCAG 1.4.4 compliance (allow user zoom)
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
   themeColor: "#ffffff",
 };
