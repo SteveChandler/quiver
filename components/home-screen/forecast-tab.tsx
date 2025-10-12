@@ -19,11 +19,12 @@ import { HighConfidenceIndicator } from "@/components/forecast/high-confidence-i
 import { KpiTile } from "@/components/ui/kpi-tile";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
+import { ForecastFreshnessBadge } from "@/components/ui/forecast-freshness-badge";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
-import { getForecastForToday } from "@/actions/forecast-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
-import type { Profile, Forecast, Beach } from "@/types/database";
+import type { Profile, Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 interface ForecastTabProps {
   profile: Profile | null;
@@ -81,22 +82,64 @@ export function ForecastTab({
   const isFallback = !homeBeach && !!popularBeach;
   const shouldShowHomeBeachBanner = !homeBeach && !!effectiveBeach?.id;
 
-  // Get forecast for effective beach
+  // Get forecast for effective beach using the same API endpoint as beach detail page
   const fetchTodaysForecast = useCallback(async () => {
     if (!effectiveBeach?.id) {
       return null;
     }
 
-    const result = await getForecastForToday(effectiveBeach.id);
-    return result;
-  }, [effectiveBeach?.id, effectiveBeach?.name, isFallback, homeBeach]);
+    console.log(
+      `🏠 Home page fetching forecast for beach: ${effectiveBeach.name} (${effectiveBeach.id})`
+    );
+
+    try {
+      // Use the same API endpoint as beach detail page for consistency
+      const response = await fetch(
+        `/api/forecasts/update-enhanced?beachId=${effectiveBeach.id}&days=2`,
+        { cache: "no-store" }
+      );
+
+      if (!response.ok) {
+        console.error(`❌ Forecast API error: ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+
+      // Extract forecasts from the API response
+      const forecasts = data?.data?.forecasts || data?.forecasts || [];
+
+      console.log(`📊 Home page received ${forecasts.length} forecasts`);
+
+      if (forecasts.length === 0) {
+        return null;
+      }
+
+      // Use the same time-aware selection logic as beach detail page
+      const { getCurrentForecast } = await import(
+        "@/lib/utils/current-forecast-utils"
+      );
+      const currentForecast = getCurrentForecast(forecasts);
+
+      if (currentForecast) {
+        console.log(
+          `✅ Home page selected forecast: ${currentForecast.forecast_time}, wave: ${currentForecast.wave_height}, updated: ${currentForecast.updated_at}`
+        );
+      }
+
+      return currentForecast;
+    } catch (error) {
+      console.error("❌ Error fetching forecast for home page:", error);
+      return null;
+    }
+  }, [effectiveBeach?.id, effectiveBeach?.name]);
 
   const {
     data: todaysForecast,
     loading: forecastLoading,
     error: forecastError,
     refetch,
-  } = useDataFetcher(fetchTodaysForecast, {
+  } = useDataFetcher<EnhancedForecastEntity | null>(fetchTodaysForecast, {
     // Skip until we know which beach to use
     skip: !effectiveBeach?.id,
     initialData: null,
@@ -250,10 +293,10 @@ export function ForecastTab({
       {(!beachAccuracy || showAdjusted) && (
         <Card className={showAdjusted && beachAccuracy ? "opacity-75" : ""}>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center space-x-2">
                 <Waves className="h-5 w-5 text-blue-500" />
-                <span>Today’s Forecast</span>
+                <span>Today's Forecast</span>
                 {!showAdjusted && (
                   <Badge variant="outline" className="text-xs">
                     Raw Data
@@ -264,16 +307,26 @@ export function ForecastTab({
                 />
               </div>
 
-              {beachAccuracy && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleToggleForecast}
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  {showAdjusted ? "Show Raw" : "Show Adjusted"}
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {todaysForecast?.updated_at && (
+                  <ForecastFreshnessBadge
+                    updatedAt={todaysForecast.updated_at}
+                    onRefresh={refetch}
+                    isRefreshing={forecastLoading}
+                    showRefreshButton={true}
+                  />
+                )}
+                {beachAccuracy && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleToggleForecast}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    {showAdjusted ? "Show Raw" : "Show Adjusted"}
+                  </Button>
+                )}
+              </div>
             </CardTitle>
           </CardHeader>
 

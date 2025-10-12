@@ -39,6 +39,8 @@ function ModernForecastDisplay({ forecast }: { forecast: Forecast }) {
               <WaveHeightDisplay
                 height={forecast.wave_height}
                 className="text-lg font-semibold text-blue-600"
+                dataSource={forecast.data_source}
+                confidenceScore={forecast.confidence_score}
               />
             </div>
           </div>

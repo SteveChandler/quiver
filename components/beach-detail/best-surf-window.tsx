@@ -232,31 +232,49 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
               </span>
             )}
           </div>
-          <p
-            className={`text-2xl font-bold ${
-              windowStatus.status === "current"
-                ? "text-green-600"
-                : windowStatus.status === "passed"
-                ? "text-gray-600"
-                : "text-blue-600"
-            }`}
-          >
-            {formatTime(intel.best_window_start)} -{" "}
-            {formatTime(intel.best_window_end)}
-          </p>
-          {intel.best_window_description && (
+          {intel.best_window_start && intel.best_window_end ? (
             <p
-              className={`text-sm mt-1 ${
+              className={`text-2xl font-bold ${
                 windowStatus.status === "current"
-                  ? "text-green-700"
+                  ? "text-green-600"
                   : windowStatus.status === "passed"
                   ? "text-gray-600"
-                  : "text-blue-700"
+                  : "text-blue-600"
               }`}
             >
-              {intel.best_window_description}
+              {formatTime(intel.best_window_start)} -{" "}
+              {formatTime(intel.best_window_end)}
+            </p>
+          ) : (
+            <p
+              className={`text-lg font-medium ${
+                windowStatus.status === "current"
+                  ? "text-green-600"
+                  : windowStatus.status === "passed"
+                  ? "text-gray-600"
+                  : "text-blue-600"
+              }`}
+            >
+              {intel.best_window_description ||
+                intel.raw_intel_data?.bestWindow ||
+                "Variable conditions"}
             </p>
           )}
+          {intel.best_window_description &&
+            intel.best_window_start &&
+            intel.best_window_end && (
+              <p
+                className={`text-sm mt-1 ${
+                  windowStatus.status === "current"
+                    ? "text-green-700"
+                    : windowStatus.status === "passed"
+                    ? "text-gray-600"
+                    : "text-blue-700"
+                }`}
+              >
+                {intel.best_window_description}
+              </p>
+            )}
         </div>
 
         {/* Show current conditions if window has passed */}

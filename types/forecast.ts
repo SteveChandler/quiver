@@ -338,6 +338,8 @@ export interface CDIPStationConfig {
   parameters: string[];
 }
 
+// Tide Chart Types - see components/forecast/tide-chart-recharts.tsx for TidePoint and TideChartProps
+
 // Rate Limiter Types
 export interface RateLimiterConfig {
   requestsPerMinute: number;

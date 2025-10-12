@@ -2,12 +2,77 @@
 
 ### Added
 
+- **Enhanced Tide Interpolation Utilities**: New utility functions for accurate tide height calculations
+  - `lib/utils/tide-interpolation.ts`: Linear interpolation between tide data points with support for Date, ISO strings, and Unix timestamps
+  - `lib/utils/tide-window.ts`: Dynamic time window calculation with configurable "now" marker positioning
+  - Comprehensive test coverage: 60+ tests ensuring accuracy across edge cases
+  - Supports mixed data formats and graceful degradation with sparse data
+
+### Removed
+
+- **TideCard48h Component**: Removed duplicate tide chart component in favor of enhanced `TideChart`
+  - Deleted `components/forecast/tide-card-48h.tsx` (568 lines)
+  - Deleted `__tests__/components/tide-card-48h.test.tsx`
+  - Updated `components/beach-detail/forecast-and-tides.tsx` to use `TideChart` instead
+  - Simplified codebase by consolidating on single, superior tide chart implementation
+  - Replaces legacy TideChart with more compact, mobile-optimized design
+  - Interpolates current tide height when exact timestamp is unavailable
+  - Always displays "Now" reference line with current tide height and trend indicator (rising/falling/stable)
+  - Smooth area chart with blue gradient fill (25% → 5% opacity) for better visibility
+  - Prominent time labels on X-axis (12px, darker color, bold weight)
+  - Mobile-first: defaults to 18h view with horizontal pan to full 48h range
+  - SSR-safe with Next.js App Router (no hydration warnings)
+  - Full accessibility: figcaption, aria-live regions, keyboard navigation
+  - Graceful empty states with helpful messages
+  - Performance: renders <16ms with 300 data points
+  - **Testing**: 93 comprehensive tests (30 interpolation + 36 windowing + 27 component)
+  - **Utilities**: `lib/utils/tide-interpolation.ts` (binary search, linear interpolation, trend detection)
+  - **Utilities**: `lib/utils/tide-window.ts` (data normalization, windowing, statistics)
+  - **Documentation**: Complete usage guide in `components/forecast/README.md`
+  - **Library Research**: Comprehensive comparison in `docs/TIDE_CHART_LIBRARY_COMPARISON.md` (Recharts recommended)
+- **Forecast Data Transparency**: New forecast freshness indicators showing when data was last updated
+  - `ForecastFreshnessBadge` component with visual status indicators (green/yellow/gray)
+  - Displays "Updated X minutes/hours ago" with refresh button
+  - Added to both home page forecast tab and beach detail page
+  - Compact version for space-constrained displays
+- **Data Source Attribution**: Enhanced wave height display with detailed data source information
+  - Shows whether using CDIP buoy (most accurate), NOAA model, or regional fallback data
+  - Visual indicators for data quality (excellent/good/standard/approximate)
+  - Confidence score display in tooltips
+  - Data priority hierarchy clearly explained to users
 - Server-truth onboarding flow: added `profiles.onboarding_completed_at` with RLS policy
 - `lib/onboarding.ts` with `shouldShowOnboarding` util and unit tests (100% coverage)
 - `hooks/use-onboarding.ts` using `useDataFetcher` and analytics events
 - `lib/profile.ts` with client helpers: `ensureProfile`, `getProfileMinimal`, `markOnboardingDone`
 
 ### Changed
+
+- **Tide Chart Optimized for User Experience**: Rewrote `tide-chart-recharts.tsx` with 18-hour focused window
+  - **Reduced Time Window**: Now shows 18 hours (9 hours past, 9 hours future) instead of 48 hours for better mobile UX
+  - **Centered "Now" Positioning**: "Now" marker centered in middle (configurable via `nowBias` prop) for balanced view
+  - **Interpolated Current Height**: Displays exact tide height at "now" using linear interpolation between data points
+  - **Flexible Window Configuration**: New props `windowHours` (default: 18), `nowBias` (default: 0.5 for centered), `bufferHours` (default: 1)
+  - **Smooth Edge Rendering**: Automatic 1-hour buffer on each edge prevents curve clipping
+  - **Dynamic Title**: Chart title automatically reflects window duration (e.g., "18-Hour Tide Forecast")
+  - **Backward Compatible**: Accepts `data`, `forecasts`, `hourly`, or `events` props with automatic normalization
+  - **Enhanced Label**: "Now" line shows "Now • 4.2 ft" with interpolated height value
+  - **Cleaner Area Chart**: Switched from LineChart to AreaChart with smooth gradient fill
+  - **Performance**: Optimized data filtering using utility functions, memoized window calculations
+- **Tide Chart Time Window**: Updated TideChart component to display a fixed 48-hour window starting from current time
+  - X-axis domain is now always `[now, now + 48 hours]` regardless of available data points
+  - Time ticks generated at 3-hour intervals starting from current time
+  - Added red "Now" reference line at the left edge of the chart
+  - Day labels dynamically show date boundaries within the 48-hour window
+  - Component title updated from "2-Day Tide Chart" to "48-Hour Tide Forecast" for clarity
+  - Improved user experience by showing relevant future tide data only
+- **Route Protection**: Beach detail and forecast pages now require authentication to view - unauthenticated users are redirected to sign-in with preserved redirect URL
+- **Forecast Data Consistency**: Standardized forecast data fetching across all pages
+
+  - Home page now uses same API endpoint (`/api/forecasts/update-enhanced`) as beach detail page
+  - Both pages use identical time-aware forecast selection logic via `getCurrentForecast` utility
+  - Eliminates inconsistencies where home and detail pages showed different wave heights
+  - Added comprehensive debug logging to track forecast selection and cache behavior
+  - Ensures 6-hour cache window is respected consistently across the app
 
 - Beach Detail: Hide entire `Live Cam` section when no `camera_url` is available for the beach. Follows `hooks/ARCHITECTURE.md` data fetching pattern using `useDataFetcher` and avoids rendering empty placeholder UI.
 - Beach Detail forecast tabs simplified: combined Swell and Wind into a single `Conditions` tab and removed `Week` tab. Updated header copy accordingly. Follows `components/ARCHITECTURE.md` UI patterns and reuses `SimplifiedForecastTable` for combined data.
@@ -26,6 +91,11 @@
   - When only one forecast period meets optimal conditions, now extends window by 2 hours
   - Prevents showing same start/end time (e.g., "6:00 AM - 6:00 AM")
   - Creates meaningful surf windows (e.g., "6:00 AM - 8:00 AM") for better user experience
+- **Best Surf Window Blank Display**: Fixed " - " showing when optimal time window can't be determined
+  - Component now displays fallback message (e.g., "Variable conditions" or "N/A") instead of blank times
+  - Added conditional rendering to check for valid time values before formatting
+  - Intel generation service now stores original message in `best_window_description` when times can't be parsed
+  - Added debug logging to track data structure for troubleshooting
 - Onboarding wizard no longer appears on every login; shows only until completion and respects `?showTour=1`
 - **E2E Tests - Beach Detail**: Updated forecast tab tests to match actual implementation (Today/Tides/Conditions instead of Today/Tides/Wind/Swell/Week)
 - **E2E Tests - Beach Detail**: Made Live Cam section test conditional based on camera_url availability

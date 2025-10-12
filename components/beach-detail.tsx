@@ -52,6 +52,7 @@ import type { Beach } from "@/types/database";
 import { SpotOverview } from "@/components/beach-detail/spot-overview";
 import { FavoriteButton } from "@/components/favorite-button";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
+import { ForecastFreshnessBadgeCompact } from "@/components/ui/forecast-freshness-badge";
 // Replacing BeachCheckIns with BeachIntelSection in Local Intel section
 const ForecastAndTides = dynamic(
   () =>
@@ -516,9 +517,16 @@ export function BeachDetail({ id }: BeachDetailProps) {
             <Card className="w-full max-w-sm border-none bg-white/95 shadow-2xl">
               <CardContent className="space-y-6 p-6">
                 <div>
-                  <span className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                    Wave Height
-                  </span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                      Wave Height
+                    </span>
+                    {currentForecast?.updated_at && (
+                      <ForecastFreshnessBadgeCompact
+                        updatedAt={currentForecast.updated_at}
+                      />
+                    )}
+                  </div>
                   <div className="mt-2 flex items-end gap-2">
                     <span className="text-6xl font-roboto font-extrabold text-ocean-blue">
                       {heroWaveHeight}

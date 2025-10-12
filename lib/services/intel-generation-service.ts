@@ -258,6 +258,10 @@ export class IntelGenerationService {
     const windowMatch = intel.bestWindow.match(/(\d{2}:\d{2})[\-–](\d{2}:\d{2})/);
     const windowStart = windowMatch ? windowMatch[1] : null;
     const windowEnd = windowMatch ? windowMatch[2] : null;
+    
+    // Store original message in description field when times can't be parsed
+    // This provides fallback text like "N/A" or "Variable conditions..."
+    const windowDescription = !windowMatch ? intel.bestWindow : null;
 
     // Determine wind quality from offshore boolean and description
     const windQuality = intel.wind.offshore
@@ -278,7 +282,7 @@ export class IntelGenerationService {
           // Best window (parsed from string)
           best_window_start: windowStart,
           best_window_end: windowEnd,
-          best_window_description: intel.bestWindow,
+          best_window_description: windowDescription,
 
           // Surf
           surf_min_ft: intel.surf.min,
