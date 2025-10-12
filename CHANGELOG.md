@@ -19,6 +19,13 @@
 
 ### Changed
 
+- **Tide Chart Time Window**: Updated TideChart component to display a fixed 48-hour window starting from current time
+  - X-axis domain is now always `[now, now + 48 hours]` regardless of available data points
+  - Time ticks generated at 3-hour intervals starting from current time
+  - Added red "Now" reference line at the left edge of the chart
+  - Day labels dynamically show date boundaries within the 48-hour window
+  - Component title updated from "2-Day Tide Chart" to "48-Hour Tide Forecast" for clarity
+  - Improved user experience by showing relevant future tide data only
 - **Route Protection**: Beach detail and forecast pages now require authentication to view - unauthenticated users are redirected to sign-in with preserved redirect URL
 - **Forecast Data Consistency**: Standardized forecast data fetching across all pages
 

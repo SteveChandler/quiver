@@ -293,13 +293,15 @@ const synthesizeFromExtrema = (extrema: InternalPoint[]): InternalPoint[] => {
   return sortAndUnique(result);
 };
 
-const limitToTwoDays = (points: InternalPoint[]): InternalPoint[] => {
+const limitToTwoDays = (
+  points: InternalPoint[],
+  nowTs: number
+): InternalPoint[] => {
   if (!points.length) return points;
-  const now = Date.now();
-  const maxTs = now + 2 * 24 * 60 * 60 * 1000; // 48 hours from now
+  const maxTs = nowTs + 2 * 24 * 60 * 60 * 1000; // 48 hours from now
   // Filter to show data from now to 48 hours in the future
   return points.filter(
-    (point) => point.timestamp >= now && point.timestamp <= maxTs
+    (point) => point.timestamp >= nowTs && point.timestamp <= maxTs
   );
 };
 
@@ -462,42 +464,54 @@ export function TideChart({
   }, [rawLine, eventData, forecastData]);
 
   const chartData = React.useMemo(() => {
+    const nowTs = now ? now.getTime() : Date.now();
     const sorted = sortAndUnique(emphasizedLine);
-    return limitToTwoDays(sorted).map((point) => ({
+    return limitToTwoDays(sorted, nowTs).map((point) => ({
       t: new Date(point.timestamp),
       h: point.h,
       isHigh: point.isHigh,
       isLow: point.isLow,
     }));
-  }, [emphasizedLine]);
+  }, [emphasizedLine, now]);
+
+  // Fixed 48-hour window starting from current time
+  const [minTs, maxTs] = React.useMemo(() => {
+    const nowTs = now ? now.getTime() : Date.now();
+    const maxWindow = nowTs + 48 * 60 * 60 * 1000; // 48 hours from now
+    return [nowTs, maxWindow] as [number, number];
+  }, [now]);
 
   const days = React.useMemo(() => {
     const map = new Map<string, Date>();
-    chartData.forEach((p) => {
-      const d = toDate(p.t);
-      const key = d.toDateString();
-      if (!map.has(key))
-        map.set(key, new Date(d.getFullYear(), d.getMonth(), d.getDate()));
-    });
-    return Array.from(map.values());
-  }, [chartData]);
+    // Generate days for the 48-hour window, not just from data points
+    const startDate = new Date(minTs);
+    const endDate = new Date(maxTs);
+    let currentDate = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate()
+    );
 
-  // Compute domain and time ticks for bottom axis (every 3 hours)
-  const [minTs, maxTs] = React.useMemo(() => {
-    if (!chartData.length) return [0, 0] as [number, number];
-    const min = +toDate(chartData[0].t);
-    const max = +toDate(chartData[chartData.length - 1].t);
-    return [min, max] as [number, number];
-  }, [chartData]);
+    while (currentDate <= endDate) {
+      const key = currentDate.toDateString();
+      if (!map.has(key)) {
+        map.set(key, new Date(currentDate));
+      }
+      currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
+    }
+    return Array.from(map.values());
+  }, [minTs, maxTs]);
 
   const baseTimeTicks = React.useMemo(() => {
-    if (!chartData.length) return [] as number[];
     const interval = 3 * 60 * 60 * 1000; // 3 hours
+    // Start ticks from the current time (rounded to 3-hour intervals)
     const start = Math.floor(minTs / interval) * interval;
     const ticks: number[] = [];
-    for (let t = start; t <= maxTs; t += interval) ticks.push(t);
+    for (let t = start; t <= maxTs; t += interval) {
+      ticks.push(t);
+    }
     return ticks;
-  }, [chartData, minTs, maxTs]);
+  }, [minTs, maxTs]);
 
   const timeTicks = React.useMemo(() => {
     if (!baseTimeTicks.length) return baseTimeTicks;
@@ -536,7 +550,7 @@ export function TideChart({
         {!compact && (
           <div className="mb-2 flex items-baseline justify-between">
             <h3 className="text-lg font-semibold tracking-tight">
-              2-Day Tide Chart
+              48-Hour Tide Forecast
             </h3>
             <span className="text-xs text-slate-500">Heights in {unit}</span>
           </div>
@@ -558,7 +572,7 @@ export function TideChart({
       {!compact && (
         <div className="mb-2 flex items-baseline justify-between">
           <h3 className="text-lg font-semibold tracking-tight">
-            2-Day Tide Chart
+            48-Hour Tide Forecast
           </h3>
           <span className="text-xs text-slate-500">Heights in {unit}</span>
         </div>
@@ -566,7 +580,7 @@ export function TideChart({
 
       <div
         role="img"
-        aria-label="2-day tide chart showing high and low tide heights over time"
+        aria-label="48-hour tide forecast showing high and low tide heights over time"
         className="h-64 w-full"
       >
         <ResponsiveContainer>
@@ -649,6 +663,23 @@ export function TideChart({
             />
 
             <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
+
+            {showNowLine && now && (
+              <ReferenceLine
+                xAxisId="time"
+                x={now.getTime()}
+                stroke="#ef4444"
+                strokeDasharray="3 3"
+                strokeWidth={1.5}
+                label={{
+                  value: "Now",
+                  position: "top",
+                  fill: "#ef4444",
+                  fontSize: 11,
+                  fontWeight: 500,
+                }}
+              />
+            )}
 
             <Tooltip
               content={<TideTooltip unit={unit} />}

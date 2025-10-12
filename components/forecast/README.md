@@ -1,6 +1,6 @@
 # TideChart Component
 
-A production-ready, accessible Recharts-based component for displaying 2-day (48-hour) tide data with high/low tide markers and labels.
+A production-ready, accessible Recharts-based component for displaying a 48-hour tide forecast window starting from the current time, with high/low tide markers and labels.
 
 ## Usage
 
@@ -76,8 +76,9 @@ interface TidePoint {
 
 ### 📊 **Data Processing**
 
-- **5-day limit**: Automatically filters to max 5 days from first data point
-- **Smart Y-axis**: Calculates domain with 10% padding around data range
+- **48-hour window**: Automatically filters and displays data from the current time (now) to 48 hours in the future
+- **Fixed time domain**: X-axis always shows the full 48-hour window, regardless of available data points
+- **Smart Y-axis**: Calculates domain with 15% padding around data range
 - **Custom day formatter**: Defaults to weekday shorthand, override via `dayFormatter`
 - **Dual data support**: Works with direct `TidePoint[]`, hourly/event feeds, or legacy forecasts
 
@@ -180,14 +181,16 @@ Run tests: `npx jest __tests__/components/forecast/tide-chart-recharts.*`
 
 ### Axis Configuration
 
-- **X-axis**: Time scale with "Today"/"Tomorrow" labels, grey tick marks. We
-  explicitly pass a unique-per-day `ticks` array derived from the dataset and
-  set `interval={0}` with `allowDuplicatedCategory={false}` to prevent
-  Recharts from auto-generating duplicate day labels on narrow/mobile
-  viewports. `minTickGap` and `tickMargin` are tuned for mobile landscape.
-- **Y-axis**: Smart domain calculation with "Tide (ft)" label, professional styling
-- **Reference lines**: Zero baseline and optional "Now" line for context
-- **Margins**: Generous spacing (`50px` top/bottom) prevents label clipping
+- **X-axis**: Fixed 48-hour time scale starting from current time, with day labels and 3-hour tick marks
+  - Domain is always `[now, now + 48 hours]` regardless of available data
+  - Time ticks generated at 3-hour intervals starting from current time
+  - Day labels show date boundaries within the 48-hour window
+  - Responsive tick display: shows all ticks on desktop, reduced on mobile (<480px)
+- **Y-axis**: Smart domain calculation with automatic padding around data range
+- **Reference lines**:
+  - Zero baseline (horizontal dashed line at 0 ft)
+  - "Now" line (vertical red dashed line at current time) shown at the left edge
+- **Margins**: Generous spacing (`24px` top/bottom) prevents label clipping
 
 ### Future Enhancements
 

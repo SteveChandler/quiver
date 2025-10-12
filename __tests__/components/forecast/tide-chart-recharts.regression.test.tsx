@@ -21,40 +21,28 @@ describe("TideChart regression", () => {
   it("handles empty → loaded transitions under StrictMode without React errors", () => {
     const startErrors = (console.error as jest.Mock).mock.calls.length;
 
+    // Use a fixed "now" time for consistent testing
+    const now = new Date();
+
     const { rerender } = render(
       <StrictMode>
-        <TideChart data={[]} forecasts={[]} hourly={[]} events={[]} />
+        <TideChart data={[]} forecasts={[]} hourly={[]} events={[]} now={now} />
       </StrictMode>
     );
 
     // Initial empty state
-    expect(screen.getByText("2-Day Tide Chart")).toBeInTheDocument();
+    expect(screen.getByText("48-Hour Tide Forecast")).toBeInTheDocument();
     expect(screen.getByText("No tide data available")).toBeInTheDocument();
 
     // Transition to events-based extrema (no hourly line -> synthesize line)
-    const now = new Date();
     const events = [
       {
-        ts: new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          6,
-          0,
-          0
-        ).toISOString(),
+        ts: new Date(now.getTime() + 6 * 60 * 60 * 1000).toISOString(), // 6 hours from now
         type: "HIGH" as const,
         height_ft: 4.2,
       },
       {
-        ts: new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          12,
-          0,
-          0
-        ).toISOString(),
+        ts: new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString(), // 12 hours from now
         type: "LOW" as const,
         height_ft: 1.1,
       },
@@ -62,50 +50,48 @@ describe("TideChart regression", () => {
 
     rerender(
       <StrictMode>
-        <TideChart data={[]} forecasts={[]} hourly={[]} events={events} />
+        <TideChart
+          data={[]}
+          forecasts={[]}
+          hourly={[]}
+          events={events}
+          now={now}
+        />
       </StrictMode>
     );
 
     // Chart should render (accessible role and label are present)
     expect(
-      screen.getByRole("img", { name: /tide chart/i })
+      screen.getByRole("img", { name: /tide forecast/i })
     ).toBeInTheDocument();
     expect(screen.queryByText("No tide data available")).toBeNull();
 
     // Add hourly series for a second transition to stress reconciliation
     const hourly = [
       {
-        ts: new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          5,
-          0,
-          0
-        ).toISOString(),
+        ts: new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString(), // 5 hours from now
         height_ft: 3.5,
       },
       {
-        ts: new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          7,
-          0,
-          0
-        ).toISOString(),
+        ts: new Date(now.getTime() + 7 * 60 * 60 * 1000).toISOString(), // 7 hours from now
         height_ft: 4.0,
       },
     ];
 
     rerender(
       <StrictMode>
-        <TideChart data={[]} forecasts={[]} hourly={hourly} events={events} />
+        <TideChart
+          data={[]}
+          forecasts={[]}
+          hourly={hourly}
+          events={events}
+          now={now}
+        />
       </StrictMode>
     );
 
     expect(
-      screen.getByRole("img", { name: /tide chart/i })
+      screen.getByRole("img", { name: /tide forecast/i })
     ).toBeInTheDocument();
 
     // Ensure no React errors were logged during transitions (keys/invariants)
