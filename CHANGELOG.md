@@ -8,10 +8,13 @@
   - Both vulnerabilities only affected development/testing tools (Lighthouse CI), no production impact
   - Verified lighthouse CI functionality remains intact after updates
 - **Tide Chart Line Rendering**: Fixed issue where tide line would cut off abruptly mid-chart
+  - **Root Cause**: Forecast API was only fetching data from today onwards, missing yesterday's data needed for 6-hour lookback window
+  - **Fix**: Modified `fetchBeachForecasts` in `lib/utils/forecast-service-utils.ts` to include yesterday's data (tide chart needs 6 hours of historical data)
   - Added `connectNulls={true}` to Area component in `tide-chart-recharts.tsx` to ensure continuous line rendering even with data gaps
-  - Added debug logging to monitor data points, window bounds, and time ranges
+  - Added comprehensive debug logging to monitor data points, window bounds, and time ranges
   - Existing `parseHeight` function properly extracts numeric values from string tide heights (e.g., "1.5 ft" → 1.5)
   - Chart now smoothly renders across 3-hour data intervals without breaking
+  - Tide chart now displays full 18-hour window (6 hours past + 12 hours future)
 
 ### Added
 

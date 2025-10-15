@@ -65,11 +65,14 @@ export async function updateAllBeachForecasts() {
 export async function fetchBeachForecasts(beachId: string, days = 12) {
   const supabase = await createSupabaseServiceRoleClient();
 
+  // Include yesterday's data for tide chart lookback window (6 hours ago)
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  
   const { data: forecasts, error } = await supabase
     .from("enhanced_forecasts")
     .select("*")
     .eq("beach_id", beachId)
-    .gte("forecast_date", new Date().toISOString().split("T")[0])
+    .gte("forecast_date", yesterday)
     .lte(
       "forecast_date",
       new Date(Date.now() + days * 24 * 60 * 60 * 1000)
