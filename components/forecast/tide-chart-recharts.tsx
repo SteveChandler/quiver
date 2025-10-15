@@ -531,34 +531,23 @@ export function TideChart({
 
   // Debug logging for tide chart data
   React.useEffect(() => {
-    console.log("🌊 TideChart Debug:", {
-      inputForecasts: forecasts?.length || 0,
-      rawLinePoints: rawLine.length,
-      emphasizedLinePoints: emphasizedLine.length,
-      chartDataPoints: chartData.length,
-      windowBounds: {
-        start: new Date(windowBounds.windowStart).toLocaleString(),
-        end: new Date(windowBounds.windowEnd).toLocaleString(),
-        now: new Date(windowBounds.nowTs).toLocaleString(),
-        bufferStart: new Date(windowBounds.bufferStart).toLocaleString(),
-        bufferEnd: new Date(windowBounds.bufferEnd).toLocaleString(),
-      },
-      dataTimeRange:
-        chartData.length > 0
-          ? {
-              first: new Date(chartData[0].t).toLocaleString(),
-              last: new Date(
-                chartData[chartData.length - 1].t
-              ).toLocaleString(),
-            }
-          : null,
-      allChartDataTimes: chartData.map((d) => new Date(d.t).toLocaleString()),
-      sampleRawLine: rawLine.slice(0, 10).map((d) => ({
-        time: new Date(d.timestamp).toLocaleString(),
-        height: d.h,
-        timestamp: d.timestamp,
-      })),
+    console.log("🌊 TideChart Debug - Window Bounds:");
+    console.log("  Window Start:", new Date(windowBounds.windowStart).toLocaleString(), windowBounds.windowStart);
+    console.log("  Window End:", new Date(windowBounds.windowEnd).toLocaleString(), windowBounds.windowEnd);
+    console.log("  Buffer Start:", new Date(windowBounds.bufferStart).toLocaleString(), windowBounds.bufferStart);
+    console.log("  Buffer End:", new Date(windowBounds.bufferEnd).toLocaleString(), windowBounds.bufferEnd);
+    
+    console.log("\n🌊 First 10 Raw Data Points:");
+    rawLine.slice(0, 10).forEach((d, i) => {
+      const inWindow = d.timestamp >= windowBounds.bufferStart && d.timestamp <= windowBounds.bufferEnd;
+      console.log(`  [${i}] ${new Date(d.timestamp).toLocaleString()} (${d.timestamp}) - ${d.h} ft - ${inWindow ? '✅ IN WINDOW' : '❌ OUTSIDE'}`);
     });
+    
+    console.log("\n🌊 Summary:");
+    console.log("  Input forecasts:", forecasts?.length || 0);
+    console.log("  Raw line points:", rawLine.length);
+    console.log("  Chart data points:", chartData.length);
+    console.log("  Chart data times:", chartData.map((d) => new Date(d.t).toLocaleString()));
   }, [
     forecasts,
     rawLine.length,
