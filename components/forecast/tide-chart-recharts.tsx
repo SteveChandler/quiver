@@ -540,6 +540,8 @@ export function TideChart({
         start: new Date(windowBounds.windowStart).toLocaleString(),
         end: new Date(windowBounds.windowEnd).toLocaleString(),
         now: new Date(windowBounds.nowTs).toLocaleString(),
+        bufferStart: new Date(windowBounds.bufferStart).toLocaleString(),
+        bufferEnd: new Date(windowBounds.bufferEnd).toLocaleString(),
       },
       dataTimeRange:
         chartData.length > 0
@@ -550,13 +552,11 @@ export function TideChart({
               ).toLocaleString(),
             }
           : null,
-      sampleFirst3: chartData.slice(0, 3).map((d) => ({
-        time: new Date(d.t).toLocaleString(),
+      allChartDataTimes: chartData.map((d) => new Date(d.t).toLocaleString()),
+      sampleRawLine: rawLine.slice(0, 10).map((d) => ({
+        time: new Date(d.timestamp).toLocaleString(),
         height: d.h,
-      })),
-      sampleLast3: chartData.slice(-3).map((d) => ({
-        time: new Date(d.t).toLocaleString(),
-        height: d.h,
+        timestamp: d.timestamp,
       })),
     });
   }, [
