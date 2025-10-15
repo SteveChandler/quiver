@@ -1,5 +1,27 @@
 ## [Unreleased]
 
+### Added
+
+- **Push Notifications System**: Complete FCM push notification infrastructure for session invitations (Mobile + Web)
+  - Created `user_devices` table for device token storage with RLS policies
+  - Created `notifications` table for in-app notification records
+  - Implemented Firebase Admin SDK initialization (`lib/services/firebase-admin.ts`)
+  - Built push notification service with token management and error handling (`lib/services/push-notifications.ts`)
+  - Added device token registration API endpoint (`app/api/devices/upsert/route.ts`)
+  - Integrated push and in-app notification fan-out into invitations endpoint
+  - **Mobile**: Implemented client-side push token capture and handling (`lib/mobile/push-notifications.ts`)
+  - **Web**: Implemented browser push notifications with service worker (`lib/web/push-notifications.ts`, `public/firebase-messaging-sw.js`)
+  - **Web**: Firebase web SDK configuration for client-side messaging (`lib/firebase/config.ts`)
+  - Enhanced `PWAAndPushListeners` component to initialize push notifications on user login (both mobile and web)
+  - Added automatic invalid token pruning to maintain clean device registry
+  - Multi-channel notification strategy: Push → Email (fallback) → In-app (badge/feed)
+  - Multi-platform support: iOS, Android, and Web (Chrome, Firefox, Edge, Safari 16.4+)
+  - Migration: `20250116000000_push_notifications_infrastructure.sql`
+  - Documentation: `docs/PUSH_NOTIFICATIONS_SETUP.md`, `docs/WEB_PUSH_SETUP.md` with complete setup guides
+  - Testing: Unit tests for both mobile and web push implementations
+  - Following established patterns: Uses `createSuccessResponse`/`handleApiError`, fire-and-forget with `Promise.allSettled`
+  - Console logging: All push notification logs wrapped in `NODE_ENV === 'development'` checks for clean production output
+
 ### Changed
 
 - **Console Logging**: All debug console.log statements now only appear in development
