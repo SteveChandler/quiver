@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+### Fixed
+
+- **Tide Chart Line Rendering**: Fixed issue where tide line would cut off abruptly mid-chart
+  - Added `connectNulls={true}` to Area component in `tide-chart-recharts.tsx` to ensure continuous line rendering even with data gaps
+  - Added debug logging to monitor data points, window bounds, and time ranges
+  - Existing `parseHeight` function properly extracts numeric values from string tide heights (e.g., "1.5 ft" → 1.5)
+  - Chart now smoothly renders across 3-hour data intervals without breaking
+
 ### Added
 
 - **Database Performance Optimization Suite**: Critical fixes for Realtime subscription leaks and query optimization

@@ -529,6 +529,44 @@ export function TideChart({
     [windowBounds]
   );
 
+  // Debug logging for tide chart data
+  React.useEffect(() => {
+    console.log("🌊 TideChart Debug:", {
+      inputForecasts: forecasts?.length || 0,
+      rawLinePoints: rawLine.length,
+      emphasizedLinePoints: emphasizedLine.length,
+      chartDataPoints: chartData.length,
+      windowBounds: {
+        start: new Date(windowBounds.windowStart).toLocaleString(),
+        end: new Date(windowBounds.windowEnd).toLocaleString(),
+        now: new Date(windowBounds.nowTs).toLocaleString(),
+      },
+      dataTimeRange:
+        chartData.length > 0
+          ? {
+              first: new Date(chartData[0].t).toLocaleString(),
+              last: new Date(
+                chartData[chartData.length - 1].t
+              ).toLocaleString(),
+            }
+          : null,
+      sampleFirst3: chartData.slice(0, 3).map((d) => ({
+        time: new Date(d.t).toLocaleString(),
+        height: d.h,
+      })),
+      sampleLast3: chartData.slice(-3).map((d) => ({
+        time: new Date(d.t).toLocaleString(),
+        height: d.h,
+      })),
+    });
+  }, [
+    forecasts,
+    rawLine.length,
+    emphasizedLine.length,
+    chartData,
+    windowBounds,
+  ]);
+
   if (!chartData.length) {
     return (
       <div
@@ -641,6 +679,7 @@ export function TideChart({
               strokeWidth={2.5}
               fill={`url(#fill-${gradId})`}
               isAnimationActive={animationEnabled}
+              connectNulls={true}
             />
 
             <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
