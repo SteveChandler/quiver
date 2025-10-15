@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+} from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
@@ -70,6 +76,13 @@ export function AppHeader() {
 
   const supabase = useMemo(() => createClient(), []);
 
+  // Use ref to avoid re-subscriptions when refetch callback changes
+  const refetchUnreadCountRef = useRef(refetchUnreadCount);
+
+  useEffect(() => {
+    refetchUnreadCountRef.current = refetchUnreadCount;
+  }, [refetchUnreadCount]);
+
   useEffect(() => {
     if (!user?.id && !user?.email) {
       return;
@@ -79,7 +92,7 @@ export function AppHeader() {
 
     if (user?.id) {
       const userChannel = supabase
-        .channel(`session_invitations_invitee_${user.id}`)
+        .channel(`header_session_invitations_user_${user.id}`)
         .on(
           "postgres_changes",
           {
@@ -89,7 +102,7 @@ export function AppHeader() {
             filter: `invitee_id=eq.${user.id}`,
           },
           () => {
-            refetchUnreadCount();
+            refetchUnreadCountRef.current();
           }
         )
         .subscribe();
@@ -100,7 +113,7 @@ export function AppHeader() {
     if (emailValue) {
       const encoded = encodeURIComponent(emailValue);
       const emailChannel = supabase
-        .channel(`session_invitations_invitee_email_${encoded}`)
+        .channel(`header_session_invitations_email_${encoded}`)
         .on(
           "postgres_changes",
           {
@@ -110,7 +123,7 @@ export function AppHeader() {
             filter: `invitee_email=eq.${emailValue}`,
           },
           () => {
-            refetchUnreadCount();
+            refetchUnreadCountRef.current();
           }
         )
         .subscribe();
@@ -122,7 +135,7 @@ export function AppHeader() {
         supabase.removeChannel(channel);
       });
     };
-  }, [supabase, user?.id, user?.email, refetchUnreadCount]);
+  }, [supabase, user?.id, user?.email]);
 
   // Navigation items - different for authenticated vs unauthenticated users
   const navItems: { name: string; href: string; icon: null }[] = user

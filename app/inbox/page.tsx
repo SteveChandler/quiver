@@ -107,6 +107,13 @@ export default function InboxPage() {
     }
   }, [invitations, markInvitationsSeen, user?.id, user?.email]);
 
+  // Use ref to avoid re-subscriptions when refetch callback changes
+  const refetchRef = useRef(refetch);
+
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
   useEffect(() => {
     if (!user?.id && !user?.email) return;
 
@@ -114,7 +121,7 @@ export default function InboxPage() {
 
     if (user?.id) {
       const userChannel = supabase
-        .channel(`session_invitations_invitee_${user.id}`)
+        .channel(`inbox_session_invitations_user_${user.id}`)
         .on(
           "postgres_changes",
           {
@@ -124,7 +131,7 @@ export default function InboxPage() {
             filter: `invitee_id=eq.${user.id}`,
           },
           () => {
-            refetch();
+            refetchRef.current();
           }
         )
         .subscribe();
@@ -135,7 +142,7 @@ export default function InboxPage() {
     if (emailValue) {
       const encoded = encodeURIComponent(emailValue);
       const emailChannel = supabase
-        .channel(`session_invitations_invitee_email_${encoded}`)
+        .channel(`inbox_session_invitations_email_${encoded}`)
         .on(
           "postgres_changes",
           {
@@ -145,7 +152,7 @@ export default function InboxPage() {
             filter: `invitee_email=eq.${emailValue}`,
           },
           () => {
-            refetch();
+            refetchRef.current();
           }
         )
         .subscribe();
@@ -157,7 +164,7 @@ export default function InboxPage() {
         supabase.removeChannel(channel);
       });
     };
-  }, [supabase, user?.id, user?.email, refetch]);
+  }, [supabase, user?.id, user?.email]);
 
   const pending = useMemo(() => {
     return (invitations || []).filter((i) => i.status === "pending");

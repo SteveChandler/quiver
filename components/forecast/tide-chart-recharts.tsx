@@ -641,6 +641,7 @@ export function TideChart({
               strokeWidth={2.5}
               fill={`url(#fill-${gradId})`}
               isAnimationActive={animationEnabled}
+              connectNulls={true}
             />
 
             <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />

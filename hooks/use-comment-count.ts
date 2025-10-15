@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { data as gateway } from "@/lib/data/client";
 
 export function useCommentCount(sessionId: string) {
   const [commentCount, setCommentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Create supabase client once
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     // Don't proceed if sessionId is empty
@@ -15,8 +18,6 @@ export function useCommentCount(sessionId: string) {
       setIsLoading(false);
       return;
     }
-
-    const supabase = createClient();
 
     // Fetch initial comment count via gateway
     const fetchCommentCount = async () => {
@@ -45,7 +46,7 @@ export function useCommentCount(sessionId: string) {
           table: "comments",
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload) => {
+        () => {
           setCommentCount((prev) => prev + 1);
         }
       )
@@ -57,7 +58,7 @@ export function useCommentCount(sessionId: string) {
           table: "comments",
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload) => {
+        () => {
           setCommentCount((prev) => Math.max(0, prev - 1));
         }
       )
@@ -66,7 +67,7 @@ export function useCommentCount(sessionId: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [sessionId]);
+  }, [sessionId, supabase]);
 
   return { commentCount, isLoading };
 }

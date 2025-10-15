@@ -1,0 +1,85 @@
+"use client";
+
+import { useEffect, useMemo, useRef } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+
+/**
+ * Shared hook for session invitation Realtime subscriptions
+ * Prevents duplicate subscriptions when used in multiple components
+ * 
+ * @param userId - Current user ID
+ * @param userEmail - Current user email
+ * @param onUpdate - Callback to execute when invitation changes occur
+ */
+export function useSessionInvitationsSubscription(
+  userId: string | undefined,
+  userEmail: string | undefined,
+  onUpdate: () => void
+) {
+  const supabase = useMemo(() => createClient(), []);
+  
+  // Use ref to avoid re-subscriptions when callback changes
+  const onUpdateRef = useRef(onUpdate);
+  
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
+
+  useEffect(() => {
+    if (!userId && !userEmail) {
+      return;
+    }
+
+    const channels: RealtimeChannel[] = [];
+
+    // Subscribe by user ID if available
+    if (userId) {
+      const userChannel = supabase
+        .channel(`session_invitations_user_${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "session_invitations",
+            filter: `invitee_id=eq.${userId}`,
+          },
+          () => {
+            onUpdateRef.current();
+          }
+        )
+        .subscribe();
+      channels.push(userChannel);
+    }
+
+    // Subscribe by email if available
+    const emailValue = userEmail?.toLowerCase();
+    if (emailValue) {
+      const encoded = encodeURIComponent(emailValue);
+      const emailChannel = supabase
+        .channel(`session_invitations_email_${encoded}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "session_invitations",
+            filter: `invitee_email=eq.${emailValue}`,
+          },
+          () => {
+            onUpdateRef.current();
+          }
+        )
+        .subscribe();
+      channels.push(emailChannel);
+    }
+
+    return () => {
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+    };
+  }, [supabase, userId, userEmail]);
+}
+

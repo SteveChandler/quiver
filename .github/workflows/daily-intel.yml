@@ -3,8 +3,8 @@ name: Generate Beach Intel (3x Daily)
 on:
     schedule:
         # 6:00 AM PT (13:00 UTC PDT / 14:00 UTC PST)
-        - cron: "0 13 * * *" # PDT
-        - cron: "0 14 * * *" # PST
+        - cron: "0 12 * * *" # PDT
+        - cron: "0 13 * * *" # PST
 
         # 10:00 AM PT (17:00 UTC PDT / 18:00 UTC PST)
         - cron: "0 17 * * *" # PDT
