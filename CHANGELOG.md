@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+### Changed
+
+- **Console Logging**: All debug console.log statements now only appear in development
+  - Wrapped console logs in `if (process.env.NODE_ENV === 'development')` checks
+  - Affected files: `beach-detail.tsx`, `session-utils.ts`, `map-utils.ts`
+  - Production builds will have cleaner console output with no debug messages
+  - Development debugging information remains intact for local development
+
 ### Fixed
 
 - **Security Vulnerabilities**: Resolved 2 low-severity Dependabot vulnerabilities in dev dependencies

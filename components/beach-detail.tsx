@@ -157,7 +157,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
   // Fetch beach information via API (avoid server actions from client)
   const fetchBeach = useCallback(async () => {
-    console.log("🏖️ Fetching beach data (API) for:", id);
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🏖️ Fetching beach data (API) for:", id);
+    }
     const res = await fetch(`/api/beaches/${id}`, { cache: "no-store" });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -170,7 +172,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
     const beachData =
       (body as any)?.data?.beach || (body as any)?.beach || (body as any)?.data;
     if (!beachData) throw new Error("Beach data not found");
-    console.log("✅ Beach data:", beachData);
+    if (process.env.NODE_ENV === 'development') {
+      console.log("✅ Beach data:", beachData);
+    }
     return beachData as Beach;
   }, [id]);
 
@@ -184,7 +188,9 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
   // Single data fetch - 10-day enhanced forecast via API
   const fetchForecasts = useCallback(async () => {
-    console.log("🚀 Starting enhanced forecast fetch (API) for beach:", id);
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🚀 Starting enhanced forecast fetch (API) for beach:", id);
+    }
     const res = await fetch(
       `/api/forecasts/update-enhanced?beachId=${id}&days=10`,
       { cache: "no-store" }
@@ -203,19 +209,21 @@ export function BeachDetail({ id }: BeachDetailProps) {
     };
     const forecasts: EnhancedForecastEntity[] =
       body?.data?.forecasts || (body as any)?.forecasts || [];
-    console.log("🔍 Raw forecast data:", {
-      totalForecasts: forecasts.length,
-      dateRange: {
-        first: forecasts[0]?.forecast_date,
-        last: forecasts[forecasts.length - 1]?.forecast_date,
-      },
-      sampleForecast: forecasts[0],
-      uniqueDates: [...new Set(forecasts.map((f) => f.forecast_date))],
-      forecastsByDate: forecasts.reduce((acc, f) => {
-        acc[f.forecast_date] = (acc[f.forecast_date] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>),
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🔍 Raw forecast data:", {
+        totalForecasts: forecasts.length,
+        dateRange: {
+          first: forecasts[0]?.forecast_date,
+          last: forecasts[forecasts.length - 1]?.forecast_date,
+        },
+        sampleForecast: forecasts[0],
+        uniqueDates: [...new Set(forecasts.map((f) => f.forecast_date))],
+        forecastsByDate: forecasts.reduce((acc, f) => {
+          acc[f.forecast_date] = (acc[f.forecast_date] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+      });
+    }
     return forecasts;
   }, [id]);
 
@@ -271,14 +279,16 @@ export function BeachDetail({ id }: BeachDetailProps) {
     } = require("@/lib/utils/current-forecast-utils");
     const selectedForecast = getCurrentForecast(forecasts);
 
-    console.log("🏖️ Beach Detail currentForecast selection:", {
-      totalForecasts: forecasts.length,
-      selectedTime: selectedForecast?.forecast_time,
-      selectedWaveHeight: selectedForecast?.wave_height,
-      firstForecastTime: forecasts[0]?.forecast_time,
-      firstForecastWaveHeight: forecasts[0]?.wave_height,
-      isClient: typeof window !== "undefined",
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🏖️ Beach Detail currentForecast selection:", {
+        totalForecasts: forecasts.length,
+        selectedTime: selectedForecast?.forecast_time,
+        selectedWaveHeight: selectedForecast?.wave_height,
+        firstForecastTime: forecasts[0]?.forecast_time,
+        firstForecastWaveHeight: forecasts[0]?.wave_height,
+        isClient: typeof window !== "undefined",
+      });
+    }
 
     return selectedForecast;
   }, [forecasts]);
@@ -288,10 +298,12 @@ export function BeachDetail({ id }: BeachDetailProps) {
     const grouped: Record<string, EnhancedForecastEntity[]> = {};
 
     if (forecasts && Array.isArray(forecasts) && forecasts.length > 0) {
-      console.log("📊 Processing forecasts:", {
-        totalForecasts: forecasts.length,
-        firstForecast: forecasts[0],
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log("📊 Processing forecasts:", {
+          totalForecasts: forecasts.length,
+          firstForecast: forecasts[0],
+        });
+      }
 
       // Group forecasts by date
       forecasts.forEach((forecast) => {
@@ -304,14 +316,16 @@ export function BeachDetail({ id }: BeachDetailProps) {
         }
       });
 
-      console.log("📅 Grouped forecasts by date:", {
-        dates: Object.keys(grouped),
-        forecastsPerDate: Object.entries(grouped).map(([date, forecasts]) => ({
-          date,
-          count: forecasts.length,
-          firstForecast: forecasts[0]?.wave_height,
-        })),
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log("📅 Grouped forecasts by date:", {
+          dates: Object.keys(grouped),
+          forecastsPerDate: Object.entries(grouped).map(([date, forecasts]) => ({
+            date,
+            count: forecasts.length,
+            firstForecast: forecasts[0]?.wave_height,
+          })),
+        });
+      }
     }
 
     return grouped;
