@@ -529,33 +529,6 @@ export function TideChart({
     [windowBounds]
   );
 
-  // Debug logging for tide chart data
-  React.useEffect(() => {
-    console.log("🌊 TideChart Debug - Window Bounds:");
-    console.log("  Window Start:", new Date(windowBounds.windowStart).toLocaleString(), windowBounds.windowStart);
-    console.log("  Window End:", new Date(windowBounds.windowEnd).toLocaleString(), windowBounds.windowEnd);
-    console.log("  Buffer Start:", new Date(windowBounds.bufferStart).toLocaleString(), windowBounds.bufferStart);
-    console.log("  Buffer End:", new Date(windowBounds.bufferEnd).toLocaleString(), windowBounds.bufferEnd);
-    
-    console.log("\n🌊 First 10 Raw Data Points:");
-    rawLine.slice(0, 10).forEach((d, i) => {
-      const inWindow = d.timestamp >= windowBounds.bufferStart && d.timestamp <= windowBounds.bufferEnd;
-      console.log(`  [${i}] ${new Date(d.timestamp).toLocaleString()} (${d.timestamp}) - ${d.h} ft - ${inWindow ? '✅ IN WINDOW' : '❌ OUTSIDE'}`);
-    });
-    
-    console.log("\n🌊 Summary:");
-    console.log("  Input forecasts:", forecasts?.length || 0);
-    console.log("  Raw line points:", rawLine.length);
-    console.log("  Chart data points:", chartData.length);
-    console.log("  Chart data times:", chartData.map((d) => new Date(d.t).toLocaleString()));
-  }, [
-    forecasts,
-    rawLine.length,
-    emphasizedLine.length,
-    chartData,
-    windowBounds,
-  ]);
-
   if (!chartData.length) {
     return (
       <div
