@@ -2,6 +2,11 @@
 
 ### Fixed
 
+- **Security Vulnerabilities**: Resolved 2 low-severity Dependabot vulnerabilities in dev dependencies
+  - Updated `@lhci/cli` from 0.14.0 to 0.15.1 (fixes `cookie` package vulnerability)
+  - Added npm override to force `tmp@^0.2.5` (fixes symbolic link vulnerability in temp file handling)
+  - Both vulnerabilities only affected development/testing tools (Lighthouse CI), no production impact
+  - Verified lighthouse CI functionality remains intact after updates
 - **Tide Chart Line Rendering**: Fixed issue where tide line would cut off abruptly mid-chart
   - Added `connectNulls={true}` to Area component in `tide-chart-recharts.tsx` to ensure continuous line rendering even with data gaps
   - Added debug logging to monitor data points, window bounds, and time ranges
