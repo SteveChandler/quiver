@@ -1099,11 +1099,12 @@ export class EnhancedForecastService {
 
     try {
       // Upsert in chunks to avoid exceeding PostgREST payload limits
+      // Increased from 24 to 100 to reduce total number of database calls
       const toRows = forecasts.map((forecast) => {
         const { id, ...forecastWithoutId } = forecast;
         return { ...forecastWithoutId, updated_at: new Date().toISOString() };
       });
-      const chunkSize = 24;
+      const chunkSize = 100;
       let lastData: any = null;
       for (let i = 0; i < toRows.length; i += chunkSize) {
         const chunk = toRows.slice(i, i + chunkSize);

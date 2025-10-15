@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Loader2, MessageSquare, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { UserAvatar } from "@/components/user-avatar";
@@ -10,7 +10,6 @@ import type { Database } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/auth-context";
-import { useCallback } from "react";
 import { Trash2 } from "lucide-react";
 
 type Comment = Database["public"]["Tables"]["comments"]["Row"] & {
@@ -37,28 +36,35 @@ export function SessionComments({
   const [submitting, setSubmitting] = useState(false);
   const supabase = createClient();
 
+  // Use ref to store the callback to avoid re-subscriptions
+  const onCommentCountChangeRef = useRef(onCommentCountChange);
+
+  useEffect(() => {
+    onCommentCountChangeRef.current = onCommentCountChange;
+  }, [onCommentCountChange]);
+
   const fetchComments = useCallback(async () => {
     try {
       const list = await gateway.sessions.comments.listTopLevel(sessionId);
       setComments(list || []);
 
       // Notify parent of comment count change
-      if (onCommentCountChange) {
-        onCommentCountChange((list || []).length);
+      if (onCommentCountChangeRef.current) {
+        onCommentCountChangeRef.current((list || []).length);
       }
     } catch (error) {
       console.error("Error fetching comments:", error);
     } finally {
       setLoading(false);
     }
-  }, [sessionId, onCommentCountChange]);
+  }, [sessionId]);
 
   useEffect(() => {
     fetchComments();
 
-    // Subscribe to changes
+    // Subscribe to changes - use unique channel name to avoid conflicts
     const channel = supabase
-      .channel("session_comments")
+      .channel(`session_comments_${sessionId}`)
       .on(
         "postgres_changes",
         {

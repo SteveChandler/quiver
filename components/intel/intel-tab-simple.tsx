@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IntelPostForm } from "./intel-post-form";
@@ -88,6 +88,13 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
   }, [fetchPosts]);
 
   // Real-time subscription for intel posts updates
+  // Use a ref to avoid re-subscriptions when fetchPosts changes
+  const fetchPostsRef = useRef(fetchPosts);
+
+  useEffect(() => {
+    fetchPostsRef.current = fetchPosts;
+  }, [fetchPosts]);
+
   useEffect(() => {
     console.log("[IntelTab] Setting up realtime subscriptions...");
 
@@ -108,7 +115,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
               payload.eventType
             );
             // Refetch posts when any intel post is created, updated, or deleted
-            fetchPosts();
+            fetchPostsRef.current();
           }
         )
         .subscribe((status) => {
@@ -131,7 +138,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
               payload.eventType
             );
             // Refetch posts when confirmations change
-            fetchPosts();
+            fetchPostsRef.current();
           }
         )
         .subscribe((status) => {
@@ -148,7 +155,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
         supabase.removeChannel(channel);
       });
     };
-  }, [supabase, fetchPosts]);
+  }, [supabase]);
 
   // Handle post creation success
   const handlePostSuccess = useCallback(
