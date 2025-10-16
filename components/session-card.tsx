@@ -305,7 +305,7 @@ export function SessionCard({
       <div className="relative h-48 w-full rounded-md overflow-hidden">
         <MapImage
           src={imageUrl || "/placeholder.svg"}
-          alt="Session location map"
+          alt={`Map showing surf session location at ${beachName}`}
           fill
           className="object-cover"
           beachName={beachName}

@@ -2,6 +2,28 @@
 
 ### Added
 
+- **SEO Quick Wins - Pre-Launch Optimization** 🚀
+  - **Keyword Strategy Refinement**: Removed e-commerce keywords (surf shop, surfboards for sale, surf clothing), added tracking-focused keywords (surf journal app, surf log book, wave height tracker, surf diary, surfing progress tracker, tide tracker app)
+  - **Enhanced Dynamic Metadata**:
+    - Session pages now include beach name, user name, rating, and date in meta titles/descriptions
+    - User profile pages include session count and location in meta titles/descriptions
+    - Forecast pages include actual beach name and detailed forecast descriptions
+  - **FAQ Structured Data**: Added FAQ schema to landing page with 8 common questions for rich snippets
+    - "What is Quiver?", "How do I track surf sessions?", "How do I find surf buddies?", etc.
+    - Schema.org FAQPage implementation for Google rich results
+  - **Improved Alt Text**: Enhanced image accessibility across key components
+    - User avatars: "Profile picture of {name}" instead of just "User"
+    - Board cards: "{name} {type} surfboard" instead of just name
+    - Beach cards: "Map showing {name} surf spot location" instead of just name
+    - Session cards: "Map showing surf session location at {beachName}" instead of generic text
+  - **Social Media Verification Readiness**: Added TODO comments for verified social account updates
+  - **Google Search Console Integration**: Added environment variable support for verification tag
+    - `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` in .env with documentation
+  - **New Server Actions for SEO**:
+    - `getSessionMetadata()` - Fetches minimal session data for meta tag generation
+    - `getUserMetadata()` - Fetches minimal user profile data for meta tag generation
+  - **Component Architecture**: Split user profile page into server/client components for metadata support
+  - Files affected: `lib/constants/seo.ts`, `app/sessions/[id]/page.tsx`, `app/user/[id]/page.tsx`, `app/forecast/[beachId]/page.tsx`, `components/seo/faq-schema.tsx`, `components/user-avatar.tsx`, `components/board-card.tsx`, `components/beach-card.tsx`, `components/session-card.tsx`, `actions/session-actions.ts`, `actions/profile-actions.ts`
 - **Edit Profile Notifications Section**: Comprehensive notification preferences in Edit Profile modal
   - Added new Notifications section with master toggles for Push, Email, and In-App notifications
   - Implemented Advanced Settings collapsible with per-feature toggles (Session Invites, Likes, Follows, Reminders, XP Updates)

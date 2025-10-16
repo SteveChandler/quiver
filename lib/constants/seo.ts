@@ -12,14 +12,9 @@ export const SEO_CONFIG = {
     // Core surfing keywords
     "surfing",
     "surf app",
-    "surf shop",
-    "surfboard",
-    "surfboards for sale",
-    "surf camp",
-    "surf lessons near me",
     "surf community",
     "surfing san diego",
-    "surf clothing",
+    "surf lessons near me",
 
     // Niche & feature-focused keywords
     "surf forecast app",
@@ -30,7 +25,12 @@ export const SEO_CONFIG = {
     "local surf events",
     "surf social app",
     "surf group chat",
-    "surf coaching app",
+    "surf journal app",
+    "surf log book",
+    "wave height tracker",
+    "surf diary",
+    "surfing progress tracker",
+    "tide tracker app",
 
     // Long-tail & local keywords
     "best surf app for beginners",
@@ -40,6 +40,9 @@ export const SEO_CONFIG = {
     "surf events near me",
     "Pacific Beach surf scene",
     "Encinitas surf report",
+    "track my surf sessions",
+    "surf session journal",
+    "log surf conditions",
 
     // App-specific functionality
     "surf session tracker",
@@ -50,6 +53,8 @@ export const SEO_CONFIG = {
     "surf spot reviews",
     "plan surf sessions",
     "surf conditions tracker",
+    "surf community platform",
+    "surfing social media",
   ],
 
   // Open Graph enhanced
@@ -76,8 +81,9 @@ export const SEO_CONFIG = {
     title: "Quiver - Ultimate Surf Community Platform",
     description:
       "Find surf buddies, track sessions, get forecasts. Join the surf community that's revolutionizing how surfers connect.",
-    creator: "@QuiverSurf", // Update when social accounts are created
-    site: "@QuiverSurf",
+    // TODO: Update with verified social accounts before launch
+    creator: "@QuiverSurf", // Placeholder - update when account is created
+    site: "@QuiverSurf", // Placeholder - update when account is created
   },
 
   // Structured Data (JSON-LD)
@@ -91,9 +97,10 @@ export const SEO_CONFIG = {
         "Ultimate surf community platform - Community-driven surf session tracking and social platform",
       url: SITE_URL,
       logo: `${SITE_URL}/logo.png`,
+      // TODO: Update with verified social accounts before launch
       sameAs: [
-        "https://instagram.com/quiversurf",
-        "https://tiktok.com/@quiversurf",
+        "https://instagram.com/quiversurf", // Placeholder - update when account is created
+        "https://tiktok.com/@quiversurf", // Placeholder - update when account is created
       ],
       foundingDate: "2024",
       applicationCategory: "Sports & Recreation",
@@ -178,7 +185,7 @@ export const SEO_CONFIG = {
     "apple-mobile-web-app-title": "Quiver",
     
     "format-detection": "telephone=no",
-    "google-site-verification": "", // Add when Google Search Console is set up
+    "google-site-verification": process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "", // Add verification code via environment variable
     // Geographic targeting for surf communities
     "geo.region": "US-CA",
     "geo.placename": "San Diego, California",

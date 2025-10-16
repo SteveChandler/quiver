@@ -242,6 +242,44 @@ export async function getPublicSessions(limit = 10) {
   }
 }
 
+/**
+ * Get session metadata for SEO (works for both public and private sessions)
+ * Returns minimal data needed for page metadata generation
+ */
+export async function getSessionMetadata(sessionId: string) {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("sessions")
+      .select(
+        `
+        id,
+        beach_name,
+        arrival_time,
+        rating,
+        status,
+        is_public,
+        user:profiles!sessions_user_id_fkey(full_name, username),
+        beach:beaches(name)
+      `
+      )
+      .eq("id", sessionId)
+      .single();
+
+    if (error || !data) {
+      return { success: false as const, error: error?.message || "Session not found" };
+    }
+
+    return { success: true as const, data };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 export async function updateSession(
   id: string,
   userId: string,

@@ -3,6 +3,7 @@
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { Suspense, lazy, useState, useEffect } from "react";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
+import { QuiverFAQSchema } from "@/components/seo/faq-schema";
 
 // Import sections directly to debug lazy loading issue
 import { SocialFeedSection } from "@/components/landing-page/social-feed-section";
@@ -27,7 +28,7 @@ function SectionSkeleton({ height = "h-64" }: { height?: string }) {
 // Optimized progressive loading component
 function ProgressiveSection({
   children,
-  height = "h-64"
+  height = "h-64",
 }: {
   children: React.ReactNode;
   height?: string;
@@ -36,7 +37,11 @@ function ProgressiveSection({
   const [ref, setRef] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!ref || typeof window === "undefined" || !("IntersectionObserver" in window)) {
+    if (
+      !ref ||
+      typeof window === "undefined" ||
+      !("IntersectionObserver" in window)
+    ) {
       setIsVisible(true); // Fallback for server-side or old browsers
       return;
     }
@@ -50,9 +55,9 @@ function ProgressiveSection({
           }
         });
       },
-      { 
+      {
         rootMargin: "150px", // Load earlier for smoother experience
-        threshold: 0.01 
+        threshold: 0.01,
       }
     );
 
@@ -75,6 +80,9 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
+      {/* FAQ Structured Data for SEO */}
+      <QuiverFAQSchema />
+
       {/* Hidden fallback CTA to ensure presence of actionable elements during E2E tests */}
       <a
         href="/auth/sign-up"

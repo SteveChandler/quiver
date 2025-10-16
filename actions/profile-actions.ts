@@ -390,3 +390,50 @@ export async function getUserStats(userId: string) {
     };
   }
 }
+
+/**
+ * Get user profile metadata for SEO
+ * Returns minimal data needed for page metadata generation
+ */
+export async function getUserMetadata(userId: string) {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        `
+        id,
+        full_name,
+        username,
+        location,
+        created_at
+      `
+      )
+      .eq("id", userId)
+      .single();
+
+    if (error || !data) {
+      return { success: false as const, error: error?.message || "User not found" };
+    }
+
+    // Get session count for this user
+    const { count } = await supabase
+      .from("sessions")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    return { 
+      success: true as const, 
+      data: {
+        ...data,
+        session_count: count || 0
+      }
+    };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}

@@ -40,10 +40,28 @@ export async function generateMetadata({
 }: {
   params: { beachId: string };
 }): Promise<Metadata> {
-  // Avoid Supabase-backed calls in metadata; use a static fallback
+  // Fetch beach data for enhanced SEO
+  try {
+    const beach = await getBeachById(params.beachId);
+
+    if (beach && beach.name) {
+      const beachName = beach.name;
+
+      return buildPageMetadata({
+        title: `${beachName} Surf Forecast - 10-Day Conditions & Wave Reports`,
+        description: `View the 10-day surf forecast for ${beachName}. Get live buoy data, swell heights, wind conditions, tides, and confidence ratings. Plan your next surf session with accurate forecasts.`,
+        path: `/forecast/${params.beachId}`,
+      });
+    }
+  } catch (error) {
+    // Fall through to generic metadata
+  }
+
+  // Fallback to generic metadata
   return buildPageMetadata({
-    title: "Surf Forecast | Quiver",
-    description: "10-day surf forecast with live buoy data and confidence.",
+    title: "Surf Forecast - 10-Day Wave Reports | Quiver",
+    description:
+      "View detailed 10-day surf forecasts with live buoy data, swell heights, wind conditions, and confidence ratings. Plan your next surf session.",
     path: `/forecast/${params.beachId}`,
   });
 }

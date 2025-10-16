@@ -67,7 +67,7 @@ export function UserAvatar({
       {cleanSrc && (
         <AvatarImage
           src={cleanSrc}
-          alt={name || "User"}
+          alt={name ? `Profile picture of ${name}` : "User profile picture"}
           onError={handleImageError}
           onLoad={() => {
             if (process.env.NODE_ENV === "development") {
