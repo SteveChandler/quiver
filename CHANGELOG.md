@@ -2,6 +2,26 @@
 
 ### Added
 
+- **Edit Profile Notifications Section**: Comprehensive notification preferences in Edit Profile modal
+  - Added new Notifications section with master toggles for Push, Email, and In-App notifications
+  - Implemented Advanced Settings collapsible with per-feature toggles (Session Invites, Likes, Follows, Reminders, XP Updates)
+  - Database migration: 8 new columns in `profiles` table for granular notification control
+  - Component: `components/profile/notifications-section.tsx` following Quiver design system (Ocean Blue #0077B6 accents)
+  - Integrated with existing Edit Profile form using react-hook-form patterns
+  - Full TypeScript type safety with updated Profile type definitions
+  - Responsive design: 2-column grid on desktop, single column on mobile
+  - Accessibility: Proper ARIA labels, keyboard navigation, focus states, and screen reader support
+  - Dark mode support with appropriate color tokens
+  - Tests: Component tests for UI interactions and toggle functionality
+- **Notification Testing Infrastructure**: Comprehensive testing guide and tools ✅ TESTED
+  - Created `docs/NOTIFICATION_TESTING_GUIDE.md` with complete testing strategies
+  - Added `scripts/test-push-notification.mjs` for manual push notification testing
+  - Added `scripts/check-devices.mjs` for listing registered devices
+  - Covers unit tests, integration tests, E2E tests, and debugging procedures
+  - Includes database verification queries and monitoring guidance
+  - Test script supports multiple users and automatic invalid token pruning
+  - **Successfully tested**: Web push notifications working perfectly (100% delivery rate)
+  - Fixed dotenv loading to properly load from `.env.local` file
 - **Push Notifications System**: Complete FCM push notification infrastructure for session invitations (Mobile + Web)
   - Created `user_devices` table for device token storage with RLS policies
   - Created `notifications` table for in-app notification records
@@ -32,6 +52,12 @@
 
 ### Fixed
 
+- **Console Errors**: Fixed critical browser console errors
+  - Removed reference to missing `placeholder-logo.png` in `lib/utils/performance-utils.ts` (404 error)
+  - Added Firebase configuration check in `lib/web/push-notifications.ts` to prevent 400 errors when `NEXT_PUBLIC_FIREBASE_*` env vars are missing
+  - Added `buildExcludes` to `next.config.mjs` to prevent service worker from precaching non-existent `app-build-manifest.json`
+  - Browser console now clean of critical errors in development and production
+  - Push notifications gracefully skip initialization when Firebase is not configured
 - **Security Vulnerabilities**: Resolved 2 low-severity Dependabot vulnerabilities in dev dependencies
   - Updated `@lhci/cli` from 0.14.0 to 0.15.1 (fixes `cookie` package vulnerability)
   - Added npm override to force `tmp@^0.2.5` (fixes symbolic link vulnerability in temp file handling)

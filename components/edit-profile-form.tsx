@@ -37,6 +37,7 @@ import { toast } from "@/components/ui/use-toast";
 import { BeachSelector } from "@/components/BeachSelector";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { track, slugify } from "@/lib/analytics";
+import { NotificationsSection } from "@/components/profile/notifications-section";
 
 const profileFormSchema = z.object({
   full_name: z
@@ -57,6 +58,16 @@ const profileFormSchema = z.object({
     .max(30, "Instagram username must be less than 30 characters")
     .optional(),
   home_beach_id: z.string().uuid().nullable().optional(),
+  // Notification preferences - master toggles
+  notif_push_enabled: z.boolean().optional(),
+  notif_email_enabled: z.boolean().optional(),
+  notif_inapp_enabled: z.boolean().optional(),
+  // Notification preferences - feature toggles
+  notif_session_invites: z.boolean().optional(),
+  notif_likes: z.boolean().optional(),
+  notif_follows: z.boolean().optional(),
+  notif_reminders: z.boolean().optional(),
+  notif_xp_updates: z.boolean().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -70,6 +81,14 @@ interface EditProfileFormProps {
     instagram?: string;
     avatar_url?: string;
     home_beach_id?: string;
+    notif_push_enabled?: boolean;
+    notif_email_enabled?: boolean;
+    notif_inapp_enabled?: boolean;
+    notif_session_invites?: boolean;
+    notif_likes?: boolean;
+    notif_follows?: boolean;
+    notif_reminders?: boolean;
+    notif_xp_updates?: boolean;
   };
   onSuccess?: () => void;
 }
@@ -98,6 +117,15 @@ export function EditProfileForm({
       experience_level: initialData?.experience_level || "",
       instagram: initialData?.instagram || "",
       home_beach_id: initialData?.home_beach_id ?? null,
+      // Notification preferences - default to true if not set
+      notif_push_enabled: initialData?.notif_push_enabled ?? true,
+      notif_email_enabled: initialData?.notif_email_enabled ?? true,
+      notif_inapp_enabled: initialData?.notif_inapp_enabled ?? true,
+      notif_session_invites: initialData?.notif_session_invites ?? true,
+      notif_likes: initialData?.notif_likes ?? true,
+      notif_follows: initialData?.notif_follows ?? true,
+      notif_reminders: initialData?.notif_reminders ?? true,
+      notif_xp_updates: initialData?.notif_xp_updates ?? true,
     },
   });
 
@@ -448,6 +476,9 @@ export function EditProfileForm({
                 )}
               />
             </div>
+
+            {/* Notifications */}
+            <NotificationsSection control={form.control} />
 
             {/* Social Media */}
             <div className="space-y-4">

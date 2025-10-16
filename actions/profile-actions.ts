@@ -29,6 +29,16 @@ const profileUpdateSchema = z.object({
   privacy_level: z.enum(["public", "friends", "private"]).optional(),
   share_sessions: z.boolean().optional(),
   show_stats: z.boolean().optional(),
+  // Notification preferences - master toggles
+  notif_push_enabled: z.boolean().optional(),
+  notif_email_enabled: z.boolean().optional(),
+  notif_inapp_enabled: z.boolean().optional(),
+  // Notification preferences - feature toggles
+  notif_session_invites: z.boolean().optional(),
+  notif_likes: z.boolean().optional(),
+  notif_follows: z.boolean().optional(),
+  notif_reminders: z.boolean().optional(),
+  notif_xp_updates: z.boolean().optional(),
 }).passthrough(); // Allow extra fields that aren't in schema
 
 export async function getProfile(userId: string) {
