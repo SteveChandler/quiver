@@ -67,10 +67,10 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
       <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
         Notifications
       </h3>
-      <p className="text-sm text-gray-800 dark:text-gray-200">
+      <p className="text-sm text-gray-900 dark:text-gray-100">
         Choose how you'd like to get updates about your sessions and friends.
       </p>
-      <p className="text-xs text-gray-700 dark:text-gray-300">
+      <p className="text-xs text-gray-800 dark:text-gray-200">
         You can change these anytime — we'll only notify you about things you
         care about.
       </p>
