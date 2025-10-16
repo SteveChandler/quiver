@@ -29,6 +29,16 @@ const profileUpdateSchema = z.object({
   privacy_level: z.enum(["public", "friends", "private"]).optional(),
   share_sessions: z.boolean().optional(),
   show_stats: z.boolean().optional(),
+  // Notification preferences - master toggles
+  notif_push_enabled: z.boolean().optional(),
+  notif_email_enabled: z.boolean().optional(),
+  notif_inapp_enabled: z.boolean().optional(),
+  // Notification preferences - feature toggles
+  notif_session_invites: z.boolean().optional(),
+  notif_likes: z.boolean().optional(),
+  notif_follows: z.boolean().optional(),
+  notif_reminders: z.boolean().optional(),
+  notif_xp_updates: z.boolean().optional(),
 }).passthrough(); // Allow extra fields that aren't in schema
 
 export async function getProfile(userId: string) {
@@ -376,6 +386,53 @@ export async function getUserStats(userId: string) {
     console.error("Error getting user stats:", error);
     return {
       success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Get user profile metadata for SEO
+ * Returns minimal data needed for page metadata generation
+ */
+export async function getUserMetadata(userId: string) {
+  const supabase = await createSupabaseServerClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        `
+        id,
+        full_name,
+        username,
+        location,
+        created_at
+      `
+      )
+      .eq("id", userId)
+      .single();
+
+    if (error || !data) {
+      return { success: false as const, error: error?.message || "User not found" };
+    }
+
+    // Get session count for this user
+    const { count } = await supabase
+      .from("sessions")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    return { 
+      success: true as const, 
+      data: {
+        ...data,
+        session_count: count || 0
+      }
+    };
+  } catch (error) {
+    return {
+      success: false as const,
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }

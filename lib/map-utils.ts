@@ -180,7 +180,9 @@ function getMapboxStaticImageUrl(
   // Note: Mapbox Static API doesn't support custom text on markers easily
   // So we'll fall back to enhanced placeholder when text is provided
   if (markerText) {
-    console.log("Using enhanced placeholder for Mapbox with text:", markerText);
+    if (process.env.NODE_ENV === 'development') {
+      console.log("Using enhanced placeholder for Mapbox with text:", markerText);
+    }
     return generateEnhancedMapPlaceholder(
       latitude,
       longitude,
@@ -193,7 +195,9 @@ function getMapboxStaticImageUrl(
   const marker = `pin-s+${markerColor}(${longitude},${latitude})`;
   const url = `https://api.mapbox.com/styles/v1/${style}/static/${marker}/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${accessToken}`;
 
-  console.log("Generated Mapbox URL:", url);
+  if (process.env.NODE_ENV === 'development') {
+    console.log("Generated Mapbox URL:", url);
+  }
   return url;
 }
 
@@ -265,7 +269,9 @@ function getGoogleMapsStaticImageUrl(
 
   const url = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${width}x${height}&maptype=${mapType}&markers=${marker}&key=${apiKey}&scale=2`;
 
-  console.log("Generated Google Maps URL with marker text:", markerText);
+  if (process.env.NODE_ENV === 'development') {
+    console.log("Generated Google Maps URL with marker text:", markerText);
+  }
   return url;
 }
 
@@ -320,7 +326,9 @@ function getOpenStreetMapStaticImageUrl(
   // StaticMapLite is a free service for OpenStreetMap static images
   const url = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik&markers=${latitude},${longitude},lightblue`;
 
-  console.log("Generated OpenStreetMap URL:", url);
+  if (process.env.NODE_ENV === 'development') {
+    console.log("Generated OpenStreetMap URL:", url);
+  }
   return url;
 }
 
@@ -374,23 +382,27 @@ export function getStaticMapImageUrl(
     );
   }
 
-  console.log("Generating map image for coordinates:", { latitude, longitude });
-  console.log("Available environment variables:", {
-    hasMapbox:
-      !!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
-      !!(process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN,
-    hasGoogle: !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-    hasGeoapify: !!process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY,
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log("Generating map image for coordinates:", { latitude, longitude });
+    console.log("Available environment variables:", {
+      hasMapbox:
+        !!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+        !!(process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN,
+      hasGoogle: !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+      hasGeoapify: !!process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY,
+    });
+  }
 
   // Use real providers in all environments; rely on graceful fallbacks below
 
   // Try Google Maps first if we have marker text (better text support)
   if (options.markerText && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-    console.log(
-      "Using Google Maps for map image with text:",
-      options.markerText
-    );
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        "Using Google Maps for map image with text:",
+        options.markerText
+      );
+    }
     return getGoogleMapsStaticImageUrl(latitude, longitude, options);
   }
 
@@ -399,25 +411,33 @@ export function getStaticMapImageUrl(
     process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
     (process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN
   ) {
-    console.log("Using Mapbox for map image");
+    if (process.env.NODE_ENV === 'development') {
+      console.log("Using Mapbox for map image");
+    }
     return getMapboxStaticImageUrl(latitude, longitude, options);
   }
 
   // Try Google Maps
   if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-    console.log("Using Google Maps for map image");
+    if (process.env.NODE_ENV === 'development') {
+      console.log("Using Google Maps for map image");
+    }
     return getGoogleMapsStaticImageUrl(latitude, longitude, options);
   }
 
   // Try Geoapify
   const geoapifyUrl = getGeoapifyStaticImageUrl(latitude, longitude, options);
   if (geoapifyUrl) {
-    console.log("Using Geoapify for map image");
+    if (process.env.NODE_ENV === 'development') {
+      console.log("Using Geoapify for map image");
+    }
     return geoapifyUrl;
   }
 
   // Fallback to enhanced placeholder
-  console.log("Using enhanced placeholder fallback for map image");
+  if (process.env.NODE_ENV === 'development') {
+    console.log("Using enhanced placeholder fallback for map image");
+  }
   return generateEnhancedMapPlaceholder(
     latitude,
     longitude,

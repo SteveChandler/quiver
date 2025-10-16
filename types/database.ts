@@ -911,6 +911,14 @@ export type Database = {
           location: string | null
           phone_number: string | null
           updated_at: string | null
+          notif_push_enabled: boolean
+          notif_email_enabled: boolean
+          notif_inapp_enabled: boolean
+          notif_session_invites: boolean
+          notif_likes: boolean
+          notif_follows: boolean
+          notif_reminders: boolean
+          notif_xp_updates: boolean
         }
         Insert: {
           avatar_url?: string | null
@@ -933,6 +941,14 @@ export type Database = {
           location?: string | null
           phone_number?: string | null
           updated_at?: string | null
+          notif_push_enabled?: boolean
+          notif_email_enabled?: boolean
+          notif_inapp_enabled?: boolean
+          notif_session_invites?: boolean
+          notif_likes?: boolean
+          notif_follows?: boolean
+          notif_reminders?: boolean
+          notif_xp_updates?: boolean
         }
         Update: {
           avatar_url?: string | null
@@ -955,6 +971,14 @@ export type Database = {
           location?: string | null
           phone_number?: string | null
           updated_at?: string | null
+          notif_push_enabled?: boolean
+          notif_email_enabled?: boolean
+          notif_inapp_enabled?: boolean
+          notif_session_invites?: boolean
+          notif_likes?: boolean
+          notif_follows?: boolean
+          notif_reminders?: boolean
+          notif_xp_updates?: boolean
         }
         Relationships: [
           {

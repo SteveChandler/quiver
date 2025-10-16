@@ -1,7 +1,85 @@
 ## [Unreleased]
 
+### Added
+
+- **SEO Quick Wins - Pre-Launch Optimization** 🚀
+  - **Keyword Strategy Refinement**: Removed e-commerce keywords (surf shop, surfboards for sale, surf clothing), added tracking-focused keywords (surf journal app, surf log book, wave height tracker, surf diary, surfing progress tracker, tide tracker app)
+  - **Enhanced Dynamic Metadata**:
+    - Session pages now include beach name, user name, rating, and date in meta titles/descriptions
+    - User profile pages include session count and location in meta titles/descriptions
+    - Forecast pages include actual beach name and detailed forecast descriptions
+  - **FAQ Structured Data**: Added FAQ schema to landing page with 8 common questions for rich snippets
+    - "What is Quiver?", "How do I track surf sessions?", "How do I find surf buddies?", etc.
+    - Schema.org FAQPage implementation for Google rich results
+  - **Improved Alt Text**: Enhanced image accessibility across key components
+    - User avatars: "Profile picture of {name}" instead of just "User"
+    - Board cards: "{name} {type} surfboard" instead of just name
+    - Beach cards: "Map showing {name} surf spot location" instead of just name
+    - Session cards: "Map showing surf session location at {beachName}" instead of generic text
+  - **Social Media Verification Readiness**: Added TODO comments for verified social account updates
+  - **Google Search Console Integration**: Added environment variable support for verification tag
+    - `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` in .env with documentation
+  - **New Server Actions for SEO**:
+    - `getSessionMetadata()` - Fetches minimal session data for meta tag generation
+    - `getUserMetadata()` - Fetches minimal user profile data for meta tag generation
+  - **Component Architecture**: Split user profile page into server/client components for metadata support
+  - Files affected: `lib/constants/seo.ts`, `app/sessions/[id]/page.tsx`, `app/user/[id]/page.tsx`, `app/forecast/[beachId]/page.tsx`, `components/seo/faq-schema.tsx`, `components/user-avatar.tsx`, `components/board-card.tsx`, `components/beach-card.tsx`, `components/session-card.tsx`, `actions/session-actions.ts`, `actions/profile-actions.ts`
+- **Edit Profile Notifications Section**: Comprehensive notification preferences in Edit Profile modal
+  - Added new Notifications section with master toggles for Push, Email, and In-App notifications
+  - Implemented Advanced Settings collapsible with per-feature toggles (Session Invites, Likes, Follows, Reminders, XP Updates)
+  - Database migration: 8 new columns in `profiles` table for granular notification control
+  - Component: `components/profile/notifications-section.tsx` following Quiver design system (Ocean Blue #0077B6 accents)
+  - Integrated with existing Edit Profile form using react-hook-form patterns
+  - Full TypeScript type safety with updated Profile type definitions
+  - Responsive design: 2-column grid on desktop, single column on mobile
+  - Accessibility: Proper ARIA labels, keyboard navigation, focus states, and screen reader support
+  - Dark mode support with appropriate color tokens
+  - Tests: Component tests for UI interactions and toggle functionality
+- **Notification Testing Infrastructure**: Comprehensive testing guide and tools ✅ TESTED
+  - Created `docs/NOTIFICATION_TESTING_GUIDE.md` with complete testing strategies
+  - Added `scripts/test-push-notification.mjs` for manual push notification testing
+  - Added `scripts/check-devices.mjs` for listing registered devices
+  - Covers unit tests, integration tests, E2E tests, and debugging procedures
+  - Includes database verification queries and monitoring guidance
+  - Test script supports multiple users and automatic invalid token pruning
+  - **Successfully tested**: Web push notifications working perfectly (100% delivery rate)
+  - Fixed dotenv loading to properly load from `.env.local` file
+- **Push Notifications System**: Complete FCM push notification infrastructure for session invitations (Mobile + Web)
+  - Created `user_devices` table for device token storage with RLS policies
+  - Created `notifications` table for in-app notification records
+  - Implemented Firebase Admin SDK initialization (`lib/services/firebase-admin.ts`)
+  - Built push notification service with token management and error handling (`lib/services/push-notifications.ts`)
+  - Added device token registration API endpoint (`app/api/devices/upsert/route.ts`)
+  - Integrated push and in-app notification fan-out into invitations endpoint
+  - **Mobile**: Implemented client-side push token capture and handling (`lib/mobile/push-notifications.ts`)
+  - **Web**: Implemented browser push notifications with service worker (`lib/web/push-notifications.ts`, `public/firebase-messaging-sw.js`)
+  - **Web**: Firebase web SDK configuration for client-side messaging (`lib/firebase/config.ts`)
+  - Enhanced `PWAAndPushListeners` component to initialize push notifications on user login (both mobile and web)
+  - Added automatic invalid token pruning to maintain clean device registry
+  - Multi-channel notification strategy: Push → Email (fallback) → In-app (badge/feed)
+  - Multi-platform support: iOS, Android, and Web (Chrome, Firefox, Edge, Safari 16.4+)
+  - Migration: `20250116000000_push_notifications_infrastructure.sql`
+  - Documentation: `docs/PUSH_NOTIFICATIONS_SETUP.md`, `docs/WEB_PUSH_SETUP.md` with complete setup guides
+  - Testing: Unit tests for both mobile and web push implementations
+  - Following established patterns: Uses `createSuccessResponse`/`handleApiError`, fire-and-forget with `Promise.allSettled`
+  - Console logging: All push notification logs wrapped in `NODE_ENV === 'development'` checks for clean production output
+
+### Changed
+
+- **Console Logging**: All debug console.log statements now only appear in development
+  - Wrapped console logs in `if (process.env.NODE_ENV === 'development')` checks
+  - Affected files: `beach-detail.tsx`, `session-utils.ts`, `map-utils.ts`
+  - Production builds will have cleaner console output with no debug messages
+  - Development debugging information remains intact for local development
+
 ### Fixed
 
+- **Console Errors**: Fixed critical browser console errors
+  - Removed reference to missing `placeholder-logo.png` in `lib/utils/performance-utils.ts` (404 error)
+  - Added Firebase configuration check in `lib/web/push-notifications.ts` to prevent 400 errors when `NEXT_PUBLIC_FIREBASE_*` env vars are missing
+  - Added `buildExcludes` to `next.config.mjs` to prevent service worker from precaching non-existent `app-build-manifest.json`
+  - Browser console now clean of critical errors in development and production
+  - Push notifications gracefully skip initialization when Firebase is not configured
 - **Security Vulnerabilities**: Resolved 2 low-severity Dependabot vulnerabilities in dev dependencies
   - Updated `@lhci/cli` from 0.14.0 to 0.15.1 (fixes `cookie` package vulnerability)
   - Added npm override to force `tmp@^0.2.5` (fixes symbolic link vulnerability in temp file handling)

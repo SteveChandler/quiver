@@ -96,7 +96,7 @@ export function BeachCard({
         >
           <MapImage
             src={imageUrl || "/placeholder.svg"}
-            alt={name}
+            alt={`Map showing ${name} surf spot location`}
             latitude={latitude}
             longitude={longitude}
             fill

@@ -63,13 +63,15 @@ export const formatSessionDate = (session: SessionWithDetails) => {
 
 // Helper function to get session map image URL
 export const getSessionMapImageUrl = (session: SessionWithDetails) => {
-  console.log('Session map image generation:', { 
-    sessionId: session.id, 
-    beachId: session.beach_id,
-    beachName: session.beach?.name || session.beach_name,
-    hasBeach: !!session.beach,
-    beachCoords: session.beach ? { lat: session.beach.latitude, lng: session.beach.longitude } : null
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Session map image generation:', { 
+      sessionId: session.id, 
+      beachId: session.beach_id,
+      beachName: session.beach?.name || session.beach_name,
+      hasBeach: !!session.beach,
+      beachCoords: session.beach ? { lat: session.beach.latitude, lng: session.beach.longitude } : null
+    });
+  }
   
   // Get beach coordinates using the unified resolution function
   const coords = session.beach ? resolveBeachCoordinates(session.beach) : null;
@@ -77,7 +79,9 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
 
   // If no coordinates from beach object, try beach_name fallback
   if (!coords && beachName) {
-    console.log(`No coordinates for beach: ${beachName}, trying hardcoded fallback`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`No coordinates for beach: ${beachName}, trying hardcoded fallback`);
+    }
     
     // Use hardcoded coordinates for known beaches if available
     try {
@@ -86,7 +90,9 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
       const hardcodedCoords = beachNameLower ? beachCoordinates[beachNameLower] : null;
       
       if (hardcodedCoords) {
-        console.log(`Found hardcoded coordinates for ${beachName}:`, hardcodedCoords);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Found hardcoded coordinates for ${beachName}:`, hardcodedCoords);
+        }
         return getStaticMapImageUrl(hardcodedCoords.lat, hardcodedCoords.lng, {
           width: 500,
           height: 350,
@@ -108,7 +114,9 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
     markerText: coords ? undefined : beachName,
   });
   
-  console.log('Generated map URL:', mapUrl);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Generated map URL:', mapUrl);
+  }
   return mapUrl;
 };
 
