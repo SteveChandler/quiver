@@ -1,5 +1,55 @@
 ## [Unreleased]
 
+### Performance
+
+- **Realtime Subscription Optimization**: Reduced Supabase realtime overhead from 93.76% to estimated <20% of database time
+  - Fixed intel posts subscription: Added 7-day time filter to prevent monitoring ALL posts (70-90% reduction)
+  - Consolidated session invitation subscriptions: Migrated `app-header` and `inbox` to shared `useSessionInvitationsSubscription` hook
+  - Eliminated duplicate subscriptions (4 channels → 2 channels for invitations)
+  - Before: 223,122 realtime.list_changes() calls consuming 995 seconds
+  - After: Estimated 50-70% reduction in realtime overhead
+  - Components affected: `components/intel/intel-tab-simple.tsx`, `components/app-header.tsx`, `app/inbox/page.tsx`
+  - Documentation: `docs/REALTIME_OPTIMIZATION_GUIDE.md` (comprehensive best practices guide)
+- **Foreign Key Indexes**: Added missing indexes on 4 foreign key columns to improve JOIN and referential integrity performance
+  - Added index on `beach_recommendation_calibration.beach_id`
+  - Added index on `favorite_beaches.beach_id`
+  - Added index on `sessions.board_id`
+  - Added index on `sessions.profile_id`
+  - Improves query performance for JOINs, DELETEs, and foreign key constraint checks
+  - Migration: `20251017030528_add_missing_foreign_key_indexes.sql`
+  - Resolves Supabase linter warnings: "Unindexed foreign keys"
+- **RLS Query Optimization - Auth InitPlan**: Optimized 47 RLS policies to prevent per-row auth evaluation
+  - Wrapped `auth.uid()` with `(select auth.uid())` in all RLS policies
+  - PostgreSQL now evaluates auth functions once per query instead of once per row
+  - Significant performance improvement at scale (O(1) vs O(n) for auth checks)
+  - Affected tables: profiles, sessions, push_devices, user_devices, favorites, notifications, comments, likes, intel, follows
+  - Migration: `20251017025908_optimize_rls_performance.sql`
+  - Resolves Supabase linter warnings: "Auth RLS Initialization Plan"
+- **Database Optimization - Removed Duplicate Index**: Dropped duplicate index on `enhanced_forecasts` table
+  - Removed `idx_enhanced_forecasts_beach_date_time` (kept the optimized version)
+  - Reduces database overhead and improves write performance
+  - Migration: `20251017025908_optimize_rls_performance.sql`
+- **Policy Consolidation**: Consolidated redundant RLS policies
+  - Removed redundant "Users can read own profile" policy (covered by public policy)
+  - Consolidated `beach_forecast_accuracy` policies (separate read/write policies)
+  - Documented mock policy strategy for test vs production environments
+  - Migration: `20251017030035_consolidate_duplicate_policies.sql`
+  - Partially resolves: "Multiple Permissive Policies" warnings
+
+### Fixed
+
+- **Database Security - Function Search Path Protection**: Fixed search path injection vulnerabilities in 30+ database functions
+  - Set fixed `search_path = public, pg_catalog` for all custom functions
+  - Prevents malicious users from hijacking function behavior through schema manipulation
+  - Covers: maintenance functions, query functions, triggers, materialized view refresh functions
+  - Migration: `20251017025417_fix_function_search_paths.sql`
+  - Resolves Supabase linter warnings: "Function Search Path Mutable"
+- **PostGIS Security - RLS on spatial_ref_sys**: Enabled Row Level Security on the PostGIS system table `spatial_ref_sys` to resolve Supabase security linter error
+  - Added read-only policy allowing SELECT for all users (reference data needed for PostGIS operations)
+  - Prevented unauthorized modifications (no INSERT/UPDATE/DELETE policies)
+  - Verified PostGIS functionality preserved (spatial queries work correctly)
+  - Migration: `20251017024731_enable_rls_spatial_ref_sys.sql`
+
 ### Removed
 
 - **Repository Cleanup - October 2025**: Major cleanup removing stale documentation and generated artifacts

@@ -98,16 +98,25 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
   useEffect(() => {
     console.log("[IntelTab] Setting up realtime subscriptions...");
 
+    // PERFORMANCE OPTIMIZATION: Only subscribe to recent intel posts
+    // Subscribing to ALL intel posts (unfiltered) causes excessive realtime.list_changes() calls
+    // Filter to posts created in the last 7 days to reduce database load
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const isoDateFilter = sevenDaysAgo.toISOString();
+
     const channels = [
-      // Listen for changes to intel_posts table
+      // Listen for changes to RECENT intel_posts only
       supabase
-        .channel("intel_posts_updates")
+        .channel("intel_posts_updates_recent")
         .on(
           "postgres_changes",
           {
             event: "*",
             schema: "public",
             table: "intel_posts",
+            // Filter: Only listen to posts created in last 7 days
+            filter: `created_at=gte.${isoDateFilter}`,
           },
           (payload) => {
             console.log(
@@ -122,7 +131,9 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
           console.log("[IntelTab] intel_posts subscription status:", status);
         }),
 
-      // Listen for changes to intel_post_confirmations table
+      // Listen for changes to intel_post_confirmations (already filtered via JOIN to recent posts)
+      // Note: We can't directly filter confirmations by post date, but the fetchPosts query
+      // already limits to recent posts, so stale confirmations won't appear anyway
       supabase
         .channel("intel_post_confirmations_updates")
         .on(

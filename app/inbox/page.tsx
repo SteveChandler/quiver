@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useCallback, useEffect, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -9,7 +8,7 @@ import { Loader2, CalendarPlus, Check, XCircle } from "lucide-react";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
-import { createClient } from "@/lib/supabase/client";
+import { useSessionInvitationsSubscription } from "@/hooks/use-session-invitations-subscription";
 
 type Invitation = {
   id: string;
@@ -35,7 +34,6 @@ export default function InboxPage() {
   // Be tolerant to test environment mocks where useAuth may be mocked as undefined
   const auth = useAuth() as any;
   const user = auth?.user ?? null;
-  const supabase = useMemo(() => createClient(), []);
   const inFlightSeen = useRef(new Set<string>());
 
   const fetchInvites = useCallback(async () => {
@@ -107,64 +105,9 @@ export default function InboxPage() {
     }
   }, [invitations, markInvitationsSeen, user?.id, user?.email]);
 
-  // Use ref to avoid re-subscriptions when refetch callback changes
-  const refetchRef = useRef(refetch);
-
-  useEffect(() => {
-    refetchRef.current = refetch;
-  }, [refetch]);
-
-  useEffect(() => {
-    if (!user?.id && !user?.email) return;
-
-    const channels: RealtimeChannel[] = [];
-
-    if (user?.id) {
-      const userChannel = supabase
-        .channel(`inbox_session_invitations_user_${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "session_invitations",
-            filter: `invitee_id=eq.${user.id}`,
-          },
-          () => {
-            refetchRef.current();
-          }
-        )
-        .subscribe();
-      channels.push(userChannel);
-    }
-
-    const emailValue = user?.email?.toLowerCase();
-    if (emailValue) {
-      const encoded = encodeURIComponent(emailValue);
-      const emailChannel = supabase
-        .channel(`inbox_session_invitations_email_${encoded}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "session_invitations",
-            filter: `invitee_email=eq.${emailValue}`,
-          },
-          () => {
-            refetchRef.current();
-          }
-        )
-        .subscribe();
-      channels.push(emailChannel);
-    }
-
-    return () => {
-      channels.forEach((channel) => {
-        supabase.removeChannel(channel);
-      });
-    };
-  }, [supabase, user?.id, user?.email]);
+  // Use shared subscription hook to avoid duplicate subscriptions with app-header
+  // This consolidates the realtime subscription logic into a single reusable hook
+  useSessionInvitationsSubscription(user?.id, user?.email, refetch);
 
   const pending = useMemo(() => {
     return (invitations || []).filter((i) => i.status === "pending");

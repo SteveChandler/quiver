@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type CSSProperties,
-} from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useCallback, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
@@ -16,11 +9,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Badge } from "@/components/ui/badge";
+import { useSessionInvitationsSubscription } from "@/hooks/use-session-invitations-subscription";
 // no notifications bell; link in avatar menu instead
 import {
   DropdownMenu,
@@ -74,68 +67,9 @@ export function AppHeader() {
   const { data: unreadCount = 0, refetch: refetchUnreadCount } =
     useDataFetcher<number>(fetchNotificationsCount);
 
-  const supabase = useMemo(() => createClient(), []);
-
-  // Use ref to avoid re-subscriptions when refetch callback changes
-  const refetchUnreadCountRef = useRef(refetchUnreadCount);
-
-  useEffect(() => {
-    refetchUnreadCountRef.current = refetchUnreadCount;
-  }, [refetchUnreadCount]);
-
-  useEffect(() => {
-    if (!user?.id && !user?.email) {
-      return;
-    }
-
-    const channels: RealtimeChannel[] = [];
-
-    if (user?.id) {
-      const userChannel = supabase
-        .channel(`header_session_invitations_user_${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "session_invitations",
-            filter: `invitee_id=eq.${user.id}`,
-          },
-          () => {
-            refetchUnreadCountRef.current();
-          }
-        )
-        .subscribe();
-      channels.push(userChannel);
-    }
-
-    const emailValue = user?.email;
-    if (emailValue) {
-      const encoded = encodeURIComponent(emailValue);
-      const emailChannel = supabase
-        .channel(`header_session_invitations_email_${encoded}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "session_invitations",
-            filter: `invitee_email=eq.${emailValue}`,
-          },
-          () => {
-            refetchUnreadCountRef.current();
-          }
-        )
-        .subscribe();
-      channels.push(emailChannel);
-    }
-
-    return () => {
-      channels.forEach((channel) => {
-        supabase.removeChannel(channel);
-      });
-    };
-  }, [supabase, user?.id, user?.email]);
+  // Use shared subscription hook to avoid duplicate subscriptions
+  // This replaces the inline subscription logic that was duplicating inbox page subscriptions
+  useSessionInvitationsSubscription(user?.id, user?.email, refetchUnreadCount);
 
   // Navigation items - different for authenticated vs unauthenticated users
   const navItems: { name: string; href: string; icon: null }[] = user
