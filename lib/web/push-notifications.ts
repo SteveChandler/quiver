@@ -38,6 +38,23 @@ export async function registerWebPushNotifications(): Promise<void> {
     return;
   }
 
+  // Check if Firebase is configured before attempting to initialize
+  // This prevents 400 errors when NEXT_PUBLIC_FIREBASE_* env vars are missing
+  const firebaseConfigured = !!(
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  );
+
+  if (!firebaseConfigured) {
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        "Push notifications: Firebase not configured (missing NEXT_PUBLIC_FIREBASE_* environment variables)"
+      );
+    }
+    return;
+  }
+
   try {
     // Check if we already have permission
     let permission = Notification.permission;

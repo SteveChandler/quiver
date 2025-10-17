@@ -18,6 +18,9 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+  
+  # Firebase Cloud Messaging for push notifications
+  pod 'Firebase/Messaging'
 end
 
 post_install do |installer|

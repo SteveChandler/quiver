@@ -1,5 +1,24 @@
 ## [Unreleased]
 
+### Removed
+
+- **Repository Cleanup - October 2025**: Major cleanup removing stale documentation and generated artifacts
+  - **Test Artifacts**: Removed `coverage/`, `playwright-report/`, `test-results/` directories (44 files deleted total from git tracking)
+  - **Completion Reports**: Removed 15 root-level status/completion documents (APPLY_MIGRATION.md, CONSOLE_ERRORS_FIXED.md, DATABASE_OPTIMIZATION_COMPLETE.md, FIREBASE_VERCEL_SETUP.md, MOBILE_APPS_CONFIGURED.md, MORNING_INTEL_README.md, MORNING_INTEL_VERIFICATION.md, NOTIFICATION_TEST_SUCCESS.md, NOTIFICATIONS_IMPLEMENTATION_SUMMARY.md, PUSH_NOTIFICATIONS_COMPLETE.md, PUSH_NOTIFICATIONS_STATUS.md, README-PASSWORD-RESET.md, REALTIME_VERIFICATION_GUIDE.md, SETUP_STATUS.md, USER_STATS_REFRESH_IMPLEMENTATION.md)
+  - **Temporary Test Scripts**: Removed test-firebase-init.mjs, test-migration.mjs, manual-test-refresh.js
+  - **Implementation Reports**: Removed 14 completed implementation/summary docs from docs/ (BEACH_CREATION_SUMMARY.md, BEACH_UPDATE_SUMMARY.md, BEACH_UPDATE_SURF_SPOTS_NEXT20_SUMMARY.md, BUG_FIX_SESSION_WIZARD_LOCATION_TYPEAHEAD.md, database-performance-optimization-summary.md, EDIT_PROFILE_NOTIFICATIONS_IMPLEMENTATION.md, FORECAST_CONSISTENCY_IMPLEMENTATION.md, FRONTEND_ARCHITECTURE_IMPROVEMENTS_SUMMARY.md, gamification-branch-status-review.md, gamification-system-status.md, PUSH_NOTIFICATIONS_IMPLEMENTATION_SUMMARY.md, SEO_QUICK_WINS_COMPLETE.md, TIDE_CHART_18H_IMPLEMENTATION.md, WEB_PUSH_IMPLEMENTATION_COMPLETE.md)
+  - **Old Planning Docs**: Removed BEACH_INTEL_IMPLEMENTATION_PLAN.md and entire docs/consolidation/ directory (12 files)
+  - **Imported Data Files**: Removed 7 ETL/analysis data files from docs/ (beach-update-report-2025-10-07.json, beaches_etl_geocoded.csv, beaches_etl.csv, missing-beaches-analysis.json, Ocean_Beach**San_Diego\_\_**newly_added_rows.csv, surf_spots_next20.json, surf_spots.json)
+  - **Dead Code**: Removed disabled test file and TypeScript build artifact (tsconfig.tsbuildinfo)
+  - **Unused Scripts** (14 files): Removed unused utility scripts identified by knip dead code detection
+    - scripts/apply-performance-optimizations.mjs, scripts/check-devices.mjs, scripts/check-missing-beaches.ts
+    - scripts/create-missing-beaches.ts, scripts/delete-auth-users.mjs, scripts/generate-apple-icons.mjs
+    - scripts/import_camera_urls.mjs, scripts/test-condition-analysis.ts, scripts/test-push-notification.mjs
+    - scripts/test-realtime-subscription.mjs, scripts/update-beaches-from-json.ts
+    - scripts/update-beaches-from-surf-spots-next20.ts, scripts/update-new-beaches-by-uuid.mjs
+    - scripts/update-new-beaches-by-uuid.ts, scripts/verify-morning-intel.ts, scripts/verify-performance-optimizations.ts
+  - **Result**: Streamlined repository with only active documentation and source code; all removed items preserved in git history (58 total files from git + 2 untracked scripts)
+
 ### Added
 
 - **SEO Quick Wins - Pre-Launch Optimization** 🚀
