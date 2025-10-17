@@ -50,6 +50,7 @@ export function MapView() {
     nearbyBeachesForScroll,
     regions,
     activeRegion,
+    filters,
     loadBeaches,
     loadNearbyBeaches,
     setSearchQuery,
@@ -58,7 +59,7 @@ export function MapView() {
     setActiveRegion,
     toggleBeginnerFriendly,
     toggleBreakType,
-    setMinParkingRating,
+    clearAllFilters,
   } = useBeachSearch();
 
   // Load nearby beaches when user location is available - prevent duplicate calls
@@ -161,7 +162,9 @@ export function MapView() {
 
     const latSpan = Math.abs(maxLat - minLat);
     const lngSpan = Math.abs(maxLng - minLng);
-    const keyBase = `${minLat.toFixed(5)}-${minLng.toFixed(5)}-${maxLat.toFixed(5)}-${maxLng.toFixed(5)}`;
+    const keyBase = `${minLat.toFixed(5)}-${minLng.toFixed(5)}-${maxLat.toFixed(
+      5
+    )}-${maxLng.toFixed(5)}`;
 
     if (latSpan < 0.002 && lngSpan < 0.002) {
       setRegionViewport({
@@ -238,7 +241,7 @@ export function MapView() {
         {/* Filter Chips */}
         <div className="mt-2 flex flex-wrap gap-2">
           <Badge
-            variant="outline"
+            variant={filters.beginnerFriendly ? "default" : "outline"}
             className="cursor-pointer"
             onClick={() => toggleBeginnerFriendly()}
           >
@@ -247,7 +250,7 @@ export function MapView() {
           {["beach", "point", "reef"].map((t) => (
             <Badge
               key={t}
-              variant="outline"
+              variant={filters.breakTypes.has(t) ? "default" : "outline"}
               className="cursor-pointer"
               onClick={() => toggleBreakType(t)}
             >
@@ -255,16 +258,9 @@ export function MapView() {
             </Badge>
           ))}
           <Badge
-            variant="outline"
-            className="cursor-pointer"
-            onClick={() => setMinParkingRating(3)}
-          >
-            Parking 3+
-          </Badge>
-          <Badge
             variant="secondary"
             className="cursor-pointer"
-            onClick={() => setMinParkingRating(null)}
+            onClick={() => clearAllFilters()}
           >
             Clear filters
           </Badge>
