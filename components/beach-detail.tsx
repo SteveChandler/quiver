@@ -97,6 +97,7 @@ const CrowdTipsSection = dynamic(
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import { track, slugify } from "@/lib/analytics";
 import { FullPageLoader } from "@/components/ui/loading-states";
+import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
 
 interface BeachDetailProps {
   id: string;
@@ -157,7 +158,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
   // Fetch beach information via API (avoid server actions from client)
   const fetchBeach = useCallback(async () => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.log("🏖️ Fetching beach data (API) for:", id);
     }
     const res = await fetch(`/api/beaches/${id}`, { cache: "no-store" });
@@ -172,7 +173,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
     const beachData =
       (body as any)?.data?.beach || (body as any)?.beach || (body as any)?.data;
     if (!beachData) throw new Error("Beach data not found");
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.log("✅ Beach data:", beachData);
     }
     return beachData as Beach;
@@ -188,7 +189,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
 
   // Single data fetch - 10-day enhanced forecast via API
   const fetchForecasts = useCallback(async () => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.log("🚀 Starting enhanced forecast fetch (API) for beach:", id);
     }
     const res = await fetch(
@@ -209,7 +210,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
     };
     const forecasts: EnhancedForecastEntity[] =
       body?.data?.forecasts || (body as any)?.forecasts || [];
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.log("🔍 Raw forecast data:", {
         totalForecasts: forecasts.length,
         dateRange: {
@@ -279,7 +280,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
     } = require("@/lib/utils/current-forecast-utils");
     const selectedForecast = getCurrentForecast(forecasts);
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.log("🏖️ Beach Detail currentForecast selection:", {
         totalForecasts: forecasts.length,
         selectedTime: selectedForecast?.forecast_time,
@@ -298,7 +299,7 @@ export function BeachDetail({ id }: BeachDetailProps) {
     const grouped: Record<string, EnhancedForecastEntity[]> = {};
 
     if (forecasts && Array.isArray(forecasts) && forecasts.length > 0) {
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === "development") {
         console.log("📊 Processing forecasts:", {
           totalForecasts: forecasts.length,
           firstForecast: forecasts[0],
@@ -316,14 +317,16 @@ export function BeachDetail({ id }: BeachDetailProps) {
         }
       });
 
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === "development") {
         console.log("📅 Grouped forecasts by date:", {
           dates: Object.keys(grouped),
-          forecastsPerDate: Object.entries(grouped).map(([date, forecasts]) => ({
-            date,
-            count: forecasts.length,
-            firstForecast: forecasts[0]?.wave_height,
-          })),
+          forecastsPerDate: Object.entries(grouped).map(
+            ([date, forecasts]) => ({
+              date,
+              count: forecasts.length,
+              firstForecast: forecasts[0]?.wave_height,
+            })
+          ),
         });
       }
     }
@@ -337,31 +340,31 @@ export function BeachDetail({ id }: BeachDetailProps) {
     [forecastsByDate]
   );
 
-  const miniForecastDays = useMemo(
-    () =>
-      sortedDates
-        .slice(0, 5)
-        .map((date) => {
-          const dayEntries = forecastsByDate[date] || [];
-          if (!dayEntries.length) {
-            return null;
-          }
-          const middayEntry = dayEntries.find((entry) =>
-            (entry.forecast_time || "").startsWith("12")
-          );
-          const fallbackEntry =
-            dayEntries[Math.floor(dayEntries.length / 2)] || dayEntries[0];
-          return {
-            date,
-            forecast: middayEntry || fallbackEntry,
-          };
-        })
-        .filter(Boolean) as {
-        date: string;
-        forecast: EnhancedForecastEntity;
-      }[],
-    [sortedDates, forecastsByDate]
-  );
+  const miniForecastDays = useMemo(() => {
+    const today = getTodayDateString();
+    return sortedDates
+      .filter((date) => date >= today) // Only show today and future dates
+      .slice(0, 5)
+      .map((date) => {
+        const dayEntries = forecastsByDate[date] || [];
+        if (!dayEntries.length) {
+          return null;
+        }
+        const middayEntry = dayEntries.find((entry) =>
+          (entry.forecast_time || "").startsWith("12")
+        );
+        const fallbackEntry =
+          dayEntries[Math.floor(dayEntries.length / 2)] || dayEntries[0];
+        return {
+          date,
+          forecast: middayEntry || fallbackEntry,
+        };
+      })
+      .filter(Boolean) as {
+      date: string;
+      forecast: EnhancedForecastEntity;
+    }[];
+  }, [sortedDates, forecastsByDate]);
 
   const formatMetric = (
     value: string | number | null | undefined,

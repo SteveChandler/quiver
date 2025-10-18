@@ -11,6 +11,11 @@
 
 ### Fixed
 
+- **5-Day Outlook Date Display**: Fixed bug where past dates were shown in the 5-Day Outlook section
+  - The outlook now correctly shows only today and future dates (e.g., Sat, Sun, Mon, Tue, Wed when today is Saturday)
+  - Previously would show yesterday's date if it existed in forecast data (e.g., Friday when today is Saturday)
+  - Added date filtering using `getTodayDateString()` utility before selecting 5 days to display
+  - Files: `components/beach-detail.tsx`
 - **iOS Nearby Tab Loading**: Fixed infinite loading spinner on Nearby tab in iOS simulator/devices
   - Added 10-second safety timeout to geolocation hook to prevent hanging
   - Personalized fallback: Now defaults to user's home beach, then Ocean Beach as ultimate fallback
