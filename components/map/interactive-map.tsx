@@ -303,7 +303,9 @@ export function InteractiveMap({
       const map = mapRef.current;
       if (!map || !isMapReadyRef.current) return;
       const zoom = map.getZoom();
-      const populateKey = `${latitude.toFixed(4)}-${longitude.toFixed(4)}-${zoom.toFixed(2)}`;
+      const populateKey = `${latitude.toFixed(4)}-${longitude.toFixed(
+        4
+      )}-${zoom.toFixed(2)}`;
 
       if (lastPopulateKeyRef.current === populateKey) {
         return;
@@ -357,62 +359,31 @@ export function InteractiveMap({
         // Limit to 20 beaches max
         locations = locations.slice(0, 20);
 
-        // Fetch enhanced forecast data for each beach
-        const beachForecastPromises = locations.map(async (beach) => {
+        // Fetch wave heights for all beaches in a single bulk request (performance optimization)
+        const waveHeightMap = new Map<string, number | string | undefined>();
+
+        if (locations.length > 0) {
           try {
+            const beachIds = locations.map((beach) => beach.id).join(",");
             const response = await fetch(
-              `/api/forecasts/update-enhanced?beachId=${beach.id}&days=2`
+              `/api/forecasts/bulk?beachIds=${beachIds}`
             );
 
             if (response.ok) {
               const data = await response.json();
+              const forecasts = data?.data?.forecasts || {};
 
-              // Support both shapes: {success, data:{forecasts}} and legacy {forecasts}
-              const forecasts = Array.isArray(data?.data?.forecasts)
-                ? data.data.forecasts
-                : Array.isArray(data?.forecasts)
-                ? data.forecasts
-                : [];
-
-              if ((data.success ?? true) && forecasts.length > 0) {
-                // Use time-aware selection to get the most appropriate forecast
-                const { getCurrentForecast } = await import(
-                  "@/lib/utils/current-forecast-utils"
-                );
-                const currentForecast = getCurrentForecast(forecasts) as any;
-
-                if (currentForecast && currentForecast.wave_height) {
-                  return {
-                    beachId: beach.id,
-                    waveHeight: currentForecast.wave_height,
-                  };
-                }
-              }
+              // Populate wave height map from bulk response
+              Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
+                waveHeightMap.set(beachId, waveHeight as number | undefined);
+              });
             } else {
-              console.warn(
-                `Forecast API returned ${response.status} for ${beach.name}`
-              );
+              console.warn(`Bulk forecast API returned ${response.status}`);
             }
           } catch (error) {
-            console.warn(
-              `Failed to fetch forecast for beach ${beach.name} (${beach.id}):`,
-              error
-            );
+            console.warn("Failed to fetch bulk forecasts:", error);
           }
-          return {
-            beachId: beach.id,
-            waveHeight: undefined,
-          };
-        });
-
-        // Wait for all forecast requests to complete
-        const beachForecasts = await Promise.all(beachForecastPromises);
-
-        // Create a map of beach ID to wave height
-        const waveHeightMap = new Map<string, number | string | undefined>();
-        beachForecasts.forEach(({ beachId, waveHeight }) => {
-          waveHeightMap.set(beachId, waveHeight);
-        });
+        }
 
         // Create markers for each beach
         locations.forEach((location) => {

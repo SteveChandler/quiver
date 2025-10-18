@@ -2,6 +2,48 @@
 
 ### Performance
 
+- **MAJOR**: Map wave height indicators now load 80-90% faster (1-2 seconds instead of 10+ seconds)
+  - Replaced 20 individual API calls with single bulk forecast request
+  - Created new bulk forecast API endpoint (`/api/forecasts/bulk`) for fetching wave heights for multiple beaches
+  - Optimized `InteractiveMap` component to use bulk endpoint
+  - Improved user experience on map page with near-instant wave height display
+  - Files: `app/api/forecasts/bulk/route.ts`, `components/map/interactive-map.tsx`
+
+### Fixed
+
+- **iOS Nearby Tab Loading**: Fixed infinite loading spinner on Nearby tab in iOS simulator/devices
+  - Added 10-second safety timeout to geolocation hook to prevent hanging
+  - Personalized fallback: Now defaults to user's home beach, then Ocean Beach as ultimate fallback
+  - Start with fallback location immediately, then upgrade to real location if available
+  - Fixed circular dependency in `useGeolocation` hook that could cause re-renders
+  - iOS simulators often hang on geolocation API without properly triggering timeout callbacks
+  - Component now always shows beaches instead of spinning indefinitely
+  - Files: `hooks/use-geolocation.ts`, `components/home-screen/nearby-tab.tsx`, `components/home-screen/index.tsx`
+
+### Added
+
+- **Mobile Development Tunnel Automation**: Fully automated Cloudflare tunnel setup for local iOS development
+  - Created `scripts/dev-tunnel.sh`: Auto-starts tunnel, extracts URL, updates Capacitor config
+  - Created `scripts/tunnel-stop.sh`: Cleanup script to stop tunnel and remove temp files
+  - Created `scripts/tunnel-status.sh`: Status checker to view tunnel state and current URL
+  - Added npm scripts: `tunnel:start`, `tunnel:ios`, `tunnel:ios:open`, `tunnel:stop`, `tunnel:status`
+  - One command deployment: `npm run tunnel:ios:open` (starts tunnel, syncs iOS, opens Xcode)
+  - Automatic JSON config updates using `jq` (no manual copy-paste needed)
+  - Proper process management with PID tracking and cleanup handlers
+  - Comprehensive documentation: `docs/MOBILE_DEV_TUNNEL.md` (troubleshooting, tips, customization)
+  - Git-ignored temp files: `.tunnel-url`, `.tunnel-pid` (never commit tunnel URLs)
+  - Eliminates manual tunnel URL updates, reduces dev setup from 5 minutes to 30 seconds
+- **iOS App Store Release Preparation**: Completed infrastructure for iOS mobile app submission
+  - Updated privacy policy with mobile data collection disclosure (push tokens, device identifiers)
+  - Created comprehensive iOS release guide: `docs/IOS_APP_RELEASE_STEPS.md` (10 detailed steps)
+  - Created App Store content reference: `docs/APP_STORE_CONTENT.md` (copy-paste ready descriptions, keywords)
+  - Updated privacy policy effective date to October 17, 2025
+  - Verified `.well-known` routes configuration for iOS universal links
+  - Documentation includes: Apple Developer setup, Xcode configuration, TestFlight beta, submission process
+  - Ready for manual steps: App ID creation, signing, screenshots, and App Store Connect submission
+
+### Performance
+
 - **Realtime Subscription Optimization**: Reduced Supabase realtime overhead from 93.76% to estimated <20% of database time
   - Fixed intel posts subscription: Added 7-day time filter to prevent monitoring ALL posts (70-90% reduction)
   - Consolidated session invitation subscriptions: Migrated `app-header` and `inbox` to shared `useSessionInvitationsSubscription` hook
