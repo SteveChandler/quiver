@@ -13,7 +13,6 @@ interface BeachSearchState {
   filters: {
     beginnerFriendly: boolean;
     breakTypes: Set<string>;
-    minParkingRating: number | null; // Applied when available on beach records
   };
 }
 
@@ -26,7 +25,6 @@ export function useBeachSearch() {
     filters: {
       beginnerFriendly: false,
       breakTypes: new Set<string>(),
-      minParkingRating: null,
     },
   });
 
@@ -82,37 +80,54 @@ export function useBeachSearch() {
     (query: string, beachList: Beach[], activeRegion: string | "ALL", filters: BeachSearchState["filters"]) => {
       let working = beachList;
 
+      // Debug logging
+      console.log('🔍 Applying filters:', {
+        totalBeaches: beachList.length,
+        activeRegion,
+        filters: {
+          beginnerFriendly: filters.beginnerFriendly,
+          breakTypes: Array.from(filters.breakTypes),
+        },
+        sampleBeach: beachList[0] ? {
+          name: beachList[0].name,
+          skill_level: beachList[0].skill_level,
+          break_type: beachList[0].break_type,
+        } : null,
+      });
+
       // Region filter
       if (activeRegion !== "ALL") {
         working = working.filter((b) => (b.region || "") === activeRegion);
+        console.log(`  After region filter: ${working.length} beaches`);
       }
 
       // Beginner-friendly filter
       if (filters.beginnerFriendly) {
         working = working.filter((b) => (b.skill_level || "").toLowerCase().includes("beginner"));
+        console.log(`  After beginner filter: ${working.length} beaches`);
       }
 
       // Break type filter
       if (filters.breakTypes && filters.breakTypes.size > 0) {
         working = working.filter((b) => b.break_type ? filters.breakTypes.has(b.break_type.toLowerCase()) : false);
-      }
-
-      // Parking rating filter (best-effort if present on object)
-      if (typeof filters.minParkingRating === "number") {
-        working = working.filter((b: any) =>
-          typeof b?.parking_rating === "number" ? b.parking_rating >= (filters.minParkingRating as number) : true
-        );
+        console.log(`  After break type filter: ${working.length} beaches`);
       }
 
       // Fuzzy-ish search (tokens include)
       const trimmed = query.trim().toLowerCase();
-      if (!trimmed) return working;
+      if (!trimmed) {
+        console.log(`✅ Final filtered beaches: ${working.length}`);
+        return working;
+      }
 
       const tokens = trimmed.split(/\s+/g).filter(Boolean);
-      return working.filter((beach) => {
+      const result = working.filter((beach) => {
         const hay = `${beach.name} ${(beach.location || "")}`.toLowerCase();
         return tokens.every((t) => hay.includes(t) || t.includes(hay));
       });
+      
+      console.log(`✅ Final filtered beaches (after search): ${result.length}`);
+      return result;
     },
     []
   );
@@ -306,8 +321,14 @@ export function useBeachSearch() {
         return { ...prev, filters: { ...prev.filters, breakTypes: next } };
       });
     }, []),
-    setMinParkingRating: useCallback((rating: number | null) => {
-      setState((prev) => ({ ...prev, filters: { ...prev.filters, minParkingRating: rating } }));
+    clearAllFilters: useCallback(() => {
+      setState((prev) => ({
+        ...prev,
+        filters: {
+          beginnerFriendly: false,
+          breakTypes: new Set<string>(),
+        },
+      }));
     }, []),
   };
 }

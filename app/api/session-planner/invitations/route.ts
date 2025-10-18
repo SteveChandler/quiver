@@ -514,6 +514,80 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Fire-and-forget: Send push notifications to all successfully invited users
+    const inviteeUserIds = invitations
+      .map((inv) => inv.inviteeId)
+      .filter(Boolean) as string[];
+
+    if (inviteeUserIds.length > 0) {
+      void Promise.allSettled([
+        // Push notifications
+        (async () => {
+          try {
+            const { sendSessionInvitePush } = await import(
+              "@/lib/services/push-notifications"
+            );
+            const inviterName =
+              user.user_metadata?.full_name ||
+              user.user_metadata?.user_name ||
+              "A surfer on Quiver";
+
+            await sendSessionInvitePush({
+              inviteeIds: inviteeUserIds,
+              inviterName,
+              beachName: session.beach_name || undefined,
+              arrivalTime: session.arrival_time,
+              sessionId: session.id,
+              message: message || undefined,
+            });
+            debug("Push notifications sent to invitees", {
+              count: inviteeUserIds.length,
+            });
+          } catch (err) {
+            console.error("Push notification failed:", err);
+            // Non-blocking error - don't fail the invitation
+          }
+        })(),
+
+        // In-app notification records
+        (async () => {
+          try {
+            const { data: profiles } = await serviceSupabase
+              .from("profiles")
+              .select("id, inapp_session_invites")
+              .in("id", inviteeUserIds);
+
+            const notificationRecords =
+              profiles
+                ?.filter((p) => p.inapp_session_invites !== false)
+                .map((p) => ({
+                  user_id: p.id,
+                  type: "session_invite" as const,
+                  data: {
+                    session_id: sessionId,
+                    inviter_id: user.id,
+                    beach_name: session.beach_name,
+                    arrival_time: session.arrival_time,
+                    message: message || null,
+                  },
+                })) || [];
+
+            if (notificationRecords.length > 0) {
+              await serviceSupabase
+                .from("notifications")
+                .insert(notificationRecords);
+              debug("In-app notification records created", {
+                count: notificationRecords.length,
+              });
+            }
+          } catch (err) {
+            console.error("In-app notification records failed:", err);
+            // Non-blocking error - don't fail the invitation
+          }
+        })(),
+      ]);
+    }
+
     const response: InvitationResponse = {
       sessionId,
       invitationsSent,

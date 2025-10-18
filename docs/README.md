@@ -45,15 +45,23 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 
 ## 🔄 **Recent Cleanup**
 
+**October 2025**: Major repository cleanup removing stale documentation and artifacts:
+
+- Removed 44 files tracked by git (completion reports, implementation summaries, temporary test scripts)
+- Removed 3 generated test artifact directories (coverage/, playwright-report/, test-results/)
+- Removed docs/consolidation/ planning directory (12 files from Sept 2025)
+- Removed 7 ETL/imported data files from docs/
+- Removed disabled test files and build artifacts
+- **Result**: Cleaner repository focused on active development; all history preserved in git
+
 **January 2025**: Removed 8 outdated/completed documentation files:
 
 - Completed implementation docs (session conversion, forecast loading, migrations)
 - Outdated planning docs (forecast calibration, global expansion)
 - User feedback analysis (90% complete, remaining items low priority)
-
-**Result**: 47% reduction in docs folder size while preserving all essential documentation.
+- **Result**: 47% reduction in docs folder size while preserving all essential documentation
 
 ---
 
-**Last Updated**: January 2025  
+**Last Updated**: October 2025  
 **Status**: Streamlined and current-focused documentation

@@ -234,6 +234,8 @@ const pwaConfig = withPWA({
   disable: !isProd,
   register: true,
   skipWaiting: true,
+  // Exclude files that don't exist or shouldn't be precached
+  buildExcludes: [/app-build-manifest\.json$/],
   runtimeCaching: [
     // Forecast API - NetworkFirst with 3s timeout (fresh data priority, short cache for offline)
     {

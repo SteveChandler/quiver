@@ -89,6 +89,10 @@ ios/App/App.xcodeproj/xcuserdata/
 ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 .env.playwright
 
+# Firebase secrets (DO NOT COMMIT)
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist
+
 # Local development tunnel config (contains temporary tunnel URLs)
 capacitor.config.dev.ts
 e2e/.auth/state.json

@@ -40,3 +40,5 @@ export function isFirebaseInitialized(): boolean {
   return admin.apps.length > 0 && messaging !== null;
 }
 
+
+
