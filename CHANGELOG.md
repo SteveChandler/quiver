@@ -1,5 +1,16 @@
 ## [Unreleased]
 
+### Fixed
+
+- **Authentication Redirect Flow** (`components/auth/auth-gate.tsx`, `app/auth/callback/route.ts`, `context/auth-context.tsx`)
+  - Fixed issue where users were redirected to homepage instead of returning to their original page after sign-in
+  - Added localStorage backup to preserve redirect path through OAuth flow
+  - Enhanced callback route with cookie-based redirect path storage
+  - **Global redirect handling in AuthContext** - Handles post-auth redirects on ANY page (map, beach details, etc.)
+  - Redirect logic now triggers on `SIGNED_IN` event in auth state listener
+  - Added comprehensive logging for debugging redirect flow
+  - Users signing in from `/map` or `/beach/[id]` now properly return to their original page instead of homepage
+
 ### Added
 
 - **OAuth Error Handling** (`components/auth/auth-gate.tsx`)

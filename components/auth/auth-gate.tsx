@@ -166,6 +166,11 @@ export default function AuthGate({
     });
 
     try {
+      // Store the intended return path in localStorage as a backup
+      // This helps ensure we can recover the redirect path even if query params get lost
+      localStorage.setItem("auth_redirect_path", returnTo);
+      console.log("[AuthGate] Storing redirect path:", returnTo);
+
       const { error: oauthError } = await sb.auth.signInWithOAuth({
         provider,
         options: {
@@ -177,6 +182,8 @@ export default function AuthGate({
 
       if (oauthError) {
         console.error("OAuth error:", oauthError);
+        // Clear stored path on error
+        localStorage.removeItem("auth_redirect_path");
         setError(
           "Unable to sign in with Google. Please try email sign-in instead."
         );
@@ -185,6 +192,8 @@ export default function AuthGate({
       // If successful, browser will redirect to Google OAuth, so no need to setLoading(false)
     } catch (error) {
       console.error("OAuth exception:", error);
+      // Clear stored path on error
+      localStorage.removeItem("auth_redirect_path");
       setError(
         "An unexpected error occurred. Please try email sign-in instead."
       );
@@ -207,6 +216,10 @@ export default function AuthGate({
     });
 
     try {
+      // Store the intended return path in localStorage as a backup
+      localStorage.setItem("auth_redirect_path", returnTo);
+      console.log("[AuthGate] Storing redirect path for email:", returnTo);
+
       const { error: emailError } = await sb.auth.signInWithOtp({
         email,
         options: {
@@ -218,12 +231,16 @@ export default function AuthGate({
 
       if (emailError) {
         console.error("Email magic link error:", emailError);
+        // Clear stored path on error
+        localStorage.removeItem("auth_redirect_path");
         setError("Failed to send magic link. Please try again.");
       } else {
         setEmailSent(true);
       }
     } catch (error) {
       console.error("Exception during email magic link:", error);
+      // Clear stored path on error
+      localStorage.removeItem("auth_redirect_path");
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
