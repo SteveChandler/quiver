@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, LogIn, Mail, Sparkles, AlertCircle } from "lucide-react";
+import { Loader2, LogIn, Mail, AlertCircle } from "lucide-react";
 import { track } from "@/lib/analytics";
 
 type Props = {
@@ -393,12 +393,6 @@ export default function AuthGate({
             )}
           </div>
         )}
-
-        <p className="text-xs text-muted-foreground pt-2 flex items-center justify-center gap-1">
-          <Sparkles className="h-3 w-3" />
-          You'll return to <span className="font-medium">{returnTo}</span> after
-          login.
-        </p>
       </DialogContent>
     </Dialog>
   );
