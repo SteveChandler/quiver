@@ -2,9 +2,10 @@ import { test, expect } from '@playwright/test';
 
 // Tests for beach search text normalization and alias expansion bug fixes
 // Validates that searches like "blacks beach" find "Black's Beach"
-
-// Force guest mode - these tests are for the landing page search feature
-test.use({ storageState: { cookies: [], origins: [] } });
+// 
+// NOTE: These tests are for the LANDING PAGE search feature
+// They run as GUEST tests (unauthenticated) because authenticated users
+// see the home screen at '/', not the landing page with hero search
 
 test.describe('Beach Search - Text Normalization', () => {
   test('finds beach with apostrophe using search without apostrophe', async ({ page }) => {
