@@ -3,6 +3,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
 import {
   Loader2,
   RefreshCw,
@@ -37,6 +38,8 @@ interface BeachesEnhancedForecastProps {
   showQualitySummary?: boolean;
   allowToggleTransparency?: boolean;
   highlightQualityVariations?: boolean;
+  // Public mode for pre-login experience
+  publicMode?: boolean;
 }
 
 export function BeachesEnhancedForecast({
@@ -49,6 +52,7 @@ export function BeachesEnhancedForecast({
   showQualitySummary = false,
   allowToggleTransparency = false,
   highlightQualityVariations = false,
+  publicMode = false,
 }: BeachesEnhancedForecastProps) {
   // Always call hooks unconditionally per Rules of Hooks
   const {
@@ -92,6 +96,7 @@ export function BeachesEnhancedForecast({
         showFallbackInfo={true}
         expandableTransparency={true}
         showQualityChart={showQualitySummary}
+        publicMode={publicMode}
       />
     );
   }
@@ -153,15 +158,14 @@ export function BeachesEnhancedForecast({
             <AlertDescription>
               {isStale ? (
                 <span>
-                  Last refreshed {staleHours ? `${staleHours}h` : "recently"} ago.
-                  Tap refresh once you have a connection for the latest tide
-                  and swell details.
+                  Last refreshed {staleHours ? `${staleHours}h` : "recently"}{" "}
+                  ago. Tap refresh once you have a connection for the latest
+                  tide and swell details.
                 </span>
               ) : (
                 <span>
-                  You’re viewing the most recent forecast saved on this
-                  device. We’ll sync updated data automatically when you’re
-                  back online.
+                  You’re viewing the most recent forecast saved on this device.
+                  We’ll sync updated data automatically when you’re back online.
                 </span>
               )}
             </AlertDescription>
@@ -217,54 +221,125 @@ export function BeachesEnhancedForecast({
               availableDates={availableDates}
             />
 
-            {/* Last Updated Info */}
-            <div className="flex justify-end">
-              <div className="text-sm text-muted-foreground flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Last updated:{" "}
-                {forecasts.length > 0 &&
-                  new Date(forecasts[0].updated_at).toLocaleString()}
-              </div>
-            </div>
+            {/* Show preview of first 2 days for public users, full content for authenticated */}
+            {publicMode ? (
+              <>
+                {/* Preview content - first 2 rows visible */}
+                <SimplifiedForecastTable forecasts={forecasts.slice(0, 2)} />
 
-            {/* Multi-Day Tide Chart Display */}
-            <TideChart forecasts={forecasts} now={new Date()} />
-
-            {/* Simplified Forecast Table */}
-            <SimplifiedForecastTable forecasts={forecasts} />
-
-            {/* Data Sources Info - Collapsible */}
-            <details className="group mt-4">
-              <summary className="cursor-pointer flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                <TrendingUp className="h-4 w-4 transition-transform group-open:rotate-90" />
-                Enhanced Forecast Data Sources
-              </summary>
-              <div className="mt-3 p-4 bg-muted/30 rounded-lg text-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h5 className="font-medium mb-2">Wave Data</h5>
-                    <ul className="text-muted-foreground space-y-1">
-                      <li>• NOAA WaveWatch III Global Model</li>
-                      <li>• Real-time NDBC Buoy Observations</li>
-                      <li>• Swell component analysis</li>
-                    </ul>
+                {/* Gated detailed content */}
+                <PublicContentGate
+                  ctaTitle="Sign up free to see 10-day forecast"
+                  ctaDescription="Get detailed wave heights, wind conditions, tides, and confidence ratings for the next 10 days"
+                  blurLevel="md"
+                  source="forecast-page"
+                  className="min-h-[400px]"
+                >
+                  {/* Last Updated Info */}
+                  <div className="flex justify-end">
+                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Last updated:{" "}
+                      {forecasts.length > 0 &&
+                        new Date(forecasts[0].updated_at).toLocaleString()}
+                    </div>
                   </div>
-                  <div>
-                    <h5 className="font-medium mb-2">Weather & Tides</h5>
-                    <ul className="text-muted-foreground space-y-1">
-                      <li>• NOAA Weather Service API</li>
-                      <li>• CO-OPS Tidal Predictions</li>
-                      <li>• Real-time tidal observations</li>
-                    </ul>
+
+                  {/* Multi-Day Tide Chart Display */}
+                  <TideChart forecasts={forecasts} now={new Date()} />
+
+                  {/* Full Forecast Table */}
+                  <SimplifiedForecastTable forecasts={forecasts} />
+
+                  {/* Data Sources Info - Collapsible */}
+                  <details className="group mt-4">
+                    <summary className="cursor-pointer flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      <TrendingUp className="h-4 w-4 transition-transform group-open:rotate-90" />
+                      Enhanced Forecast Data Sources
+                    </summary>
+                    <div className="mt-3 p-4 bg-muted/30 rounded-lg text-sm">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h5 className="font-medium mb-2">Wave Data</h5>
+                          <ul className="text-muted-foreground space-y-1">
+                            <li>• NOAA WaveWatch III Global Model</li>
+                            <li>• Real-time NDBC Buoy Observations</li>
+                            <li>• Swell component analysis</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h5 className="font-medium mb-2">Weather & Tides</h5>
+                          <ul className="text-muted-foreground space-y-1">
+                            <li>• NOAA Weather Service API</li>
+                            <li>• CO-OPS Tidal Predictions</li>
+                            <li>• Real-time tidal observations</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground pt-3 mt-3 border-t">
+                        Confidence scores are calculated based on data
+                        freshness, source reliability, and forecast horizon.
+                        Enhanced forecasts combine multiple data sources for
+                        improved accuracy.
+                      </p>
+                    </div>
+                  </details>
+                </PublicContentGate>
+              </>
+            ) : (
+              <>
+                {/* Full content for authenticated users */}
+                {/* Last Updated Info */}
+                <div className="flex justify-end">
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Last updated:{" "}
+                    {forecasts.length > 0 &&
+                      new Date(forecasts[0].updated_at).toLocaleString()}
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground pt-3 mt-3 border-t">
-                  Confidence scores are calculated based on data freshness,
-                  source reliability, and forecast horizon. Enhanced forecasts
-                  combine multiple data sources for improved accuracy.
-                </p>
-              </div>
-            </details>
+
+                {/* Multi-Day Tide Chart Display */}
+                <TideChart forecasts={forecasts} now={new Date()} />
+
+                {/* Simplified Forecast Table */}
+                <SimplifiedForecastTable forecasts={forecasts} />
+
+                {/* Data Sources Info - Collapsible */}
+                <details className="group mt-4">
+                  <summary className="cursor-pointer flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <TrendingUp className="h-4 w-4 transition-transform group-open:rotate-90" />
+                    Enhanced Forecast Data Sources
+                  </summary>
+                  <div className="mt-3 p-4 bg-muted/30 rounded-lg text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h5 className="font-medium mb-2">Wave Data</h5>
+                        <ul className="text-muted-foreground space-y-1">
+                          <li>• NOAA WaveWatch III Global Model</li>
+                          <li>• Real-time NDBC Buoy Observations</li>
+                          <li>• Swell component analysis</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h5 className="font-medium mb-2">Weather & Tides</h5>
+                        <ul className="text-muted-foreground space-y-1">
+                          <li>• NOAA Weather Service API</li>
+                          <li>• CO-OPS Tidal Predictions</li>
+                          <li>• Real-time tidal observations</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground pt-3 mt-3 border-t">
+                      Confidence scores are calculated based on data freshness,
+                      source reliability, and forecast horizon. Enhanced
+                      forecasts combine multiple data sources for improved
+                      accuracy.
+                    </p>
+                  </div>
+                </details>
+              </>
+            )}
           </div>
         )}
       </CardContent>

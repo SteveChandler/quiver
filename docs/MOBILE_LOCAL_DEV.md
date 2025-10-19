@@ -12,28 +12,52 @@ This guide explains how to develop the Quiver mobile app using your local Next.j
 
 ## 🚀 Quick Start
 
-### Option A: Automated Setup (Recommended)
+### ⚡ Fully Automated Setup (Recommended)
 
 **One command to start everything:**
 
 ```bash
-npm run mobile:dev:tunnel
+# Terminal 1: Start dev server
+npm run dev
+
+# Terminal 2: Start tunnel, sync iOS, open Xcode (all automatic!)
+npm run tunnel:ios:open
 ```
 
-This automatically:
+**That's it!** The automation:
 
-- Starts Next.js dev server
-- Launches Cloudflare Tunnel
-- Displays the HTTPS URL to use
+- ✅ Starts Cloudflare tunnel
+- ✅ Extracts tunnel URL automatically
+- ✅ Updates iOS Capacitor config (no manual copy-paste!)
+- ✅ Syncs iOS project
+- ✅ Opens Xcode
+- ✅ Keeps running until you stop it (Ctrl+C)
 
-Then:
+**Full documentation:** See [MOBILE_DEV_TUNNEL.md](./MOBILE_DEV_TUNNEL.md) for complete guide.
 
-1. Copy the tunnel URL
-2. Update `capacitor.config.dev.ts` with the URL (or set `CAPACITOR_DEV_URL` env var)
-3. Run `npm run mobile:sync:local`
-4. Open in Android Studio/Xcode
+**Quick reference:** See [../TUNNEL_QUICK_START.md](../TUNNEL_QUICK_START.md) for command cheat sheet.
 
-### Option B: Manual Setup
+### 📋 Available Commands
+
+| Command                   | What It Does                                           |
+| ------------------------- | ------------------------------------------------------ |
+| `npm run tunnel:ios:open` | Start tunnel → sync iOS → open Xcode (full automation) |
+| `npm run tunnel:ios`      | Start tunnel → sync iOS (no Xcode)                     |
+| `npm run tunnel:start`    | Start tunnel only (manual sync)                        |
+| `npm run tunnel:stop`     | Stop tunnel and cleanup                                |
+| `npm run tunnel:status`   | Check if tunnel is running                             |
+
+### 🛠️ First Time Only: Install Dependencies
+
+```bash
+# Install cloudflared (tunnel)
+brew install cloudflare/cloudflare/cloudflared
+
+# Install jq (JSON processor for auto-config updates)
+brew install jq
+```
+
+### Option B: Manual Setup (Fallback)
 
 ### 1. Start Your Local Dev Server
 
@@ -177,7 +201,25 @@ Then run the app in Android Studio or Xcode.
 
 ## 📱 Workflow
 
-### Daily Development Flow
+### Daily Development Flow (Automated)
+
+1. **Terminal 1:** Start Next.js
+
+   ```bash
+   npm run dev
+   ```
+
+2. **Terminal 2:** Start automated tunnel
+
+   ```bash
+   npm run tunnel:ios:open
+   ```
+
+3. **Develop!** Changes hot reload automatically! 🎉
+
+4. **When done:** Press `Ctrl+C` in Terminal 2 to stop tunnel
+
+### Daily Development Flow (Manual - if you prefer)
 
 1. **Terminal 1:** Start Next.js
 
@@ -191,12 +233,12 @@ Then run the app in Android Studio or Xcode.
    cloudflared tunnel --url http://localhost:3000
    ```
 
-3. **Update tunnel URL** in `capacitor.config.dev.ts` (if URL changed)
+3. **Update tunnel URL** in `ios/App/App/capacitor.config.json` (if URL changed)
 
 4. **Sync once** (or whenever you change Capacitor config)
 
    ```bash
-   npm run mobile:sync:local
+   npx cap sync ios
    ```
 
 5. **Run in emulator/device** - changes hot reload automatically! 🎉
@@ -270,24 +312,22 @@ Free tier occasionally hits limits. Solutions:
 
 ## 💡 Pro Tips
 
-1. **Keep tunnel running** - Don't restart unless URL needs to change
-2. **Use env var** - Set `CAPACITOR_DEV_URL` instead of editing config file
-3. **Create shell alias:**
-   ```bash
-   # Add to ~/.zshrc or ~/.bashrc
-   alias dev-tunnel='cloudflared tunnel --url http://localhost:3000'
-   alias dev-mobile='npm run dev & dev-tunnel'
-   ```
-4. **Test on real device** - Works the same as emulator
-5. **Multiple developers** - Each person needs their own tunnel
+1. **Use automation** - `npm run tunnel:ios:open` does everything in one command
+2. **Check status anytime** - `npm run tunnel:status` shows current tunnel state
+3. **Keep two terminals open** - Terminal 1 for `npm run dev`, Terminal 2 for tunnel
+4. **Stop cleanly** - Press `Ctrl+C` or run `npm run tunnel:stop`
+5. **Test on real device** - Works the same as emulator
+6. **Multiple developers** - Each person needs their own tunnel
+7. **Troubleshooting** - See [MOBILE_DEV_TUNNEL.md](./MOBILE_DEV_TUNNEL.md) for detailed troubleshooting
 
 ## 📊 Performance Comparison
 
-| Method             | Setup Time | Reload Speed | Debugging |
-| ------------------ | ---------- | ------------ | --------- |
-| **Vercel Deploy**  | 5-10 min   | 2-5 min      | Limited   |
-| **Vercel Preview** | 1-2 min    | 1-2 min      | Limited   |
-| **Local Tunnel**   | 30 sec     | Instant      | Full      |
+| Method                    | Setup Time | Reload Speed | Debugging | Manual Steps |
+| ------------------------- | ---------- | ------------ | --------- | ------------ |
+| **Vercel Deploy**         | 5-10 min   | 2-5 min      | Limited   | Many         |
+| **Vercel Preview**        | 1-2 min    | 1-2 min      | Limited   | Some         |
+| **Local Tunnel (Manual)** | 2-3 min    | Instant      | Full      | 5 steps      |
+| **Local Tunnel (Auto)**   | 30 sec     | Instant      | Full      | 1 command ✅ |
 
 ## 🔒 Security Notes
 
@@ -299,11 +339,14 @@ Free tier occasionally hits limits. Solutions:
 
 ## 📚 References
 
+- **[MOBILE_DEV_TUNNEL.md](./MOBILE_DEV_TUNNEL.md)** - Complete automation documentation
+- **[../TUNNEL_QUICK_START.md](../TUNNEL_QUICK_START.md)** - Quick reference card
 - [Cloudflare Tunnel Docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/tunnel-guide/)
 - [ngrok Documentation](https://ngrok.com/docs)
 - [Capacitor Live Reload Guide](https://capacitorjs.com/docs/guides/live-reload)
 
 ---
 
-**Last Updated:** January 2025  
-**Tested On:** macOS 14, Android Emulator, Physical Android Device
+**Last Updated:** October 2024  
+**Tested On:** macOS Sonoma, iOS Simulator, Physical iOS Device  
+**Status:** ✅ Fully Automated

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapSearchHeader } from "@/components/map/map-search-header";
@@ -12,6 +12,7 @@ import { SelectedBeachCard } from "@/components/map/selected-beach-card";
 import { NearbyBeachScroll } from "@/components/map/nearby-beach-scroll";
 import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
+import AuthGate from "@/components/auth/auth-gate";
 
 export function MapView() {
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
@@ -189,6 +190,11 @@ export function MapView() {
 
   return (
     <div className="flex-1 flex flex-col" data-testid="map-view">
+      {/* Auth Gate */}
+      <Suspense fallback={null}>
+        <AuthGate block />
+      </Suspense>
+
       {/* Search Header */}
       <MapSearchHeader
         searchQuery={searchQuery}

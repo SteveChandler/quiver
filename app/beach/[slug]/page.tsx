@@ -1,49 +1,94 @@
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { BeachDetail } from "@/components/beach-detail";
+import {
+  getBeachBySlug,
+  getBeachById,
+} from "@/actions/beach/beach-query-actions";
+import type { Beach } from "@/types/database";
+import { BeachPageStructuredData } from "@/components/seo/structured-data";
+import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { BeachDetailClient } from "./beach-detail-client";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { getBeachBySlug, getBeachById } from "@/actions/beach/beach-query-actions";
-import { notFound } from "next/navigation";
-import { BeachPageStructuredData } from "@/components/seo/structured-data";
+
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
 
 export default async function BeachDetailBySlugPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  // Resolve slug to ID on the server for stable downstream usage
-  const slug = params.slug;
-  const bySlug = await getBeachBySlug(slug);
-  let beach = bySlug?.data || null;
+  // Fetch beach data server-side
+  try {
+    // Try slug lookup first
+    const bySlug = await getBeachBySlug(params.slug);
+    let beach = bySlug?.data || null;
 
-  // Back-compat: if slug lookup fails, try treating slug as an ID
-  if (!beach) {
-    const byId = await getBeachById(slug);
-    beach = byId?.data || null;
+    // Back-compat: if slug lookup fails, try treating slug as an ID
+    if (!beach) {
+      const byId = await getBeachById(params.slug);
+      beach = byId?.data || null;
+    }
+
+    if (!beach) {
+      return (
+        <div className="flex flex-col min-h-screen">
+          <main className="flex-1 container mx-auto px-4 py-6">
+            <div className="text-center py-12">
+              <h2 className="text-2xl font-bold mb-2">Beach Not Found</h2>
+              <p className="text-muted-foreground">
+                We couldn't find this beach in our directory.
+              </p>
+            </div>
+          </main>
+          <BottomNavigation />
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {/* Structured Data: Place/Beach */}
+        <BeachPageStructuredData
+          beachName={beach.name}
+          description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
+          latitude={beach.latitude}
+          longitude={beach.longitude}
+          rating={(beach as any).average_rating || undefined}
+          reviewCount={(beach as any).review_count || undefined}
+        />
+
+        {/* Breadcrumb Structured Data for SEO */}
+        <BreadcrumbStructuredData
+          items={[
+            { name: "Home", url: baseUrl },
+            { name: "Surf Spots Map", url: `${baseUrl}/map` },
+            { name: beach.name, url: `${baseUrl}/beach/${params.slug}` },
+          ]}
+        />
+
+        {/* Client detail component with auth tracking */}
+        <BeachDetailClient beach={beach} slug={params.slug} />
+
+        <BottomNavigation />
+      </>
+    );
+  } catch (error) {
+    console.error("Error fetching beach:", error);
+    return (
+      <div className="flex flex-col min-h-screen">
+        <main className="flex-1 container mx-auto px-4 py-6">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold mb-2">Error Loading Beach</h2>
+            <p className="text-muted-foreground">
+              There was an error loading this beach. Please try again.
+            </p>
+          </div>
+        </main>
+        <BottomNavigation />
+      </div>
+    );
   }
-
-  if (!beach) {
-    notFound();
-  }
-
-  return (
-    <>
-      {/* Structured Data: Place/Beach */}
-      <BeachPageStructuredData
-        beachName={beach.name}
-        description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
-        latitude={beach.latitude}
-        longitude={beach.longitude}
-        rating={(beach as any).average_rating || undefined}
-        reviewCount={(beach as any).review_count || undefined}
-      />
-
-      {/* Client detail component uses id for API calls */}
-      <BeachDetail id={beach.id} />
-
-      <BottomNavigation />
-    </>
-  );
 }
 
 export async function generateMetadata({
@@ -72,5 +117,3 @@ export async function generateMetadata({
     path: `/beach/${slug}`,
   });
 }
-
-

@@ -11,7 +11,7 @@ import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 
 export function CTASection() {
   const searchParams = useSearchParams();
-  
+
   return (
     <section className="py-20 px-4 bg-gradient-to-br from-ocean-blue via-blue-600 to-blue-700 relative overflow-hidden">
       {/* Background Pattern */}
@@ -54,9 +54,9 @@ export function CTASection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="text-4xl md:text-5xl lg:text-6xl font-roboto font-bold text-white mb-6 leading-tight"
+          className="text-3xl md:text-4xl lg:text-5xl font-roboto font-bold text-white mb-6 leading-tight"
         >
-          {CONTENT.sections.cta.title}
+          Wherever the swell takes you
         </motion.h2>
 
         <motion.p
@@ -64,9 +64,10 @@ export function CTASection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-xl md:text-2xl font-open-sans text-white/90 mb-10 max-w-3xl mx-auto leading-relaxed"
+          className="text-lg md:text-xl font-open-sans text-white/90 mb-10 max-w-3xl mx-auto leading-relaxed"
         >
-          {CONTENT.sections.cta.subtitle}
+          Track, plan, and share your surf sessions with Quiver. Join the
+          community and never miss your next perfect wave.
         </motion.p>
 
         {/* Social Proof */}
@@ -102,17 +103,17 @@ export function CTASection() {
         >
           <Button
             size="lg"
-            className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            className="bg-white text-ocean-blue hover:bg-gray-100 px-8 py-4 text-lg font-roboto font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             asChild
           >
             <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
-              Join the Community Free
+              Join the Lineup
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
 
-          <p className="text-white/70 text-sm">
-            No credit card required • Join in 30 seconds
+          <p className="text-white/80 text-sm mt-4">
+            Free to join • No credit card required • Built for surfers
           </p>
         </motion.div>
       </motion.div>

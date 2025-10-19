@@ -1,9 +1,12 @@
 import { SessionDetailView } from "@/components/session-detail-view";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { getSessionMetadata } from "@/actions/session-actions";
 import { format } from "date-fns";
+
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
 
 export default function SessionDetailPage({
   params,
@@ -12,6 +15,15 @@ export default function SessionDetailPage({
 }) {
   return (
     <div className="flex flex-col min-h-screen">
+      {/* Breadcrumb Structured Data for SEO */}
+      <BreadcrumbStructuredData
+        items={[
+          { name: "Home", url: baseUrl },
+          { name: "Surf Sessions", url: `${baseUrl}/map` },
+          { name: "Session Details", url: `${baseUrl}/sessions/${params.id}` },
+        ]}
+      />
+
       <SessionDetailView id={params.id} />
       <BottomNavigation />
     </div>

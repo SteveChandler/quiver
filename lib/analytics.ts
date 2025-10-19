@@ -41,3 +41,36 @@ function currentPlatform(): "ios" | "android" | "desktop" {
 export function trackInstallPWA() {
   track("install_pwa", { platform: currentPlatform() });
 }
+
+// Public conversion tracking helpers
+export function trackPublicPageView(page: string, params: Record<string, any> = {}) {
+  track("public_page_view", {
+    page,
+    platform: currentPlatform(),
+    ...params,
+  });
+}
+
+export function trackSignupCTAView(source: string, ctaTitle: string) {
+  track("signup_cta_view", {
+    source,
+    cta_title: ctaTitle,
+    platform: currentPlatform(),
+  });
+}
+
+export function trackSignupCTAClick(source: string, ctaTitle: string) {
+  track("signup_cta_click", {
+    source,
+    cta_title: ctaTitle,
+    platform: currentPlatform(),
+  });
+}
+
+export function trackPublicConversion(source: string, method: "signup" | "signin") {
+  track("public_conversion", {
+    source,
+    method,
+    platform: currentPlatform(),
+  });
+}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getBeaches, getNearbyBeaches } from "@/actions/beach-actions";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { Beach } from "@/types/database";
+import { normalizeSearchText, expandSearchWithAliases } from "@/lib/utils/text-normalization";
 
 const MAX_DISTANCE_MILES = 30;
 
@@ -113,17 +114,25 @@ export function useBeachSearch() {
         console.log(`  After break type filter: ${working.length} beaches`);
       }
 
-      // Fuzzy-ish search (tokens include)
-      const trimmed = query.trim().toLowerCase();
-      if (!trimmed) {
+      // Fuzzy search with punctuation-insensitive normalization and alias support
+      const searchVariants = expandSearchWithAliases(query);
+      
+      // If no normalized query, return all filtered beaches
+      if (searchVariants.length === 0 || !searchVariants[0]) {
         console.log(`✅ Final filtered beaches: ${working.length}`);
         return working;
       }
 
-      const tokens = trimmed.split(/\s+/g).filter(Boolean);
       const result = working.filter((beach) => {
-        const hay = `${beach.name} ${(beach.location || "")}`.toLowerCase();
-        return tokens.every((t) => hay.includes(t) || t.includes(hay));
+        const normalizedName = normalizeSearchText(beach.name);
+        const normalizedLocation = normalizeSearchText(beach.location || "");
+        const hay = `${normalizedName} ${normalizedLocation}`;
+        
+        // Match if ANY search variant matches
+        return searchVariants.some(variant => {
+          const tokens = variant.split(/\s+/g).filter(Boolean);
+          return tokens.every((t) => hay.includes(t));
+        });
       });
       
       console.log(`✅ Final filtered beaches (after search): ${result.length}`);

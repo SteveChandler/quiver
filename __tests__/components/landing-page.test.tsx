@@ -10,25 +10,29 @@ jest.mock("@/lib/utils/performance-utils", () => ({
 }));
 
 // Mock all the section components to test integration
+jest.mock("@/components/landing-page/navbar", () => ({
+  Navbar: () => <nav data-testid="navbar">Navbar</nav>,
+}));
+
 jest.mock("@/components/landing-page/hero-section", () => ({
   HeroSection: () => <div data-testid="hero-section">Hero Section</div>,
 }));
 
-jest.mock("@/components/landing-page/social-feed-section", () => ({
-  SocialFeedSection: () => (
-    <div data-testid="social-feed-section">Social Feed Section</div>
+jest.mock("@/components/landing-page/surf-highlights-section", () => ({
+  SurfHighlightsSection: () => (
+    <div data-testid="surf-highlights-section">Surf Highlights Section</div>
+  ),
+}));
+
+jest.mock("@/components/landing-page/activities-section", () => ({
+  ActivitiesSection: () => (
+    <div data-testid="activities-section">Activities Section</div>
   ),
 }));
 
 jest.mock("@/components/landing-page/forecast-section", () => ({
   ForecastSection: () => (
     <div data-testid="forecast-section">Forecast Section</div>
-  ),
-}));
-
-jest.mock("@/components/landing-page/features-section", () => ({
-  FeaturesSection: () => (
-    <div data-testid="features-section">Features Section</div>
   ),
 }));
 
@@ -45,24 +49,19 @@ describe("LandingPage", () => {
     jest.clearAllMocks();
   });
 
-  it("renders hero section immediately", () => {
+  it("renders navbar and hero section immediately", () => {
     render(<LandingPage />);
 
-    // Hero section should render immediately since it's not lazy loaded
+    // Navbar and hero section should render immediately since they're not lazy loaded
+    expect(screen.getByTestId("navbar")).toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
   });
 
-  it("applies the correct background gradient class", () => {
+  it("applies the correct background class (AllTrails-style white)", () => {
     const { container } = render(<LandingPage />);
 
     const mainDiv = container.firstChild as HTMLElement;
-    expect(mainDiv).toHaveClass(
-      "min-h-screen",
-      "bg-gradient-to-br",
-      "from-sandy-beige",
-      "via-white",
-      "to-blue-50"
-    );
+    expect(mainDiv).toHaveClass("min-h-screen", "bg-white");
   });
 
   it("renders progressive section containers", () => {
@@ -77,23 +76,27 @@ describe("LandingPage", () => {
     expect(progressiveSections).toHaveLength(5);
   });
 
-  it("shows loading skeletons initially for lazy sections", () => {
+  it("shows AllTrails-style sections", () => {
     const { container } = render(<LandingPage />);
 
-    // Should show skeleton loading states for progressive sections
+    // Should show AllTrails-style sections
     // Since mocks render immediately, test that sections are present
-    const socialSection = screen.getByTestId("social-feed-section");
-    expect(socialSection).toBeInTheDocument();
+    const surfHighlightsSection = screen.getByTestId("surf-highlights-section");
+    expect(surfHighlightsSection).toBeInTheDocument();
+
+    const activitiesSection = screen.getByTestId("activities-section");
+    expect(activitiesSection).toBeInTheDocument();
   });
 
-  it("has proper semantic structure", () => {
+  it("has proper semantic structure with AllTrails-style layout", () => {
     const { container } = render(<LandingPage />);
 
     // Check that the main container has proper HTML structure
     const mainDiv = container.firstChild as HTMLElement;
     expect(mainDiv).toHaveClass("min-h-screen");
 
-    // Should have hero section and sections container
+    // Should have navbar, hero section and sections container
+    expect(screen.getByTestId("navbar")).toBeInTheDocument();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
     expect(container.querySelector(".space-y-0")).toBeInTheDocument();
   });
@@ -103,9 +106,9 @@ describe("LandingPage", () => {
 
     // In the test environment with mocks, sections render immediately
     // Test that the structure supports progressive loading
-    const sectionsContainer = container.querySelector('.space-y-0');
+    const sectionsContainer = container.querySelector(".space-y-0");
     expect(sectionsContainer).toBeInTheDocument();
-    
+
     // Verify we have the expected number of progressive sections
     const progressiveSections = sectionsContainer?.children;
     expect(progressiveSections).toHaveLength(5); // 5 lazy-loaded sections

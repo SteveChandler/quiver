@@ -96,13 +96,20 @@ export function BeachPageStructuredData({
 }) {
   const beachData = {
     "@context": "https://schema.org",
-    "@type": "Place",
+    "@type": ["Place", "SportsActivityLocation"],
     name: beachName,
     description: description,
+    sport: "Surfing",
     geo: {
       "@type": "GeoCoordinates",
       latitude: latitude,
       longitude: longitude,
+    },
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "San Diego",
+      addressRegion: "CA",
+      addressCountry: "US",
     },
     ...(rating &&
       reviewCount && {

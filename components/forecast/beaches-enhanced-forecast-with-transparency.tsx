@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { useEnhancedForecast } from "@/hooks/use-enhanced-forecast";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
 import { ConfidenceScoreExplanation } from "@/components/forecast/confidence-score-explanation";
@@ -32,6 +33,7 @@ interface BeachesEnhancedForecastWithTransparencyProps {
   mobile?: boolean;
   compact?: boolean;
   className?: string;
+  publicMode?: boolean;
 }
 
 export function BeachesEnhancedForecastWithTransparency({
@@ -48,6 +50,7 @@ export function BeachesEnhancedForecastWithTransparency({
   mobile = false,
   compact = false,
   className,
+  publicMode = false,
 }: BeachesEnhancedForecastWithTransparencyProps) {
   const [transparencyVisible, setTransparencyVisible] =
     useState(showTransparency);

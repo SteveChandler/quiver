@@ -1,5 +1,261 @@
 ## [Unreleased]
 
+### Added
+
+- **OAuth Error Handling** (`components/auth/auth-gate.tsx`)
+  - Added user-facing error messages when Google OAuth fails
+  - Displays Alert component with clear error feedback
+  - Error state clears automatically when switching authentication methods
+  - Improved error messages for both OAuth and email magic link failures
+
+### Changed
+
+- **Landing Page Navbar** (`components/landing-page/navbar.tsx`)
+  - Replaced Waves icon with actual Quiver logo image (`/logoQuiver.png`)
+  - Logo now displays next to "Quiver" text for better brand consistency
+  - Maintained hover scale animation on logo
+- **Auth Gate Modal** (`components/auth/auth-gate.tsx`)
+  - Replaced Waves icon with Quiver logo image in "Keep exploring with Quiver" dialog
+  - Consistent branding across all authentication modals
+  - Enhanced OAuth error handling with proper error state management
+  - Replaced console.error + alert() pattern with Alert component UI
+
+## [2025.10.19] - Beach Search E2E Test Refactor
+
+### Fixed
+
+- **Beach Search Normalization Tests** (`e2e/beach-search-normalization.spec.ts`)
+  - Refactored tests to match authenticated HomeScreen search behavior
+  - Search updates forecast display inline instead of navigating immediately
+  - Added "View Details" button click step before expecting navigation
+  - Removed tests for unsupported abbreviations (ib, swamis) that aren't in `commonVariations`
+  - Updated tests to use beaches that exist in test database
+  - Fixed error handling tests to match actual UI behavior
+  - All 11 tests now passing
+
+### Changed
+
+- **Test Flow Updated for Authenticated Users**
+  - Tests now follow correct flow: Search → Wait for forecast update → Click "View Details" → Navigate
+  - Previously expected immediate navigation which doesn't match HomeScreen behavior
+  - Added `waitForLoadState('load')` for more reliable page state
+  - Tests run sequentially (workers=1) to avoid race conditions during development
+
+### Documentation
+
+- Updated test comments to clarify this tests authenticated HomeScreen search, not landing page
+- Added inline comments explaining the two-step navigation pattern
+
+## [2025.10.19] - SEO Performance Optimization
+
+### Added
+
+- **Metadata for All Pages**
+  - Added metadata exports to `/features`, `/about`, `/discover`, `/inbox`, and `/profile` pages
+  - Each page now has optimized title, description, and keywords for SEO
+  - Auth-required pages include metadata for better link previews and user experience
+- **Breadcrumb Structured Data** (`components/seo/breadcrumb-schema.tsx`)
+  - Implemented BreadcrumbList schema for improved SEO navigation
+  - Added breadcrumb schema to beach detail pages (`/beach/[slug]`)
+  - Added breadcrumb schema to session detail pages (`/sessions/[id]`)
+  - Breadcrumbs follow Home → Category → Detail pattern for clear hierarchy
+- **Enhanced Sitemap** (`app/sitemap.ts`)
+  - Added forecast pages to sitemap (`/forecast/[beachId]`) with daily changeFrequency and 0.8 priority
+  - Sitemap now includes: static pages, beach pages, and forecast pages
+  - Improved SEO discoverability for 100+ beach forecast pages
+
+### Changed
+
+- **Converted Client Components to Server + Client Pattern**
+  - `/features/page.tsx` → Server component with metadata + `features-client.tsx`
+  - `/about/page.tsx` → Server component with metadata + `about-client.tsx`
+  - `/discover/page.tsx` → Server component with metadata + `discover-client.tsx`
+  - `/inbox/page.tsx` → Server component with metadata + `inbox-client.tsx`
+  - This pattern allows metadata generation while preserving client-side interactivity
+- **Enhanced Beach Structured Data** (`components/seo/structured-data.tsx`)
+  - Updated `BeachPageStructuredData` to include `SportsActivityLocation` type
+  - Added `sport: "Surfing"` property for better categorization
+  - Added address information (San Diego, CA, US) for local SEO
+  - Maintains existing Place schema with enhanced sports-specific data
+- **Robots.txt Configuration** (`app/robots.ts`)
+  - Added disallow rules for private pages: `/api/*`, `/inbox`, `/profile`, `/discover`, `/auth/*`
+  - Public pages remain crawlable: `/beach/[slug]`, `/sessions/[id]`, `/forecast/[id]`, `/user/[id]`
+  - Prevents search engines from indexing auth-required and API routes
+
+### Performance
+
+- Structured data improvements provide richer search engine results
+- Breadcrumb navigation enhances search result snippets
+- Expanded sitemap increases discoverability of forecast pages
+- Proper robots.txt reduces unnecessary crawler traffic
+
+## [2025.10.19] - Playwright E2E Test Suite for Landing Page & Auth Gate
+
+### Added
+
+- **Landing Page E2E Tests** (`e2e/guest-landing-page.spec.ts`)
+  - Navbar component tests: sticky navigation, explore dropdown, mobile menu, auth buttons
+  - Hero section tests: search bar placeholder, search functionality, explore nearby button, feature highlights
+  - Content section tests: featured beaches cards, activities section, CTA section, footer
+  - Bug fix validation: no duplicate AppHeader, no 500 errors, beach search normalization
+- **Auth Gate E2E Tests** (`e2e/guest-auth-gate.spec.ts`)
+  - Basic rendering tests: auth gate doesn't appear immediately, pages render fully before auth check
+  - Timing behavior tests: modal appears after 5s delay, dismissal tracking, 30s reappearance
+  - Modal content tests: title, description, auth options (Google OAuth, Email magic link)
+  - Authentication flow tests: email input validation, confirmation screen
+  - Return URL preservation tests: preserves beach detail URLs and search query params
+- **Beach Search Normalization Tests** (`e2e/beach-search-normalization.spec.ts`)
+  - Text normalization tests: apostrophe removal, case insensitivity, hyphen handling
+  - Alias expansion tests: pb → Pacific Beach, ob → Ocean Beach, ib → Imperial Beach
+  - Navigation behavior tests: hero search navigation, Enter key triggering, fallback handling
+  - Error handling tests: API errors, empty results
+
+### Changed
+
+- All new landing page and auth gate tests run in `guest` project mode (unauthenticated users)
+- Tests use realistic timing delays (5s, 30s) for auth gate behavior validation
+- Tests use accessible role selectors following established E2E patterns
+
+### Fixed
+
+- **Auth Gate Email Validation**: "Send Magic Link" button now properly disabled for invalid emails
+  - Added email validation regex (`/^[^\s@]+@[^\s@]+\.[^\s@]+$/`) to check for valid email format
+  - Button only enabled when email contains @ symbol and follows basic email structure
+  - Prevents submission of invalid email addresses in auth flow
+
+## [2025.10.19] - AllTrails-Style Auth Wall
+
+### Added
+
+- **AllTrails-style authentication wall** for `/map` and `/beach/[slug]` pages
+  - Preview mode: Users can browse for 5 seconds before auth prompt appears
+  - Dismissible modal that reappears after 30 seconds of continued browsing
+  - Google OAuth and Email Magic Link authentication options
+  - Preserves return URL to redirect users back to exact page after login
+  - SEO-friendly: Pages render fully before client-side auth check
+  - Analytics tracking for auth wall impressions, dismissals, and provider selection
+- New `lib/supabase-browser.ts` - Clean browser client helper for OAuth flows
+- New `components/auth/auth-gate.tsx` - Reusable authentication gate component
+- New `app/auth/callback/route.ts` - OAuth and magic link callback handler with redirect validation
+
+### Changed
+
+- Updated `/map` page to include AuthGate component for growth-focused user acquisition
+- Updated `/beach/[slug]` beach detail pages to include AuthGate component
+- Modified authentication strategy to support preview-based gates alongside traditional protected routes
+
+### Performance
+
+- Client-side only auth check prevents server-side redirects
+- Lazy modal rendering improves initial page load
+- Local storage tracking minimizes repeated prompts for same session
+
+### Removed
+
+- **Non-Existent Forecast Pages**: Removed "View Forecast" button from landing page hero section and "Forecast" navigation links from landing page navbar
+  - Removed `handleViewForecast` function from `components/landing-page/hero-section.tsx`
+  - Removed "View Forecast" button from hero section CTA
+  - Removed "Forecast" link from desktop and mobile navigation in `components/landing-page/navbar.tsx`
+  - These pages don't currently exist in the application
+
+### Fixed
+
+- **500 Error on Landing Page Featured Beaches**: Created missing `/api/beaches/featured` endpoint to fix Internal Server Error
+
+  - Added `app/api/beaches/featured/route.ts` that returns beaches with photos ordered by session count (popularity)
+  - Component now successfully loads featured surf spots instead of showing error and falling back to hardcoded data
+  - Uses centralized API patterns from `lib/api-utils.ts` for consistent error handling
+  - Files: `app/api/beaches/featured/route.ts`
+
+- **404 Errors for Missing Resources**: Fixed console errors for non-existent resource files
+
+  - Removed preload reference to missing `placeholder-logo.png` in `lib/utils/performance-utils.ts`
+  - Removed video caption track referencing non-existent `/captions/hero-video-captions.vtt` in hero section (added TODO for accessibility)
+  - Files: `lib/utils/performance-utils.ts`, `components/landing-page/hero-section.tsx`
+
+- **Critical React Hooks Violation in AppHeader**: Fixed app crash when navigating from landing page to map
+
+  - Moved all hooks (`useUserProfile`, `useDataFetcher`, `useSessionInvitationsSubscription`) to be called BEFORE the conditional return statement
+  - Previously, the early return for unauthenticated users on landing page (`if (!user && pathname === "/") return null;`) happened BEFORE hooks were called
+  - This violated React's Rules of Hooks - hooks must be called in the same order on every render
+  - Navigation from landing page (where AppHeader returned early) to `/map` (where AppHeader rendered fully) caused "Rendered more hooks than during the previous render" error
+  - Files: `components/app-header.tsx`
+
+- **Duplicate Headers on Landing Page**: Fixed double header display on landing page
+
+  - Updated `AppHeader` to not render for unauthenticated users on the landing page (/)
+  - Landing page uses its own `Navbar` component, no need for global `AppHeader` in this case
+  - Files: `components/app-header.tsx`
+
+- **Beach Search Navigation from Landing Page**: Fixed search navigation to go directly to beach detail pages instead of map page
+
+  - Updated `HeroSection` to make "Explore Nearby" and "View Forecast" buttons search-aware
+  - When search query exists, buttons now search for beach and navigate to beach detail or forecast page
+  - When search query is empty, buttons maintain original behavior (go to /map or /forecast)
+  - Pressing Enter on search continues to navigate to beach detail page
+  - Files: `components/landing-page/hero-section.tsx`
+
+- **Build Errors in Beach and Forecast Pages**: Fixed Next.js build errors where `generateMetadata` was exported from client components
+
+  - Converted `/app/beach/[slug]/page.tsx` to server component for metadata generation
+  - Converted `/app/forecast/[beachId]/page.tsx` to server component for metadata generation
+  - Created `beach-detail-client.tsx` and `forecast-page-client.tsx` client components for interactive logic (auth tracking, useEffect hooks)
+  - Server components now fetch beach data server-side and pass to client components
+  - Maintains SEO benefits of `generateMetadata` while preserving client-side interactivity
+  - Files: `app/beach/[slug]/page.tsx`, `app/beach/[slug]/beach-detail-client.tsx`, `app/forecast/[beachId]/page.tsx`, `app/forecast/[beachId]/forecast-page-client.tsx`
+
+- **Beach Search Normalization Bug**: Fixed critical search bug where "blacks beach" failed to match "Black's Beach"
+
+  - Created `lib/utils/text-normalization.ts` with `normalizeSearchText()` utility that removes punctuation (apostrophes, hyphens, periods) for consistent matching
+  - Added `expandSearchWithAliases()` function supporting common abbreviations (pb → pacific beach, ob → ocean beach, blacks → blacks beach, ib → imperial beach, swamis, windansea)
+  - Updated `hooks/use-beach-search.ts` to use punctuation-insensitive normalization with alias expansion
+  - Updated `lib/utils/beach-search-utils.ts` to normalize both search queries and beach names consistently
+  - Updated `components/map/map-search-header.tsx` dropdown filter to use normalized search
+  - Now supports searches like "blacks beach", "black beach", "la jolla", "ocean beach" matching "Black's Beach", "La Jolla Shores", "Ocean Beach" respectively
+
+- **Bulk Forecast API 500 Errors**: Fixed console errors during search with no results
+
+  - Updated `components/map/interactive-map.tsx` to validate beach IDs before calling bulk forecast API (filter out undefined/null IDs)
+  - Updated `app/api/forecasts/bulk/route.ts` to gracefully handle missing/empty beach IDs, returning empty forecasts (200) instead of errors (500)
+  - Added defensive checks: trim and filter empty strings from beach ID parameters
+  - Improved error logging to distinguish expected vs unexpected error conditions
+
+- **Map Search Dropdown Removed**: Removed search dropdown that was blocking map view
+  - Removed dropdown suggestions feature from `components/map/map-search-header.tsx`
+  - Search now filters beaches directly in the map/list view without popup
+  - Cleaner UX with unobstructed map view during search
+  - Kept backward-compatible prop interfaces for future enhancements
+
+### Added
+
+- **AllTrails-Style Landing Page Redesign**: Complete redesign of landing page following AllTrails.com patterns for improved conversion and discovery
+
+  - Created `Navbar` component with sticky navigation, dropdown menus (Explore by Regions/Spot Types/Conditions), mobile-responsive sheet menu
+  - Created `SurfSpotCard` component displaying surf breaks with real-time conditions (swell height/direction, wind, tide, difficulty, crowd level)
+  - Created `SurfHighlightsSection` replacing social feed with featured surf spot cards showing conditions and tags (Beginner/Advanced, Uncrowded/Crowded, Hidden Gem)
+  - Added stunning surf photography to landing page: Black's Beach (epic barrels), Swami's (winter point break), Tourmaline (beach cliffs), Windansea (iconic surf shack at sunset)
+  - Featured 4 iconic San Diego surf spots with high-quality imagery
+  - Created `ActivitiesSection` with surf type filters (Longboarding, Reef Breaks, Point Breaks, Beginner-Friendly, Women-Led Spots, Offshore Winds)
+  - Redesigned `HeroSection` with search-centric layout: prominent search bar ("Search by beach, spot, or region") that navigates directly to beach detail pages, "Explore Nearby" and "View Forecast" quick action buttons
+  - Updated `CTASection` with surf-focused messaging: "Wherever the swell takes you" headline, "Join the Lineup" CTA button
+  - Enhanced `FooterSection` with AllTrails-style structure: tagline "Built for surfers. Powered by the swell.", organized columns (About Quiver, Support/Contact, Legal, Socials)
+  - Added `SURF_ACTIVITIES` constant with 6 surf activity types for discovery navigation
+  - Updated hero content to "Find your next surf break" with search-first approach
+  - Maintained backward compatibility: legacy `SocialFeedSection` and `FeaturesSection` kept in codebase
+  - Files: `components/landing-page/navbar.tsx`, `components/landing-page/surf-spot-card.tsx`, `components/landing-page/surf-highlights-section.tsx`, `components/landing-page/activities-section.tsx`, `components/landing-page/hero-section.tsx`, `components/landing-page/cta-section.tsx`, `components/landing-page/footer-section.tsx`, `lib/constants/features.ts`, `components/landing-page.tsx`, `components/landing-page/index.ts`, `components/landing-page/ARCHITECTURE.md`
+
+- **Pre-Login Public Experience**: Major SEO and user acquisition improvement with public access to key pages
+  - Created `PublicContentGate` component for strategic content gating with blur overlays and sign-up CTAs
+  - Made `/forecast/[beachId]`, `/beach/[slug]`, `/map`, and `/sessions` publicly accessible (no authentication required)
+  - Forecast pages: Show first 2 days unblurred, blur detailed 10-day forecasts with CTA to sign up
+  - Beach detail pages: Show beach name, location, rating, and first snapshot; blur full forecasts, tides, reviews, intel
+  - Sessions feed: Created new public preview at `/sessions` with blurred session cards and community CTA
+  - Map page: Public access to interactive map with beach markers (previously auth-required)
+  - Added conversion tracking: `public_page_view`, `signup_cta_view`, `signup_cta_click` analytics events
+  - Updated middleware to remove auth gates from public pages while keeping `/profile`, `/journal`, `/discover` protected
+  - Benefits: SEO-friendly content for search engines, social sharing previews, viral growth potential
+  - Files: `components/ui/public-content-gate.tsx`, `middleware.ts`, `app/forecast/[beachId]/page.tsx`, `app/beach/[slug]/page.tsx`, `app/sessions/page.tsx`, `components/beaches-enhanced-forecast.tsx`, `components/beach-detail.tsx`, `lib/analytics.ts`
+
 ### Performance
 
 - **MAJOR**: Map wave height indicators now load 80-90% faster (1-2 seconds instead of 10+ seconds)
@@ -11,6 +267,11 @@
 
 ### Fixed
 
+- **5-Day Outlook Date Display**: Fixed bug where past dates were shown in the 5-Day Outlook section
+  - The outlook now correctly shows only today and future dates (e.g., Sat, Sun, Mon, Tue, Wed when today is Saturday)
+  - Previously would show yesterday's date if it existed in forecast data (e.g., Friday when today is Saturday)
+  - Added date filtering using `getTodayDateString()` utility before selecting 5 days to display
+  - Files: `components/beach-detail.tsx`
 - **iOS Nearby Tab Loading**: Fixed infinite loading spinner on Nearby tab in iOS simulator/devices
   - Added 10-second safety timeout to geolocation hook to prevent hanging
   - Personalized fallback: Now defaults to user's home beach, then Ocean Beach as ultimate fallback

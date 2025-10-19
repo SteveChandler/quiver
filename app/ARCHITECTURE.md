@@ -361,9 +361,15 @@ The `/app` directory follows Next.js 13+ App Router conventions, implementing a 
 ### 🔒 Authentication Strategy
 
 - **Provider**: Supabase Auth
-- **Pattern**: Client-side authentication state with server-side validation
-- **Routes**: Protected routes check authentication before rendering
+- **Pattern**: Hybrid authentication with two approaches:
+  1. **Traditional Protected Routes** (`/profile`, `/journal`, `/discover`): Server-side middleware redirects unauthenticated users to sign-in
+  2. **Preview-Based Auth Wall** (`/map`, `/beach/[slug]`): AllTrails-style delayed modal for growth-focused user acquisition
+- **Routes**:
+  - Protected routes use middleware to check authentication before rendering
+  - Public preview routes use `<AuthGate />` component for delayed client-side prompts
 - **Session Management**: Automatic token refresh and persistence
+- **OAuth Flow**: Google OAuth and Email Magic Link via `/auth/callback` route handler
+- **Return URL Preservation**: Auth flows preserve exact page location including query params
 
 ### 🎯 Routing Strategy
 

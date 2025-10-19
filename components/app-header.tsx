@@ -30,13 +30,14 @@ export function AppHeader() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // IMPORTANT: All hooks MUST be called before any conditional returns
+  // This ensures the same hooks are called in the same order on every render
+
   // Use shared profile loading hook
   const { profile, loading: profileLoading } = useUserProfile({
     userId: user?.id,
     enabled: !!user,
   });
-
-  // Notifications are accessible via avatar dropdown → Notifications (/inbox)
 
   // Unread notification count (pending invitations)
   const fetchNotificationsCount = useCallback(async () => {
@@ -70,6 +71,13 @@ export function AppHeader() {
   // Use shared subscription hook to avoid duplicate subscriptions
   // This replaces the inline subscription logic that was duplicating inbox page subscriptions
   useSessionInvitationsSubscription(user?.id, user?.email, refetchUnreadCount);
+
+  // Don't render header on landing page for unauthenticated users
+  // Landing page has its own Navbar component
+  // IMPORTANT: This conditional return MUST come AFTER all hooks are called
+  if (!user && pathname === "/") {
+    return null;
+  }
 
   // Navigation items - different for authenticated vs unauthenticated users
   const navItems: { name: string; href: string; icon: null }[] = user

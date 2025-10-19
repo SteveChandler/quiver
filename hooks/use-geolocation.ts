@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
-// Default to Ocean Beach, San Diego coordinates
+// Default to Ocean Beach, San Diego coordinates (ultimate fallback)
 const OCEAN_BEACH_LAT = 32.7503;
 const OCEAN_BEACH_LNG = -117.2534;
+
+// Safety timeout for iOS/mobile where geolocation can hang
+const SAFETY_TIMEOUT_MS = 10000; // 10 seconds
 
 interface GeolocationState {
   userLocation: { lat: number; lng: number } | null;
@@ -11,34 +14,63 @@ interface GeolocationState {
   loading: boolean;
 }
 
-export function useGeolocation() {
+interface UseGeolocationOptions {
+  defaultLocation?: { lat: number; lng: number } | null;
+}
+
+export function useGeolocation(options: UseGeolocationOptions = {}) {
+  const { defaultLocation } = options;
+
+  // Fallback chain: user's home beach → Ocean Beach
+  const fallbackLat = defaultLocation?.lat ?? OCEAN_BEACH_LAT;
+  const fallbackLng = defaultLocation?.lng ?? OCEAN_BEACH_LNG;
+
   const [state, setState] = useState<GeolocationState>({
-    userLocation: null,
+    userLocation: { lat: fallbackLat, lng: fallbackLng }, // Start with fallback
     locationError: null,
-    usingDefaultLocation: false,
+    usingDefaultLocation: true, // Start as default
     loading: true,
   });
+
+  const hasAttemptedRef = useRef(false);
+  const safetyTimeoutRef = useRef<NodeJS.Timeout>();
 
   const useDefaultLocation = useCallback(() => {
     setState((prev) => ({
       ...prev,
       usingDefaultLocation: true,
-      userLocation: { lat: OCEAN_BEACH_LAT, lng: OCEAN_BEACH_LNG },
+      userLocation: { lat: fallbackLat, lng: fallbackLng },
       locationError: null,
       loading: false,
     }));
-  }, []);
+  }, [fallbackLat, fallbackLng]);
 
   const getUserLocation = useCallback(async (): Promise<void> => {
-    setState((prev) => ({ ...prev, locationError: null, loading: true }));
+    // Prevent multiple simultaneous requests
+    if (hasAttemptedRef.current) return;
+    hasAttemptedRef.current = true;
 
-    if (!navigator.geolocation) {
+    // Safety timeout - force fallback if geolocation hangs (common on iOS simulator)
+    safetyTimeoutRef.current = setTimeout(() => {
+      console.warn(
+        "[useGeolocation] Safety timeout reached - using fallback location"
+      );
       setState((prev) => ({
         ...prev,
-        locationError: "Location services not supported by your browser",
+        usingDefaultLocation: true,
+        userLocation: { lat: fallbackLat, lng: fallbackLng },
+        locationError: "Location request timed out - using fallback location",
         loading: false,
       }));
-      useDefaultLocation();
+    }, SAFETY_TIMEOUT_MS);
+
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      clearTimeout(safetyTimeoutRef.current);
+      setState((prev) => ({
+        ...prev,
+        locationError: "Location services not supported",
+        loading: false,
+      }));
       return;
     }
 
@@ -48,49 +80,54 @@ export function useGeolocation() {
       maximumAge: 300000, // 5 minutes cache
     };
 
-    return new Promise<void>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        clearTimeout(safetyTimeoutRef.current);
+        const { latitude, longitude } = position.coords;
 
-          setState((prev) => ({
-            ...prev,
-            userLocation: { lat: latitude, lng: longitude },
-            usingDefaultLocation: false,
-            locationError: null,
-            loading: false,
-          }));
-          resolve();
-        },
-        (error) => {
-          let errorMessage = "Location access denied";
+        setState((prev) => ({
+          ...prev,
+          userLocation: { lat: latitude, lng: longitude },
+          usingDefaultLocation: false,
+          locationError: null,
+          loading: false,
+        }));
+      },
+      (error) => {
+        clearTimeout(safetyTimeoutRef.current);
+        let errorMessage = "Location access denied";
 
-          if (error.code === error.PERMISSION_DENIED) {
-            errorMessage =
-              "Location access is blocked. Please enable location permissions in your browser settings or click the location icon in the address bar.";
-          } else if (error.code === error.POSITION_UNAVAILABLE) {
-            errorMessage = "Location information is unavailable.";
-          } else if (error.code === error.TIMEOUT) {
-            errorMessage = "Location request timed out.";
-          }
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMessage = "Location access denied - using default location";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMessage = "Location unavailable - using default location";
+        } else if (error.code === error.TIMEOUT) {
+          errorMessage = "Location request timed out - using default location";
+        }
 
-          console.warn("Geolocation error:", error.message);
-          setState((prev) => ({
-            ...prev,
-            locationError: errorMessage,
-            loading: false,
-          }));
-          useDefaultLocation();
-          resolve();
-        },
-        options
-      );
-    });
-  }, [useDefaultLocation]);
+        console.warn("[useGeolocation] Error:", error.message);
+        setState((prev) => ({
+          ...prev,
+          locationError: errorMessage,
+          loading: false,
+          // Keep default location from initial state
+        }));
+      },
+      options
+    );
+  }, []);
 
   useEffect(() => {
     getUserLocation();
-  }, [getUserLocation]);
+
+    // Cleanup safety timeout on unmount
+    return () => {
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   return {
     ...state,

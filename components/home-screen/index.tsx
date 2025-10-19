@@ -173,7 +173,11 @@ export function HomeScreen() {
             </TabsContent>
 
             <TabsContent value="nearby" className="relative z-0">
-              <NearbyTab beaches={beaches} loading={loading} />
+              <NearbyTab
+                beaches={beaches}
+                loading={loading}
+                homeBeach={homeBeach}
+              />
             </TabsContent>
 
             <TabsContent value="community" className="relative z-0">

@@ -11,6 +11,11 @@ import {
   AlertTriangle,
   Car,
   Waves,
+  Anchor,
+  Wind,
+  Baby,
+  Heart,
+  Mountain,
 } from "lucide-react";
 
 export const FEATURE_CARDS = [
@@ -98,12 +103,70 @@ export const HERO_VIDEOS = [
   "/2873484-hd_1920_1080_25fps.mp4",
 ];
 
+// Surf Activities for AllTrails-style navigation
+export const SURF_ACTIVITIES = [
+  {
+    icon: Users,
+    title: "Longboarding",
+    description:
+      "Find mellow breaks perfect for longboard cruising. Classic style meets modern community.",
+    link: "/discover?type=longboard",
+    iconBgColor: "bg-blue-100",
+    iconColor: "text-blue-600",
+  },
+  {
+    icon: Waves,
+    title: "Reef Breaks",
+    description:
+      "Discover powerful reef breaks with consistent swells. For experienced surfers seeking the perfect barrel.",
+    link: "/discover?type=reef",
+    iconBgColor: "bg-purple-100",
+    iconColor: "text-purple-600",
+  },
+  {
+    icon: Mountain,
+    title: "Point Breaks",
+    description:
+      "Explore legendary point breaks with long, peeling waves. Chase those endless rides.",
+    link: "/discover?type=point",
+    iconBgColor: "bg-green-100",
+    iconColor: "text-green-600",
+  },
+  {
+    icon: Baby,
+    title: "Beginner-Friendly",
+    description:
+      "Safe, gentle breaks perfect for learning. Start your surf journey with confidence.",
+    link: "/discover?level=beginner",
+    iconBgColor: "bg-yellow-100",
+    iconColor: "text-yellow-600",
+  },
+  {
+    icon: Heart,
+    title: "Women-Led Spots",
+    description:
+      "Empowering surf spots with welcoming communities. Built by women, for everyone.",
+    link: "/discover?community=women",
+    iconBgColor: "bg-pink-100",
+    iconColor: "text-pink-600",
+  },
+  {
+    icon: Wind,
+    title: "Offshore Winds",
+    description:
+      "Find spots with optimal offshore conditions. Perfect grooming for that epic session.",
+    link: "/discover?conditions=offshore",
+    iconBgColor: "bg-teal-100",
+    iconColor: "text-teal-600",
+  },
+];
+
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: ["Your Surf Community", "Awaits"],
+    title: "Find your next surf break",
     subtitle:
-      "Connect with surfers, track epic sessions, and discover the best waves in your area.",
+      "Discover epic surf spots, check live conditions, and connect with the local surf community.",
     cta: "Join Free Today",
     secondaryCta: "Explore Features",
     benefits: [
@@ -113,6 +176,11 @@ export const CONTENT = {
     ],
   },
   sections: {
+    surfHighlights: {
+      title: "Discover epic surf spots near you",
+      subtitle:
+        "Explore breaks with real-time conditions, community reviews, and local insights. Find your next perfect wave.",
+    },
     social: {
       title: "Join the surf community that's growing every day",
       subtitle:
@@ -123,6 +191,11 @@ export const CONTENT = {
       subtitle:
         "Know exactly when to paddle out with forecasts trusted by your local surf community",
       link: "See detailed forecasts →",
+    },
+    activities: {
+      title: "Find spots that match your style",
+      subtitle:
+        "From mellow longboard waves to gnarly reef breaks — discover surf spots tailored to your vibe.",
     },
     features: {
       title: "Everything you need to surf with friends",

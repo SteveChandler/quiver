@@ -17,7 +17,7 @@
         "--project-ref=vawdnbbgawichorsjiwe"
       ],
       "env": {
-        "SUPABASE_ACCESS_TOKEN": "9cGTJ2mnmoH7QQQMgUCIdet3953HvHbl"
+        "SUPABASE_ACCESS_TOKEN": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhd2RuYmJnYXdpY2hvcnNqaXdlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NjY2ODQ0NCwiZXhwIjoyMDYyMjQ0NDQ0fQ.4rctfUxZrDgoc2Zu2Lzx1dxKKBwSRkYOxwc0wfGlPtM"
       }
     }
   }

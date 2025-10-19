@@ -77,9 +77,9 @@ export const PRIVACY_CONTENT = {
   hero: {
     title: "Privacy Policy",
     subtitle: "How we protect and handle your data",
-    lastUpdated: "January 15, 2025",
+    lastUpdated: "October 17, 2025",
     effectiveDate:
-      "This policy is effective as of January 15, 2025. We will notify you of any material changes by email or through our app.",
+      "This policy is effective as of October 17, 2025. We will notify you of any material changes by email or through our app.",
   },
   overview: {
     title: "Welcome to Quiver's Privacy Policy",
@@ -174,6 +174,16 @@ export const PRIVACY_CONTENT = {
         disclosed:
           "Any person with your credentials, Connected device and account providers",
       },
+      {
+        name: "Mobile Device Data",
+        description:
+          "When you use our iOS mobile app, we collect device push notification tokens (to send surf session invites, community updates, and notifications), device identifiers (for app analytics, crash reporting, and user authentication), device type and operating system version (for compatibility, support, and feature optimization), and mobile app usage patterns. Push notification tokens are stored securely and only used to deliver relevant surf-related notifications you have opted in to receive.",
+        sources: "Directly from your mobile device",
+        purpose:
+          "Performance of a contract, Necessary for our legitimate interests, Consent (for push notifications)",
+        disclosed:
+          "Push notification service providers (Apple Push Notification Service), Analytics service providers, Crash reporting services",
+      },
     ],
   },
   accessibility: {
@@ -206,6 +216,11 @@ export const PRIVACY_CONTENT = {
           subtitle: "Connected Devices/Accounts",
           details:
             "With your consent, we collect information from third-party devices and apps you connect to Quiver (such as fitness trackers or smartwatches) to enhance your surf session tracking.",
+        },
+        {
+          subtitle: "Mobile App",
+          details:
+            "When you use our iOS mobile application, we automatically collect certain device information including push notification tokens (to send you session invites and updates you've opted in to receive), device identifiers (for authentication and analytics), device model and operating system version (for compatibility and support), and app usage data (to improve features and user experience). You can control push notification permissions in your device settings at any time.",
         },
       ],
     },

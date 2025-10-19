@@ -100,3 +100,7 @@ e2e/.auth/state.json
 # Auth user cleanup working files (contain deployment-specific user IDs)
 scripts/users-to-delete.txt
 scripts/*-to-delete.txt
+
+# Cloudflare tunnel temp files
+.tunnel-url
+.tunnel-pid
