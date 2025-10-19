@@ -6,9 +6,12 @@ import {
 } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
+import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "./beach-detail-client";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
+
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
 
 export default async function BeachDetailBySlugPage({
   params,
@@ -53,6 +56,15 @@ export default async function BeachDetailBySlugPage({
           longitude={beach.longitude}
           rating={(beach as any).average_rating || undefined}
           reviewCount={(beach as any).review_count || undefined}
+        />
+
+        {/* Breadcrumb Structured Data for SEO */}
+        <BreadcrumbStructuredData
+          items={[
+            { name: "Home", url: baseUrl },
+            { name: "Surf Spots Map", url: `${baseUrl}/map` },
+            { name: beach.name, url: `${baseUrl}/beach/${params.slug}` },
+          ]}
         />
 
         {/* Client detail component with auth tracking */}

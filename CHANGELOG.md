@@ -1,5 +1,48 @@
 ## [Unreleased]
 
+## [2025.10.19] - SEO Performance Optimization
+
+### Added
+
+- **Metadata for All Pages**
+  - Added metadata exports to `/features`, `/about`, `/discover`, `/inbox`, and `/profile` pages
+  - Each page now has optimized title, description, and keywords for SEO
+  - Auth-required pages include metadata for better link previews and user experience
+- **Breadcrumb Structured Data** (`components/seo/breadcrumb-schema.tsx`)
+  - Implemented BreadcrumbList schema for improved SEO navigation
+  - Added breadcrumb schema to beach detail pages (`/beach/[slug]`)
+  - Added breadcrumb schema to session detail pages (`/sessions/[id]`)
+  - Breadcrumbs follow Home → Category → Detail pattern for clear hierarchy
+- **Enhanced Sitemap** (`app/sitemap.ts`)
+  - Added forecast pages to sitemap (`/forecast/[beachId]`) with daily changeFrequency and 0.8 priority
+  - Sitemap now includes: static pages, beach pages, and forecast pages
+  - Improved SEO discoverability for 100+ beach forecast pages
+
+### Changed
+
+- **Converted Client Components to Server + Client Pattern**
+  - `/features/page.tsx` → Server component with metadata + `features-client.tsx`
+  - `/about/page.tsx` → Server component with metadata + `about-client.tsx`
+  - `/discover/page.tsx` → Server component with metadata + `discover-client.tsx`
+  - `/inbox/page.tsx` → Server component with metadata + `inbox-client.tsx`
+  - This pattern allows metadata generation while preserving client-side interactivity
+- **Enhanced Beach Structured Data** (`components/seo/structured-data.tsx`)
+  - Updated `BeachPageStructuredData` to include `SportsActivityLocation` type
+  - Added `sport: "Surfing"` property for better categorization
+  - Added address information (San Diego, CA, US) for local SEO
+  - Maintains existing Place schema with enhanced sports-specific data
+- **Robots.txt Configuration** (`app/robots.ts`)
+  - Added disallow rules for private pages: `/api/*`, `/inbox`, `/profile`, `/discover`, `/auth/*`
+  - Public pages remain crawlable: `/beach/[slug]`, `/sessions/[id]`, `/forecast/[id]`, `/user/[id]`
+  - Prevents search engines from indexing auth-required and API routes
+
+### Performance
+
+- Structured data improvements provide richer search engine results
+- Breadcrumb navigation enhances search result snippets
+- Expanded sitemap increases discoverability of forecast pages
+- Proper robots.txt reduces unnecessary crawler traffic
+
 ## [2025.10.19] - Playwright E2E Test Suite for Landing Page & Auth Gate
 
 ### Added

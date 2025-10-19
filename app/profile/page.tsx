@@ -1,5 +1,21 @@
+import type { Metadata } from "next";
 import { Suspense, lazy } from "react";
+import { buildPageMetadata } from "@/lib/seo/meta";
 import { BottomNavigation } from "@/components/bottom-navigation";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "My Profile - Manage Your Surf Profile | Quiver",
+  description:
+    "Manage your surf profile, update settings, view your sessions, and track your surfing journey. Sign in to access your personal surf journal and profile settings.",
+  path: "/profile",
+  keywords: [
+    "surf profile",
+    "my profile",
+    "surf settings",
+    "user profile",
+    "surf account",
+  ],
+});
 
 // Lazy load heavy profile component
 const ProfileView = lazy(() =>

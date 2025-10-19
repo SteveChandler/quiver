@@ -17,6 +17,13 @@ export default function robots(): MetadataRoute.Robots {
       : {
           userAgent: "*",
           allow: "/",
+          disallow: [
+            "/api/*", // Don't crawl API routes
+            "/inbox", // Private: notifications
+            "/profile", // Private: user's own profile
+            "/discover", // Auth-required discovery
+            "/auth/*", // Auth pages
+          ],
         },
     sitemap: `${base.replace(/\/$/, "")}/sitemap.xml`,
     host: base.replace(/\/$/, ""),
