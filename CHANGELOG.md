@@ -1,5 +1,19 @@
 ## [Unreleased]
 
+### Added
+
+- **Pre-Login Public Experience**: Major SEO and user acquisition improvement with public access to key pages
+  - Created `PublicContentGate` component for strategic content gating with blur overlays and sign-up CTAs
+  - Made `/forecast/[beachId]`, `/beach/[slug]`, `/map`, and `/sessions` publicly accessible (no authentication required)
+  - Forecast pages: Show first 2 days unblurred, blur detailed 10-day forecasts with CTA to sign up
+  - Beach detail pages: Show beach name, location, rating, and first snapshot; blur full forecasts, tides, reviews, intel
+  - Sessions feed: Created new public preview at `/sessions` with blurred session cards and community CTA
+  - Map page: Public access to interactive map with beach markers (previously auth-required)
+  - Added conversion tracking: `public_page_view`, `signup_cta_view`, `signup_cta_click` analytics events
+  - Updated middleware to remove auth gates from public pages while keeping `/profile`, `/journal`, `/discover` protected
+  - Benefits: SEO-friendly content for search engines, social sharing previews, viral growth potential
+  - Files: `components/ui/public-content-gate.tsx`, `middleware.ts`, `app/forecast/[beachId]/page.tsx`, `app/beach/[slug]/page.tsx`, `app/sessions/page.tsx`, `components/beaches-enhanced-forecast.tsx`, `components/beach-detail.tsx`, `lib/analytics.ts`
+
 ### Performance
 
 - **MAJOR**: Map wave height indicators now load 80-90% faster (1-2 seconds instead of 10+ seconds)

@@ -1,29 +1,74 @@
+"use client";
+
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { BeachDetail } from "@/components/beach-detail";
-import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo/meta";
-import { getBeachBySlug, getBeachById } from "@/actions/beach/beach-query-actions";
-import { notFound } from "next/navigation";
+import {
+  getBeachBySlug,
+  getBeachById,
+} from "@/actions/beach/beach-query-actions";
+import { useAuth } from "@/context/auth-context";
+import { useEffect, useState } from "react";
+import { trackPublicPageView } from "@/lib/analytics";
+import { FullPageLoader } from "@/components/ui/loading-states";
+import type { Beach } from "@/types/database";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 
-export default async function BeachDetailBySlugPage({
+export default function BeachDetailBySlugPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  // Resolve slug to ID on the server for stable downstream usage
-  const slug = params.slug;
-  const bySlug = await getBeachBySlug(slug);
-  let beach = bySlug?.data || null;
+  const { user } = useAuth();
+  const [beach, setBeach] = useState<Beach | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Back-compat: if slug lookup fails, try treating slug as an ID
-  if (!beach) {
-    const byId = await getBeachById(slug);
-    beach = byId?.data || null;
+  useEffect(() => {
+    // Track public page view
+    if (!user) {
+      trackPublicPageView("beach-detail", { slug: params.slug });
+    }
+
+    // Fetch beach data
+    async function fetchBeach() {
+      try {
+        // Try slug lookup first
+        const bySlug = await getBeachBySlug(params.slug);
+        let beachData = bySlug?.data || null;
+
+        // Back-compat: if slug lookup fails, try treating slug as an ID
+        if (!beachData) {
+          const byId = await getBeachById(params.slug);
+          beachData = byId?.data || null;
+        }
+
+        setBeach(beachData);
+      } catch (error) {
+        console.error("Error fetching beach:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchBeach();
+  }, [params.slug, user]);
+
+  if (loading) {
+    return <FullPageLoader message="Loading beach..." />;
   }
 
   if (!beach) {
-    notFound();
+    return (
+      <div className="flex flex-col min-h-screen">
+        <main className="flex-1 container mx-auto px-4 py-6">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold mb-2">Beach Not Found</h2>
+            <p className="text-muted-foreground">
+              We couldn't find this beach in our directory.
+            </p>
+          </div>
+        </main>
+        <BottomNavigation />
+      </div>
+    );
   }
 
   return (
@@ -39,7 +84,7 @@ export default async function BeachDetailBySlugPage({
       />
 
       {/* Client detail component uses id for API calls */}
-      <BeachDetail id={beach.id} />
+      <BeachDetail id={beach.id} publicMode={!user} />
 
       <BottomNavigation />
     </>
@@ -72,5 +117,3 @@ export async function generateMetadata({
     path: `/beach/${slug}`,
   });
 }
-
-

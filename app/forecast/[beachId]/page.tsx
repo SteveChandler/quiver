@@ -1,20 +1,61 @@
+"use client";
+
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { useAuth } from "@/context/auth-context";
+import { useEffect, useState } from "react";
 import { getBeachById } from "@/actions/beach/beach-query-actions";
-import { notFound } from "next/navigation";
-import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo/meta";
+import { trackPublicPageView } from "@/lib/analytics";
+import { FullPageLoader } from "@/components/ui/loading-states";
+import type { Beach } from "@/types/database";
 
-export default async function ForecastPage({
+export default function ForecastPage({
   params,
 }: {
   params: { beachId: string };
 }) {
-  // Fetch beach data to get the name
-  const beach = await getBeachById(params.beachId);
+  const { user } = useAuth();
+  const [beach, setBeach] = useState<Beach | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Track public page view
+    if (!user) {
+      trackPublicPageView("forecast", { beachId: params.beachId });
+    }
+
+    // Fetch beach data
+    async function fetchBeach() {
+      try {
+        const beachData = await getBeachById(params.beachId);
+        setBeach(beachData);
+      } catch (error) {
+        console.error("Error fetching beach:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchBeach();
+  }, [params.beachId, user]);
+
+  if (loading) {
+    return <FullPageLoader message="Loading forecast..." />;
+  }
 
   if (!beach) {
-    notFound();
+    return (
+      <div className="flex flex-col min-h-screen">
+        <main className="flex-1 container mx-auto px-4 py-6">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold mb-2">Beach Not Found</h2>
+            <p className="text-muted-foreground">
+              We couldn't find forecast data for this beach.
+            </p>
+          </div>
+        </main>
+        <BottomNavigation />
+      </div>
+    );
   }
 
   return (
@@ -28,6 +69,7 @@ export default async function ForecastPage({
           showQualitySummary={true}
           allowToggleTransparency={true}
           highlightQualityVariations={true}
+          publicMode={!user}
         />
       </main>
       <BottomNavigation />

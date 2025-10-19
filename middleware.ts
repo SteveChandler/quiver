@@ -3,14 +3,12 @@ import { createServerClient } from "@supabase/ssr";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 
 // Define paths that require authentication
+// Note: /forecast, /beach, /map, /sessions are now public for SEO and user acquisition
 const protectedPaths = [
   "/profile",
-  "/sessions",
   "/dashboard",
-  "/map",
   "/journal",
-  "/beach",
-  "/forecast",
+  "/discover",
 ];
 
 // Only enable verbose logging in development

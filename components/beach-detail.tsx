@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
+import { PublicContentGate } from "@/components/ui/public-content-gate";
 import {
   ArrowDown,
   ArrowLeft,
@@ -101,9 +102,10 @@ import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
 
 interface BeachDetailProps {
   id: string;
+  publicMode?: boolean;
 }
 
-export function BeachDetail({ id }: BeachDetailProps) {
+export function BeachDetail({ id, publicMode = false }: BeachDetailProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
@@ -593,216 +595,441 @@ export function BeachDetail({ id }: BeachDetailProps) {
           </div>
         </section>
 
-        <div className="relative z-10 mx-auto -mt-8 max-w-6xl space-y-10 px-4 sm:-mt-12 sm:space-y-12 sm:px-6">
-          {hasForecasts ? (
-            <section className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur">
-              <div className="flex flex-col gap-6">
+        {publicMode ? (
+          <PublicContentGate
+            ctaTitle="Join Quiver to see full conditions"
+            ctaDescription="Get detailed forecasts, tides, reviews, local intel, and connect with the surf community"
+            blurLevel="lg"
+            source="beach-detail"
+            className="min-h-[800px]"
+          >
+            <div className="relative z-10 mx-auto -mt-8 max-w-6xl space-y-10 px-4 sm:-mt-12 sm:space-y-12 sm:px-6">
+              {hasForecasts ? (
+                <section className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur">
+                  <div className="flex flex-col gap-6">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                        Forecast Snapshot
+                      </h2>
+                      <span className="text-sm text-muted-foreground">
+                        Dialed for the next few hours
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+                      <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex-1">
+                          <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                            Next Tide
+                          </div>
+                          <div className="mt-2 text-2xl font-bold text-dark-grey">
+                            {heroNextTideType}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {heroNextTideHeight} ·{" "}
+                            {formatTimeString(currentForecast?.next_tide_time)}
+                          </div>
+                        </div>
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
+                          <TideIcon className="h-8 w-8 text-ocean-blue" />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/40 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex-1">
+                          <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                            Wind
+                          </div>
+                          <div className="mt-2 text-2xl font-bold text-dark-grey">
+                            {currentForecast?.wind_speed ?? "—"}
+                          </div>
+                          <div className="text-sm text-muted-foreground uppercase">
+                            {currentForecast?.wind_direction ?? "—"}
+                          </div>
+                        </div>
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
+                          <Wind className="h-8 w-8 text-ocean-blue" />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/30 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex-1">
+                          <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                            Swell
+                          </div>
+                          <div className="mt-2 text-2xl font-bold text-dark-grey">
+                            {heroWaveHeight} ft
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {snapshotSwellDetails}
+                          </div>
+                        </div>
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
+                          <Waves className="h-8 w-8 text-ocean-blue" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
+
+              {hasCamera ? (
+                <section id="live-cam" className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                      Live Cam
+                    </h2>
+                    <span className="text-sm text-muted-foreground">
+                      Watch the lineup in real time
+                    </span>
+                  </div>
+                  <CamsSection beachId={id} />
+                </section>
+              ) : null}
+
+              {hasForecasts ? (
+                <section
+                  id="outlook"
+                  className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                      5-Day Outlook
+                    </h2>
+                    <span className="text-sm text-muted-foreground">
+                      Switch between Today, Tides, and Conditions
+                    </span>
+                  </div>
+                  {miniForecastDays.length > 0 ? (
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                      {miniForecastDays.map(({ date, forecast }) => {
+                        const label = (() => {
+                          try {
+                            return new Date(
+                              `${date}T00:00:00`
+                            ).toLocaleDateString(undefined, {
+                              weekday: "short",
+                            });
+                          } catch {
+                            return date;
+                          }
+                        })();
+                        const periodDisplay = formatMetric(
+                          forecast.wave_period
+                        );
+                        const windDirection = forecast.wind_direction ?? "";
+                        const swellDirection = forecast.wave_direction ?? "—";
+                        const swellDetails =
+                          periodDisplay === "—"
+                            ? `— · ${swellDirection}`
+                            : `${periodDisplay} s · ${swellDirection}`;
+                        return (
+                          <button
+                            key={date}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDay(date);
+                              setSelectedForecastEntry(forecast);
+                              setIsModalOpen(true);
+                            }}
+                            className="group rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-50/60 to-white p-3 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ocean-blue/40"
+                          >
+                            <div className="text-xs font-medium text-muted-foreground">
+                              <span>{label}</span>
+                            </div>
+                            <div className="mt-2 flex items-baseline gap-1">
+                              <span className="text-2xl font-bold text-ocean-blue">
+                                {formatMetric(forecast.wave_height)}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                ft
+                              </span>
+                            </div>
+                            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                              <Wind className="h-3 w-3" />
+                              <span>{forecast.wind_speed ?? "—"}</span>
+                              <span className="uppercase">{windDirection}</span>
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {swellDetails}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <div className="mt-6">
+                    <ForecastAndTides
+                      beach={beach as Beach}
+                      forecasts={forecasts || []}
+                    />
+                  </div>
+                </section>
+              ) : null}
+
+              <section
+                id="intel-section"
+                className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur"
+              >
+                <div id="intel" className="scroll-mt-24">
+                  <BeachIntelSection
+                    beachId={id}
+                    beachName={beach.name}
+                    latitude={beach.latitude}
+                    longitude={beach.longitude}
+                    navigateOnViewAll={false}
+                    initialShowAll={searchParams?.get("show") === "all"}
+                  />
+                </div>
+              </section>
+
+              <section id="reviews" className="space-y-6">
+                <BeachReviewSummary
+                  beachId={beach.id}
+                  onWriteReview={handleWriteReview}
+                  refreshTrigger={reviewRefreshTrigger}
+                />
+                <BeachReviewsList
+                  beachId={beach.id}
+                  refreshTrigger={reviewRefreshTrigger}
+                />
+              </section>
+
+              <section className="grid gap-6 lg:grid-cols-2">
+                <RecentSessionsSection beachId={id} />
+                <CrowdTipsSection beachId={id} />
+              </section>
+
+              <section>
+                <SpotOverview beach={beach as Beach} />
+              </section>
+
+              {sessionSnapshots && sessionSnapshots.length > 0 ? (
+                <section className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
+                  <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                    Forecast Accuracy
+                  </h2>
+                  <div className="mt-4">
+                    <SessionForecastComparison
+                      snapshots={sessionSnapshots}
+                      maxItems={5}
+                      className="bg-white/80 backdrop-blur-sm border-ocean-blue/20"
+                    />
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </PublicContentGate>
+        ) : null}
+
+        {!publicMode && (
+          <div className="relative z-10 mx-auto -mt-8 max-w-6xl space-y-10 px-4 sm:-mt-12 sm:space-y-12 sm:px-6">
+            {hasForecasts ? (
+              <section className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur">
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                      Forecast Snapshot
+                    </h2>
+                    <span className="text-sm text-muted-foreground">
+                      Dialed for the next few hours
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+                    <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1">
+                        <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                          Next Tide
+                        </div>
+                        <div className="mt-2 text-2xl font-bold text-dark-grey">
+                          {heroNextTideType}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {heroNextTideHeight} ·{" "}
+                          {formatTimeString(currentForecast?.next_tide_time)}
+                        </div>
+                      </div>
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
+                        <TideIcon className="h-8 w-8 text-ocean-blue" />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/40 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1">
+                        <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                          Wind
+                        </div>
+                        <div className="mt-2 text-2xl font-bold text-dark-grey">
+                          {currentForecast?.wind_speed ?? "—"}
+                        </div>
+                        <div className="text-sm text-muted-foreground uppercase">
+                          {currentForecast?.wind_direction ?? "—"}
+                        </div>
+                      </div>
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
+                        <Wind className="h-8 w-8 text-ocean-blue" />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/30 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1">
+                        <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
+                          Swell
+                        </div>
+                        <div className="mt-2 text-2xl font-bold text-dark-grey">
+                          {heroWaveHeight} ft
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {snapshotSwellDetails}
+                        </div>
+                      </div>
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
+                        <Waves className="h-8 w-8 text-ocean-blue" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            {hasCamera ? (
+              <section id="live-cam" className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <h2 className="text-xl font-roboto font-semibold text-dark-grey">
-                    Forecast Snapshot
+                    Live Cam
                   </h2>
                   <span className="text-sm text-muted-foreground">
-                    Dialed for the next few hours
+                    Watch the lineup in real time
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
-                  <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-ocean-blue/5 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
-                        Next Tide
-                      </div>
-                      <div className="mt-2 text-2xl font-bold text-dark-grey">
-                        {heroNextTideType}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {heroNextTideHeight} ·{" "}
-                        {formatTimeString(currentForecast?.next_tide_time)}
-                      </div>
-                    </div>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
-                      <TideIcon className="h-8 w-8 text-ocean-blue" />
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/40 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
-                        Wind
-                      </div>
-                      <div className="mt-2 text-2xl font-bold text-dark-grey">
-                        {currentForecast?.wind_speed ?? "—"}
-                      </div>
-                      <div className="text-sm text-muted-foreground uppercase">
-                        {currentForecast?.wind_direction ?? "—"}
-                      </div>
-                    </div>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
-                      <Wind className="h-8 w-8 text-ocean-blue" />
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-4 rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-100/30 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                      <div className="text-xs uppercase tracking-[0.2em] text-ocean-blue">
-                        Swell
-                      </div>
-                      <div className="mt-2 text-2xl font-bold text-dark-grey">
-                        {heroWaveHeight} ft
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {snapshotSwellDetails}
-                      </div>
-                    </div>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocean-blue/10 self-start sm:self-auto">
-                      <Waves className="h-8 w-8 text-ocean-blue" />
-                    </div>
-                  </div>
+                <CamsSection beachId={id} />
+              </section>
+            ) : null}
+
+            {hasForecasts ? (
+              <section
+                id="outlook"
+                className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                    5-Day Outlook
+                  </h2>
+                  <span className="text-sm text-muted-foreground">
+                    Switch between Today, Tides, and Conditions
+                  </span>
                 </div>
-              </div>
-            </section>
-          ) : null}
+                {miniForecastDays.length > 0 ? (
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                    {miniForecastDays.map(({ date, forecast }) => {
+                      const label = (() => {
+                        try {
+                          return new Date(
+                            `${date}T00:00:00`
+                          ).toLocaleDateString(undefined, { weekday: "short" });
+                        } catch {
+                          return date;
+                        }
+                      })();
+                      const periodDisplay = formatMetric(forecast.wave_period);
+                      const windDirection = forecast.wind_direction ?? "";
+                      const swellDirection = forecast.wave_direction ?? "—";
+                      const swellDetails =
+                        periodDisplay === "—"
+                          ? `— · ${swellDirection}`
+                          : `${periodDisplay} s · ${swellDirection}`;
+                      return (
+                        <button
+                          key={date}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDay(date);
+                            setSelectedForecastEntry(forecast);
+                            setIsModalOpen(true);
+                          }}
+                          className="group rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-50/60 to-white p-3 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ocean-blue/40"
+                        >
+                          <div className="text-xs font-medium text-muted-foreground">
+                            <span>{label}</span>
+                          </div>
+                          <div className="mt-2 flex items-baseline gap-1">
+                            <span className="text-2xl font-bold text-ocean-blue">
+                              {formatMetric(forecast.wave_height)}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              ft
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Wind className="h-3 w-3" />
+                            <span>{forecast.wind_speed ?? "—"}</span>
+                            <span className="uppercase">{windDirection}</span>
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {swellDetails}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                <div className="mt-6">
+                  <ForecastAndTides
+                    beach={beach as Beach}
+                    forecasts={forecasts || []}
+                  />
+                </div>
+              </section>
+            ) : null}
 
-          {hasCamera ? (
-            <section id="live-cam" className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-xl font-roboto font-semibold text-dark-grey">
-                  Live Cam
-                </h2>
-                <span className="text-sm text-muted-foreground">
-                  Watch the lineup in real time
-                </span>
-              </div>
-              <CamsSection beachId={id} />
-            </section>
-          ) : null}
-
-          {hasForecasts ? (
             <section
-              id="outlook"
-              className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur"
+              id="intel-section"
+              className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur"
             >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-xl font-roboto font-semibold text-dark-grey">
-                  5-Day Outlook
-                </h2>
-                <span className="text-sm text-muted-foreground">
-                  Switch between Today, Tides, and Conditions
-                </span>
-              </div>
-              {miniForecastDays.length > 0 ? (
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                  {miniForecastDays.map(({ date, forecast }) => {
-                    const label = (() => {
-                      try {
-                        return new Date(`${date}T00:00:00`).toLocaleDateString(
-                          undefined,
-                          { weekday: "short" }
-                        );
-                      } catch {
-                        return date;
-                      }
-                    })();
-                    const periodDisplay = formatMetric(forecast.wave_period);
-                    const windDirection = forecast.wind_direction ?? "";
-                    const swellDirection = forecast.wave_direction ?? "—";
-                    const swellDetails =
-                      periodDisplay === "—"
-                        ? `— · ${swellDirection}`
-                        : `${periodDisplay} s · ${swellDirection}`;
-                    return (
-                      <button
-                        key={date}
-                        type="button"
-                        onClick={() => {
-                          setSelectedDay(date);
-                          setSelectedForecastEntry(forecast);
-                          setIsModalOpen(true);
-                        }}
-                        className="group rounded-2xl border border-ocean-blue/10 bg-gradient-to-br from-blue-50/60 to-white p-3 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ocean-blue/40"
-                      >
-                        <div className="text-xs font-medium text-muted-foreground">
-                          <span>{label}</span>
-                        </div>
-                        <div className="mt-2 flex items-baseline gap-1">
-                          <span className="text-2xl font-bold text-ocean-blue">
-                            {formatMetric(forecast.wave_height)}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            ft
-                          </span>
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                          <Wind className="h-3 w-3" />
-                          <span>{forecast.wind_speed ?? "—"}</span>
-                          <span className="uppercase">{windDirection}</span>
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {swellDetails}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-              <div className="mt-6">
-                <ForecastAndTides
-                  beach={beach as Beach}
-                  forecasts={forecasts || []}
+              <div id="intel" className="scroll-mt-24">
+                <BeachIntelSection
+                  beachId={id}
+                  beachName={beach.name}
+                  latitude={beach.latitude}
+                  longitude={beach.longitude}
+                  navigateOnViewAll={false}
+                  initialShowAll={searchParams?.get("show") === "all"}
                 />
               </div>
             </section>
-          ) : null}
 
-          <section
-            id="intel-section"
-            className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur"
-          >
-            <div id="intel" className="scroll-mt-24">
-              <BeachIntelSection
-                beachId={id}
-                beachName={beach.name}
-                latitude={beach.latitude}
-                longitude={beach.longitude}
-                navigateOnViewAll={false}
-                initialShowAll={searchParams?.get("show") === "all"}
+            <section id="reviews" className="space-y-6">
+              <BeachReviewSummary
+                beachId={beach.id}
+                onWriteReview={handleWriteReview}
+                refreshTrigger={reviewRefreshTrigger}
               />
-            </div>
-          </section>
-
-          <section id="reviews" className="space-y-6">
-            <BeachReviewSummary
-              beachId={beach.id}
-              onWriteReview={handleWriteReview}
-              refreshTrigger={reviewRefreshTrigger}
-            />
-            <BeachReviewsList
-              beachId={beach.id}
-              refreshTrigger={reviewRefreshTrigger}
-            />
-          </section>
-
-          <section className="grid gap-6 lg:grid-cols-2">
-            <RecentSessionsSection beachId={id} />
-            <CrowdTipsSection beachId={id} />
-          </section>
-
-          <section>
-            <SpotOverview beach={beach as Beach} />
-          </section>
-
-          {sessionSnapshots && sessionSnapshots.length > 0 ? (
-            <section className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
-              <h2 className="text-xl font-roboto font-semibold text-dark-grey">
-                Forecast Accuracy
-              </h2>
-              <div className="mt-4">
-                <SessionForecastComparison
-                  snapshots={sessionSnapshots}
-                  maxItems={5}
-                  className="bg-white/80 backdrop-blur-sm border-ocean-blue/20"
-                />
-              </div>
+              <BeachReviewsList
+                beachId={beach.id}
+                refreshTrigger={reviewRefreshTrigger}
+              />
             </section>
-          ) : null}
-        </div>
+
+            <section className="grid gap-6 lg:grid-cols-2">
+              <RecentSessionsSection beachId={id} />
+              <CrowdTipsSection beachId={id} />
+            </section>
+
+            <section>
+              <SpotOverview beach={beach as Beach} />
+            </section>
+
+            {sessionSnapshots && sessionSnapshots.length > 0 ? (
+              <section className="rounded-3xl bg-white/95 p-6 shadow-lg backdrop-blur">
+                <h2 className="text-xl font-roboto font-semibold text-dark-grey">
+                  Forecast Accuracy
+                </h2>
+                <div className="mt-4">
+                  <SessionForecastComparison
+                    snapshots={sessionSnapshots}
+                    maxItems={5}
+                    className="bg-white/80 backdrop-blur-sm border-ocean-blue/20"
+                  />
+                </div>
+              </section>
+            ) : null}
+          </div>
+        )}
       </main>
 
       <DetailedSwellModal

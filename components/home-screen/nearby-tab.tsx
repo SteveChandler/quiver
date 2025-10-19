@@ -13,11 +13,16 @@ import type { Beach } from "@/types/database";
 interface NearbyTabProps {
   beaches: Beach[];
   loading: boolean;
+  homeBeach?: Beach | null;
 }
 
-export function NearbyTab({ beaches, loading }: NearbyTabProps) {
-  // Get user location (falls back to Ocean Beach if denied by design of hook)
-  const { userLocation, loading: locationLoading } = useGeolocation();
+export function NearbyTab({ beaches, loading, homeBeach }: NearbyTabProps) {
+  // Get user location (falls back to home beach → Ocean Beach)
+  const { userLocation, loading: locationLoading } = useGeolocation({
+    defaultLocation: homeBeach
+      ? { lat: homeBeach.latitude, lng: homeBeach.longitude }
+      : null,
+  });
 
   // Fetch nearby beaches using standard data fetching pattern
   const fetchNearby = useCallback(async () => {
