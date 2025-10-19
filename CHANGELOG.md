@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+### Changed
+
+- **Removed Pricing References** (`app/about/about-client.tsx`, `app/features/features-client.tsx`, `app/privacy/page.tsx`)
+  - Removed "Pricing" links from footer navigation across all pages
+  - Replaced with "Explore Spots" link to /map for better user engagement
+  - Aligns with user acquisition strategy (0 → 1,000 users before monetization)
+  - Maintains existing "Free to join" messaging without making permanent commitments
+
 ### Fixed
 
 - **Authentication Redirect Flow** (`components/auth/auth-gate.tsx`, `app/auth/callback/route.ts`, `context/auth-context.tsx`)
@@ -14,12 +22,11 @@
 ### Added
 
 - **OAuth Error Handling** (`components/auth/auth-gate.tsx`)
+
   - Added user-facing error messages when Google OAuth fails
   - Displays Alert component with clear error feedback
   - Error state clears automatically when switching authentication methods
   - Improved error messages for both OAuth and email magic link failures
-
-### Changed
 
 - **Landing Page Navbar** (`components/landing-page/navbar.tsx`)
   - Replaced Waves icon with actual Quiver logo image (`/logoQuiver.png`)

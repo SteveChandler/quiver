@@ -340,13 +340,11 @@ export default function AboutPageClient() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-white transition-colors">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white transition-colors">
-                    FAQ
+                  <Link
+                    href="/map"
+                    className="hover:text-white transition-colors"
+                  >
+                    Explore Spots
                   </Link>
                 </li>
               </ul>
