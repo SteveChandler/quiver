@@ -1,14 +1,15 @@
 "use client";
 
+import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { Suspense, lazy, useState, useEffect } from "react";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { QuiverFAQSchema } from "@/components/seo/faq-schema";
 
-// Import sections directly to debug lazy loading issue
-import { SocialFeedSection } from "@/components/landing-page/social-feed-section";
+// Import sections for AllTrails-style landing page
+import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
+import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
-import { FeaturesSection } from "@/components/landing-page/features-section";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { FooterSection } from "@/components/landing-page/footer-section";
 
@@ -79,7 +80,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
+    <div className="min-h-screen bg-white">
       {/* FAQ Structured Data for SEO */}
       <QuiverFAQSchema />
 
@@ -93,27 +94,36 @@ export default function LandingPage() {
       >
         Sign Up
       </a>
-      {/* Show hero section immediately - critical for LCP */}
+
+      {/* AllTrails-style Navigation */}
+      <Navbar />
+
+      {/* Hero Section - Search-Centric */}
       <HeroSection />
 
-      {/* Progressive loading sections - removes lazy loading for debugging */}
+      {/* Progressive loading sections - AllTrails-style layout */}
       <div className="space-y-0">
+        {/* Surf Highlights Section (replaces Social Feed) */}
         <ProgressiveSection height="h-96">
-          <SocialFeedSection />
+          <SurfHighlightsSection />
         </ProgressiveSection>
 
+        {/* Activities Section (replaces Features) */}
+        <ProgressiveSection height="h-96">
+          <ActivitiesSection />
+        </ProgressiveSection>
+
+        {/* Forecast Section */}
         <ProgressiveSection height="h-80">
           <ForecastSection />
         </ProgressiveSection>
 
-        <ProgressiveSection height="h-96">
-          <FeaturesSection />
-        </ProgressiveSection>
-
+        {/* CTA Section */}
         <ProgressiveSection height="h-64">
           <CTASection />
         </ProgressiveSection>
 
+        {/* Footer Section */}
         <ProgressiveSection height="h-48">
           <FooterSection />
         </ProgressiveSection>

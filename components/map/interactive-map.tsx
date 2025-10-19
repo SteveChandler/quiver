@@ -362,23 +362,32 @@ export function InteractiveMap({
         // Fetch wave heights for all beaches in a single bulk request (performance optimization)
         const waveHeightMap = new Map<string, number | string | undefined>();
 
+        // Only call bulk API if we have beaches to fetch
         if (locations.length > 0) {
           try {
-            const beachIds = locations.map((beach) => beach.id).join(",");
-            const response = await fetch(
-              `/api/forecasts/bulk?beachIds=${beachIds}`
-            );
+            const beachIds = locations
+              .map((beach) => beach.id)
+              .filter(Boolean) // Remove any undefined/null IDs
+              .join(",");
+            
+            // Skip API call if no valid IDs after filtering
+            if (beachIds) {
+              const response = await fetch(
+                `/api/forecasts/bulk?beachIds=${beachIds}`
+              );
 
-            if (response.ok) {
-              const data = await response.json();
-              const forecasts = data?.data?.forecasts || {};
+              if (response.ok) {
+                const data = await response.json();
+                const forecasts = data?.data?.forecasts || {};
 
-              // Populate wave height map from bulk response
-              Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
-                waveHeightMap.set(beachId, waveHeight as number | undefined);
-              });
-            } else {
-              console.warn(`Bulk forecast API returned ${response.status}`);
+                // Populate wave height map from bulk response
+                Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
+                  waveHeightMap.set(beachId, waveHeight as number | undefined);
+                });
+              } else if (response.status !== 400) {
+                // 400 is expected for bad requests, only warn on unexpected errors
+                console.warn(`Bulk forecast API returned ${response.status}`);
+              }
             }
           } catch (error) {
             console.warn("Failed to fetch bulk forecasts:", error);

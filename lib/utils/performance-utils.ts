@@ -38,7 +38,6 @@ export function preloadCriticalResources() {
   preloadImage("/logoQuiver.png", "100vw");
   
   // Preload critical images for LCP optimization
-  preloadImage("/placeholder-logo.png", "(max-width: 768px) 100vw, 50vw");
   preloadImage("/logo-word (2).png", "(max-width: 768px) 100vw, 50vw");
 
   // Preconnect to critical third-party domains for faster resource loading

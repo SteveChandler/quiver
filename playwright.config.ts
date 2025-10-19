@@ -16,7 +16,7 @@ export default defineConfig({
   workers: process.env.CI ? 4 : undefined,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: process.env.BASE_URL || "http://localhost:3000",
+    baseURL:  "http://localhost:3000",
     extraHTTPHeaders: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))
       ? undefined
       : (process.env.VERCEL_BYPASS_TOKEN || process.env.VERCEL_AUTOMATION_BYPASS_SECRET || process.env.VERCEL_BYPASS)

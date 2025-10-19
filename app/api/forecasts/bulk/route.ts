@@ -28,15 +28,16 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const beachIdsParam = searchParams.get("beachIds");
 
-    if (!beachIdsParam) {
-      return createSuccessResponse(
-        { forecasts: {} },
-        { status: 400 }
-      );
+    // Return empty forecasts for missing/empty beachIds (not an error)
+    if (!beachIdsParam || !beachIdsParam.trim()) {
+      return createSuccessResponse({ forecasts: {} });
     }
 
-    // Parse beach IDs
-    const beachIds = beachIdsParam.split(",").filter(Boolean);
+    // Parse beach IDs and filter out empty strings
+    const beachIds = beachIdsParam
+      .split(",")
+      .map(id => id.trim())
+      .filter(Boolean);
 
     if (beachIds.length === 0) {
       return createSuccessResponse({ forecasts: {} });
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Error fetching bulk forecasts:", error);
+      // Return empty forecasts instead of throwing
       return createSuccessResponse({ forecasts: {} });
     }
 
@@ -85,7 +87,9 @@ export async function GET(request: NextRequest) {
 
     return createSuccessResponse({ forecasts: waveHeightMap });
   } catch (error) {
-    return handleApiError(error);
+    console.error("Unexpected error in bulk forecast API:", error);
+    // Return empty forecasts instead of 500
+    return createSuccessResponse({ forecasts: {} });
   }
 }
 

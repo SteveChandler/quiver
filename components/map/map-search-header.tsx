@@ -3,10 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Search, MapIcon, List } from "lucide-react";
 import { motion } from "framer-motion";
 import { PHASE2_ANIMATIONS } from "@/lib/constants/animations";
-import { useMemo, useState } from "react";
-import { track } from "@/lib/analytics";
-import { useCallback } from "react";
-import type { Beach } from "@/types/database";
+import { useState } from "react";
 
 interface MapSearchHeaderProps {
   searchQuery: string;
@@ -15,14 +12,8 @@ interface MapSearchHeaderProps {
   viewMode: "map" | "list";
   onViewModeChange: (mode: "map" | "list") => void;
   onNearMe?: () => void;
-  suggestions?: Array<{ id: string; name: string; location?: string }>; // Provided by parent for dropdown
-  onResultSelect?: (id: string) => void;
-}
-
-interface SearchResult {
-  id: string;
-  name: string;
-  location?: string;
+  suggestions?: Array<{ id: string; name: string; location?: string }>; // Kept for backward compatibility
+  onResultSelect?: (id: string) => void; // Kept for backward compatibility
 }
 
 export function MapSearchHeader({
@@ -37,82 +28,9 @@ export function MapSearchHeader({
 }: MapSearchHeaderProps) {
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [showResults, setShowResults] = useState(false);
 
   const locationSelectionMotion =
     PHASE2_ANIMATIONS.mapDiscovery.locationSelection;
-  const searchResultsMotion = PHASE2_ANIMATIONS.mapDiscovery.searchResults;
-
-  // Back-compat mock results for tests/UX when suggestions aren't provided
-  const DEFAULT_RESULTS: SearchResult[] = [
-    { id: "1", name: "Ocean Beach", location: "San Diego" },
-    { id: "2", name: "Pacific Beach", location: "San Diego" },
-    { id: "3", name: "La Jolla Shores", location: "La Jolla" },
-    { id: "4", name: "Mission Beach", location: "San Diego" },
-  ];
-
-  // Basic local fuzzy filter (token includes) for dropdown
-  const filterResults = useCallback(
-    (value: string, beaches: Beach[]): SearchResult[] => {
-      const q = value.toLowerCase().trim();
-      if (!q) return [];
-      const tokens = q.split(/\s+/g).filter(Boolean);
-      return beaches
-        .filter((b) => {
-          const hay = `${b.name} ${b.location || ""}`.toLowerCase();
-          return tokens.every((t) => hay.includes(t));
-        })
-        .slice(0, 8)
-        .map((b) => ({
-          id: b.id,
-          name: b.name,
-          location: b.location || undefined,
-        }));
-    },
-    []
-  );
-
-  const handleSearchChange = (value: string) => {
-    onSearchChange(value);
-
-    if (value.length > 2) {
-      // Use parent-provided suggestions to populate dropdown
-      let next: SearchResult[] = (suggestions || []).map((s) => ({
-        id: s.id,
-        name: s.name,
-        location: s.location,
-      }));
-      if (!next.length) {
-        const q = value.toLowerCase();
-        next = DEFAULT_RESULTS.filter((r) => r.name.toLowerCase().includes(q));
-      }
-      setSearchResults(next);
-      setShowResults(next.length > 0);
-    } else {
-      setSearchResults([]);
-      setShowResults(false);
-    }
-  };
-
-  const handleLocationSelect = (result: SearchResult) => {
-    setIsSelecting(true);
-    setSelectedLocation(result.name);
-    onSearchChange(result.name);
-    onResultSelect?.(result.id);
-    // Track search selection in map context
-    track("beach_search", {
-      query: searchQuery,
-      result_count: searchResults.length,
-      source: "map",
-    });
-
-    // Excitement animation
-    setTimeout(() => {
-      setIsSelecting(false);
-      setShowResults(false);
-    }, 300);
-  };
 
   return (
     <motion.div
@@ -124,7 +42,7 @@ export function MapSearchHeader({
       }
     >
       <div className="flex items-center gap-2">
-        <div className="relative flex-1">
+        <div className="relative flex-1 z-20">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <motion.div
             whileFocus={{ scale: 1.01 }}
@@ -134,58 +52,16 @@ export function MapSearchHeader({
               placeholder="Search beaches..."
               className="pl-9"
               value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={(e) => onSearchChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                 }
               }}
-              onFocus={() => setShowResults(searchResults.length > 0)}
-              onBlur={() => {
-                // Delay hiding results to allow click
-                setTimeout(() => setShowResults(false), 150);
-              }}
+              autoComplete="off"
               data-testid="search-input"
             />
           </motion.div>
-
-          {/* Search Results Dropdown */}
-          {showResults && searchResults.length > 0 && (
-            <motion.ul
-              role="listbox"
-              className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-50"
-              variants={searchResultsMotion}
-              initial="initial"
-              animate="animate"
-              exit="initial"
-            >
-              {searchResults.map((result, index) => (
-                <motion.li
-                  key={result.id}
-                  role="option"
-                  className="border-b border-gray-100 last:border-b-0"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1, duration: 0.2 }}
-                >
-                  <button
-                    type="button"
-                    className="w-full text-left px-4 py-3 hover:bg-gray-50"
-                    onClick={() => handleLocationSelect(result)}
-                  >
-                    <div className="font-medium text-gray-900">
-                      {result.name}
-                    </div>
-                    {result.location && (
-                      <div className="text-sm text-gray-500">
-                        {result.location}
-                      </div>
-                    )}
-                  </button>
-                </motion.li>
-              ))}
-            </motion.ul>
-          )}
 
           {searchQuery && (
             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>

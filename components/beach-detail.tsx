@@ -103,9 +103,14 @@ import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
 interface BeachDetailProps {
   id: string;
   publicMode?: boolean;
+  initialBeach?: Beach;
 }
 
-export function BeachDetail({ id, publicMode = false }: BeachDetailProps) {
+export function BeachDetail({
+  id,
+  publicMode = false,
+  initialBeach,
+}: BeachDetailProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
@@ -186,7 +191,8 @@ export function BeachDetail({ id, publicMode = false }: BeachDetailProps) {
     loading: beachLoading,
     error: beachError,
   } = useDataFetcher(fetchBeach, {
-    immediate: true,
+    immediate: !initialBeach,
+    initialData: initialBeach,
   });
 
   // Single data fetch - 10-day enhanced forecast via API

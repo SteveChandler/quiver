@@ -3,15 +3,20 @@
 import { Instagram, Play } from "lucide-react";
 
 const FOOTER_LINKS = {
-  product: [
+  about: [
+    { name: "About Quiver", href: "/about" },
     { name: "Features", href: "/features" },
-    { name: "Pricing", href: "#" },
-    { name: "FAQ", href: "#" },
+    { name: "How It Works", href: "/features" },
   ],
-  company: [
-    { name: "About", href: "/about" },
-    { name: "Contact", href: "#" },
-    { name: "Privacy", href: "/privacy" },
+  support: [
+    { name: "Help Center", href: "#" },
+    { name: "Contact Us", href: "#" },
+    { name: "Community Guidelines", href: "#" },
+  ],
+  legal: [
+    { name: "Privacy Policy", href: "/privacy" },
+    { name: "Terms of Service", href: "#" },
+    { name: "Cookie Policy", href: "#" },
   ],
 } as const;
 
@@ -19,37 +24,49 @@ export function FooterSection() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-dark-grey text-white py-8 md:py-16 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-          <div className="col-span-2 md:col-span-2">
-            <h3 className="text-2xl font-roboto font-bold mb-4">Quiver</h3>
-            <p className="font-open-sans text-gray-300 mb-4 max-w-md">
-              The ultimate social platform for surfers. Connect with your
-              community, plan sessions, and share the stoke.
+    <footer className="bg-dark-grey text-white py-12 md:py-16 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Main Footer Content */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-10">
+          {/* Brand Section */}
+          <div className="md:col-span-2">
+            <h3 className="text-3xl font-roboto font-bold mb-3">Quiver</h3>
+            <p className="font-open-sans text-gray-300 mb-4 text-base italic">
+              Built for surfers. Powered by the swell.
+            </p>
+            <p className="font-open-sans text-gray-400 mb-6 max-w-md leading-relaxed">
+              Discover surf spots, connect with your community, and track your
+              sessions. Join the movement that's bringing surfers together.
             </p>
             <div className="flex space-x-4">
               <a
-                href="#"
+                href="https://instagram.com/quiversurf"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-gray-300 hover:text-white transition-colors"
-                aria-label="Instagram"
+                aria-label="Follow us on Instagram"
               >
                 <Instagram className="h-6 w-6" />
               </a>
               <a
-                href="#"
+                href="https://youtube.com/@quiversurf"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-gray-300 hover:text-white transition-colors"
-                aria-label="TikTok"
+                aria-label="Subscribe on YouTube"
               >
                 <Play className="h-6 w-6" />
               </a>
             </div>
           </div>
 
+          {/* About Quiver */}
           <div>
-            <h4 className="font-roboto font-semibold mb-4">Product</h4>
-            <ul className="space-y-2 font-open-sans text-gray-300">
-              {FOOTER_LINKS.product.map((link) => (
+            <h4 className="font-roboto font-semibold mb-4 text-lg">
+              About Quiver
+            </h4>
+            <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
+              {FOOTER_LINKS.about.map((link) => (
                 <li key={link.name}>
                   <a
                     href={link.href}
@@ -62,10 +79,30 @@ export function FooterSection() {
             </ul>
           </div>
 
+          {/* Support */}
           <div>
-            <h4 className="font-roboto font-semibold mb-4">Company</h4>
-            <ul className="space-y-2 font-open-sans text-gray-300">
-              {FOOTER_LINKS.company.map((link) => (
+            <h4 className="font-roboto font-semibold mb-4 text-lg">
+              Support / Contact
+            </h4>
+            <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
+              {FOOTER_LINKS.support.map((link) => (
+                <li key={link.name}>
+                  <a
+                    href={link.href}
+                    className="hover:text-white transition-colors"
+                  >
+                    {link.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h4 className="font-roboto font-semibold mb-4 text-lg">Legal</h4>
+            <ul className="space-y-2.5 font-open-sans text-gray-300 text-sm">
+              {FOOTER_LINKS.legal.map((link) => (
                 <li key={link.name}>
                   <a
                     href={link.href}
@@ -79,16 +116,15 @@ export function FooterSection() {
           </div>
         </div>
 
-        <div className="border-t border-gray-600 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <p className="font-open-sans text-gray-300 text-sm">
-              © {currentYear} Quiver. All rights reserved.
+        {/* Bottom Bar */}
+        <div className="border-t border-gray-700 pt-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="font-open-sans text-gray-400 text-sm">
+              © {currentYear} Quiver Surf. All rights reserved.
             </p>
-            <div className="mt-4 md:mt-0">
-              <p className="font-open-sans text-gray-300 text-sm">
-                App coming soon to iOS & Android
-              </p>
-            </div>
+            <p className="font-open-sans text-gray-400 text-sm">
+              Made with 🌊 for the surf community
+            </p>
           </div>
         </div>
       </div>

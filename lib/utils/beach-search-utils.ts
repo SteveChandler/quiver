@@ -5,6 +5,7 @@ import {
   OUT_OF_AREA_EXAMPLES,
 } from "@/lib/constants/coverage-areas";
 import type { Beach } from "@/types/database";
+import { normalizeSearchText } from "@/lib/utils/text-normalization";
 
 interface SearchResult {
   beach: Beach | null;
@@ -30,20 +31,15 @@ export async function searchBeachesMultiple(
 
     console.log(`📊 Found ${allBeachesResult.data.length} beaches in database`);
 
-    // Normalize the search text (lowercase, trim whitespace, remove extra spaces)
-    const normalizedSearch = searchText
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, " ");
+    // Normalize the search text (punctuation-insensitive, case-insensitive)
+    const normalizedSearch = normalizeSearchText(searchText);
 
     console.log(`🔧 Normalized search: "${normalizedSearch}"`);
 
     // Look for exact or partial matches with improved fuzzy matching
     const matchingBeaches = allBeachesResult.data.filter((beach) => {
-      const beachName = beach.name.toLowerCase().replace(/\s+/g, " ");
-      const beachLocation = (beach.location || "")
-        .toLowerCase()
-        .replace(/\s+/g, " ");
+      const beachName = normalizeSearchText(beach.name);
+      const beachLocation = normalizeSearchText(beach.location || "");
 
       // Check for matches in name or location with multiple strategies:
 
@@ -122,12 +118,12 @@ export async function searchBeachesMultiple(
       return false;
     });
 
-    // Sort matches by relevance
+    // Sort matches by relevance (using normalized text for consistency)
     matchingBeaches.sort((a, b) => {
-      const aName = a.name.toLowerCase();
-      const bName = b.name.toLowerCase();
-      const aLocation = (a.location || "").toLowerCase();
-      const bLocation = (b.location || "").toLowerCase();
+      const aName = normalizeSearchText(a.name);
+      const bName = normalizeSearchText(b.name);
+      const aLocation = normalizeSearchText(a.location || "");
+      const bLocation = normalizeSearchText(b.location || "");
 
       // 1. Exact name matches first
       if (aName === normalizedSearch && bName !== normalizedSearch) return -1;

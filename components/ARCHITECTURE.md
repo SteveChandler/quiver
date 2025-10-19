@@ -98,17 +98,41 @@ interface ComponentProps {
 
 ### 📁 **`/auth`** - Authentication System
 
-#### Components
+#### Core Authentication Components
 
-- **`sign-in-form.tsx`** - Email/password authentication form
-- **`sign-up-form.tsx`** - User registration with validation
+- **`auth-gate.tsx`** - AllTrails-style authentication wall
+  - Preview mode: 5-second delay before showing auth prompt
+  - Dismissible with smart reappearance (30s after dismissal)
+  - Google OAuth and Email Magic Link options
+  - Return URL preservation for seamless post-auth redirect
+  - Analytics tracking for conversion funnel optimization
+  - Used on `/map` and `/beach/[slug]` for growth-focused acquisition
+- **`sign-in-form.tsx`** - Traditional email/password sign-in form
+- **`sign-up-form.tsx`** - User registration form
+
+#### When to Use Each Pattern
+
+**Use `<AuthGate />`** for:
+
+- Public preview pages where SEO is important
+- Growth-focused features where you want to show value first
+- Pages that benefit from AllTrails-style delayed auth prompts
+- Example: `/map`, `/beach/[slug]`, future public session feeds
+
+**Use Traditional Protected Routes** for:
+
+- User-specific content (profiles, journals, settings)
+- Pages with no preview value
+- Admin/dashboard areas
+- Example: `/profile`, `/journal`, `/discover`
 
 #### Patterns
 
 - Form validation with react-hook-form + Zod
 - Error handling and loading states
 - Secure credential handling
-- Social auth integration ready
+- OAuth integration with Google and Email Magic Links
+- Preview-based authentication for growth optimization
 
 ---
 
