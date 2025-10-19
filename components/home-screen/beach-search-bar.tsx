@@ -65,7 +65,7 @@ export function BeachSearchBar({ onSelect, className }: BeachSearchBarProps) {
   );
 
   return (
-    <motion.section 
+    <motion.section
       className={className}
       variants={MAP_MOTION.locationSearch}
       initial="initial"
@@ -79,7 +79,7 @@ export function BeachSearchBar({ onSelect, className }: BeachSearchBarProps) {
         <Card className="w-full mx-auto">
           <CardContent className="p-4">
             <form onSubmit={handleSubmit} className="flex gap-2 items-center">
-              <motion.div 
+              <motion.div
                 className="relative flex-1"
                 whileFocus={{ scale: 1.01 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
@@ -96,12 +96,12 @@ export function BeachSearchBar({ onSelect, className }: BeachSearchBarProps) {
                     setQuery(e.target.value);
                     if (error) setError(null);
                   }}
-                  placeholder="Search beaches (e.g., OB, PB, La Jolla Shores)"
+                  placeholder="Search by beach, spot, or region"
                   className="pl-9 transition-all duration-200 focus:ring-2 focus:ring-blue-500/20"
                   aria-label="Search beaches"
                 />
               </motion.div>
-              
+
               <motion.div
                 variants={MAP_MOTION.quickAction}
                 initial="rest"
@@ -133,11 +133,11 @@ export function BeachSearchBar({ onSelect, className }: BeachSearchBarProps) {
                 </Button>
               </motion.div>
             </form>
-            
+
             <AnimatePresence>
               {error && (
-                <motion.p 
-                  className="text-sm text-red-600 mt-2" 
+                <motion.p
+                  className="text-sm text-red-600 mt-2"
                   aria-live="polite"
                   initial={{ opacity: 0, y: -10, scale: 0.9 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
