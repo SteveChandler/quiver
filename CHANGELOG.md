@@ -1,5 +1,51 @@
 ## [Unreleased]
 
+### Added
+
+- **OAuth Error Handling** (`components/auth/auth-gate.tsx`)
+  - Added user-facing error messages when Google OAuth fails
+  - Displays Alert component with clear error feedback
+  - Error state clears automatically when switching authentication methods
+  - Improved error messages for both OAuth and email magic link failures
+
+### Changed
+
+- **Landing Page Navbar** (`components/landing-page/navbar.tsx`)
+  - Replaced Waves icon with actual Quiver logo image (`/logoQuiver.png`)
+  - Logo now displays next to "Quiver" text for better brand consistency
+  - Maintained hover scale animation on logo
+- **Auth Gate Modal** (`components/auth/auth-gate.tsx`)
+  - Replaced Waves icon with Quiver logo image in "Keep exploring with Quiver" dialog
+  - Consistent branding across all authentication modals
+  - Enhanced OAuth error handling with proper error state management
+  - Replaced console.error + alert() pattern with Alert component UI
+
+## [2025.10.19] - Beach Search E2E Test Refactor
+
+### Fixed
+
+- **Beach Search Normalization Tests** (`e2e/beach-search-normalization.spec.ts`)
+  - Refactored tests to match authenticated HomeScreen search behavior
+  - Search updates forecast display inline instead of navigating immediately
+  - Added "View Details" button click step before expecting navigation
+  - Removed tests for unsupported abbreviations (ib, swamis) that aren't in `commonVariations`
+  - Updated tests to use beaches that exist in test database
+  - Fixed error handling tests to match actual UI behavior
+  - All 11 tests now passing
+
+### Changed
+
+- **Test Flow Updated for Authenticated Users**
+  - Tests now follow correct flow: Search → Wait for forecast update → Click "View Details" → Navigate
+  - Previously expected immediate navigation which doesn't match HomeScreen behavior
+  - Added `waitForLoadState('load')` for more reliable page state
+  - Tests run sequentially (workers=1) to avoid race conditions during development
+
+### Documentation
+
+- Updated test comments to clarify this tests authenticated HomeScreen search, not landing page
+- Added inline comments explaining the two-step navigation pattern
+
 ## [2025.10.19] - SEO Performance Optimization
 
 ### Added

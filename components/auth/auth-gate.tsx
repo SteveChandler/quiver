@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import {
@@ -13,7 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, LogIn, Mail, Waves, Sparkles } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, LogIn, Mail, Sparkles, AlertCircle } from "lucide-react";
 import { track } from "@/lib/analytics";
 
 type Props = {
@@ -37,6 +39,7 @@ export default function AuthGate({
   const [email, setEmail] = React.useState("");
   const [emailSent, setEmailSent] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   // Email validation
   const isEmailValid = React.useMemo(() => {
@@ -154,6 +157,7 @@ export default function AuthGate({
 
   const startOAuth = async (provider: "google") => {
     setLoading(true);
+    setError(null);
     const origin = window.location.origin;
 
     track("auth_wall_provider_clicked", {
@@ -162,7 +166,7 @@ export default function AuthGate({
     });
 
     try {
-      await sb.auth.signInWithOAuth({
+      const { error: oauthError } = await sb.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${origin}/auth/callback?redirect=${encodeURIComponent(
@@ -170,8 +174,20 @@ export default function AuthGate({
           )}`,
         },
       });
+
+      if (oauthError) {
+        console.error("OAuth error:", oauthError);
+        setError(
+          "Unable to sign in with Google. Please try email sign-in instead."
+        );
+        setLoading(false);
+      }
+      // If successful, browser will redirect to Google OAuth, so no need to setLoading(false)
     } catch (error) {
-      console.error("OAuth error:", error);
+      console.error("OAuth exception:", error);
+      setError(
+        "An unexpected error occurred. Please try email sign-in instead."
+      );
       setLoading(false);
     }
   };
@@ -182,6 +198,7 @@ export default function AuthGate({
     }
 
     setLoading(true);
+    setError(null);
     const origin = window.location.origin;
 
     track("auth_wall_provider_clicked", {
@@ -190,7 +207,7 @@ export default function AuthGate({
     });
 
     try {
-      const { error } = await sb.auth.signInWithOtp({
+      const { error: emailError } = await sb.auth.signInWithOtp({
         email,
         options: {
           emailRedirectTo: `${origin}/auth/callback?redirect=${encodeURIComponent(
@@ -199,15 +216,15 @@ export default function AuthGate({
         },
       });
 
-      if (error) {
-        console.error("Email magic link error:", error);
-        alert("Failed to send magic link. Please try again.");
+      if (emailError) {
+        console.error("Email magic link error:", emailError);
+        setError("Failed to send magic link. Please try again.");
       } else {
         setEmailSent(true);
       }
     } catch (error) {
       console.error("Exception during email magic link:", error);
-      alert("An error occurred. Please try again.");
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -226,7 +243,12 @@ export default function AuthGate({
       >
         <DialogHeader className="space-y-1">
           <DialogTitle className="flex items-center gap-2">
-            <Waves className="h-5 w-5 text-blue-600" />
+            <Image
+              src="/logoQuiver.png"
+              alt="Quiver Logo"
+              width={20}
+              height={20}
+            />
             Keep exploring with Quiver
           </DialogTitle>
           <DialogDescription>
@@ -234,6 +256,13 @@ export default function AuthGate({
             join the surf community.
           </DialogDescription>
         </DialogHeader>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         {emailSent ? (
           <div className="py-4 text-center space-y-3">
@@ -252,6 +281,7 @@ export default function AuthGate({
               onClick={() => {
                 setEmailSent(false);
                 setEmail("");
+                setError(null);
               }}
               className="mt-4"
             >
@@ -289,7 +319,10 @@ export default function AuthGate({
                 </div>
 
                 <Button
-                  onClick={() => setShowEmailInput(true)}
+                  onClick={() => {
+                    setShowEmailInput(true);
+                    setError(null);
+                  }}
                   className="w-full"
                   size="lg"
                   variant="outline"
@@ -330,7 +363,10 @@ export default function AuthGate({
                   Send Magic Link
                 </Button>
                 <Button
-                  onClick={() => setShowEmailInput(false)}
+                  onClick={() => {
+                    setShowEmailInput(false);
+                    setError(null);
+                  }}
                   variant="ghost"
                   className="w-full"
                 >

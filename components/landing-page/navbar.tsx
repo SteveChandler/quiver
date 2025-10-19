@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, ChevronDown, Waves } from "lucide-react";
+import Image from "next/image";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -71,7 +72,13 @@ export function Navbar() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2 group">
-              <Waves className="h-8 w-8 text-ocean-blue transition-transform group-hover:scale-110" />
+              <Image
+                src="/logoQuiver.png"
+                alt="Quiver Logo"
+                width={32}
+                height={32}
+                className="transition-transform group-hover:scale-110"
+              />
               <span className="text-2xl font-bold font-roboto text-dark-grey">
                 Quiver
               </span>
