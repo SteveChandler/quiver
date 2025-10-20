@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, LogIn } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 import {
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 export function SignUpForm() {
   const [email, setEmail] = useState("");
@@ -37,8 +38,53 @@ export function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [createdEmail, setCreatedEmail] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl =
+    searchParams.get("redirectTo") || searchParams.get("redirectUrl") || "/";
   const { signUp } = useAuth();
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setIsGoogleLoading(true);
+
+    try {
+      const sb = createSupabaseBrowser();
+      const origin = window.location.origin;
+      const returnTo = redirectUrl;
+
+      // Store the intended return path in localStorage as a backup
+      localStorage.setItem("auth_redirect_path", returnTo);
+      console.log("[SignUpForm] Storing redirect path:", returnTo);
+
+      const { error: oauthError } = await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback?redirect=${encodeURIComponent(
+            returnTo
+          )}`,
+        },
+      });
+
+      if (oauthError) {
+        console.error("OAuth error:", oauthError);
+        localStorage.removeItem("auth_redirect_path");
+        setError(
+          "Unable to sign in with Google. Please try email sign-up instead."
+        );
+        setIsGoogleLoading(false);
+      }
+      // If successful, browser will redirect to Google OAuth
+    } catch (error) {
+      console.error("OAuth exception:", error);
+      localStorage.removeItem("auth_redirect_path");
+      setError(
+        "An unexpected error occurred. Please try email sign-up instead."
+      );
+      setIsGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +131,38 @@ export function SignUpForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
+          {/* Google OAuth Button */}
+          <Button
+            onClick={handleGoogleSignIn}
+            className="w-full"
+            size="lg"
+            variant="default"
+            disabled={isLoading || isGoogleLoading}
+            type="button"
+          >
+            {isGoogleLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <LogIn className="mr-2 h-4 w-4" />
+            )}
+            Continue with Google
+          </Button>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                or
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
             <Label htmlFor="displayName">Display Name</Label>
             <Input
@@ -112,14 +189,14 @@ export function SignUpForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-                      <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-            required
-          />
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>

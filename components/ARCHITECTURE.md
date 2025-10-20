@@ -107,8 +107,16 @@ interface ComponentProps {
   - Return URL preservation for seamless post-auth redirect
   - Analytics tracking for conversion funnel optimization
   - Used on `/map` and `/beach/[slug]` for growth-focused acquisition
-- **`sign-in-form.tsx`** - Traditional email/password sign-in form
-- **`sign-up-form.tsx`** - User registration form
+- **`sign-in-form.tsx`** - Traditional sign-in form with dual authentication methods
+  - Google OAuth with "Continue with Google" button
+  - Email/password authentication
+  - Redirect URL preservation through OAuth flow
+  - Loading states and error handling for both methods
+- **`sign-up-form.tsx`** - User registration form with dual authentication methods
+  - Google OAuth with "Continue with Google" button
+  - Email/password registration with display name
+  - Email verification modal for traditional sign-up
+  - Consistent UX with sign-in form
 
 #### When to Use Each Pattern
 

@@ -1,5 +1,34 @@
 ## [Unreleased]
 
+### Added
+
+- **Google OAuth on Sign-In and Sign-Up Pages**: Added "Continue with Google" button to both authentication pages
+  - Follows existing OAuth implementation pattern from `AuthGate` component
+  - Preserves redirect URLs through OAuth flow for seamless user experience
+  - Loading states with visual feedback during OAuth initiation
+  - Error handling with user-friendly messages if OAuth fails
+  - Consistent UX with "or" divider between Google and email/password options
+
+### Changed
+
+- **Documentation Cleanup**: Major consolidation of `docs/` folder (56 → 21 files, 63% reduction)
+  - Removed 23 completed implementation guides (analytics tracking, beach content refactor, intel setup, monitoring, morning intel, SEO implementation, motion guides)
+  - Removed 5 historical retention analysis docs from Oct 2025 (insights now captured in current strategy)
+  - Removed 5 one-time setup guides (Android build steps, Vercel env setup, deploy notifications, app store content, quick test guide)
+  - Removed 3 outdated specs (original gamification spec, notifications architecture draft, server/client patterns)
+  - Consolidated 4 mobile dev guides into comprehensive `MOBILE_LAUNCH_ARCHITECTURE.md`
+  - Consolidated 5 notification guides into 2 essential references
+  - Moved CSV webcam data files to `scripts/data/` directory
+  - Kept `IOS_APP_RELEASE_STEPS.md` as essential reference for App Store submissions
+  - Updated `docs/README.md` with new streamlined structure
+  - **Result**: Focused on 21 actively-maintained, essential documentation files for easier navigation and maintenance
+- **Landing Page Activities Section**: Updated "Women-Led Spots" card to "Boogie Boarding"
+  - Title: "Boogie Boarding"
+  - Description: "Fun, approachable waves perfect for bodyboarders. Great for riders chasing shorebreak barrels or mellow beach sessions."
+  - Updated icon to Waves for better visual representation
+  - Updated discovery link to `/discover?type=bodyboard`
+  - Maintains same visual layout and grid structure
+
 ## [2025.01.20] - Enhanced Beach Page Content System
 
 ### Added
@@ -283,7 +312,7 @@
   - Created `SurfHighlightsSection` replacing social feed with featured surf spot cards showing conditions and tags (Beginner/Advanced, Uncrowded/Crowded, Hidden Gem)
   - Added stunning surf photography to landing page: Black's Beach (epic barrels), Swami's (winter point break), Tourmaline (beach cliffs), Windansea (iconic surf shack at sunset)
   - Featured 4 iconic San Diego surf spots with high-quality imagery
-  - Created `ActivitiesSection` with surf type filters (Longboarding, Reef Breaks, Point Breaks, Beginner-Friendly, Women-Led Spots, Offshore Winds)
+  - Created `ActivitiesSection` with surf type filters (Longboarding, Reef Breaks, Point Breaks, Beginner-Friendly, Boogie Boarding, Offshore Winds)
   - Redesigned `HeroSection` with search-centric layout: prominent search bar ("Search by beach, spot, or region") that navigates directly to beach detail pages, "Explore Nearby" and "View Forecast" quick action buttons
   - Updated `CTASection` with surf-focused messaging: "Wherever the swell takes you" headline, "Join the Lineup" CTA button
   - Enhanced `FooterSection` with clean, organized structure: tagline "Built for surfers. Powered by the swell.", organized columns (About Quiver, Support/Contact, Legal, Socials)
