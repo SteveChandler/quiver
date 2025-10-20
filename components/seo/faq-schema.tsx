@@ -44,7 +44,7 @@ export function QuiverFAQSchema() {
     {
       question: "What is Quiver?",
       answer:
-        "Quiver is the ultimate surf community platform where you can find surf buddies, track your sessions, get accurate forecasts, and discover the best surf spots. It's like AllTrails for surfers - connecting the surfing community worldwide.",
+        "Quiver is the ultimate surf community platform where you can find surf buddies, track your sessions, get accurate forecasts, and discover the best surf spots - connecting the surfing community worldwide.",
     },
     {
       question: "How do I track surf sessions on Quiver?",

@@ -25,6 +25,7 @@ import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import type { Profile, Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { track, slugify } from "@/lib/analytics";
 
 interface ForecastTabProps {
   profile: Profile | null;
@@ -144,6 +145,19 @@ export function ForecastTab({
     skip: !effectiveBeach?.id,
     initialData: null,
   });
+
+  // Track forecast views
+  useEffect(() => {
+    if (todaysForecast && effectiveBeach) {
+      track("forecast_viewed", {
+        beach_slug: slugify(effectiveBeach.name),
+        beach_id: effectiveBeach.id,
+        source: "home_tab",
+        is_home_beach: !!homeBeach,
+        is_override: !!overrideBeach,
+      });
+    }
+  }, [todaysForecast, effectiveBeach, homeBeach, overrideBeach]);
 
   // Avoid flashing "Unavailable" on first load; retry once if we get null
   const [retryAttempted, setRetryAttempted] = useState(false);

@@ -100,7 +100,7 @@ interface ComponentProps {
 
 #### Core Authentication Components
 
-- **`auth-gate.tsx`** - AllTrails-style authentication wall
+- **`auth-gate.tsx`** - Preview-based authentication wall
   - Preview mode: 5-second delay before showing auth prompt
   - Dismissible with smart reappearance (30s after dismissal)
   - Google OAuth and Email Magic Link options
@@ -116,7 +116,7 @@ interface ComponentProps {
 
 - Public preview pages where SEO is important
 - Growth-focused features where you want to show value first
-- Pages that benefit from AllTrails-style delayed auth prompts
+- Pages that benefit from preview-based delayed auth prompts
 - Example: `/map`, `/beach/[slug]`, future public session feeds
 
 **Use Traditional Protected Routes** for:

@@ -15,6 +15,7 @@ import { useGeo } from "@/hooks/useGeo";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { useOnboarding } from "@/hooks/use-onboarding";
 import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
+import { track } from "@/lib/analytics";
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
@@ -40,6 +41,15 @@ export function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
+
+  // Track tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    track("home_tab_click", {
+      tab: value,
+      user_authenticated: !!user,
+    });
+  };
 
   // Server-truth onboarding flow
   const {
@@ -120,13 +130,25 @@ export function HomeScreen() {
           {/* Action Buttons */}
           <div className="flex gap-2">
             <Button
-              onClick={() => router.push("/sessions/new?mode=plan")}
+              onClick={() => {
+                track("plan_session_clicked", {
+                  source: "home",
+                  user_authenticated: !!user,
+                });
+                router.push("/sessions/new?mode=plan");
+              }}
               className="flex-1 bg-ocean-blue hover:bg-ocean-blue/90"
             >
               Plan Session
             </Button>
             <Button
-              onClick={() => router.push("/sessions/new?mode=log")}
+              onClick={() => {
+                track("log_session_clicked", {
+                  source: "home",
+                  user_authenticated: !!user,
+                });
+                router.push("/sessions/new?mode=log");
+              }}
               variant="outline"
               className="flex-1"
             >
@@ -139,7 +161,7 @@ export function HomeScreen() {
         <section className="centered-container">
           <Tabs
             value={activeTab}
-            onValueChange={(value) => setActiveTab(value)}
+            onValueChange={handleTabChange}
             className="space-y-6"
           >
             <TabsList className="grid grid-cols-3 w-full mx-auto h-12 sm:h-14">
