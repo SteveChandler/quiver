@@ -11,6 +11,12 @@
 
 ### Changed
 
+- **Auth Pages Layout Centering**: Updated all authentication pages with properly centered layouts
+  - Changed from `min-h-screen` to `min-h-[calc(100vh-4rem)]` to account for header height
+  - Applied consistent centering to: sign-in, sign-up, forgot-password, reset-password, and update-password pages
+  - Improved mobile responsiveness with proper horizontal padding (`px-4`)
+  - Increased form width from `350px` to `400px` for better proportions
+  - Removed conflicting `container` and `w-screen` classes in favor of proper flexbox centering
 - **Documentation Cleanup**: Major consolidation of `docs/` folder (56 → 21 files, 63% reduction)
   - Removed 23 completed implementation guides (analytics tracking, beach content refactor, intel setup, monitoring, morning intel, SEO implementation, motion guides)
   - Removed 5 historical retention analysis docs from Oct 2025 (insights now captured in current strategy)

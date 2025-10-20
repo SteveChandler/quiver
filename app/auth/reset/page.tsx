@@ -35,8 +35,10 @@ export default function ResetPasswordPage() {
     const checkSession = async () => {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         if (user) {
           setHasValidSession(true);
         } else {
@@ -94,7 +96,8 @@ export default function ResetPasswordPage() {
       // Success - redirect to app (user remains authenticated)
       router.replace(POST_RESET_DEST);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update password";
+      const message =
+        err instanceof Error ? err.message : "Failed to update password";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -103,13 +106,15 @@ export default function ResetPasswordPage() {
 
   if (isVerifyingSession) {
     return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-center p-6">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex min-h-[calc(100vh-4rem)] w-full items-center justify-center py-12 px-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center p-6">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -118,64 +123,67 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-2xl">Reset Password</CardTitle>
-        <CardDescription>
-          Enter your new password below.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="password">New Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter new password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-            <p className="text-sm text-muted-foreground">
-              Password must be at least 8 characters long
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-          </div>
+    <div className="flex min-h-[calc(100vh-4rem)] w-full items-center justify-center py-12 px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl">Reset Password</CardTitle>
+          <CardDescription>Enter your new password below.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">New Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter new password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+              <p className="text-sm text-muted-foreground">
+                Password must be at least 8 characters long
+              </p>
+            </div>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Updating Password..." : "Update Password"}
-          </Button>
-        </form>
-      </CardContent>
-      <CardFooter className="flex justify-center">
-        <p className="text-sm text-muted-foreground">
-          Need help?{" "}
-          <Link href="/auth/forgot-password" className="text-primary hover:underline">
-            Request a new reset link
-          </Link>
-        </p>
-      </CardFooter>
-    </Card>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Updating Password..." : "Update Password"}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            Need help?{" "}
+            <Link
+              href="/auth/forgot-password"
+              className="text-primary hover:underline"
+            >
+              Request a new reset link
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
+    </div>
   );
 }
