@@ -193,6 +193,7 @@
     "webpack-bundle-analyzer": "^4.10.2"
   },
   "overrides": {
-    "tmp": "^0.2.5"
+    "tmp": "^0.2.5",
+    "undici": "^6.21.2"
   }
 }
