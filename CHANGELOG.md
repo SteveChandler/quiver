@@ -1,5 +1,35 @@
 ## [Unreleased]
 
+## [2025.01.20] - Enhanced Beach Page Content System
+
+### Added
+
+- **Enhanced Beach Content System**: Complete refactor of beach detail pages with rich, structured content
+  - Database migration adds structured content fields: `features`, `parking_tips`, `access_tips`, `wave_tips`, `crowd_tips`, `warnings`, `best_conditions_prose`, `local_etiquette`, `description`, `best_months`
+  - New `FeatureGrid` component displays feature tags (e.g., "Beginner friendly", "Lifeguard on duty") with visual icons
+  - New `PracticalTipsSection` component with expandable accordion for parking, access, waves, crowd info, and hazards
+  - New `QuickStats` component showing break type, skill level, rating, and review count in quick reference
+  - New `EnhancedBeachOverview` component orchestrating the full content layout
+  - Curated content for 15 top San Diego beaches (Pacific Beach, Ocean Beach, La Jolla Shores, Windansea, Blacks, Scripps, Tourmaline, Swami's, Cardiff Reef, Del Mar, Oceanside Pier, Lower Trestles, Sunset Cliffs, Mission Beach, Tamarack)
+- **Content Parser Script**: `parse-beach-content.mjs` automatically structures emoji-prefixed takeaways into database fields
+- **Indexed Features**: GIN indexes on `features`, `crowd_level`, and `best_months` for fast filtering
+- **Analytics Tracking**: Added comprehensive tracking to home screen, forecast tab, and intel tab
+  - Track tab changes, session planning clicks, forecast views, intel interactions
+  - Better understanding of user behavior and feature usage
+
+### Changed
+
+- Beach detail pages now display enhanced overview section above existing content
+- Structured content replaces loose text arrays for better scannability and SEO
+- Feature tags enable future filtering ("Show me beginner-friendly beaches with parking")
+
+### Performance
+
+- Added database indexes for `features`, `crowd_level`, and `best_months` columns
+- Structured data improves page load and rendering performance
+
+---
+
 ### Changed
 
 - **Removed Pricing References** (`app/about/about-client.tsx`, `app/features/features-client.tsx`, `app/privacy/page.tsx`)
@@ -141,11 +171,11 @@
   - Button only enabled when email contains @ symbol and follows basic email structure
   - Prevents submission of invalid email addresses in auth flow
 
-## [2025.10.19] - AllTrails-Style Auth Wall
+## [2025.10.19] - Preview-Based Auth Wall
 
 ### Added
 
-- **AllTrails-style authentication wall** for `/map` and `/beach/[slug]` pages
+- **Preview-based authentication wall** for `/map` and `/beach/[slug]` pages
   - Preview mode: Users can browse for 5 seconds before auth prompt appears
   - Dismissible modal that reappears after 30 seconds of continued browsing
   - Google OAuth and Email Magic Link authentication options
@@ -246,7 +276,7 @@
 
 ### Added
 
-- **AllTrails-Style Landing Page Redesign**: Complete redesign of landing page following AllTrails.com patterns for improved conversion and discovery
+- **Modern Landing Page Redesign**: Complete redesign of landing page with improved conversion and discovery patterns
 
   - Created `Navbar` component with sticky navigation, dropdown menus (Explore by Regions/Spot Types/Conditions), mobile-responsive sheet menu
   - Created `SurfSpotCard` component displaying surf breaks with real-time conditions (swell height/direction, wind, tide, difficulty, crowd level)
@@ -256,7 +286,7 @@
   - Created `ActivitiesSection` with surf type filters (Longboarding, Reef Breaks, Point Breaks, Beginner-Friendly, Women-Led Spots, Offshore Winds)
   - Redesigned `HeroSection` with search-centric layout: prominent search bar ("Search by beach, spot, or region") that navigates directly to beach detail pages, "Explore Nearby" and "View Forecast" quick action buttons
   - Updated `CTASection` with surf-focused messaging: "Wherever the swell takes you" headline, "Join the Lineup" CTA button
-  - Enhanced `FooterSection` with AllTrails-style structure: tagline "Built for surfers. Powered by the swell.", organized columns (About Quiver, Support/Contact, Legal, Socials)
+  - Enhanced `FooterSection` with clean, organized structure: tagline "Built for surfers. Powered by the swell.", organized columns (About Quiver, Support/Contact, Legal, Socials)
   - Added `SURF_ACTIVITIES` constant with 6 surf activity types for discovery navigation
   - Updated hero content to "Find your next surf break" with search-first approach
   - Maintained backward compatibility: legacy `SocialFeedSection` and `FeaturesSection` kept in codebase

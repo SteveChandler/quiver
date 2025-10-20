@@ -51,6 +51,7 @@ import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import { SpotOverview } from "@/components/beach-detail/spot-overview";
+import { EnhancedBeachOverview } from "@/components/beach-detail/enhanced-beach-overview";
 import { FavoriteButton } from "@/components/favorite-button";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 import { ForecastFreshnessBadgeCompact } from "@/components/ui/forecast-freshness-badge";
@@ -803,6 +804,12 @@ export function BeachDetail({
                 <CrowdTipsSection beachId={id} />
               </section>
 
+              {/* Enhanced Beach Overview */}
+              <section>
+                <EnhancedBeachOverview beach={beach as any} />
+              </section>
+
+              {/* Original Spot Overview - Keep for now */}
               <section>
                 <SpotOverview beach={beach as Beach} />
               </section>
@@ -1016,6 +1023,12 @@ export function BeachDetail({
               <CrowdTipsSection beachId={id} />
             </section>
 
+            {/* Enhanced Beach Overview */}
+            <section>
+              <EnhancedBeachOverview beach={beach as any} />
+            </section>
+
+            {/* Original Spot Overview - Keep for now */}
             <section>
               <SpotOverview beach={beach as Beach} />
             </section>

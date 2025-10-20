@@ -103,7 +103,7 @@ export const HERO_VIDEOS = [
   "/2873484-hd_1920_1080_25fps.mp4",
 ];
 
-// Surf Activities for AllTrails-style navigation
+// Surf Activities for discovery navigation
 export const SURF_ACTIVITIES = [
   {
     icon: Users,

@@ -210,7 +210,7 @@ export function HeroSection() {
       {/* Enhanced Overlay with Gradient */}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-black/50 via-black/40 to-black/60" />
 
-      {/* Hero Content - AllTrails-style Search-Centric */}
+      {/* Hero Content - Search-Centric */}
       <motion.div
         {...ANIMATION_VARIANTS.heroText(0.1)}
         className="relative z-30 w-full max-w-[90vw] sm:max-w-screen-sm md:max-w-4xl mx-auto px-4 sm:px-6 text-center text-white py-8 sm:py-12"
