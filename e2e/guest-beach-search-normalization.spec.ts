@@ -204,8 +204,9 @@ test.describe('Beach Search - Navigation Behavior', () => {
     const searchInput = page.getByPlaceholder(/search by beach, spot, or region/i);
     await searchInput.fill('Crystal Pier');
 
-    const exploreButton = page.getByRole('button', { name: /explore nearby/i });
-    await exploreButton.click();
+    // "Explore nearby spots" is now a link (Button variant="link") not a button
+    const exploreLink = page.getByRole('link', { name: /explore nearby/i });
+    await exploreLink.click();
 
     // Should navigate to beach detail page
     await expect(page).toHaveURL(/\/beach\//, { timeout: 10000 });
@@ -215,8 +216,9 @@ test.describe('Beach Search - Navigation Behavior', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     // Don't fill search input, just click Explore Nearby
-    const exploreButton = page.getByRole('button', { name: /explore nearby/i });
-    await exploreButton.click();
+    // "Explore nearby spots" is now a link (Button variant="link") not a button
+    const exploreLink = page.getByRole('link', { name: /explore nearby/i });
+    await exploreLink.click();
 
     // Should navigate to map when no search query
     await expect(page).toHaveURL(/\/map/, { timeout: 10000 });

@@ -1,19 +1,19 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Landing Page - Navbar', () => {
-  test('renders sticky navigation with logo and auth buttons', async ({ page }) => {
+  test('renders sticky navigation with logo and log in button on desktop', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     // Check for Quiver logo
     const logo = page.getByRole('link', { name: /quiver/i }).first();
     await expect(logo).toBeVisible({ timeout: 10000 });
 
-    // Check for auth buttons
+    // Check for Log In button (always visible on desktop)
     const logInButton = page.getByRole('link', { name: /log in/i });
-    const signUpButton = page.getByRole('link', { name: /sign up/i });
-    
     await expect(logInButton).toBeVisible();
-    await expect(signUpButton).toBeVisible();
+    
+    // Sign Up button removed from desktop nav per AllTrails design
+    // It's only available in mobile menu
   });
 
   test('explore dropdown menu shows categorized items', async ({ page }) => {
@@ -90,26 +90,28 @@ test.describe('Landing Page - Hero Section', () => {
     await expect(page.getByText(/keep exploring with quiver/i)).toBeVisible({ timeout: 10000 });
   });
 
-  test('explore nearby button navigates correctly without search query', async ({ page }) => {
+  test('explore nearby link navigates correctly without search query', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-    const exploreButton = page.getByRole('button', { name: /explore nearby/i });
-    await expect(exploreButton).toBeVisible({ timeout: 10000 });
+    // "Explore nearby spots" is now a link (Button variant="link") not a button
+    const exploreLink = page.getByRole('link', { name: /explore nearby/i });
+    await expect(exploreLink).toBeVisible({ timeout: 10000 });
     
-    await exploreButton.click();
+    await exploreLink.click();
 
     // Should navigate to map page when no search query
     await expect(page).toHaveURL(/\/map/, { timeout: 10000 });
   });
 
-  test('explore nearby button with search query shows auth gate for guests', async ({ page }) => {
+  test('explore nearby link with search query shows auth gate for guests', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     const searchInput = page.getByPlaceholder(/search by beach, spot, or region/i);
     await searchInput.fill('La Jolla');
 
-    const exploreButton = page.getByRole('button', { name: /explore nearby/i });
-    await exploreButton.click();
+    // "Explore nearby spots" is now a link (Button variant="link") not a button
+    const exploreLink = page.getByRole('link', { name: /explore nearby/i });
+    await exploreLink.click();
 
     // Guest users navigate to map with search params
     await expect(page).toHaveURL(/\/map\?search=/, { timeout: 10000 });
@@ -127,12 +129,16 @@ test.describe('Landing Page - Hero Section', () => {
     await expect(page.getByText(/community reviews/i).first()).toBeVisible();
   });
 
-  test('video background has poster image fallback', async ({ page }) => {
+  test('hero carousel displays with rotating images', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-    // Check for background image (poster/fallback)
-    const backgroundImage = page.locator('img[alt*="Quiver"]').first();
-    await expect(backgroundImage).toBeVisible({ timeout: 10000 });
+    // Check for carousel images (one should be visible)
+    const carouselImages = page.locator('img[alt*="Surfer"], img[alt*="surfer"]');
+    await expect(carouselImages.first()).toBeVisible({ timeout: 10000 });
+    
+    // Verify carousel has proper accessibility attributes
+    const carousel = page.locator('[aria-roledescription="carousel"]');
+    await expect(carousel).toBeVisible();
   });
 });
 
