@@ -66,7 +66,7 @@ export function Navbar() {
   }, {} as Record<string, typeof EXPLORE_MENU_ITEMS>);
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
+    <nav className="absolute top-0 left-0 right-0 z-50 w-full bg-transparent backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -79,7 +79,7 @@ export function Navbar() {
                 height={32}
                 className="transition-transform group-hover:scale-110"
               />
-              <span className="text-2xl font-bold font-roboto text-dark-grey">
+              <span className="text-2xl font-bold font-roboto text-white drop-shadow-lg">
                 Quiver
               </span>
             </Link>
@@ -89,7 +89,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-6">
             {/* Explore Dropdown */}
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 text-dark-grey hover:text-ocean-blue transition-colors font-medium">
+              <DropdownMenuTrigger className="flex items-center gap-1 text-white hover:text-white/80 transition-colors font-medium drop-shadow-lg">
                 Explore
                 <ChevronDown className="h-4 w-4" />
               </DropdownMenuTrigger>
@@ -117,21 +117,19 @@ export function Navbar() {
             {/* Other Nav Links */}
             <Link
               href="/discover"
-              className="text-dark-grey hover:text-ocean-blue transition-colors font-medium"
+              className="text-white hover:text-white/80 transition-colors font-medium drop-shadow-lg"
             >
               Discover
             </Link>
 
             {/* Auth Buttons */}
             <div className="flex items-center gap-3 ml-2">
-              <Button variant="ghost" asChild>
-                <Link href="/auth/sign-in">Log In</Link>
-              </Button>
               <Button
-                className="bg-ocean-blue hover:bg-ocean-blue/90 text-white"
+                variant="outline"
                 asChild
+                className="text-white border-white hover:bg-transparent hover:bg-white/10 hover:text-white font-medium rounded-full px-6 bg-transparent"
               >
-                <Link href="/auth/sign-up">Sign Up</Link>
+                <Link href="/auth/sign-in">Log in</Link>
               </Button>
             </div>
           </div>
@@ -140,7 +138,11 @@ export function Navbar() {
           <div className="md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/10"
+                >
                   {mobileMenuOpen ? (
                     <X className="h-6 w-6" />
                   ) : (
@@ -194,7 +196,7 @@ export function Navbar() {
                         href="/auth/sign-in"
                         onClick={() => setMobileMenuOpen(false)}
                       >
-                        Log In
+                        Log in
                       </Link>
                     </Button>
                     <Button
@@ -205,7 +207,7 @@ export function Navbar() {
                         href="/auth/sign-up"
                         onClick={() => setMobileMenuOpen(false)}
                       >
-                        Sign Up
+                        Sign up
                       </Link>
                     </Button>
                   </div>

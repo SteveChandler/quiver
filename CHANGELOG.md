@@ -16,6 +16,10 @@
 
 ### Fixed
 
+- **Bulk Forecast API Import**: Fixed incorrect import in bulk forecast endpoint
+  - Changed from `createClient` to `createAPIServerClient` to match API server architecture
+  - Updated test mocks to match new import
+  - All 15 tests passing, build warning resolved
 - **Landing Page E2E Tests**: Updated Playwright tests to match AllTrails-style hero carousel redesign
   - Fixed navbar test: Sign Up button now only expected in mobile menu (removed from desktop per design)
   - Updated "Explore Nearby" selectors: Changed from `button` role to `link` role (Button variant="link" renders as anchor tag)

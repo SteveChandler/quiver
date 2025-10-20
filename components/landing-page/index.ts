@@ -1,6 +1,8 @@
 // Landing page section components
 export { Navbar } from "./navbar";
 export { HeroSection } from "./hero-section";
+export { HeroCarousel } from "./hero-carousel";
+export type { HeroCarouselProps, HeroCarouselImage } from "./hero-carousel";
 export { SurfHighlightsSection } from "./surf-highlights-section";
 export { ActivitiesSection } from "./activities-section";
 export { ForecastSection } from "./forecast-section";

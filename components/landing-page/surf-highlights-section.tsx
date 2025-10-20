@@ -101,7 +101,7 @@ export function SurfHighlightsSection() {
   function getFallbackSpots(): SurfSpotCardProps[] {
     return [
       {
-        id: "1",
+        id: "01330afc-00d3-461b-88f3-b173774766f4",
         name: "Black's Beach",
         location: "La Jolla, CA",
         imageUrl: "/images/blacks.jpg",
@@ -115,7 +115,7 @@ export function SurfHighlightsSection() {
         delay: 0,
       },
       {
-        id: "2",
+        id: "b24c6fa9-9f82-4a1e-afcd-0d1fb0ce69d0",
         name: "Swami's",
         location: "Encinitas, CA",
         imageUrl: "/images/Winter-Swamis.jpg",
@@ -129,7 +129,7 @@ export function SurfHighlightsSection() {
         delay: 1,
       },
       {
-        id: "3",
+        id: "17628f35-9ed1-4257-aad6-070c4bd73bb8",
         name: "Tourmaline",
         location: "Pacific Beach, CA",
         imageUrl: "/images/tourmaline.png",
@@ -143,7 +143,7 @@ export function SurfHighlightsSection() {
         delay: 2,
       },
       {
-        id: "4",
+        id: "6f42d47d-215b-47cb-ac14-b83bf8c2a797",
         name: "Windansea",
         location: "La Jolla, CA",
         imageUrl: "/images/windandsea-surf-shack-sunset.jpg",

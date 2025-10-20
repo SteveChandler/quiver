@@ -24,6 +24,10 @@ Provide concise, actionable UI/UX, responsiveness, and architecture-compliance f
 - Run navigation and domain specs for visual/behavior checks
 - Use traces to validate interaction flows
 - Apply development-friendly waits/thresholds from `e2e/ARCHITECTURE.md`
+- Quick prompts:
+  - “Run the guest landing page spec for regressions”
+  - “Open the latest trace for guest-routing.spec.ts”
+  - “List Playwright specs that touch the hero carousel”
 
 ## Guardrails
 

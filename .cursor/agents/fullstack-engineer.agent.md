@@ -34,6 +34,10 @@ Use Playwright MCP to run tests/trace during development:
 - Open traces when failures occur
 - Respect development thresholds/waits from `e2e/ARCHITECTURE.md`
 - Don't create complex Node.js test scripts - use MCP tools directly
+- Quick prompts:
+  - “Run the guest smoke suite and share results”
+  - “Re-run auth.spec.ts and open the latest trace if it fails”
+  - “List Playwright specs covering the session wizard”
 
 ## Guardrails
 

@@ -51,7 +51,22 @@ Configured via `.cursor/mcp.json`:
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {
+        "PLAYWRIGHT_STORAGE_STATE": "e2e/.auth/state.json"
+      }
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=vawdnbbgawichorsjiwe"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "<service_role_or_personal_access_token>"
+      }
     }
   }
 }
@@ -60,6 +75,8 @@ Configured via `.cursor/mcp.json`:
 Notes:
 
 - Tools exposed by the Playwright MCP server support running tests, listing tests, and opening traces. Use development-friendly waits/thresholds per `e2e/ARCHITECTURE.md`.
+- Playwright runs will reuse the signed-in context located at `e2e/.auth/state.json`; refresh it via `npm run test:setup` (or rerun global setup) if auth expires.
+- Ensure the required test credentials (`E2E_USER_EMAIL`/`E2E_USER_PASSWORD` or `TEST_USER_*`) are set before starting Cursor so the global setup can generate the storage state.
 - Local run parity: `npx playwright test` from the repo root.
 
 ## Recommended Workflows

@@ -17,12 +17,23 @@ This directory contains the essential documentation for the Quiver surf app, foc
 - **`DRY_COMPONENT_USAGE.md`** - DRY component patterns and usage examples
 - **`CURSOR_AGENTS.md`** - Development workflow and agent configurations
 - **`TROUBLESHOOTING.md`** - Development troubleshooting guide and common issues
+- **`E2E_TEST_PLAN.md`** - End-to-end testing strategy and patterns
+- **`ACCESSIBILITY_TESTING.md`** - WCAG compliance and accessibility standards
 
 ### **Technical Reference**
 
 - **`SCHEMA_REFERENCE.sql`** - Complete database schema documentation
 - **`MOTION_DESIGN_REVIEW.md`** - Motion design analysis and implementation guide
-- **`SEO_IMPLEMENTATION_SUMMARY.md`** - SEO optimization implementation status and next steps
+- **`REALTIME_OPTIMIZATION_GUIDE.md`** - Supabase realtime performance best practices
+- **`DATABASE_SECURITY_FIXES_2025_10.md`** - Security enhancements and RLS optimization reference
+
+### **Feature Guides**
+
+- **`GAMIFICATION.md`** - Gamification system (XP, badges, levels) - canonical reference
+- **`NPC_DAILY_ACTIVITY_GUIDE.md`** - Automated NPC content seeding system
+- **`NOTIFICATION_TESTING_GUIDE.md`** - Push/email/in-app notification testing
+- **`PUSH_NOTIFICATIONS_SETUP.md`** - Firebase FCM setup for mobile and web
+- **`IOS_APP_RELEASE_STEPS.md`** - Step-by-step iOS App Store submission guide
 
 ### **Research & Context**
 
@@ -46,6 +57,18 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 
 ## 🔄 **Recent Cleanup**
 
+**January 2025 (Latest)**: Major docs folder consolidation from 56 → 21 files (63% reduction):
+
+- **Removed 23 completed implementation guides**: Analytics tracking, beach content refactor, intel setup, monitoring guides, morning intel, NPC seeding deliverables, SEO implementation, motion implementation
+- **Removed 5 historical retention analysis docs**: Oct 2025 user behavior diagnostics and retention discussions (insights captured in current strategy)
+- **Removed 5 one-time setup guides**: Android build steps, Vercel env setup, deploy notifications, app store content, quick test guide
+- **Removed 3 outdated specs**: Original gamification spec, notifications architecture draft, server/client patterns
+- **Consolidated mobile dev guides**: 4 files → 1 comprehensive MOBILE_LAUNCH_ARCHITECTURE.md
+- **Consolidated notification guides**: 5 files → 2 essential references
+- **Kept iOS release guide**: Essential reference for App Store submissions
+- **Moved data files**: CSV webcam data to `scripts/data/` directory
+- **Result**: Streamlined from 56 to 21 focused, actively-maintained documentation files
+
 **October 2025**: Major repository cleanup removing stale documentation and artifacts:
 
 - Removed 44 files tracked by git (completion reports, implementation summaries, temporary test scripts)
@@ -55,14 +78,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 - Removed disabled test files and build artifacts
 - **Result**: Cleaner repository focused on active development; all history preserved in git
 
-**January 2025**: Removed 8 outdated/completed documentation files:
-
-- Completed implementation docs (session conversion, forecast loading, migrations)
-- Outdated planning docs (forecast calibration, global expansion)
-- User feedback analysis (90% complete, remaining items low priority)
-- **Result**: 47% reduction in docs folder size while preserving all essential documentation
-
 ---
 
-**Last Updated**: October 2025  
-**Status**: Streamlined and current-focused documentation
+**Last Updated**: January 2025  
+**Status**: Focused on 21 essential, actively-maintained documentation files
