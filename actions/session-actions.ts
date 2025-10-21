@@ -11,7 +11,9 @@ import type {
   Board,
   Beach,
   SessionMedia,
+  Database,
 } from "@/types/database";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionFormState } from "@/hooks/use-session-form";
 import { 
   transformSessionFormStateToDbSchema, 
@@ -59,6 +61,68 @@ function sanitizePayload<T extends Record<string, any>>(input: T): T {
   return cleaned as T;
 }
 
+type SupabaseClientType = SupabaseClient<Database>;
+
+export async function addFeaturedPhotoToSessions<T extends { id: string; featured_photo_url?: string | null; image_url?: string | null }>(
+  supabase: SupabaseClientType,
+  sessions: T[]
+): Promise<T[]> {
+  if (!sessions || sessions.length === 0) {
+    return sessions;
+  }
+
+  const sessionIds = sessions.map((session) => session.id).filter(Boolean);
+  if (sessionIds.length === 0) {
+    return sessions;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("session_media")
+      .select("session_id, public_url, media_type, created_at")
+      .in("session_id", sessionIds)
+      .in("media_type", ["photo", "image"])
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to fetch session photos for enrichment:", error);
+      return sessions;
+    }
+
+    const featuredPhotoMap = new Map<string, string>();
+    for (const row of data ?? []) {
+      const sessionId = row.session_id;
+      if (!sessionId || featuredPhotoMap.has(sessionId)) continue;
+      if (row.public_url) {
+        featuredPhotoMap.set(sessionId, row.public_url);
+      }
+    }
+
+    return sessions.map((session) => {
+      if (session.featured_photo_url) {
+        return session;
+      }
+      const photoFromMedia = featuredPhotoMap.get(session.id);
+      return {
+        ...session,
+        featured_photo_url: photoFromMedia ?? session.image_url ?? null,
+      };
+    });
+  } catch (error) {
+    console.error("Unexpected error enriching sessions with photos:", error);
+    return sessions;
+  }
+}
+
+export async function addFeaturedPhotoToSession<T extends { id: string; featured_photo_url?: string | null; image_url?: string | null }>(
+  supabase: SupabaseClientType,
+  session: T | null
+): Promise<T | null> {
+  if (!session) return session;
+  const [enriched] = await addFeaturedPhotoToSessions(supabase, [session]);
+  return enriched ?? session;
+}
+
 export async function getUserSessions(userId: string, limit?: number) {
   return withServerAction(async () => {
     const supabase = await createSupabaseServerClient();
@@ -83,7 +147,8 @@ export async function getUserSessions(userId: string, limit?: number) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as SessionWithDetails[];
+      const sessions = (data || []) as SessionWithDetails[];
+      return await addFeaturedPhotoToSessions(supabase, sessions);
     } catch (e) {
       // Enhanced fallback: manually resolve beach relationships when joins fail
       let basic = supabase
@@ -139,7 +204,10 @@ export async function getUserSessions(userId: string, limit?: number) {
         })
       );
       
-      return enhancedSessions as SessionWithDetails[];
+      return (await addFeaturedPhotoToSessions(
+        supabase,
+        enhancedSessions as SessionWithDetails[]
+      )) as SessionWithDetails[];
     }
   });
 }
@@ -171,7 +239,9 @@ export async function getUserSessionsByDateRange(
       throw error;
     }
 
-    return { success: true, data: data as SessionWithDetails[] };
+    const sessions = (data || []) as SessionWithDetails[];
+    const enriched = await addFeaturedPhotoToSessions(supabase, sessions);
+    return { success: true, data: enriched };
   } catch (error) {
     return {
       success: false,
@@ -202,7 +272,9 @@ export async function getSessionById(id: string, userId: string) {
       throw error;
     }
 
-    return { success: true, data: data as SessionWithDetails };
+    const session = data as SessionWithDetails;
+    const enriched = await addFeaturedPhotoToSession(supabase, session);
+    return { success: true, data: enriched as SessionWithDetails };
   } catch (error) {
     return {
       success: false,
@@ -233,7 +305,9 @@ export async function getPublicSessions(limit = 10) {
       throw error;
     }
 
-    return { success: true, data: data as SessionWithDetails[] };
+    const sessions = (data || []) as SessionWithDetails[];
+    const enriched = await addFeaturedPhotoToSessions(supabase, sessions);
+    return { success: true, data: enriched };
   } catch (error) {
     return {
       success: false,
@@ -847,7 +921,9 @@ export async function getSessionsByBeach(beachId: string, limit = 10) {
       throw error;
     }
 
-    return { success: true, data: data as SessionWithDetails[] };
+    const sessions = (data || []) as SessionWithDetails[];
+    const enriched = await addFeaturedPhotoToSessions(supabase, sessions);
+    return { success: true, data: enriched };
   } catch (error) {
     return {
       success: false,
@@ -934,10 +1010,14 @@ export async function getAllSessions(limit = 20) {
       })
     );
     
-    return enhancedSessions;
+    return await addFeaturedPhotoToSessions(
+      supabase,
+      enhancedSessions as SessionWithDetails[]
+    );
   }
 
-  return sessions || [];
+  const hydratedSessions = (sessions || []) as SessionWithDetails[];
+  return await addFeaturedPhotoToSessions(supabase, hydratedSessions);
   });
 }
 

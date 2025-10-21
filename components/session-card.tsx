@@ -36,6 +36,7 @@ interface SessionCardProps {
   rating: number;
   description: string;
   imageUrl: string;
+  imageAlt?: string;
   likes: number;
   comments: number;
   isOwner?: boolean;
@@ -51,6 +52,7 @@ export function SessionCard({
   rating,
   description,
   imageUrl,
+  imageAlt,
   likes,
   comments,
   isOwner = false,
@@ -305,7 +307,10 @@ export function SessionCard({
       <div className="relative h-48 w-full rounded-md overflow-hidden">
         <MapImage
           src={imageUrl || "/placeholder.svg"}
-          alt={`Map showing surf session location at ${beachName}`}
+          alt={
+            imageAlt ??
+            `Map showing surf session location at ${beachName}`
+          }
           fill
           className="object-cover"
           beachName={beachName}

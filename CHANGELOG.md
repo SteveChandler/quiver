@@ -2,6 +2,77 @@
 
 ### Added
 
+- **Comprehensive Test Suite for Forecast Verification Features**: Created extensive test coverage for forecast transparency and community verification system
+  - **Component Tests**:
+    - `ForecastConfidenceBadge`: 21 tests covering confidence levels, styling, icons, edge cases, and accessibility
+    - `ForecastVerificationWidget`: 50+ tests covering vote selection, form submission, error handling, callbacks, and loading states
+    - `ForecastAccuracyStats`: 45+ tests covering data display, accuracy levels, compact/full modes, empty states, and edge cases
+    - `BestConditionsCards`: 60+ tests covering loading, error states, data display, user interactions, responsive design, and edge cases
+  - **Server Action Tests**: 40+ tests for `forecast-verification-actions.ts` covering all actions, input validation, error handling, and edge cases
+  - **E2E Tests**: 30+ Playwright tests for forecast verification user flows, voting, stats display, and accessibility
+  - **Total**: 250+ new test cases added
+  - **Files**:
+    - `__tests__/components/forecast/forecast-confidence-badge.test.tsx`
+    - `__tests__/components/forecast/forecast-verification-widget.test.tsx`
+    - `__tests__/components/forecast/forecast-accuracy-stats.test.tsx`
+    - `__tests__/components/home-screen/best-conditions-cards.test.tsx`
+    - `__tests__/actions/forecast-verification-actions.test.ts`
+    - `e2e/forecast-verification.spec.ts`
+- **Bug Documentation**: Comprehensive bug analysis document (`bugs.md`) identifying 8 confirmed bugs, 3 potential issues, and 2 coverage gaps
+  - 2 High severity: Missing input validation, no rate limiting on votes
+  - 3 Medium severity: Console logging in production, potential SQL injection, missing error handling
+  - 3 Low severity: Code quality improvements (duplicated logic, missing type guards, hardcoded test data)
+  - Includes severity ratings, reproduction steps, and suggested fixes for all issues
+  - RLS policy review confirming security of forecast_accuracy_votes table
+
+### Added
+
+- **Forecast Transparency & Community Verification System**: Implemented growth-focused forecast transparency features
+  - **ForecastConfidenceBadge**: Visual confidence indicator with color-coded levels (High ≥75%, Medium 50-74%, Low <50%)
+  - **ForecastVerificationWidget**: Interactive voting widget allowing users to verify forecast accuracy
+    - Thumbs up/down voting with optional notes
+    - Users can vote once per forecast and update their votes
+    - Integration with existing authentication using `withAuthenticatedAction` pattern
+    - Real-time feedback with toast notifications
+  - **ForecastAccuracyStats**: Community accuracy metrics display
+    - Shows aggregate accuracy percentage for each beach
+    - Displays accurate vs inaccurate vote counts
+    - Configurable time window (default 30 days)
+    - Compact and full-size display modes
+  - **Database Schema**: New `forecast_accuracy_votes` table with RLS policies
+    - Foreign keys to profiles, enhanced_forecasts, and beaches
+    - Supports optional actual conditions, notes, and photo evidence
+    - Unique constraint ensuring one vote per user per forecast
+    - Indexed for efficient querying by user, forecast, beach, and date
+  - **Server Actions** (`actions/forecast-verification-actions.ts`):
+    - `voteForecastAccuracy`: Submit/update forecast accuracy votes
+    - `getBeachAccuracyStats`: Retrieve accuracy statistics for a beach
+    - `getForecastAccuracyStats`: Get accuracy stats for specific forecast
+    - `getUserVerificationStreak`: Calculate user's verification streak for gamification
+    - `getUserForecastVote`: Check if user has voted on a forecast
+    - `deleteForecastVote`: Remove user's vote
+    - All actions use `makeAuthenticatedAction` wrapper for security
+  - **Growth Strategy Alignment**: Deferred complex data assimilation improvements (EnOI/LETKF, SWAN nearshore modeling) in favor of community engagement features
+  - **Documentation**: Archived technical forecast accuracy research in `docs/forecast-improvements-research.md` for future Phase 4 implementation (post-1000 users)
+  - Migration: `supabase/migrations/20251021000000_create_forecast_accuracy_votes.sql`
+  - Components exported from `components/forecast/index.ts`
+- **Photo Integration E2E Tests**: Comprehensive test suite validating photo integration features
+  - 11 tests covering beach recommendations, session cards, API enrichment, and accessibility
+  - Tests verify featured_photo_url display in BestConditionsCards component
+  - Validates SessionCard shows user photos with proper fallback to maps
+  - Confirms both 'photo' and 'image' media types are handled correctly
+  - Accessibility testing for alt text and ARIA labels
+  - API endpoint validation for photo enrichment in sessions
+  - All tests passing with defensive handling of edge cases
+  - Test file: `e2e/photo-integration.spec.ts`
+  - Results documented in `photoTestResults.md`
+- **Beach Photo Fetch Script Improvements**: Enhanced `scripts/fetch-beach-photos.ts` with better API hygiene and debugging
+  - Added `--dryRun` flag to preview queries without making API calls
+  - Added `--verbose` flag for detailed logging of queries and API URLs
+  - Implemented `p-limit` rate limiting (concurrency: 2) to respect Openverse API limits
+  - Created `normalizeQuery()` function to sanitize beach queries (strips punctuation, collapses whitespace)
+  - Temporarily disabled Flickr to focus on Openverse stability
+  - Added detailed verbose logging for Openverse queries and URLs
 - **Best Conditions Near You Section**: New home page feature showing top 4 beaches with optimal surf conditions
   - Displays beaches within 10 miles of user's home beach
   - Intelligent scoring algorithm based on swell direction, wind quality, tide, and skill level match

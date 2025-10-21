@@ -4108,6 +4108,7 @@ export type SessionWithDetails = Session & {
   crowd_rating?: number | null;
   notes?: string | null;
   duration_minutes?: number | null;
+  featured_photo_url?: string | null;
 };
 export type SessionPhoto = PublicTables extends { session_media: { Row: infer R } }
   ? R

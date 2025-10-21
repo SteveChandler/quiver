@@ -14,7 +14,7 @@ export async function getBestBeachPhotosAction(beachId: string, limit = 12) {
       .select(
         `id, created_at, storage_path, media_type, session:sessions!inner(id, beach_id)`
       )
-      .eq("media_type", "image")
+      .in("media_type", ["photo", "image"])
       .eq("session.beach_id", beachId)
       .order("created_at", { ascending: false })
       .limit(limit);

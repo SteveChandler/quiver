@@ -310,6 +310,46 @@ export async function getBestBeachesNearHome() {
 
     const beachIds = nearbyBeaches.map((beach) => beach.id);
 
+    const beachPhotoMap = new Map<string, string>();
+    if (beachIds.length > 0) {
+      try {
+        const { data: beachPhotos, error: beachPhotosError } = await supabase
+          .from("session_media")
+          .select(
+            `
+            session_id,
+            public_url,
+            media_type,
+            created_at,
+            session:sessions!inner(beach_id)
+          `
+          )
+          .in("media_type", ["photo", "image"])
+          .in("session.beach_id", beachIds)
+          .order("created_at", { ascending: false });
+
+        if (beachPhotosError) {
+          console.error(
+            "[getBestBeachesNearHome] Failed to load beach photos",
+            beachPhotosError
+          );
+        } else {
+          for (const row of beachPhotos ?? []) {
+            const beachId = (row as any)?.session?.beach_id as
+              | string
+              | undefined;
+            if (!beachId || beachPhotoMap.has(beachId)) continue;
+            beachPhotoMap.set(beachId, row.public_url as string);
+          }
+        }
+      } catch (photoError) {
+        console.error(
+          "[getBestBeachesNearHome] Unexpected error loading beach photos",
+          photoError
+        );
+      }
+    }
+
     const { data: beachDetails, error: beachDetailsError } = await supabase
       .from("beaches")
       .select(
@@ -482,7 +522,7 @@ export async function getBestBeachesNearHome() {
         distance_miles: toDistanceMilesString(nearby.distance_meters),
         score: Math.round(finalScore),
         reasons: reasonsWithIntel,
-        image_url: null,
+        image_url: beachPhotoMap.get(nearby.id) ?? null,
         wave_height: waveHeight,
         wave_direction: waveDirection,
         wind_speed: windSpeedMph != null ? Math.round(windSpeedMph) : 0,

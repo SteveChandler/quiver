@@ -15,6 +15,7 @@ OPENVERSE_API_URL=https://api.openverse.org/v1/images/
 import "dotenv/config";
 import fetch from "node-fetch";
 import { createClient } from "@supabase/supabase-js";
+import pLimit from "p-limit";
 
 type Beach = {
   id: string;
@@ -80,15 +81,27 @@ type FlickrSearchResp = {
 };
 
 const args = new Map<string, string>();
-process.argv.slice(2).forEach((arg) => {
-  const [key, value] = arg.startsWith("--") ? arg.slice(2).split("=") : [arg, "true"];
-  args.set(key, value ?? "true");
-});
+for (let i = 2; i < process.argv.length; i++) {
+  const arg = process.argv[i];
+  if (arg.startsWith("--")) {
+    const [key, value] = arg.slice(2).split("=");
+    if (value !== undefined) {
+      args.set(key, value);
+    } else if (i + 1 < process.argv.length && !process.argv[i + 1].startsWith("--")) {
+      args.set(key, process.argv[i + 1]);
+      i++;
+    } else {
+      args.set(key, "true");
+    }
+  }
+}
 
 const LIMIT = Number(args.get("limit") ?? "6");
 const ONLY = args.get("only");
 const BEACH_ID = args.get("beachId");
 const RADIUS_KM = Number(args.get("radiusKm") ?? "2");
+const DRY_RUN = args.get("dryRun") === "true";
+const VERBOSE = args.get("verbose") === "true";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -180,6 +193,30 @@ async function getBeaches(): Promise<Beach[]> {
   return (data as Beach[]) ?? [];
 }
 
+function normalizeQuery(beach: Beach): string {
+  const place = beach.location ?? beach.region ?? "";
+  const country = beach.country ?? "";
+
+  // Build query parts
+  const parts = [beach.name, "beach", place, country]
+    .filter(Boolean)
+    .map(part =>
+      part
+        .trim()
+        .replace(/[^\w\s-]/g, " ") // Strip punctuation except hyphens
+        .replace(/\s+/g, " ") // Collapse whitespace
+        .trim()
+    )
+    .filter(part => part.length > 0);
+
+  // Fallback: if name is very short, prioritize region + country
+  if (beach.name.length <= 3 && beach.region && beach.country) {
+    return `${beach.region} ${beach.country} beach`.replace(/\s+/g, " ").trim();
+  }
+
+  return parts.join(" ");
+}
+
 async function upsertPhoto(record: PhotoRecord) {
   const { error } = await supabase.from("beach_photos").upsert(record, {
     onConflict: "beach_id,source,source_id",
@@ -189,34 +226,66 @@ async function upsertPhoto(record: PhotoRecord) {
 }
 
 async function fetchOpenverse(beach: Beach, limit = LIMIT): Promise<PhotoRecord[]> {
-  const place = beach.location ?? beach.region ?? "";
-  const query = encodeURIComponent(`${beach.name} beach ${place} ${beach.country ?? ""}`.trim());
+  const normalizedQuery = normalizeQuery(beach);
+  const query = encodeURIComponent(normalizedQuery);
   const url = `${process.env.OPENVERSE_API_URL}?q=${query}&license_type=commercial&format=json&page_size=${limit}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Openverse error ${res.status}`);
-  const json = (await res.json()) as { results?: OpenverseItem[] };
-  const results: OpenverseItem[] = json.results ?? [];
-  return results.map((item) => ({
-    beach_id: beach.id,
-    source: "openverse",
-    source_id: item.id,
-    image_url: item.url,
-    thumb_url: item.thumbnail,
-    title: item.title ?? null,
-    creator_name: item.creator ?? null,
-    creator_url: item.creator_url ?? null,
-    license_code: item.license_version ? `${item.license.toUpperCase()} ${item.license_version}` : item.license.toUpperCase(),
-    license_url: item.license_url ?? null,
-    attribution_html: buildAttributionHtml({
-      source: "Openverse",
-      creator_name: item.creator,
-      creator_url: item.creator_url ?? undefined,
-      license_code: item.license ? item.license.toUpperCase() : undefined,
-      license_url: item.license_url ?? undefined,
-      title: item.title ?? undefined,
-    }),
-    fetched_at: new Date().toISOString(),
-  }));
+
+  if (VERBOSE) {
+    console.log(`[Openverse] Query for ${beach.name}: "${normalizedQuery}"`);
+    console.log(`[Openverse] URL: ${url}`);
+  }
+
+  let retries = 3;
+  let backoffMs = 1000;
+
+  while (retries > 0) {
+    const res = await fetch(url, {
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "Quiver-BeachPhotos/1.0",
+      },
+    });
+
+    if (res.status === 429) {
+      console.warn(`Rate limited by Openverse for ${beach.name}, retrying in ${backoffMs}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      backoffMs *= 2;
+      retries--;
+      continue;
+    }
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`Openverse error ${res.status} for ${beach.name}:`, body);
+      throw new Error(`Openverse error ${res.status}: ${body}`);
+    }
+
+    const json = (await res.json()) as { results?: OpenverseItem[] };
+    const results: OpenverseItem[] = json.results ?? [];
+    return results.map((item) => ({
+      beach_id: beach.id,
+      source: "openverse",
+      source_id: item.id,
+      image_url: item.url,
+      thumb_url: item.thumbnail,
+      title: item.title ?? null,
+      creator_name: item.creator ?? null,
+      creator_url: item.creator_url ?? null,
+      license_code: item.license_version ? `${item.license.toUpperCase()} ${item.license_version}` : item.license.toUpperCase(),
+      license_url: item.license_url ?? null,
+      attribution_html: buildAttributionHtml({
+        source: "Openverse",
+        creator_name: item.creator,
+        creator_url: item.creator_url ?? undefined,
+        license_code: item.license ? item.license.toUpperCase() : undefined,
+        license_url: item.license_url ?? undefined,
+        title: item.title ?? undefined,
+      }),
+      fetched_at: new Date().toISOString(),
+    }));
+  }
+
+  throw new Error(`Openverse rate limit exceeded for ${beach.name} after retries`);
 }
 
 async function fetchFlickr(beach: Beach, limit = LIMIT): Promise<PhotoRecord[]> {
@@ -270,37 +339,54 @@ async function fetchFlickr(beach: Beach, limit = LIMIT): Promise<PhotoRecord[]> 
 async function main() {
   const beaches = await getBeaches();
   console.log("Beaches to fetch:", beaches.length);
-  for (const beach of beaches) {
-    try {
+
+  if (DRY_RUN) {
+    console.log("\n[DRY RUN] Would process the following beaches:");
+    for (const beach of beaches) {
       const place = beach.location ?? beach.region ?? "";
-      console.log(`Processing ${beach.name} (${place})`);
-      const [openverseResult, flickrResult] = await Promise.allSettled([
-        fetchOpenverse(beach, LIMIT),
-        fetchFlickr(beach, LIMIT),
-      ]);
-      const items: PhotoRecord[] = [];
-      if (openverseResult.status === "fulfilled") {
-        items.push(...openverseResult.value);
-      } else {
-        console.error(`Openverse failed for ${beach.name}:`, openverseResult.reason);
-      }
-      if (flickrResult.status === "fulfilled") {
-        items.push(...flickrResult.value);
-      } else {
-        console.error(`Flickr failed for ${beach.name}:`, flickrResult.reason);
-      }
-      const seen = new Set<string>();
-      for (const record of items) {
-        if (seen.has(record.image_url)) continue;
-        seen.add(record.image_url);
-        await upsertPhoto(record);
-      }
-      console.log(`Saved ${seen.size} photos.`);
-      await new Promise((resolve) => setTimeout(resolve, 800));
-    } catch (err) {
-      console.error(`Error on ${beach.name}:`, err);
+      const query = normalizeQuery(beach);
+      console.log(`  - ${beach.name} (${place})`);
+      console.log(`    Query: "${query}"`);
     }
+    console.log("\nDry run complete. No API calls made.");
+    return;
   }
+
+  // Limit concurrency to 2 requests at a time to respect rate limits
+  const limit = pLimit(2);
+
+  const tasks = beaches.map((beach) =>
+    limit(async () => {
+      try {
+        const place = beach.location ?? beach.region ?? "";
+        console.log(`Processing ${beach.name} (${place})`);
+
+        // Only fetch from Openverse for now (Flickr disabled)
+        const openverseResult = await fetchOpenverse(beach, LIMIT).catch((err) => {
+          console.error(`Openverse failed for ${beach.name}:`, err);
+          return [];
+        });
+
+        const items: PhotoRecord[] = openverseResult;
+        const seen = new Set<string>();
+
+        for (const record of items) {
+          if (seen.has(record.image_url)) continue;
+          seen.add(record.image_url);
+          await upsertPhoto(record);
+        }
+
+        console.log(`Saved ${seen.size} photos for ${beach.name}.`);
+
+        // Add delay between beaches to respect rate limits
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      } catch (err) {
+        console.error(`Error on ${beach.name}:`, err);
+      }
+    })
+  );
+
+  await Promise.all(tasks);
   console.log("Done");
 }
 
