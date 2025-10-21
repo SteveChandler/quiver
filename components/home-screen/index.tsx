@@ -22,6 +22,7 @@ import { ForecastTab } from "./forecast-tab";
 import { NearbyTab } from "./nearby-tab";
 import { CommunityTab } from "./community-tab";
 import { NearbyBeachChips } from "./nearby-beach-chips";
+import { BestConditionsCards } from "./best-conditions-cards";
 
 // Loading component for tabs
 function TabSkeleton() {
@@ -156,6 +157,20 @@ export function HomeScreen() {
             </Button>
           </div>
         </section>
+
+        {/* Best Conditions Section - Only show if user has home beach */}
+        {(() => {
+          console.log("[HomeScreen] homeBeach check:", {
+            hasHomeBeach: !!homeBeach,
+            homeBeachId: homeBeach?.id,
+            homeBeachName: homeBeach?.name,
+          });
+          return homeBeach ? (
+            <section className="centered-container">
+              <BestConditionsCards />
+            </section>
+          ) : null;
+        })()}
 
         {/* Tabs Section */}
         <section className="centered-container">

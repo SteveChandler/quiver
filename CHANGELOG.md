@@ -2,6 +2,20 @@
 
 ### Added
 
+- **Best Conditions Near You Section**: New home page feature showing top 4 beaches with optimal surf conditions
+  - Displays beaches within 10 miles of user's home beach
+  - Intelligent scoring algorithm based on swell direction, wind quality, tide, and skill level match
+  - Real-time conditions: wave height/direction, wind description, tide status
+  - Community-generated photos from session media (with fallback to beach default images)
+  - Horizontal scrollable cards optimized for mobile
+  - Skill level and crowd level badges for quick assessment
+  - "Hidden Gem" badge for high-scoring uncrowded spots (score ≥70, uncrowded)
+  - Click-through to beach detail pages
+  - Only displayed when user has set home beach preference
+  - Uses existing `get_nearby_beaches()` RPC and `scoreRecommendation()` utilities
+  - Server action: `actions/beach/nearby-best-conditions-actions.ts`
+  - Component: `components/home-screen/best-conditions-cards.tsx`
+  - Types: `types/beach-recommendations.ts`
 - **Bulk Forecast Endpoint Tests**: Created comprehensive test suite for `/api/forecasts/bulk` endpoint
   - 15 tests covering all edge cases (empty parameters, multiple beaches, error handling)
   - Verifies forward-looking forecast selection logic
@@ -16,6 +30,13 @@
 
 ### Fixed
 
+- **Best Conditions Cards Not Displaying**: Fixed parameter mismatch and variable naming error in `getBestBeachesNearHome()`
+  - Changed RPC parameters from `input_lat/input_lng` to `lat/lng` to match latest database migrations
+  - Fixed `ReferenceError: wave_direction is not defined` - changed object literal shorthand to explicit property assignment for `wave_direction` and `wind_description`
+  - Added comprehensive debug logging throughout function execution
+  - Improved error handling and response structure validation
+  - Component now correctly displays top 4 beaches with best conditions near user's home beach
+  - File: `actions/beach/best-beaches-simple.ts`
 - **Bulk Forecast API Import**: Fixed incorrect import in bulk forecast endpoint
   - Changed from `createClient` to `createAPIServerClient` to match API server architecture
   - Updated test mocks to match new import
