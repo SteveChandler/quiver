@@ -32,6 +32,7 @@ jest-run*.pid
 
 # local env files
 .env*.local
+.env.*.local
 
 # vercel
 .vercel
@@ -69,6 +70,8 @@ Thumbs.db
 scripts/setup-dev-cron.sh
 .github/workflows/forecast-update.yml.template
 .env
+.supabase
+.codex/
 .cursorrules
 
 # Performance testing results

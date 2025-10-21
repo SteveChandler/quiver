@@ -14,34 +14,60 @@ export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
+  const navigateToMap = (query?: string) => {
+    const url = query
+      ? `/map?search=${encodeURIComponent(query)}`
+      : "/map";
+    router.push(url);
+    if (typeof window !== "undefined") {
+      window.location.href = url;
+    }
+  };
+
+  const performSearch = async (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      navigateToMap();
+      return;
+    }
 
     try {
-      // Search for matching beach
       const response = await fetch(
-        `/api/beaches/search?query=${encodeURIComponent(searchQuery.trim())}`
+        `/api/beaches/search?query=${encodeURIComponent(trimmed)}`
       );
 
       if (response.ok) {
         const beaches = await response.json();
 
-        // If we found beaches, navigate to the first match using beach ID
-        if (beaches && beaches.length > 0) {
+        if (Array.isArray(beaches) && beaches.length > 0) {
           const beach = beaches[0];
-          router.push(`/beach/${beach.id}`);
-          return;
+          if (beach?.id) {
+            router.push(`/beach/${beach.id}`);
+            return;
+          }
         }
       }
-
-      // Fallback: if no beach found, go to map with search query
-      router.push(`/map?search=${encodeURIComponent(searchQuery.trim())}`);
     } catch (error) {
       console.error("Search error:", error);
-      // Fallback to map on error
-      router.push(`/map?search=${encodeURIComponent(searchQuery.trim())}`);
     }
+
+    navigateToMap(trimmed);
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    await performSearch(searchQuery);
+  };
+
+  const handleExploreClick = async (
+    event: React.MouseEvent<HTMLAnchorElement>
+  ) => {
+    if (!searchQuery.trim()) {
+      return;
+    }
+    event.preventDefault();
+    await performSearch(searchQuery);
   };
 
   return (
@@ -93,7 +119,9 @@ export function HeroSection() {
             asChild
             className="text-white underline underline-offset-4 hover:text-white/90 text-base sm:text-lg p-0 h-auto font-normal"
           >
-            <a href="/map">Explore nearby spots</a>
+            <a href="/map" onClick={handleExploreClick}>
+              Explore nearby spots
+            </a>
           </Button>
         </motion.div>
       </motion.div>

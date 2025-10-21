@@ -68,11 +68,12 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
         Notifications
       </h3>
       <p className="text-sm text-gray-900 dark:text-gray-100">
-        Choose how you'd like to get updates about your sessions and friends.
+        Choose how you&apos;d like to get updates about your sessions and
+        friends.
       </p>
       <p className="text-xs text-gray-800 dark:text-gray-200">
-        You can change these anytime — we'll only notify you about things you
-        care about.
+        You can change these anytime — we&apos;ll only notify you about things
+        you care about.
       </p>
 
       {/* Master Notification Toggles */}

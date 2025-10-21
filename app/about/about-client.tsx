@@ -361,7 +361,10 @@ export default function AboutPageClient() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-white transition-colors">
+                  <Link
+                    href="mailto:support@quiversurf.app"
+                    className="hover:text-white transition-colors"
+                  >
                     Contact
                   </Link>
                 </li>

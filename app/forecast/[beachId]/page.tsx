@@ -22,7 +22,7 @@ export default async function ForecastPage({
             <div className="text-center py-12">
               <h2 className="text-2xl font-bold mb-2">Beach Not Found</h2>
               <p className="text-muted-foreground">
-                We couldn't find forecast data for this beach.
+                We couldn&apos;t find forecast data for this beach.
               </p>
             </div>
           </main>

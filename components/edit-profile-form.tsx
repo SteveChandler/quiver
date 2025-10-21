@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef, useEffect, startTransition } from "react";
+import { useState, useRef, useEffect, startTransition, useId } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -105,6 +105,7 @@ export function EditProfileForm({
   const [isUploading, setIsUploading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [homeBeachText, setHomeBeachText] = useState("");
+  const homeBeachFieldId = useId();
   // Remove immediate update for home beach; save on form submit
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -439,9 +440,12 @@ export function EditProfileForm({
               <h3 className="text-sm font-medium">Surf Information</h3>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Home Beach</label>
+                <label className="text-sm font-medium" htmlFor={homeBeachFieldId}>
+                  Home Beach
+                </label>
                 <BeachSelector
                   initialValue={homeBeachText}
+                  inputId={homeBeachFieldId}
                   onBeachSelected={(beach) => {
                     // If a real beach was selected, set the id; else keep text fallback
                     if (beach?.id) {

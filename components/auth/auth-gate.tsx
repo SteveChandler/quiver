@@ -40,6 +40,7 @@ export default function AuthGate({
   const [emailSent, setEmailSent] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const emailInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Email validation
   const isEmailValid = React.useMemo(() => {
@@ -56,6 +57,12 @@ export default function AuthGate({
     const q = search?.toString();
     return q ? `${pathname}?${q}` : pathname || "/";
   }, [pathname, search]);
+
+  React.useEffect(() => {
+    if (showEmailInput) {
+      emailInputRef.current?.focus();
+    }
+  }, [showEmailInput]);
 
   // Track when user dismissed the modal
   const dismissalTimeRef = React.useRef<number | null>(null);
@@ -253,147 +260,155 @@ export default function AuthGate({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className="sm:max-w-md"
-        onInteractOutside={(e) => !closable && e.preventDefault()}
-        onEscapeKeyDown={(e) => !closable && e.preventDefault()}
-      >
-        <DialogHeader className="space-y-1">
-          <DialogTitle className="flex items-center gap-2">
-            <Image
-              src="/logoQuiver.png"
-              alt="Quiver Logo"
-              width={20}
-              height={20}
-            />
-            Keep exploring with Quiver
-          </DialogTitle>
-          <DialogDescription>
-            Log in or sign up for free to view full maps, plan sessions, and
-            join the surf community.
-          </DialogDescription>
-        </DialogHeader>
+      {open && (
+        <DialogContent
+          className="sm:max-w-md"
+          onInteractOutside={(e) => !closable && e.preventDefault()}
+          onEscapeKeyDown={(e) => !closable && e.preventDefault()}
+        >
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="flex items-center gap-2">
+              <Image
+                src="/logoQuiver.png"
+                alt="Quiver Logo"
+                width={20}
+                height={20}
+              />
+              Keep exploring with Quiver
+            </DialogTitle>
+            <DialogDescription>
+              Log in or sign up for free to view full maps, plan sessions, and
+              join the surf community.
+            </DialogDescription>
+          </DialogHeader>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+          <p className="text-xs text-muted-foreground">
+            Return to{" "}
+            <span className="font-medium break-all">{returnTo}</span> after you
+            sign in.
+          </p>
 
-        {emailSent ? (
-          <div className="py-4 text-center space-y-3">
-            <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <Mail className="h-6 w-6 text-green-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold">Check your email</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                We sent a magic link to{" "}
-                <span className="font-medium">{email}</span>
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEmailSent(false);
-                setEmail("");
-                setError(null);
-              }}
-              className="mt-4"
-            >
-              Try a different email
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-3 pt-2">
-            {!showEmailInput ? (
-              <>
-                <Button
-                  onClick={() => startOAuth("google")}
-                  className="w-full"
-                  size="lg"
-                  variant="default"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <LogIn className="mr-2 h-4 w-4" />
-                  )}
-                  Continue with Google
-                </Button>
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      or
-                    </span>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={() => {
-                    setShowEmailInput(true);
-                    setError(null);
-                  }}
-                  className="w-full"
-                  size="lg"
-                  variant="outline"
-                >
-                  <Mail className="mr-2 h-4 w-4" />
-                  Sign in with Email
-                </Button>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        startEmailLink();
-                      }
-                    }}
-                    autoFocus
-                  />
-                </div>
-                <Button
-                  onClick={startEmailLink}
-                  className="w-full"
-                  size="lg"
-                  disabled={!isEmailValid || loading}
-                >
-                  {loading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Mail className="mr-2 h-4 w-4" />
-                  )}
-                  Send Magic Link
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowEmailInput(false);
-                    setError(null);
-                  }}
-                  variant="ghost"
-                  className="w-full"
-                >
-                  Back to sign in options
-                </Button>
+          {emailSent ? (
+            <div className="py-4 text-center space-y-3">
+              <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <Mail className="h-6 w-6 text-green-600" />
               </div>
-            )}
-          </div>
-        )}
-      </DialogContent>
+              <div>
+                <h3 className="font-semibold">Check your email</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  We sent a magic link to{" "}
+                  <span className="font-medium">{email}</span>
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEmailSent(false);
+                  setEmail("");
+                  setError(null);
+                }}
+                className="mt-4"
+              >
+                Try a different email
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-3 pt-2">
+              {!showEmailInput ? (
+                <>
+                  <Button
+                    onClick={() => startOAuth("google")}
+                    className="w-full"
+                    size="lg"
+                    variant="default"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <LogIn className="mr-2 h-4 w-4" />
+                    )}
+                    Continue with Google
+                  </Button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">
+                        or
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => {
+                      setShowEmailInput(true);
+                      setError(null);
+                    }}
+                    className="w-full"
+                    size="lg"
+                    variant="outline"
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    Sign in with Email
+                  </Button>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your.email@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          startEmailLink();
+                        }
+                      }}
+                      ref={emailInputRef}
+                    />
+                  </div>
+                  <Button
+                    onClick={startEmailLink}
+                    className="w-full"
+                    size="lg"
+                    disabled={!isEmailValid || loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Mail className="mr-2 h-4 w-4" />
+                    )}
+                    Send Magic Link
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowEmailInput(false);
+                      setError(null);
+                    }}
+                    variant="ghost"
+                    className="w-full"
+                  >
+                    Back to sign in options
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      )}
     </Dialog>
   );
 }

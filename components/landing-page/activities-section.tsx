@@ -82,7 +82,7 @@ export function ActivitiesSection() {
         className="mt-12 text-center max-w-2xl mx-auto"
       >
         <p className="text-gray-600 font-open-sans">
-          Whether you're a beginner looking for mellow waves or an expert
+          Whether you&apos;re a beginner looking for mellow waves or an expert
           seeking the gnarliest breaks, Quiver helps you find the perfect spot
           for your style.
         </p>

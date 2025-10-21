@@ -19,7 +19,7 @@ export default function SignInPage() {
             Enter your email and password to sign in to your account
           </p>
           <p className="text-xs text-muted-foreground">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <a href="/auth/sign-up" className="text-primary hover:underline">
               Sign up
             </a>

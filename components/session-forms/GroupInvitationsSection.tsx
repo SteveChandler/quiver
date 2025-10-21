@@ -159,9 +159,9 @@ export function GroupInvitationsSection({
     <div className="pt-4 border-t space-y-4" data-testid="group-invitations">
       <div className="flex items-center mb-3">
         <Users className="w-4 h-4 mr-2 text-primary" />
-        <label className="block text-sm font-medium">
+        <span className="block text-sm font-medium">
           Invite from Following (Optional)
-        </label>
+        </span>
       </div>
 
       {/* Friends from Following List */}

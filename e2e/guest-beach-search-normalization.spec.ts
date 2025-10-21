@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 // Tests for beach search text normalization and alias expansion bug fixes
 // Validates that searches like "blacks beach" find "Black's Beach"
@@ -6,6 +6,19 @@ import { test, expect } from '@playwright/test';
 // NOTE: These tests are for the LANDING PAGE search feature
 // They run as GUEST tests (unauthenticated) because authenticated users
 // see the home screen at '/', not the landing page with hero search
+
+async function dismissAuthGateIfPresent(page: Page) {
+  const dialog = page.getByRole("dialog");
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const isVisible = await dialog.isVisible().catch(() => false);
+    if (isVisible) {
+      await page.keyboard.press("Escape");
+      await expect(dialog).not.toBeVisible({ timeout: 2000 });
+      return;
+    }
+    await page.waitForTimeout(500);
+  }
+}
 
 test.describe('Beach Search - Text Normalization', () => {
   test('finds beach with apostrophe using search without apostrophe', async ({ page }) => {
@@ -19,6 +32,7 @@ test.describe('Beach Search - Text Normalization', () => {
     await expect(page).toHaveURL(/\/beach\//, { timeout: 10000 });
 
     // Page should load without errors
+    await dismissAuthGateIfPresent(page);
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible({ timeout: 15000 });
     
@@ -39,6 +53,7 @@ test.describe('Beach Search - Text Normalization', () => {
     // Should find and navigate to La Jolla beach
     await expect(page).toHaveURL(/\/beach\//, { timeout: 10000 });
 
+    await dismissAuthGateIfPresent(page);
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible({ timeout: 15000 });
     
@@ -58,6 +73,7 @@ test.describe('Beach Search - Text Normalization', () => {
     // Should find Ocean Beach
     await expect(page).toHaveURL(/\/beach\//, { timeout: 10000 });
 
+    await dismissAuthGateIfPresent(page);
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible({ timeout: 15000 });
     
@@ -77,6 +93,7 @@ test.describe('Beach Search - Text Normalization', () => {
     // Should navigate to beach page
     await expect(page).toHaveURL(/\/beach\//, { timeout: 10000 });
 
+    await dismissAuthGateIfPresent(page);
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible({ timeout: 15000 });
   });
@@ -93,6 +110,7 @@ test.describe('Beach Search - Alias Expansion', () => {
     // Should find Pacific Beach
     await expect(page).toHaveURL(/\/beach\//, { timeout: 10000 });
 
+    await dismissAuthGateIfPresent(page);
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible({ timeout: 15000 });
     
@@ -110,6 +128,7 @@ test.describe('Beach Search - Alias Expansion', () => {
     // Should find Ocean Beach
     await expect(page).toHaveURL(/\/beach\//, { timeout: 10000 });
 
+    await dismissAuthGateIfPresent(page);
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible({ timeout: 15000 });
     
@@ -127,6 +146,7 @@ test.describe('Beach Search - Alias Expansion', () => {
     // Should find Imperial Beach
     await expect(page).toHaveURL(/\/beach\//, { timeout: 10000 });
 
+    await dismissAuthGateIfPresent(page);
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible({ timeout: 15000 });
     
@@ -144,6 +164,7 @@ test.describe('Beach Search - Alias Expansion', () => {
     // Should find Swami's
     await expect(page).toHaveURL(/\/beach\//, { timeout: 10000 });
 
+    await dismissAuthGateIfPresent(page);
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible({ timeout: 15000 });
     
@@ -288,4 +309,3 @@ test.describe('Beach Search - Error Handling', () => {
     expect(url).toMatch(/\/map/);
   });
 });
-

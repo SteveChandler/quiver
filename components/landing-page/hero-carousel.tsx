@@ -1,10 +1,52 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { motion } from "framer-motion";
 import Image from "next/image";
 
 const OCEAN_BLUE = "#0077B6";
+
+const DEFAULT_SLIDES: HeroCarouselImage[] = [
+  {
+    src: "/3sunset.jpg",
+    alt: "Surfers walking at golden hour",
+    focal: "left",
+    edge: "right",
+  },
+  {
+    src: "/4groms.jpg",
+    alt: "Group of surfers at the beach",
+    focal: "center",
+    edge: "right",
+  },
+  {
+    src: "/oneChic.jpg",
+    alt: "Surfer walking to the beach with surfboard",
+    focal: "left",
+    edge: "right",
+  },
+  {
+    src: "/sunsetBeach.jpg",
+    alt: "Lone surfer at sunset",
+    focal: "right",
+    edge: "right",
+  },
+];
+
+const FOCAL_TO_POSITION: Record<
+  HeroCarouselImage["focal"],
+  CSSProperties["objectPosition"]
+> = {
+  left: "center left",
+  center: "center",
+  right: "center right",
+};
 
 export type HeroCarouselImage = {
   src: string;
@@ -26,50 +68,52 @@ export function HeroCarousel({
   className = "",
   overlay = true,
 }: HeroCarouselProps) {
-  const slides: HeroCarouselImage[] = images ?? [
-    {
-      src: "/3sunset.jpg",
-      alt: "Surfers walking at golden hour",
-      focal: "left",
-      edge: "right",
-    },
-    {
-      src: "/4groms.jpg",
-      alt: "Group of surfers at the beach",
-      focal: "center",
-      edge: "right",
-    },
-    {
-      src: "/oneChic.jpg",
-      alt: "Surfer walking to the beach with surfboard",
-      focal: "left",
-      edge: "right",
-    },
-    {
-      src: "/sunsetBeach.jpg",
-      alt: "Lone surfer at sunset",
-      focal: "right",
-      edge: "right",
-    },
-  ];
+  const slides = useMemo<HeroCarouselImage[]>(
+    () => (images && images.length > 0 ? images : DEFAULT_SLIDES),
+    [images]
+  );
 
   const [index, setIndex] = useState(0);
+  const [displayIndex, setDisplayIndex] = useState(0);
+  const [loaded, setLoaded] = useState<boolean[]>(() =>
+    slides.map((_, slideIndex) => slideIndex === 0)
+  );
+
+  // Reset state whenever the slide data changes
+  useEffect(() => {
+    setIndex(0);
+    setDisplayIndex(0);
+    setLoaded(slides.map((_, slideIndex) => slideIndex === 0));
+  }, [slides]);
 
   // Continuous autoplay - non-interactive
   useEffect(() => {
+    if (slides.length <= 1) return;
+
     const id = setInterval(() => {
-      setIndex((i) => (i + 1) % slides.length);
+      setIndex((current) => (current + 1) % slides.length);
     }, intervalMs);
+
     return () => clearInterval(id);
   }, [slides.length, intervalMs]);
 
-  const current = slides[index];
+  // Advance the visible slide only after the target slide has loaded
+  useEffect(() => {
+    if (loaded[index]) {
+      setDisplayIndex(index);
+    }
+  }, [index, loaded]);
 
-  const objectPosition = {
-    left: "center left",
-    center: "center",
-    right: "center right",
-  }[current.focal] as React.CSSProperties["objectPosition"];
+  const handleLoad = useCallback((loadedIndex: number) => {
+    setLoaded((prev) => {
+      if (prev[loadedIndex]) return prev;
+      const next = [...prev];
+      next[loadedIndex] = true;
+      return next;
+    });
+  }, []);
+
+  const activeSlide = slides[displayIndex];
 
   return (
     <div
@@ -78,27 +122,34 @@ export function HeroCarousel({
       aria-live="off"
     >
       {/* Slides */}
-      <AnimatePresence initial={false} mode="wait">
-        <motion.div
-          key={index}
-          className="absolute inset-0 h-full w-full"
-          initial={{ opacity: 1, scale: 1.02 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 1, scale: 1.02 }}
-          transition={{ duration: 0.9, ease: "easeOut" }}
-        >
-          <Image
-            src={current.src}
-            alt={current.alt}
-            fill
-            priority={index === 0}
-            quality={85}
-            className="object-cover"
-            style={{ objectPosition }}
-            sizes="100vw"
-          />
-        </motion.div>
-      </AnimatePresence>
+      {slides.map((slide, slideIndex) => {
+        const objectPosition = FOCAL_TO_POSITION[slide.focal];
+        const isFirstSlide = slideIndex === 0;
+        return (
+          <motion.div
+            key={`${slide.src}-${slideIndex}`}
+            className="absolute inset-0 h-full w-full pointer-events-none"
+            initial={{ opacity: slideIndex === 0 ? 1 : 0 }}
+            animate={{ opacity: slideIndex === displayIndex ? 1 : 0 }}
+            transition={{ duration: 0.9, ease: "easeOut" }}
+          >
+            <Image
+              src={slide.src}
+              alt={slide.alt}
+              fill
+              priority={isFirstSlide}
+              loading={isFirstSlide ? undefined : "eager"}
+              quality={85}
+              className={`object-cover transition-opacity duration-700 ${
+                loaded[slideIndex] ? "opacity-100" : "opacity-0"
+              }`}
+              style={{ objectPosition, backgroundColor: "#000" }}
+              sizes="100vw"
+              onLoadingComplete={() => handleLoad(slideIndex)}
+            />
+          </motion.div>
+        );
+      })}
 
       {/* Optional gradient overlay for text legibility */}
       {overlay && (
@@ -110,10 +161,10 @@ export function HeroCarousel({
         aria-hidden
         className={[
           "absolute z-[6]",
-          current.edge === "left" && "left-0 top-0 h-full w-[6px]",
-          current.edge === "right" && "right-0 top-0 h-full w-[6px]",
-          current.edge === "top" && "top-0 left-0 w-full h-[6px]",
-          current.edge === "bottom" && "bottom-0 left-0 w-full h-[6px]",
+          activeSlide.edge === "left" && "left-0 top-0 h-full w-[6px]",
+          activeSlide.edge === "right" && "right-0 top-0 h-full w-[6px]",
+          activeSlide.edge === "top" && "top-0 left-0 w-full h-[6px]",
+          activeSlide.edge === "bottom" && "bottom-0 left-0 w-full h-[6px]",
         ]
           .filter(Boolean)
           .join(" ")}

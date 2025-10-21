@@ -118,7 +118,7 @@ export function MapContent({
     <>
       {/* Interactive Map */}
       <div
-        className="flex-1 relative overflow-hidden min-h-[400px] bg-gray-200"
+        className="flex-1 relative overflow-hidden min-h-[400px] bg-gray-200 map-container"
         style={{ height: "400px" }}
         data-testid="map-container"
       >

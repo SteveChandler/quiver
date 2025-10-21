@@ -5,7 +5,10 @@ import {
   OUT_OF_AREA_EXAMPLES,
 } from "@/lib/constants/coverage-areas";
 import type { Beach } from "@/types/database";
-import { normalizeSearchText } from "@/lib/utils/text-normalization";
+import {
+  normalizeSearchText,
+  BEACH_ALIASES,
+} from "@/lib/utils/text-normalization";
 
 interface SearchResult {
   beach: Beach | null;
@@ -35,6 +38,8 @@ export async function searchBeachesMultiple(
     const normalizedSearch = normalizeSearchText(searchText);
 
     console.log(`🔧 Normalized search: "${normalizedSearch}"`);
+
+    const aliasTarget = BEACH_ALIASES[normalizedSearch] || null;
 
     // Look for exact or partial matches with improved fuzzy matching
     const matchingBeaches = allBeachesResult.data.filter((beach) => {
@@ -68,49 +73,43 @@ export async function searchBeachesMultiple(
       const searchWords: string[] = normalizedSearch
         .split(" ")
         .filter((word: string) => word.length > 0);
-      const nameWords: string[] = beachName.split(" ").filter((word: string) => word.length > 0);
-      const locationWords: string[] = beachLocation
-        .split(" ")
-        .filter((word: string) => word.length > 0);
+      if (searchWords.length > 1) {
+        const nameWords: string[] = beachName
+          .split(" ")
+          .filter((word: string) => word.length > 0);
+        const locationWords: string[] = beachLocation
+          .split(" ")
+          .filter((word: string) => word.length > 0);
 
-      // Check if all search words are found in the beach name or location
-      const allWordsInName = searchWords.every((searchWord: string) =>
-        nameWords.some(
-          (nameWord: string) =>
-            nameWord.includes(searchWord) || searchWord.includes(nameWord)
-        )
-      );
-      const allWordsInLocation = searchWords.every((searchWord: string) =>
-        locationWords.some(
-          (locationWord: string) =>
-            locationWord.includes(searchWord) ||
-            searchWord.includes(locationWord)
-        )
-      );
+        // Check if all search words are found in the beach name or location
+        const allWordsInName = searchWords.every((searchWord: string) =>
+          nameWords.some(
+            (nameWord: string) =>
+              nameWord.includes(searchWord) || searchWord.includes(nameWord)
+          )
+        );
+        const allWordsInLocation = searchWords.every((searchWord: string) =>
+          locationWords.some(
+            (locationWord: string) =>
+              locationWord.includes(searchWord) ||
+              searchWord.includes(locationWord)
+          )
+        );
 
-      if (allWordsInName || allWordsInLocation) {
-        return true;
+        if (allWordsInName || allWordsInLocation) {
+          return true;
+        }
       }
 
       // 5. Common abbreviations and variations
-      const commonVariations = {
-        jolla: "la jolla",
-        ob: "ocean beach",
-        pb: "pacific beach",
-        mb: "mission beach",
-        tourmaline: "tourmaline surf park",
-        windansea: "windansea beach",
-        blacks: "blacks beach",
-        sunset: "sunset cliffs",
-        crystal: "crystal pier",
-      };
-
-      // Check if search matches any common abbreviations
-      for (const [abbrev, fullName] of Object.entries(commonVariations)) {
-        if (normalizedSearch === abbrev && beachName.includes(fullName)) {
+      if (aliasTarget) {
+        if (beachName === aliasTarget) {
           return true;
         }
-        if (normalizedSearch.includes(abbrev) && beachName.includes(fullName)) {
+        if (beachName.startsWith(`${aliasTarget} `)) {
+          return true;
+        }
+        if (aliasTarget.startsWith(beachName)) {
           return true;
         }
       }
@@ -124,6 +123,21 @@ export async function searchBeachesMultiple(
       const bName = normalizeSearchText(b.name);
       const aLocation = normalizeSearchText(a.location || "");
       const bLocation = normalizeSearchText(b.location || "");
+
+      if (aliasTarget) {
+        const aliasScore = (name: string) => {
+          if (name === aliasTarget) return 3;
+          if (name.startsWith(`${aliasTarget} `)) return 2;
+          if (aliasTarget.startsWith(name)) return 1;
+          return 0;
+        };
+
+        const aAliasScore = aliasScore(aName);
+        const bAliasScore = aliasScore(bName);
+        if (aAliasScore !== bAliasScore) {
+          return bAliasScore - aAliasScore;
+        }
+      }
 
       // 1. Exact name matches first
       if (aName === normalizedSearch && bName !== normalizedSearch) return -1;

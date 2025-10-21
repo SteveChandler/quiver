@@ -11,7 +11,10 @@ const MapView = lazy(() =>
 // Loading skeleton for map
 function MapSkeleton() {
   return (
-    <div className="flex-1 relative bg-gray-100 animate-pulse">
+    <div
+      className="flex-1 relative bg-gray-100 animate-pulse"
+      data-testid="map-container"
+    >
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>

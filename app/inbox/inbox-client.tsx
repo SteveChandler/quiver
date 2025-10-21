@@ -180,7 +180,7 @@ export default function InboxPageClient() {
                         )}
                         {inv.message && (
                           <div className="text-sm text-muted-foreground truncate">
-                            "{inv.message}"
+                            <q>{inv.message}</q>
                           </div>
                         )}
                       </div>

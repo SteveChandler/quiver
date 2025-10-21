@@ -37,7 +37,7 @@ export default async function BeachDetailBySlugPage({
             <div className="text-center py-12">
               <h2 className="text-2xl font-bold mb-2">Beach Not Found</h2>
               <p className="text-muted-foreground">
-                We couldn't find this beach in our directory.
+                We couldn&apos;t find this beach in our directory.
               </p>
             </div>
           </main>

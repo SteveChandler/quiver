@@ -45,9 +45,10 @@ export function RecentSessionsList({
         ) : (
           <div className="space-y-4">
             {recentSessions.map((session) => (
-              <div
+              <button
                 key={session.id}
-                className="border rounded-lg p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                type="button"
+                className="w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
                 onClick={() => router.push(`/sessions/${session.id}`)}
               >
                 <div className="flex justify-between items-start">
@@ -76,7 +77,7 @@ export function RecentSessionsList({
                     {session.description}
                   </div>
                 )}
-              </div>
+              </button>
             ))}
           </div>
         )}

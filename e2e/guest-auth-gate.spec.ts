@@ -19,7 +19,10 @@ test.describe('Auth Gate - Basic Rendering', () => {
     await expect(dialog).not.toBeVisible();
 
     // Page content should render normally
-    const mapView = page.locator('[class*="map"]').first();
+    await page.waitForSelector('[data-testid="map-container"]', {
+      timeout: 20000,
+    });
+    const mapView = page.getByTestId("map-container");
     await expect(mapView).toBeVisible({ timeout: 10000 });
   });
 
@@ -339,4 +342,3 @@ test.describe('Auth Gate - Guest Flow Integration', () => {
     await expect(page).toHaveURL('/');
   });
 });
-

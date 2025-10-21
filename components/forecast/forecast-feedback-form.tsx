@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -81,6 +81,10 @@ export function ForecastFeedbackForm({
   const [notes, setNotes] = useState<string>("");
   const [overallAccuracy, setOverallAccuracy] = useState<number[]>([3]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const waveHeightLabelId = useId();
+  const windConditionLabelId = useId();
+  const overallAccuracyLabelId = useId();
+  const notesFieldId = useId();
 
   // Get forecast values for comparison
   const forecastWaveHeight = forecast?.wave_height
@@ -175,9 +179,12 @@ export function ForecastFeedbackForm({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Waves className="h-5 w-5 text-blue-500" />
-                <label className="text-sm font-medium">
+                <span
+                  id={waveHeightLabelId}
+                  className="text-sm font-medium"
+                >
                   Actual Wave Height
-                </label>
+                </span>
               </div>
               {forecast?.wave_height && (
                 <Badge variant="outline" className="text-xs">
@@ -203,6 +210,7 @@ export function ForecastFeedbackForm({
                 step={0.5}
                 className="w-full"
                 disabled={loading || isSubmitting}
+                aria-labelledby={waveHeightLabelId}
               />
 
               {waveHeightDelta !== null && (
@@ -226,7 +234,12 @@ export function ForecastFeedbackForm({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Wind className="h-5 w-5 text-green-500" />
-                <label className="text-sm font-medium">Wind Conditions</label>
+                <span
+                  id={windConditionLabelId}
+                  className="text-sm font-medium"
+                >
+                  Wind Conditions
+                </span>
               </div>
               {forecast?.wind_speed && (
                 <Badge variant="outline" className="text-xs">
@@ -240,7 +253,7 @@ export function ForecastFeedbackForm({
               onValueChange={setWindCondition}
               disabled={loading || isSubmitting}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-labelledby={windConditionLabelId}>
                 <SelectValue placeholder="Select wind conditions you experienced" />
               </SelectTrigger>
               <SelectContent>
@@ -257,9 +270,12 @@ export function ForecastFeedbackForm({
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <Star className="h-5 w-5 text-yellow-500" />
-              <label className="text-sm font-medium">
+              <span
+                id={overallAccuracyLabelId}
+                className="text-sm font-medium"
+              >
                 Overall Forecast Accuracy
-              </label>
+              </span>
             </div>
 
             <div className="space-y-3">
@@ -284,6 +300,7 @@ export function ForecastFeedbackForm({
                 step={1}
                 className="w-full"
                 disabled={loading || isSubmitting}
+                aria-labelledby={overallAccuracyLabelId}
               />
 
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -300,11 +317,17 @@ export function ForecastFeedbackForm({
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <MessageSquare className="h-5 w-5 text-purple-500" />
-              <label className="text-sm font-medium">Additional Notes</label>
+              <label
+                className="text-sm font-medium"
+                htmlFor={notesFieldId}
+              >
+                Additional Notes
+              </label>
               <span className="text-xs text-muted-foreground">(Optional)</span>
             </div>
 
             <Textarea
+              id={notesFieldId}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Any other observations about the conditions vs forecast? (e.g., surf quality, crowd, unexpected changes...)"

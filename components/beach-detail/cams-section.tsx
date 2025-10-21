@@ -108,6 +108,7 @@ export function CamsSection({ beachId }: CamsSectionProps) {
           src={intent.src}
           controls
           playsInline
+          muted
           className="h-full w-full"
         />
       </div>

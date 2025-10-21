@@ -18,17 +18,12 @@ export function NearbyBeaches({ limit = 4 }: NearbyBeachesProps) {
   const { data: beaches, isLoading } = useNearbyBeaches(lat, lon, limit);
 
   const origin = useMemo(() => {
-    const originLat =
-      selectedBeach?.lat ?? selectedBeach?.latitude ?? undefined;
-    const originLon =
-      selectedBeach?.lon ?? selectedBeach?.longitude ?? undefined;
-
-    if (!Number.isFinite(originLat) || !Number.isFinite(originLon)) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       return null;
     }
 
-    return { lat: originLat as number, lon: originLon as number };
-  }, [selectedBeach?.id, selectedBeach?.lat, selectedBeach?.latitude, selectedBeach?.lon, selectedBeach?.longitude]);
+    return { lat: lat as number, lon: lon as number };
+  }, [lat, lon]);
 
   const otherBeaches = useMemo(() => {
     if (!selectedBeach) return [];

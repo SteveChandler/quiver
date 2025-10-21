@@ -24,6 +24,9 @@ export async function loginViaUI(page: Page, opts: LoginOptions = {}) {
     await page.goto(target, { waitUntil: 'domcontentloaded' });
   }
 
+  await page.waitForSelector('#email', { state: 'attached' });
+  await page.waitForTimeout(1000);
+
   // Fill form
   await page.locator('#email').fill(email);
   await page.locator('#password').fill(password);

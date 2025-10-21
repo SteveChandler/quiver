@@ -50,17 +50,22 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
   const { user } = useAuth();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const hasTrackedViewRef = useRef(false);
 
   const canPost = !!user;
   const canConfirm = !!user;
 
   // Track when Local Intel tab is viewed
   useEffect(() => {
+    if (hasTrackedViewRef.current) {
+      return;
+    }
+    hasTrackedViewRef.current = true;
     track("local_intel_tab_viewed", {
       user_authenticated: !!user,
       post_count: posts.length,
     });
-  }, []); // Only track on mount
+  }, [user, posts.length]);
 
   // Reset to feed view when component mounts to prevent map interference
   useEffect(() => {
