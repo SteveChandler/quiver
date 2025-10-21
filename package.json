@@ -47,6 +47,7 @@
     "npc:daily": "tsx scripts/npc-daily-activity.ts",
     "morning-intel": "tsx scripts/morningIntel.ts",
     "generate-daily-intel": "tsx scripts/generate-daily-intel.ts",
+    "photos:fetch": "tsx scripts/fetch-beach-photos.ts",
     "check-mock-users": "tsx -e \"import { createClient } from '@supabase/supabase-js'; import { config } from 'dotenv'; config(); const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!); supabase.from('profiles').select('id', { count: 'exact' }).eq('is_mock', true).then(r => console.log(r.count || 0))\"",
     "install:requirements": "npm install",
     "setup": "bash install.sh",
