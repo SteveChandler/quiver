@@ -313,7 +313,7 @@ export async function getBestBeachesNearHome() {
     const beachPhotoMap = new Map<string, string>();
     if (beachIds.length > 0) {
       try {
-        const { data: beachPhotos, error: beachPhotosError } = await supabase
+        const { data: sessionPhotos, error: sessionPhotosError } = await supabase
           .from("session_media")
           .select(
             `
@@ -328,18 +328,45 @@ export async function getBestBeachesNearHome() {
           .in("session.beach_id", beachIds)
           .order("created_at", { ascending: false });
 
-        if (beachPhotosError) {
+        if (sessionPhotosError) {
           console.error(
-            "[getBestBeachesNearHome] Failed to load beach photos",
-            beachPhotosError
+            "[getBestBeachesNearHome] Failed to load session photos",
+            sessionPhotosError
           );
         } else {
-          for (const row of beachPhotos ?? []) {
+          for (const row of sessionPhotos ?? []) {
             const beachId = (row as any)?.session?.beach_id as
               | string
               | undefined;
-            if (!beachId || beachPhotoMap.has(beachId)) continue;
-            beachPhotoMap.set(beachId, row.public_url as string);
+            const imageUrl = (row as any)?.public_url as string | undefined;
+            if (!beachId || !imageUrl || beachPhotoMap.has(beachId)) continue;
+            beachPhotoMap.set(beachId, imageUrl);
+          }
+        }
+
+        const beachesMissingPhotos = beachIds.filter(
+          (id) => !beachPhotoMap.has(id)
+        );
+        if (beachesMissingPhotos.length > 0) {
+          const { data: featuredPhotos, error: featuredPhotosError } =
+            await supabase
+              .from("beach_photos_featured")
+              .select("beach_id, image_url")
+              .in("beach_id", beachesMissingPhotos)
+              .limit(beachesMissingPhotos.length);
+
+          if (featuredPhotosError) {
+            console.error(
+              "[getBestBeachesNearHome] Failed to load featured beach photos",
+              featuredPhotosError
+            );
+          } else {
+            for (const row of featuredPhotos ?? []) {
+              const beachId = (row as any)?.beach_id as string | undefined;
+              const imageUrl = (row as any)?.image_url as string | undefined;
+              if (!beachId || !imageUrl || beachPhotoMap.has(beachId)) continue;
+              beachPhotoMap.set(beachId, imageUrl);
+            }
           }
         }
       } catch (photoError) {
