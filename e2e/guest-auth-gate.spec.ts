@@ -66,15 +66,12 @@ test.describe('Auth Gate - Timing Behavior', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).not.toBeVisible();
 
-    // Wait for the 5 second delay + buffer
-    await page.waitForTimeout(5500);
+    // Wait for the auth gate to appear (5s delay + buffer for dev environment)
+    const title = page.getByText(/keep exploring with quiver/i);
+    await expect(title).toBeVisible({ timeout: 10000 });
 
     // Dialog should now be visible
-    await expect(dialog).toBeVisible({ timeout: 2000 });
-
-    // Check dialog title
-    const title = page.getByText(/keep exploring with quiver/i);
-    await expect(title).toBeVisible();
+    await expect(dialog).toBeVisible();
   });
 
   test('modal appears after 5 second delay on beach detail page', async ({ page }) => {
@@ -83,20 +80,20 @@ test.describe('Auth Gate - Timing Behavior', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).not.toBeVisible();
 
-    // Wait for delay
-    await page.waitForTimeout(5500);
+    // Wait for the auth gate to appear (5s delay + buffer for dev environment)
+    const title = page.getByText(/keep exploring with quiver/i);
+    await expect(title).toBeVisible({ timeout: 10000 });
 
     // Dialog should appear
-    await expect(dialog).toBeVisible({ timeout: 2000 });
+    await expect(dialog).toBeVisible();
   });
 
   test('modal can be dismissed by pressing Escape', async ({ page }) => {
     await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    
+
     // Wait for modal to appear
-    await page.waitForTimeout(5500);
     const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeVisible({ timeout: 10000 });
 
     // Press Escape to dismiss
     await page.keyboard.press('Escape');
@@ -107,11 +104,10 @@ test.describe('Auth Gate - Timing Behavior', () => {
 
   test('localStorage tracks dismissal time', async ({ page }) => {
     await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    
+
     // Wait for modal to appear
-    await page.waitForTimeout(5500);
     const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeVisible({ timeout: 10000 });
 
     // Dismiss modal
     await page.keyboard.press('Escape');
@@ -129,11 +125,10 @@ test.describe('Auth Gate - Timing Behavior', () => {
     test.slow(); // This test takes longer due to 30s wait
 
     await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    
+
     // Wait for modal to appear
-    await page.waitForTimeout(5500);
     const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeVisible({ timeout: 10000 });
 
     // Dismiss modal
     await page.keyboard.press('Escape');
@@ -144,12 +139,9 @@ test.describe('Auth Gate - Timing Behavior', () => {
 
     // Navigate to another page to trigger re-check
     await page.goto(`/beach/${TEST_BEACH_ID}`, { waitUntil: 'domcontentloaded' });
-    
-    // Wait for initial delay on new page
-    await page.waitForTimeout(5500);
 
-    // Modal should reappear
-    await expect(dialog).toBeVisible({ timeout: 2000 });
+    // Modal should reappear after delay
+    await expect(dialog).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -162,7 +154,7 @@ test.describe('Auth Gate - Modal Content', () => {
 
   test('displays correct title and description', async ({ page }) => {
     await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(5500);
+    // Wait for auth gate to appear automatically
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -178,7 +170,7 @@ test.describe('Auth Gate - Modal Content', () => {
 
   test('shows Google OAuth and Email Magic Link options', async ({ page }) => {
     await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(5500);
+    // Wait for auth gate to appear automatically
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -197,7 +189,7 @@ test.describe('Auth Gate - Modal Content', () => {
 
   test('displays return URL message with current path', async ({ page }) => {
     await page.goto('/map?search=ocean', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(5500);
+    // Wait for auth gate to appear automatically
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -217,7 +209,7 @@ test.describe('Auth Gate - Authentication Flows', () => {
 
   test('email input shows after clicking sign in with email', async ({ page }) => {
     await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(5500);
+    // Wait for auth gate to appear automatically
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -237,7 +229,7 @@ test.describe('Auth Gate - Authentication Flows', () => {
 
   test('back button returns to auth options from email input', async ({ page }) => {
     await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(5500);
+    // Wait for auth gate to appear automatically
 
     // Click "Sign in with Email"
     const emailButton = page.getByRole('button', { name: /sign in with email/i });
@@ -258,7 +250,7 @@ test.describe('Auth Gate - Authentication Flows', () => {
 
   test('email validation requires @ symbol', async ({ page }) => {
     await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(5500);
+    // Wait for auth gate to appear automatically
 
     // Navigate to email input
     const emailButton = page.getByRole('button', { name: /sign in with email/i });
@@ -292,7 +284,7 @@ test.describe('Auth Gate - Return URL Preservation', () => {
   test('preserves beach detail URL with slug', async ({ page }) => {
     const beachUrl = `/beach/${TEST_BEACH_ID}`;
     await page.goto(beachUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(5500);
+    // Wait for auth gate to appear automatically
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -304,7 +296,7 @@ test.describe('Auth Gate - Return URL Preservation', () => {
 
   test('preserves map URL with search query params', async ({ page }) => {
     await page.goto('/map?search=oceanbeach', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(5500);
+    // Wait for auth gate to appear automatically
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
@@ -324,7 +316,7 @@ test.describe('Auth Gate - Guest Flow Integration', () => {
 
   test('closable modal allows continued browsing when dismissed', async ({ page }) => {
     await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(5500);
+    // Wait for auth gate to appear automatically
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
