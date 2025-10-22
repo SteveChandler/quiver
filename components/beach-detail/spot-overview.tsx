@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,8 @@ interface SpotOverviewProps {
 }
 
 export function SpotOverview({ beach }: SpotOverviewProps) {
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
   const fetchPhotos = useCallback(async () => {
     return await getBestBeachPhotos(beach.id, 12);
   }, [beach.id]);
@@ -42,6 +44,14 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
     immediate: true,
     initialData: [] as BestPhoto[],
   });
+
+  const handleImageError = (photoId: string) => {
+    console.warn("Beach photo failed to load:", photoId);
+    setFailedImages((prev) => new Set(prev).add(photoId));
+  };
+
+  // Filter out failed images
+  const validPhotos = photos?.filter((p) => !failedImages.has(p.id)) || [];
   // Fetch latest calibration row to derive best swell window
   const fetchCalibration = useCallback(async () => {
     const { getLatestBeachCalibrationAction } = await import(
@@ -185,11 +195,11 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!photos || photos.length === 0 ? (
+          {!validPhotos || validPhotos.length === 0 ? (
             <div className="text-sm text-muted-foreground">No photos yet</div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {photos.map((p) => (
+              {validPhotos.map((p) => (
                 <div
                   key={p.id}
                   className="relative aspect-square overflow-hidden rounded-lg bg-muted"
@@ -201,6 +211,8 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
                     sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
                     className="object-cover"
                     priority={false}
+                    onError={() => handleImageError(p.id)}
+                    unoptimized={p.public_url.includes("openverse") || p.public_url.includes("flickr")}
                   />
                 </div>
               ))}

@@ -141,6 +141,32 @@ const nextConfig = {
         hostname: "live.staticflickr.com",
         pathname: "/**",
       },
+      // Openverse sources (Wikimedia Commons, WordPress, etc.)
+      {
+        protocol: "https",
+        hostname: "upload.wikimedia.org",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "*.files.wordpress.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "i0.wp.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "i1.wp.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "i2.wp.com",
+        pathname: "/**",
+      },
       // Add specific Supabase hostname if available
       ...(supabaseHostname
         ? [
@@ -167,8 +193,11 @@ const nextConfig = {
     domains: [
       "images.unsplash.com",
       "live.staticflickr.com",
+      "upload.wikimedia.org",
+      "i0.wp.com",
+      "i1.wp.com",
+      "i2.wp.com",
       ...(supabaseHostname ? [supabaseHostname] : []),
-      "i0.wp.com", // defensive: common proxy hosts
     ],
     // Security for SVGs
     dangerouslyAllowSVG: true,
