@@ -17,12 +17,20 @@ import { track, slugify } from "@/lib/analytics";
 function NewSessionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [showCelebration, setShowCelebration] = useState(false);
 
   // Get mode from URL params (default to 'plan')
   const mode = (searchParams.get("mode") as SessionFormMode) || "plan";
   const convertSessionId = searchParams.get("convert"); // For converting planned sessions
+
+  // Redirect unauthenticated users to sign-in
+  useEffect(() => {
+    if (!isLoading && !user) {
+      const currentPath = `/sessions/new${mode ? `?mode=${mode}` : ''}`;
+      router.push(`/auth/sign-in?redirectTo=${encodeURIComponent(currentPath)}`);
+    }
+  }, [user, isLoading, router, mode]);
 
   // Soft-auth: Allow UI to render; server actions enforce auth
 

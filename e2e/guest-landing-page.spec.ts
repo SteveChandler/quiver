@@ -76,18 +76,18 @@ test.describe('Landing Page - Hero Section', () => {
     await expect(searchInput).toBeVisible({ timeout: 10000 });
   });
 
-  test('search functionality navigates to map with auth gate for guests', async ({ page }) => {
+  test('search functionality navigates to beach detail page for guests', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     const searchInput = page.getByPlaceholder(/search by beach, spot, or region/i);
     await searchInput.fill('Ocean Beach');
     await searchInput.press('Enter');
 
-    // Guest users navigate to map with search params
-    await expect(page).toHaveURL(/\/map\?search=/, { timeout: 10000 });
-    
-    // Auth gate should appear for guests
-    await expect(page.getByText(/keep exploring with quiver/i)).toBeVisible({ timeout: 10000 });
+    // Search now navigates directly to beach detail page
+    await expect(page).toHaveURL(/\/beach\/[0-9a-f-]+/, { timeout: 10000 });
+
+    // Auth gate should appear for guests after some time
+    await expect(page.getByText(/keep exploring with quiver/i)).toBeVisible({ timeout: 15000 });
   });
 
   test('explore nearby link navigates correctly without search query', async ({ page }) => {
@@ -103,7 +103,7 @@ test.describe('Landing Page - Hero Section', () => {
     await expect(page).toHaveURL(/\/map/, { timeout: 10000 });
   });
 
-  test('explore nearby link with search query shows auth gate for guests', async ({ page }) => {
+  test('explore nearby link with search query navigates to beach detail for guests', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     const searchInput = page.getByPlaceholder(/search by beach, spot, or region/i);
@@ -113,11 +113,11 @@ test.describe('Landing Page - Hero Section', () => {
     const exploreLink = page.getByRole('link', { name: /explore nearby/i });
     await exploreLink.click();
 
-    // Guest users navigate to map with search params
-    await expect(page).toHaveURL(/\/map\?search=/, { timeout: 10000 });
-    
-    // Auth gate should appear for guests
-    await expect(page.getByText(/keep exploring with quiver/i)).toBeVisible({ timeout: 10000 });
+    // Search now navigates directly to beach detail page
+    await expect(page).toHaveURL(/\/beach\/[0-9a-f-]+/, { timeout: 10000 });
+
+    // Auth gate should appear for guests after some time
+    await expect(page.getByText(/keep exploring with quiver/i)).toBeVisible({ timeout: 15000 });
   });
 
   test('feature highlights display correctly', async ({ page }) => {
@@ -263,30 +263,29 @@ test.describe('Landing Page - Bug Fixes Validation', () => {
     await searchInput.fill('blacks beach');
     await searchInput.press('Enter');
 
-    // Guest users navigate to map with search params (text normalization working)
-    await expect(page).toHaveURL(/\/map\?search=/, { timeout: 10000 });
-    
-    // Auth gate should appear for guests
-    await expect(page.getByText(/keep exploring with quiver/i)).toBeVisible({ timeout: 10000 });
+    // Search now navigates directly to beach detail page (text normalization working)
+    await expect(page).toHaveURL(/\/beach\/[0-9a-f-]+/, { timeout: 10000 });
+
+    // Auth gate should appear for guests after some time
+    await expect(page.getByText(/keep exploring with quiver/i)).toBeVisible({ timeout: 15000 });
   });
 
-  test('search navigation for guests goes to map with search params', async ({ page }) => {
+  test('search navigation for guests goes to beach detail page', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     const searchInput = page.getByPlaceholder(/search by beach, spot, or region/i);
     await searchInput.fill('Tourmaline');
     await searchInput.press('Enter');
 
-    // Guest users should navigate to map with search params
-    await page.waitForURL(/\/map\?search=/, { timeout: 10000 });
-    
-    // Verify we're on the map page with search
+    // Search now navigates directly to beach detail page
+    await page.waitForURL(/\/beach\/[0-9a-f-]+/, { timeout: 10000 });
+
+    // Verify we're on the beach detail page
     const url = page.url();
-    expect(url).toContain('/map');
-    expect(url).toContain('search=');
-    
-    // Auth gate should appear
-    await expect(page.getByText(/keep exploring with quiver/i)).toBeVisible({ timeout: 10000 });
+    expect(url).toContain('/beach/');
+
+    // Auth gate should appear for guests after some time
+    await expect(page.getByText(/keep exploring with quiver/i)).toBeVisible({ timeout: 15000 });
   });
 });
 

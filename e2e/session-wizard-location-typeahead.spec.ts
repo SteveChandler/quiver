@@ -156,10 +156,11 @@ test.describe("Session Wizard - Location Typeahead", () => {
     // Type rapidly without waiting
     await beachInput.pressSequentially("lajolla", { delay: 50 });
 
-    // Wait for final debounced search
-    await page.waitForTimeout(500);
+    // Wait for results to appear (with longer timeout for debouncing + API call)
+    const laJollaResult = page.getByText("La Jolla Shores", { exact: true });
+    await expect(laJollaResult).toBeVisible({ timeout: 3000 });
 
-    // Verify results appear
+    // Verify the dropdown is present
     const dropdown = page.locator("ul").filter({ hasText: "La Jolla Shores" });
     await expect(dropdown).toBeVisible();
   });
@@ -173,11 +174,8 @@ test.describe("Session Wizard - Location Typeahead", () => {
     await beachInput.click();
     await beachInput.fill("la jo");
 
-    // Wait for debounced search
-    await page.waitForTimeout(500);
-
-    // Verify dropdown is visible on mobile
-    await expect(page.getByText("La Jolla Shores", { exact: true })).toBeVisible();
+    // Wait for results to appear (with timeout for debouncing + API call)
+    await expect(page.getByText("La Jolla Shores", { exact: true })).toBeVisible({ timeout: 3000 });
 
     // Select beach
     await page.getByText("La Jolla Shores", { exact: true }).click();
