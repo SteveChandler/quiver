@@ -3,6 +3,10 @@ import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/l
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { INTEL_CONFIG } from "@/lib/constants/intel";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
+import {
+  createIntelDedupeHash,
+  DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES,
+} from "@/lib/utils/intel-dedupe";
 
 export const dynamic = "force-dynamic";
 
@@ -263,6 +267,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid tag" }, { status: 400 });
     }
 
+    const sanitizedTitle = title.trim();
+    const sanitizedDescription = description.trim();
+
     // Calculate expiry date based on tag
     const expiryDate = new Date();
     const fastExpiryTags: IntelPostTag[] = ["conditions", "crowd"];
@@ -304,6 +311,58 @@ export async function POST(request: NextRequest) {
       }
     } catch {}
 
+    const dedupeHash = createIntelDedupeHash({
+      userId: user.id,
+      tag,
+      beachId: null,
+      title: sanitizedTitle,
+      description: sanitizedDescription,
+      latitude,
+      longitude,
+    });
+
+    const dedupeWindowStart = new Date(
+      Date.now() - DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES * 60 * 1000
+    ).toISOString();
+
+    const { data: recentIntel, error: dedupeError } = await writeClient
+      .from("intel_posts")
+      .select(
+        "id, title, description, latitude, longitude, beach_id, created_at"
+      )
+      .eq("user_id", user.id)
+      .eq("tag", tag)
+      .gte("created_at", dedupeWindowStart)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (dedupeError) {
+      console.error("Failed to check for duplicate intel posts:", dedupeError);
+    } else {
+      const duplicateMatch = recentIntel?.find((existing) => {
+        const existingHash = createIntelDedupeHash({
+          userId: user.id,
+          tag,
+          beachId: existing.beach_id ?? null,
+          title: existing.title,
+          description: existing.description,
+          latitude: existing.latitude,
+          longitude: existing.longitude,
+        });
+        return existingHash === dedupeHash;
+      });
+
+      if (duplicateMatch) {
+        return NextResponse.json(
+          {
+            error:
+              "Looks like you've already shared this intel recently. Please update the existing post instead of creating a duplicate.",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Create intel post
     const { data: intelPost, error: createError } = await writeClient
       .from("intel_posts")
@@ -312,11 +371,12 @@ export async function POST(request: NextRequest) {
         latitude,
         longitude,
         tag,
-        title: title.trim(),
-        description: description.trim(),
+        title: sanitizedTitle,
+        description: sanitizedDescription,
         photo_url,
         photo_storage_path,
         expires_at: expiryDate.toISOString(),
+        dedupe_hash: dedupeHash,
         surf_conditions: Object.keys(surfConditions).length
           ? surfConditions
           : null,

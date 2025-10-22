@@ -101,6 +101,17 @@
 
 ### Fixed
 
+- **Invalid Surf Window Bug (06:00-06:00)**: Fixed multi-layer bug causing surf windows to display with identical start/end times
+  - **Root Cause**: `bestWindowHeuristic` function could create invalid windows when only one optimal period existed near the morning cutoff (e.g., 10:00)
+  - **Fixes Applied**:
+    - Added window extension cap at 10:00 in `lib/utils/morning-intel-utils.ts` to prevent extending beyond the morning window
+    - Added validation check to return fallback message when `startTime === endTime`
+    - Created database CHECK constraint preventing storage of invalid windows in `beach_daily_intel` table
+    - Added UI guardrail in `components/beach-detail/best-surf-window.tsx` to display "No optimal window found" when times are identical
+    - Added service-layer validation in `lib/services/intel-generation-service.ts` with error logging for debugging
+  - **Testing**: Added 6 comprehensive unit tests covering edge cases for single-period windows, boundary conditions, and validation logic
+  - **Migration**: `supabase/migrations/20251022100000_add_valid_surf_window_constraint.sql`
+  - **Pattern**: Uses defensive multi-layer validation (data generation → storage → display) to prevent invalid data from reaching users
 - **Best Conditions Cards Not Displaying**: Fixed parameter mismatch and variable naming error in `getBestBeachesNearHome()`
   - Changed RPC parameters from `input_lat/input_lng` to `lat/lng` to match latest database migrations
   - Fixed `ReferenceError: wave_direction is not defined` - changed object literal shorthand to explicit property assignment for `wave_direction` and `wind_description`

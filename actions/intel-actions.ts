@@ -22,7 +22,14 @@ import type {
  * Create a new intel post
  */
 import type { XPAction } from "@/lib/gamification-actions";
-import { withAuthenticatedAction, type ServerActionResponse } from "@/lib/server-action-utils";
+import {
+  withAuthenticatedAction,
+  type ServerActionResponse,
+} from "@/lib/server-action-utils";
+import {
+  createIntelDedupeHash,
+  DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES,
+} from "@/lib/utils/intel-dedupe";
 
 type TrackXPFn = (
   action: XPAction,
@@ -130,14 +137,17 @@ export async function createIntelPost(
         forecast_accuracy,
       } = data;
 
+      const sanitizedTitle = title?.trim() ?? "";
+      const sanitizedDescription = description?.trim() ?? "";
+
       if (
         typeof latitude !== "number" ||
         Number.isNaN(latitude) ||
         typeof longitude !== "number" ||
         Number.isNaN(longitude) ||
         !tag ||
-        !title?.trim() ||
-        !description?.trim()
+        sanitizedTitle.length === 0 ||
+        sanitizedDescription.length === 0
       ) {
         return {
           success: false,
@@ -179,6 +189,68 @@ export async function createIntelPost(
         };
       }
 
+      const dedupeWindowStart = new Date(
+        Date.now() - DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES * 60 * 1000
+      ).toISOString();
+
+      const dedupeHash = createIntelDedupeHash({
+        userId: user.id,
+        tag,
+        beachId: normalizedBeachId,
+        title: sanitizedTitle,
+        description: sanitizedDescription,
+        latitude,
+        longitude,
+      });
+
+      const { data: recentIntel, error: recentIntelError } = await supabase
+        .from("intel_posts")
+        .select("id, title, description, latitude, longitude, created_at")
+        .eq("user_id", user.id)
+        .eq("tag", tag)
+        .eq("beach_id", normalizedBeachId)
+        .gte("created_at", dedupeWindowStart)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (recentIntelError) {
+        console.error("Failed to check for duplicate intel posts:", {
+          error: recentIntelError,
+          userId: user.id,
+          tag,
+          beachId: normalizedBeachId,
+        });
+      } else {
+        const duplicateMatch = recentIntel?.find((existing) => {
+          const existingHash = createIntelDedupeHash({
+            userId: user.id,
+            tag,
+            beachId: normalizedBeachId,
+            title: existing.title,
+            description: existing.description,
+            latitude: existing.latitude,
+            longitude: existing.longitude,
+          });
+          return existingHash === dedupeHash;
+        });
+
+        if (duplicateMatch) {
+          console.warn("Blocked duplicate intel post submission", {
+            userId: user.id,
+            tag,
+            beachId: normalizedBeachId,
+            recentPostId: duplicateMatch.id,
+            dedupeWindowMinutes: DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES,
+          });
+
+          return {
+            success: false,
+            error:
+              "Looks like you've already shared this intel recently. Try updating the existing post instead of creating a duplicate.",
+          };
+        }
+      }
+
       // Normalize optional surf condition inputs into JSONB
       const surfConditions: Record<string, any> = {};
       if (wave_height !== undefined && wave_height !== null)
@@ -204,12 +276,13 @@ export async function createIntelPost(
           latitude,
           longitude,
           tag,
-          title: title.trim(),
-          description: description.trim(),
+          title: sanitizedTitle,
+          description: sanitizedDescription,
           photo_url,
           photo_storage_path,
           expires_at: expiryDate.toISOString(),
           is_active: true,
+          dedupe_hash: dedupeHash,
           surf_conditions: Object.keys(surfConditions).length
             ? surfConditions
             : null,
@@ -234,8 +307,8 @@ export async function createIntelPost(
           latitude,
           longitude,
           tag,
-          title: title.trim(),
-          description: description.trim(),
+          title: sanitizedTitle,
+          description: sanitizedDescription,
           photo_url,
           photo_storage_path,
           wave_height_m: toMetricWaveHeight(wave_height ?? null),
@@ -274,6 +347,20 @@ export async function createIntelPost(
             fetchFallbackError
           );
           return { success: false, error: "Failed to create intel post" };
+        }
+
+        const { error: updateFallbackHashError } = await supabase
+          .from("intel_posts")
+          .update({ dedupe_hash: dedupeHash })
+          .eq("id", fallbackReport.id);
+
+        if (updateFallbackHashError) {
+          console.error("Failed to persist dedupe hash after fallback insert:", {
+            error: updateFallbackHashError,
+            intelId: fallbackReport.id,
+          });
+        } else {
+          fetchedIntel.dedupe_hash = dedupeHash;
         }
 
         createdIntelPost = fetchedIntel as IntelPost;

@@ -406,13 +406,20 @@ export function bestWindowHeuristic(
 
   const startTime = bestForecasts[0].forecast_time.substring(0, 5);
   let endTime = bestForecasts[bestForecasts.length - 1].forecast_time.substring(0, 5);
-  
+
   // If only one forecast matches, extend window by 2 hours for a meaningful range
   if (bestForecasts.length === 1) {
     const startHour = parseInt(startTime.split(":")[0]);
     const startMin = parseInt(startTime.split(":")[1]);
     const endHour = startHour + 2;
-    endTime = `${endHour.toString().padStart(2, "0")}:${startMin.toString().padStart(2, "0")}`;
+    // Cap at 10:00 to stay within morning window
+    const cappedEndHour = Math.min(endHour, 10);
+    endTime = `${cappedEndHour.toString().padStart(2, "0")}:${startMin.toString().padStart(2, "0")}`;
+  }
+
+  // Validate that we have a meaningful window (start !== end)
+  if (startTime === endTime) {
+    return "Variable conditions; check throughout the morning";
   }
 
   // Check tide condition

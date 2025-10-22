@@ -27,6 +27,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
+import {
+  createIntelDedupeHash,
+  DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES,
+} from '../lib/utils/intel-dedupe';
 
 // Load environment variables
 config();
@@ -1287,6 +1291,7 @@ async function createDailyNPCActivity(supabase: any) {
   let reviewCount = 0;
   let totalCreated = 0;
   const errors: string[] = [];
+  const runIntelHashes = new Set<string>();
 
   for (let i = 0; i < selectedNPCs.length; i++) {
     const npc = selectedNPCs[i];
@@ -1324,7 +1329,98 @@ async function createDailyNPCActivity(supabase: any) {
           console.log('⛔ Per-run content cap reached during intel creation. Stopping.');
           break;
         }
-        const intelData = generateIntelPost(npc, beach);
+        let intelData: any | null = null;
+        let dedupeHash = "";
+        let duplicateReason: "run" | "existing" | null = null;
+        let shouldInsert = false;
+
+        const maxAttempts = 3;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          intelData = generateIntelPost(npc, beach);
+          const { user_id: userId, tag: intelTag, beach_id: beachId } = intelData;
+
+          dedupeHash = createIntelDedupeHash({
+            userId,
+            tag: intelTag,
+            beachId,
+            title: intelData.title,
+            description: intelData.description,
+            latitude: intelData.latitude,
+            longitude: intelData.longitude,
+          });
+
+          const runKey = `${userId}:${dedupeHash}`;
+          if (runIntelHashes.has(runKey)) {
+            duplicateReason = "run";
+            continue;
+          }
+
+          const createdAt = intelData.created_at
+            ? new Date(intelData.created_at)
+            : new Date();
+          const dedupeWindowStart = new Date(
+            createdAt.getTime() - DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES * 60 * 1000
+          ).toISOString();
+
+          const { data: existingIntel, error: existingIntelError } = await supabase
+            .from('intel_posts')
+            .select('id, title, description, latitude, longitude, created_at')
+            .eq('user_id', userId)
+            .eq('tag', intelTag)
+            .eq('beach_id', beachId)
+            .gte('created_at', dedupeWindowStart)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          if (existingIntelError) {
+            console.error(
+              `  ⚠️ Failed to check for duplicates for ${npc.full_name}:`,
+              existingIntelError
+            );
+            shouldInsert = true;
+            break;
+          }
+
+          const existingMatch = existingIntel?.find((existing) => {
+            const existingHash = createIntelDedupeHash({
+              userId,
+              tag: intelTag,
+              beachId,
+              title: existing.title,
+              description: existing.description,
+              latitude: existing.latitude,
+              longitude: existing.longitude,
+            });
+            return existingHash === dedupeHash;
+          });
+
+          if (existingMatch) {
+            duplicateReason = "existing";
+            continue;
+          }
+
+          shouldInsert = true;
+          break;
+        }
+
+        if (!shouldInsert || !intelData) {
+          const reasonText =
+            duplicateReason === "existing"
+              ? "matched existing intel in window"
+              : duplicateReason === "run"
+                ? "duplicate generated within current run"
+                : "unable to produce unique intel";
+          console.log(
+            `  ⚠️ Skipped duplicate intel for ${npc.full_name} at ${beach.name} (${reasonText})`
+          );
+          continue;
+        }
+
+        intelData.dedupe_hash = dedupeHash;
+
+        const runKey = `${intelData.user_id}:${dedupeHash}`;
+        runIntelHashes.add(runKey);
+
         const { error: intelError } = await supabase
           .from('intel_posts')
           .insert(intelData);

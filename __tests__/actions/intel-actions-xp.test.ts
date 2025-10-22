@@ -8,8 +8,12 @@ const mockSupabase = {
   from: jest.fn().mockReturnThis(),
   insert: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
-  single: jest.fn().mockReturnThis(),
+  single: jest.fn(),
   eq: jest.fn().mockReturnThis(),
+  gte: jest.fn().mockReturnThis(),
+  order: jest.fn().mockReturnThis(),
+  limit: jest.fn(),
+  update: jest.fn().mockReturnThis(),
   rpc: jest.fn(),
 };
 
@@ -35,6 +39,7 @@ jest.mock('next/cache', () => ({
 describe('Intel Actions XP Wiring', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabase.limit.mockResolvedValue({ data: [], error: null });
   });
 
   test('createIntelPost awards post_beach_intel XP on success', async () => {

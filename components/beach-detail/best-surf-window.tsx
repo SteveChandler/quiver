@@ -232,7 +232,9 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
               </span>
             )}
           </div>
-          {intel.best_window_start && intel.best_window_end ? (
+          {intel.best_window_start &&
+          intel.best_window_end &&
+          intel.best_window_start !== intel.best_window_end ? (
             <p
               className={`text-2xl font-bold ${
                 windowStatus.status === "current"
@@ -257,7 +259,7 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
             >
               {intel.best_window_description ||
                 intel.raw_intel_data?.bestWindow ||
-                "Variable conditions"}
+                "No optimal window found"}
             </p>
           )}
           {intel.best_window_description &&

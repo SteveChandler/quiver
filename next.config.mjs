@@ -136,6 +136,11 @@ const nextConfig = {
         hostname: "images.unsplash.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "live.staticflickr.com",
+        pathname: "/**",
+      },
       // Add specific Supabase hostname if available
       ...(supabaseHostname
         ? [
@@ -161,6 +166,7 @@ const nextConfig = {
     // Some environments require explicit domains allowlist in addition to remotePatterns
     domains: [
       "images.unsplash.com",
+      "live.staticflickr.com",
       ...(supabaseHostname ? [supabaseHostname] : []),
       "i0.wp.com", // defensive: common proxy hosts
     ],
