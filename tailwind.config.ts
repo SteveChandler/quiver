@@ -20,6 +20,7 @@ const config: Config = {
       },
       colors: {
         "ocean-blue": "#0077B6",
+        "ocean-blue-dark": "#006699", // Hover state for ocean-blue
         "sunset-orange": "#FF7F11",
         "sandy-beige": "#F5F5DC",
         "dark-grey": "#333333",

@@ -1,5 +1,18 @@
 # 🏗️ Quiver Surf App - Comprehensive Architecture Review
 
+## 🎯 **PRODUCT VISION**
+
+**Mission**: A community-driven, trail-style surf app where surfers can plan sessions, share experiences, leverage accurate forecasts, and build meaningful connections within the surf community.
+
+**Core Goals**:
+- Reliable surf forecasts with real-time conditions
+- Engaged community for sharing reviews, media, and experiences
+- Personal logging system for skill progression and equipment tracking
+- Social connections for crew-building among surfers
+- Localized surf communities with regional customization
+
+---
+
 ## 🎉 **CURRENT STATUS: PRODUCTION-READY SOCIAL SURF PLATFORM**
 
 ### 🚨 **CRITICAL REALITY: TECHNICAL EXCELLENCE WITH 0 USERS**

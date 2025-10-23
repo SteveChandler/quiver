@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, lazy, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
@@ -102,13 +102,14 @@ import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
 import { BeachActions } from "@/components/beach-detail/beach-actions";
 import { BeachTabs, BeachTabContent } from "@/components/beach-detail/beach-tabs";
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
+import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 
-// Tab content components
-import { OverviewTab } from "@/components/beach-detail/tabs/overview-tab";
-import { ForecastTab } from "@/components/beach-detail/tabs/forecast-tab";
-import { ReviewsTab } from "@/components/beach-detail/tabs/reviews-tab";
-import { IntelTab } from "@/components/beach-detail/tabs/intel-tab";
-import { SessionsTab } from "@/components/beach-detail/tabs/sessions-tab";
+// Tab content components - lazy loaded for better performance
+const OverviewTab = lazy(() => import("@/components/beach-detail/tabs/overview-tab").then(m => ({ default: m.OverviewTab })));
+const ForecastTab = lazy(() => import("@/components/beach-detail/tabs/forecast-tab").then(m => ({ default: m.ForecastTab })));
+const ReviewsTab = lazy(() => import("@/components/beach-detail/tabs/reviews-tab").then(m => ({ default: m.ReviewsTab })));
+const IntelTab = lazy(() => import("@/components/beach-detail/tabs/intel-tab").then(m => ({ default: m.IntelTab })));
+const SessionsTab = lazy(() => import("@/components/beach-detail/tabs/sessions-tab").then(m => ({ default: m.SessionsTab })));
 
 interface BeachDetailProps {
   id: string;
@@ -489,7 +490,7 @@ export function BeachDetail({
       {/* Main Content Container */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
         {/* Breadcrumb Navigation */}
-        <BeachBreadcrumb beach={beach} className="mb-6" />
+        <BeachBreadcrumb beach={beach} className="mb-4" />
 
         {/* Compact Hero - Title, Rating, Difficulty, Location */}
         <BeachHeroCompact beach={beach as any} className="mb-6" />
@@ -516,42 +517,52 @@ export function BeachDetail({
         <BeachTabs defaultTab="overview">
           {/* Overview Tab */}
           <BeachTabContent value="overview">
-            <OverviewTab beach={beach as any} />
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <OverviewTab beach={beach as any} />
+            </Suspense>
           </BeachTabContent>
 
           {/* Forecast Tab */}
           <BeachTabContent value="forecast">
-            <ForecastTab
-              beach={beach}
-              forecasts={forecasts || []}
-              currentForecast={currentForecast}
-              hasCamera={hasCamera}
-            />
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <ForecastTab
+                beach={beach}
+                forecasts={forecasts || []}
+                currentForecast={currentForecast}
+                hasCamera={hasCamera}
+              />
+            </Suspense>
           </BeachTabContent>
 
           {/* Reviews Tab */}
           <BeachTabContent value="reviews">
-            <ReviewsTab
-              beach={beach}
-              onWriteReview={handleWriteReview}
-              reviewRefreshTrigger={reviewRefreshTrigger}
-            />
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <ReviewsTab
+                beach={beach}
+                onWriteReview={handleWriteReview}
+                reviewRefreshTrigger={reviewRefreshTrigger}
+              />
+            </Suspense>
           </BeachTabContent>
 
           {/* Local Intel Tab */}
           <BeachTabContent value="intel">
-            <IntelTab
-              beach={beach}
-              initialShowAll={searchParams?.get("show") === "all"}
-            />
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <IntelTab
+                beach={beach}
+                initialShowAll={searchParams?.get("show") === "all"}
+              />
+            </Suspense>
           </BeachTabContent>
 
           {/* Sessions Tab */}
           <BeachTabContent value="sessions">
-            <SessionsTab
-              beach={beach}
-              sessionSnapshots={sessionSnapshots}
-            />
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <SessionsTab
+                beach={beach}
+                sessionSnapshots={sessionSnapshots}
+              />
+            </Suspense>
           </BeachTabContent>
         </BeachTabs>
       </div>

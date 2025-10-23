@@ -2,7 +2,6 @@
 
 import { useCallback } from "react";
 import { Waves, Wind, Anchor, TrendingUp } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -12,6 +11,22 @@ interface BeachStatsGridProps {
   beach: Beach;
   currentForecast?: EnhancedForecastEntity | null;
   className?: string;
+}
+
+function StatsGridSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={`bg-gray-50 p-5 rounded-xl my-6 animate-pulse ${className || ""}`}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex flex-col gap-1">
+            <div className="h-6 w-6 bg-gray-200 rounded mb-1" />
+            <div className="h-3 w-16 bg-gray-200 rounded" />
+            <div className="h-4 w-20 bg-gray-200 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function BeachStatsGrid({
@@ -34,10 +49,15 @@ export function BeachStatsGrid({
     } | null;
   }, [beach.id]);
 
-  const { data: calibration } = useDataFetcher(fetchCalibration, {
+  const { data: calibration, loading } = useDataFetcher(fetchCalibration, {
     immediate: true,
     initialData: null,
   });
+
+  // Show loading skeleton while fetching calibration data
+  if (loading) {
+    return <StatsGridSkeleton className={className} />;
+  }
 
   // Calculate best swell direction
   const calibratedSwellCardinal = calibration
@@ -100,48 +120,42 @@ export function BeachStatsGrid({
       icon: Waves,
       label: "Break Type",
       value: beach.break_type || "Beach Break",
-      iconColor: "text-ocean-blue",
     },
     {
       icon: TrendingUp,
       label: "Best Swell",
       value: bestSwell,
-      iconColor: "text-blue-600",
     },
     {
       icon: Wind,
       label: "Best Wind",
       value: bestWind,
-      iconColor: "text-blue-500",
     },
     {
       icon: Anchor,
       label: "Preferred Tide",
       value: tidePref,
-      iconColor: "text-blue-700",
     },
   ];
 
   return (
-    <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 ${className || ""}`}>
-      {stats.map((stat) => {
-        const Icon = stat.icon;
-        return (
-          <Card key={stat.label} className="border-muted-foreground/20">
-            <CardContent className="p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Icon className={`h-4 w-4 ${stat.iconColor}`} />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {stat.label}
-                </span>
-              </div>
-              <div className="text-lg font-bold text-foreground">
+    <div className={`bg-gray-50 p-5 rounded-xl my-6 ${className || ""}`}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="flex flex-col gap-1">
+              <Icon className="h-6 w-6 text-ocean-blue mb-1" />
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {stat.label}
+              </span>
+              <div className="text-base font-semibold text-gray-900">
                 {stat.value}
               </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

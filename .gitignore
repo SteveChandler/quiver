@@ -73,7 +73,7 @@ scripts/setup-dev-cron.sh
 .supabase
 .codex/
 .cursorrules
-/docs 
+
 
 # Performance testing results
 scripts/lighthouseRun.*

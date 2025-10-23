@@ -30,50 +30,66 @@ export function BeachActions({
 
   return (
     <div className={`space-y-4 ${className || ""}`}>
-      {/* Primary Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Primary Action Buttons - Phase 3 Spec Compliance */}
+      {/* Grid: 4 cols desktop, 2 cols mobile | Gap: 12px | Margin: 20px 0 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 my-5">
         {/* Get Directions - Secondary Action */}
+        {/* Spec: 48px height, white bg, gray-700 text, 1px gray-300 border, 8px radius, 16px font, 500 weight, 0 20px padding */}
         <Button
           variant="outline"
-          size="lg"
           onClick={handleGetDirections}
           disabled={!beach.latitude || !beach.longitude}
-          className="flex-1 sm:flex-none"
+          className="h-12 px-5 text-base font-medium rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"
         >
-          <Navigation className="h-4 w-4 mr-2" />
+          <Navigation className="h-5 w-5 mr-2" />
           Get directions
         </Button>
 
-        {/* Session Planning - Primary Action (Blue) */}
-        <div className="flex gap-2 flex-1">
-          <Button
-            variant="default"
-            size="lg"
-            onClick={onLogSession}
-            className="flex-1 bg-ocean-blue hover:bg-ocean-blue/90"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Log Session
-          </Button>
-          <Button
-            variant="default"
-            size="lg"
-            onClick={onPlanSession}
-            className="flex-1 bg-ocean-blue hover:bg-ocean-blue/90"
-          >
-            <BookOpen className="h-4 w-4 mr-2" />
-            Plan Session
-          </Button>
-        </div>
+        {/* Log Session - Primary Action */}
+        {/* Spec: 48px height, #0077B6 bg, white text, 8px radius, 16px font, 600 weight, 0 24px padding, #006699 hover */}
+        <Button
+          variant="default"
+          onClick={onLogSession}
+          className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all"
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          Log Session
+        </Button>
+
+        {/* Plan Session - Primary Action */}
+        {/* Spec: 48px height, #0077B6 bg, white text, 8px radius, 16px font, 600 weight, 0 24px padding, #006699 hover */}
+        <Button
+          variant="default"
+          onClick={onPlanSession}
+          className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all col-span-2 md:col-span-1"
+        >
+          <BookOpen className="h-5 w-5 mr-2" />
+          Plan Session
+        </Button>
+
+        {/* Favorite Button - Secondary Action */}
+        <FavoriteButton
+          beachId={beach.id}
+          variant="outline"
+          className="h-12 text-base font-medium rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all hidden md:block"
+        />
       </div>
 
-      {/* Secondary Actions: Favorite & Home Beach */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Mobile-only Favorite & Home Beach Row */}
+      <div className="flex flex-wrap items-center gap-3 md:hidden">
         <FavoriteButton
           beachId={beach.id}
           variant="outline"
           size="sm"
         />
+        <HomeBeachBanner
+          selectedBeachId={beach.id}
+          selectedBeachName={beach.name}
+        />
+      </div>
+
+      {/* Desktop Home Beach Banner */}
+      <div className="hidden md:block">
         <HomeBeachBanner
           selectedBeachId={beach.id}
           selectedBeachName={beach.name}

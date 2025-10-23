@@ -36,3 +36,78 @@ You are a Test Automation Specialist (SDET) with deep expertise in modern JavaSc
 - **Never** deviate from established project testing conventions without good reason. Follow the project's file naming and structuring rules for tests, and use existing testing utilities/helpers provided by the codebase. If new test utilities are needed, implement them in line with the project's style to ensure contributions blend seamlessly into the codebase.
 
 When working on the Quiver project specifically, always validate your test implementations using Playwright MCP for browser automation and follow the established patterns from the project's ARCHITECTURE.md files. Use the project's preferred testing commands and ensure all tests align with the growth-first strategy and existing code patterns.
+
+## Quiver Beach Detail Testing Suite
+
+**Test Beach ID:** `84d3468b-c1ec-46ad-8621-d8507e5f167a`
+
+### E2E Tests
+- **File:** `e2e/beach-detail-layout.spec.ts`
+- **Purpose:** Validates beach detail refactor specifications (docs/quiver_beach_detail_refactor.md)
+- **Coverage:**
+  - Phase 1: Photo Gallery layout compliance (grid, gaps, sizing, badge positioning)
+  - Phase 2: Stats Grid compliance (columns, icons, typography)
+  - Phase 3: Action Buttons compliance (height, colors, layout)
+  - Phase 6: Color compliance (ocean-blue primary, no AllTrails green)
+  - Responsive breakpoints (mobile, tablet, desktop, large, XL)
+  - Performance requirements (FCP, CLS)
+
+### Unit Tests
+- **BeachPhotoGallery:** `__tests__/components/beach-detail/beach-photo-gallery.test.tsx`
+  - Layout structure (grid, gap, border-radius)
+  - Hero photo sizing (400px desktop, 3:2 mobile)
+  - Side photo sizing (196px desktop)
+  - Photo count badge (positioning, styling, icons)
+  - Map integration fallback logic
+  - Image error handling
+  - Performance optimizations (memoization, lazy loading)
+  - Accessibility
+
+- **BeachStatsGrid:** `__tests__/components/beach-detail/beach-stats-grid.test.tsx`
+  - Grid layout (responsive columns)
+  - Icon sizing and colors
+  - Typography (labels, values)
+  - Card styling
+  - Stat calculations (swell, wind, tide)
+  - Calibration data integration
+  - Edge cases (null values, partial data)
+
+- **BeachActions:** `__tests__/components/beach-detail/beach-actions.test.tsx`
+  - Button rendering and functionality
+  - Get Directions integration
+  - Session planning callbacks
+  - Button styling (size, colors, layout)
+  - Icon sizing and positioning
+  - Responsive layout
+  - Accessibility
+  - Edge cases (missing coordinates, rapid clicks)
+
+### Running Tests
+```bash
+# Run all unit tests
+npm run test:coverage
+
+# Run beach detail unit tests only
+npx jest __tests__/components/beach-detail
+
+# Run E2E layout compliance tests
+npx playwright test e2e/beach-detail-layout.spec.ts
+
+# Run all beach detail E2E tests
+npx playwright test e2e/beach-detail
+
+# Run with UI
+npx playwright test e2e/beach-detail-layout.spec.ts --ui
+```
+
+### Test Development Guidelines
+1. Always use the test beach ID for E2E tests: `84d3468b-c1ec-46ad-8621-d8507e5f167a`
+2. Validate against refactor spec: `docs/quiver_beach_detail_refactor.md`
+3. Test both current implementation and spec requirements
+4. Document discrepancies between current state and spec goals
+5. Use Playwright MCP for browser automation in E2E tests
+6. Follow existing test patterns in `__tests__/` directory
+7. Mock dependencies appropriately (use-data-fetcher, Supabase, etc.)
+8. Test responsive behavior at all breakpoints
+9. Verify accessibility (ARIA labels, keyboard navigation, screen readers)
+10. Check performance (lazy loading, memoization, CLS prevention)
