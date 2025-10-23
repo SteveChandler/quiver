@@ -138,6 +138,7 @@ export function MapContent({
           initialZoom={12}
           onLocationClick={onBeachSelect}
           regionViewport={regionViewport}
+          beaches={filteredBeaches}
           className="absolute inset-0 z-0 w-full h-full"
         />
 
