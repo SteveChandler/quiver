@@ -95,6 +95,28 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   const sidePhotos = validPhotos.slice(1, 3);
   const hasPhotos = validPhotos.length > 0;
 
+  // When no photos available, show only the map in a simple layout
+  if (!hasPhotos) {
+    return (
+      <div className={`relative ${className || ""}`}>
+        <div className="relative aspect-[3/2] md:aspect-auto md:min-h-[400px] bg-muted rounded-xl overflow-hidden">
+          {beach.latitude && beach.longitude ? (
+            <MapFallback
+              mapUrl={mapUrl}
+              beachName={beach.name}
+              sizes="100vw"
+              priority
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-ocean-blue/10 to-blue-200/20">
+              <Camera className="h-16 w-16 text-muted-foreground/40" />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`relative ${className || ""}`}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-xl overflow-hidden">
