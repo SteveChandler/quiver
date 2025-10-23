@@ -13,4 +13,3 @@ create unique index if not exists intel_posts_daily_dedupe_idx
     ((created_at at time zone 'UTC')::date)
   )
   where dedupe_hash is not null;
-ru z

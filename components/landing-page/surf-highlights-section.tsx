@@ -25,7 +25,8 @@ export function SurfHighlightsSection() {
       if (!response.ok) {
         throw new Error("Failed to fetch beaches");
       }
-      const beaches: Beach[] = await response.json();
+      const result = await response.json();
+      const beaches: Beach[] = result.data || result;
 
       // Transform beaches into surf spot cards with mock conditions
       // In production, you'd fetch real conditions from the forecast API

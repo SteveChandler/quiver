@@ -487,7 +487,7 @@ export function BeachDetail({
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
       {/* Main Content Container */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
         {/* Breadcrumb Navigation */}
         <BeachBreadcrumb beach={beach} className="mb-6" />
 
