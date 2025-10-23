@@ -49,7 +49,6 @@ export function BeachStatsGrid({
 
   const bestSwell =
     calibratedSwellCardinal ||
-    beach.best_swell_cardinals?.join(", ") ||
     degreeWindowToCardinal(
       beach.swell_window_min_deg ?? null,
       beach.swell_window_max_deg ?? null
@@ -83,7 +82,6 @@ export function BeachStatsGrid({
 
   const bestWind =
     calibratedWindCardinal ||
-    beach.best_wind_cardinals?.join(", ") ||
     beachWindCardinal ||
     "—";
 
@@ -96,12 +94,6 @@ export function BeachStatsGrid({
     if (min != null) return `${min}+ ft`;
     return `${max} ft or lower`;
   })();
-
-  // Current conditions from forecast
-  const currentWaveHeight = currentForecast?.wave_height
-    ? `${currentForecast.wave_height.toFixed(1)} ft`
-    : "—";
-  const currentWindSpeed = currentForecast?.wind_speed || "—";
 
   const stats = [
     {

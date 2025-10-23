@@ -77,10 +77,9 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
       )
     : null;
 
-  // Prefer calibration → explicit cardinals on beach → beach swell window → em dash
+  // Prefer calibration → beach swell window → em dash
   const bestSwell =
     calibratedSwellCardinal ||
-    beach.best_swell_cardinals?.join(", ") ||
     degreeWindowToCardinal(
       beach.swell_window_min_deg ?? null,
       beach.swell_window_max_deg ?? null
@@ -114,7 +113,6 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
 
   const bestWind =
     calibratedWindCardinal ||
-    beach.best_wind_cardinals?.join(", ") ||
     beachWindCardinal ||
     "—";
   const tidePref = (() => {
