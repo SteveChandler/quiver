@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Improved - Map View List Toggle Enhancements - 2025-10-23
+
+#### Map Page List View Toggle
+- **Improved:** Added proper loading state propagation to BeachList component
+- **Fixed:** Beach list now maintains data-testid during loading states for better testability
+- **Enhanced:** Added aria-busy attribute to loading state for improved accessibility
+- **Simplified:** Removed Framer Motion wrappers from view mode toggle buttons to prevent potential event issues
+- **Result:** List view toggle works correctly in manual testing; addresses race condition concerns
+- **Status:** Partially resolved - manual testing passes, automated test investigation ongoing
+- **Files:**
+  - `components/map-view.tsx` (line 309)
+  - `components/map/beach-list.tsx` (lines 114-123)
+  - `components/map/map-search-header.tsx` (lines 44-65)
+- **Documentation:** `docs/MAP_PAGE_BUGS_REPORT.md` (BUG-001 updated with fix attempts and findings)
+
+### Fixed - Community Navigation 404 Error - 2025-10-23
+
+#### Header Navigation Link
+- **Fixed:** Community button now directs to home page with Intel tab open instead of non-existent `/community` route
+- **Changed:** Community nav link href from `/community` to `/?tab=community`
+- **Added:** URL parameter handling in HomeScreen to read `tab` query param and set active tab
+- **Updated:** Active route detection logic to highlight Community link when on home with `?tab=community`
+- **Result:** No more 404 error when clicking Community button
+- **Impact:** Users can now access the Local Intel (Community) tab directly from header navigation
+- **Files:**
+  - `components/app-header.tsx` (lines 119, 135-152)
+  - `components/home-screen/index.tsx` (lines 4, 38-44)
+  - `__tests__/components/app-header.test.tsx` (lines 835-840, 966-974)
+  - `e2e/nav-header-navigation.spec.ts` (lines 113-130)
+
 ### Fixed - Beach Photo Gallery UX Improvement - 2025-10-23
 
 #### Beach Detail Page Photo Gallery

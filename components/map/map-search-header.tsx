@@ -40,42 +40,28 @@ export function MapSearchHeader({
           </Button>
         )}
 
-        {/* View Mode Toggle with Motion */}
-        <div className="flex bg-muted rounded-lg p-1">
-          <motion.div
+        {/* View Mode Toggle */}
+        <div className="flex bg-muted rounded-lg p-1 gap-1">
+          <Button
+            variant={viewMode === "map" ? "default" : "ghost"}
+            size="sm"
+            data-testid="view-mode-map"
+            onClick={() => onViewModeChange("map")}
             className="flex-1"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            tabIndex={-1}
           >
-            <Button
-              variant={viewMode === "map" ? "default" : "ghost"}
-              size="sm"
-              data-testid="view-mode-map"
-              onClick={() => onViewModeChange("map")}
-              className="w-full"
-            >
-              <MapIcon className="h-4 w-4 mr-1" />
-              Map
-            </Button>
-          </motion.div>
-          <motion.div
+            <MapIcon className="h-4 w-4 mr-1" />
+            Map
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "ghost"}
+            size="sm"
+            data-testid="view-mode-list"
+            onClick={() => onViewModeChange("list")}
             className="flex-1"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            tabIndex={-1}
           >
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              data-testid="view-mode-list"
-              onClick={() => onViewModeChange("list")}
-              className="w-full"
-            >
-              <List className="h-4 w-4 mr-1" />
-              List
-            </Button>
-          </motion.div>
+            <List className="h-4 w-4 mr-1" />
+            List
+          </Button>
         </div>
       </div>
     </div>

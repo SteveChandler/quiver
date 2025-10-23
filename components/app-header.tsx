@@ -116,7 +116,7 @@ export function AppHeader() {
     ? [
         { name: "Discover", href: "/map", icon: null },
         { name: "Sessions", href: "/sessions", icon: null },
-        { name: "Community", href: "/community", icon: null },
+        { name: "Community", href: "/?tab=community", icon: null },
       ]
     : [
         { name: "Features", href: "/features", icon: null },
@@ -136,6 +136,18 @@ export function AppHeader() {
     if (href === "/") return pathname === "/";
     if (href.startsWith("/#"))
       return pathname === "/" && href.includes("forecast");
+    // Handle query parameter routes (e.g., /?tab=community)
+    if (href.includes("?")) {
+      const [hrefPath, hrefQuery] = href.split("?");
+      if (pathname !== hrefPath) return false;
+      const hrefParams = new URLSearchParams(hrefQuery);
+      const currentParams = new URLSearchParams(searchParams.toString());
+      // Check if all href params match current params
+      for (const [key, value] of hrefParams.entries()) {
+        if (currentParams.get(key) !== value) return false;
+      }
+      return true;
+    }
     return pathname.startsWith(href);
   };
 

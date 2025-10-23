@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense, lazy, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
@@ -35,7 +35,13 @@ function TabSkeleton() {
 }
 
 export function HomeScreen() {
-  const [activeTab, setActiveTab] = useState("forecast");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(
+    tabParam && ["forecast", "nearby", "community"].includes(tabParam)
+      ? tabParam
+      : "forecast"
+  );
   const [selectedBeachOverride, setSelectedBeachOverride] =
     useState<Beach | null>(null);
   const router = useRouter();

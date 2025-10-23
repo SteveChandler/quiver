@@ -111,7 +111,11 @@ export function BeachList({
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        data-testid="beach-list"
+        aria-busy="true"
+      >
         <div className="p-4">
           <BeachCardListSkeleton count={6} />
         </div>

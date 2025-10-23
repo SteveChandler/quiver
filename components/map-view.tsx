@@ -306,6 +306,7 @@ export function MapView() {
           searchQuery={searchQuery}
           userLocation={userLocation}
           usingDefaultLocation={usingDefaultLocation}
+          loading={loading}
           onBeachSelect={handleBeachSelect}
           onClearSearch={handleClearSearch}
           onGetUserLocation={getUserLocation}

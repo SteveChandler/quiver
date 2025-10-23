@@ -12,6 +12,7 @@ interface GeolocationState {
   locationError: string | null;
   usingDefaultLocation: boolean;
   loading: boolean;
+  hasTimedOut: boolean;
 }
 
 interface UseGeolocationOptions {

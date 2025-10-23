@@ -110,18 +110,23 @@ test.describe("Nav Header Navigation - Navigation Functionality", () => {
     await expect(page).toHaveURL(/\/sessions/);
   });
 
-  test("clicking Community navigates to /community", async ({ page }) => {
+  test("clicking Community navigates to home with intel tab", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/map");
 
     const communityLink = page.getByRole("link", { name: /community/i });
 
-    // Check if link exists and get href
+    // Verify link href
     const href = await communityLink.getAttribute("href");
-    expect(href).toContain("/community");
+    expect(href).toContain("?tab=community");
 
-    // Note: /community route may not exist yet, so we just verify the href
-    // Once the route exists, this test can click and verify navigation
+    // Click the link and verify navigation
+    await communityLink.click();
+    await expect(page).toHaveURL(/\?tab=community/);
+
+    // Verify the "Local Intel" tab is active
+    const localIntelTab = page.getByRole("tab", { name: /local intel/i });
+    await expect(localIntelTab).toHaveAttribute("data-state", "active");
   });
 
   test("navigation links open in same tab", async ({ page }) => {
