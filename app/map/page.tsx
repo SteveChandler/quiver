@@ -1,7 +1,6 @@
 import { Suspense, lazy } from "react";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { BottomNavigation } from "@/components/bottom-navigation";
 
 // Lazy load heavy map component
 const MapView = lazy(() =>
@@ -41,7 +40,6 @@ export default function MapPage() {
       <Suspense fallback={<MapSkeleton />}>
         <MapView />
       </Suspense>
-      <BottomNavigation />
     </div>
   );
 }

@@ -9,7 +9,6 @@ import { Waves, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { trackPublicPageView } from "@/lib/analytics";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
-import { BottomNavigation } from "@/components/bottom-navigation";
 import type { SessionWithDetails } from "@/types/database";
 
 export default function SessionsPage() {
@@ -154,7 +153,6 @@ export default function SessionsPage() {
           </CardContent>
         </Card>
       </div>
-      <BottomNavigation />
     </div>
   );
 }

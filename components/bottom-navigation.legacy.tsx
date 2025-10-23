@@ -1,3 +1,14 @@
+/**
+ * DEPRECATED: This component has been replaced by the mobile hamburger menu
+ * in app-header.tsx (Phase 5 of navigation header refactor).
+ *
+ * Kept temporarily for easy rollback if needed.
+ * Can be safely deleted after 2-3 weeks of stable production.
+ *
+ * Date deprecated: 2025-10-23
+ * Replaced by: Mobile hamburger menu in components/app-header.tsx
+ */
+
 "use client";
 
 import { Home, Map, CalendarDays, User, Users } from "lucide-react";

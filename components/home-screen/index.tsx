@@ -4,7 +4,6 @@ import { useState, Suspense, lazy, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { BottomNavigation } from "@/components/bottom-navigation";
 import { useAuth } from "@/context/auth-context";
 import { useHomeData } from "./use-home-data";
 
@@ -223,9 +222,6 @@ export function HomeScreen() {
           </Tabs>
         </section>
       </main>
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
     </div>
   );
 }

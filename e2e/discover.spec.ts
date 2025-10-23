@@ -5,14 +5,14 @@ const DISCOVER_SIGN_IN_MESSAGE =
   "Sign in to discover and follow other surfers in your community.";
 
 test.describe("Discover - guest", () => {
-  test("shows sign-in prompt and bottom navigation", async ({ page }) => {
+  test("shows sign-in prompt", async ({ page }) => {
     await page.goto("/discover?test=true", { waitUntil: "domcontentloaded" });
 
     await expect(
       page.getByRole("heading", { name: /Discover Surfers/i })
     ).toBeVisible();
     await expect(page.getByText(DISCOVER_SIGN_IN_MESSAGE)).toBeVisible();
-    await expect(page.getByTestId("bottom-navigation")).toBeVisible();
+    // Bottom navigation removed in Phase 5 - replaced by hamburger menu in header
   });
 });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapSearchHeader } from "@/components/map/map-search-header";
@@ -15,6 +16,7 @@ import type { Beach } from "@/types/database";
 import AuthGate from "@/components/auth/auth-gate";
 
 export function MapView() {
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
@@ -83,6 +85,14 @@ export function MapView() {
     lastLocationRef.current = userLocation;
     loadNearbyBeaches(userLocation.lat, userLocation.lng);
   }, [userLocation, loadNearbyBeaches]);
+
+  // Read search query from URL params (from global header search)
+  useEffect(() => {
+    const searchFromUrl = searchParams.get("search");
+    if (searchFromUrl && searchFromUrl !== searchQuery) {
+      setSearchQuery(searchFromUrl);
+    }
+  }, [searchParams, searchQuery, setSearchQuery]);
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
@@ -195,27 +205,10 @@ export function MapView() {
         <AuthGate block />
       </Suspense>
 
-      {/* Search Header */}
+      {/* Map Controls (View Mode Toggle & Near Me) */}
       <MapSearchHeader
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onClearSearch={handleClearSearch}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        suggestions={(beaches || []).map((b) => ({
-          id: b.id,
-          name: b.name,
-          location: b.location || undefined,
-        }))}
-        onResultSelect={(id) => {
-          const beach = (beaches || []).find((b) => b.id === id);
-          if (beach) {
-            setSelectedBeach(beach);
-            setSearchQuery(beach.name);
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }
-        }}
-        // Near Me chip control
         onNearMe={() => {
           if (userLocation) {
             loadNearbyBeaches(userLocation.lat, userLocation.lng);

@@ -108,3 +108,4 @@ scripts/*-to-delete.txt
 # Cloudflare tunnel temp files
 .tunnel-url
 .tunnel-pid
+e2e/.auth/state.json

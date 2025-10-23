@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Loader2, CalendarPlus, Check, XCircle } from "lucide-react";
-import { BottomNavigation } from "@/components/bottom-navigation";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
 import { useSessionInvitationsSubscription } from "@/hooks/use-session-invitations-subscription";
@@ -207,7 +206,6 @@ export default function InboxPageClient() {
             </CardContent>
           </Card>
         </div>
-        <BottomNavigation />
       </div>
     </div>
   );

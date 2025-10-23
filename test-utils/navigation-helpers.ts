@@ -1,45 +1,71 @@
 import { Page } from "@playwright/test";
 
 /**
- * Simulates user activity to show the bottom navigation
- * In test mode, navigation should stay visible automatically
+ * Opens the mobile navigation menu (hamburger menu)
+ * @param page - Playwright page object
+ */
+export async function openMobileMenu(page: Page) {
+  const hamburger = page.getByTestId("mobile-menu-button");
+  await hamburger.click();
+
+  // Wait for drawer to be visible
+  const drawer = page.getByRole("dialog");
+  await drawer.waitFor({ state: "visible", timeout: 3000 });
+}
+
+/**
+ * Clicks a navigation item in the mobile menu
+ * @param page - Playwright page object
+ * @param itemName - Name of the navigation item (e.g., "Home", "Map", "Sessions")
+ */
+export async function clickMobileMenuItem(page: Page, itemName: string) {
+  // Ensure mobile menu is open
+  const drawer = page.getByRole("dialog");
+  const isVisible = await drawer.isVisible().catch(() => false);
+
+  if (!isVisible) {
+    await openMobileMenu(page);
+  }
+
+  // Click the navigation item
+  const navItem = page.getByTestId(`mobile-nav-${itemName.toLowerCase()}`);
+  await navItem.click();
+
+  // Wait for drawer to close
+  await drawer.waitFor({ state: "hidden", timeout: 3000 });
+}
+
+/**
+ * @deprecated Bottom navigation has been removed. Use openMobileMenu() instead.
+ * This function is kept temporarily for backwards compatibility.
  */
 export async function showBottomNavigation(page: Page) {
-  // Simple mouse movement to trigger activity (if auto-hide is still active)
+  console.warn(
+    "showBottomNavigation is deprecated - bottom navigation removed in Phase 5. Use openMobileMenu() instead."
+  );
+  // Simple mouse movement to trigger activity (legacy behavior)
   await page.mouse.move(100, 100);
-
-  // Small wait to ensure navigation is visible
   await page.waitForTimeout(100);
 }
 
 /**
- * Ensures bottom navigation is visible and returns the element
- * Simplified for test mode where navigation stays visible
+ * @deprecated Bottom navigation has been removed. Use openMobileMenu() instead.
+ * This function will throw an error to alert developers to update their tests.
  */
 export async function getBottomNavigation(page: Page) {
-  // In test mode, navigation should be visible by default
-  // Just find the navigation element
-  const bottomNav = page.getByTestId("bottom-navigation").first();
-
-  // Wait for it to be visible with a reasonable timeout
-  await bottomNav.waitFor({ state: "visible", timeout: 5000 });
-
-  return bottomNav;
+  throw new Error(
+    "Bottom navigation removed in Phase 5 - use openMobileMenu() and page.getByRole('dialog') instead."
+  );
 }
 
 /**
- * Clicks a navigation item by name after ensuring navigation is visible
+ * @deprecated Bottom navigation has been removed. Use clickMobileMenuItem() instead.
+ * This function will throw an error to alert developers to update their tests.
  */
 export async function clickNavigationItem(page: Page, itemName: string) {
-  // Get the navigation element first
-  const bottomNav = await getBottomNavigation(page);
-
-  // Find and click the navigation item within the navigation container
-  const navItem = bottomNav.getByText(new RegExp(itemName, "i")).first();
-
-  // Wait for the item to be clickable and click it
-  await navItem.waitFor({ state: "visible", timeout: 3000 });
-  await navItem.click();
+  throw new Error(
+    "Bottom navigation removed in Phase 5 - use clickMobileMenuItem() instead."
+  );
 }
 
 /**

@@ -1,4 +1,3 @@
-import { BottomNavigation } from "@/components/bottom-navigation";
 import { BeachDetail } from "@/components/beach-detail";
 import {
   getBeachBySlug,
@@ -41,7 +40,6 @@ export default async function BeachDetailBySlugPage({
               </p>
             </div>
           </main>
-          <BottomNavigation />
         </div>
       );
     }
@@ -69,8 +67,6 @@ export default async function BeachDetailBySlugPage({
 
         {/* Client detail component with auth tracking */}
         <BeachDetailClient beach={beach} slug={params.slug} />
-
-        <BottomNavigation />
       </>
     );
   } catch (error) {
@@ -85,7 +81,6 @@ export default async function BeachDetailBySlugPage({
             </p>
           </div>
         </main>
-        <BottomNavigation />
       </div>
     );
   }
