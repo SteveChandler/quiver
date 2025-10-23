@@ -26,7 +26,7 @@ The landing page follows the **AllTrails.com** design pattern:
 
 - `hero-section.tsx` — **REDESIGNED** Search-centric hero with search bar
 
-  - Headline: "Find your next surf break"
+  - Headline: "Find your next wave"
   - Prominent search bar: "Search by beach, spot, or region"
   - Quick action buttons: "Explore Nearby", "View Forecast"
   - Video background maintained for visual appeal
@@ -40,7 +40,7 @@ The landing page follows the **AllTrails.com** design pattern:
 
 - `activities-section.tsx` — **NEW** Replaces features with surf type filters
 
-  - Activity cards for: Longboarding, Reef Breaks, Point Breaks, Beginner-Friendly, Women-Led Spots, Offshore Winds
+  - Activity cards for: Longboarding, Reef Breaks, Point Breaks, Beginner-Friendly, Boogie Boarding, Offshore Winds
   - Each card links to filtered discovery page
   - Icon-driven design with hover effects
 

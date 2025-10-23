@@ -256,12 +256,24 @@ export class IntelGenerationService {
     // Parse best window string (e.g., "06:00–08:30 on the drop" or "06:00-08:30")
     // Handle both regular dash (-) and em-dash (–)
     const windowMatch = intel.bestWindow.match(/(\d{2}:\d{2})[\-–](\d{2}:\d{2})/);
-    const windowStart = windowMatch ? windowMatch[1] : null;
-    const windowEnd = windowMatch ? windowMatch[2] : null;
-    
+    let windowStart = windowMatch ? windowMatch[1] : null;
+    let windowEnd = windowMatch ? windowMatch[2] : null;
+
+    // Validate that start and end times are different
+    // If they're identical, this indicates a bug in window generation
+    if (windowStart && windowEnd && windowStart === windowEnd) {
+      console.error(
+        `Invalid surf window detected for beach ${beachId}: ${windowStart}-${windowEnd}. ` +
+        `This indicates identical start/end times. Storing as description instead.`
+      );
+      // Set times to null and store the original message as description
+      windowStart = null;
+      windowEnd = null;
+    }
+
     // Store original message in description field when times can't be parsed
     // This provides fallback text like "N/A" or "Variable conditions..."
-    const windowDescription = !windowMatch ? intel.bestWindow : null;
+    const windowDescription = !windowMatch || (windowStart === null && windowEnd === null) ? intel.bestWindow : null;
 
     // Determine wind quality from offshore boolean and description
     const windQuality = intel.wind.offshore

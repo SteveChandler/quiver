@@ -240,9 +240,16 @@ export function CalendarHeatmap({
                   onMouseEnter={() => setHoveredDate(dateInfo.date)}
                   onMouseLeave={() => setHoveredDate(null)}
                   role="gridcell"
+                  tabIndex={0}
                   aria-label={`${dateFns.format(day, "EEEE, MMMM d")}${
                     hasSession ? ` - ${dateInfo.sessionCount} sessions` : ""
                   }`}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleDateClick(day);
+                    }
+                  }}
                 >
                   <div className="text-sm font-medium">{dayNumber}</div>
 

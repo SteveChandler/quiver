@@ -23,6 +23,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
+import {
+  createIntelDedupeHash,
+  DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES,
+} from '../lib/utils/intel-dedupe';
 
 // Load environment variables
 config();
@@ -938,8 +942,9 @@ async function seedIntelPosts(
       const latitude = addRandomOffset(beach.latitude);
       const longitude = addRandomOffset(beach.longitude);
       
-      const intelData = {
+      const intelData: Record<string, any> = {
         user_id: user.id,
+        beach_id: beach.id,
         latitude,
         longitude,
         tag,
@@ -959,6 +964,62 @@ async function seedIntelPosts(
           forecast_accuracy: ['accurate', 'somewhat', 'inaccurate'][Math.floor(Math.random() * 3)]
         })
       };
+
+      const dedupeHash = createIntelDedupeHash({
+        userId: user.id,
+        tag,
+        beachId: beach.id,
+        title,
+        description,
+        latitude,
+        longitude,
+      });
+
+      const createdAt = intelData.created_at
+        ? new Date(intelData.created_at)
+        : new Date();
+      const dedupeWindowStart = new Date(
+        createdAt.getTime() - DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES * 60 * 1000
+      ).toISOString();
+
+      const { data: existingIntel, error: dedupeError } = await supabase
+        .from('intel_posts')
+        .select('id, title, description, latitude, longitude, beach_id, created_at')
+        .eq('user_id', user.id)
+        .eq('tag', tag)
+        .eq('beach_id', beach.id)
+        .gte('created_at', dedupeWindowStart)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (dedupeError) {
+        console.error(
+          `Failed to check duplicates for ${beach.name} by ${user.full_name}:`,
+          dedupeError
+        );
+      } else {
+        const existingMatch = existingIntel?.find(existing => {
+          const existingHash = createIntelDedupeHash({
+            userId: user.id,
+            tag,
+            beachId: existing.beach_id ?? beach.id,
+            title: existing.title,
+            description: existing.description,
+            latitude: existing.latitude,
+            longitude: existing.longitude,
+          });
+          return existingHash === dedupeHash;
+        });
+
+        if (existingMatch) {
+          console.log(
+            `Skipping duplicate intel for ${beach.name} by ${user.full_name} (matches ${existingMatch.id})`
+          );
+          continue;
+        }
+      }
+
+      intelData.dedupe_hash = dedupeHash;
       
       const { error } = await supabase
         .from('intel_posts')

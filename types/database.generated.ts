@@ -799,6 +799,7 @@ export type Database = {
           confirmations_count: number
           created_at: string
           description: string
+          dedupe_hash: string | null
           expires_at: string | null
           id: string
           is_active: boolean
@@ -817,6 +818,7 @@ export type Database = {
           confirmations_count?: number
           created_at?: string
           description: string
+          dedupe_hash?: string | null
           expires_at?: string | null
           id?: string
           is_active?: boolean
@@ -835,6 +837,7 @@ export type Database = {
           confirmations_count?: number
           created_at?: string
           description?: string
+          dedupe_hash?: string | null
           expires_at?: string | null
           id?: string
           is_active?: boolean

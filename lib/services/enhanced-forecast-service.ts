@@ -1098,9 +1098,25 @@ export class EnhancedForecastService {
     const supabase = await createSupabaseServiceRoleClient();
 
     try {
+      // Deduplicate forecasts by unique key (beach_id, forecast_date, forecast_time)
+      // This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time" errors
+      const uniqueForecasts = new Map<string, EnhancedForecastEntity>();
+      forecasts.forEach((forecast) => {
+        const key = `${forecast.beach_id}|${forecast.forecast_date}|${forecast.forecast_time}`;
+        if (!uniqueForecasts.has(key)) {
+          uniqueForecasts.set(key, forecast);
+        } else {
+          console.log(`⚠️ Skipping duplicate forecast: ${key}`);
+        }
+      });
+
+      console.log(
+        `📊 Deduplicated ${forecasts.length} forecasts to ${uniqueForecasts.size} unique entries`
+      );
+
       // Upsert in chunks to avoid exceeding PostgREST payload limits
       // Increased from 24 to 100 to reduce total number of database calls
-      const toRows = forecasts.map((forecast) => {
+      const toRows = Array.from(uniqueForecasts.values()).map((forecast) => {
         const { id, ...forecastWithoutId } = forecast;
         return { ...forecastWithoutId, updated_at: new Date().toISOString() };
       });

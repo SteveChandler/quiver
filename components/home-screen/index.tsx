@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, Suspense, lazy, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { BottomNavigation } from "@/components/bottom-navigation";
 import { useAuth } from "@/context/auth-context";
 import { useHomeData } from "./use-home-data";
 
@@ -15,12 +14,15 @@ import { useGeo } from "@/hooks/useGeo";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { useOnboarding } from "@/hooks/use-onboarding";
 import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
+import { track } from "@/lib/analytics";
+import { BookOpen, Plus } from "lucide-react";
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
 import { NearbyTab } from "./nearby-tab";
 import { CommunityTab } from "./community-tab";
 import { NearbyBeachChips } from "./nearby-beach-chips";
+import { BestConditionsCards } from "./best-conditions-cards";
 
 // Loading component for tabs
 function TabSkeleton() {
@@ -34,12 +36,27 @@ function TabSkeleton() {
 }
 
 export function HomeScreen() {
-  const [activeTab, setActiveTab] = useState("forecast");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(
+    tabParam && ["forecast", "nearby", "community"].includes(tabParam)
+      ? tabParam
+      : "forecast"
+  );
   const [selectedBeachOverride, setSelectedBeachOverride] =
     useState<Beach | null>(null);
   const router = useRouter();
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
+
+  // Track tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    track("home_tab_click", {
+      tab: value,
+      user_authenticated: !!user,
+    });
+  };
 
   // Server-truth onboarding flow
   const {
@@ -105,51 +122,89 @@ export function HomeScreen() {
       {/* Optional: Interaction hints can be reintroduced with server flag if desired */}
 
       {/* Main Content */}
-      <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pt-6">
+      <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 overflow-auto pt-6">
         {/* Welcome Section */}
         <section className="centered-container space-y-6">
           <div className="space-y-3">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+            <h2 className="text-4xl font-roboto font-bold leading-[44px] text-gray-900">
               Hey, {user ? profile?.full_name || "Surfer" : "Guest"}!
             </h2>
-            <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">
+            <p className="text-base text-gray-600 mt-3">
               The waves are looking good today. Ready to catch some?
             </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-3 my-5">
             <Button
-              onClick={() => router.push("/sessions/new?mode=plan")}
-              className="flex-1 bg-ocean-blue hover:bg-ocean-blue/90"
+              onClick={() => {
+                track("plan_session_clicked", {
+                  source: "home",
+                  user_authenticated: !!user,
+                });
+                router.push("/sessions/new?mode=plan");
+              }}
+              className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all"
             >
+              <BookOpen className="h-5 w-5 mr-2" />
               Plan Session
             </Button>
             <Button
-              onClick={() => router.push("/sessions/new?mode=log")}
+              onClick={() => {
+                track("log_session_clicked", {
+                  source: "home",
+                  user_authenticated: !!user,
+                });
+                router.push("/sessions/new?mode=log");
+              }}
               variant="outline"
-              className="flex-1"
+              className="h-12 px-5 text-base font-medium rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"
             >
+              <Plus className="h-5 w-5 mr-2" />
               Log Session
             </Button>
           </div>
         </section>
 
+        {/* Best Conditions Section - Only show if user has home beach */}
+        {(() => {
+          console.log("[HomeScreen] homeBeach check:", {
+            hasHomeBeach: !!homeBeach,
+            homeBeachId: homeBeach?.id,
+            homeBeachName: homeBeach?.name,
+          });
+          return homeBeach ? (
+            <section className="centered-container">
+              <BestConditionsCards />
+            </section>
+          ) : null;
+        })()}
+
         {/* Tabs Section */}
         <section className="centered-container">
           <Tabs
             value={activeTab}
-            onValueChange={(value) => setActiveTab(value)}
+            onValueChange={handleTabChange}
             className="space-y-6"
           >
-            <TabsList className="grid grid-cols-3 w-full mx-auto h-12 sm:h-14">
-              <TabsTrigger value="forecast" className="text-sm sm:text-base">
+            {/* AllTrails-style tab navigation (Phase 2) */}
+            <TabsList className="w-full justify-start border-b-2 border-gray-200 mb-6 rounded-none bg-transparent p-0 h-auto">
+              <TabsTrigger
+                value="forecast"
+                className="rounded-none border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 data-[state=active]:border-ocean-blue data-[state=active]:text-ocean-blue data-[state=active]:font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
                 Forecast
               </TabsTrigger>
-              <TabsTrigger value="nearby" className="text-sm sm:text-base">
+              <TabsTrigger
+                value="nearby"
+                className="rounded-none border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 data-[state=active]:border-ocean-blue data-[state=active]:text-ocean-blue data-[state=active]:font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
                 Nearby
               </TabsTrigger>
-              <TabsTrigger value="community" className="text-sm sm:text-base">
+              <TabsTrigger
+                value="community"
+                className="rounded-none border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 data-[state=active]:border-ocean-blue data-[state=active]:text-ocean-blue data-[state=active]:font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
                 Local Intel
               </TabsTrigger>
             </TabsList>
@@ -186,9 +241,6 @@ export function HomeScreen() {
           </Tabs>
         </section>
       </main>
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
     </div>
   );
 }

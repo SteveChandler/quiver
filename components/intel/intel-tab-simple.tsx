@@ -28,6 +28,7 @@ import { IntelFeedCard } from "./intel-feed";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { createClient } from "@/lib/supabase/client";
+import { track } from "@/lib/analytics";
 
 interface IntelTabSimpleProps {
   className?: string;
@@ -49,9 +50,22 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
   const { user } = useAuth();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const hasTrackedViewRef = useRef(false);
 
   const canPost = !!user;
   const canConfirm = !!user;
+
+  // Track when Local Intel tab is viewed
+  useEffect(() => {
+    if (hasTrackedViewRef.current) {
+      return;
+    }
+    hasTrackedViewRef.current = true;
+    track("local_intel_tab_viewed", {
+      user_authenticated: !!user,
+      post_count: posts.length,
+    });
+  }, [user, posts.length]);
 
   // Reset to feed view when component mounts to prevent map interference
   useEffect(() => {
@@ -173,6 +187,10 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
     (newPost: IntelPostWithUser | null) => {
       if (newPost) {
         setPosts((prev) => [newPost, ...prev]);
+        track("intel_post_created", {
+          tag: newPost.tag,
+          has_photo: !!newPost.photo_url,
+        });
       }
       setShowPostForm(false);
       toast.success("Intel post created successfully!");
@@ -197,6 +215,11 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
           : await confirmIntelPost(postId);
 
         if (result.success) {
+          track("intel_post_confirmed", {
+            action: isCurrentlyConfirmed ? "unconfirm" : "confirm",
+            post_id: postId,
+          });
+          
           // Update the post in the list
           setPosts((prev) =>
             prev.map((post) => {
@@ -237,6 +260,12 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
         router.push("/auth/sign-in");
         return;
       }
+
+      track("plan_session_from_intel", {
+        post_id: post.id,
+        post_tag: post.tag,
+        has_beach: !!post.beach_id,
+      });
 
       // Navigate to session planner with beach context if available
       if (post.beach_id) {
@@ -323,7 +352,16 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
                 )}
               </Button>
               {canPost ? (
-                <Button size="sm" onClick={() => setShowPostForm(true)}>
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    track("share_intel_button_clicked", {
+                      user_authenticated: true,
+                      view_mode: viewMode,
+                    });
+                    setShowPostForm(true);
+                  }}
+                >
                   <Plus className="h-4 w-4 mr-1" />
                   Share Intel
                 </Button>
@@ -331,7 +369,12 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => router.push("/auth/sign-in")}
+                  onClick={() => {
+                    track("share_intel_signin_prompt", {
+                      user_authenticated: false,
+                    });
+                    router.push("/auth/sign-in");
+                  }}
                 >
                   Sign In to Post
                 </Button>

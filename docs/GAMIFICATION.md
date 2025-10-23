@@ -120,6 +120,100 @@ Authoritative reference for Quiver’s gamification system: current status, cond
 
 ---
 
+## NPC Daily Activity System
+
+**Purpose:** Automated community content generation to keep production environment engaging
+
+**Status:** Production-ready with GitHub Actions automation
+
+### Overview
+
+The NPC Daily Activity Seeder creates realistic community content daily by selecting 3-5 mock users (NPCs) to generate sessions, intel posts, and beach reviews with personality-driven content.
+
+### Execution
+
+**Manual:**
+```bash
+# Development
+CONFIRM_TARGET=DEV npm run npc:daily
+
+# Production (requires confirmation)
+CONFIRM_TARGET=PROD CONFIRM_PROD=YES npm run npc:daily
+```
+
+**Automated:** Runs daily at 9am PT (17:00 UTC) via `.github/workflows/npc-daily.yml`
+
+### Content Generation
+
+**Daily Volume:**
+- 3-5 sessions (1 per selected NPC)
+- 3-5 intel posts (various tags: conditions, parking, crowd, access)
+- 3-5 beach reviews (3-5 star ratings across 5 categories)
+- **Total:** 9-15 pieces of content daily
+
+**Personality Types:**
+- **Rookie:** Enthusiastic, learning-focused, high ratings (4-5 stars)
+- **Local:** Knowledgeable, tips-focused, balanced ratings (3-5 stars)
+- **Traveler:** Comparative, spot comparisons, balanced (3-5 stars)
+- **Photographer:** Aesthetic, visual conditions, high ratings (4-5 stars)
+- **Tactical:** Analytical, precise reports, consistent (4 stars)
+- **Competitor:** Performance-focused, training emphasis, critical (3-4 stars)
+
+**Content Features:**
+- Sessions: Backdated within last 24h, 45-180 min duration, personality-specific notes
+- Intel: Realistic coordinates with offsets, surf conditions JSON for conditions posts
+- Reviews: Backdated within last 3 days, personality-driven titles and content
+
+### Safety Features
+
+1. **Environment Validation:** Requires `CONFIRM_TARGET=DEV/PROD` and `CONFIRM_PROD=YES` for production
+2. **Mock User Protection:** Only operates on users with `is_mock=true`
+3. **Error Handling:** Comprehensive try/catch with detailed logging
+
+### Monitoring
+
+**Verification Queries:** `scripts/verify-npc-activity.sql`
+
+**Key Metrics:**
+- Daily content creation (sessions, intel, reviews)
+- NPC activity distribution
+- Content quality (ratings, tags)
+- Beach coverage
+
+**Quick Check:**
+```bash
+npm run check-mock-users
+gh run list --workflow="Daily NPC Activity Seeder"
+```
+
+### Database Requirements
+
+**Tables:** `profiles` (with `is_mock` column), `sessions`, `intel_posts`, `beach_reviews`, `beaches`
+
+**Permissions:** Service role with INSERT on content tables, SELECT on profiles/beaches, RLS bypass
+
+### Expected Output
+
+**Weekly Trends:**
+- Consistent daily activity Monday-Sunday
+- Varied content distribution across beaches
+- Natural personality-based content variety
+
+**Success Metrics:**
+- ✅ 9-15 pieces of content created daily
+- ✅ Different writing styles and focuses
+- ✅ Content spread across multiple beaches
+- ✅ NPCs maintaining 3-5 star positive ratings
+- ✅ Clean GitHub Actions runs with no failures
+
+### Files
+
+- **Seeder:** `scripts/npc-daily-activity.ts`
+- **Workflow:** `.github/workflows/npc-daily.yml`
+- **Verification:** `scripts/verify-npc-activity.sql`
+
+---
+
 ## References
 
 - Spec: `docs/quiver-gamification-spec.md` (source detail)

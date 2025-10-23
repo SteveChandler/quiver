@@ -748,6 +748,7 @@ export type Database = {
           confirmations_count: number
           created_at: string
           description: string
+          dedupe_hash: string | null
           expires_at: string | null
           id: string
           is_active: boolean
@@ -766,6 +767,7 @@ export type Database = {
           confirmations_count?: number
           created_at?: string
           description: string
+          dedupe_hash?: string | null
           expires_at?: string | null
           id?: string
           is_active?: boolean
@@ -784,6 +786,7 @@ export type Database = {
           confirmations_count?: number
           created_at?: string
           description?: string
+          dedupe_hash?: string | null
           expires_at?: string | null
           id?: string
           is_active?: boolean
@@ -4108,6 +4111,7 @@ export type SessionWithDetails = Session & {
   crowd_rating?: number | null;
   notes?: string | null;
   duration_minutes?: number | null;
+  featured_photo_url?: string | null;
 };
 export type SessionPhoto = PublicTables extends { session_media: { Row: infer R } }
   ? R

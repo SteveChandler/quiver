@@ -49,8 +49,8 @@ export default function FeaturesPageClient() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
-              Join the surf community that's growing every day. Connect, share,
-              and discover amazing waves with friends.
+              Join the surf community that&apos;s growing every day. Connect,
+              share, and discover amazing waves with friends.
             </motion.p>
 
             <motion.div
@@ -332,13 +332,11 @@ export default function FeaturesPageClient() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-white transition-colors">
-                    Pricing
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white transition-colors">
-                    FAQ
+                  <Link
+                    href="/map"
+                    className="hover:text-white transition-colors"
+                  >
+                    Explore Spots
                   </Link>
                 </li>
               </ul>
@@ -355,7 +353,10 @@ export default function FeaturesPageClient() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="hover:text-white transition-colors">
+                  <Link
+                    href="mailto:support@quiversurf.app"
+                    className="hover:text-white transition-colors"
+                  >
                     Contact
                   </Link>
                 </li>

@@ -32,6 +32,7 @@ jest-run*.pid
 
 # local env files
 .env*.local
+.env.*.local
 
 # vercel
 .vercel
@@ -69,7 +70,10 @@ Thumbs.db
 scripts/setup-dev-cron.sh
 .github/workflows/forecast-update.yml.template
 .env
+.supabase
+.codex/
 .cursorrules
+
 
 # Performance testing results
 scripts/lighthouseRun.*
@@ -104,3 +108,4 @@ scripts/*-to-delete.txt
 # Cloudflare tunnel temp files
 .tunnel-url
 .tunnel-pid
+e2e/.auth/state.json

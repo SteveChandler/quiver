@@ -6,7 +6,7 @@ import { Suspense, lazy, useState, useEffect } from "react";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { QuiverFAQSchema } from "@/components/seo/faq-schema";
 
-// Import sections for AllTrails-style landing page
+// Import sections for modern landing page
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
@@ -95,13 +95,13 @@ export default function LandingPage() {
         Sign Up
       </a>
 
-      {/* AllTrails-style Navigation */}
+      {/* Modern Navigation */}
       <Navbar />
 
       {/* Hero Section - Search-Centric */}
       <HeroSection />
 
-      {/* Progressive loading sections - AllTrails-style layout */}
+      {/* Progressive loading sections - Modern layout */}
       <div className="space-y-0">
         {/* Surf Highlights Section (replaces Social Feed) */}
         <ProgressiveSection height="h-96">

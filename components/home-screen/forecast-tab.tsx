@@ -25,6 +25,7 @@ import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import type { Profile, Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { track, slugify } from "@/lib/analytics";
 
 interface ForecastTabProps {
   profile: Profile | null;
@@ -145,6 +146,19 @@ export function ForecastTab({
     initialData: null,
   });
 
+  // Track forecast views
+  useEffect(() => {
+    if (todaysForecast && effectiveBeach) {
+      track("forecast_viewed", {
+        beach_slug: slugify(effectiveBeach.name),
+        beach_id: effectiveBeach.id,
+        source: "home_tab",
+        is_home_beach: !!homeBeach,
+        is_override: !!overrideBeach,
+      });
+    }
+  }, [todaysForecast, effectiveBeach, homeBeach, overrideBeach]);
+
   // Avoid flashing "Unavailable" on first load; retry once if we get null
   const [retryAttempted, setRetryAttempted] = useState(false);
   useEffect(() => {
@@ -250,9 +264,9 @@ export function ForecastTab({
         />
       )}
       {/* Beach Header */}
-      <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between">
+      <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-lg border-0 shadow-md">
+        <CardHeader className="pb-3 pt-4 px-5">
+          <CardTitle className="flex items-center justify-between text-xl font-roboto font-bold">
             <div className="flex items-center space-x-2">
               <MapPin className="h-5 w-5" />
               <span>{effectiveBeach.name}</span>
@@ -261,7 +275,7 @@ export function ForecastTab({
               variant="secondary"
               size="sm"
               onClick={handleViewBeach}
-              className="text-ocean-blue"
+              className="text-ocean-blue h-9 px-4 text-sm font-semibold hover:bg-white/90 transition-all"
             >
               View Details
               <ChevronRight className="h-4 w-4 ml-1" />
@@ -296,7 +310,7 @@ export function ForecastTab({
             <CardTitle className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center space-x-2">
                 <Waves className="h-5 w-5 text-blue-500" />
-                <span>Today's Forecast</span>
+                <span>Today&apos;s Forecast</span>
                 {!showAdjusted && (
                   <Badge variant="outline" className="text-xs">
                     Raw Data

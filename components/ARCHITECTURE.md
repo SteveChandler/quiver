@@ -100,15 +100,23 @@ interface ComponentProps {
 
 #### Core Authentication Components
 
-- **`auth-gate.tsx`** - AllTrails-style authentication wall
+- **`auth-gate.tsx`** - Preview-based authentication wall
   - Preview mode: 5-second delay before showing auth prompt
   - Dismissible with smart reappearance (30s after dismissal)
   - Google OAuth and Email Magic Link options
   - Return URL preservation for seamless post-auth redirect
   - Analytics tracking for conversion funnel optimization
   - Used on `/map` and `/beach/[slug]` for growth-focused acquisition
-- **`sign-in-form.tsx`** - Traditional email/password sign-in form
-- **`sign-up-form.tsx`** - User registration form
+- **`sign-in-form.tsx`** - Traditional sign-in form with dual authentication methods
+  - Google OAuth with "Continue with Google" button
+  - Email/password authentication
+  - Redirect URL preservation through OAuth flow
+  - Loading states and error handling for both methods
+- **`sign-up-form.tsx`** - User registration form with dual authentication methods
+  - Google OAuth with "Continue with Google" button
+  - Email/password registration with display name
+  - Email verification modal for traditional sign-up
+  - Consistent UX with sign-in form
 
 #### When to Use Each Pattern
 
@@ -116,7 +124,7 @@ interface ComponentProps {
 
 - Public preview pages where SEO is important
 - Growth-focused features where you want to show value first
-- Pages that benefit from AllTrails-style delayed auth prompts
+- Pages that benefit from preview-based delayed auth prompts
 - Example: `/map`, `/beach/[slug]`, future public session feeds
 
 **Use Traditional Protected Routes** for:

@@ -96,14 +96,7 @@ export const FEATURE_CARDS = [
   },
 ];
 
-// Hero video configuration
-export const HERO_VIDEOS = [
-  "/2802271-hd_1920_1080_30fps.mp4",
-  "/2867912-uhd_3840_2160_25fps.mp4",
-  "/2873484-hd_1920_1080_25fps.mp4",
-];
-
-// Surf Activities for AllTrails-style navigation
+// Surf Activities for discovery navigation
 export const SURF_ACTIVITIES = [
   {
     icon: Users,
@@ -118,7 +111,7 @@ export const SURF_ACTIVITIES = [
     icon: Waves,
     title: "Reef Breaks",
     description:
-      "Discover powerful reef breaks with consistent swells. For experienced surfers seeking the perfect barrel.",
+      "Powerful reef breaks with consistent swells. Perfect barrels await.",
     link: "/discover?type=reef",
     iconBgColor: "bg-purple-100",
     iconColor: "text-purple-600",
@@ -142,11 +135,11 @@ export const SURF_ACTIVITIES = [
     iconColor: "text-yellow-600",
   },
   {
-    icon: Heart,
-    title: "Women-Led Spots",
+    icon: Waves,
+    title: "Boogie Boarding",
     description:
-      "Empowering surf spots with welcoming communities. Built by women, for everyone.",
-    link: "/discover?community=women",
+      "Fun, approachable waves perfect for bodyboarders. Great for shorebreak barrels.",
+    link: "/discover?type=bodyboard",
     iconBgColor: "bg-pink-100",
     iconColor: "text-pink-600",
   },
@@ -164,7 +157,7 @@ export const SURF_ACTIVITIES = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: "Find your next surf break",
+    title: "Find your next wave",
     subtitle:
       "Discover epic surf spots, check live conditions, and connect with the local surf community.",
     cta: "Join Free Today",

@@ -1,5 +1,4 @@
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
-import { BottomNavigation } from "@/components/bottom-navigation";
 import { getBeachById } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
 import { ForecastPageClient } from "./forecast-page-client";
@@ -22,11 +21,10 @@ export default async function ForecastPage({
             <div className="text-center py-12">
               <h2 className="text-2xl font-bold mb-2">Beach Not Found</h2>
               <p className="text-muted-foreground">
-                We couldn't find forecast data for this beach.
+                We couldn&apos;t find forecast data for this beach.
               </p>
             </div>
           </main>
-          <BottomNavigation />
         </div>
       );
     }
@@ -36,7 +34,6 @@ export default async function ForecastPage({
         <main className="flex-1 container mx-auto px-4 py-6">
           <ForecastPageClient beach={beach} beachId={params.beachId} />
         </main>
-        <BottomNavigation />
       </div>
     );
   } catch (error) {
@@ -51,7 +48,6 @@ export default async function ForecastPage({
             </p>
           </div>
         </main>
-        <BottomNavigation />
       </div>
     );
   }

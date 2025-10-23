@@ -40,7 +40,13 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error("Error updating enhanced forecasts:", error);
+    console.error("❌ Error updating enhanced forecasts:", error);
+    console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack trace");
+    console.error("❌ Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      name: error instanceof Error ? error.name : "Unknown",
+      cause: error instanceof Error ? error.cause : undefined,
+    });
     return createErrorResponse(
       "Failed to update enhanced forecasts",
       error instanceof Error ? error.message : "Unknown error"
@@ -124,7 +130,13 @@ export async function GET(request: NextRequest) {
       ...data,
     });
   } catch (error) {
-    console.error("Error fetching enhanced forecasts:", error);
+    console.error("❌ Error fetching enhanced forecasts:", error);
+    console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack trace");
+    console.error("❌ Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      name: error instanceof Error ? error.name : "Unknown",
+      cause: error instanceof Error ? error.cause : undefined,
+    });
     return createErrorResponse(
       "Failed to fetch enhanced forecasts",
       error instanceof Error ? error.message : "Unknown error"

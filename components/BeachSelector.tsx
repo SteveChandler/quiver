@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { data } from "@/lib/data/client";
 import { useCallback } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -10,9 +10,13 @@ import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
 export function BeachSelector({
   onBeachSelected,
   initialValue,
+  inputId,
+  listId,
 }: {
   onBeachSelected: (beach: Beach) => void;
   initialValue?: string;
+  inputId?: string;
+  listId?: string;
 }) {
   const [allBeaches, setAllBeaches] = useState<Beach[]>([]);
   const [query, setQuery] = useState(initialValue || "");
@@ -152,10 +156,14 @@ export function BeachSelector({
     }
   };
 
+  const generatedInputId = useId();
+  const inputIdToUse = inputId ?? `${generatedInputId}-beach-input`;
+  const listIdToUse = listId ?? `${inputIdToUse}-list`;
+
   return (
     <div className="relative">
       <input
-        id="beach-input"
+        id={inputIdToUse}
         className="border rounded p-2 w-full"
         value={query}
         placeholder="Type or select a beach"
@@ -163,7 +171,7 @@ export function BeachSelector({
         onBlur={handleBlur}
         onFocus={handleFocus}
         data-testid="beach-search-input"
-        list="beach-list"
+        list={listIdToUse}
       />
       {selectionMade && query && (
         <button
@@ -191,7 +199,7 @@ export function BeachSelector({
 
       {!selectionMade && query && (
         <>
-          <datalist id="beach-list">
+          <datalist id={listIdToUse}>
             {matches.map((b) => (
               <option key={b.id} value={b.name} />
             ))}
@@ -202,15 +210,21 @@ export function BeachSelector({
               <li className="p-2 text-gray-500 text-sm">Searching...</li>
             ) : matches.length > 0 ? (
               matches.map((b) => (
-                <li
-                  key={b.id}
-                  className="p-2 hover:bg-gray-100 cursor-pointer"
-                  onMouseDown={() => {
-                    setQuery(b.name);
-                    trySelect(b.name);
-                  }}
-                >
-                  {b.name}
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    className="w-full p-2 text-left hover:bg-gray-100"
+                    onMouseDown={() => {
+                      setQuery(b.name);
+                      trySelect(b.name);
+                    }}
+                    onClick={() => {
+                      setQuery(b.name);
+                      trySelect(b.name);
+                    }}
+                  >
+                    {b.name}
+                  </button>
                 </li>
               ))
             ) : (

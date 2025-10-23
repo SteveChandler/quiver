@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createSuccessResponse, createValidationError, handleApiError, methodNotAllowed } from "@/lib/api-utils";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
+import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 
 function parseLimit(url: URL, defaultValue = 5, max = 20) {
   const raw = url.searchParams.get("limit");
@@ -54,7 +55,12 @@ export async function GET(request: NextRequest, context: { params: { id: string 
     const { data, error } = await query;
     if (error) throw error;
 
-    return createSuccessResponse({ sessions: data || [] });
+    const sessionsWithPhotos = await addFeaturedPhotoToSessions(
+      supabase,
+      (data || []) as any[]
+    );
+
+    return createSuccessResponse({ sessions: sessionsWithPhotos });
   } catch (error) {
     return handleApiError(error, "Failed to load user sessions");
   }
@@ -63,4 +69,3 @@ export async function GET(request: NextRequest, context: { params: { id: string 
 export function POST() {
   return methodNotAllowed(["GET"]);
 }
-

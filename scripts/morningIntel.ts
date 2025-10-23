@@ -24,6 +24,9 @@ import {
   renderIntelMarkdown,
   analyzeConditions,
 } from "@/lib/utils/morning-intel-utils";
+import {
+  createIntelDedupeHash,
+} from "@/lib/utils/intel-dedupe";
 
 const TIMEZONE = "America/Los_Angeles";
 const TARGET_HOUR = 6; // 6:00 AM
@@ -428,6 +431,16 @@ async function upsertIntelPost(
     throw new Error("Failed to fetch beach coordinates");
   }
 
+  const dedupeHash = createIntelDedupeHash({
+    userId,
+    tag: "conditions",
+    beachId,
+    title,
+    description: body,
+    latitude: beach.latitude,
+    longitude: beach.longitude,
+  });
+
   const expiresAt = new Date();
   expiresAt.setHours(23, 59, 59, 999); // Expires end of day
 
@@ -443,6 +456,7 @@ async function upsertIntelPost(
         surf_conditions: intelData.payload,
         updated_at: new Date().toISOString(),
         expires_at: expiresAt.toISOString(),
+        dedupe_hash: dedupeHash,
       })
       .eq("id", existingPost.id);
 
@@ -469,6 +483,7 @@ async function upsertIntelPost(
         surf_conditions: intelData.payload,
         is_active: true,
         expires_at: expiresAt.toISOString(),
+        dedupe_hash: dedupeHash,
       })
       .select("id")
       .single();

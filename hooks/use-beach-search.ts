@@ -108,9 +108,17 @@ export function useBeachSearch() {
         console.log(`  After beginner filter: ${working.length} beaches`);
       }
 
-      // Break type filter
+      // Break type filter - use substring matching to handle descriptive break_type values
+      // (e.g., "Right point over reef/rock" matches "point" and "reef" filters)
       if (filters.breakTypes && filters.breakTypes.size > 0) {
-        working = working.filter((b) => b.break_type ? filters.breakTypes.has(b.break_type.toLowerCase()) : false);
+        working = working.filter((b) => {
+          if (!b.break_type) return false;
+          const breakTypeLower = b.break_type.toLowerCase();
+          // Match if break_type contains ANY of the selected filter keywords
+          return Array.from(filters.breakTypes).some(filterType =>
+            breakTypeLower.includes(filterType)
+          );
+        });
         console.log(`  After break type filter: ${working.length} beaches`);
       }
 

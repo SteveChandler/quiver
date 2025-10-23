@@ -150,6 +150,16 @@
       max-width: 1100px;
     }
   }
+
+  /* Hide scrollbar but keep functionality for horizontal scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* iOS WebView - Prevent keyboard accessory bar crashes */

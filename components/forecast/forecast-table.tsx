@@ -209,8 +209,9 @@ function ForecastDayTable({
   return (
     <div className="space-y-2">
       {/* Day Header */}
-      <div
-        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
+      <button
+        type="button"
+        className="flex w-full items-center justify-between rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted"
         onClick={onToggle}
       >
         <div className="flex items-center gap-2">
@@ -224,7 +225,7 @@ function ForecastDayTable({
         <span className="text-sm text-muted-foreground">
           {forecasts.length} forecast{forecasts.length !== 1 ? "s" : ""}
         </span>
-      </div>
+      </button>
 
       {/* Table */}
       {(isExpanded || isToday) && (

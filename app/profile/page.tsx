@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense, lazy } from "react";
 import { buildPageMetadata } from "@/lib/seo/meta";
-import { BottomNavigation } from "@/components/bottom-navigation";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "My Profile - Manage Your Surf Profile | Quiver",
@@ -77,7 +76,6 @@ export default function ProfilePage() {
       <Suspense fallback={<ProfileSkeleton />}>
         <ProfileView />
       </Suspense>
-      <BottomNavigation />
     </div>
   );
 }

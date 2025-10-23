@@ -1,5 +1,4 @@
 import { SessionDetailView } from "@/components/session-detail-view";
-import { BottomNavigation } from "@/components/bottom-navigation";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
@@ -25,7 +24,6 @@ export default function SessionDetailPage({
       />
 
       <SessionDetailView id={params.id} />
-      <BottomNavigation />
     </div>
   );
 }

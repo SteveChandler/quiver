@@ -1,4 +1,3 @@
-import { BottomNavigation } from "@/components/bottom-navigation";
 import { BeachDetail } from "@/components/beach-detail";
 import {
   getBeachBySlug,
@@ -37,11 +36,10 @@ export default async function BeachDetailBySlugPage({
             <div className="text-center py-12">
               <h2 className="text-2xl font-bold mb-2">Beach Not Found</h2>
               <p className="text-muted-foreground">
-                We couldn't find this beach in our directory.
+                We couldn&apos;t find this beach in our directory.
               </p>
             </div>
           </main>
-          <BottomNavigation />
         </div>
       );
     }
@@ -69,8 +67,6 @@ export default async function BeachDetailBySlugPage({
 
         {/* Client detail component with auth tracking */}
         <BeachDetailClient beach={beach} slug={params.slug} />
-
-        <BottomNavigation />
       </>
     );
   } catch (error) {
@@ -85,7 +81,6 @@ export default async function BeachDetailBySlugPage({
             </p>
           </div>
         </main>
-        <BottomNavigation />
       </div>
     );
   }
@@ -104,7 +99,7 @@ export async function generateMetadata({
     const beach = result?.data || null;
     if (beach) {
       return buildPageMetadata({
-        title: `${beach.name} Surf Guide`,
+        title: beach.name,
         description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}.`,
         path: `/beach/${slug}`,
       });
@@ -112,7 +107,7 @@ export async function generateMetadata({
   } catch {}
 
   return buildPageMetadata({
-    title: `Beach Surf Guide | Quiver`,
+    title: `Beach`,
     description: `Conditions, intel, photos, and community tips for this beach.`,
     path: `/beach/${slug}`,
   });

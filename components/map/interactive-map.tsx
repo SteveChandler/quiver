@@ -31,6 +31,7 @@ interface InteractiveMapProps {
     bounds?: [[number, number], [number, number]];
     zoom?: number;
   } | null;
+  beaches?: Beach[]; // Filtered beaches to display on map (if provided, skips API fetch)
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
@@ -43,6 +44,7 @@ export function InteractiveMap({
   onLocationMove,
   className = "h-full w-full",
   regionViewport,
+  beaches,
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -303,9 +305,11 @@ export function InteractiveMap({
       const map = mapRef.current;
       if (!map || !isMapReadyRef.current) return;
       const zoom = map.getZoom();
+      // Include beaches state in cache key: undefined vs empty array vs populated array
+      const beachesKey = beaches === undefined ? 'none' : `${beaches.length}`;
       const populateKey = `${latitude.toFixed(4)}-${longitude.toFixed(
         4
-      )}-${zoom.toFixed(2)}`;
+      )}-${zoom.toFixed(2)}-${beachesKey}`;
 
       if (lastPopulateKeyRef.current === populateKey) {
         return;
@@ -313,51 +317,60 @@ export function InteractiveMap({
 
       lastPopulateKeyRef.current = populateKey;
       try {
-        // Prefer nearby endpoint first (faster and already filtered), fallback to public list
         let locations: Beach[] = [];
-        try {
-          const response = await fetchNearbyBeaches.current(
-            latitude,
-            longitude
-          );
-          locations = (response as any)?.data || [];
-        } catch (err) {
-          console.warn("Nearby beaches API failed", err);
-        }
 
-        // Fallback to public beaches list and filter by distance client-side
-        if (locations.length === 0) {
+        // Use provided beaches prop first (filtered beaches from parent)
+        if (beaches && beaches.length > 0) {
+          // Clean up existing markers to ensure fresh state when filters change
+          cleanupMarkers();
+          locations = beaches.slice(0, 20); // Limit to 20 for performance
+        } else {
+          // Fallback to API fetch when no beaches prop provided
+          // Prefer nearby endpoint first (faster and already filtered), fallback to public list
           try {
-            const res = await fetch("/api/beaches", {
-              headers: { Accept: "application/json" },
-            });
-            if (res.ok) {
-              const json = await res.json();
-              const all: Beach[] = json?.beaches || json?.data?.beaches || [];
-              const { calculateDistanceInMiles } = await import(
-                "@/lib/utils/distance-utils"
-              );
-              locations = all
-                .map((b) => ({
-                  ...b,
-                  _d: calculateDistanceInMiles(
-                    latitude,
-                    longitude,
-                    b.latitude,
-                    b.longitude
-                  ),
-                }))
-                .filter((b: any) => isFinite(b._d) && b._d <= 30)
-                .sort((a: any, b: any) => a._d - b._d)
-                .slice(0, 20);
-            }
-          } catch (fallbackErr) {
-            console.error("Public beaches list fetch failed", fallbackErr);
+            const response = await fetchNearbyBeaches.current(
+              latitude,
+              longitude
+            );
+            locations = (response as any)?.data || [];
+          } catch (err) {
+            console.warn("Nearby beaches API failed", err);
           }
-        }
 
-        // Limit to 20 beaches max
-        locations = locations.slice(0, 20);
+          // Fallback to public beaches list and filter by distance client-side
+          if (locations.length === 0) {
+            try {
+              const res = await fetch("/api/beaches", {
+                headers: { Accept: "application/json" },
+              });
+              if (res.ok) {
+                const json = await res.json();
+                const all: Beach[] = json?.beaches || json?.data?.beaches || [];
+                const { calculateDistanceInMiles } = await import(
+                  "@/lib/utils/distance-utils"
+                );
+                locations = all
+                  .map((b) => ({
+                    ...b,
+                    _d: calculateDistanceInMiles(
+                      latitude,
+                      longitude,
+                      b.latitude,
+                      b.longitude
+                    ),
+                  }))
+                  .filter((b: any) => isFinite(b._d) && b._d <= 30)
+                  .sort((a: any, b: any) => a._d - b._d)
+                  .slice(0, 20);
+              }
+            } catch (fallbackErr) {
+              console.error("Public beaches list fetch failed", fallbackErr);
+            }
+          }
+
+          // Limit to 20 beaches max
+          locations = locations.slice(0, 20);
+        }
 
         // Fetch wave heights for all beaches in a single bulk request (performance optimization)
         const waveHeightMap = new Map<string, number | string | undefined>();
@@ -480,7 +493,7 @@ export function InteractiveMap({
         console.error("Error populating locations", e);
       }
     },
-    [createWaveHeightBadge]
+    [createWaveHeightBadge, beaches, cleanupMarkers]
   );
 
   // Optimized and debounced map move handler with viewport change detection
@@ -667,6 +680,14 @@ export function InteractiveMap({
     }
   }, [isMapReady, initialCenter, populateLocations]);
 
+  // Re-populate locations when beaches prop changes (filters applied)
+  useEffect(() => {
+    if (isMapReady && mapRef.current && beaches && beaches.length > 0) {
+      const center = mapRef.current.getCenter();
+      populateLocations(center.lat, center.lng);
+    }
+  }, [isMapReady, beaches, populateLocations]);
+
   // Add CSS for popup animations
   useEffect(() => {
     const style = document.createElement("style");
@@ -711,7 +732,7 @@ export function InteractiveMap({
   return (
     <div
       ref={mapContainerRef}
-      className={className}
+      className={`${className} mapbox-container`}
       style={{ width: "100%", height: "100%", minHeight: "400px" }}
     />
   );

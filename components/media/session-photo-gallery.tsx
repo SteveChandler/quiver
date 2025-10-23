@@ -214,21 +214,27 @@ export default function SessionPhotoGallery({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {photos.map((photo, index) => (
           <div key={photo.id} className="relative group">
-            <div
-              className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer"
+            <button
+              type="button"
+              className="aspect-square w-full overflow-hidden rounded-lg bg-gray-100"
               onClick={() => openLightbox(index)}
+              aria-label={
+                photo.caption
+                  ? `View photo: ${photo.caption}`
+                  : `View session photo ${index + 1}`
+              }
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.public_url}
                 alt={photo.caption || `Session photo ${index + 1}`}
-                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                className="h-full w-full object-cover transition-transform group-hover:scale-105"
                 loading="lazy"
               />
 
               {/* Overlay on hover */}
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
+              <div className="absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100" />
+            </button>
 
             {/* Action buttons (visible on hover) */}
             {canEdit && (

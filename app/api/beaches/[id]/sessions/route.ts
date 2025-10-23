@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 
 // GET /api/beaches/[id]/sessions?limit=5 - fetch recent completed sessions for beach
 export async function GET(
@@ -31,10 +32,14 @@ export async function GET(
       return handleApiError(error, "Failed to fetch sessions by beach");
     }
 
-    return createSuccessResponse({ sessions: data || [] });
+    const sessionsWithPhotos = await addFeaturedPhotoToSessions(
+      supabase,
+      (data || []) as any[]
+    );
+
+    return createSuccessResponse({ sessions: sessionsWithPhotos });
   } catch (err) {
     return handleApiError(err, "Failed to fetch sessions by beach");
   }
 }
-
 

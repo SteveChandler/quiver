@@ -10,7 +10,6 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 // import { getSuggestedUsers } from "@/actions/social-actions";
 import { FollowButton } from "@/components/social/follow-button";
 import { useAuth } from "@/context/auth-context";
-import { BottomNavigation } from "@/components/bottom-navigation";
 import { UserProfileModal } from "@/components/social/user-profile-modal";
 
 export default function DiscoverPageClient() {
@@ -80,9 +79,6 @@ export default function DiscoverPageClient() {
             </p>
           </div>
         </div>
-
-        {/* Bottom Navigation */}
-        <BottomNavigation />
       </div>
     );
   }
@@ -301,8 +297,6 @@ export default function DiscoverPageClient() {
         </CardContent>
       </Card>
 
-      {/* Bottom Navigation */}
-      <BottomNavigation />
       {/* User Profile Modal */}
       {selectedUserId && (
         <UserProfileModal

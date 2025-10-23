@@ -136,7 +136,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);} 
+              function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
               gtag('config', '${GA_ID}', { anonymize_ip: true, send_page_view: false });
               ${
@@ -146,6 +146,13 @@ export default function RootLayout({
               }
             `,
           }}
+        />
+        {/* Ahrefs Analytics */}
+        <Script
+          id="ahrefs-analytics"
+          src="https://analytics.ahrefs.com/analytics.js"
+          data-key="+c2QcnYiWgfdkO0bAlkv1A"
+          strategy="afterInteractive"
         />
         {/* Resource hints for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

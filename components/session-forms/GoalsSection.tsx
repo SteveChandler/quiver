@@ -96,9 +96,9 @@ export function GoalsSection({
       {/* Goals/Skills Selection */}
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-3">
+          <span className="block text-sm font-medium mb-3">
             {isPlanning ? "Focus Areas" : "Skills Practiced"}
-          </label>
+          </span>
           <div className="flex flex-wrap gap-2">
             {SKILL_GOALS.map((goal) => (
               <Button
@@ -125,9 +125,9 @@ export function GoalsSection({
         {/* Overall Performance Rating - Only show for logged sessions */}
         {!isPlanning && (
           <div className="pt-4 border-t">
-            <label className="block text-sm font-medium mb-3">
+            <span className="block text-sm font-medium mb-3">
               Overall Goal Performance
-            </label>
+            </span>
             <div className="text-center">
               <div className="flex justify-center gap-1 mb-2">
                 {[1, 2, 3, 4, 5].map((rating) => (

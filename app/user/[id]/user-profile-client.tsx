@@ -75,7 +75,8 @@ export default function UserProfileClient() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">User Not Found</h1>
           <p className="text-muted-foreground mb-4">
-            The user profile you're looking for doesn't exist or isn't public.
+            The user profile you&apos;re looking for doesn&apos;t exist or
+            isn&apos;t public.
           </p>
           <Button onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -208,7 +209,7 @@ export default function UserProfileClient() {
                   {profile.homeBeachName ?? profile.home_beach?.name ?? "—"}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  This surfer's go-to spot for sessions
+                  This surfer&apos;s go-to spot for sessions
                 </p>
               </div>
             </div>
@@ -231,7 +232,7 @@ export default function UserProfileClient() {
             <p className="text-sm">
               {isOwnProfile
                 ? "Log some sessions to share your surf progress!"
-                : "This user hasn't shared any public sessions yet."}
+                : "This user hasn&apos;t shared any public sessions yet."}
             </p>
           </div>
         </CardContent>

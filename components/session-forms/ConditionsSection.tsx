@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import {
   Activity,
   Star,
@@ -151,6 +151,11 @@ export function ConditionsSection({
   const [waterTemp, setWaterTemp] = useState<string>("");
   const [vibeNotes, setVibeNotes] = useState<string>("");
   const [forecastAccuracy, setForecastAccuracy] = useState<string>("accurate");
+  const waveHeightInputId = useId();
+  const waterTempInputId = useId();
+  const windSpeedInputId = useId();
+  const windDirectionLabelId = useId();
+  const vibeNotesId = useId();
 
   // Fetch forecast data for the session date/time/beach
   const {
@@ -267,11 +272,15 @@ export function ConditionsSection({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Wave Height */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium mb-2">
+              <label
+                className="mb-2 flex items-center gap-2 text-sm font-medium"
+                htmlFor={waveHeightInputId}
+              >
                 <Waves className="h-4 w-4" />
                 Wave Height (ft)
               </label>
               <Input
+                id={waveHeightInputId}
                 type="number"
                 step="0.1"
                 min="0"
@@ -284,11 +293,15 @@ export function ConditionsSection({
 
             {/* Water Temperature */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium mb-2">
+              <label
+                className="mb-2 flex items-center gap-2 text-sm font-medium"
+                htmlFor={waterTempInputId}
+              >
                 <Thermometer className="h-4 w-4" />
                 Water Temp (°F)
               </label>
               <Input
+                id={waterTempInputId}
                 type="number"
                 min="32"
                 max="100"
@@ -300,11 +313,15 @@ export function ConditionsSection({
 
             {/* Wind Speed */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium mb-2">
+              <label
+                className="mb-2 flex items-center gap-2 text-sm font-medium"
+                htmlFor={windSpeedInputId}
+              >
                 <Wind className="h-4 w-4" />
                 Wind Speed (mph)
               </label>
               <Input
+                id={windSpeedInputId}
                 type="number"
                 step="0.1"
                 min="0"
@@ -317,11 +334,14 @@ export function ConditionsSection({
 
             {/* Wind Direction */}
             <div>
-              <label className="text-sm font-medium mb-2 block">
+              <span
+                id={windDirectionLabelId}
+                className="mb-2 block text-sm font-medium"
+              >
                 Wind Direction
-              </label>
+              </span>
               <Select value={windDirection} onValueChange={setWindDirection}>
-                <SelectTrigger>
+                <SelectTrigger aria-labelledby={windDirectionLabelId}>
                   <SelectValue placeholder="Select direction" />
                 </SelectTrigger>
                 <SelectContent>
@@ -391,10 +411,14 @@ export function ConditionsSection({
 
         {/* Vibe / Notes */}
         <div>
-          <label className="text-sm font-medium mb-2 block">
+          <label
+            className="mb-2 block text-sm font-medium"
+            htmlFor={vibeNotesId}
+          >
             Session Vibe / Notes
           </label>
           <Textarea
+            id={vibeNotesId}
             placeholder="super fun, nice and glassy..."
             className="min-h-[80px]"
             value={vibeNotes}

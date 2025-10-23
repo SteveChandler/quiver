@@ -27,6 +27,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
+import {
+  createIntelDedupeHash,
+  DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES,
+} from '../lib/utils/intel-dedupe';
 
 // Load environment variables
 config();
@@ -43,6 +47,211 @@ function randomIntInclusive(min: number, max: number): number {
   const low = Math.ceil(min);
   const high = Math.floor(max);
   return Math.floor(Math.random() * (high - low + 1)) + low;
+}
+
+function pickRandom<T>(items: T[]): T {
+  if (!items.length) {
+    throw new Error('Cannot pick from empty array');
+  }
+  const index = Math.floor(Math.random() * items.length);
+  return items[index] ?? items[0];
+}
+
+function describeTimeOfDay(date: Date): string {
+  const hour = date.getHours();
+  if (hour < 5) return 'pre-dawn';
+  if (hour < 7) return 'dawn patrol';
+  if (hour < 11) return 'morning';
+  if (hour < 14) return 'late morning';
+  if (hour < 17) return 'afternoon';
+  if (hour < 20) return 'sunset session';
+  return 'evening';
+}
+
+function formatClockTime(date: Date): string {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s/g, '');
+}
+
+function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const remaining = minutes % 60;
+  if (hours && remaining) {
+    return `${hours}h ${remaining}m`;
+  }
+  if (hours) {
+    return `${hours}h`;
+  }
+  return `${minutes}m`;
+}
+
+function approximateWaveRange(height: number): string {
+  const lower = Math.max(0.5, Math.round((height - 0.7) * 10) / 10);
+  const upper = Math.round((height + 0.7) * 10) / 10;
+  if (Math.abs(upper - lower) < 0.3) {
+    return `${upper.toFixed(1)}ft`;
+  }
+  return `${lower.toFixed(1)}-${upper.toFixed(1)}ft`;
+}
+
+function capitalize(sentence: string): string {
+  if (!sentence) return sentence;
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}
+
+function describePeriod(period: number): string {
+  const rounded = Math.round(period);
+  if (rounded >= 14) return `${rounded}s groundswell energy`;
+  if (rounded >= 10) return `${rounded}s sets with good push`;
+  if (rounded >= 7) return `${rounded}s pulses rolling through`;
+  return `${rounded}s windswell bumps`;
+}
+
+function describeWind(speed: number, direction: string): string {
+  const rounded = Math.round(speed);
+  let intensity: string;
+  if (rounded <= 2) intensity = 'glassy';
+  else if (rounded <= 6) intensity = 'light';
+  else if (rounded <= 12) intensity = 'moderate';
+  else intensity = 'breezy';
+  return `${intensity} ${direction.toUpperCase()} winds around ${rounded}kts`;
+}
+
+function describeWaterTemp(temp: number): string {
+  const rounded = Math.round(temp);
+  if (rounded <= 58) return `Water is chilly at ~${rounded}°F (bring rubber).`;
+  if (rounded <= 64) return `Water sitting around ${rounded}°F—3/2 is perfect.`;
+  if (rounded <= 70) return `Water feels comfortable at ~${rounded}°F.`;
+  return `Bath-warm water near ${rounded}°F.`;
+}
+
+function describeCrowd(level: number): string {
+  if (level <= 1) return 'Lineup is basically empty.';
+  if (level === 2) return 'Crowd is light with plenty of space.';
+  if (level === 3) return 'Crowd is manageable with a respectful vibe.';
+  if (level === 4) return 'Expect a busy lineup but friendly energy.';
+  return 'Packed lineup—be patient and pick your moments.';
+}
+
+function estimateCrowdSize(level: number): string {
+  const normalized = Math.min(5, Math.max(1, Math.round(level)));
+  const ranges: Record<number, [number, number]> = {
+    1: [4, 10],
+    2: [12, 22],
+    3: [24, 40],
+    4: [40, 60],
+    5: [60, 90]
+  };
+  const [min, max] = ranges[normalized] ?? [20, 40];
+  const count = randomIntInclusive(min, max);
+  return `${count} surfers`;
+}
+
+function describeRating(personality: MockUser['personality'], rating: number): string {
+  if (rating >= 5) {
+    const reactions = {
+      rookie: [
+        'Still smiling from those set waves!',
+        'Caught my best waves yet.',
+        'Totally hooked after that one.'
+      ],
+      local: [
+        'One of the better days we have had lately.',
+        'Classic day that reminds me why I surf here.',
+        'Local crew was buzzing about how good it was.'
+      ],
+      traveler: [
+        'Highlight session of this trip.',
+        'Worth the miles to get here.',
+        'Felt like a dream lineup.'
+      ],
+      photographer: [
+        'Shot and surfed some magic moments.',
+        'Every wave looked like a postcard.',
+        'Light and surf lined up perfectly.'
+      ],
+      tactical: [
+        'All mission objectives achieved.',
+        'Precision conditions—minimal adjustments needed.',
+        'Executed with textbook accuracy.'
+      ],
+      competitor: [
+        'Perfect reps for comp prep.',
+        'Pushed my level on every set.',
+        'Could not ask for better training waves.'
+      ]
+    };
+    return pickRandom(reactions[personality]);
+  }
+
+  if (rating === 4) {
+    const reactions = {
+      rookie: [
+        'Learning so much every time out.',
+        'Confidence keeps building.',
+        'Felt really solid out there.'
+      ],
+      local: [
+        'Reliable as always.',
+        'Good enough for a few lined-up runners.',
+        'Worth paddling out even with the crowd.'
+      ],
+      traveler: [
+        'Loved getting a feel for the local rhythm.',
+        'Different from home but in a good way.',
+        'Would surf this spot again for sure.'
+      ],
+      photographer: [
+        'Scored a few gallery-worthy frames.',
+        'Great textures and light to play with.',
+        'Balanced shooting with some fun waves.'
+      ],
+      tactical: [
+        'Conditions aligned with the plan.',
+        'Kept it efficient and controlled.',
+        'Filed a solid conditions report.'
+      ],
+      competitor: [
+        'Great day for tightening fundamentals.',
+        'Banked quality training reps.',
+        'Dialed in technique under pressure.'
+      ]
+    };
+    return pickRandom(reactions[personality]);
+  }
+
+  const reactions = {
+    rookie: [
+      'Even the wipeouts felt like progress.',
+      'Still stoked just to be out there.',
+      'Every session teaches me something.'
+    ],
+    local: [
+      'Not great but worth a paddle.',
+      'Nothing special yet still fun.',
+      'Worked for the good ones today.'
+    ],
+    traveler: [
+      'Conditions were mixed but stoked to surf.',
+      'Still rad to experience a new lineup.',
+      'Not perfect but worth the mission.'
+    ],
+    photographer: [
+      'Light was tricky but found some angles.',
+      'Not the most photogenic day—but interesting textures.',
+      'Made it work even with the flat light.'
+    ],
+    tactical: [
+      'Logged all variables for next time.',
+      'Conditions required constant adjustments.',
+      'Adaptive planning kept the session on track.'
+    ],
+    competitor: [
+      'Had to grind for the good ones.',
+      'Not peak training but still valuable reps.',
+      'Conditions forced focus on fundamentals.'
+    ]
+  };
+  return pickRandom(reactions[personality]);
 }
 
 const NPC_DAILY_MIN = parseEnvInt('NPC_DAILY_MIN', 3);
@@ -77,6 +286,18 @@ interface SurfConditions {
   water_temp_f: number;
   visibility: string;
   crowd_level: number;
+}
+
+interface SessionNarrativeContext {
+  beachName: string;
+  timeDescriptor: string;
+  clockTime: string;
+  durationText: string;
+  conditionsSentence: string;
+  windSentence: string;
+  waterSentence: string;
+  crowdSentence: string;
+  ratingSentence: string;
 }
 
 // NPC personality-based content patterns
@@ -135,6 +356,232 @@ const WRITING_STYLES = {
     intel_style: 'performance focused',
     review_style: 'competitive and intense'
   }
+};
+
+const SESSION_NARRATIVE_TEMPLATES: Record<
+  MockUser['personality'],
+  {
+    openers: Array<(ctx: SessionNarrativeContext) => string>;
+    middles: Array<(ctx: SessionNarrativeContext) => string>;
+    closings: Array<(ctx: SessionNarrativeContext) => string>;
+  }
+> = {
+  rookie: {
+    openers: [
+      ({ beachName, timeDescriptor, clockTime }) => `Snuck in a ${timeDescriptor} session at ${beachName} around ${clockTime}.`,
+      ({ beachName, timeDescriptor }) => `Took my stoke to ${beachName} for a ${timeDescriptor} paddle-out.`,
+      ({ beachName }) => `Chasing progress one session at a time at ${beachName}.`
+    ],
+    middles: [
+      ({ conditionsSentence, windSentence }) => `${conditionsSentence} ${windSentence}`,
+      ({ conditionsSentence, crowdSentence }) => `${conditionsSentence} ${crowdSentence}`,
+      ({ conditionsSentence, waterSentence }) => `${conditionsSentence} ${waterSentence}`
+    ],
+    closings: [
+      ({ durationText, ratingSentence }) => `${ratingSentence} Stayed out for about ${durationText}.`,
+      ({ ratingSentence }) => ratingSentence,
+      ({ ratingSentence, crowdSentence }) => `${ratingSentence} ${crowdSentence}`
+    ]
+  },
+  local: {
+    openers: [
+      ({ beachName, timeDescriptor, clockTime }) => `Logged the usual ${timeDescriptor} laps at ${beachName} around ${clockTime}.`,
+      ({ beachName }) => `Checked our home break ${beachName} and it delivered again.`,
+      ({ beachName, timeDescriptor }) => `${beachName} served up another reliable ${timeDescriptor} to remember.`
+    ],
+    middles: [
+      ({ conditionsSentence, windSentence, crowdSentence }) => `${conditionsSentence} ${windSentence} ${crowdSentence}`,
+      ({ conditionsSentence, waterSentence }) => `${conditionsSentence} ${waterSentence}`,
+      ({ conditionsSentence }) => conditionsSentence
+    ],
+    closings: [
+      ({ durationText, ratingSentence }) => `${ratingSentence} Put in ${durationText} before heading back to work.`,
+      ({ ratingSentence }) => ratingSentence,
+      ({ ratingSentence, crowdSentence }) => `${ratingSentence} ${crowdSentence}`
+    ]
+  },
+  traveler: {
+    openers: [
+      ({ beachName, timeDescriptor, clockTime }) => `Dropped into ${beachName} for a ${timeDescriptor} session around ${clockTime}.`,
+      ({ beachName }) => `Exploring ${beachName} has been a highlight of this trip.`,
+      ({ beachName, timeDescriptor }) => `This ${timeDescriptor} at ${beachName} felt worlds apart from my home break.`
+    ],
+    middles: [
+      ({ conditionsSentence, windSentence }) => `${conditionsSentence} ${windSentence}`,
+      ({ conditionsSentence, waterSentence }) => `${conditionsSentence} ${waterSentence}`,
+      ({ conditionsSentence, crowdSentence }) => `${conditionsSentence} ${crowdSentence}`
+    ],
+    closings: [
+      ({ ratingSentence, durationText }) => `${ratingSentence} Logged about ${durationText} before grabbing coffee.`,
+      ({ ratingSentence }) => ratingSentence,
+      ({ ratingSentence, waterSentence }) => `${ratingSentence} ${waterSentence}`
+    ]
+  },
+  photographer: {
+    openers: [
+      ({ beachName, timeDescriptor }) => `Split time between lens and lineup at ${beachName} during the ${timeDescriptor}.`,
+      ({ beachName, clockTime }) => `Golden hour at ${beachName} around ${clockTime} was unreal.`,
+      ({ beachName }) => `Framed up ${beachName} and paddled out for a few keepers.`
+    ],
+    middles: [
+      ({ conditionsSentence, windSentence }) => `${conditionsSentence} ${windSentence}`,
+      ({ conditionsSentence, waterSentence }) => `${conditionsSentence} ${waterSentence}`,
+      ({ conditionsSentence }) => conditionsSentence
+    ],
+    closings: [
+      ({ ratingSentence, durationText, waterSentence }) => `${ratingSentence} Stayed out for ${durationText}. ${waterSentence}`,
+      ({ ratingSentence }) => ratingSentence,
+      ({ ratingSentence, crowdSentence }) => `${ratingSentence} ${crowdSentence}`
+    ]
+  },
+  tactical: {
+    openers: [
+      ({ beachName, timeDescriptor, clockTime }) => `Initiated ${timeDescriptor} operation at ${beachName} at ${clockTime}.`,
+      ({ beachName }) => `Conducted field assessment at ${beachName} under favorable parameters.`,
+      ({ beachName, timeDescriptor }) => `Mission window: ${timeDescriptor} at ${beachName}.`
+    ],
+    middles: [
+      ({ conditionsSentence, windSentence, crowdSentence }) => `${conditionsSentence} ${windSentence} ${crowdSentence}`,
+      ({ conditionsSentence, waterSentence }) => `${conditionsSentence} ${waterSentence}`,
+      ({ conditionsSentence }) => conditionsSentence
+    ],
+    closings: [
+      ({ durationText, ratingSentence }) => `${ratingSentence} Session duration recorded at ${durationText}.`,
+      ({ ratingSentence }) => ratingSentence,
+      ({ ratingSentence, crowdSentence }) => `${ratingSentence} ${crowdSentence}`
+    ]
+  },
+  competitor: {
+    openers: [
+      ({ beachName, timeDescriptor, clockTime }) => `Training block at ${beachName} kicked off ${timeDescriptor} around ${clockTime}.`,
+      ({ beachName }) => `Focused reps at ${beachName} to sharpen competition form.`,
+      ({ beachName, timeDescriptor }) => `Kept the momentum going with a ${timeDescriptor} grind at ${beachName}.`
+    ],
+    middles: [
+      ({ conditionsSentence, windSentence }) => `${conditionsSentence} ${windSentence}`,
+      ({ conditionsSentence, crowdSentence }) => `${conditionsSentence} ${crowdSentence}`,
+      ({ conditionsSentence, waterSentence }) => `${conditionsSentence} ${waterSentence}`
+    ],
+    closings: [
+      ({ ratingSentence, durationText }) => `${ratingSentence} Logged ${durationText} of focused work.`,
+      ({ ratingSentence }) => ratingSentence,
+      ({ ratingSentence, crowdSentence }) => `${ratingSentence} ${crowdSentence}`
+    ]
+  }
+};
+
+const CONDITIONS_PERSONA_FLAIR: Record<MockUser['personality'], string[]> = {
+  rookie: [
+    'Perfect window for stacking confidence without getting overwhelmed.',
+    'Lots of friendly faces encouraging newer surfers today.',
+    'Easy to sit inside and still snag plenty of waves.'
+  ],
+  local: [
+    'Feels like the kind of morning regulars quietly wait for.',
+    'Worth clocking in before work—sets lining up like a classic day.',
+    'If you know the takeoff spots, it is a conveyor belt right now.'
+  ],
+  traveler: [
+    'Reminds me of a European beach break, but with California warmth.',
+    'Such a fun contrast to my home spot—definitely session-of-the-trip energy.',
+    'Writing this one down in the travel log for sure.'
+  ],
+  photographer: [
+    'Split time between shooting and surfing because the light was unreal.',
+    'Water color had this deep emerald tone that made every wave photogenic.',
+    'Foam lines and reflections were making the whole scene cinematic.'
+  ],
+  tactical: [
+    'Operational window looks stable for another hour or two.',
+    'Parameters aligned neatly with the mission notes—minimal adjustments needed.',
+    'Conditions held their line across the set—predictable and efficient.'
+  ],
+  competitor: [
+    'Great ramps for linking two or three turns without forcing it.',
+    'Plenty of sections for working on combo work under pressure.',
+    'Perfect reps for keeping competition timing sharp.'
+  ]
+};
+
+const PARKING_PERSONA_TIPS: Record<MockUser['personality'], string[]> = {
+  rookie: [
+    'If you are still figuring it out, aim for the side streets on the north end—easy walk and mellow vibes.',
+    'Bring some quarters or enable tap-to-pay ahead of time; saved me a scramble this morning.'
+  ],
+  local: [
+    'Locals know the drill: south lot buys you an extra 45 minutes before the rush.',
+    'Worth stashing a bike lock—rolling down from a couple blocks out is faster than looping the lot.'
+  ],
+  traveler: [
+    'Download the local parking app before you arrive so you are not fiddling curbside.',
+    'Street sweeping hits Thursdays, so check the signs if you are visiting mid-week.'
+  ],
+  photographer: [
+    'Parked near the bluff so I could stash the camera bag quickly between shoots.',
+    'Golden-hour shooters: arrive a bit early so you can catch the light without sprinting from the car.'
+  ],
+  tactical: [
+    'Recommend staging gear before peak influx—operation ran smoother starting up-current from the main lot.',
+    'Executed a drop-off and park maneuver to minimize exposure to gridlock.'
+  ],
+  competitor: [
+    'Worth investing in the permit—saves crucial minutes when you are tracking tides.',
+    'Rolled in early, stretched by the car, and still saw the lot fill behind me in minutes.'
+  ]
+};
+
+const CROWD_PERSONA_NOTES: Record<MockUser['personality'], string[]> = {
+  rookie: [
+    'Everyone was patient and calling sets for folks still figuring it out.',
+    'Even with the numbers, the vibe stayed encouraging—plenty of waves for sharers.'
+  ],
+  local: [
+    'Lineup etiquette was tight—familiar faces keeping things orderly.',
+    'Worth rotating peaks to avoid the pack; the reform down the beach was wide open.'
+  ],
+  traveler: [
+    'Great way to meet the local crew—everyone was chatting between sets.',
+    'Etiquette here is clear: take turns, stay smiling, and you will slot right in.'
+  ],
+  photographer: [
+    'Crowd added great scale to the shots—staggered lineups looked cinematic.',
+    'Lots of color in the lineup today which made the photos pop.'
+  ],
+  tactical: [
+    'Maintained position by shifting 20 yards north of the primary pack—reduced interference.',
+    'Lineup rotation required constant adjustments but stayed manageable.'
+  ],
+  competitor: [
+    'Crowd forced tight positioning—good practice for contest-style heat surfing.',
+    'Made it a point to sit deeper and hunt the set waves to stay productive.'
+  ]
+};
+
+const ACCESS_PERSONA_NOTES: Record<MockUser['personality'], string[]> = {
+  rookie: [
+    'Board-friendly handrails the entire way and even a rinse station at the bottom.',
+    'Path down is steady—took it slow with the soft-top and had zero issues.'
+  ],
+  local: [
+    'City finally patched the loose pavers—jogging back up is less sketchy now.',
+    'Worth taking the south stairs if you are hauling a longboard; less wind exposure.'
+  ],
+  traveler: [
+    'Way cleaner than most beach accesses I have seen abroad—kudos to the local crew.',
+    'Signage is clear, and there are lockers by the restrooms if you are rolling solo.'
+  ],
+  photographer: [
+    'Tripod-friendly landings at two platforms—makes sunrise shooting a breeze.',
+    'Path lighting is clutch for pre-dawn missions with camera gear.'
+  ],
+  tactical: [
+    'Multiple ingress points allow for efficient team deployment.',
+    'Surface traction is solid even with gear—minimal slip risk.'
+  ],
+  competitor: [
+    'Plenty of space to stretch and band warm-up before dropping in.',
+    'Easy to hustle from car to water, so you can time the warm-up with set lulls.'
+  ]
 };
 
 // Session timing patterns based on personality
@@ -315,7 +762,7 @@ function generateSessionFromPersonality(npc: MockUser, beach: Beach): any {
   // Generate realistic session duration
   const minDuration = timing.duration_range[0];
   const maxDuration = timing.duration_range[1];
-  const duration = minDuration + Math.floor(Math.random() * (maxDuration - minDuration));
+  const duration = randomIntInclusive(minDuration, maxDuration);
   
   // Generate rating based on personality
   let rating: number;
@@ -333,9 +780,8 @@ function generateSessionFromPersonality(npc: MockUser, beach: Beach): any {
       rating = 3 + Math.floor(Math.random() * 3); // 3-5
   }
   
-  const notes = WRITING_STYLES[npc.personality].session_notes[
-    Math.floor(Math.random() * WRITING_STYLES[npc.personality].session_notes.length)
-  ];
+  const surfConditions = generateRealisticSurfConditions(beach);
+  const notes = createSessionNarrative(npc, beach, sessionTime, duration, rating, surfConditions);
 
   return {
     profile_id: npc.id,
@@ -351,14 +797,52 @@ function generateSessionFromPersonality(npc: MockUser, beach: Beach): any {
   };
 }
 
+function createSessionNarrative(
+  npc: MockUser,
+  beach: Beach,
+  sessionTime: Date,
+  duration: number,
+  rating: number,
+  conditions: SurfConditions
+): string {
+  const template = SESSION_NARRATIVE_TEMPLATES[npc.personality] ?? SESSION_NARRATIVE_TEMPLATES.local;
+  const waveRange = approximateWaveRange(conditions.wave_height_ft);
+  const periodDescription = describePeriod(conditions.wave_period_sec);
+  const conditionsSentence = `Sets in the ${waveRange} zone with ${periodDescription}.`;
+  const windSentence = `${describeWind(conditions.wind_speed_kts, conditions.wind_direction)}.`;
+  const waterSentence = describeWaterTemp(conditions.water_temp_f);
+  const crowdSentence = describeCrowd(conditions.crowd_level);
+  const context: SessionNarrativeContext = {
+    beachName: beach.name,
+    timeDescriptor: describeTimeOfDay(sessionTime),
+    clockTime: formatClockTime(sessionTime),
+    durationText: formatDuration(duration),
+    conditionsSentence,
+    windSentence,
+    waterSentence,
+    crowdSentence,
+    ratingSentence: describeRating(npc.personality, rating)
+  };
+
+  const segments = [
+    pickRandom(template.openers)(context),
+    pickRandom(template.middles)(context),
+    pickRandom(template.closings)(context)
+  ];
+
+  return segments
+    .map(segment => segment.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
 function generateIntelPost(npc: MockUser, beach: Beach): any {
   const validTags = ['conditions', 'parking', 'crowd', 'access']; // No 'hazards' based on schema
   const tag = validTags[Math.floor(Math.random() * validTags.length)];
   const createdAt = generateBackdatedTime('intel');
-  
-  const { title, description } = generateIntelContent(npc, beach, tag);
-  const surfConditions = tag === 'conditions' ? generateRealisticSurfConditions(beach) : null;
-  
+  const baselineConditions = generateRealisticSurfConditions(beach);
+  const { title, description } = generateIntelContent(npc, beach, tag, createdAt, baselineConditions);
+
   // Add slight coordinate offset for realistic posting
   const latitude = beach.latitude + (Math.random() - 0.5) * 0.002; // ~200m variance
   const longitude = beach.longitude + (Math.random() - 0.5) * 0.002;
@@ -371,102 +855,272 @@ function generateIntelPost(npc: MockUser, beach: Beach): any {
     tag,
     title,
     description,
-    surf_conditions: surfConditions,
+    surf_conditions: tag === 'conditions' ? baselineConditions : null,
     confirmations_count: Math.floor(Math.random() * 12), // 0-11 confirmations
     is_active: true,
     created_at: createdAt.toISOString()
   };
 }
 
-function generateIntelContent(npc: MockUser, beach: Beach, tag: string): { title: string; description: string } {
+function generateIntelContent(
+  npc: MockUser,
+  beach: Beach,
+  tag: string,
+  createdAt: Date,
+  surfConditions: SurfConditions
+): { title: string; description: string } {
   const beachName = beach.name;
-  
-  const contentTemplates = {
-    conditions: {
-      rookie: {
-        title: `${beachName} looking perfect!`,
-        description: `OMG! The waves at ${beachName} are so clean and manageable right now! Perfect size for learning and everyone's being super encouraging. Water feels amazing too! 🏄‍♀️`
-      },
-      local: {
-        title: `${beachName} conditions update`,
-        description: `Heads up - ${beachName} has clean 3-4ft waves with light offshore winds. Good through the morning before the usual afternoon breeze kicks in. Classic conditions for this time of year.`
-      },
-      traveler: {
-        title: `First impressions: ${beachName}`,
-        description: `${beachName} conditions remind me of breaks I've surfed in Portugal! Clean waves with consistent sets. Really impressed with the wave quality here - different from my home break but in the best way.`
-      },
-      photographer: {
-        title: `Perfect light at ${beachName}`,
-        description: `Amazing conditions at ${beachName} today - both for surfing and photography! The morning light is highlighting every wave perfectly, creating incredible visual opportunities. Water color is stunning.`
-      },
-      tactical: {
-        title: `${beachName} conditions assessment`,
-        description: `Tactical assessment: ${beachName} shows optimal wave parameters. 3-4ft at 10-12 second intervals, offshore winds 5-8 knots. Environmental conditions suitable for extended operations.`
-      },
-      competitor: {
-        title: `${beachName} training conditions`,
-        description: `High-performance waves at ${beachName} today! Perfect for competition training with multiple maneuver sections. This is exactly what I need for skill development and performance improvement.`
-      }
-    },
-    parking: {
-      rookie: {
-        title: `Parking help for ${beachName}`,
-        description: `Finally figured out the parking at ${beachName}! Main lot fills up early but found great street parking just 2 blocks away. Free and easy walk to the beach. Such a relief to understand how this works!`
-      },
-      local: {
-        title: `${beachName} parking update`,
-        description: `Heads up - main lot at ${beachName} is full by 9am on weekends. Try the side streets on the south side, about 3-minute walk. Meters take cards now which is convenient.`
-      },
-      traveler: {
-        title: `${beachName} parking situation`,
-        description: `Parking at ${beachName} is way more organized than my home break! Had to download a parking app but it's actually pretty efficient. Much better than some surf towns I've visited.`
-      }
-    },
-    crowd: {
-      rookie: {
-        title: `${beachName} crowd vibes`,
-        description: `The crowd at ${beachName} is so welcoming! Even though it's busy, everyone's patient with beginners like me. Got great advice from locals and lots of encouragement. Love this community!`
-      },
-      local: {
-        title: `${beachName} crowd report`,
-        description: `${beachName} getting pretty crowded with the good conditions - about 30-40 people out at peak times. Most folks are respectful but heads up for some newer faces in the lineup.`
-      },
-      traveler: {
-        title: `${beachName} surf community`,
-        description: `Fascinating surf culture at ${beachName}! Really organized lineup with clear etiquette. Different from the competitive vibe at some spots I've traveled to - much more collaborative atmosphere.`
-      }
-    },
-    access: {
-      rookie: {
-        title: `Getting to ${beachName}`,
-        description: `Finally figured out the best path to ${beachName}! Main walkway is a bit steep but there are railings and it's totally manageable with a board. Clean facilities and even a board rinse station!`
-      },
-      local: {
-        title: `${beachName} access update`,
-        description: `${beachName} access is running smoothly. Main pathway got repaired last week and is in great shape. Added some new lighting for early morning sessions too. City did a good job on this one.`
-      },
-      traveler: {
-        title: `${beachName} access info`,
-        description: `Beach access at ${beachName} is excellent compared to other surf destinations. Clear paths, good facilities, and outdoor showers. Really well-maintained infrastructure here.`
-      }
-    }
+  const timeDescriptor = describeTimeOfDay(createdAt);
+  const clockTime = formatClockTime(createdAt);
+
+  switch (tag) {
+    case 'conditions':
+      return generateConditionsIntel(npc.personality, beachName, timeDescriptor, clockTime, surfConditions);
+    case 'parking':
+      return generateParkingIntel(npc.personality, beachName, timeDescriptor, clockTime);
+    case 'crowd':
+      return generateCrowdIntel(npc.personality, beachName, timeDescriptor, clockTime, surfConditions);
+    case 'access':
+      return generateAccessIntel(npc.personality, beachName, timeDescriptor, clockTime);
+    default:
+      return {
+        title: `Update from ${beachName}`,
+        description: `Quick check-in from ${beachName}: ${capitalize(timeDescriptor)} window around ${clockTime} had good energy.`
+      };
+  }
+}
+
+function generateConditionsIntel(
+  personality: MockUser['personality'],
+  beachName: string,
+  timeDescriptor: string,
+  clockTime: string,
+  surfConditions: SurfConditions
+): { title: string; description: string } {
+  const waveRange = approximateWaveRange(surfConditions.wave_height_ft);
+  const periodDescription = describePeriod(surfConditions.wave_period_sec);
+  const windSpeed = surfConditions.wind_speed_kts;
+  const windMood =
+    windSpeed <= 3 ? 'glassy' : windSpeed <= 7 ? 'clean' : windSpeed <= 11 ? 'textured' : 'windy';
+
+  const personaTitles: Record<MockUser['personality'], string[]> = {
+    rookie: [
+      `${beachName} looking friendly (${waveRange})`,
+      `${capitalize(timeDescriptor)} stoke at ${beachName}`
+    ],
+    local: [
+      `${beachName} running ${waveRange} and ${windMood}`,
+      `${capitalize(timeDescriptor)} report for ${beachName} locals`
+    ],
+    traveler: [
+      `Travel diary: ${beachName} feels ${windMood}`,
+      `${beachName} delivering ${waveRange} runners`
+    ],
+    photographer: [
+      `${beachName} glowing in ${capitalize(timeDescriptor)} light`,
+      `Textures & lines at ${beachName}`
+    ],
+    tactical: [
+      `${beachName} conditions assessment`,
+      `Operational window: ${beachName} ${capitalize(timeDescriptor)}`
+    ],
+    competitor: [
+      `${beachName} training read`,
+      `${waveRange} with drive at ${beachName}`
+    ]
   };
 
-  const tagContent = contentTemplates[tag as keyof typeof contentTemplates];
-  if (!tagContent) {
-    return {
-      title: `Update from ${beachName}`,
-      description: `General update from ${beachName}. Conditions and access looking good!`
-    };
-  }
+  const fallbackTitles = [
+    `${beachName}: ${waveRange} and ${windMood}`,
+    `${capitalize(timeDescriptor)} read at ${beachName}`
+  ];
 
-  const personalityContent = tagContent[npc.personality as keyof typeof tagContent];
-  if (!personalityContent) {
-    // Fallback to local personality
-    return tagContent.local || tagContent[Object.keys(tagContent)[0] as keyof typeof tagContent];
-  }
+  const title = pickRandom([
+    ...(personaTitles[personality] ?? []),
+    ...fallbackTitles
+  ]);
 
-  return personalityContent;
+  const personaFlair = CONDITIONS_PERSONA_FLAIR[personality] ?? CONDITIONS_PERSONA_FLAIR.local;
+
+  const lines = [
+    `Checked ${beachName} during the ${timeDescriptor} window (${clockTime}).`,
+    `Sets in the ${waveRange} zone with ${periodDescription}.`,
+    `${capitalize(describeWind(surfConditions.wind_speed_kts, surfConditions.wind_direction))}.`,
+    `Tide hovering around ${surfConditions.tide_height_ft.toFixed(1)}ft with ${surfConditions.visibility.toLowerCase()} visibility.`,
+    describeWaterTemp(surfConditions.water_temp_f),
+    describeCrowd(surfConditions.crowd_level),
+    pickRandom(personaFlair)
+  ];
+
+  const description = lines.filter(Boolean).map(line => line.trim()).join(' ');
+  return { title, description };
+}
+
+function generateParkingIntel(
+  personality: MockUser['personality'],
+  beachName: string,
+  timeDescriptor: string,
+  clockTime: string
+): { title: string; description: string } {
+  const titleOptions: Record<MockUser['personality'], string[]> = {
+    rookie: [
+      `Parking tips for ${beachName}`,
+      `Found an easy spot near ${beachName}`
+    ],
+    local: [
+      `${beachName} parking intel`,
+      `Lot status update: ${beachName}`
+    ],
+    traveler: [
+      `${beachName} parking breakdown`,
+      `Visitor notes: parking at ${beachName}`
+    ],
+    photographer: [
+      `Gear-friendly parking at ${beachName}`,
+      `Sunrise parking game plan`
+    ],
+    tactical: [
+      `Logistics briefing: ${beachName} parking`,
+      `Deployment plan for ${beachName} lot`
+    ],
+    competitor: [
+      `Beat the clock parking at ${beachName}`,
+      `Warm-up friendly parking setup`
+    ]
+  };
+
+  const title = pickRandom([
+    ...(titleOptions[personality] ?? []),
+    `${beachName} parking update`
+  ]);
+
+  const minutesToPark = randomIntInclusive(2, 8);
+  const fillWindow = randomIntInclusive(15, 45);
+  const backupDistance = randomIntInclusive(2, 5);
+  const personaTips = PARKING_PERSONA_TIPS[personality] ?? PARKING_PERSONA_TIPS.local;
+
+  const lines = [
+    `Rolled up around ${clockTime} for the ${timeDescriptor} window and found a spot in about ${minutesToPark} minutes.`,
+    `Main lot started filling roughly ${fillWindow} minutes later, so plan ahead if you are rolling in after.`,
+    `Side streets about ${backupDistance} blocks out were still wide open.`,
+    pickRandom(personaTips)
+  ];
+
+  const description = lines.filter(Boolean).map(line => line.trim()).join(' ');
+  return { title, description };
+}
+
+function generateCrowdIntel(
+  personality: MockUser['personality'],
+  beachName: string,
+  timeDescriptor: string,
+  clockTime: string,
+  surfConditions: SurfConditions
+): { title: string; description: string } {
+  const titleOptions: Record<MockUser['personality'], string[]> = {
+    rookie: [
+      `${beachName} crowd vibes`,
+      `Friendly faces at ${beachName}`
+    ],
+    local: [
+      `${beachName} crowd report`,
+      `Lineup density at ${beachName}`
+    ],
+    traveler: [
+      `Surf community check: ${beachName}`,
+      `${beachName} lineup culture`
+    ],
+    photographer: [
+      `Crowd scene at ${beachName}`,
+      `Lineup aesthetics: ${beachName}`
+    ],
+    tactical: [
+      `Crowd assessment for ${beachName}`,
+      `Lineup dynamics briefing`
+    ],
+    competitor: [
+      `Heat-style lineup at ${beachName}`,
+      `Crowd pressure read`
+    ]
+  };
+
+  const title = pickRandom([
+    ...(titleOptions[personality] ?? []),
+    `${beachName} crowd update`
+  ]);
+
+  const crowdSentence = describeCrowd(surfConditions.crowd_level);
+  const headcount = estimateCrowdSize(surfConditions.crowd_level);
+  const personaNotes = CROWD_PERSONA_NOTES[personality] ?? CROWD_PERSONA_NOTES.local;
+
+  const lines = [
+    `Checked the lineup during the ${timeDescriptor} window around ${clockTime}.`,
+    `${capitalize(crowdSentence.replace(/\.$/, ''))}—roughly ${headcount} in the water.`,
+    `Plenty of rotation between peaks, so drifting ${randomIntInclusive(15, 40)} yards can change the vibe.`,
+    pickRandom(personaNotes)
+  ];
+
+  const description = lines.filter(Boolean).map(line => line.trim()).join(' ');
+  return { title, description };
+}
+
+function generateAccessIntel(
+  personality: MockUser['personality'],
+  beachName: string,
+  timeDescriptor: string,
+  clockTime: string
+): { title: string; description: string } {
+  const titleOptions: Record<MockUser['personality'], string[]> = {
+    rookie: [
+      `Best way down to ${beachName}`,
+      `${beachName} access tips`
+    ],
+    local: [
+      `${beachName} access update`,
+      `Trail check: ${beachName}`
+    ],
+    traveler: [
+      `Visitor guide: getting into ${beachName}`,
+      `Access intel for ${beachName}`
+    ],
+    photographer: [
+      `Gear-friendly access at ${beachName}`,
+      `Light-chasing route into ${beachName}`
+    ],
+    tactical: [
+      `Ingress/egress notes for ${beachName}`,
+      `Access logistics brief`
+    ],
+    competitor: [
+      `Race-ready path into ${beachName}`,
+      `Warm-up route intel`
+    ]
+  };
+
+  const title = pickRandom([
+    ...(titleOptions[personality] ?? []),
+    `${beachName} access overview`
+  ]);
+
+  const stairCount = randomIntInclusive(40, 90);
+  const surface = pickRandom(['paved', 'packed sand', 'boardwalk', 'concrete']);
+  const amenities = pickRandom([
+    'showers running',
+    'restrooms open',
+    'rinse stations operational',
+    'bike racks available'
+  ]);
+  const personaNotes = ACCESS_PERSONA_NOTES[personality] ?? ACCESS_PERSONA_NOTES.local;
+
+  const lines = [
+    `Dropped in via the main path for the ${timeDescriptor} slot around ${clockTime}.`,
+    `Expect about ${stairCount} stairs with a ${surface} surface—totally manageable with gear.`,
+    `Facilities check: ${amenities}.`,
+    pickRandom(personaNotes)
+  ];
+
+  const description = lines.filter(Boolean).map(line => line.trim()).join(' ');
+  return { title, description };
 }
 
 function generateRealisticSurfConditions(beach: Beach): any {
@@ -637,6 +1291,7 @@ async function createDailyNPCActivity(supabase: any) {
   let reviewCount = 0;
   let totalCreated = 0;
   const errors: string[] = [];
+  const runIntelHashes = new Set<string>();
 
   for (let i = 0; i < selectedNPCs.length; i++) {
     const npc = selectedNPCs[i];
@@ -674,7 +1329,98 @@ async function createDailyNPCActivity(supabase: any) {
           console.log('⛔ Per-run content cap reached during intel creation. Stopping.');
           break;
         }
-        const intelData = generateIntelPost(npc, beach);
+        let intelData: any | null = null;
+        let dedupeHash = "";
+        let duplicateReason: "run" | "existing" | null = null;
+        let shouldInsert = false;
+
+        const maxAttempts = 3;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          intelData = generateIntelPost(npc, beach);
+          const { user_id: userId, tag: intelTag, beach_id: beachId } = intelData;
+
+          dedupeHash = createIntelDedupeHash({
+            userId,
+            tag: intelTag,
+            beachId,
+            title: intelData.title,
+            description: intelData.description,
+            latitude: intelData.latitude,
+            longitude: intelData.longitude,
+          });
+
+          const runKey = `${userId}:${dedupeHash}`;
+          if (runIntelHashes.has(runKey)) {
+            duplicateReason = "run";
+            continue;
+          }
+
+          const createdAt = intelData.created_at
+            ? new Date(intelData.created_at)
+            : new Date();
+          const dedupeWindowStart = new Date(
+            createdAt.getTime() - DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES * 60 * 1000
+          ).toISOString();
+
+          const { data: existingIntel, error: existingIntelError } = await supabase
+            .from('intel_posts')
+            .select('id, title, description, latitude, longitude, created_at')
+            .eq('user_id', userId)
+            .eq('tag', intelTag)
+            .eq('beach_id', beachId)
+            .gte('created_at', dedupeWindowStart)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+          if (existingIntelError) {
+            console.error(
+              `  ⚠️ Failed to check for duplicates for ${npc.full_name}:`,
+              existingIntelError
+            );
+            shouldInsert = true;
+            break;
+          }
+
+          const existingMatch = existingIntel?.find((existing) => {
+            const existingHash = createIntelDedupeHash({
+              userId,
+              tag: intelTag,
+              beachId,
+              title: existing.title,
+              description: existing.description,
+              latitude: existing.latitude,
+              longitude: existing.longitude,
+            });
+            return existingHash === dedupeHash;
+          });
+
+          if (existingMatch) {
+            duplicateReason = "existing";
+            continue;
+          }
+
+          shouldInsert = true;
+          break;
+        }
+
+        if (!shouldInsert || !intelData) {
+          const reasonText =
+            duplicateReason === "existing"
+              ? "matched existing intel in window"
+              : duplicateReason === "run"
+                ? "duplicate generated within current run"
+                : "unable to produce unique intel";
+          console.log(
+            `  ⚠️ Skipped duplicate intel for ${npc.full_name} at ${beach.name} (${reasonText})`
+          );
+          continue;
+        }
+
+        intelData.dedupe_hash = dedupeHash;
+
+        const runKey = `${intelData.user_id}:${dedupeHash}`;
+        runIntelHashes.add(runKey);
+
         const { error: intelError } = await supabase
           .from('intel_posts')
           .insert(intelData);

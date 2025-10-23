@@ -36,7 +36,7 @@ export function FooterSection() {
             </p>
             <p className="font-open-sans text-gray-400 mb-6 max-w-md leading-relaxed">
               Discover surf spots, connect with your community, and track your
-              sessions. Join the movement that's bringing surfers together.
+              sessions. Join the movement that&apos;s bringing surfers together.
             </p>
             <div className="flex space-x-4">
               <a

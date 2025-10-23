@@ -183,6 +183,97 @@ Purpose: Cover flows described in docs without over‑mocking.
 
 ---
 
+## Notification Testing
+
+**Overview**: Comprehensive testing for push notifications across iOS, Android, and web platforms.
+
+**Testing Levels**:
+
+1. **Unit Tests**: Push notification service logic, token management, error handling
+   ```bash
+   npm test -- push-notifications
+   ```
+
+2. **Manual API Testing**: Send test notifications to specific users
+   ```bash
+   node scripts/test-push-notification.mjs <user_id>
+   ```
+
+3. **Integration Testing**:
+   - **Web Push**: Browser notification permissions, Firebase SDK, service worker registration
+   - **Mobile Push**: iOS/Android device builds, token registration, deep link navigation
+   - **Email Fallback**: Resend delivery when push fails
+
+4. **Database Verification**: Check `user_devices` table for token registration
+   ```sql
+   SELECT user_id, platform, device_token FROM user_devices;
+   ```
+
+**Key Test Scenarios**:
+- Session invitation flow (multi-channel: push → email fallback → in-app)
+- Push notification permissions and denial handling
+- Token refresh and pruning for invalid/expired tokens
+- Deep link navigation from notifications
+- Foreground vs background notification handling
+
+**Performance Targets**:
+- Push delivery: <3 seconds
+- Email fallback: <30 seconds
+- Token registration: immediate
+
+**Security**:
+- RLS policies on `user_devices` table
+- Token truncation in logs (first 20 chars only)
+- No token leakage in API responses
+
+---
+
+## Accessibility Testing
+
+**Goal**: Ensure WCAG 2.1 AA compliance across all features.
+
+**Tools & Infrastructure**:
+
+1. **@axe-core/playwright**: Automated accessibility testing in E2E tests
+2. **jest-axe**: Component-level accessibility testing in unit tests
+3. **eslint-plugin-jsx-a11y**: Static analysis during development
+4. **Lighthouse CI**: Automated audits in CI/CD pipeline
+
+**Running Tests**:
+
+```bash
+# E2E accessibility tests
+npm run test:e2e:a11y
+
+# Component accessibility tests (included in unit tests)
+npm test
+
+# Linting
+npm run lint
+```
+
+**Key Test Areas**:
+
+1. **Keyboard Navigation**: All interactive elements accessible via keyboard (Tab, Enter, Space, Arrow keys)
+2. **Screen Readers**: ARIA labels, roles, live regions for dynamic content
+3. **Color Contrast**: WCAG AA minimum contrast ratios (4.5:1 text, 3:1 UI elements)
+4. **Focus Management**: Visible focus indicators, focus trapping in modals
+5. **Form Accessibility**: Labels, error messages, validation feedback
+6. **Motion**: `prefers-reduced-motion` support for animations
+
+**Critical Checks** (run before each release):
+- [ ] All forms have proper labels and error handling
+- [ ] All images have alt text
+- [ ] All interactive elements keyboard accessible
+- [ ] Color contrast meets AA standards
+- [ ] Focus indicators visible
+- [ ] Modals trap focus and allow Esc to close
+- [ ] Live regions announce dynamic content
+
+**WCAG 2.1 AA Compliance**: Target 100% compliance for all user-facing features
+
+---
+
 ## Utilities — Implementation Notes
 
 - `loginViaUI(page)`

@@ -177,17 +177,8 @@ export function XPBoosterCard({
     return null; // Hide completed boosters
   }
 
-  return (
-    <div
-      data-testid="xp-booster-card"
-      className={cn(
-        "relative overflow-hidden rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 p-4 cursor-pointer hover:shadow-md transition-all duration-200",
-        "border-blue-200 hover:border-blue-300",
-        onClick && "hover:scale-[1.02]",
-        className
-      )}
-      onClick={onClick}
-    >
+  const content = (
+    <>
       <div className="flex items-center gap-3">
         <div className="flex-shrink-0 rounded-full bg-blue-100 p-2">{icon}</div>
         <div className="flex-1 min-w-0">
@@ -205,6 +196,36 @@ export function XPBoosterCard({
 
       {/* Subtle animation effect */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full animate-[shimmer_2s_infinite]" />
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        data-testid="xp-booster-card"
+        className={cn(
+          "relative w-full overflow-hidden rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 p-4 text-left transition-all duration-200",
+          "border-blue-200 hover:border-blue-300 hover:scale-[1.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2",
+          className
+        )}
+        onClick={onClick}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      data-testid="xp-booster-card"
+      className={cn(
+        "relative overflow-hidden rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 p-4",
+        "border-blue-200",
+        className
+      )}
+    >
+      {content}
     </div>
   );
 }
