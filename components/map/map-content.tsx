@@ -10,11 +10,13 @@ import {
   isLikelyOutOfAreaSearch,
 } from "@/lib/constants/coverage-areas";
 import type { Beach } from "@/types/database";
+import { LocationTimeoutBanner } from "@/components/map/location-timeout-banner";
 
 interface MapContentProps {
   loading: boolean;
   locationError: string | null;
   usingDefaultLocation: boolean;
+  hasTimedOut: boolean;
   userLocation: { lat: number; lng: number } | null;
   selectedBeach: Beach | null;
   filteredBeaches: Beach[];
@@ -47,6 +49,7 @@ export function MapContent({
   loading,
   locationError,
   usingDefaultLocation,
+  hasTimedOut,
   userLocation,
   selectedBeach,
   filteredBeaches,
@@ -116,6 +119,13 @@ export function MapContent({
 
   return (
     <>
+      {/* Location Timeout Banner */}
+      {hasTimedOut && usingDefaultLocation && (
+        <div className="px-4 py-3">
+          <LocationTimeoutBanner onGrantLocation={onGetUserLocation} />
+        </div>
+      )}
+
       {/* Interactive Map */}
       <div
         className="flex-1 relative overflow-hidden min-h-[400px] bg-gray-200 map-container"

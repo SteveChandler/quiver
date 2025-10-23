@@ -31,6 +31,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     locationError: null,
     usingDefaultLocation: true, // Start as default
     loading: true,
+    hasTimedOut: false,
   });
 
   const hasAttemptedRef = useRef(false);
@@ -43,12 +44,22 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       userLocation: { lat: fallbackLat, lng: fallbackLng },
       locationError: null,
       loading: false,
+      hasTimedOut: false,
     }));
   }, [fallbackLat, fallbackLng]);
 
-  const getUserLocation = useCallback(async (): Promise<void> => {
-    // Prevent multiple simultaneous requests
-    if (hasAttemptedRef.current) return;
+  const resetAttempt = useCallback(() => {
+    hasAttemptedRef.current = false;
+    setState((prev) => ({
+      ...prev,
+      hasTimedOut: false,
+      locationError: null,
+    }));
+  }, []);
+
+  const getUserLocation = useCallback(async (forceRetry = false): Promise<void> => {
+    // Prevent multiple simultaneous requests (unless force retry)
+    if (hasAttemptedRef.current && !forceRetry) return;
     hasAttemptedRef.current = true;
 
     // Safety timeout - force fallback if geolocation hangs (common on iOS simulator)
@@ -56,12 +67,21 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       console.warn(
         "[useGeolocation] Safety timeout reached - using fallback location"
       );
+      // Log timeout event for monitoring
+      if (typeof window !== "undefined" && window.gtag) {
+        window.gtag("event", "geolocation_timeout", {
+          event_category: "geolocation",
+          event_label: "safety_timeout",
+          value: SAFETY_TIMEOUT_MS,
+        });
+      }
       setState((prev) => ({
         ...prev,
         usingDefaultLocation: true,
         userLocation: { lat: fallbackLat, lng: fallbackLng },
         locationError: "Location request timed out - using fallback location",
         loading: false,
+        hasTimedOut: true,
       }));
     }, SAFETY_TIMEOUT_MS);
 
@@ -92,6 +112,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
           usingDefaultLocation: false,
           locationError: null,
           loading: false,
+          hasTimedOut: false,
         }));
       },
       (error) => {
@@ -134,5 +155,6 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     ...state,
     getUserLocation,
     useDefaultLocation,
+    resetAttempt,
   };
 }

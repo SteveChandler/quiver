@@ -35,8 +35,8 @@ export function BestConditionsCards() {
     return (
       <div className="space-y-4">
         <div>
-          <h3 className="text-xl font-semibold">Best Conditions Near You</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 className="text-2xl font-roboto font-bold text-gray-900">Best Conditions Near You</h3>
+          <p className="text-sm text-gray-600 mt-1">
             Top surf spots within 10 miles right now
           </p>
         </div>
@@ -63,10 +63,10 @@ export function BestConditionsCards() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-xl font-semibold">Best Conditions Near You</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 className="text-2xl font-roboto font-bold text-gray-900">Best Conditions Near You</h3>
+          <p className="text-sm text-gray-600 mt-1">
             Top surf spots within 10 miles right now
           </p>
         </div>
@@ -77,7 +77,7 @@ export function BestConditionsCards() {
         {beaches.map((beach) => (
           <Card
             key={beach.id}
-            className="flex-shrink-0 w-[280px] sm:w-[320px] cursor-pointer hover:shadow-lg transition-shadow snap-start"
+            className="flex-shrink-0 w-[280px] sm:w-[320px] cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.99] snap-start rounded-lg"
             onClick={() => router.push(`/beach/${beach.id}`)}
           >
             {/* Beach Image */}
@@ -200,10 +200,10 @@ function BestConditionsCardsSkeleton() {
 
 function getSkillLevelColor(level: string): string {
   const colors: Record<string, string> = {
-    Beginner: "bg-green-50 text-green-700 border-green-200",
-    Intermediate: "bg-blue-50 text-blue-700 border-blue-200",
-    Advanced: "bg-orange-50 text-orange-700 border-orange-200",
-    Expert: "bg-red-50 text-red-700 border-red-200",
+    Beginner: "bg-blue-50 text-ocean-blue border-transparent",
+    Intermediate: "bg-orange-50 text-orange-600 border-transparent",
+    Advanced: "bg-red-50 text-red-600 border-transparent",
+    Expert: "bg-red-50 text-red-700 border-transparent",
   };
   return colors[level] || colors.Intermediate;
 }

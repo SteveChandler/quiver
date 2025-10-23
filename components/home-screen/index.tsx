@@ -15,6 +15,7 @@ import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { useOnboarding } from "@/hooks/use-onboarding";
 import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 import { track } from "@/lib/analytics";
+import { BookOpen, Plus } from "lucide-react";
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
@@ -121,20 +122,20 @@ export function HomeScreen() {
       {/* Optional: Interaction hints can be reintroduced with server flag if desired */}
 
       {/* Main Content */}
-      <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pt-6">
+      <main className="flex-1 home-container py-6 sm:py-8 lg:py-10 space-y-8 overflow-auto pt-6">
         {/* Welcome Section */}
         <section className="centered-container space-y-6">
           <div className="space-y-3">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+            <h2 className="text-4xl font-roboto font-bold leading-[44px] text-gray-900">
               Hey, {user ? profile?.full_name || "Surfer" : "Guest"}!
             </h2>
-            <p className="text-muted-foreground text-base sm:text-lg lg:text-xl">
+            <p className="text-base text-gray-600 mt-3">
               The waves are looking good today. Ready to catch some?
             </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-3 my-5">
             <Button
               onClick={() => {
                 track("plan_session_clicked", {
@@ -143,8 +144,9 @@ export function HomeScreen() {
                 });
                 router.push("/sessions/new?mode=plan");
               }}
-              className="flex-1 bg-ocean-blue hover:bg-ocean-blue/90"
+              className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all"
             >
+              <BookOpen className="h-5 w-5 mr-2" />
               Plan Session
             </Button>
             <Button
@@ -156,8 +158,9 @@ export function HomeScreen() {
                 router.push("/sessions/new?mode=log");
               }}
               variant="outline"
-              className="flex-1"
+              className="h-12 px-5 text-base font-medium rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"
             >
+              <Plus className="h-5 w-5 mr-2" />
               Log Session
             </Button>
           </div>

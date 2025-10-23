@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Improved - Home Page Phase 1: AllTrails Typography & Visual Hierarchy - 2025-10-23
+
+#### Home Page Design Refactor (Phase 1 Complete)
+- **Improved:** Applied AllTrails-inspired typography system to home page components
+- **Typography Updates:**
+  - Welcome heading: Fixed size `text-4xl font-roboto font-bold leading-[44px] text-gray-900` (no responsive scaling)
+  - Subtext: Fixed `text-base text-gray-600` (consistent across breakpoints)
+  - Section headings: Updated to `text-2xl font-roboto font-bold text-gray-900`
+  - Metadata text: Changed to `text-sm text-gray-600` (removed muted-foreground)
+- **Button Grid Enhancement:**
+  - Changed from flex to grid layout: `grid grid-cols-2 gap-3 my-5`
+  - Primary button: Added `h-12` height, `px-6` padding, `font-semibold`, `hover:bg-ocean-blue-dark`, `active:scale-[0.98]`, `transition-all`
+  - Secondary button: Added `h-12` height, `px-5` padding, `font-medium`, `hover:bg-gray-50`, `active:scale-[0.98]`, `transition-all`
+  - Added lucide-react icons: BookOpen (Plan Session), Plus (Log Session)
+- **Spacing System:**
+  - Unified to consistent 8px-based spacing: `space-y-8` (removed responsive variations)
+  - Section headers: Added `mb-6` margin
+- **Badge Color Consistency:**
+  - Updated skill level badges to match beach detail page:
+    - Beginner: `bg-blue-50 text-ocean-blue border-transparent`
+    - Intermediate: `bg-orange-50 text-orange-600 border-transparent`
+    - Advanced: `bg-red-50 text-red-600 border-transparent`
+    - Expert: `bg-red-50 text-red-700 border-transparent`
+- **Card Interaction Enhancement:**
+  - Added AllTrails hover pattern: `transition-all duration-200 active:scale-[0.99]`
+  - Added explicit `rounded-lg` for consistent border radius
+- **Result:** Home page now matches beach detail page design language
+- **Impact:** Improved visual hierarchy, better brand consistency, enhanced user interactions
+- **Testing:** All E2E tests passing (home-forecast.spec.ts, home-first-time-mobile.spec.ts)
+- **Files:**
+  - `components/home-screen/index.tsx` (lines 18, 125-166)
+  - `components/home-screen/best-conditions-cards.tsx` (lines 38-42, 66-72, 80, 201-209)
+- **Documentation:** `docs/HOME_PAGE_DESIGN_REFACTOR.md` (Phase 1 checklist updated)
+
+### Fixed - Geolocation Safety Timeout (BUG-002) - 2025-10-23
+
+#### Map Page Geolocation Timeout Handling
+- **Fixed:** Geolocation safety timeout now properly allows retry after timeout (P0 Critical)
+- **Added:** `hasTimedOut` state to distinguish timeout from permission denial errors
+- **Added:** `resetAttempt()` function to reset geolocation attempt state
+- **Enhanced:** `getUserLocation()` now accepts `forceRetry` parameter to allow manual retry
+- **Added:** Prominent LocationTimeoutBanner component with dismissible UI
+- **Added:** Analytics logging for timeout events (gtag) for monitoring
+- **Improved:** Clear visual feedback when using default location (Ocean Beach, San Diego)
+- **Added:** "Grant Location Access" button in banner for easy retry
+- **Added:** localStorage persistence for banner dismissal state
+- **Result:** Users no longer stuck in loading state after timeout, can easily retry location access
+- **Impact:** Resolved critical UX issue where users perceived app as broken/crashed on timeout
+- **Files:**
+  - `hooks/use-geolocation.ts` (enhanced with retry logic and hasTimedOut state)
+  - `components/map/location-timeout-banner.tsx` (NEW - dismissible banner component)
+  - `components/map/map-content.tsx` (integrated banner)
+  - `components/map-view.tsx` (pass hasTimedOut state)
+  - `__tests__/hooks/use-geolocation.test.ts` (NEW - 15 comprehensive tests)
+  - `__tests__/components/map/location-timeout-banner.test.tsx` (NEW - 16 comprehensive tests)
+- **Documentation:** `docs/MAP_PAGE_BUGS_REPORT.md` (BUG-002 marked as resolved)
+- **Tests:** 31 new tests covering timeout scenarios, retry mechanism, banner functionality
+
 ### Improved - Map View List Toggle Enhancements - 2025-10-23
 
 #### Map Page List View Toggle

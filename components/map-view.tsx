@@ -39,9 +39,11 @@ export function MapView() {
     userLocation,
     locationError,
     usingDefaultLocation,
+    hasTimedOut,
     loading: locationLoading,
     getUserLocation,
     useDefaultLocation,
+    resetAttempt,
   } = useGeolocation();
 
   const {
@@ -273,12 +275,13 @@ export function MapView() {
             loading={loading}
             locationError={locationError}
             usingDefaultLocation={usingDefaultLocation}
+            hasTimedOut={hasTimedOut}
             userLocation={userLocation}
             selectedBeach={selectedBeach}
             filteredBeaches={filteredBeaches}
             searchQuery={searchQuery}
             regionViewport={regionViewport}
-            onGetUserLocation={getUserLocation}
+            onGetUserLocation={() => getUserLocation(true)}
             onUseDefaultLocation={useDefaultLocation}
             onBeachSelect={handleBeachSelect}
           />
