@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Break Type Filter Logic (BUG-007) - 2025-10-23
+
+#### Map Page Filter Functionality
+- **Fixed:** Break type filter now works correctly with descriptive database values (P1 High - Critical)
+- **Changed:** Filter logic from exact string matching to substring matching
+- **Impact:** Resolved critical bug where selecting multiple break types (beach/point/reef) returned zero results
+- **Root Cause:** Database contains descriptive break_type values like "Right point over reef/rock" but filter was checking for exact matches against simple keywords
+- **Solution:** Changed filter to use substring matching - now checks if break_type contains any selected filter keyword
+- **Result:** Selecting "beach", "point", or "reef" filters now correctly shows beaches with matching keywords in their break_type field
+- **Files:**
+  - `hooks/use-beach-search.ts` (lines 111-123)
+- **Documentation:** `docs/MAP_PAGE_BUGS_REPORT.md` (BUG-007)
+
+### Improved - Home Page Phase 4: Forecast Tab Beach Header Card - 2025-10-23
+
+#### Home Page Design Refactor (Phase 4 Complete)
+- **Improved:** Enhanced beach header card in forecast tab with AllTrails-inspired styling refinements
+- **Beach Header Card Updates:**
+  - Card: Added `rounded-lg border-0 shadow-md` for cleaner appearance
+  - CardHeader: Updated padding to `pb-3 pt-4 px-5` (20px horizontal, 16px/12px vertical)
+  - CardTitle: Enhanced typography with `text-xl font-roboto font-bold` (20px size, Roboto font)
+  - View Details button: Added `h-9 px-4 text-sm font-semibold hover:bg-white/90 transition-all` for improved interaction
+- **Visual Polish:**
+  - Consistent with AllTrails card patterns (beach detail page, best conditions cards)
+  - Enhanced shadow depth (shadow-md) for better hierarchy
+  - Smoother button hover transition (white/90 opacity)
+  - Professional border radius matching design system (rounded-lg = 12px)
+- **Result:** Beach header card now seamlessly integrates with AllTrails design language
+- **Impact:** Improved visual consistency, enhanced card hierarchy, better button interactions
+- **Testing:** Home forecast E2E test passing (e2e/home-forecast.spec.ts)
+- **Files:**
+  - `components/home-screen/forecast-tab.tsx` (lines 267-285)
+- **Documentation:** `docs/HOME_PAGE_DESIGN_REFACTOR.md` (Phase 4 documented)
+
+### Improved - Home Page Phase 2: AllTrails Tab Navigation - 2025-10-23
+
+#### Home Page Design Refactor (Phase 2 Complete)
+- **Improved:** Implemented AllTrails-style border-bottom tab navigation matching beach detail page
+- **Tab Navigation Updates:**
+  - Changed from grid layout to border-bottom design: `border-b-2 border-gray-200`
+  - Tab container: Removed fixed height, added transparent background (`bg-transparent p-0 h-auto`)
+  - Inactive tabs: `text-gray-600 font-medium` with responsive sizing (`text-xs sm:text-base`)
+  - Active tab: Ocean-blue 2px bottom border and text (`border-ocean-blue text-ocean-blue font-semibold`)
+  - Hover states: Gray-50 background with gray-900 text (`hover:bg-gray-50 hover:text-gray-900`)
+  - Transitions: Smooth 200ms transitions on all state changes (`transition-all duration-200`)
+  - Negative margin: `-mb-0.5` for border overlap effect
+  - Responsive padding: `px-2 py-2 sm:px-6 sm:py-3` (8px mobile, 24px desktop)
+- **Visual Consistency:**
+  - Tabs now match beach detail page design language exactly
+  - Consistent ocean-blue accent color across active states
+  - Unified transition timing (200ms)
+  - Same responsive breakpoints and padding scales
+- **Result:** Complete visual consistency between home page and beach detail tabs
+- **Impact:** Improved brand cohesion, better visual hierarchy, enhanced user experience
+- **Testing:** Existing E2E tests passing (home-forecast.spec.ts, home-first-time-mobile.spec.ts)
+- **Files:**
+  - `components/home-screen/index.tsx` (lines 191-210)
+- **Documentation:** `docs/HOME_PAGE_DESIGN_REFACTOR.md` (Phase 2 marked complete)
+
 ### Improved - Home Page Phase 1: AllTrails Typography & Visual Hierarchy - 2025-10-23
 
 #### Home Page Design Refactor (Phase 1 Complete)

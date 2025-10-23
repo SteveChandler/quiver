@@ -187,14 +187,24 @@ export function HomeScreen() {
             onValueChange={handleTabChange}
             className="space-y-6"
           >
-            <TabsList className="grid grid-cols-3 w-full mx-auto h-12 sm:h-14">
-              <TabsTrigger value="forecast" className="text-sm sm:text-base">
+            {/* AllTrails-style tab navigation (Phase 2) */}
+            <TabsList className="w-full justify-start border-b-2 border-gray-200 mb-6 rounded-none bg-transparent p-0 h-auto">
+              <TabsTrigger
+                value="forecast"
+                className="rounded-none border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 data-[state=active]:border-ocean-blue data-[state=active]:text-ocean-blue data-[state=active]:font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
                 Forecast
               </TabsTrigger>
-              <TabsTrigger value="nearby" className="text-sm sm:text-base">
+              <TabsTrigger
+                value="nearby"
+                className="rounded-none border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 data-[state=active]:border-ocean-blue data-[state=active]:text-ocean-blue data-[state=active]:font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
                 Nearby
               </TabsTrigger>
-              <TabsTrigger value="community" className="text-sm sm:text-base">
+              <TabsTrigger
+                value="community"
+                className="rounded-none border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 data-[state=active]:border-ocean-blue data-[state=active]:text-ocean-blue data-[state=active]:font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
                 Local Intel
               </TabsTrigger>
             </TabsList>

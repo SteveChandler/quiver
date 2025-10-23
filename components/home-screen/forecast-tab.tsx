@@ -264,9 +264,9 @@ export function ForecastTab({
         />
       )}
       {/* Beach Header */}
-      <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between">
+      <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-lg border-0 shadow-md">
+        <CardHeader className="pb-3 pt-4 px-5">
+          <CardTitle className="flex items-center justify-between text-xl font-roboto font-bold">
             <div className="flex items-center space-x-2">
               <MapPin className="h-5 w-5" />
               <span>{effectiveBeach.name}</span>
@@ -275,7 +275,7 @@ export function ForecastTab({
               variant="secondary"
               size="sm"
               onClick={handleViewBeach}
-              className="text-ocean-blue"
+              className="text-ocean-blue h-9 px-4 text-sm font-semibold hover:bg-white/90 transition-all"
             >
               View Details
               <ChevronRight className="h-4 w-4 ml-1" />
