@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_SECURITY_HEADERS, handleApiError } from "@/lib/api-utils";
 import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

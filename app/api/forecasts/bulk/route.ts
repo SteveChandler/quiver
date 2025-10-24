@@ -6,6 +6,8 @@ import {
 import { createAPIServerClient } from "@/lib/supabase/server";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/forecasts/bulk
  * Fetches current wave height forecasts for multiple beaches in a single request
