@@ -88,7 +88,7 @@ describe("UserAvatar", () => {
       const image = screen.getByTestId("avatar-image");
       expect(image).toBeInTheDocument();
       expect(image).toHaveAttribute("src", validSrc);
-      expect(image).toHaveAttribute("alt", "John Doe");
+      expect(image).toHaveAttribute("alt", "Profile picture of John Doe");
     });
 
     it("does not render image when src is null or undefined", () => {

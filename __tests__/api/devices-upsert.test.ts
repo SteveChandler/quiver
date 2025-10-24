@@ -3,8 +3,10 @@
  * Tests the /api/devices/upsert endpoint for registering push notification tokens
  */
 
-import { describe, it, expect, jest, beforeEach } from "@jest/globals";
+// Use lightweight NextRequest/NextResponse mock to avoid constructor issues
+jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 import { NextRequest } from "next/server";
+import { POST, DELETE } from "@/app/api/devices/upsert/route";
 
 // Mock API utilities
 jest.mock("@/lib/api-utils", () => ({
@@ -58,8 +60,6 @@ describe("Device Token API", () => {
 
       mockUpsert.mockResolvedValue({ error: null });
 
-      const { POST } = await import("@/app/api/devices/upsert/route");
-
       const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
         method: "POST",
         body: JSON.stringify({
@@ -90,8 +90,6 @@ describe("Device Token API", () => {
         error: null,
       });
 
-      const { POST } = await import("@/app/api/devices/upsert/route");
-
       const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
         method: "POST",
         body: JSON.stringify({
@@ -113,8 +111,6 @@ describe("Device Token API", () => {
         data: { user: null },
         error: new Error("Not authenticated"),
       });
-
-      const { POST } = await import("@/app/api/devices/upsert/route");
 
       const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
         method: "POST",
@@ -138,8 +134,6 @@ describe("Device Token API", () => {
         data: { user: mockUser },
         error: null,
       });
-
-      const { POST } = await import("@/app/api/devices/upsert/route");
 
       const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
         method: "POST",
@@ -177,8 +171,6 @@ describe("Device Token API", () => {
         return { eq: mockEq };
       });
 
-      const { DELETE } = await import("@/app/api/devices/upsert/route");
-
       const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
         method: "DELETE",
         body: JSON.stringify({
@@ -199,8 +191,6 @@ describe("Device Token API", () => {
         data: { user: null },
         error: new Error("Not authenticated"),
       });
-
-      const { DELETE } = await import("@/app/api/devices/upsert/route");
 
       const request = new NextRequest("http://localhost:3000/api/devices/upsert", {
         method: "DELETE",

@@ -58,6 +58,19 @@ export default function AuthGate({
         return;
       }
 
+      // Check if modal was recently dismissed (within last 30 seconds)
+      const dismissedAt = localStorage.getItem('auth_gate_dismissed');
+      if (dismissedAt) {
+        const timeSinceDismissal = Date.now() - parseInt(dismissedAt, 10);
+        const thirtySeconds = 30 * 1000;
+
+        if (timeSinceDismissal < thirtySeconds) {
+          // Don't show modal yet, still within dismissal window
+          setChecking(false);
+          return;
+        }
+      }
+
       // Show modal after initial delay
       timer = setTimeout(() => {
         if (alive) {
@@ -86,6 +99,10 @@ export default function AuthGate({
 
     // User dismissed the modal - show blocking overlay
     document.body.style.overflow = "";
+
+    // Save dismissal time to localStorage
+    localStorage.setItem('auth_gate_dismissed', Date.now().toString());
+
     trackAuthWallDismissed();
     setOpen(false);
     setWasDismissed(true);
@@ -100,11 +117,12 @@ export default function AuthGate({
       <UnifiedAuthModal
         isOpen={open}
         onClose={handleClose}
-        mode="auto"
+        mode="login"
         source="auth-gate"
         returnTo={returnTo}
         dismissible={closable}
         showCloseButton={closable}
+        isAuthGate={true}
       />
 
       {/* Show blocking overlay when modal is dismissed */}

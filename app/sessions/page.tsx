@@ -140,7 +140,7 @@ export default function SessionsPage() {
                 className="bg-ocean-blue hover:bg-ocean-blue/90"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
-                Sign Up Free
+                Sign Up
               </Button>
               <Button
                 size="lg"

@@ -1,17 +1,17 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Landing Page - Navbar', () => {
-  test('renders sticky navigation with logo and log in button on desktop', async ({ page }) => {
+  test('renders sticky navigation with logo and sign in button on desktop', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     // Check for Quiver logo
     const logo = page.getByRole('link', { name: /quiver/i }).first();
     await expect(logo).toBeVisible({ timeout: 10000 });
 
-    // Check for Log In button (always visible on desktop)
-    const logInButton = page.getByRole('link', { name: /log in/i });
-    await expect(logInButton).toBeVisible();
-    
+    // Check for Sign In button (always visible on desktop)
+    const signInButton = page.getByRole('link', { name: /sign in/i });
+    await expect(signInButton).toBeVisible();
+
     // Sign Up button removed from desktop nav per AllTrails design
     // It's only available in mobile menu
   });
@@ -55,8 +55,10 @@ test.describe('Landing Page - Navbar', () => {
     // Check for mobile menu content
     await expect(page.getByText(/explore/i).nth(1)).toBeVisible({ timeout: 5000 });
 
-    // Mobile menu should show auth buttons
-    const mobileSignUp = page.getByRole('link', { name: /sign up/i }).last();
+    // Mobile menu should show auth buttons (they're buttons that open modals, not links)
+    const mobileLogIn = page.getByRole('button', { name: /log in/i }).last();
+    const mobileSignUp = page.getByRole('button', { name: /sign up/i }).last();
+    await expect(mobileLogIn).toBeVisible();
     await expect(mobileSignUp).toBeVisible();
   });
 

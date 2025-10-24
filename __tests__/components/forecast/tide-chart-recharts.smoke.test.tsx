@@ -21,7 +21,7 @@ beforeAll(() => {
 describe("TideChart (smoke)", () => {
   it("renders card and title with empty data without throwing", () => {
     render(<TideChart data={[]} forecasts={[]} hourly={[]} events={[]} />);
-    expect(screen.getByText("48-Hour Tide Forecast")).toBeInTheDocument();
+    expect(screen.getByText("Tide Forecast")).toBeInTheDocument();
     expect(screen.getByText("No tide data available")).toBeInTheDocument();
   });
 });

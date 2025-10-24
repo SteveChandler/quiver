@@ -43,6 +43,7 @@ const createMockChain = (finalResult: any) => {
   const chainMethods = {
     select: jest.fn(() => chainMethods),
     eq: jest.fn(() => chainMethods),
+    ilike: jest.fn(() => chainMethods),
     insert: jest.fn(() => chainMethods),
     single: jest.fn(() => finalResult),
     maybeSingle: jest.fn(() => finalResult),
@@ -50,6 +51,7 @@ const createMockChain = (finalResult: any) => {
     limit: jest.fn(() => finalResult),
     not: jest.fn(() => chainMethods),
     gt: jest.fn(() => finalResult),
+    in: jest.fn(() => chainMethods),
   };
   return chainMethods;
 };
@@ -94,6 +96,7 @@ describe("Viral Growth Mechanisms", () => {
 
   describe("Session Invitations (Viral Invites)", () => {
     it("should send invitations to friends for viral growth", async () => {
+      let insertCallCount = 0;
       const fromMock = jest.fn((table: string) => {
         if (table === "sessions") {
           return createMockChain({
@@ -109,32 +112,48 @@ describe("Viral Growth Mechanisms", () => {
         }
 
         if (table === "session_invitations") {
-          return {
-            select: jest.fn(() => ({
-              eq: jest.fn(() => ({
-                maybeSingle: jest.fn(() => ({ data: null, error: null })),
-              })),
-            })),
-            insert: jest.fn(() => ({
+          // Create a mock chain object that can handle all query patterns
+          const mockChain: any = {
+            select: jest.fn(() => mockChain),
+            eq: jest.fn(() => mockChain),
+            gt: jest.fn(() => mockChain),
+            order: jest.fn(() => mockChain),
+            single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+            maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+            insert: jest.fn((data: any) => ({
               select: jest.fn(() => ({
-                single: jest.fn(() =>
-                  Promise.resolve({
+                single: jest.fn(() => {
+                  insertCallCount++;
+                  return Promise.resolve({
                     data: {
-                      id: "invite-1",
+                      id: `invite-${insertCallCount}`,
                       session_id: "session-1",
                       inviter_id: "user-1",
-                      invitee_email: "friend1@example.com",
+                      invitee_email: data.invitee_email,
+                      invitee_id: data.invitee_id,
                       status: "pending",
+                      message: data.message || null,
+                      created_at: new Date().toISOString(),
+                      seen_at: null,
                     },
                     error: null,
-                  })
-                ),
+                  });
+                }),
               })),
             })),
-          } as any;
+          };
+          return mockChain;
         }
 
-        throw new Error(`Unexpected table ${table}`);
+        if (table === "profiles") {
+          return createMockChain({
+            data: null,
+            error: null,
+          });
+        }
+
+        // Return empty chain for other tables to avoid errors
+        return createMockChain({ data: null, error: null });
       });
 
       mockSupabaseClient.from.mockImplementation(fromMock);
@@ -174,29 +193,55 @@ describe("Viral Growth Mechanisms", () => {
       const fromMock = jest.fn((table: string) => {
         if (table === "sessions") {
           return createMockChain({
-            data: { id: "session-1", user_id: "user-1", status: "planned" },
+            data: {
+              id: "session-1",
+              user_id: "user-1",
+              beach_name: "Analytics Beach",
+              arrival_time: "2024-01-15T09:00:00Z",
+              status: "planned",
+            },
             error: null,
           });
         }
 
         if (table === "session_invitations") {
-          return {
-            select: jest.fn(() => ({
-              eq: jest.fn(() => ({
-                maybeSingle: jest.fn(() => ({ data: null, error: null })),
-              })),
-            })),
-            insert: jest.fn(() => ({
+          // Create a mock chain object that can handle all query patterns
+          const mockChain: any = {
+            select: jest.fn(() => mockChain),
+            eq: jest.fn(() => mockChain),
+            gt: jest.fn(() => mockChain),
+            order: jest.fn(() => mockChain),
+            single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+            maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+            insert: jest.fn((data: any) => ({
               select: jest.fn(() => ({
                 single: jest.fn(() =>
                   Promise.resolve({
-                    data: { id: "invite-1", status: "pending" },
+                    data: {
+                      id: "invite-1",
+                      session_id: "session-1",
+                      inviter_id: "user-1",
+                      invitee_email: data.invitee_email,
+                      invitee_id: data.invitee_id,
+                      status: "pending",
+                      message: data.message || null,
+                      created_at: new Date().toISOString(),
+                      seen_at: null,
+                    },
                     error: null,
                   })
                 ),
               })),
             })),
-          } as any;
+          };
+          return mockChain;
+        }
+
+        if (table === "profiles") {
+          return createMockChain({
+            data: null,
+            error: null,
+          });
         }
 
         if (table === "session_invitation_analytics") {
@@ -206,7 +251,8 @@ describe("Viral Growth Mechanisms", () => {
           });
         }
 
-        throw new Error(`Unexpected table ${table}`);
+        // Return empty chain for other tables to avoid errors
+        return createMockChain({ data: null, error: null });
       });
 
       mockSupabaseClient.from.mockImplementation(fromMock);

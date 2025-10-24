@@ -1,4 +1,4 @@
-import { FEATURE_CARDS, HERO_VIDEOS, CONTENT } from "@/lib/constants/features";
+import { FEATURE_CARDS, CONTENT } from "@/lib/constants/features";
 
 describe("Features Constants", () => {
   describe("FEATURE_CARDS", () => {
@@ -43,28 +43,13 @@ describe("Features Constants", () => {
     });
   });
 
-  describe("HERO_VIDEOS", () => {
-    it("has the correct number of video files", () => {
-      expect(HERO_VIDEOS).toHaveLength(3);
-    });
-
-    it("contains valid video file paths", () => {
-      HERO_VIDEOS.forEach((video) => {
-        expect(typeof video).toBe("string");
-        expect(video.startsWith("/")).toBe(true);
-        expect(video.endsWith(".mp4")).toBe(true);
-      });
-    });
-  });
-
   describe("CONTENT", () => {
     it("has hero content structure", () => {
       expect(CONTENT.hero).toHaveProperty("title");
       expect(CONTENT.hero).toHaveProperty("subtitle");
       expect(CONTENT.hero).toHaveProperty("cta");
 
-      expect(Array.isArray(CONTENT.hero.title)).toBe(true);
-      expect(CONTENT.hero.title).toHaveLength(2); // Updated to match actual structure
+      expect(typeof CONTENT.hero.title).toBe("string");
       expect(typeof CONTENT.hero.subtitle).toBe("string");
       expect(typeof CONTENT.hero.cta).toBe("string");
     });
@@ -88,7 +73,7 @@ describe("Features Constants", () => {
     });
 
     it("has non-empty content strings", () => {
-      expect(CONTENT.hero.title.every((line) => line.length > 0)).toBe(true);
+      expect(CONTENT.hero.title.length).toBeGreaterThan(0);
       expect(CONTENT.hero.subtitle.length).toBeGreaterThan(0);
       expect(CONTENT.hero.cta.length).toBeGreaterThan(0);
 

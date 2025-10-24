@@ -43,6 +43,14 @@ global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.resetModules(); // Clear module cache to pick up fresh mocks
+
+  // Set up global Notification (browser global)
+  Object.defineProperty(global, "Notification", {
+    value: mockNotification,
+    writable: true,
+    configurable: true,
+  });
 
   // Set up window object
   Object.defineProperty(global, "window", {
@@ -51,6 +59,7 @@ beforeEach(() => {
       Capacitor: undefined, // Web platform
     },
     writable: true,
+    configurable: true,
   });
 
   // Set up navigator
@@ -59,6 +68,7 @@ beforeEach(() => {
       serviceWorker: mockServiceWorker,
     },
     writable: true,
+    configurable: true,
   });
 
   // Reset mocks

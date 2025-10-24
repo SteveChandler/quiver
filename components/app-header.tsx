@@ -477,7 +477,7 @@ export function AppHeader() {
                     trackAuthModalOpened({ mode: "signup", source: "app-header" });
                   }}
                 >
-                  Sign up Free
+                  Sign Up
                 </Button>
               </div>
 

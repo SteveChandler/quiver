@@ -65,6 +65,9 @@ export interface UnifiedAuthModalProps {
   dismissible?: boolean;
   showCloseButton?: boolean;
 
+  /** Auth gate context - shows guest-specific messaging */
+  isAuthGate?: boolean;
+
   /** Feature flags */
   enableMagicLink?: boolean;
   enablePassword?: boolean;
@@ -95,6 +98,7 @@ export function UnifiedAuthModal({
   source = "unknown",
   dismissible = true,
   showCloseButton = true,
+  isAuthGate = false,
   enableMagicLink = true,
   enablePassword = true,
   enableOAuth = true,
@@ -365,10 +369,16 @@ export function UnifiedAuthModal({
       >
         <DialogHeader>
           <DialogTitle>
-            {mode === "login" ? "Log in to Quiver" : "Sign up Free"}
+            {isAuthGate
+              ? "Keep Exploring with Quiver"
+              : mode === "login"
+              ? "Log in to Quiver"
+              : "Sign Up"}
           </DialogTitle>
           <DialogDescription>
-            {mode === "login"
+            {isAuthGate
+              ? "Log in or sign up to access interactive maps, save sessions, and connect with the community."
+              : mode === "login"
               ? "Access your sessions, forecasts, and community."
               : "Join Quiver to plan sessions and connect with surfers."}
           </DialogDescription>

@@ -147,7 +147,7 @@ export function Navbar() {
                   trackAuthModalOpened({ mode: "signup", source: "landing-navbar" });
                 }}
               >
-                Sign up Free
+                Sign Up
               </Button>
             </div>
           </div>
@@ -230,7 +230,7 @@ export function Navbar() {
                         trackAuthModalOpened({ mode: "signup", source: "landing-navbar-mobile" });
                       }}
                     >
-                      Sign up Free
+                      Sign Up
                     </Button>
                   </div>
                 </div>
