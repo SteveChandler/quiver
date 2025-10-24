@@ -11,6 +11,7 @@ interface BeachTabsProps {
   onTabChange?: (value: BeachTabValue) => void;
   children: ReactNode;
   className?: string;
+  actions?: ReactNode;
 }
 
 /**
@@ -29,7 +30,14 @@ interface BeachTabsProps {
  * - Uncontrolled: Use defaultTab prop
  * - Controlled: Use activeTab and onTabChange props
  */
-export function BeachTabs({ defaultTab = "overview", activeTab, onTabChange, children, className }: BeachTabsProps) {
+export function BeachTabs({
+  defaultTab = "overview",
+  activeTab,
+  onTabChange,
+  children,
+  className,
+  actions,
+}: BeachTabsProps) {
   const [internalTab, setInternalTab] = useState<BeachTabValue>(defaultTab);
   const isControlled = activeTab !== undefined;
   const currentTab = isControlled ? activeTab : internalTab;
@@ -61,26 +69,38 @@ export function BeachTabs({ defaultTab = "overview", activeTab, onTabChange, chi
     "data-[state=active]:font-semibold " + // Phase 5: Spec active font weight (600)
     "data-[state=active]:bg-transparent data-[state=active]:shadow-none"; // Remove default active styles
 
+  const stickyTop = "calc(var(--app-safe-area-top, 0px) + 4rem)";
+
   return (
     <Tabs value={currentTab} onValueChange={handleTabChange} className={className}>
-      {/* Phase 5: Tab container with border-bottom and margin-bottom per spec */}
-      <TabsList className="w-full justify-start border-b-2 border-gray-200 mb-6 rounded-none bg-transparent p-0 h-auto">
-        <TabsTrigger value="overview" className={tabTriggerClasses}>
-          Overview
-        </TabsTrigger>
-        <TabsTrigger value="forecast" className={tabTriggerClasses}>
-          Forecast
-        </TabsTrigger>
-        <TabsTrigger value="reviews" className={tabTriggerClasses}>
-          Reviews
-        </TabsTrigger>
-        <TabsTrigger value="intel" className={tabTriggerClasses}>
-          Local Intel
-        </TabsTrigger>
-        <TabsTrigger value="sessions" className={tabTriggerClasses}>
-          Sessions
-        </TabsTrigger>
-      </TabsList>
+      {/* Sticky container mimicking AllTrails-style anchor nav */}
+      <div
+        className="sticky z-40 mb-6 border-b-2 border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
+        style={{ top: stickyTop }}
+      >
+        <div className="flex w-full items-center gap-3 px-0 py-2 sm:py-0">
+          <TabsList className="flex flex-1 items-center justify-start gap-1 overflow-x-auto bg-transparent p-0 h-auto text-muted-foreground">
+            <TabsTrigger value="overview" className={tabTriggerClasses}>
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="forecast" className={tabTriggerClasses}>
+              Forecast
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className={tabTriggerClasses}>
+              Reviews
+            </TabsTrigger>
+            <TabsTrigger value="intel" className={tabTriggerClasses}>
+              Local Intel
+            </TabsTrigger>
+            <TabsTrigger value="sessions" className={tabTriggerClasses}>
+              Sessions
+            </TabsTrigger>
+          </TabsList>
+          {actions ? (
+            <div className="hidden flex-shrink-0 items-center gap-2 md:flex">{actions}</div>
+          ) : null}
+        </div>
+      </div>
       {children}
     </Tabs>
   );

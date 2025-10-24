@@ -23,6 +23,14 @@ const PWAAndPushListeners = dynamic(
 );
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+const OnboardingDialog = dynamic(
+  () => import("@/components/onboarding/onboarding-dialog").then(mod => ({ default: mod.OnboardingDialog })),
+  { ssr: false }
+);
+const ProductTour = dynamic(
+  () => import("@/components/onboarding/product-tour").then(mod => ({ default: mod.ProductTour })),
+  { ssr: false }
+);
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL";
 
@@ -290,6 +298,13 @@ export default function RootLayout({
               {/* Toast systems: shadcn UI (in-app) and Sonner (global) */}
               <Toaster />
               <SonnerToaster />
+              {/* Onboarding flow and product tour */}
+              <Suspense fallback={null}>
+                <OnboardingDialog />
+              </Suspense>
+              <Suspense fallback={null}>
+                <ProductTour />
+              </Suspense>
               {/* Expose a lightweight confetti availability flag for E2E */}
               <script
                 dangerouslySetInnerHTML={{

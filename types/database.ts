@@ -4092,6 +4092,8 @@ export type Beach = Database["public"]["Tables"]["beaches"]["Row"] & {
   location_text?: string | null;
   cdip_station?: string | null;
   ndbc_station?: string | null;
+  review_count?: number | null;
+  average_rating?: number | null;
 };
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"] & {
   homeBeachName?: string | null;

@@ -252,16 +252,19 @@ async function updateBeachAverageRatings(beachId: string) {
     const { data: reviews, error } = await supabase
       .from("beach_reviews")
       .select(
-        "wave_quality_rating, crowd_density_rating, parking_rating, accessibility_rating"
+        "overall_rating, wave_quality_rating, crowd_density_rating, parking_rating, accessibility_rating"
       )
       .eq("beach_id", beachId);
 
-    if (error || !reviews || reviews.length === 0) {
+    if (error) {
+      console.error("Error fetching reviews for beach:", error);
       return;
     }
 
-    const averages = calculateBeachAverageRatings(reviews);
+    // Calculate averages (handles empty array case)
+    const averages = calculateBeachAverageRatings(reviews || []);
 
+    // Update the beaches table with all calculated values
     await supabase.from("beaches").update(averages).eq("id", beachId);
   } catch (error) {
     console.error("Error updating beach average ratings:", error);

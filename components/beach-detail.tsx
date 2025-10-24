@@ -11,6 +11,7 @@ import {
   CloudSun,
   Compass,
   MapPin,
+  Navigation,
   Star,
   Waves,
   Wind,
@@ -489,6 +490,37 @@ export function BeachDetail({
     setSessionPlanningOpen(true);
   };
 
+  const destinationCoordinates =
+    beach?.latitude && beach?.longitude
+      ? `${beach.latitude},${beach.longitude}`
+      : null;
+  const canGetDirections = Boolean(destinationCoordinates);
+
+  const handleGetDirections = useCallback(() => {
+    if (!destinationCoordinates) return;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${destinationCoordinates}`;
+    window.open(url, "_blank", "noopener");
+  }, [destinationCoordinates]);
+
+  const tabActions = (
+    <>
+      <Button
+        variant="outline"
+        onClick={handleGetDirections}
+        disabled={!canGetDirections}
+        className="h-10 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+      >
+        <Navigation className="mr-2 h-4 w-4" />
+        Get directions
+      </Button>
+      <FavoriteButton
+        beachId={beach.id}
+        variant="outline"
+        className="h-10 border-gray-300 text-gray-700 hover:bg-gray-50"
+      />
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
       {/* Main Content Container */}
@@ -514,11 +546,13 @@ export function BeachDetail({
           beach={beach}
           onPlanSession={handlePlanSession}
           onLogSession={handleLogSession}
+          onGetDirections={handleGetDirections}
+          canGetDirections={canGetDirections}
           className="mb-8"
         />
 
         {/* Tabbed Content */}
-        <BeachTabs activeTab={activeTab} onTabChange={setActiveTab}>
+        <BeachTabs activeTab={activeTab} onTabChange={setActiveTab} actions={tabActions}>
           {/* Overview Tab */}
           <BeachTabContent value="overview">
             <Suspense fallback={<TabLoadingSkeleton />}>

@@ -19,6 +19,7 @@ import { TideDirection } from "@/components/ui/tide-direction";
 import { TideTiming } from "@/components/ui/tide-timing";
 import { WavePeriodDisplay } from "@/components/ui/wave-period-display";
 import { ForecastDataTransparency } from "@/components/ui/forecast-data-transparency";
+import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
 import type { Beach, Profile } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { updateProfile } from "@/actions/profile-actions";
@@ -402,11 +403,8 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     }
   }, [profile?.home_beach_id, isInitialized]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-
-    console.log(`🔍 Starting search for: "${query}"`);
+  const handleBeachSelect = async (selectedBeach: Beach) => {
+    console.log(`🔍 Beach selected: "${selectedBeach.name}"`);
     setLoading(true);
     setError(null);
     setShowFallbackMessage(false);
@@ -414,65 +412,32 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     setIsOutOfAreaSearch(false);
 
     try {
-      // Search for beach by name in beaches table
-      console.log(`📋 Calling searchBeachesByName with query: "${query}"`);
-      const foundBeach = await searchBeachesByName(query);
-      console.log(`🏖️ Search result:`, foundBeach);
+      console.log(
+        `✅ Found beach: ${selectedBeach.name} (ID: ${selectedBeach.id})`
+      );
+      // Set the selected beach
+      setBeach(selectedBeach);
+      setQuery(selectedBeach.name);
+      setOriginalSearchQuery(selectedBeach.name);
 
-      if (foundBeach) {
-        console.log(
-          `✅ Found beach: ${foundBeach.name} (ID: ${foundBeach.id})`
-        );
-        // Found a beach, now get enhanced forecast
-        setBeach(foundBeach);
-        setOriginalSearchQuery(query);
-
-        console.log(
-          `🌊 Fetching enhanced forecast for beach ID: ${foundBeach.id}`
-        );
-        const enhancedForecast = await fetchEnhancedForecast(foundBeach.id);
-        if (enhancedForecast) {
-          console.log(`✅ Enhanced forecast found for ${foundBeach.name}`);
-          setForecast(enhancedForecast);
-        } else {
-          console.log(
-            `⚠️ No enhanced forecast available for ${foundBeach.name}`
-          );
-          setForecast(null);
-        }
+      console.log(
+        `🌊 Fetching enhanced forecast for beach ID: ${selectedBeach.id}`
+      );
+      const enhancedForecast = await fetchEnhancedForecast(selectedBeach.id);
+      if (enhancedForecast) {
+        console.log(`✅ Enhanced forecast found for ${selectedBeach.name}`);
+        setForecast(enhancedForecast);
       } else {
-        console.log(`❌ No beach found for query: "${query}"`);
-        // No beach found, check if it's an out-of-area search
-        const isOutOfAreaSearch = Object.entries(OUT_OF_AREA_EXAMPLES).some(
-          ([key, value]) =>
-            query.toLowerCase().includes(key.toLowerCase()) ||
-            query.toLowerCase().includes(value.location.toLowerCase())
+        console.log(
+          `⚠️ No enhanced forecast available for ${selectedBeach.name}`
         );
-
-        if (isOutOfAreaSearch) {
-          console.log(`🌍 Detected out-of-area search: "${query}"`);
-          const outOfAreaMessage = COVERAGE_MESSAGES.getOutOfAreaMessage(query);
-          setOutOfAreaMessage(outOfAreaMessage);
-          setIsOutOfAreaSearch(true);
-          setBeach(null);
-          setForecast(null);
-        } else {
-          console.log(`❓ Beach not found and not out of area: "${query}"`);
-          // Beach not found and not out of area
-          setError(
-            `No beach found matching "${query}". Try searching for a specific beach name like "La Jolla Shores" or "Ocean Beach".`
-          );
-          setBeach(null);
-          setForecast(null);
-          setShowFallbackMessage(true);
-        }
+        setForecast(null);
       }
     } catch (err) {
-      console.error("💥 Search error:", err);
-      setError("Search failed. Please try again.");
+      console.error("💥 Error loading beach data:", err);
+      setError("Failed to load beach data. Please try again.");
       setBeach(null);
       setForecast(null);
-      setShowFallbackMessage(true);
     } finally {
       setLoading(false);
     }
@@ -524,33 +489,12 @@ export function BeachSearch({ profile }: BeachSearchProps) {
             ))}
           </div>
 
-          <form onSubmit={handleSearch} className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search for a beach..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9"
-                disabled={loading}
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading || !query.trim()}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Searching...
-                </>
-              ) : (
-                "Search"
-              )}
-            </Button>
-          </form>
+          <BeachSearchAutocomplete
+            onSelect={handleBeachSelect}
+            placeholder="Search for a beach..."
+            showCurrentConditions={true}
+            className="w-full"
+          />
         </CardContent>
       </Card>
     );
@@ -570,33 +514,12 @@ export function BeachSearch({ profile }: BeachSearchProps) {
             </div>
           </div>
 
-          <form onSubmit={handleSearch} className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search for a beach..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9"
-                disabled={loading}
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading || !query.trim()}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Searching...
-                </>
-              ) : (
-                "Search"
-              )}
-            </Button>
-          </form>
+          <BeachSearchAutocomplete
+            onSelect={handleBeachSelect}
+            placeholder="Search for a beach..."
+            showCurrentConditions={true}
+            className="w-full"
+          />
         </CardContent>
       </Card>
     );
@@ -605,33 +528,14 @@ export function BeachSearch({ profile }: BeachSearchProps) {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardContent className="p-6">
-        <form onSubmit={handleSearch} className="space-y-4 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search for a beach..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-9"
-              disabled={loading}
-            />
-          </div>
-          <Button
-            type="submit"
+        <div className="mb-6">
+          <BeachSearchAutocomplete
+            onSelect={handleBeachSelect}
+            placeholder="Search for a beach..."
+            showCurrentConditions={true}
             className="w-full"
-            disabled={loading || !query.trim()}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Searching...
-              </>
-            ) : (
-              "Search"
-            )}
-          </Button>
-        </form>
+          />
+        </div>
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">

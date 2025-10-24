@@ -19,14 +19,18 @@ export default async function BeachDetailBySlugPage({
 }) {
   // Fetch beach data server-side
   try {
+    let beach: Beach | null = null;
+
     // Try slug lookup first
     const bySlug = await getBeachBySlug(params.slug);
-    let beach = bySlug?.data || null;
-
-    // Back-compat: if slug lookup fails, try treating slug as an ID
-    if (!beach) {
+    if (bySlug.success && bySlug.data) {
+      beach = bySlug.data;
+    } else {
+      // Back-compat: if slug lookup fails, try treating slug as an ID
       const byId = await getBeachById(params.slug);
-      beach = byId?.data || null;
+      if (byId.success && byId.data) {
+        beach = byId.data;
+      }
     }
 
     if (!beach) {
@@ -93,18 +97,31 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   // Keep metadata generation side-effect free; don't depend on auth/session
   const slug = params.slug;
-  // Try to resolve name synchronously but without relying on cookies/POST contexts
-  try {
-    const result = await getBeachBySlug(slug);
-    const beach = result?.data || null;
-    if (beach) {
-      return buildPageMetadata({
-        title: beach.name,
-        description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}.`,
-        path: `/beach/${slug}`,
-      });
+  let beach: Beach | null = null;
+
+  // Try to resolve beach by slug first, then fall back to ID
+  const slugResult = await getBeachBySlug(slug);
+  if (slugResult.success && slugResult.data) {
+    beach = slugResult.data;
+  } else {
+    // Slug lookup failed (column may not exist yet), try ID lookup
+    const idResult = await getBeachById(slug);
+    if (idResult.success && idResult.data) {
+      beach = idResult.data;
     }
-  } catch {}
+  }
+
+  if (beach) {
+    // Format review count for title
+    const reviewCount = beach.review_count ?? 0;
+    const reviewText = reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
+
+    return buildPageMetadata({
+      title: `${beach.name}, ${reviewText}, Map`,
+      description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}.`,
+      path: `/beach/${slug}`,
+    });
+  }
 
   return buildPageMetadata({
     title: `Beach`,

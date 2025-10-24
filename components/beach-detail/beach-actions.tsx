@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Navigation, Plus, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -12,6 +11,8 @@ interface BeachActionsProps {
   onPlanSession?: () => void;
   onLogSession?: () => void;
   className?: string;
+  onGetDirections?: () => void;
+  canGetDirections?: boolean;
 }
 
 export function BeachActions({
@@ -19,32 +20,27 @@ export function BeachActions({
   onPlanSession,
   onLogSession,
   className,
+  onGetDirections,
+  canGetDirections,
 }: BeachActionsProps) {
-  const handleGetDirections = () => {
-    if (beach.latitude && beach.longitude) {
-      // Open Google Maps with coordinates
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${beach.latitude},${beach.longitude}`;
-      window.open(url, "_blank");
+  const hasCoordinates = Boolean(beach.latitude && beach.longitude);
+  const directionsEnabled = canGetDirections ?? hasCoordinates;
+
+  const handleDirectionsClick = () => {
+    if (onGetDirections) {
+      onGetDirections();
+      return;
     }
+    if (!hasCoordinates) return;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${beach.latitude},${beach.longitude}`;
+    window.open(url, "_blank", "noopener");
   };
 
   return (
     <div className={`space-y-4 ${className || ""}`}>
       {/* Primary Action Buttons - Phase 3 Spec Compliance */}
-      {/* Grid: 4 cols desktop, 2 cols mobile | Gap: 12px | Margin: 20px 0 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 my-5">
-        {/* Get Directions - Secondary Action */}
-        {/* Spec: 48px height, white bg, gray-700 text, 1px gray-300 border, 8px radius, 16px font, 500 weight, 0 20px padding */}
-        <Button
-          variant="outline"
-          onClick={handleGetDirections}
-          disabled={!beach.latitude || !beach.longitude}
-          className="h-12 px-5 text-base font-medium rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"
-        >
-          <Navigation className="h-5 w-5 mr-2" />
-          Get directions
-        </Button>
-
+      {/* Grid: 2 cols mobile and up | Gap: 12px | Margin: 20px 0 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-5">
         {/* Log Session - Primary Action */}
         {/* Spec: 48px height, #0077B6 bg, white text, 8px radius, 16px font, 600 weight, 0 24px padding, #006699 hover */}
         <Button
@@ -61,22 +57,24 @@ export function BeachActions({
         <Button
           variant="default"
           onClick={onPlanSession}
-          className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all col-span-2 md:col-span-1"
+          className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all sm:col-span-2"
         >
           <BookOpen className="h-5 w-5 mr-2" />
           Plan Session
         </Button>
-
-        {/* Favorite Button - Secondary Action */}
-        <FavoriteButton
-          beachId={beach.id}
-          variant="outline"
-          className="h-12 text-base font-medium rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all hidden md:block"
-        />
       </div>
 
-      {/* Mobile-only Favorite & Home Beach Row */}
+      {/* Mobile-only Directions, Favorite & Home Beach Row */}
       <div className="flex flex-wrap items-center gap-3 md:hidden">
+        <Button
+          variant="outline"
+          onClick={handleDirectionsClick}
+          disabled={!directionsEnabled}
+          className="h-10 px-4 text-sm font-medium rounded-md hover:bg-gray-50 active:scale-[0.98] transition-all"
+        >
+          <Navigation className="mr-2 h-4 w-4" />
+          Get directions
+        </Button>
         <FavoriteButton
           beachId={beach.id}
           variant="outline"
