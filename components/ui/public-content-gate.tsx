@@ -4,9 +4,12 @@ import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, Lock } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { track } from "@/lib/analytics";
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { AuthBlockingOverlay } from "@/components/auth/auth-blocking-overlay";
+import { trackAuthModalOpened, trackAuthModalReappeared } from "@/lib/analytics/auth-events";
 
 interface PublicContentGateProps {
   children: React.ReactNode;
@@ -27,7 +30,18 @@ export function PublicContentGate({
 }: PublicContentGateProps) {
   const { user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const hasTrackedView = useRef(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
+  const [wasDismissed, setWasDismissed] = useState(false);
+
+  // Handle interaction with blocking overlay - immediately reopen modal
+  const handleOverlayInteraction = React.useCallback(() => {
+    setAuthModalOpen(true);
+    setWasDismissed(false);
+    trackAuthModalReappeared({ source: `public-content-gate-${source}` });
+  }, [source]);
 
   // Track CTA view for non-authenticated users (only once)
   useEffect(() => {
@@ -57,9 +71,9 @@ export function PublicContentGate({
       source,
       cta_title: ctaTitle,
     });
-    router.push(
-      `/auth/sign-up?redirectTo=${encodeURIComponent(window.location.pathname)}`
-    );
+    setAuthMode("signup");
+    setAuthModalOpen(true);
+    trackAuthModalOpened({ mode: "signup", source: `public-content-gate-${source}` });
   };
 
   const handleSignInClick = () => {
@@ -67,9 +81,9 @@ export function PublicContentGate({
       source,
       cta_title: ctaTitle,
     });
-    router.push(
-      `/auth/sign-in?redirectTo=${encodeURIComponent(window.location.pathname)}`
-    );
+    setAuthMode("login");
+    setAuthModalOpen(true);
+    trackAuthModalOpened({ mode: "login", source: `public-content-gate-${source}` });
   };
 
   // Public user: show blurred content with CTA overlay
@@ -110,7 +124,7 @@ export function PublicContentGate({
                 size="lg"
                 className="w-full"
               >
-                Sign In
+                Log in
               </Button>
             </div>
 
@@ -120,6 +134,26 @@ export function PublicContentGate({
           </CardContent>
         </Card>
       </div>
+
+      <UnifiedAuthModal
+        isOpen={authModalOpen}
+        onClose={() => {
+          setAuthModalOpen(false);
+          setWasDismissed(true);
+        }}
+        mode={authMode}
+        source={`public-content-gate-${source}`}
+        returnTo={pathname}
+      />
+
+      {/* Show blocking overlay when modal is dismissed */}
+      {wasDismissed && !authModalOpen && (
+        <AuthBlockingOverlay
+          onInteraction={handleOverlayInteraction}
+          message="Please sign up to continue"
+          showHint={true}
+        />
+      )}
     </div>
   );
 }

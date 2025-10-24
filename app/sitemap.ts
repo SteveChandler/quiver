@@ -1,5 +1,12 @@
 import type { MetadataRoute } from "next";
 
+import {
+  SURF_CITY_SLUGS,
+  SURF_SPOT_SLUGS,
+  getCityBySlug,
+  getSpotBySlug,
+} from "@/lib/data/surf-spots";
+
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 ).replace(/\/$/, "");
@@ -22,6 +29,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "daily",
     priority: route === "/" ? 1 : 0.7,
   }));
+
+  const cityRoutes: MetadataRoute.Sitemap = SURF_CITY_SLUGS.map((slug) => {
+    const city = getCityBySlug(slug)!;
+    return {
+      url: `${baseUrl}/ca/${city.slug}`,
+      lastModified: lastmod,
+      changeFrequency: "daily",
+      priority: 0.9,
+    };
+  });
+
+  const intentRoutes: MetadataRoute.Sitemap = SURF_CITY_SLUGS.flatMap(
+    (citySlug) => {
+      const city = getCityBySlug(citySlug);
+      if (!city) return [];
+      return city.featuredIntents.map((intent) => ({
+        url: `${baseUrl}/${intent}/${city.slug}`,
+        lastModified: lastmod,
+        changeFrequency: "daily",
+        priority: intent === "beginner" ? 0.85 : 0.8,
+      }));
+    }
+  );
+
+  const curatedSpotRoutes: MetadataRoute.Sitemap = SURF_SPOT_SLUGS.map(
+    (slug) => {
+      const spot = getSpotBySlug(slug);
+      return {
+        url: `${baseUrl}/spots/${slug}`,
+        lastModified: lastmod,
+        changeFrequency: "hourly",
+        priority: spot?.skillLevel === "Beginner friendly" ? 0.85 : 0.8,
+      };
+    }
+  );
 
   // Dynamic beaches and forecasts
   let beachEntries: MetadataRoute.Sitemap = [];
@@ -55,5 +97,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Fail silently; return static routes only
   }
 
-  return [...staticRoutes, ...beachEntries, ...forecastEntries];
+  return [
+    ...staticRoutes,
+    ...cityRoutes,
+    ...intentRoutes,
+    ...curatedSpotRoutes,
+    ...beachEntries,
+    ...forecastEntries,
+  ];
 }

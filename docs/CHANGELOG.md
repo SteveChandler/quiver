@@ -1,5 +1,44 @@
 ## [Unreleased]
 
+### Added
+
+- **Admin Portal - Intel Management Module**: Full CRUD interface for managing community intel posts
+  - **Server Actions** ([actions/admin/intel.ts](actions/admin/intel.ts))
+    - `listIntelPosts()` - List all intel posts with inactive filter option
+    - `getIntelStats()` - Get intelligence statistics (active/inactive counts, tag distribution)
+    - `toggleIntelActive()` - Toggle is_active status with audit logging
+    - `updateIntelContent()` - Update title, description, and tag with change tracking
+  - **Validation** ([lib/validation/admin/intel-schema.ts](lib/validation/admin/intel-schema.ts))
+    - Zod schemas for toggle and update operations
+    - Client and server-side validation
+  - **UI Components**
+    - `IntelTable` ([components/admin/intel-table.tsx](components/admin/intel-table.tsx))
+      - Searchable, sortable table with real-time filtering
+      - Displays tag, title, description, beach, author, confirmations, date
+      - Actions: Edit, Activate/Deactivate
+    - `IntelEditDialog` ([components/admin/intel-edit-dialog.tsx](components/admin/intel-edit-dialog.tsx))
+      - Edit dialog with form validation
+      - Fields: tag, title (100 chars), description (500 chars)
+      - Displays metadata: beach, author, status, created date
+  - **Admin Page** ([app/admin/intel/page.tsx](app/admin/intel/page.tsx))
+    - Stats dashboard: Total Intel, Active Posts, Inactive Posts, Top Tag
+    - Filter: Show/hide inactive posts
+    - Confirmation dialogs for status changes
+  - **Audit Logging**
+    - All mutations logged via `recordAdminEvent()`
+    - Tracks: activate, deactivate, update actions
+    - Records: previous/new status, content changes
+  - **Implementation Notes**
+    - Intel posts use `is_active` flag (not soft delete per migration notes)
+    - Follows established admin portal patterns from Beaches and Photos modules
+    - Full TypeScript support with proper generic types
+    - Uses `withAdminActionAndUser` wrapper for all server actions
+  - **Testing**
+    - TypeScript: ✅ No compilation errors in Intel admin code
+    - Build: ✅ Production build successful
+  - Files created: 5 new files (validation schema, server actions, table, edit dialog, updated page)
+  - Part of Workstream D - Feature Modules in [Admin Portal Implementation Plan](docs/Admin_Portal_Implementation_Plan.md)
+
 ### Performance
 
 - **Beach Detail Page Performance Optimizations - Critical Improvements**: Addressed critical LCP and TTI performance issues

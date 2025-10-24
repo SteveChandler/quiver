@@ -443,6 +443,144 @@ export function bestWindowHeuristic(
 }
 
 /**
+ * Find the next best surf window from current time onwards
+ * More flexible than bestWindowHeuristic - works for entire day
+ */
+export function findNextBestWindow(
+  forecasts: Array<{
+    forecast_time: string;
+    forecast_date: string;
+    wind_speed: number | null;
+    wind_direction: number | null;
+    wave_period: number | null;
+    swell_1_period: number | null;
+    tide_height: number | null;
+  }>,
+  currentTime: Date,
+  beachAspect: number = OB_SHORE_NORMAL
+): {
+  startTime: string | null;
+  endTime: string | null;
+  description: string;
+  conditions: string;
+} | null {
+  if (forecasts.length === 0) {
+    return null;
+  }
+
+  const today = currentTime.toISOString().split("T")[0];
+  const currentHour = currentTime.getHours();
+  const currentMinute = currentTime.getMinutes();
+
+  // Filter to future forecasts only
+  const futureForecasts = forecasts.filter((f) => {
+    if (f.forecast_date !== today) return false;
+    const [hour, minute] = f.forecast_time.split(":").map(Number);
+    return hour > currentHour || (hour === currentHour && minute > currentMinute);
+  });
+
+  if (futureForecasts.length === 0) {
+    return null;
+  }
+
+  // Score each forecast based on conditions
+  const scoredForecasts = futureForecasts.map((f) => {
+    let score = 0;
+    const windSpeed = f.wind_speed || 999;
+    const period = f.wave_period || f.swell_1_period || 0;
+    const windDir = f.wind_direction || 0;
+
+    // Wind scoring (most important)
+    const isOffshore = calculateOnOffshore(windDir, beachAspect);
+    if (isOffshore && windSpeed < 5) score += 40;
+    else if (isOffshore && windSpeed < 10) score += 30;
+    else if (windSpeed < 5) score += 20;
+    else if (windSpeed < 10) score += 10;
+
+    // Period scoring
+    if (period >= 12) score += 30;
+    else if (period >= 10) score += 20;
+    else if (period >= 8) score += 10;
+
+    // Tide scoring (prefer mid-tide)
+    const tideHeight = f.tide_height || 0;
+    if (tideHeight >= 2 && tideHeight <= 5) score += 20;
+    else if (tideHeight >= 1.5 && tideHeight <= 6) score += 10;
+
+    // Time of day bonus (prefer early morning and late afternoon)
+    const hour = parseInt(f.forecast_time.split(":")[0]);
+    if (hour >= 6 && hour <= 9) score += 10;
+    else if (hour >= 16 && hour <= 18) score += 5;
+
+    return { forecast: f, score };
+  });
+
+  // Sort by score
+  scoredForecasts.sort((a, b) => b.score - a.score);
+
+  // Get top 30% of forecasts to find a window
+  const topCount = Math.max(1, Math.ceil(scoredForecasts.length * 0.3));
+  const topForecasts = scoredForecasts.slice(0, topCount);
+
+  if (topForecasts.length === 0 || topForecasts[0].score < 20) {
+    return {
+      startTime: null,
+      endTime: null,
+      description: "Variable conditions",
+      conditions: "Check detailed forecast for conditions",
+    };
+  }
+
+  // Find continuous window from top forecasts
+  const bestForecast = topForecasts[0].forecast;
+  const startTime = bestForecast.forecast_time.substring(0, 5);
+
+  // Extend window by looking at adjacent good forecasts
+  let endIdx = futureForecasts.indexOf(bestForecast);
+  while (
+    endIdx < futureForecasts.length - 1 &&
+    scoredForecasts.find((s) => s.forecast === futureForecasts[endIdx + 1])?.score &&
+    scoredForecasts.find((s) => s.forecast === futureForecasts[endIdx + 1])!.score >= 20
+  ) {
+    endIdx++;
+  }
+
+  // Default to 2-hour window if only one forecast
+  let endTime = futureForecasts[endIdx].forecast_time.substring(0, 5);
+  if (startTime === endTime) {
+    const [hour, minute] = startTime.split(":").map(Number);
+    const endHour = Math.min(hour + 2, 20); // Cap at 8 PM
+    endTime = `${endHour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+  }
+
+  // Build description
+  const wind = bestForecast.wind_speed || 0;
+  const windDir = bestForecast.wind_direction || 0;
+  const isOffshore = calculateOnOffshore(windDir, beachAspect);
+  const period = bestForecast.wave_period || bestForecast.swell_1_period || 0;
+
+  let conditions = "";
+  if (isOffshore && wind < 8) {
+    conditions = "Clean offshore winds";
+  } else if (wind < 5) {
+    conditions = "Light winds";
+  } else {
+    conditions = "Moderate conditions";
+  }
+
+  if (period >= 10) {
+    conditions += ", quality swell";
+  }
+
+  return {
+    startTime,
+    endTime,
+    description: topForecasts[0].score >= 50 ? "Excellent conditions" : "Good conditions",
+    conditions,
+  };
+}
+
+/**
  * Calculate confidence based on data completeness
  */
 export function confidenceHeuristic(

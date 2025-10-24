@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getClientBrowserClient } from "@/lib/supabase";
+import { findNextBestWindow } from "@/lib/utils/morning-intel-utils";
 import {
   Clock,
   Waves,
@@ -13,6 +14,7 @@ import {
   TrendingUp,
   AlertCircle,
   Share2,
+  ChevronRight,
 } from "lucide-react";
 
 interface BestSurfWindowProps {
@@ -21,6 +23,19 @@ interface BestSurfWindowProps {
 }
 
 export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
+  // Format time helper
+  const formatTime = (time: string | null) => {
+    if (!time) return "";
+    try {
+      return new Date(`2000-01-01T${time}`).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } catch {
+      return time;
+    }
+  };
+
   // Fetch latest intel directly from Supabase (no edge function needed!)
   const fetchIntel = useCallback(async () => {
     const supabase = getClientBrowserClient();
@@ -39,10 +54,58 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
     return data && data.length > 0 ? data[0] : null;
   }, [beachId]);
 
+  // Fetch today's forecasts for next window calculation
+  const fetchForecasts = useCallback(async () => {
+    const supabase = getClientBrowserClient();
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data, error } = await supabase
+      .from("enhanced_forecasts")
+      .select(
+        "forecast_time, forecast_date, wind_speed, wind_direction, wave_period, swell_1_period, tide_height"
+      )
+      .eq("beach_id", beachId)
+      .eq("forecast_date", today)
+      .order("forecast_time", { ascending: true });
+
+    if (error) throw error;
+
+    // Convert strings to numbers for the calculation
+    return (data || []).map(
+      (f: {
+        forecast_time: string;
+        forecast_date: string;
+        wind_speed: string | null;
+        wind_direction: string | null;
+        wave_period: string | null;
+        swell_1_period: string | null;
+        tide_height: string | null;
+      }) => ({
+        forecast_time: f.forecast_time,
+        forecast_date: f.forecast_date,
+        wind_speed: f.wind_speed ? parseFloat(f.wind_speed) : null,
+        wind_direction: f.wind_direction ? parseFloat(f.wind_direction) : null,
+        wave_period: f.wave_period ? parseFloat(f.wave_period) : null,
+        swell_1_period: f.swell_1_period ? parseFloat(f.swell_1_period) : null,
+        tide_height: f.tide_height ? parseFloat(f.tide_height) : null,
+      })
+    );
+  }, [beachId]);
+
   const { data: intel, loading, error } = useDataFetcher(fetchIntel);
+  const { data: forecasts, loading: forecastsLoading } =
+    useDataFetcher(fetchForecasts);
+
+  // Calculate best window from forecasts (used when no intel or when intel window passed)
+  const bestWindowFromForecasts = useMemo(() => {
+    if (!forecasts || forecasts.length === 0 || forecastsLoading) {
+      return null;
+    }
+    return findNextBestWindow(forecasts, new Date());
+  }, [forecasts, forecastsLoading]);
 
   // Loading state
-  if (loading) {
+  if (loading || forecastsLoading) {
     return (
       <Card className="rounded-3xl border-blue-100/60">
         <CardContent className="p-6 space-y-4">
@@ -59,8 +122,48 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
     );
   }
 
-  // Error or no intel available - show friendly message
+  // No intel available - show best window from forecasts if available
   if (error || !intel) {
+    if (bestWindowFromForecasts && bestWindowFromForecasts.startTime) {
+      return (
+        <Card className="rounded-3xl border-blue-100/60 bg-gradient-to-br from-blue-50/50 to-white shadow-lg">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1">
+                <CardTitle className="text-xl font-bold text-blue-900">
+                  🌊 Best Time to Surf Today
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Based on forecast data
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-gradient-to-br from-green-50/80 to-blue-50/50 rounded-xl p-4 border border-green-200/60">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-green-600" />
+                  <h4 className="font-semibold text-green-900">
+                    Best Window Today
+                  </h4>
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-green-600 mb-1">
+                {formatTime(bestWindowFromForecasts.startTime)} -{" "}
+                {formatTime(bestWindowFromForecasts.endTime)}
+              </p>
+              <p className="text-sm text-gray-700">
+                {bestWindowFromForecasts.description} •{" "}
+                {bestWindowFromForecasts.conditions}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    // No intel and no good forecast window
     return (
       <Card className="rounded-3xl border-yellow-100/60 bg-yellow-50/50">
         <CardContent className="p-6 flex items-start gap-3">
@@ -70,27 +173,14 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
               Surf intel not available yet
             </p>
             <p className="text-xs text-yellow-700">
-              Intel is generated daily for select beaches. Check back soon or
-              view the detailed forecast below.
+              Intel is generated daily for select beaches. Check the detailed
+              forecast below for conditions.
             </p>
           </div>
         </CardContent>
       </Card>
     );
   }
-
-  // Format time helper
-  const formatTime = (time: string | null) => {
-    if (!time) return "";
-    try {
-      return new Date(`2000-01-01T${time}`).toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-      });
-    } catch {
-      return time;
-    }
-  };
 
   // Check if window has passed, is current, or upcoming
   const getWindowStatus = () => {
@@ -152,6 +242,9 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
     hour: "numeric",
     minute: "2-digit",
   });
+
+  // Use the calculated best window from forecasts when primary has passed
+  const nextWindow = windowStatus.status === "passed" ? bestWindowFromForecasts : null;
 
   return (
     <Card className="rounded-3xl border-blue-100/60 bg-gradient-to-br from-blue-50/50 to-white shadow-lg">
@@ -279,8 +372,33 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
             )}
         </div>
 
-        {/* Show current conditions if window has passed */}
-        {windowStatus.status === "passed" && (
+        {/* Show next best window if primary has passed */}
+        {windowStatus.status === "passed" && nextWindow && (
+          <div className="bg-gradient-to-br from-green-50/80 to-blue-50/50 rounded-xl p-4 border border-green-200/60">
+            <div className="flex items-center gap-2 mb-2">
+              <ChevronRight className="h-5 w-5 text-green-600" />
+              <h4 className="font-semibold text-green-900">
+                ⏭️ Next Best Window Today
+              </h4>
+            </div>
+            {nextWindow.startTime && nextWindow.endTime ? (
+              <>
+                <p className="text-2xl font-bold text-green-600 mb-1">
+                  {formatTime(nextWindow.startTime)} -{" "}
+                  {formatTime(nextWindow.endTime)}
+                </p>
+                <p className="text-sm text-gray-700">
+                  {nextWindow.description} • {nextWindow.conditions}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-700">{nextWindow.description}</p>
+            )}
+          </div>
+        )}
+
+        {/* Show current conditions if window has passed and no next window */}
+        {windowStatus.status === "passed" && !nextWindow && (
           <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100/50">
             <h4 className="font-semibold text-blue-900 mb-2 text-sm">
               📍 Current Conditions
@@ -288,7 +406,7 @@ export function BestSurfWindow({ beachId, beachName }: BestSurfWindowProps) {
             <p className="text-sm text-gray-700">
               Right now: {intel.surf_min_ft}-{intel.surf_max_ft} ft,{" "}
               {intel.wind_speed_mph} mph {intel.wind_direction_text} (
-              {intel.wind_quality}). Check back at 10 AM or 2 PM for updated
+              {intel.wind_quality}). Check tomorrow&apos;s forecast for next
               windows.
             </p>
           </div>

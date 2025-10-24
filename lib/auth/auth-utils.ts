@@ -1,0 +1,256 @@
+/**
+ * Centralized authentication utilities for Quiver
+ *
+ * Provides standardized functions for:
+ * - Redirect handling and loop prevention
+ * - OAuth flow initiation
+ * - Magic link authentication
+ * - Email and password validation
+ * - User existence checks
+ */
+
+import { createSupabaseBrowser } from "@/lib/supabase-browser";
+
+// Constants for storage keys and configuration
+const REDIRECT_STORAGE_KEY = "auth_redirect_path";
+const REDIRECT_ATTEMPTS_KEY = "redirectAttempts";
+const MAX_REDIRECT_ATTEMPTS = 3;
+const REDIRECT_URL_PARAM = "redirectTo";
+
+/**
+ * Store the intended redirect path after authentication
+ * @param path - The path to redirect to after auth (e.g., "/beach/123")
+ */
+export function setAuthRedirect(path: string): void {
+  // Don't store root path or empty paths
+  if (!path || path === "/") return;
+
+  // Validate path starts with /
+  if (!path.startsWith("/")) {
+    console.warn("Auth redirect path should start with /:", path);
+    return;
+  }
+
+  localStorage.setItem(REDIRECT_STORAGE_KEY, path);
+}
+
+/**
+ * Retrieve the stored redirect path
+ * Priority: URL param > localStorage > null
+ * @returns The redirect path or null if none stored
+ */
+export function getAuthRedirect(): string | null {
+  // Check if we're in a browser environment
+  if (typeof window === "undefined") return null;
+
+  // 1. Check URL params first (highest priority)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlRedirect = urlParams.get(REDIRECT_URL_PARAM);
+  if (urlRedirect && urlRedirect !== "/") return urlRedirect;
+
+  // 2. Check localStorage
+  const storedRedirect = localStorage.getItem(REDIRECT_STORAGE_KEY);
+  if (storedRedirect && storedRedirect !== "/") return storedRedirect;
+
+  // 3. No redirect found
+  return null;
+}
+
+/**
+ * Clear the stored redirect path
+ */
+export function clearAuthRedirect(): void {
+  localStorage.removeItem(REDIRECT_STORAGE_KEY);
+}
+
+/**
+ * Build an auth URL with the return path as a query parameter
+ * @param basePath - The base auth path (e.g., "/auth/sign-in")
+ * @param returnTo - Optional explicit return path
+ * @returns Full URL path with redirect parameter
+ */
+export function buildAuthUrl(basePath: string, returnTo?: string): string {
+  const redirect = returnTo || getAuthRedirect();
+  if (!redirect) return basePath;
+
+  const url = new URL(basePath, window.location.origin);
+  url.searchParams.set(REDIRECT_URL_PARAM, redirect);
+  return url.pathname + url.search;
+}
+
+/**
+ * Initiate OAuth authentication flow
+ * @param provider - OAuth provider (currently only 'google')
+ * @param returnTo - Path to return to after auth
+ * @returns Promise with error if OAuth fails
+ */
+export async function initiateOAuthFlow(
+  provider: "google",
+  returnTo: string
+): Promise<{ error?: string }> {
+  try {
+    const sb = createSupabaseBrowser();
+    const origin = window.location.origin;
+
+    // Store the intended return path in localStorage as a backup
+    setAuthRedirect(returnTo);
+    console.log("[auth-utils] Storing redirect path for OAuth:", returnTo);
+
+    const { error: oauthError } = await sb.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${origin}/auth/callback?redirect=${encodeURIComponent(
+          returnTo
+        )}`,
+      },
+    });
+
+    if (oauthError) {
+      console.error("[auth-utils] OAuth error:", oauthError);
+      clearAuthRedirect();
+      return {
+        error: "Unable to sign in with Google. Please try another method.",
+      };
+    }
+
+    // If successful, browser will redirect to OAuth provider
+    return {};
+  } catch (error) {
+    console.error("[auth-utils] OAuth exception:", error);
+    clearAuthRedirect();
+    return {
+      error: "An unexpected error occurred during sign in.",
+    };
+  }
+}
+
+/**
+ * Send a magic link (passwordless) authentication email
+ * @param email - User's email address
+ * @param returnTo - Path to return to after auth
+ * @returns Promise with error if sending fails
+ */
+export async function sendMagicLink(
+  email: string,
+  returnTo: string
+): Promise<{ error?: string }> {
+  try {
+    const sb = createSupabaseBrowser();
+    const origin = window.location.origin;
+
+    // Validate email format first
+    if (!validateEmail(email)) {
+      return { error: "Please enter a valid email address." };
+    }
+
+    // Store the intended return path in localStorage as a backup
+    setAuthRedirect(returnTo);
+    console.log("[auth-utils] Storing redirect path for magic link:", returnTo);
+
+    const { error: emailError } = await sb.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${origin}/auth/callback?redirect=${encodeURIComponent(
+          returnTo
+        )}`,
+      },
+    });
+
+    if (emailError) {
+      console.error("[auth-utils] Magic link error:", emailError);
+      clearAuthRedirect();
+      return { error: "Failed to send magic link. Please try again." };
+    }
+
+    // Success - don't clear redirect, we need it for the callback
+    return {};
+  } catch (error) {
+    console.error("[auth-utils] Magic link exception:", error);
+    clearAuthRedirect();
+    return { error: "An unexpected error occurred. Please try again." };
+  }
+}
+
+/**
+ * Validate password meets minimum requirements
+ * @param password - Password to validate
+ * @returns Validation result with optional error message
+ */
+export function validatePassword(password: string): {
+  valid: boolean;
+  error?: string;
+} {
+  if (!password) {
+    return { valid: false, error: "Password is required" };
+  }
+
+  if (password.length < 6) {
+    return { valid: false, error: "Password must be at least 6 characters" };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validate email format
+ * @param email - Email address to validate
+ * @returns true if valid, false otherwise
+ */
+export function validateEmail(email: string): boolean {
+  if (!email) return false;
+
+  // Basic email validation: contains @ and has characters before and after it
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Check if a user account exists for the given email
+ * Note: This is a client-side check and may not be 100% accurate
+ * @param email - Email address to check
+ * @returns Promise<boolean> indicating if user likely exists
+ */
+export async function checkUserExists(email: string): Promise<boolean> {
+  // For now, we can't reliably check this client-side without exposing security issues
+  // This function is here for future implementation (e.g., via dedicated API endpoint)
+  // For Phase 1, we'll return false (assume new user) and handle auto-detection later
+  console.log("[auth-utils] User existence check not yet implemented");
+  return false;
+}
+
+/**
+ * Increment the redirect attempt counter (for loop prevention)
+ * @returns The new attempt count
+ */
+export function incrementRedirectAttempt(): number {
+  const current = parseInt(localStorage.getItem(REDIRECT_ATTEMPTS_KEY) || "0");
+  const next = current + 1;
+  localStorage.setItem(REDIRECT_ATTEMPTS_KEY, next.toString());
+  return next;
+}
+
+/**
+ * Clear the redirect attempt counter
+ */
+export function clearRedirectAttempts(): void {
+  localStorage.removeItem(REDIRECT_ATTEMPTS_KEY);
+}
+
+/**
+ * Check if we've hit the redirect loop threshold
+ * @returns true if loop detected, false otherwise
+ */
+export function isRedirectLoopDetected(): boolean {
+  const attempts = parseInt(localStorage.getItem(REDIRECT_ATTEMPTS_KEY) || "0");
+  return attempts >= MAX_REDIRECT_ATTEMPTS;
+}
+
+/**
+ * Export constants for use in other modules
+ */
+export const AUTH_CONSTANTS = {
+  REDIRECT_STORAGE_KEY,
+  REDIRECT_ATTEMPTS_KEY,
+  MAX_REDIRECT_ATTEMPTS,
+  REDIRECT_URL_PARAM,
+} as const;

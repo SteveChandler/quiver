@@ -24,16 +24,28 @@ export async function loginViaUI(page: Page, opts: LoginOptions = {}) {
     await page.goto(target, { waitUntil: 'domcontentloaded' });
   }
 
-  await page.waitForSelector('#email', { state: 'attached' });
-  await page.waitForTimeout(1000);
+  // Wait for the unified modal to be visible
+  await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+
+  // Click "Continue with Email" to switch to email/password view
+  const emailButton = page.getByRole('button', { name: 'Continue with Email', exact: true });
+  await emailButton.waitFor({ state: 'visible', timeout: 5000 });
+  await emailButton.click();
+
+  // Wait for form inputs and fill them
+  const emailInput = page.getByRole('textbox', { name: 'Email' });
+  const passwordInput = page.getByRole('textbox', { name: 'Password' });
+  await emailInput.waitFor({ state: 'visible', timeout: 10000 });
+  await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
 
   // Fill form
-  await page.locator('#email').fill(email);
-  await page.locator('#password').fill(password);
+  await emailInput.fill(email);
+  await passwordInput.fill(password);
 
-  // Submit using the form submit button
-  const submit = page.locator('form button[type="submit"]');
-  await submit.click();
+  // Submit using the "Log in" button
+  const loginButton = page.getByRole('button', { name: 'Log in', exact: true });
+  await loginButton.waitFor({ state: 'visible', timeout: 5000 });
+  await loginButton.click();
 
   // Determine expected destination
   const expectedPath = opts.redirectTo ?? '/';
@@ -42,13 +54,16 @@ export async function loginViaUI(page: Page, opts: LoginOptions = {}) {
   try {
     // Escape expectedPath for safe regex usage (handles ?, +, ., etc.)
     const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    await expect(page).toHaveURL(new RegExp(escapeRegExp(expectedPath)), { timeout: 20_000 });
+    // Give more time for AuthContext to process SIGNED_IN and redirect
+    await expect(page).toHaveURL(new RegExp(escapeRegExp(expectedPath)), { timeout: 30_000 });
     await waitForNetworkIdle(page);
   } catch (err) {
     // If still on sign-in page, try to surface any error message
     const errorText = await page.locator('div[role="alert"], .alert, [data-testid="error"], .text-destructive').first().textContent().catch(() => null);
     const hint = errorText ? ` Sign-in error shown: ${errorText.trim()}` : '';
-    throw new Error(`Login did not reach expected path '${expectedPath}'. Current URL: ${page.url()}.${hint}`);
+    // Also check localStorage for debugging
+    const storedRedirect = await page.evaluate(() => localStorage.getItem('auth_redirect_path'));
+    throw new Error(`Login did not reach expected path '${expectedPath}'. Current URL: ${page.url()}.${hint} Stored redirect: ${storedRedirect}`);
   }
 }
 

@@ -13,10 +13,43 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 interface Beach {
   id: string;
   name: string;
-  city?: string;
-  state?: string;
+  location?: string | null;
+  region?: string | null;
   photo_url?: string | null;
 }
+
+const FALLBACK_IMAGE_BY_NAME: Record<string, string> = {
+  "Black's Beach": "/images/blacks.jpg",
+  "Blacks Beach": "/images/blacks.jpg",
+  "Swami's": "/images/Winter-Swamis.jpg",
+  Swamis: "/images/Winter-Swamis.jpg",
+  Tourmaline: "/images/tourmaline.png",
+  "Windansea": "/images/windandsea-surf-shack-sunset.jpg",
+  "WindanSea Beach": "/images/windandsea-surf-shack-sunset.jpg",
+  "Agate Beach": "/images/Agate_Beach_Marin_County_California.jpg",
+  "Beacons Beach": "/images/Beacons_Beach.jpg",
+  Beacons: "/images/Beacons_Beach.jpg",
+  "Ocean Beach": "/images/OceanBeachSurfers.jpg",
+  "Bandon Beach": "/images/On_the_Beach_at_Bandon.jpg",
+  "La Jolla Shores": "/images/la-jolla-shores.jpg",
+  "Cardiff Reef": "/images/cardiff-reef.jpg",
+  "Cardiff State Beach": "/images/cardiff-reef.jpg",
+  "Torrey Pines": "/images/torrey-pines.jpg",
+  "Pacific Beach": "/images/pacific-beach.jpg",
+  "Sunset Cliffs": "/images/sunset-cliffs.jpg",
+  "Imperial Beach": "/images/imperial-beach.jpg",
+  "Silver Strand": "/images/silver-strand.jpg",
+  "Mission Beach": "/images/mission-beach.jpg",
+  "Lower Trestles": "/images/lowers-trestles.jpg",
+  "Upper Trestles": "/images/uppers-trestles.jpg",
+  "Huntington Pier": "/images/huntington-pier.jpg",
+  "Bolsa Chica": "/images/bolsa-chica.jpg",
+  "Newport 56th Street": "/images/newport-56th.jpg",
+  "Seal Beach": "/images/seal-beach.jpg",
+  "Doheny State Beach": "/images/doheny.jpg",
+  "Old Man's": "/images/old-mans.jpg",
+  "San Onofre": "/images/san-onofre.jpg",
+};
 
 export function SurfHighlightsSection() {
   const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {
@@ -33,21 +66,22 @@ export function SurfHighlightsSection() {
       return beaches.slice(0, 8).map((beach, index) => ({
         id: beach.id,
         name: beach.name,
-        location: `${beach.city || "California"}, ${beach.state || "CA"}`,
-        imageUrl: beach.photo_url,
+        location: beach.location || beach.region || "California",
+        imageUrl:
+          beach.photo_url ||
+          FALLBACK_IMAGE_BY_NAME[beach.name] ||
+          "/sunsetBeach.jpg",
         swellHeight: getMockSwellHeight(index),
         swellDirection: getMockSwellDirection(index),
         windSpeed: getMockWindSpeed(index),
         tideStatus: getMockTideStatus(index),
         difficulty: getMockDifficulty(index),
         crowdLevel: getMockCrowdLevel(index),
-        isHiddenGem: index % 5 === 0,
         delay: index,
       }));
     } catch (error) {
       console.error("Error fetching beaches:", error);
-      // Return fallback data for landing page
-      return getFallbackSpots();
+      return [];
     }
   }, []);
 
@@ -70,10 +104,10 @@ export function SurfHighlightsSection() {
       "Light offshore",
       "10-15 mph",
       "Calm",
-      "5 mph offshore",
-    ];
-    return speeds[index % speeds.length];
-  }
+          "5 mph offshore",
+        ];
+        return speeds[index % speeds.length];
+      }
 
   function getMockTideStatus(index: number): string {
     const tides = ["Rising", "High tide", "Mid tide", "Low tide", "Falling"];
@@ -99,67 +133,6 @@ export function SurfHighlightsSection() {
     return crowds[index % crowds.length];
   }
 
-  function getFallbackSpots(): SurfSpotCardProps[] {
-    return [
-      {
-        id: "01330afc-00d3-461b-88f3-b173774766f4",
-        name: "Black's Beach",
-        location: "La Jolla, CA",
-        imageUrl: "/images/blacks.jpg",
-        swellHeight: "4-6 ft",
-        swellDirection: "W",
-        windSpeed: "5-10 mph offshore",
-        tideStatus: "Mid tide",
-        difficulty: "Advanced",
-        crowdLevel: "Moderate",
-        isHiddenGem: false,
-        delay: 0,
-      },
-      {
-        id: "b24c6fa9-9f82-4a1e-afcd-0d1fb0ce69d0",
-        name: "Swami's",
-        location: "Encinitas, CA",
-        imageUrl: "/images/Winter-Swamis.jpg",
-        swellHeight: "3-5 ft",
-        swellDirection: "SW",
-        windSpeed: "Light offshore",
-        tideStatus: "Rising",
-        difficulty: "Intermediate",
-        crowdLevel: "Crowded",
-        isHiddenGem: false,
-        delay: 1,
-      },
-      {
-        id: "17628f35-9ed1-4257-aad6-070c4bd73bb8",
-        name: "Tourmaline",
-        location: "Pacific Beach, CA",
-        imageUrl: "/images/tourmaline.png",
-        swellHeight: "2-3 ft",
-        swellDirection: "W",
-        windSpeed: "Calm",
-        tideStatus: "High tide",
-        difficulty: "Beginner",
-        crowdLevel: "Moderate",
-        isHiddenGem: false,
-        delay: 2,
-      },
-      {
-        id: "6f42d47d-215b-47cb-ac14-b83bf8c2a797",
-        name: "Windansea",
-        location: "La Jolla, CA",
-        imageUrl: "/images/windandsea-surf-shack-sunset.jpg",
-        swellHeight: "5-7 ft",
-        swellDirection: "NW",
-        windSpeed: "10-15 mph",
-        tideStatus: "Low tide",
-        difficulty: "Expert",
-        crowdLevel: "Crowded",
-        isHiddenGem: true,
-        delay: 3,
-      },
-    ];
-  }
-
   return (
     <SectionWrapper
       title={CONTENT.sections.surfHighlights.title}
@@ -179,9 +152,13 @@ export function SurfHighlightsSection() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {(surfSpots || getFallbackSpots()).map((spot) => (
-              <SurfSpotCard key={spot.id} {...spot} />
-            ))}
+            {surfSpots && surfSpots.length > 0 ? (
+              surfSpots.map((spot) => <SurfSpotCard key={spot.id} {...spot} />)
+            ) : (
+              <div className="col-span-full text-center py-12 text-gray-500">
+                No surf spots available at the moment.
+              </div>
+            )}
           </div>
 
           {/* CTA */}

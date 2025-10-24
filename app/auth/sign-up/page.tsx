@@ -1,40 +1,23 @@
-import { Suspense } from "react";
-import { SignUpForm } from "@/components/auth/sign-up-form";
-import type { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Sign Up - Quiver",
-  description: "Create a new Quiver account",
-};
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SignUpPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo") || searchParams.get("redirectUrl") || undefined;
+
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] w-full items-center justify-center py-12 px-4">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[400px]">
-        <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-primary">
-            Create an account
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Enter your email and password to create your account
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Already have an account?{" "}
-            <a href="/auth/sign-in" className="text-primary hover:underline">
-              Sign in
-            </a>
-          </p>
-        </div>
-        <Suspense
-          fallback={
-            <div className="text-sm text-muted-foreground">
-              Loading sign up…
-            </div>
-          }
-        >
-          <SignUpForm />
-        </Suspense>
-      </div>
+    <div className="flex min-h-screen w-full items-center justify-center">
+      <UnifiedAuthModal
+        isOpen={true}
+        onClose={() => router.push("/")}
+        mode="signup"
+        source="auth-page"
+        showCloseButton={true}
+        returnTo={redirectTo}
+      />
     </div>
   );
 }

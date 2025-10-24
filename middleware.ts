@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
+import { ADMIN_USER_IDS } from "@/lib/auth/admin";
 
 // Define paths that require authentication
 // Note: /forecast, /beach, /map, /sessions are now public for SEO and user acquisition
@@ -10,6 +11,9 @@ const protectedPaths = [
   "/journal",
   "/discover",
 ];
+
+// Admin-only paths require additional authorization
+const adminPaths = ["/admin"];
 
 // Only enable verbose logging in development
 const isDev = process.env.NODE_ENV === "development";
@@ -93,8 +97,11 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Check if the route is protected
-  if (protectedPaths.some((path) => pathname.startsWith(path))) {
+  // Check if the route is an admin route
+  const isAdminRoute = adminPaths.some((path) => pathname.startsWith(path));
+
+  // Check if the route is protected (including admin routes)
+  if (protectedPaths.some((path) => pathname.startsWith(path)) || isAdminRoute) {
     log(`[Middleware] Checking auth for protected path: ${pathname}`);
 
     try {
@@ -104,22 +111,43 @@ export async function middleware(request: NextRequest) {
         error: sessionError,
       } = await supabase.auth.getSession();
 
-      if (session?.user && !sessionError) {
-        log(`[Middleware] Session present for ${pathname}`);
-      } else {
+      let user = session?.user;
+
+      if (!user || sessionError) {
         // Fallback: validate with Supabase auth server if session not present
         const {
-          data: { user },
+          data: { user: fetchedUser },
           error: userError,
         } = await supabase.auth.getUser();
 
-        if (!user || userError) {
+        if (!fetchedUser || userError) {
           log(`[Middleware] No valid user found, redirecting to sign-in`);
           const signInUrl = new URL("/auth/sign-in", request.url);
           signInUrl.searchParams.set("redirectTo", pathname);
           return NextResponse.redirect(signInUrl);
         }
+        user = fetchedUser;
         log(`[Middleware] Valid user found via fallback for ${pathname}`);
+      } else {
+        log(`[Middleware] Session present for ${pathname}`);
+      }
+
+      // Additional check for admin routes
+      if (isAdminRoute) {
+        log(`[Middleware] Checking admin privileges for: ${pathname}`);
+
+        // Check if user is in canonical admin list
+        const isAdmin = ADMIN_USER_IDS.includes(user.id as any);
+
+        // TODO: Also check user metadata once admin flag is in database
+        // For now, we rely on the canonical user IDs
+
+        if (!isAdmin) {
+          log(`[Middleware] User ${user.id} is not an admin, redirecting to home`);
+          return NextResponse.redirect(new URL("/", request.url));
+        }
+
+        log(`[Middleware] Admin access granted for ${pathname}`);
       }
     } catch (error) {
       logError(`[Middleware] Error checking auth:`, error);

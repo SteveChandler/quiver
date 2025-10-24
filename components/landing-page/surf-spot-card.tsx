@@ -17,7 +17,6 @@ export interface SurfSpotCardProps {
   tideStatus?: string;
   difficulty?: "Beginner" | "Intermediate" | "Advanced" | "Expert";
   crowdLevel?: "Uncrowded" | "Moderate" | "Crowded";
-  isHiddenGem?: boolean;
   delay?: number;
 }
 
@@ -45,7 +44,6 @@ export function SurfSpotCard({
   tideStatus,
   difficulty,
   crowdLevel,
-  isHiddenGem,
   delay = 0,
 }: SurfSpotCardProps) {
   return (
@@ -72,15 +70,6 @@ export function SurfSpotCard({
                 <Waves className="h-16 w-16 text-white/40" />
               </div>
             )}
-
-            {/* Overlay badges */}
-            <div className="absolute top-3 right-3 flex gap-2">
-              {isHiddenGem && (
-                <Badge className="bg-purple-500 text-white border-0 shadow-lg">
-                  Hidden Gem
-                </Badge>
-              )}
-            </div>
           </div>
 
           {/* Content Section */}

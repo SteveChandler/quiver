@@ -34,8 +34,16 @@ export default async function globalSetup(config: FullConfig) {
     }
 
     await page.goto('/auth/sign-in?redirectTo=/', { waitUntil: 'domcontentloaded' });
-    
-    // Wait for form inputs to be ready and fill them using accessible selectors
+
+    // Wait for the unified modal to be visible
+    await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 });
+
+    // Click "Continue with Email" to switch to email/password view
+    const emailButton = page.getByRole('button', { name: 'Continue with Email', exact: true });
+    await emailButton.waitFor({ state: 'visible', timeout: 5000 });
+    await emailButton.click();
+
+    // Now wait for form inputs to be ready and fill them using accessible selectors
     const emailInput = page.getByRole('textbox', { name: 'Email' });
     const passwordInput = page.getByRole('textbox', { name: 'Password' });
     await emailInput.waitFor({ state: 'visible', timeout: 10000 });
@@ -51,7 +59,11 @@ export default async function globalSetup(config: FullConfig) {
     
     // Small delay to let validation complete
     await page.waitForTimeout(500);
-    await page.locator('button[type="submit"]').click();
+
+    // Click the "Log in" button
+    const loginButton = page.getByRole('button', { name: 'Log in', exact: true });
+    await loginButton.waitFor({ state: 'visible', timeout: 5000 });
+    await loginButton.click();
     
     // Wait for navigation away from auth page (can take 5-10s for Supabase auth)
     try {
