@@ -340,7 +340,7 @@ export async function POST(request: NextRequest) {
           idempotency_key: perInviteeIdempKey,
         };
 
-        const { data: newInvitation, error: invitationError } = await serviceSupabase
+        const { data: newInvitation, error: invitationError} = await serviceSupabase
           .from("session_invitations")
           .insert(invitationData)
           .select()

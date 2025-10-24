@@ -275,9 +275,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
-      // Clear any existing session first
-      await supabase.auth.signOut();
-
       // Reset state
       setupCompleteRef.current = false;
 

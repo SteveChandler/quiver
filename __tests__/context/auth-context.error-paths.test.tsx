@@ -1,13 +1,32 @@
 import * as React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
-// Use the real AuthContext module (it is a client component)
-jest.unmock("@/context/auth-context");
-import { AuthProvider, useAuth } from "@/context/auth-context";
+
+// Mock Supabase client setup
+const mockGetSession = jest.fn(() =>
+  Promise.resolve({ data: { session: null }, error: null })
+);
+const mockGetUser = jest.fn(() =>
+  Promise.resolve({ data: { user: null }, error: null })
+);
+const mockOnAuthStateChange = jest.fn(() => ({
+  data: { subscription: { unsubscribe: jest.fn() } },
+}));
 
 jest.mock("@/lib/supabase/client", () => ({
   __esModule: true,
-  createClient: () => require("@/__tests__/setup/mock-supabase").default,
+  createClient: () => ({
+    auth: {
+      getSession: mockGetSession,
+      getUser: mockGetUser,
+      onAuthStateChange: mockOnAuthStateChange,
+      refreshSession: jest.fn(),
+    },
+  }),
 }));
+
+// Use the real AuthContext module (it is a client component)
+jest.unmock("@/context/auth-context");
+import { AuthProvider, useAuth } from "@/context/auth-context";
 
 function Consumer() {
   const { isLoading, isAuthenticated, refreshSession } = useAuth();
@@ -25,11 +44,15 @@ function Consumer() {
 describe("AuthContext error paths", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset to default behavior
+    mockGetSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
   });
 
   it("handles getSession error and sets unauthenticated", async () => {
-    const { mockSupabaseClient } = require("@/__tests__/setup/mock-supabase");
-    mockSupabaseClient.auth.getSession.mockResolvedValueOnce({
+    mockGetSession.mockResolvedValueOnce({
       data: { session: null },
       error: new Error("boom"),
     });

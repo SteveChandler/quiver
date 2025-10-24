@@ -228,6 +228,7 @@ export function BeachIntelSection({
   if (loading && posts.length === 0) {
     return (
       <Card
+        id="intel-section"
         className={cn(
           "overflow-hidden backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg",
           className
@@ -265,6 +266,7 @@ export function BeachIntelSection({
   return (
     <>
       <Card
+        id="intel-section"
         className={cn(
           "overflow-hidden backdrop-blur-sm bg-gradient-to-br from-white/80 to-blue-50/60 border-blue-200/50 shadow-lg transition-all duration-300 hover:shadow-xl",
           className

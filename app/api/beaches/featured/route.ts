@@ -17,26 +17,53 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // Fetch beaches - just return the first batch for landing page display
-    // Order by name alphabetically for consistent results
-    const { data, error } = await supabase
-      .from("beaches")
-      .select("id, name, location, region")
-      .order("name")
-      .limit(12); // Get more than needed so we have variety
+    // Fetch beaches that have featured photos - prioritize beaches with images
+    const { data: photosData, error: photosError } = await supabase
+      .from("beach_photos_featured")
+      .select("beach_id, thumb_url, image_url, beaches(id, name, location, region)")
+      .limit(12);
 
-    if (error) {
-      console.error("Database error fetching featured beaches:", error);
-      // Return empty array rather than error for graceful degradation
+    if (photosError) {
+      console.error("Database error fetching featured beach photos:", photosError);
       return createSuccessResponse([]);
     }
 
+    // Extract beaches and build photo map
+    const beaches: any[] = [];
+    const photosMap = new Map<string, string>();
+
+    if (photosData) {
+      photosData.forEach((photo: any) => {
+        if (!photo.beaches || !photo.beach_id) return;
+
+        // Add beach to list if not already added
+        if (!beaches.find(b => b.id === photo.beach_id)) {
+          beaches.push({
+            id: photo.beaches.id,
+            name: photo.beaches.name,
+            location: photo.beaches.location,
+            region: photo.beaches.region,
+          });
+        }
+
+        // Add photo to map
+        const imageUrl = photo.thumb_url || photo.image_url;
+        if (imageUrl && !photosMap.has(photo.beach_id)) {
+          photosMap.set(photo.beach_id, imageUrl);
+        }
+      });
+    }
+
+    const enriched = beaches.map((beach) => ({
+      ...beach,
+      photo_url: photosMap.get(beach.id) ?? null,
+    }));
+
     // Return the beaches (component will slice to needed amount and has fallback data)
-    return createSuccessResponse(data || []);
+    return createSuccessResponse(enriched);
   } catch (error) {
     console.error("Error fetching featured beaches:", error);
     // Return empty array rather than error for graceful degradation
     return createSuccessResponse([]);
   }
 }
-

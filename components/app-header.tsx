@@ -15,6 +15,8 @@ import { useUserProfile } from "@/hooks/use-user-profile";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { Badge } from "@/components/ui/badge";
 import { useSessionInvitationsSubscription } from "@/hooks/use-session-invitations-subscription";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 // no notifications bell; link in avatar menu instead
 import {
   DropdownMenu,
@@ -86,6 +88,10 @@ export function AppHeader() {
   // Mobile menu state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Auth modal state for unauthenticated users
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+
   // Handle search submission
   const handleSearch = useCallback(
     (e?: React.FormEvent) => {
@@ -111,12 +117,16 @@ export function AppHeader() {
     return null;
   }
 
+  // Check if user is admin (client-side check for UI only - server-side check in middleware)
+  const isUserAdmin = profile?.is_admin === true;
+
   // Navigation items - different for authenticated vs unauthenticated users
   const navItems: { name: string; href: string; icon: null }[] = user
     ? [
         { name: "Discover", href: "/map", icon: null },
         { name: "Sessions", href: "/sessions", icon: null },
         { name: "Community", href: "/?tab=community", icon: null },
+        ...(isUserAdmin ? [{ name: "Admin", href: "/admin", icon: null }] : []),
       ]
     : [
         { name: "Features", href: "/features", icon: null },
@@ -130,6 +140,7 @@ export function AppHeader() {
     { name: "Discover", href: "/discover", icon: Users },
     { name: "Sessions", href: "/sessions", icon: CalendarDays },
     { name: "Profile", href: "/profile", icon: User },
+    ...(isUserAdmin ? [{ name: "Admin", href: "/admin", icon: Settings }] : []),
   ];
 
   const isActiveRoute = (href: string) => {
@@ -443,21 +454,41 @@ export function AppHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <div className="flex items-center space-x-2">
-              <Link href={getPreservedHref("/auth/sign-in")}>
-                <Button variant="ghost" size="sm" className="focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-                  Sign In
+            <>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthModalOpen(true);
+                    trackAuthModalOpened({ mode: "login", source: "app-header" });
+                  }}
+                >
+                  Log in
                 </Button>
-              </Link>
-              <Link href={getPreservedHref("/auth/sign-up")}>
                 <Button
                   size="sm"
                   className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-5 h-10 font-semibold shadow-sm transition-all duration-200 active:scale-98 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setAuthModalOpen(true);
+                    trackAuthModalOpened({ mode: "signup", source: "app-header" });
+                  }}
                 >
                   Sign Up
                 </Button>
-              </Link>
-            </div>
+              </div>
+
+              <UnifiedAuthModal
+                isOpen={authModalOpen}
+                onClose={() => setAuthModalOpen(false)}
+                mode={authMode}
+                source="app-header"
+                returnTo={pathname}
+              />
+            </>
           )}
         </div>
       </div>

@@ -22,11 +22,11 @@ DECLARE
   liquid_snake_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Liquid Snake' LIMIT 1);
   big_boss_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Big Boss' LIMIT 1);
   solid_snake_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Solid Snake' LIMIT 1);
-  rookie_riley_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Riley "Rookie" Rodriguez' LIMIT 1);
-  local_larry_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Larry "Local" Thompson' LIMIT 1);
-  travel_tina_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Tina "Travel" Chen' LIMIT 1);
-  photo_paul_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Paul "PhotoPro" Martinez' LIMIT 1);
-  dawn_dana_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Dana "Dawn Patrol" Wilson' LIMIT 1);
+  riley_r_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Riley R.' LIMIT 1);
+  local_larry_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Local Larry' LIMIT 1);
+  tina_c_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Tina C.' LIMIT 1);
+  p_martinez_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'P. Martinez' LIMIT 1);
+  dawn_patrol_id UUID := (SELECT id FROM public.profiles WHERE full_name = 'Dawn Patrol' LIMIT 1);
 
   -- Optional: include local test user if present in auth.users
   salid_email TEXT := 'salidfingers@duck.com';

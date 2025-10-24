@@ -82,8 +82,8 @@ const mockUsers = [
     }
   },
   {
-    name: 'Riley "Rookie" Rodriguez', 
-    email: 'rookie.riley@example.invalid',
+    name: 'Riley R.',
+    email: 'riley.r@example.invalid',
     yearsExperience: 0.5,
     favoriteSpot: 'Cowell Beach',
     board: {
@@ -94,7 +94,7 @@ const mockUsers = [
     }
   },
   {
-    name: 'Larry "Local" Thompson',
+    name: 'Local Larry',
     email: 'local.larry@example.invalid',
     yearsExperience: 5,
     favoriteSpot: 'The Lane',
@@ -106,8 +106,8 @@ const mockUsers = [
     }
   },
   {
-    name: 'Tina "Travel" Chen',
-    email: 'travel.tina@example.invalid',
+    name: 'Tina C.',
+    email: 'tina.c@example.invalid',
     yearsExperience: 3,
     favoriteSpot: 'Trestles',
     board: {
@@ -118,20 +118,20 @@ const mockUsers = [
     }
   },
   {
-    name: 'Paul "PhotoPro" Martinez',
-    email: 'photopro.paul@example.invalid',
+    name: 'P. Martinez',
+    email: 'p.martinez@example.invalid',
     yearsExperience: 4,
     favoriteSpot: 'Malibu',
     board: {
       name: 'Performance Thruster',
-      type: 'shortboard', 
+      type: 'shortboard',
       dimensions: '6\'0" x 18.5" x 2.3"',
       description: 'High-performance board for action shots'
     }
   },
   {
-    name: 'Dana "Dawn Patrol" Wilson',
-    email: 'dawn.dana@example.invalid',
+    name: 'Dawn Patrol',
+    email: 'dawnpatrol@example.invalid',
     yearsExperience: 6,
     favoriteSpot: 'Ocean Beach',
     board: {
@@ -142,7 +142,7 @@ const mockUsers = [
     }
   },
   {
-    name: 'Jake "NorCal" Anderson',
+    name: 'NorCal Jake',
     email: 'norcal.jake@example.invalid',
     yearsExperience: 7,
     favoriteSpot: 'Mavericks',
@@ -154,7 +154,7 @@ const mockUsers = [
     }
   },
   {
-    name: 'Sofia "SoCal" Ramirez',
+    name: 'SoCal Sofia',
     email: 'socal.sofia@example.invalid',
     yearsExperience: 4,
     favoriteSpot: 'Rincon',
@@ -166,8 +166,8 @@ const mockUsers = [
     }
   },
   {
-    name: 'Marcus "East Coast" Johnson',
-    email: 'eastcoast.marcus@example.invalid',
+    name: 'M. Johnson',
+    email: 'm.johnson@example.invalid',
     yearsExperience: 2,
     favoriteSpot: 'Montauk',
     board: {
@@ -178,8 +178,8 @@ const mockUsers = [
     }
   },
   {
-    name: 'Kai "Hawaii" Nakamura',
-    email: 'hawaii.kai@example.invalid',
+    name: 'Kai N.',
+    email: 'kai.n@example.invalid',
     yearsExperience: 10,
     favoriteSpot: 'Pipeline',
     board: {
@@ -190,8 +190,8 @@ const mockUsers = [
     }
   },
   {
-    name: 'Emma "Weather" Foster',
-    email: 'weather.emma@example.invalid',
+    name: 'Emma F.',
+    email: 'emma.f@example.invalid',
     yearsExperience: 1,
     favoriteSpot: 'Scripps Pier',
     board: {
@@ -202,8 +202,8 @@ const mockUsers = [
     }
   },
   {
-    name: 'Ryan "Tech" Kumar',
-    email: 'tech.ryan@example.invalid', 
+    name: 'Ryan K.',
+    email: 'ryan.k@example.invalid',
     yearsExperience: 2,
     favoriteSpot: 'Pacifica',
     board: {
@@ -214,8 +214,8 @@ const mockUsers = [
     }
   },
   {
-    name: 'Mia "Safety" Rodriguez',
-    email: 'safety.mia@example.invalid',
+    name: 'Mia R.',
+    email: 'mia.r@example.invalid',
     yearsExperience: 3,
     favoriteSpot: 'Doheny',
     board: {

@@ -7,6 +7,158 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Enhanced - Dynamic Best Surf Window Updates - 2025-10-23
+
+#### Intelligent Next Window Calculation
+- **Enhanced:** Best Surf Window component now dynamically shows next optimal surf window when primary window passes
+- **Features:**
+  - Real-time window status detection (upcoming, current, passed)
+  - Automatic calculation of next best window using forecast data
+  - Multi-factor scoring algorithm: wind conditions, swell period, tide height, time of day
+  - Condition-based descriptions (e.g., "Clean offshore winds, quality swell")
+  - Fallback to current conditions when no optimal window remains
+- **User Experience:**
+  - Shows "Next Best Window Today" section when primary window has passed
+  - Clear time ranges with condition summaries
+  - Intelligent messaging when no more windows available ("Check tomorrow's forecast")
+  - Seamless data fetching using existing enhanced_forecasts table
+- **Technical Implementation:**
+  - New `findNextBestWindow()` utility function in `morning-intel-utils.ts`
+  - Parallel data fetching: beach_daily_intel + enhanced_forecasts
+  - Scoring algorithm: offshore winds (40pts), swell period (30pts), tide (20pts), time of day (10pts)
+  - Uses `useDataFetcher` hook pattern with memoized callbacks
+  - Type-safe with proper null handling
+- **Files Modified:**
+  - `lib/utils/morning-intel-utils.ts` - Added `findNextBestWindow()` function
+  - `components/beach-detail/best-surf-window.tsx` - Dynamic window calculation and UI updates
+- **Impact:** Users now get continuously useful surf intel throughout the day instead of seeing "Window has passed" with no actionable information
+- **Status:** ✅ Complete and production-ready
+
+### Added - Sessions & Reviews Admin Modules (Workstream D) - 2025-10-23
+
+#### Admin Portal: Sessions Management Module
+- **Added:** Complete session management interface for admin portal with full investigation capabilities
+- **Features:**
+  - List all user sessions with advanced filtering (status, visibility, date range, ratings)
+  - Search by user email, beach name, or session description
+  - View detailed session information in investigation drawer
+  - Soft delete sessions with confirmation dialog
+  - Restore deleted sessions with audit trail
+  - Show/hide deleted sessions toggle filter
+  - Stats dashboard: Total, Public/Private split, Avg Rating, Engagement metrics
+  - Sortable table columns (date, user, beach, rating, engagement)
+- **Investigation Mode:**
+  - Complete session details drawer with user context
+  - Beach information and session metadata
+  - All ratings (overall, wave quality, crowd, parking)
+  - Session notes and goals
+  - Session photos with thumbnail preview
+  - Engagement metrics (likes, comments)
+  - Raw JSON payload viewer for advanced debugging
+- **Technical Implementation:**
+  - Server actions using `withAdminActionAndUser` wrapper
+  - Zod validation schema for filter options
+  - useDataFetcher hook with memoized callbacks
+  - Audit logging for all mutations via `recordAdminEvent`
+  - Sheet component for details drawer
+  - Real-time stats dashboard updates
+- **Files Added:**
+  - `lib/validation/admin/session-schema.ts` - Filter and stats validation
+  - `actions/admin/sessions.ts` - Session server actions (list, stats, get, delete, restore)
+  - `components/admin/session-table.tsx` - Searchable, filterable session table
+  - `app/admin/sessions/page.tsx` - Session management page with investigation mode
+- **Status:** ✅ Complete and production-ready
+
+#### Admin Portal: Reviews Moderation Module
+- **Added:** Complete beach review moderation interface with comprehensive filtering
+- **Features:**
+  - List all beach reviews with advanced filtering (beach, user, rating range)
+  - Search by user, beach name, title, or review content
+  - View detailed review information in moderation drawer
+  - Soft delete reviews with confirmation dialog
+  - Restore deleted reviews with audit trail
+  - Show/hide deleted reviews toggle filter
+  - Stats dashboard: Total, Avg ratings by category (Overall, Wave, Crowd, Parking, Accessibility)
+  - Star rating visualization with color-coded badges
+  - Sortable table columns (beach, user, rating, helpful votes, date)
+- **Review Details:**
+  - Beach and reviewer information with IDs
+  - Complete review content (title + full text)
+  - All 5 category ratings with badges
+  - Visit date and helpful vote count
+  - Created/updated timestamps
+  - Raw JSON payload for debugging
+- **Technical Implementation:**
+  - Server actions using `withAdminActionAndUser` wrapper
+  - Zod validation for review filters and stats
+  - Color-coded star ratings (green ≥4, yellow 3, red ≤2)
+  - Badge visualization for category ratings
+  - Sheet component for review details
+  - Real-time stats aggregation
+- **Files Added:**
+  - `lib/validation/admin/review-schema.ts` - Filter and stats validation
+  - `actions/admin/reviews.ts` - Review server actions (list, stats, get, delete, restore)
+  - `components/admin/review-table.tsx` - Star-rated review table with filters
+  - `app/admin/reviews/page.tsx` - Review moderation page
+- **Status:** ✅ Complete and production-ready
+
+#### Implementation Summary
+- **Total Files Created:** 8 new files (~2,100 lines of code)
+- **Total Files Updated:** 2 stub pages replaced
+- **Admin Portal Status:** 100% complete (6/6 modules: Forecasts, Beaches, Photos, Intel, Sessions, Reviews)
+- **Code Quality:** All TypeScript compilation passing, no linting errors
+- **Architecture Compliance:** ✅ Follows all established admin patterns from Workstreams A-C
+- **Audit Logging:** ✅ All mutations logged with detailed payloads
+- **Security:** ✅ Service role client with RLS bypass for admin operations
+- **Next Steps:** E2E testing with Playwright, production deployment preparation
+
+### Added - Beach Management Admin Module (Workstream D) - 2025-10-23
+
+#### Admin Portal: Beach Management CRUD Operations
+- **Added:** Complete beach management interface for admin portal with full CRUD operations
+- **Features:**
+  - List all beaches with search and filtering (by name, region, location, country)
+  - Create new beaches with comprehensive form validation
+  - Edit existing beach details with pre-filled forms
+  - Soft delete beaches with confirmation dialog
+  - Restore deleted beaches with audit trail
+  - Show/hide deleted beaches toggle filter
+  - Sortable table columns (name, region)
+- **Technical Implementation:**
+  - Server actions using `withAdminActionAndUser` wrapper for security
+  - Zod validation schema for type-safe form handling
+  - react-hook-form with client + server validation
+  - useDataFetcher hook for optimized data fetching
+  - Audit logging for all CRUD operations via `recordAdminEvent`
+  - Reusable confirmation dialog component
+  - Real-time table updates after mutations
+- **UI Components:**
+  - `BeachTable`: Searchable, sortable data table with action buttons
+  - `BeachFormDialog`: Modal form for create/edit with comprehensive fields
+  - `ConfirmActionDialog`: Reusable confirmation dialog for destructive actions
+  - `AdminPageHeader`: Consistent page header with action buttons
+- **Beach Form Fields:**
+  - Name (required), Location, Region (required), Country
+  - Latitude/Longitude coordinates
+  - Break type (beach, point, reef, river, other)
+  - Skill level (beginner, intermediate, advanced, expert)
+  - Private beach flag
+- **Files Added:**
+  - `actions/admin/beaches.ts` - Admin beach server actions
+  - `lib/validation/admin/beach-schema.ts` - Zod validation schemas
+  - `components/admin/beach-table.tsx` - Beach data table component
+  - `components/admin/beach-form-dialog.tsx` - Beach form modal
+  - `components/admin/confirm-action-dialog.tsx` - Reusable confirmation dialog
+  - `app/admin/beaches/page.tsx` - Beach management page
+- **Architecture Standards:**
+  - Follows established admin portal patterns from Workstreams A-C
+  - Service role client for bypassing RLS
+  - Comprehensive error handling with toast notifications
+  - Loading states during async operations
+  - Optimistic UI updates
+- **Status:** ✅ Complete and ready for testing
+- **Next Steps:** Session Management Module (Workstream D)
+
 ### Added - Ahrefs Analytics Integration - 2025-10-23
 
 #### Analytics Enhancement

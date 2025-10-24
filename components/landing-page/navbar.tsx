@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
+import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 
 const EXPLORE_MENU_ITEMS = [
   { label: "San Diego County", href: "/map", category: "Regions" },
@@ -56,6 +58,8 @@ const EXPLORE_MENU_ITEMS = [
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
   const groupedMenuItems = EXPLORE_MENU_ITEMS.reduce((acc, item) => {
     if (!acc[item.category]) {
@@ -126,10 +130,24 @@ export function Navbar() {
             <div className="flex items-center gap-3 ml-2">
               <Button
                 variant="outline"
-                asChild
                 className="text-white border-white hover:bg-transparent hover:bg-white/10 hover:text-white font-medium rounded-full px-6 bg-transparent"
+                onClick={() => {
+                  setAuthMode("login");
+                  setAuthModalOpen(true);
+                  trackAuthModalOpened({ mode: "login", source: "landing-navbar" });
+                }}
               >
-                <Link href="/auth/sign-in">Log in</Link>
+                Log in
+              </Button>
+              <Button
+                className="bg-ocean-blue hover:bg-ocean-blue/90 text-white font-medium rounded-full px-6"
+                onClick={() => {
+                  setAuthMode("signup");
+                  setAuthModalOpen(true);
+                  trackAuthModalOpened({ mode: "signup", source: "landing-navbar" });
+                }}
+              >
+                Sign Up
               </Button>
             </div>
           </div>
@@ -191,24 +209,28 @@ export function Navbar() {
 
                   {/* Mobile Auth Buttons */}
                   <div className="border-t pt-4 flex flex-col gap-3">
-                    <Button variant="outline" className="w-full" asChild>
-                      <Link
-                        href="/auth/sign-in"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        Log in
-                      </Link>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setAuthMode("login");
+                        setAuthModalOpen(true);
+                        trackAuthModalOpened({ mode: "login", source: "landing-navbar-mobile" });
+                      }}
+                    >
+                      Log in
                     </Button>
                     <Button
                       className="w-full bg-ocean-blue hover:bg-ocean-blue/90 text-white"
-                      asChild
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setAuthMode("signup");
+                        setAuthModalOpen(true);
+                        trackAuthModalOpened({ mode: "signup", source: "landing-navbar-mobile" });
+                      }}
                     >
-                      <Link
-                        href="/auth/sign-up"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        Sign up
-                      </Link>
+                      Sign Up
                     </Button>
                   </div>
                 </div>
@@ -217,6 +239,13 @@ export function Navbar() {
           </div>
         </div>
       </div>
+
+      <UnifiedAuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        mode={authMode}
+        source="landing-navbar"
+      />
     </nav>
   );
 }

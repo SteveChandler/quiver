@@ -8,6 +8,7 @@ import { updateAllBeachForecasts, updateBeachForecasts } from "@/actions/forecas
 import { getBeaches } from "@/actions/beach-actions"
 import { useEffect } from "react"
 import type { Beach } from "@/types/database"
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 export default function ForecastsAdminPage() {
   const [beaches, setBeaches] = useState<Beach[]>([])
@@ -83,10 +84,13 @@ export default function ForecastsAdminPage() {
   }
 
   return (
-    <div className="container py-8">
-      <h1 className="text-3xl font-bold mb-6">Forecast Management</h1>
+    <div className="space-y-6">
+      <AdminPageHeader
+        title="Forecast Management"
+        description="Update and manage beach forecasts across the platform"
+      />
 
-      <Card className="mb-8">
+      <Card>
         <CardHeader>
           <CardTitle>Update All Forecasts</CardTitle>
           <CardDescription>
@@ -121,9 +125,9 @@ export default function ForecastsAdminPage() {
         </CardFooter>
       </Card>
 
-      <h2 className="text-xl font-bold mb-4">Update Individual Beach Forecasts</h2>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Update Individual Beach Forecasts</h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {beaches.map((beach) => (
           <Card key={beach.id}>
             <CardHeader>
@@ -152,6 +156,7 @@ export default function ForecastsAdminPage() {
             </CardFooter>
           </Card>
         ))}
+        </div>
       </div>
     </div>
   )

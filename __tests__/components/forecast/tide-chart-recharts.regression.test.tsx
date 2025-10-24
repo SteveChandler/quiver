@@ -31,7 +31,7 @@ describe("TideChart regression", () => {
     );
 
     // Initial empty state
-    expect(screen.getByText("48-Hour Tide Forecast")).toBeInTheDocument();
+    expect(screen.getByText("Tide Forecast")).toBeInTheDocument();
     expect(screen.getByText("No tide data available")).toBeInTheDocument();
 
     // Transition to events-based extrema (no hourly line -> synthesize line)

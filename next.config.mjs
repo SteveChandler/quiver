@@ -144,6 +144,11 @@ const nextConfig = {
       // Openverse sources (Wikimedia Commons, WordPress, etc.)
       {
         protocol: "https",
+        hostname: "api.openverse.org",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "upload.wikimedia.org",
         pathname: "/**",
       },

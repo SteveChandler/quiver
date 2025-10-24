@@ -456,7 +456,7 @@ test.describe('@beach - Session Planning Modals', () => {
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 20000 });
 
     // Should show "Session at [Beach Name]" in dialog title
-    await expect(page.getByText(/session at/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /session at/i })).toBeVisible();
 
     // Should have Log/Plan tabs in modal
     const logTab = page.getByRole('tab', { name: /log session/i });
@@ -478,7 +478,7 @@ test.describe('@beach - Session Planning Modals', () => {
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 20000 });
 
     // Should show "Session at [Beach Name]" in dialog title
-    await expect(page.getByText(/session at/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /session at/i })).toBeVisible();
 
     // Should have Log/Plan tabs in modal
     const planTab = page.getByRole('tab', { name: /plan session/i });

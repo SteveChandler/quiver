@@ -31,25 +31,25 @@ END $$;
 
 -- Mark all existing mock users as is_mock = true
 -- These are users created by migration 20250817130000_seed_mock_users.sql
-UPDATE public.profiles 
-SET is_mock = true 
+UPDATE public.profiles
+SET is_mock = true
 WHERE full_name IN (
     -- Original mock users from 20250817130000 migration
-    'Liquid Snake', 
-    'Big Boss', 
-    'Solid Snake', 
-    'Riley "Rookie" Rodriguez', 
-    'Larry "Local" Thompson', 
-    'Tina "Travel" Chen', 
-    'Paul "PhotoPro" Martinez', 
-    'Dana "Dawn Patrol" Wilson',
-    'Jake "NorCal" Anderson', 
-    'Sofia "SoCal" Ramirez',
-    'Marcus "East Coast" Johnson', 
-    'Kai "Hawaii" Nakamura', 
-    'Emma "Weather" Foster',
-    'Ryan "Tech" Kumar', 
-    'Mia "Safety" Rodriguez'
+    'Liquid Snake',
+    'Big Boss',
+    'Solid Snake',
+    'Riley R.',
+    'Local Larry',
+    'Tina C.',
+    'P. Martinez',
+    'Dawn Patrol',
+    'NorCal Jake',
+    'SoCal Sofia',
+    'M. Johnson',
+    'Kai N.',
+    'Emma F.',
+    'Ryan K.',
+    'Mia R.'
 );
 
 -- Log the operation for audit purposes

@@ -105,18 +105,18 @@ BEGIN
   SELECT id INTO liquid_snake_id FROM profiles WHERE full_name = 'Liquid Snake' LIMIT 1;
   SELECT id INTO big_boss_id     FROM profiles WHERE full_name = 'Big Boss' LIMIT 1;
   SELECT id INTO solid_snake_id  FROM profiles WHERE full_name = 'Solid Snake' LIMIT 1;
-  SELECT id INTO rookie_riley_id FROM profiles WHERE full_name = 'Riley "Rookie" Rodriguez' LIMIT 1;
-  SELECT id INTO local_larry_id  FROM profiles WHERE full_name = 'Larry "Local" Thompson' LIMIT 1;
-  SELECT id INTO travel_tina_id  FROM profiles WHERE full_name = 'Tina "Travel" Chen' LIMIT 1;
-  SELECT id INTO photo_paul_id   FROM profiles WHERE full_name = 'Paul "PhotoPro" Martinez' LIMIT 1;
-  SELECT id INTO dawn_dana_id    FROM profiles WHERE full_name = 'Dana "Dawn Patrol" Wilson' LIMIT 1;
+  SELECT id INTO rookie_riley_id FROM profiles WHERE full_name = 'Riley R.' LIMIT 1;
+  SELECT id INTO local_larry_id  FROM profiles WHERE full_name = 'Local Larry' LIMIT 1;
+  SELECT id INTO travel_tina_id  FROM profiles WHERE full_name = 'Tina C.' LIMIT 1;
+  SELECT id INTO photo_paul_id   FROM profiles WHERE full_name = 'P. Martinez' LIMIT 1;
+  SELECT id INTO dawn_dana_id    FROM profiles WHERE full_name = 'Dawn Patrol' LIMIT 1;
 
   -- Build preferred persona list; fallback to any profiles if missing
   SELECT array_agg(id) INTO user_ids FROM profiles
   WHERE full_name IN (
     'Liquid Snake', 'Big Boss', 'Solid Snake',
-    'Riley "Rookie" Rodriguez', 'Larry "Local" Thompson', 'Tina "Travel" Chen',
-    'Paul "PhotoPro" Martinez', 'Dana "Dawn Patrol" Wilson'
+    'Riley R.', 'Local Larry', 'Tina C.',
+    'P. Martinez', 'Dawn Patrol'
   );
   IF user_ids IS NULL OR array_length(user_ids, 1) < 4 THEN
     RAISE NOTICE 'Preferred personas missing; falling back to any available profiles';

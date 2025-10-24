@@ -100,7 +100,7 @@ import { BeachHeroCompact } from "@/components/beach-detail/beach-hero-compact";
 import { BeachPhotoGallery } from "@/components/beach-detail/beach-photo-gallery";
 import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
 import { BeachActions } from "@/components/beach-detail/beach-actions";
-import { BeachTabs, BeachTabContent } from "@/components/beach-detail/beach-tabs";
+import { BeachTabs, BeachTabContent, type BeachTabValue } from "@/components/beach-detail/beach-tabs";
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 
@@ -132,6 +132,7 @@ export function BeachDetail({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sessionPlanningOpen, setSessionPlanningOpen] = useState(false);
   const [sessionPlanningMode, setSessionPlanningMode] = useState<"log" | "plan">("log");
+  const [activeTab, setActiveTab] = useState<BeachTabValue>("overview");
 
   // Handle URL parameters and default section opening
   useEffect(() => {
@@ -142,6 +143,9 @@ export function BeachDetail({
     const wantsIntel = sectionParam === "intel" || hash === "#intel";
 
     if (wantsIntel) {
+      // Switch to intel tab for deep-linking
+      setActiveTab("intel");
+
       // Scroll into view after layout settles, accounting for sticky header
       const stickyOffset = 80; // px; header + spacing
       setTimeout(() => {
@@ -514,7 +518,7 @@ export function BeachDetail({
         />
 
         {/* Tabbed Content */}
-        <BeachTabs defaultTab="overview">
+        <BeachTabs activeTab={activeTab} onTabChange={setActiveTab}>
           {/* Overview Tab */}
           <BeachTabContent value="overview">
             <Suspense fallback={<TabLoadingSkeleton />}>

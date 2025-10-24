@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NotificationsSection } from "@/components/profile/notifications-section";
 import { useForm } from "react-hook-form";
 import { Form } from "@/components/ui/form";
@@ -77,7 +78,8 @@ describe("NotificationsSection", () => {
     expect(screen.getByLabelText("In-App Notifications")).toBeInTheDocument();
   });
 
-  it("switches are interactive and can be toggled", () => {
+  it("switches are interactive and can be toggled", async () => {
+    const user = userEvent.setup();
     render(<TestWrapper />);
 
     const pushSwitch = screen.getByLabelText("Push Notifications");
@@ -86,7 +88,7 @@ describe("NotificationsSection", () => {
     expect(pushSwitch).toBeChecked();
 
     // Toggle the switch
-    fireEvent.click(pushSwitch);
+    await user.click(pushSwitch);
 
     // After toggle, it should be unchecked
     expect(pushSwitch).not.toBeChecked();

@@ -1,12 +1,14 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 
 export type BeachTabValue = "overview" | "forecast" | "reviews" | "intel" | "sessions";
 
 interface BeachTabsProps {
   defaultTab?: BeachTabValue;
+  activeTab?: BeachTabValue;
+  onTabChange?: (value: BeachTabValue) => void;
   children: ReactNode;
   className?: string;
 }
@@ -22,8 +24,31 @@ interface BeachTabsProps {
  * - Hover: gray-50 background, gray-900 text
  * - Transitions: 0.2s ease (transition-all duration-200)
  * - Margin bottom: -2px (-mb-0.5) to overlap container border
+ *
+ * Supports both controlled and uncontrolled modes:
+ * - Uncontrolled: Use defaultTab prop
+ * - Controlled: Use activeTab and onTabChange props
  */
-export function BeachTabs({ defaultTab = "overview", children, className }: BeachTabsProps) {
+export function BeachTabs({ defaultTab = "overview", activeTab, onTabChange, children, className }: BeachTabsProps) {
+  const [internalTab, setInternalTab] = useState<BeachTabValue>(defaultTab);
+  const isControlled = activeTab !== undefined;
+  const currentTab = isControlled ? activeTab : internalTab;
+
+  const handleTabChange = (value: string) => {
+    const tabValue = value as BeachTabValue;
+    if (!isControlled) {
+      setInternalTab(tabValue);
+    }
+    onTabChange?.(tabValue);
+  };
+
+  // Update internal state if activeTab changes (controlled mode)
+  useEffect(() => {
+    if (isControlled && activeTab) {
+      setInternalTab(activeTab);
+    }
+  }, [isControlled, activeTab]);
+
   // Phase 5: Common tab trigger classes following AllTrails spec
   const tabTriggerClasses =
     "rounded-none border-b-2 border-transparent -mb-0.5 " + // Phase 5: Border and negative margin for overlap
@@ -37,7 +62,7 @@ export function BeachTabs({ defaultTab = "overview", children, className }: Beac
     "data-[state=active]:bg-transparent data-[state=active]:shadow-none"; // Remove default active styles
 
   return (
-    <Tabs defaultValue={defaultTab} className={className}>
+    <Tabs value={currentTab} onValueChange={handleTabChange} className={className}>
       {/* Phase 5: Tab container with border-bottom and margin-bottom per spec */}
       <TabsList className="w-full justify-start border-b-2 border-gray-200 mb-6 rounded-none bg-transparent p-0 h-auto">
         <TabsTrigger value="overview" className={tabTriggerClasses}>

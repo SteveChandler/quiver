@@ -88,26 +88,26 @@ npm run seed:prod-mock-users
 The script creates 15 diverse mock users representing different experience levels and surf personas:
 
 ### Beginner (0.5-1 years)
-- **Riley "Rookie" Rodriguez** - Learning the basics
-- **Emma "Weather" Foster** - Forecast validation enthusiast
+- **Riley R.** - Learning the basics
+- **Emma F.** - Forecast validation enthusiast
 
 ### Intermediate (1.5-5 years)
 - **Solid Snake** & **Liquid Snake** - Performance-focused surfers
-- **Larry "Local" Thompson** - Longtime local knowledge
-- **Tina "Travel" Chen** - Travel surf adventures
-- **Marcus "East Coast" Johnson** - East Coast conditions
-- **Ryan "Tech" Kumar** - Data-driven approach
-- **Mia "Safety" Rodriguez** - Safety-first surfing
+- **Local Larry** - Longtime local knowledge
+- **Tina C.** - Travel surf adventures
+- **M. Johnson** - East Coast conditions
+- **Ryan K.** - Data-driven approach
+- **Mia R.** - Safety-first surfing
 
 ### Advanced (6-7 years)
 - **Big Boss** - Experienced with guns for bigger waves
-- **Dana "Dawn Patrol" Wilson** - Early morning sessions
-- **Sofia "SoCal" Ramirez** - SoCal longboard culture
-- **Jake "NorCal" Anderson** - Northern California conditions
+- **Dawn Patrol** - Early morning sessions
+- **SoCal Sofia** - SoCal longboard culture
+- **NorCal Jake** - Northern California conditions
 
 ### Expert (10+ years)
-- **Paul "PhotoPro" Martinez** - Surf photography
-- **Kai "Hawaii" Nakamura** - Hawaiian big wave expertise
+- **P. Martinez** - Surf photography
+- **Kai N.** - Hawaiian big wave expertise
 
 ## Board Assignments
 
