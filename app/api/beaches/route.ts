@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  createSuccessResponse,
+  createCachedResponse,
   createValidationError,
   handleApiError,
+  CacheDuration,
+  checkNotModified,
 } from "@/lib/api-utils";
 import { isAdmin } from "@/lib/auth/admin";
 
-// GET method to retrieve all beaches
+// GET method to retrieve all beaches with optimized caching
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
+    // Selective field query - only fetch fields needed by consumers and that exist in schema
     const { data, error } = await supabase
       .from("beaches")
-      .select("*")
+      .select("id, name, location, latitude, longitude, region, created_at, is_private")
       .order("name");
 
     if (error) {
@@ -22,10 +25,18 @@ export async function GET(request: NextRequest) {
       return handleApiError(error, "Failed to fetch beaches");
     }
 
-    return createSuccessResponse({
+    const responseData = {
       beaches: data || [],
       count: data?.length || 0,
-    });
+    };
+
+    // Check ETag for 304 Not Modified response
+    const clientETag = request.headers.get('If-None-Match');
+    const notModified = checkNotModified(clientETag, responseData);
+    if (notModified) return notModified;
+
+    // Return cached response with 5min cache + 1hr SWR
+    return createCachedResponse(responseData, CacheDuration.MEDIUM);
   } catch (error) {
     console.error("Error fetching beaches:", error);
     return handleApiError(error, "Failed to fetch beaches");

@@ -449,6 +449,125 @@ describe("Social Share Utils", () => {
     });
   });
 
+  describe("Enhanced Features - Ratings, Duration, Attribution", () => {
+    it("should format star ratings correctly", () => {
+      const testCases = [
+        { rating: 5, expected: "⭐⭐⭐⭐⭐" },
+        { rating: 4, expected: "⭐⭐⭐⭐" },
+        { rating: 3, expected: "⭐⭐⭐" },
+        { rating: 2, expected: "⭐⭐" },
+        { rating: 1, expected: "⭐" },
+        { rating: 0, expected: "" },
+      ];
+
+      testCases.forEach(({ rating, expected }) => {
+        const session: SessionData = {
+          beachName: "Rating Test Beach",
+          rating,
+        };
+
+        const result = formatSessionForShare(session);
+        expect(result.ratingLine).toBe(expected);
+      });
+    });
+
+    it("should prefer rating over waveQuality", () => {
+      const session: SessionData = {
+        beachName: "Test Beach",
+        rating: 5,
+        waveQuality: 3,
+      };
+
+      const result = formatSessionForShare(session);
+      expect(result.ratingLine).toBe("⭐⭐⭐⭐⭐");
+    });
+
+    it("should use waveQuality as fallback", () => {
+      const session: SessionData = {
+        beachName: "Test Beach",
+        waveQuality: 4,
+      };
+
+      const result = formatSessionForShare(session);
+      expect(result.ratingLine).toBe("⭐⭐⭐⭐");
+    });
+
+    it("should format duration correctly", () => {
+      const testCases = [
+        { duration: 90, expected: "1h 30m" },
+        { duration: 120, expected: "2h 0m" },
+        { duration: 45, expected: "0h 45m" },
+        { duration: 180, expected: "3h 0m" },
+        { duration: 135, expected: "2h 15m" },
+      ];
+
+      testCases.forEach(({ duration, expected }) => {
+        const session: SessionData = {
+          beachName: "Duration Test",
+          duration,
+        };
+
+        const result = formatSessionForShare(session);
+        expect(result.durationLine).toBe(expected);
+      });
+    });
+
+    it("should handle missing duration", () => {
+      const session: SessionData = {
+        beachName: "No Duration Beach",
+      };
+
+      const result = formatSessionForShare(session);
+      expect(result.durationLine).toBe("");
+    });
+
+    it("should include user attribution in template", () => {
+      const session: SessionData = {
+        beachName: "Attribution Test",
+        userName: "John Doe",
+      };
+
+      const template = getTemplate(session, "square");
+      const templateStr = JSON.stringify(template);
+
+      expect(templateStr).toContain("by John Doe");
+    });
+
+    it("should include photo overlay in template", () => {
+      const session: SessionData = {
+        beachName: "Photo Test",
+        photoUrl: "https://example.com/photo.jpg",
+      };
+
+      const template = getTemplate(session, "square");
+
+      // Photo URL should be in background
+      expect(template.props.style.backgroundImage).toContain("https://example.com/photo.jpg");
+      expect(template.props.style.backgroundBlend).toBe("overlay");
+    });
+
+    it("should use gradient without photo when photoUrl missing", () => {
+      const session: SessionData = {
+        beachName: "No Photo Beach",
+      };
+
+      const template = getTemplate(session, "square");
+
+      expect(template.props.style.backgroundImage).toContain("linear-gradient");
+      expect(template.props.style.backgroundImage).not.toContain("url(");
+    });
+
+    it("should round fractional ratings", () => {
+      const session: SessionData = {
+        beachName: "Fractional Rating",
+        rating: 4.6,
+      };
+
+      const result = formatSessionForShare(session);
+      expect(result.ratingLine).toBe("⭐⭐⭐⭐⭐"); // Rounds to 5
+    });
+  });
+
   describe("Edge Cases", () => {
     it("should handle session with minimal data", () => {
       const session: SessionData = {

@@ -1,12 +1,34 @@
 import { createServerClient } from "@/lib/supabase";
-import { NextResponse } from "next/server";
-import { handleApiError } from "@/lib/api-utils";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  handleApiError,
+  createPaginatedResponse,
+  CacheDuration,
+  parsePaginationParams,
+  createPaginationMeta,
+} from "@/lib/api-utils";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient();
 
-    // Fetch recent completed sessions with profile and media information
+    // Parse pagination parameters (default: page=1, limit=4, max=20)
+    const { searchParams } = new URL(request.url);
+    const { page, limit } = parsePaginationParams(searchParams, 4, 20);
+
+    // Calculate offset for pagination
+    const offset = (page - 1) * limit;
+
+    // First, get total count of matching sessions
+    const { count } = await supabase
+      .from("sessions")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "completed")
+      .not("image_url", "is", null);
+
+    const total = count || 0;
+
+    // Fetch paginated recent completed sessions with profile and media information
     const { data: sessions, error } = await supabase
       .from("sessions")
       .select(
@@ -29,12 +51,13 @@ export async function GET() {
       .eq("status", "completed")
       .not("image_url", "is", null)
       .order("created_at", { ascending: false })
-      .limit(4);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error("Error fetching recent posts:", error);
       // In dev/test environments with new schema, return empty posts to keep public endpoint stable
-      return NextResponse.json({ posts: [] }, { status: 200 });
+      const meta = createPaginationMeta(page, limit, 0);
+      return createPaginatedResponse([], meta, CacheDuration.SHORT);
     }
 
     // Transform the data for the frontend
@@ -58,7 +81,11 @@ export async function GET() {
         media: [], // TODO: Add session_media table and relationship when media upload is implemented
       })) || [];
 
-    return NextResponse.json({ posts });
+    // Create pagination metadata
+    const meta = createPaginationMeta(page, limit, total);
+
+    // Return with 2min cache + 5min SWR (shorter cache for recent/dynamic content)
+    return createPaginatedResponse(posts, meta, CacheDuration.SHORT);
   } catch (error) {
     console.error("Error in recent-posts API:", error);
     return handleApiError(error, "Failed to fetch recent posts");

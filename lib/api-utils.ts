@@ -1,4 +1,11 @@
 import { NextResponse } from "next/server";
+import {
+  generateETag,
+  isETagMatch,
+  createCacheHeaders,
+  CacheDuration,
+  type PaginationMeta,
+} from "@/lib/utils/cache-headers";
 
 // Standardized error response interface
 interface ApiError {
@@ -12,6 +19,7 @@ interface ApiSuccess<T = any> {
   success: true;
   data: T;
   timestamp: string;
+  meta?: PaginationMeta;
 }
 
 type ApiResponse<T = any> = ApiSuccess<T> | ApiError;
@@ -165,3 +173,105 @@ export function isValidUuid(value: string | undefined | null): boolean {
   if (!value || typeof value !== "string") return false;
   return UUID_REGEX.test(value);
 }
+
+// ============================================================================
+// CACHING UTILITIES
+// ============================================================================
+
+/**
+ * Create a cached success response with ETag and Cache-Control headers
+ *
+ * @param data - Response data
+ * @param duration - Cache duration preset (SHORT, MEDIUM, LONG, VERY_LONG)
+ * @param meta - Optional pagination metadata
+ * @param status - HTTP status code (default: 200)
+ * @returns NextResponse with cache headers and ETag
+ *
+ * @example
+ * ```ts
+ * return createCachedResponse(beaches, CacheDuration.MEDIUM);
+ * ```
+ */
+export function createCachedResponse<T>(
+  data: T,
+  duration: typeof CacheDuration[keyof typeof CacheDuration] = CacheDuration.MEDIUM,
+  meta?: PaginationMeta,
+  status = 200
+): NextResponse<ApiSuccess<T>> {
+  const eTag = generateETag(data);
+  const cacheHeaders = createCacheHeaders(duration, eTag);
+
+  return NextResponse.json(
+    {
+      success: true,
+      data,
+      timestamp: new Date().toISOString(),
+      ...(meta && { meta }),
+    },
+    {
+      status,
+      headers: {
+        ...DEFAULT_SECURITY_HEADERS,
+        ...cacheHeaders,
+      },
+    }
+  );
+}
+
+/**
+ * Check if request has matching ETag and return 304 Not Modified if so
+ *
+ * @param requestETag - ETag from request's If-None-Match header
+ * @param currentData - Current response data to compare
+ * @returns NextResponse with 304 status if ETag matches, null otherwise
+ *
+ * @example
+ * ```ts
+ * const clientETag = request.headers.get('If-None-Match');
+ * const notModified = checkNotModified(clientETag, data);
+ * if (notModified) return notModified;
+ * ```
+ */
+export function checkNotModified(
+  requestETag: string | null,
+  currentData: any
+): NextResponse | null {
+  if (isETagMatch(requestETag, currentData)) {
+    return new NextResponse(null, {
+      status: 304,
+      headers: DEFAULT_SECURITY_HEADERS,
+    });
+  }
+  return null;
+}
+
+/**
+ * Create a paginated response with cache headers
+ *
+ * @param data - Array of items for current page
+ * @param pagination - Pagination metadata
+ * @param duration - Cache duration preset
+ * @returns NextResponse with pagination metadata and cache headers
+ *
+ * @example
+ * ```ts
+ * const meta = createPaginationMeta(page, limit, totalCount);
+ * return createPaginatedResponse(results, meta, CacheDuration.MEDIUM);
+ * ```
+ */
+export function createPaginatedResponse<T>(
+  data: T[],
+  pagination: PaginationMeta,
+  duration: typeof CacheDuration[keyof typeof CacheDuration] = CacheDuration.MEDIUM
+): NextResponse<ApiSuccess<T[]>> {
+  return createCachedResponse(data, duration, pagination);
+}
+
+// Re-export cache utilities for convenience
+export { CacheDuration } from "@/lib/utils/cache-headers";
+export {
+  createPaginationMeta,
+  parsePaginationParams,
+  generateETag,
+  isETagMatch,
+} from "@/lib/utils/cache-headers";

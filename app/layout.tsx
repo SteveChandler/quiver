@@ -2,7 +2,7 @@ import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
-import { Inter, Roboto, Open_Sans, Montserrat } from "next/font/google";
+import { Inter, Roboto, Open_Sans } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
@@ -58,13 +58,6 @@ const openSans = Open_Sans({
   variable: "--font-open-sans",
 });
 
-const montserrat = Montserrat({
-  weight: ["400", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  preload: false, // Not critical for LCP
-  variable: "--font-montserrat",
-});
 
 // Optimize viewport for mobile performance
 // Note: maximumScale removed for WCAG 1.4.4 compliance (allow user zoom)
@@ -129,7 +122,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${roboto.variable} ${openSans.variable} ${montserrat.variable}`}
+      className={`${inter.variable} ${roboto.variable} ${openSans.variable}`}
     >
       <head>
         {/* Google Analytics (GA4) */}

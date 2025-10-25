@@ -30,6 +30,13 @@ export type SessionData = {
   waveHeightFtMin?: number;
   waveHeightFtMax?: number;
   periodSeconds?: number;
+  // Enhanced fields for richer share images
+  rating?: number; // Overall session rating 0-5
+  waveQuality?: number; // Wave quality rating 0-5
+  userName?: string; // User's display name for attribution
+  userAvatar?: string; // User's avatar URL
+  photoUrl?: string; // Featured session photo
+  duration?: number; // Session duration in minutes
 };
 
 type FontSpec = {
@@ -95,6 +102,8 @@ export function formatSessionForShare(session: SessionData): {
   subline: string;
   waveLine: string;
   scoreLine: string;
+  ratingLine: string;
+  durationLine: string;
 } {
   const when: Date | undefined = session.scheduledAt
     ? new Date(session.scheduledAt)
@@ -124,7 +133,16 @@ export function formatSessionForShare(session: SessionData): {
   const score = session.score ?? undefined;
   const scoreLine = score != null ? `Score ${Math.round(score)}/100` : "";
 
-  return { headline, subline, waveLine, scoreLine };
+  // Format rating as stars (e.g., "⭐⭐⭐⭐⭐")
+  const rating = session.rating ?? session.waveQuality ?? undefined;
+  const ratingLine = rating != null ? "⭐".repeat(Math.round(rating)) : "";
+
+  // Format duration (e.g., "2h 30m")
+  const durationLine = session.duration
+    ? `${Math.floor(session.duration / 60)}h ${session.duration % 60}m`
+    : "";
+
+  return { headline, subline, waveLine, scoreLine, ratingLine, durationLine };
 }
 
 function describeWaveHeight(hMin?: number, hMax?: number): string {
@@ -165,19 +183,12 @@ function textShadow(shadowColor = "rgba(0,0,0,0.25)"): string {
   return `0 2px 8px ${shadowColor}`;
 }
 
-function headerBlock(formatted: ReturnType<typeof formatSessionForShare>): React.ReactElement {
-  return React.createElement(
-    "div",
-    {
-      style: {
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-      },
-    },
+function headerBlock(formatted: ReturnType<typeof formatSessionForShare>, userName?: string): React.ReactElement {
+  const children = [
     React.createElement(
       "div",
       {
+        key: "headline",
         style: {
           fontSize: 96,
           fontWeight: 800,
@@ -189,9 +200,40 @@ function headerBlock(formatted: ReturnType<typeof formatSessionForShare>): React
     ),
     React.createElement(
       "div",
-      { style: { fontSize: 40, opacity: 0.95, textShadow: textShadow() } },
+      { key: "subline", style: { fontSize: 40, opacity: 0.95, textShadow: textShadow() } },
       formatted.subline
-    )
+    ),
+  ];
+
+  // Add user attribution if available
+  if (userName) {
+    children.unshift(
+      React.createElement(
+        "div",
+        {
+          key: "attribution",
+          style: {
+            fontSize: 32,
+            opacity: 0.9,
+            fontWeight: 600,
+            textShadow: textShadow(),
+          },
+        },
+        `by ${userName}`
+      )
+    );
+  }
+
+  return React.createElement(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+      },
+    },
+    ...children
   );
 }
 
@@ -208,12 +250,19 @@ function metricsBlock(formatted: ReturnType<typeof formatSessionForShare>): Reac
     fontWeight: 700,
   };
 
-  const line = [formatted.waveLine, formatted.scoreLine].filter(Boolean).join("   •   ");
+  const metrics = [
+    formatted.ratingLine,
+    formatted.waveLine,
+    formatted.durationLine,
+    formatted.scoreLine,
+  ].filter(Boolean);
 
   return React.createElement(
     "div",
-    { style: { display: "flex", flexDirection: "row", gap: 16, flexWrap: "wrap" } },
-    React.createElement("div", { style: pillStyle }, line)
+    { style: { display: "flex", flexDirection: "column", gap: 16 } },
+    ...metrics.map((metric, idx) =>
+      React.createElement("div", { key: idx, style: pillStyle }, metric)
+    )
   );
 }
 
@@ -249,10 +298,22 @@ function watermark(): React.ReactElement {
 
 export function getTemplate(session: SessionData, variant: ShareVariant): React.ReactElement {
   const formatted = formatSessionForShare(session);
+
+  // Build container with optional photo background
+  const containerStyles = session.photoUrl
+    ? {
+        ...containerStyle(variant),
+        backgroundImage: `linear-gradient(135deg, rgba(0, 119, 182, 0.85) 0%, rgba(255, 127, 17, 0.85) 100%), url(${session.photoUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundBlend: "overlay",
+      }
+    : containerStyle(variant);
+
   return React.createElement(
     "div",
-    { style: containerStyle(variant) },
-    headerBlock(formatted),
+    { style: containerStyles },
+    headerBlock(formatted, session.userName),
     metricsBlock(formatted),
     watermark()
   );

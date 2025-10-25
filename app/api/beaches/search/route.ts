@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DEFAULT_SECURITY_HEADERS, handleApiError } from "@/lib/api-utils";
+import {
+  handleApiError,
+  createPaginatedResponse,
+  createCachedResponse,
+  CacheDuration,
+  parsePaginationParams,
+  createPaginationMeta,
+} from "@/lib/api-utils";
 import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
 
 export const dynamic = 'force-dynamic';
@@ -10,18 +17,36 @@ export async function GET(request: NextRequest) {
     const rawQuery = searchParams.get("query") || "";
     const query = rawQuery.trim();
 
+    // Parse pagination parameters (default: page=1, limit=20, max=50)
+    const { page, limit } = parsePaginationParams(searchParams, 20, 50);
+
     if (!query) {
-      return NextResponse.json([], {
-        status: 200,
-        headers: DEFAULT_SECURITY_HEADERS,
-      });
+      // Empty query - return empty results with cache
+      return createPaginatedResponse(
+        [],
+        createPaginationMeta(page, limit, 0),
+        CacheDuration.MEDIUM
+      );
     }
 
-    const results = await searchBeachesMultiple(query);
-    return NextResponse.json(results, {
-      status: 200,
-      headers: DEFAULT_SECURITY_HEADERS,
-    });
+    // Get all matching results
+    const allResults = await searchBeachesMultiple(query);
+
+    // Calculate pagination
+    const total = allResults.length;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedResults = allResults.slice(startIndex, endIndex);
+
+    // Create pagination metadata
+    const meta = createPaginationMeta(page, limit, total);
+
+    // Return paginated results with 5min cache + SWR
+    return createPaginatedResponse(
+      paginatedResults,
+      meta,
+      CacheDuration.MEDIUM
+    );
   } catch (error) {
     console.error("Error searching beaches:", error);
     return handleApiError(error, "Failed to search beaches");

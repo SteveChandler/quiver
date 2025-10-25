@@ -134,6 +134,7 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
               priority
               fetchPriority="high"
               onError={() => handleImageError(heroPhoto.id)}
+              // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
               unoptimized={heroPhoto.public_url.includes("openverse") || heroPhoto.public_url.includes("flickr")}
             />
           ) : beach.latitude && beach.longitude ? (
@@ -160,9 +161,11 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
                 src={sidePhotos[0].public_url}
                 alt={`${beach.name} - view 2`}
                 fill
+                loading="lazy"
                 sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover"
                 onError={() => handleImageError(sidePhotos[0].id)}
+                // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
                 unoptimized={sidePhotos[0].public_url.includes("openverse") || sidePhotos[0].public_url.includes("flickr")}
               />
             ) : validPhotos.length === 1 && beach.latitude && beach.longitude ? (
@@ -186,9 +189,11 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
                 src={sidePhotos[1].public_url}
                 alt={`${beach.name} - view 3`}
                 fill
+                loading="lazy"
                 sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover"
                 onError={() => handleImageError(sidePhotos[1].id)}
+                // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
                 unoptimized={sidePhotos[1].public_url.includes("openverse") || sidePhotos[1].public_url.includes("flickr")}
               />
             ) : validPhotos.length >= 2 && beach.latitude && beach.longitude ? (

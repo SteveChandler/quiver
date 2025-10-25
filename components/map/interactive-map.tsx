@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
-import { debounce } from "lodash";
+import { debounce } from "@/lib/utils/debounce";
 import type { Beach } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
