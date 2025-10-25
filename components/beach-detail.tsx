@@ -94,6 +94,7 @@ import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import { track, slugify } from "@/lib/analytics";
 import { FullPageLoader } from "@/components/ui/loading-states";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
+import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 
 // New AllTrails-style components
 import { BeachBreadcrumb } from "@/components/beach-detail/beach-breadcrumb";
@@ -111,6 +112,9 @@ const ForecastTab = lazy(() => import("@/components/beach-detail/tabs/forecast-t
 const ReviewsTab = lazy(() => import("@/components/beach-detail/tabs/reviews-tab").then(m => ({ default: m.ReviewsTab })));
 const IntelTab = lazy(() => import("@/components/beach-detail/tabs/intel-tab").then(m => ({ default: m.IntelTab })));
 const SessionsTab = lazy(() => import("@/components/beach-detail/tabs/sessions-tab").then(m => ({ default: m.SessionsTab })));
+
+// Constants to prevent unnecessary re-renders
+const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
 
 interface BeachDetailProps {
   id: string;
@@ -261,7 +265,7 @@ export function BeachDetail({
     refetch,
   } = useDataFetcher(fetchForecasts, {
     immediate: true,
-    initialData: [] as EnhancedForecastEntity[],
+    initialData: EMPTY_FORECASTS,
   });
 
   // Determine if this beach has a live camera available
@@ -301,9 +305,6 @@ export function BeachDetail({
     if (!forecasts || forecasts.length === 0) return null;
 
     // Use the same getCurrentForecast utility as the home page for consistency
-    const {
-      getCurrentForecast,
-    } = require("@/lib/utils/current-forecast-utils");
     const selectedForecast = getCurrentForecast(forecasts);
 
     if (process.env.NODE_ENV === "development") {
@@ -455,6 +456,20 @@ export function BeachDetail({
       ? `— · ${snapshotDirection}`
       : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
 
+  // Calculate destination coordinates and directions handler BEFORE early returns
+  // (must be before early returns to maintain consistent hook count)
+  const destinationCoordinates =
+    beach?.latitude && beach?.longitude
+      ? `${beach.latitude},${beach.longitude}`
+      : null;
+  const canGetDirections = Boolean(destinationCoordinates);
+
+  const handleGetDirections = useCallback(() => {
+    if (!destinationCoordinates) return;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${destinationCoordinates}`;
+    window.open(url, "_blank", "noopener");
+  }, [destinationCoordinates]);
+
   // Prioritize loading state to prevent erroneous "not found" flash
   if (loading) {
     return <FullPageLoader />;
@@ -489,18 +504,6 @@ export function BeachDetail({
     setSessionPlanningMode("log");
     setSessionPlanningOpen(true);
   };
-
-  const destinationCoordinates =
-    beach?.latitude && beach?.longitude
-      ? `${beach.latitude},${beach.longitude}`
-      : null;
-  const canGetDirections = Boolean(destinationCoordinates);
-
-  const handleGetDirections = useCallback(() => {
-    if (!destinationCoordinates) return;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${destinationCoordinates}`;
-    window.open(url, "_blank", "noopener");
-  }, [destinationCoordinates]);
 
   const tabActions = (
     <>
