@@ -513,6 +513,7 @@ export function BeachDetail({
             </Button>
         </div>
       </div>
+      </div>
     );
   }
 
