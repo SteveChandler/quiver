@@ -496,7 +496,7 @@ export async function getNearbyIntelPosts(
       const { data: fallback, error: fallbackError } = await supabase
         .from("intel_posts")
         .select(
-          `id, user_id, beach_id, lat, lon, tag, title, description, photo_url, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
+          `id, user_id, beach_id, latitude, longitude, tag, title, description, photo_url, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
         )
         .eq("is_active", true)
         .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
@@ -526,9 +526,9 @@ export async function getNearbyIntelPosts(
       };
 
       intelPosts = (fallback || []).filter((p: any) => {
-        if (!latitude || !longitude || !p?.latitude || !p?.longitude) return true;
+        if (!lat || !lon || !p?.latitude || !p?.longitude) return true;
         try {
-          const dist = haversineMiles(Number(latitude), Number(longitude), Number(p.latitude), Number(p.longitude));
+          const dist = haversineMiles(Number(lat), Number(lon), Number(p.latitude), Number(p.longitude));
           return dist <= (radius || 25);
         } catch {
           return true;
@@ -880,7 +880,7 @@ export async function getPublicIntelPosts(
       const { data: fallback, error: fallbackError } = await supabase
         .from("intel_posts")
         .select(
-          `id, user_id, beach_id, lat, lon, tag, title, description, photo_url, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
+          `id, user_id, beach_id, latitude, longitude, tag, title, description, photo_url, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
         )
         .eq("is_active", true)
         .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
@@ -909,9 +909,9 @@ export async function getPublicIntelPosts(
       };
 
       intelPosts = (fallback || []).filter((p: any) => {
-        if (!latitude || !longitude || !p?.latitude || !p?.longitude) return true;
+        if (!lat || !lon || !p?.latitude || !p?.longitude) return true;
         try {
-          const dist = haversineMiles(Number(latitude), Number(longitude), Number(p.latitude), Number(p.longitude));
+          const dist = haversineMiles(Number(lat), Number(lon), Number(p.latitude), Number(p.longitude));
           return dist <= (radius || 25);
         } catch {
           return true;
@@ -1038,8 +1038,8 @@ export async function getAllIntelPosts(
 
     if (!intelPosts || intelPosts.length === 0) {
       const fallback = await getNearbyIntelPosts({
-        latitude: GLOBAL_INTEL_FALLBACK.latitude,
-        longitude: GLOBAL_INTEL_FALLBACK.longitude,
+        lat: GLOBAL_INTEL_FALLBACK.lat,
+        lon: GLOBAL_INTEL_FALLBACK.lon,
         radius: GLOBAL_INTEL_FALLBACK.radius,
         tag,
         limit,

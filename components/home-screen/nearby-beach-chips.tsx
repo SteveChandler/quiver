@@ -46,8 +46,8 @@ export function NearbyBeachChips({
     return (Array.isArray(data) ? data : json?.data || []).map((b: any) => ({
       id: b.id,
       name: b.name,
-      latitude: b.latitude,
-      longitude: b.longitude,
+      latitude: b.lat,
+      longitude: b.lon,
     }));
   }, [coords?.lat, coords?.lon, limit]);
 
@@ -75,8 +75,8 @@ export function NearbyBeachChips({
           setLastBeach({
             id: b.id,
             name: b.name,
-            lat: b.latitude,
-            lon: b.longitude,
+            lat: b.lat,
+            lon: b.lon,
           });
         }
       } catch {}

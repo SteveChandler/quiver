@@ -1,7 +1,7 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState } from "react";
 
 export type BeachTabValue = "overview" | "forecast" | "reviews" | "intel" | "sessions";
 
@@ -38,24 +38,28 @@ export function BeachTabs({
   className,
   actions,
 }: BeachTabsProps) {
+  // Determine if component is controlled or uncontrolled
+  const isControlled = activeTab !== undefined && onTabChange !== undefined;
+
+  // Only use internal state if uncontrolled
   const [internalTab, setInternalTab] = useState<BeachTabValue>(defaultTab);
-  const isControlled = activeTab !== undefined;
-  const currentTab = isControlled ? activeTab : internalTab;
 
-  const handleTabChange = (value: string) => {
-    const tabValue = value as BeachTabValue;
-    if (!isControlled) {
+  // Use activeTab if controlled, otherwise use internal state
+  const value = isControlled ? activeTab : internalTab;
+
+  const handleTabChange = (newValue: string) => {
+    const tabValue = newValue as BeachTabValue;
+
+    if (isControlled) {
+      // In controlled mode, just notify parent
+      onTabChange(tabValue);
+    } else {
+      // In uncontrolled mode, update internal state
       setInternalTab(tabValue);
+      // Also notify parent if callback exists
+      onTabChange?.(tabValue);
     }
-    onTabChange?.(tabValue);
   };
-
-  // Update internal state if activeTab changes (controlled mode)
-  useEffect(() => {
-    if (isControlled && activeTab) {
-      setInternalTab(activeTab);
-    }
-  }, [isControlled, activeTab]);
 
   // Phase 5: Common tab trigger classes following AllTrails spec
   const tabTriggerClasses =
@@ -72,7 +76,11 @@ export function BeachTabs({
   const stickyTop = "calc(var(--app-safe-area-top, 0px) + 4rem)";
 
   return (
-    <Tabs value={currentTab} onValueChange={handleTabChange} className={className}>
+    <Tabs
+      value={value}
+      onValueChange={handleTabChange}
+      className={className}
+    >
       {/* Sticky container mimicking AllTrails-style anchor nav */}
       <div
         className="sticky z-40 mb-6 border-b-2 border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"

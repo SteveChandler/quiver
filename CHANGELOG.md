@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - NaN Distance Display Bug - 2025-10-26
+
+#### Fixed
+- **"NaN miles away" Distance Display**: Fixed bug where beach distance calculations showed "NaN miles away" instead of actual distance or fallback text
+  - **Root Causes:**
+    1. `getBeachCoordinates()` in [lib/map-utils.ts:482-505](lib/map-utils.ts#L482-L505) used `typeof === "number"` which returns `true` for `NaN`
+    2. Multiple components still using old `latitude`/`longitude` column names after migration to `lat`/`lon` (accessing `undefined` values)
+  - When beaches had `NaN` coordinates or components accessed non-existent columns, invalid values produced "NaN miles" in calculations
+  - **Fixes Applied:**
+    - **Core Validation:**
+      - Updated `getBeachCoordinates()` to use `Number.isFinite()` instead of `typeof === "number"` - rejects `NaN`, `Infinity`, and `null`/`undefined`
+      - Added defensive validation in `calculateDistance()` ([lib/utils/distance-utils.ts:15-47](lib/utils/distance-utils.ts#L15-L47)) to return `NaN` for invalid inputs
+      - Updated `calculateDistanceFormatted()` ([lib/utils/distance-utils.ts:53-69](lib/utils/distance-utils.ts#L53-L69)) to return "—" fallback for invalid distances
+      - Refactored `defaultCalculateDistance()` in [hooks/use-beach-card-data.ts:51-63](hooks/use-beach-card-data.ts#L51-L63) to use centralized utility and eliminate code duplication
+    - **Column Migration Alignment:**
+      - Fixed [components/map/selected-beach-card.tsx:55-56](components/map/selected-beach-card.tsx#L55-L56) to use `selectedBeach.lat`/`lon` instead of `latitude`/`longitude`
+      - Fixed [components/map/map-content.tsx:73-83](components/map/map-content.tsx#L73-L83) to use `beach.lat`/`lon` for map centering
+      - Fixed [components/beach-detail.tsx:471](components/beach-detail.tsx#L471) to check `beach?.lat && beach?.lon` for directions
+      - Fixed [components/home-screen/nearby-tab.tsx:23](components/home-screen/nearby-tab.tsx#L23) to use `homeBeach.lat`/`lon` for default location
+  - **Testing:**
+    - Added comprehensive test file [__tests__/lib/utils/distance-utils.test.ts](__tests__/lib/utils/distance-utils.test.ts)
+    - Added NaN/Infinity validation tests to [__tests__/lib/map-utils.test.ts](__tests__/lib/map-utils.test.ts)
+    - All 32 tests pass (10 new distance-utils tests + 22 map-utils tests)
+  - **Impact**: Distance calculations now show "—" or valid distances instead of "NaN miles away", improving UX
+
+### Fixed - Best Surf Window 12-Hour Bug - 2025-10-26
+
+#### Fixed
+- **Best Surf Window Unrealistic Duration**: Fixed bug where "Best Window Today" was showing 12-hour windows (e.g., "9:00 AM - 9:00 PM") instead of realistic surf session durations
+  - Root cause: Window extension logic in `findNextBestWindow()` ([lib/utils/morning-intel-utils.ts:539-552](lib/utils/morning-intel-utils.ts#L539-L552)) used threshold of `score >= 20` for extending windows
+  - When conditions are good throughout the day, many forecasts score >= 20, causing window to extend from first good forecast to last
+  - **Fix Applied:**
+    - Added 4-hour maximum window cap (`MAX_WINDOW_FORECASTS = 4`)
+    - Increased quality threshold from `>= 20` to `>= bestScore * 0.75` (require 75% of best forecast's score)
+    - This ensures only similar-quality conditions are grouped into a window
+  - **Testing:**
+    - Added comprehensive unit tests in [__tests__/lib/utils/find-next-best-window.test.ts](__tests__/lib/utils/find-next-best-window.test.ts)
+    - Tests cover: 12-hour scenario, variable conditions, edge cases, and scoring behavior
+    - All existing surf window regression tests still pass
+  - **Impact**: Users now see realistic surf windows (2-4 hours) that align with actual surf session durations
+
+### Fixed - Map Page Null Coordinate Handling - 2025-10-26
+
+#### Fixed
+- **Map Page Runtime Error**: Fixed crash on `/map` page caused by undefined beach coordinates
+  - Added null/undefined validation in [components/map/map-content.tsx](components/map/map-content.tsx) `mapCenter` useMemo
+  - Prevents `.toFixed()` calls on undefined values when beaches have null lat/lon in database
+  - Map now gracefully falls back to Ocean Beach default (32.7503, -117.2534) when coordinates are invalid
+  - Validates coordinates using `hasValidCoordinates` helper that checks for number type and NaN
+  - **Impact**: Fixes crash that prevented users from accessing the map view
+
+- **Map Marker Invalid LngLat Error**: Fixed "Invalid LngLat object: (NaN, NaN)" error when creating map markers
+  - Updated [components/map/interactive-map.tsx](components/map/interactive-map.tsx) to use `location.lon`/`location.lat` instead of outdated `location.longitude`/`location.latitude` properties (aligned with coordinate column migration)
+  - Added coordinate validation to filter out beaches with null/undefined/NaN coordinates before creating Mapbox markers
+  - Validates using `hasValidCoordinates` helper that checks for number type, NaN, and finite values
+  - Only beaches with valid geographic coordinates now get markers rendered on the map
+  - **Impact**: Prevents Mapbox errors and ensures clean map rendering without invalid markers
+
+### Fixed - Beach Coordinate Column Migration Alignment - 2025-10-26
+
+#### Fixed
+- **Forecast API 500 Error**: Fixed critical bug where forecast API was failing with 500 errors after beach coordinate column migration
+  - Migration `20251025000001_drop_duplicate_coordinate_columns.sql` dropped `latitude`/`longitude` columns, keeping only `lat`/`lon`
+  - Updated ~200+ code references from `beach.latitude`/`beach.longitude` to `beach.lat`/`beach.lon` across:
+    - Core services: [lib/services/enhanced-forecast-service.ts](lib/services/enhanced-forecast-service.ts)
+    - API routes: `app/api/forecasts/*`, `app/api/beaches/*`, `app/api/cron/*`
+    - Components: Map, beach detail, intel, admin components
+    - Utilities and scripts
+    - Test files
+  - Regenerated TypeScript types from current database schema
+  - Verified forecast API endpoint now returns successful responses
+  - **Impact**: Fixes broken home page for all users (forecast data now loads correctly)
+
+### Fixed - Landing Auth Redirect Consistency - 2025-10-26
+
+#### Changed
+- **Landing Navbar Auth Modal:** `UnifiedAuthModal` invoked from [components/landing-page/navbar.tsx](components/landing-page/navbar.tsx) now passes `returnTo="/"` so landing-page logins and signups always return to the home experience instead of reusing a stale redirect from previous auth flows.
+
 ### Performance - Week 4 CDN Optimization: ISR & Middleware Auth ⚡ - 2025-10-24
 
 #### Added

@@ -22,8 +22,8 @@ export function IntelTab({ beach, initialShowAll = false }: IntelTabProps) {
       <BeachIntelSection
         beachId={beach.id}
         beachName={beach.name}
-        latitude={beach.latitude}
-        longitude={beach.longitude}
+        latitude={beach.lat}
+        longitude={beach.lon}
         navigateOnViewAll={false}
         initialShowAll={initialShowAll}
       />

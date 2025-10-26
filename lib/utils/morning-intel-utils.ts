@@ -536,11 +536,17 @@ export function findNextBestWindow(
   const startTime = bestForecast.forecast_time.substring(0, 5);
 
   // Extend window by looking at adjacent good forecasts
-  let endIdx = futureForecasts.indexOf(bestForecast);
+  // Cap at 4 hours max and require similar quality (>= 75% of best score)
+  const startIdx = futureForecasts.indexOf(bestForecast);
+  let endIdx = startIdx;
+  const bestScore = topForecasts[0].score;
+  const MAX_WINDOW_FORECASTS = 4; // Cap at ~4 hours (assuming hourly forecasts)
+
   while (
     endIdx < futureForecasts.length - 1 &&
+    (endIdx - startIdx) < MAX_WINDOW_FORECASTS &&
     scoredForecasts.find((s) => s.forecast === futureForecasts[endIdx + 1])?.score &&
-    scoredForecasts.find((s) => s.forecast === futureForecasts[endIdx + 1])!.score >= 20
+    scoredForecasts.find((s) => s.forecast === futureForecasts[endIdx + 1])!.score >= bestScore * 0.75
   ) {
     endIdx++;
   }

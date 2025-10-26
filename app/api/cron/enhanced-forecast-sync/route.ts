@@ -18,8 +18,8 @@ import { CDIPRateLimiter, NOAARateLimiter } from "@/lib/utils/rate-limiter";
 interface Beach {
   id: string;
   name: string;
-  latitude: number;
-  longitude: number;
+  lat: number;
+  lon: number;
 }
 
 interface CronSyncResult {

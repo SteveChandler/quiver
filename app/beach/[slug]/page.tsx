@@ -54,8 +54,8 @@ export default async function BeachDetailBySlugPage({
         <BeachPageStructuredData
           beachName={beach.name}
           description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
-          latitude={beach.latitude}
-          longitude={beach.longitude}
+          latitude={beach.lat}
+          longitude={beach.lon}
           rating={(beach as any).average_rating || undefined}
           reviewCount={(beach as any).review_count || undefined}
         />

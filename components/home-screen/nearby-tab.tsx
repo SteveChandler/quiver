@@ -20,7 +20,7 @@ export function NearbyTab({ beaches, loading, homeBeach }: NearbyTabProps) {
   // Get user location (falls back to home beach → Ocean Beach)
   const { userLocation, loading: locationLoading } = useGeolocation({
     defaultLocation: homeBeach
-      ? { lat: homeBeach.latitude, lng: homeBeach.longitude }
+      ? { lat: homeBeach.lat, lng: homeBeach.lon }
       : null,
   });
 

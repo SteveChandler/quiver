@@ -239,7 +239,7 @@ export class EnhancedForecastService {
     return withErrorHandling(
       async () => {
         // Validate input
-        if (!beach.id || !beach.latitude || !beach.longitude) {
+        if (!beach.id || !beach.lat || !beach.lon) {
           throw new ValidationError(
             "beach",
             beach,
@@ -298,8 +298,8 @@ export class EnhancedForecastService {
   private async fetchWaveDataWithRetry(beach: Beach) {
     return withRetry(async () => {
       const result = await this.waveWatchService.fetchWaveWatchForecast(
-        beach.latitude,
-        beach.longitude,
+        beach.lat,
+        beach.lon,
         FORECAST_CONSTANTS.DAYS
       );
       if (!result) {
@@ -320,8 +320,8 @@ export class EnhancedForecastService {
       try {
         const stationId = this.coopsService.getStationForLocation(
           beach.name,
-          beach.latitude,
-          beach.longitude
+          beach.lat,
+          beach.lon
         );
         const result = await this.coopsService.fetchCOOPSData(
           stationId,
@@ -331,7 +331,7 @@ export class EnhancedForecastService {
       } catch (error) {
         throw new DataSourceError("CO-OPS", error as Error, {
           beachId: beach.id,
-          location: { lat: beach.latitude, lng: beach.longitude },
+          location: { lat: beach.lat, lng: beach.lon },
         });
       }
     });
@@ -344,8 +344,8 @@ export class EnhancedForecastService {
     return withRetry(async () => {
       const weatherSource = new NOAAWeatherDataSource();
       const location = {
-        latitude: beach.latitude as any, // Type assertion for now
-        longitude: beach.longitude as any,
+        latitude: beach.lat as any, // Type assertion for now
+        longitude: beach.lon as any,
       };
       const result = await weatherSource.fetchWeatherData(
         location,
@@ -369,7 +369,7 @@ export class EnhancedForecastService {
    */
   private async fetchCDIPDataWithRetry(beach: Beach) {
     console.log(
-      `🏖️ fetchCDIPDataWithRetry called for beach: ${beach.name} (${beach.latitude}, ${beach.longitude})`
+      `🏖️ fetchCDIPDataWithRetry called for beach: ${beach.name} (${beach.lat}, ${beach.lon})`
     );
     return withRetry(async () => {
       try {
@@ -383,8 +383,8 @@ export class EnhancedForecastService {
         } else {
           console.log(`🔍 Looking for nearest CDIP station for ${beach.name}`);
           selectedStation = await this.cdipService.getNearestStation(
-            beach.latitude,
-            beach.longitude,
+            beach.lat,
+            beach.lon,
             50 // 50km radius
           );
         }
@@ -421,7 +421,7 @@ export class EnhancedForecastService {
         console.error(`💥 Error fetching CDIP data for ${beach.name}:`, error);
         throw new DataSourceError("CDIP", error as Error, {
           beachId: beach.id,
-          location: { lat: beach.latitude, lng: beach.longitude },
+          location: { lat: beach.lat, lng: beach.lon },
         });
       }
     });
@@ -436,7 +436,7 @@ export class EnhancedForecastService {
       const { apiClient } = await import("@/lib/utils/api-retry");
       
       // Get grid coordinates
-      const pointsUrl = `https://api.weather.gov/points/${beach.latitude},${beach.longitude}`;
+      const pointsUrl = `https://api.weather.gov/points/${beach.lat},${beach.lon}`;
       const pointsResponse = await apiClient.fetchNOAAData(pointsUrl);
 
       if (!pointsResponse.ok) {
@@ -747,7 +747,7 @@ export class EnhancedForecastService {
         water_temp:
           useBuoyData && buoyData.water_temperature
             ? `${Math.round((buoyData.water_temperature * 9) / 5 + 32)}°F`
-            : this.estimateWaterTemperature(beach.latitude, forecastTime),
+            : this.estimateWaterTemperature(beach.lat, forecastTime),
 
         // Wind data
         wind_speed: weatherPoint
@@ -766,7 +766,7 @@ export class EnhancedForecastService {
         weather_condition: weatherPoint?.shortForecast || "Partly Cloudy",
         air_temperature: weatherPoint
           ? `${weatherPoint.temperature}°F`
-          : this.estimateAirTemperature(beach.latitude, forecastTime),
+          : this.estimateAirTemperature(beach.lat, forecastTime),
 
         beach_id: beach.id,
         confidence_score: confidenceScore,

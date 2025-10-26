@@ -81,6 +81,22 @@ export default async function globalSetup(config: FullConfig) {
     
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
+    // Set onboarding as completed in localStorage to prevent modal from appearing in tests
+    // This matches the state of a user who has already completed onboarding
+    await page.evaluate(() => {
+      const onboardingState = {
+        state: {
+          currentStep: 0,
+          data: {},
+          isCompleted: true,
+        },
+        version: 0,
+      };
+      localStorage.setItem('quiver-onboarding', JSON.stringify(onboardingState));
+      // Also set the dismissed flag
+      localStorage.setItem('onboarding_dismissed', 'true');
+    });
+
     await context.storageState({ path: 'e2e/.auth/state.json' });
     console.log('[global-setup] Auth storage state saved to e2e/.auth/state.json');
   } finally {

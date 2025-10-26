@@ -55,7 +55,7 @@ export class NOAABuoySync {
         `Sample beaches:`,
         beaches
           .slice(0, 3)
-          .map((b) => `${b.name} (${b.latitude}, ${b.longitude})`)
+          .map((b) => `${b.name} (${b.lat}, ${b.lon})`)
       );
 
       // 2. Fetch NOAA station master list
@@ -236,8 +236,8 @@ export class NOAABuoySync {
         const distance = this.calculateDistance(
           stationLat,
           stationLng,
-          beach.latitude,
-          beach.longitude
+          beach.lat,
+          beach.lon
         );
         totalDistanceChecks++;
 

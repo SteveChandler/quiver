@@ -289,7 +289,7 @@ async function fetchOpenverse(beach: Beach, limit = LIMIT): Promise<PhotoRecord[
 }
 
 async function fetchFlickr(beach: Beach, limit = LIMIT): Promise<PhotoRecord[]> {
-  const bbox = bboxFromLatLng(beach.latitude, beach.longitude, RADIUS_KM);
+  const bbox = bboxFromLatLng(beach.lat, beach.lon, RADIUS_KM);
   const params = new URLSearchParams({
     method: "flickr.photos.search",
     api_key: process.env.FLICKR_API_KEY!,

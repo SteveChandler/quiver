@@ -69,7 +69,7 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
       beachId: session.beach_id,
       beachName: session.beach?.name || session.beach_name,
       hasBeach: !!session.beach,
-      beachCoords: session.beach ? { lat: session.beach.latitude, lng: session.beach.longitude } : null
+      beachCoords: session.beach ? { lat: session.beach.lat, lng: session.beach.lon } : null
     });
   }
   

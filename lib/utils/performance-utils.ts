@@ -34,9 +34,9 @@ export function preloadImage(src: string, sizes?: string) {
 export function preloadCriticalResources() {
   if (typeof window === "undefined") return;
 
-  // Preload critical hero image (actual file used in hero)
-  preloadImage("/logoQuiver.png", "100vw");
-  
+  // Note: logoQuiver.png preload removed to prevent unused preload warnings on non-landing pages
+  // The logo is loaded via Next.js Image component with priority on landing page
+
   // Preload critical images for LCP optimization
   preloadImage("/logo-word (2).png", "(max-width: 768px) 100vw, 50vw");
 

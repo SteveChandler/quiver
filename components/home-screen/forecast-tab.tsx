@@ -466,8 +466,8 @@ export function ForecastTab({
                 key={`intel-${effectiveBeach.id}`}
                 beachId={effectiveBeach.id}
                 beachName={effectiveBeach.name}
-                latitude={effectiveBeach.latitude}
-                longitude={effectiveBeach.longitude}
+                latitude={effectiveBeach.lat ?? 0}
+                longitude={effectiveBeach.lon ?? 0}
                 className="border-0 p-0"
               />
             </div>

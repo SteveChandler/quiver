@@ -468,8 +468,8 @@ export function BeachDetail({
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
   const destinationCoordinates =
-    beach?.latitude && beach?.longitude
-      ? `${beach.latitude},${beach.longitude}`
+    beach?.lat && beach?.lon
+      ? `${beach.lat},${beach.lon}`
       : null;
   const canGetDirections = Boolean(destinationCoordinates);
 

@@ -355,8 +355,8 @@ export function InteractiveMap({
                     _d: calculateDistanceInMiles(
                       latitude,
                       longitude,
-                      b.latitude,
-                      b.longitude
+                      b.lat,
+                      b.lon
                     ),
                   }))
                   .filter((b: any) => isFinite(b._d) && b._d <= 30)
@@ -407,8 +407,22 @@ export function InteractiveMap({
           }
         }
 
-        // Create markers for each beach
-        locations.forEach((location) => {
+        // Helper to validate coordinates
+        const hasValidCoordinates = (lat: any, lon: any) =>
+          typeof lat === "number" &&
+          typeof lon === "number" &&
+          !isNaN(lat) &&
+          !isNaN(lon) &&
+          isFinite(lat) &&
+          isFinite(lon);
+
+        // Filter out beaches with invalid coordinates before creating markers
+        const validLocations = locations.filter((location) =>
+          hasValidCoordinates(location.lat, location.lon)
+        );
+
+        // Create markers for each beach with valid coordinates
+        validLocations.forEach((location) => {
           const markerId = `location-${location.id}`;
           // Remove existing
           markersRef.current[markerId]?.remove();
@@ -467,7 +481,7 @@ export function InteractiveMap({
             draggable: false,
             anchor: "center",
           })
-            .setLngLat([Number(location.longitude), Number(location.latitude)])
+            .setLngLat([location.lon, location.lat])
             .setPopup(popup);
 
           // Add hover event listeners to control popup visibility

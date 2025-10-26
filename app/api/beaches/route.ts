@@ -57,11 +57,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, latitude, longitude } = body;
+    const { id, name, lat, lon } = body;
 
-    if (!name || !latitude || !longitude) {
+    if (!name || !lat || !lon) {
       return createValidationError(
-        "Name, latitude, and longitude are required"
+        "Name, lat, and lon are required"
       );
     }
 
@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
         .from("beaches")
         .update({
           name,
-          latitude,
-          longitude,
+          lat,
+          lon,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id)
@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
         .from("beaches")
         .insert({
           name,
-          latitude,
-          longitude,
+          lat,
+          lon,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -105,8 +105,8 @@ export async function POST(request: NextRequest) {
       data: {
         id: result.data.id,
         name: result.data.name,
-        latitude: result.data.latitude,
-        longitude: result.data.longitude,
+        lat: result.data.lat,
+        lon: result.data.lon,
       },
     });
   } catch (error) {

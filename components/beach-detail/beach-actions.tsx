@@ -23,7 +23,7 @@ export function BeachActions({
   onGetDirections,
   canGetDirections,
 }: BeachActionsProps) {
-  const hasCoordinates = Boolean(beach.latitude && beach.longitude);
+  const hasCoordinates = Boolean(beach.lat && beach.lon);
   const directionsEnabled = canGetDirections ?? hasCoordinates;
 
   const handleDirectionsClick = () => {
@@ -32,7 +32,7 @@ export function BeachActions({
       return;
     }
     if (!hasCoordinates) return;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${beach.latitude},${beach.longitude}`;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${beach.lat},${beach.lon}`;
     window.open(url, "_blank", "noopener");
   };
 

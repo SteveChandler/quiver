@@ -42,7 +42,14 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
   const [error, setError] = useState<string | null>(null);
   const [showPostForm, setShowPostForm] = useState(false);
   const [selectedTag, setSelectedTag] = useState<IntelPostTag | "all">("all");
-  const [viewMode, setViewMode] = useState<ViewMode>("feed");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    // Persist view mode preference in localStorage
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("intel_view_mode");
+      return (saved === "map" || saved === "feed") ? saved : "feed";
+    }
+    return "feed";
+  });
   const [confirmingPosts, setConfirmingPosts] = useState<Set<string>>(
     new Set()
   );
@@ -67,10 +74,12 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
     });
   }, [user, posts.length]);
 
-  // Reset to feed view when component mounts to prevent map interference
+  // Persist view mode changes to localStorage
   useEffect(() => {
-    setViewMode("feed");
-  }, []);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("intel_view_mode", viewMode);
+    }
+  }, [viewMode]);
 
   // Fetch intel posts
   const fetchPosts = useCallback(async () => {
@@ -324,7 +333,10 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
                 <Button
                   variant={viewMode === "feed" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewMode("feed")}
+                  onClick={() => {
+                    console.log("[IntelTab] Switching to feed view");
+                    setViewMode("feed");
+                  }}
                   className="h-8 px-3"
                 >
                   <List className="h-4 w-4" />
@@ -332,7 +344,16 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
                 <Button
                   variant={viewMode === "map" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setViewMode("map")}
+                  onClick={() => {
+                    console.log("[IntelTab] Switching to map view", {
+                      currentViewMode: viewMode,
+                      loading,
+                      error,
+                      postsCount: posts.length,
+                      filteredPostsCount: filteredPosts.length,
+                    });
+                    setViewMode("map");
+                  }}
                   className="h-8 px-3"
                 >
                   <MapIcon className="h-4 w-4" />
@@ -408,44 +429,61 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
       )}
 
       {/* Map View */}
-      {viewMode === "map" && !loading && !error && (
-        <div className="h-[600px] rounded-lg overflow-hidden border relative z-0">
-          {filteredPosts.length === 0 ? (
-            <div className="h-full flex items-center justify-center bg-muted">
-              <div className="text-center space-y-3">
-                <div className="w-16 h-16 mx-auto bg-background rounded-full flex items-center justify-center">
-                  <MapIcon className="h-8 w-8 text-muted-foreground" />
+      {(() => {
+        console.log("[IntelTab] Map view render check:", {
+          viewMode,
+          loading,
+          error,
+          postsCount: posts.length,
+          filteredPostsCount: filteredPosts.length,
+          shouldShowMap: viewMode === "map" && !loading && !error,
+        });
+
+        if (viewMode === "map" && !loading && !error) {
+          return (
+            <div className="h-[600px] rounded-lg overflow-hidden border relative z-0">
+              {filteredPosts.length === 0 ? (
+                <div className="h-full flex items-center justify-center bg-muted">
+                  <div className="text-center space-y-3">
+                    <div className="w-16 h-16 mx-auto bg-background rounded-full flex items-center justify-center">
+                      <MapIcon className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium">
+                        No Intel Posts to Display
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {selectedTag === "all"
+                          ? "Be the first to share intel!"
+                          : "No posts for this tag. Try a different filter."}
+                      </p>
+                    </div>
+                    {canPost && (
+                      <Button onClick={() => setShowPostForm(true)}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Share Intel
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-medium">
-                    No Intel Posts to Display
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {selectedTag === "all"
-                      ? "Be the first to share intel!"
-                      : "No posts for this tag. Try a different filter."}
-                  </p>
-                </div>
-                {canPost && (
-                  <Button onClick={() => setShowPostForm(true)}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Share Intel
-                  </Button>
-                )}
-              </div>
+              ) : (
+                <>
+                  {console.log("[IntelTab] Rendering IntelMap component with", filteredPosts.length, "posts")}
+                  <IntelMap
+                    key={`intel-map-${selectedTag}`}
+                    posts={filteredPosts}
+                    selectedTag={selectedTag}
+                    initialCenter={getMapCenter()}
+                    onMapMove={() => {}}
+                    className="h-full"
+                  />
+                </>
+              )}
             </div>
-          ) : (
-            <IntelMap
-              key={`intel-map-${selectedTag}`}
-              posts={filteredPosts}
-              selectedTag={selectedTag}
-              initialCenter={getMapCenter()}
-              onMapMove={() => {}}
-              className="h-full"
-            />
-          )}
-        </div>
-      )}
+          );
+        }
+        return null;
+      })()}
 
       {/* Loading State */}
       {viewMode === "feed" && loading && !error && (

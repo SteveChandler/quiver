@@ -10,7 +10,7 @@
  * @param lat2 Latitude of second point
  * @param lng2 Longitude of second point
  * @param unit Unit for result ('miles' | 'km' | 'meters')
- * @returns Distance in specified unit
+ * @returns Distance in specified unit, or NaN if inputs are invalid
  */
 export function calculateDistance(
   lat1: number,
@@ -19,6 +19,16 @@ export function calculateDistance(
   lng2: number,
   unit: "miles" | "km" | "meters" = "miles"
 ): number {
+  // Validate inputs - return NaN for invalid coordinates
+  if (
+    !Number.isFinite(lat1) ||
+    !Number.isFinite(lng1) ||
+    !Number.isFinite(lat2) ||
+    !Number.isFinite(lng2)
+  ) {
+    return NaN;
+  }
+
   const R = unit === "miles" ? 3958.8 : 6371; // Earth's radius
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
@@ -38,6 +48,7 @@ export function calculateDistance(
 
 /**
  * Calculate distance and return formatted string
+ * @returns Formatted distance string, or "—" if calculation fails
  */
 export function calculateDistanceFormatted(
   lat1: number,
@@ -47,6 +58,12 @@ export function calculateDistanceFormatted(
   unit: "miles" | "km" = "miles"
 ): string {
   const distance = calculateDistance(lat1, lng1, lat2, lng2, unit);
+
+  // Return fallback if distance is invalid
+  if (!Number.isFinite(distance)) {
+    return "—";
+  }
+
   const unitLabel = unit === "miles" ? "miles" : "km";
   return `${distance.toFixed(1)} ${unitLabel}`;
 }

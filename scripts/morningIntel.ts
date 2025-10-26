@@ -475,8 +475,8 @@ async function upsertIntelPost(
       .insert({
         user_id: userId,
         beach_id: beachId,
-        latitude: beach.latitude,
-        longitude: beach.longitude,
+        latitude: beach.lat,
+        longitude: beach.lon,
         tag: "conditions",
         title,
         description: body,

@@ -6,6 +6,33 @@
 // For Mapbox: Sign up at https://www.mapbox.com/ and get an access token
 // For Google Maps: Get an API key from https://console.cloud.google.com/
 
+// Simple LRU cache for map URLs to prevent duplicate generation
+const mapUrlCache = new Map<string, { url: string; timestamp: number }>();
+const CACHE_SIZE = 100;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedMapUrl(key: string): string | null {
+  const cached = mapUrlCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.url;
+  }
+  if (cached) {
+    mapUrlCache.delete(key);
+  }
+  return null;
+}
+
+function setCachedMapUrl(key: string, url: string): void {
+  // Simple LRU: if cache is full, remove oldest entry
+  if (mapUrlCache.size >= CACHE_SIZE) {
+    const firstKey = mapUrlCache.keys().next().value;
+    if (firstKey) {
+      mapUrlCache.delete(firstKey);
+    }
+  }
+  mapUrlCache.set(key, { url, timestamp: Date.now() });
+}
+
 // Generate a simple SVG placeholder for when map services fail
 function generateMapPlaceholder(
   latitude: number,
@@ -180,9 +207,6 @@ function getMapboxStaticImageUrl(
   // Note: Mapbox Static API doesn't support custom text on markers easily
   // So we'll fall back to enhanced placeholder when text is provided
   if (markerText) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("Using enhanced placeholder for Mapbox with text:", markerText);
-    }
     return generateEnhancedMapPlaceholder(
       latitude,
       longitude,
@@ -193,12 +217,7 @@ function getMapboxStaticImageUrl(
   }
 
   const marker = `pin-s+${markerColor}(${longitude},${latitude})`;
-  const url = `https://api.mapbox.com/styles/v1/${style}/static/${marker}/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${accessToken}`;
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log("Generated Mapbox URL:", url);
-  }
-  return url;
+  return `https://api.mapbox.com/styles/v1/${style}/static/${marker}/${longitude},${latitude},${zoom},0/${width}x${height}@2x?access_token=${accessToken}`;
 }
 
 // Option 2: Google Maps Static API with custom marker labels
@@ -267,12 +286,7 @@ function getGoogleMapsStaticImageUrl(
     marker = `color:${markerColor}|${latitude},${longitude}`;
   }
 
-  const url = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${width}x${height}&maptype=${mapType}&markers=${marker}&key=${apiKey}&scale=2`;
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log("Generated Google Maps URL with marker text:", markerText);
-  }
-  return url;
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${width}x${height}&maptype=${mapType}&markers=${marker}&key=${apiKey}&scale=2`;
 }
 
 // Option 3: OpenStreetMap via Geoapify (with API key)
@@ -324,12 +338,7 @@ function getOpenStreetMapStaticImageUrl(
   }
 
   // StaticMapLite is a free service for OpenStreetMap static images
-  const url = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik&markers=${latitude},${longitude},lightblue`;
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log("Generated OpenStreetMap URL:", url);
-  }
-  return url;
+  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik&markers=${latitude},${longitude},lightblue`;
 }
 
 // Helper function to validate coordinates
@@ -382,28 +391,31 @@ export function getStaticMapImageUrl(
     );
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log("Generating map image for coordinates:", { latitude, longitude });
-    console.log("Available environment variables:", {
-      hasMapbox:
-        !!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
-        !!(process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN,
-      hasGoogle: !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-      hasGeoapify: !!process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY,
-    });
+  // Check cache first to prevent duplicate generation
+  const cacheKey = `${latitude},${longitude},${options.width || 300},${options.height || 120},${options.zoom || 14},${options.markerText || ''}`;
+  const cachedUrl = getCachedMapUrl(cacheKey);
+  if (cachedUrl) {
+    return cachedUrl;
+  }
+
+  // Reduced logging to avoid console clutter - only log when no provider is available
+  const hasAnyProvider =
+    !!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+    !!(process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN ||
+    !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+    !!process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY;
+
+  if (process.env.NODE_ENV === 'development' && !hasAnyProvider) {
+    console.warn("No map provider available for coordinates:", { latitude, longitude });
   }
 
   // Use real providers in all environments; rely on graceful fallbacks below
 
   // Try Google Maps first if we have marker text (better text support)
   if (options.markerText && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(
-        "Using Google Maps for map image with text:",
-        options.markerText
-      );
-    }
-    return getGoogleMapsStaticImageUrl(latitude, longitude, options);
+    const url = getGoogleMapsStaticImageUrl(latitude, longitude, options);
+    setCachedMapUrl(cacheKey, url);
+    return url;
   }
 
   // Try Mapbox first (best for outdoor/surf maps)
@@ -411,40 +423,35 @@ export function getStaticMapImageUrl(
     process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
     (process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN
   ) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("Using Mapbox for map image");
-    }
-    return getMapboxStaticImageUrl(latitude, longitude, options);
+    const url = getMapboxStaticImageUrl(latitude, longitude, options);
+    setCachedMapUrl(cacheKey, url);
+    return url;
   }
 
   // Try Google Maps
   if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("Using Google Maps for map image");
-    }
-    return getGoogleMapsStaticImageUrl(latitude, longitude, options);
+    const url = getGoogleMapsStaticImageUrl(latitude, longitude, options);
+    setCachedMapUrl(cacheKey, url);
+    return url;
   }
 
   // Try Geoapify
   const geoapifyUrl = getGeoapifyStaticImageUrl(latitude, longitude, options);
   if (geoapifyUrl) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("Using Geoapify for map image");
-    }
+    setCachedMapUrl(cacheKey, geoapifyUrl);
     return geoapifyUrl;
   }
 
   // Fallback to enhanced placeholder
-  if (process.env.NODE_ENV === 'development') {
-    console.log("Using enhanced placeholder fallback for map image");
-  }
-  return generateEnhancedMapPlaceholder(
+  const fallbackUrl = generateEnhancedMapPlaceholder(
     latitude,
     longitude,
     options.width || 300,
     options.height || 120,
     options.markerText
   );
+  setCachedMapUrl(cacheKey, fallbackUrl);
+  return fallbackUrl;
 }
 
 /**
@@ -485,18 +492,19 @@ export function getBeachCoordinates(
   if (!beach) return null;
 
   // Check if beach has direct latitude/longitude properties
-  if (typeof beach.latitude === "number" && typeof beach.longitude === "number") {
-    return { latitude: beach.latitude, longitude: beach.longitude };
+  // Use Number.isFinite to exclude NaN, Infinity, and null/undefined
+  if (Number.isFinite(beach.lat) && Number.isFinite(beach.lon)) {
+    return { latitude: beach.lat, longitude: beach.lon };
   }
 
   // Check if beach has location object with x/y coordinates
-  if (typeof beach.location?.x === "number" && typeof beach.location?.y === "number") {
+  if (Number.isFinite(beach.location?.x) && Number.isFinite(beach.location?.y)) {
     // In PostGIS, x is longitude and y is latitude
     return { latitude: beach.location.y, longitude: beach.location.x };
   }
 
   // Legacy support: tolerate lat/lng property names in tests and older code paths
-  if (typeof beach.lat === "number" && typeof beach.lng === "number") {
+  if (Number.isFinite(beach.lat) && Number.isFinite(beach.lng)) {
     return { latitude: beach.lat, longitude: beach.lng };
   }
 

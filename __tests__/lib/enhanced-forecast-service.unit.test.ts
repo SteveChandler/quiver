@@ -11,8 +11,8 @@ const beach = {
 function createWaveResult() {
   const now = Date.now();
   return {
-    lat: beach.latitude,
-    lng: beach.longitude,
+    lat: beach.lat,
+    lng: beach.lon,
     data_source: "NOAA_NWS",
     forecast: [
       {

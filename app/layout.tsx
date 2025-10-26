@@ -196,13 +196,7 @@ export default function RootLayout({
 
         {/* Remove aggressive prefetching on mobile to reduce initial network load */}
 
-        {/* Preload critical resources for faster LCP */}
-        <link
-          rel="preload"
-          href="/logoQuiver.png"
-          as="image"
-          type="image/png"
-        />
+        {/* Note: logoQuiver.png is only used on landing page, so preload is handled there */}
 
         {/* Remove non-existent webpack chunk preload - these are dynamic */}
 

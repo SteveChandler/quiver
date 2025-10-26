@@ -72,8 +72,8 @@ export function NearbyBeachScroll({
                   rating={beach.rating}
                   reviewCount={beach.reviewCount}
                   imageUrl={beach.mapImageUrl}
-                  latitude={beach.latitude}
-                  longitude={beach.longitude}
+                  latitude={beach.lat}
+                  longitude={beach.lon}
                   showForecastPreview={showForecastPreviews}
                   onViewDetails={() =>
                     originalBeach && onBeachSelect(originalBeach)

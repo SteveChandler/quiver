@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { clearLocalStorageExceptOnboarding } from "./test-helpers";
 
 /**
  * Phase 4: Enhanced Styling & Polish E2E Tests
@@ -16,10 +17,7 @@ test.describe("Navigation Header - Phase 4: Enhanced Styling & Polish", () => {
       await page.goto("/");
 
       // Navigate to a page where sign-up is visible (guest state)
-      await page.evaluate(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-      });
+      await clearLocalStorageExceptOnboarding(page);
       await page.reload();
 
       const signUpButton = page
@@ -40,10 +38,7 @@ test.describe("Navigation Header - Phase 4: Enhanced Styling & Polish", () => {
     test("sign up button has shadow", async ({ page }) => {
       await page.goto("/");
 
-      await page.evaluate(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-      });
+      await clearLocalStorageExceptOnboarding(page);
       await page.reload();
 
       const signUpButton = page
@@ -64,10 +59,7 @@ test.describe("Navigation Header - Phase 4: Enhanced Styling & Polish", () => {
     test("sign up button has proper padding and height", async ({ page }) => {
       await page.goto("/");
 
-      await page.evaluate(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-      });
+      await clearLocalStorageExceptOnboarding(page);
       await page.reload();
 
       const signUpButton = page
@@ -188,10 +180,7 @@ test.describe("Navigation Header - Phase 4: Enhanced Styling & Polish", () => {
     }) => {
       await page.goto("/");
 
-      await page.evaluate(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-      });
+      await clearLocalStorageExceptOnboarding(page);
       await page.reload();
 
       const signUpButton = page
@@ -298,10 +287,7 @@ test.describe("Navigation Header - Phase 4: Enhanced Styling & Polish", () => {
     test("sign up button has correct font weight", async ({ page }) => {
       await page.goto("/");
 
-      await page.evaluate(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-      });
+      await clearLocalStorageExceptOnboarding(page);
       await page.reload();
 
       const signUpButton = page

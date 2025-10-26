@@ -51,8 +51,8 @@ export async function getNearbyBeaches(
           const distance = calculateDistanceInMiles(
             latitude,
             longitude,
-            beach.latitude,
-            beach.longitude
+            beach.lat,
+            beach.lon
           );
 
           return {
