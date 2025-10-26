@@ -63,7 +63,8 @@ export function useBeachAutocomplete(options: UseBeachAutocompleteOptions = {}) 
       throw new Error("Failed to search beaches");
     }
 
-    const beaches: Beach[] = await response.json();
+    const result = await response.json();
+    const beaches: Beach[] = result.data || [];
     return beaches.slice(0, maxResults);
   }, [debouncedQuery, maxResults, minQueryLength]);
 

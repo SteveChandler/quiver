@@ -90,7 +90,7 @@ export const BREAKPOINTS = {
  * - Reviews and intel
  * - Known location in San Diego (Windansea Beach, La Jolla)
  */
-export const TEST_BEACH_ID = '33ee7a3a-0753-4f6c-84e9-0beaa0c6549e';
+export const TEST_BEACH_ID = '5b31e731-5ffc-4d83-92ec-fb19452693f5'; // Windansea beach in local DB
 
 /**
  * Fallback beach ID for backward compatibility with existing tests.

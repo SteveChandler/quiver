@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import {
@@ -281,8 +282,16 @@ export function BeachDetail({
   const { data: sources } = useDataFetcher(fetchSources, { immediate: true });
 
   // Combined loading and error states
-  const loading = beachLoading || forecastsLoading;
-  const error = beachError || forecastsError;
+  // Only beach errors are fatal - forecast errors should be graceful
+  const loading = beachLoading;
+  const error = beachError;
+
+  // Log forecast errors but don't treat them as fatal
+  useEffect(() => {
+    if (forecastsError) {
+      console.warn("⚠️ Forecast data unavailable:", forecastsError);
+    }
+  }, [forecastsError]);
 
   // Track beach view once we have data
   // Note: Hooks must run unconditionally on every render (before any return)
@@ -478,17 +487,30 @@ export function BeachDetail({
   // After loading finishes, show error only if we truly have an error or no beach
   if (error || !beach) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-        <div className="text-center">
-          <h2 className="text-xl font-roboto font-bold mb-2 text-dark-grey">
-            {error || "Beach data not found"}
-          </h2>
-          <Button
-            onClick={() => router.push("/map")}
-            className="bg-ocean-blue hover:bg-ocean-blue/90"
-          >
-            Back to Map
-          </Button>
+      <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
+        {/* Breadcrumb Navigation in Error State */}
+        <nav aria-label="Breadcrumb" className="px-4 py-3 bg-white border-b">
+          <div className="max-w-6xl mx-auto">
+            <Link
+              href="/map"
+              className="text-ocean-blue hover:underline text-sm font-medium"
+            >
+              ← Back to Map
+            </Link>
+          </div>
+        </nav>
+
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <h2 className="text-xl font-roboto font-bold mb-2 text-dark-grey">
+              {error || "Beach data not found"}
+            </h2>
+            <Button
+              onClick={() => router.push("/map")}
+              className="bg-ocean-blue hover:bg-ocean-blue/90"
+            >
+              Back to Map
+            </Button>
         </div>
       </div>
     );
