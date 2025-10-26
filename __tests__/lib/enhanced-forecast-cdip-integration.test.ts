@@ -93,8 +93,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
   const mockBeach = {
     id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
     name: "Scripps Pier",
-    latitude: 32.8663,
-    longitude: -117.2544,
+    lat: 32.8663,
+    lon: -117.2544,
     state: "CA",
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
@@ -312,8 +312,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       const scriptsPierBeach = {
         ...mockBeach,
         name: "Scripps Pier",
-        latitude: 32.8663,
-        longitude: -117.2544,
+        lat: 32.8663,
+        lon: -117.2544,
       };
 
       mockCDIPService.getNearestStation.mockResolvedValue("100");
@@ -330,8 +330,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       const humboldtBay = {
         ...mockBeach,
         name: "Humboldt Bay",
-        latitude: 40.7661,
-        longitude: -124.1936,
+        lat: 40.7661,
+        lon: -124.1936,
       };
 
       mockCDIPService.getNearestStation.mockResolvedValue(null);
@@ -347,8 +347,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       const montereyBeach = {
         ...mockBeach,
         name: "Monterey Bay",
-        latitude: 36.6002,
-        longitude: -121.8947,
+        lat: 36.6002,
+        lon: -121.8947,
       };
 
       mockCDIPService.getNearestStation.mockResolvedValue("46236");

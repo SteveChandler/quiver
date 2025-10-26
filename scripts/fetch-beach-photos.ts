@@ -168,16 +168,16 @@ async function getBeaches(): Promise<Beach[]> {
   if (BEACH_ID) {
     const { data, error } = await supabase
       .from("beaches")
-      .select("id,name,latitude,longitude,location,region,country")
+      .select("id,name,lat,lon,city,state,country")
       .eq("id", BEACH_ID);
     if (error) throw error;
     return (data as Beach[]) ?? [];
   }
   let query = supabase
     .from("beaches")
-    .select("id,name,latitude,longitude,location,region,country")
-    .not("latitude", "is", null)
-    .not("longitude", "is", null);
+    .select("id,name,lat,lon,city,state,country")
+    .not("lat", "is", null)
+    .not("lon", "is", null);
   if (ONLY) {
     query = query.or(
       [

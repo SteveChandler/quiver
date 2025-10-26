@@ -57,14 +57,14 @@ export function BeachActions({
         <Button
           variant="default"
           onClick={onPlanSession}
-          className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all sm:col-span-2"
+          className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all"
         >
           <BookOpen className="h-5 w-5 mr-2" />
           Plan Session
         </Button>
       </div>
 
-      {/* Mobile-only Directions, Favorite & Home Beach Row */}
+      {/* Mobile-only Directions & Home Beach Row */}
       <div className="flex flex-wrap items-center gap-3 md:hidden">
         <Button
           variant="outline"
@@ -75,11 +75,6 @@ export function BeachActions({
           <Navigation className="mr-2 h-4 w-4" />
           Get directions
         </Button>
-        <FavoriteButton
-          beachId={beach.id}
-          variant="outline"
-          size="sm"
-        />
         <HomeBeachBanner
           selectedBeachId={beach.id}
           selectedBeachName={beach.name}

@@ -16,7 +16,7 @@ describe("lib/data/client gateway", () => {
     it("requests /api/beaches and returns beaches array", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ beaches: [{ id: "1", name: "A", latitude: 1, longitude: 2 }] }),
+          JSON.stringify({ beaches: [{ id: "1", name: "A", lat: 1, lon: 2 }] }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
       );

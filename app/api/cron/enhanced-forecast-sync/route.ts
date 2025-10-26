@@ -88,7 +88,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     // Fetch all beaches from database
     const { data: beaches, error: beachError } = await supabase
       .from("beaches")
-      .select("id, name, latitude, longitude");
+      .select("id, name, lat, lon");
 
     if (beachError) {
       throw new Error(`Failed to fetch beaches: ${beachError.message}`);

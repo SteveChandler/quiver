@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     // Selective field query - only fetch fields needed by consumers and that exist in schema
     const { data, error } = await supabase
       .from("beaches")
-      .select("id, name, location, latitude, longitude, region, created_at, is_private")
+      .select("id, name, city, lat, lon, state, created_at, is_private")
       .order("name");
 
     if (error) {

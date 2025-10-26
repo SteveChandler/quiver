@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     // Fetch beach lat/lon for on-demand generation
     const { data: beachRow } = await supabase
       .from("beaches")
-      .select("id, latitude, longitude")
+      .select("id, lat, lon")
       .eq("id", beachId)
       .single();
 

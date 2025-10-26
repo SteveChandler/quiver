@@ -133,8 +133,8 @@ describe("Map Forecast Display - Working Implementation Tests", () => {
                 {
                   id: "test-beach-1",
                   name: "Test Beach",
-                  latitude: 32.7493,
-                  longitude: -117.2511,
+                  lat: 32.7493,
+                  lon: -117.2511,
                 },
               ],
             }),

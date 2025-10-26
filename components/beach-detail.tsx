@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, lazy, Suspense } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
@@ -106,12 +106,12 @@ import { BeachTabs, BeachTabContent, type BeachTabValue } from "@/components/bea
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 
-// Tab content components - lazy loaded for better performance
-const OverviewTab = lazy(() => import("@/components/beach-detail/tabs/overview-tab").then(m => ({ default: m.OverviewTab })));
-const ForecastTab = lazy(() => import("@/components/beach-detail/tabs/forecast-tab").then(m => ({ default: m.ForecastTab })));
-const ReviewsTab = lazy(() => import("@/components/beach-detail/tabs/reviews-tab").then(m => ({ default: m.ReviewsTab })));
-const IntelTab = lazy(() => import("@/components/beach-detail/tabs/intel-tab").then(m => ({ default: m.IntelTab })));
-const SessionsTab = lazy(() => import("@/components/beach-detail/tabs/sessions-tab").then(m => ({ default: m.SessionsTab })));
+// Tab content components - imported directly to avoid lazy loading issues
+import { OverviewTab } from "@/components/beach-detail/tabs/overview-tab";
+import { ForecastTab } from "@/components/beach-detail/tabs/forecast-tab";
+import { ReviewsTab } from "@/components/beach-detail/tabs/reviews-tab";
+import { IntelTab } from "@/components/beach-detail/tabs/intel-tab";
+import { SessionsTab } from "@/components/beach-detail/tabs/sessions-tab";
 
 // Constants to prevent unnecessary re-renders
 const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
@@ -558,52 +558,42 @@ export function BeachDetail({
         <BeachTabs activeTab={activeTab} onTabChange={setActiveTab} actions={tabActions}>
           {/* Overview Tab */}
           <BeachTabContent value="overview">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <OverviewTab beach={beach as any} />
-            </Suspense>
+            <OverviewTab beach={beach as any} />
           </BeachTabContent>
 
           {/* Forecast Tab */}
           <BeachTabContent value="forecast">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <ForecastTab
-                beach={beach}
-                forecasts={forecasts || []}
-                currentForecast={currentForecast}
-                hasCamera={hasCamera}
-              />
-            </Suspense>
+            <ForecastTab
+              beach={beach}
+              forecasts={forecasts || []}
+              currentForecast={currentForecast}
+              hasCamera={hasCamera}
+            />
           </BeachTabContent>
 
           {/* Reviews Tab */}
           <BeachTabContent value="reviews">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <ReviewsTab
-                beach={beach}
-                onWriteReview={handleWriteReview}
-                reviewRefreshTrigger={reviewRefreshTrigger}
-              />
-            </Suspense>
+            <ReviewsTab
+              beach={beach}
+              onWriteReview={handleWriteReview}
+              reviewRefreshTrigger={reviewRefreshTrigger}
+            />
           </BeachTabContent>
 
           {/* Local Intel Tab */}
           <BeachTabContent value="intel">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <IntelTab
-                beach={beach}
-                initialShowAll={searchParams?.get("show") === "all"}
-              />
-            </Suspense>
+            <IntelTab
+              beach={beach}
+              initialShowAll={searchParams?.get("show") === "all"}
+            />
           </BeachTabContent>
 
           {/* Sessions Tab */}
           <BeachTabContent value="sessions">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <SessionsTab
-                beach={beach}
-                sessionSnapshots={sessionSnapshots}
-              />
-            </Suspense>
+            <SessionsTab
+              beach={beach}
+              sessionSnapshots={sessionSnapshots}
+            />
           </BeachTabContent>
         </BeachTabs>
       </div>

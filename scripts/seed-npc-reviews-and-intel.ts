@@ -234,7 +234,7 @@ async function fetchBeaches(supabase: any): Promise<Beach[]> {
   
   const { data: beaches, error } = await supabase
     .from('beaches')
-    .select('id, name, location, latitude, longitude, skill_level');
+    .select('id, name, city, lat, lon, skill_level');
 
   if (error) {
     throw new Error(`Failed to fetch beaches: ${error.message}`);
@@ -984,7 +984,7 @@ async function seedIntelPosts(
 
       const { data: existingIntel, error: dedupeError } = await supabase
         .from('intel_posts')
-        .select('id, title, description, latitude, longitude, beach_id, created_at')
+        .select('id, title, description, lat, lon, beach_id, created_at')
         .eq('user_id', user.id)
         .eq('tag', tag)
         .eq('beach_id', beach.id)

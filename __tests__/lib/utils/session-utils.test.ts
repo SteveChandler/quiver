@@ -18,8 +18,8 @@ function makeSession(
     beach: {
       id: "b1",
       name: "Test Beach",
-      latitude: 0,
-      longitude: 0,
+      lat: 0,
+      lon: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },

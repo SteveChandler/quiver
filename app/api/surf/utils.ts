@@ -54,7 +54,7 @@ async function getCachedBeaches() {
   const supabase = await createSupabaseServiceRoleClient();
   const { data, error } = await supabase
     .from("beaches")
-    .select("id,name,latitude,longitude")
+    .select("id,name,lat,lon")
     .order("name");
   if (error) {
     throw new Error("Failed to fetch beaches from database");
@@ -164,7 +164,7 @@ export async function fetchForecast(lat: number, lng: number): Promise<any> {
     for (const beach of allBeaches) {
       const distance = getDistanceInKm(
         { lat, lng },
-        { lat: beach.latitude, lng: beach.longitude }
+        { lat: beach.lat, lng: beach.lon }
       );
 
       if (distance < minDistance) {
@@ -220,7 +220,7 @@ export async function fetchForecast(lat: number, lng: number): Promise<any> {
           ...beach,
           distance: getDistanceInKm(
             { lat, lng },
-            { lat: beach.latitude, lng: beach.longitude }
+            { lat: beach.lat, lng: beach.lon }
           ),
         }))
         .filter((beach) => beach.distance <= 32) // 20 miles
@@ -323,8 +323,8 @@ export async function getSurfForecast({
         const matchedBeach = matchingBeaches[0];
         beachName = matchedBeach.name;
         coordinates = {
-          lat: matchedBeach.latitude,
-          lng: matchedBeach.longitude,
+          lat: matchedBeach.lat,
+          lng: matchedBeach.lon,
         };
 
         // Get forecast from database
@@ -363,8 +363,8 @@ export async function getSurfForecast({
               if (beach.id === matchedBeach.id) continue; // Skip the current beach
 
               const distance = getDistanceInKm(
-                { lat: matchedBeach.latitude, lng: matchedBeach.longitude },
-                { lat: beach.latitude, lng: beach.longitude }
+                { lat: matchedBeach.lat, lng: matchedBeach.lon },
+                { lat: beach.lat, lng: beach.lon }
               );
 
               // Look for beaches within 20 miles (32 km)

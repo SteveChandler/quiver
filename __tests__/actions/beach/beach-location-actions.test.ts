@@ -20,8 +20,8 @@ describe("getNearbyBeaches (RPC + fallback)", () => {
 
   it("calls RPC with expected param names and returns data on success", async () => {
     const rpcData = [
-      { id: "b1", name: "A Beach", latitude: lat, longitude: lng },
-      { id: "b2", name: "B Beach", latitude: lat + 0.01, longitude: lng + 0.01 },
+      { id: "b1", name: "A Beach", lat: lat, lon: lng },
+      { id: "b2", name: "B Beach", lat: lat + 0.01, lon: lng + 0.01 },
     ];
 
     mockSupabase.rpc.mockResolvedValue({ data: rpcData, error: null });
@@ -42,8 +42,8 @@ describe("getNearbyBeaches (RPC + fallback)", () => {
     mockSupabase.rpc.mockResolvedValue({ data: null, error: { message: "RPC error" } });
 
     const allBeaches = [
-      { id: "near", name: "Near Beach", latitude: lat + 0.05, longitude: lng + 0.05 },
-      { id: "far", name: "Far Beach", latitude: lat + 2.0, longitude: lng + 2.0 },
+      { id: "near", name: "Near Beach", lat: lat + 0.05, lon: lng + 0.05 },
+      { id: "far", name: "Far Beach", lat: lat + 2.0, lon: lng + 2.0 },
     ];
 
     const selectChain = {

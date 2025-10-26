@@ -75,11 +75,11 @@ export const createBeach = withAdminActionAndUser(
       .from("beaches")
       .insert({
         name: validated.name,
-        location: validated.location,
-        region: validated.region,
+        city: validated.city,
+        state: validated.state,
         country: validated.country,
-        latitude: validated.latitude,
-        longitude: validated.longitude,
+        lat: validated.lat,
+        lon: validated.lon,
         break_type: validated.break_type,
         skill_level: validated.skill_level,
         is_private: validated.is_private,
@@ -100,7 +100,7 @@ export const createBeach = withAdminActionAndUser(
       resourceId: data.id,
       details: {
         beach_name: validated.name,
-        region: validated.region,
+        state: validated.state,
       },
     });
 
@@ -119,7 +119,7 @@ export const updateBeach = withAdminActionAndUser(
     // Get the existing beach for audit logging
     const { data: existingBeach } = await supabaseAdmin
       .from("beaches")
-      .select("name, region")
+      .select("name, state")
       .eq("id", beachId)
       .single();
 
@@ -128,11 +128,11 @@ export const updateBeach = withAdminActionAndUser(
       .from("beaches")
       .update({
         name: validated.name,
-        location: validated.location,
-        region: validated.region,
+        city: validated.city,
+        state: validated.state,
         country: validated.country,
-        latitude: validated.latitude,
-        longitude: validated.longitude,
+        lat: validated.lat,
+        lon: validated.lon,
         break_type: validated.break_type,
         skill_level: validated.skill_level,
         is_private: validated.is_private,
@@ -154,9 +154,9 @@ export const updateBeach = withAdminActionAndUser(
       resourceId: beachId,
       details: {
         beach_name: validated.name,
-        region: validated.region,
+        state: validated.state,
         previous_name: existingBeach?.name,
-        previous_region: existingBeach?.region,
+        previous_state: existingBeach?.state,
       },
     });
 
@@ -172,7 +172,7 @@ export const softDeleteBeach = withAdminActionAndUser(
     // Get beach details for audit log
     const { data: beach } = await supabaseAdmin
       .from("beaches")
-      .select("name, region")
+      .select("name, state")
       .eq("id", beachId)
       .single();
 
@@ -194,7 +194,7 @@ export const softDeleteBeach = withAdminActionAndUser(
       resourceId: beachId,
       details: {
         beach_name: beach?.name,
-        region: beach?.region,
+        state: beach?.state,
       },
     });
 
@@ -210,7 +210,7 @@ export const restoreBeach = withAdminActionAndUser(
     // Get beach details for audit log
     const { data: beach } = await supabaseAdmin
       .from("beaches")
-      .select("name, region")
+      .select("name, state")
       .eq("id", beachId)
       .single();
 
@@ -232,7 +232,7 @@ export const restoreBeach = withAdminActionAndUser(
       resourceId: beachId,
       details: {
         beach_name: beach?.name,
-        region: beach?.region,
+        state: beach?.state,
       },
     });
 

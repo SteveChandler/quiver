@@ -123,9 +123,9 @@ export class NOAABuoySync {
   private async getExistingBeaches(): Promise<Beach[]> {
     const { data, error } = await this.supabase
       .from("beaches")
-      .select("id, name, latitude, longitude")
-      .not("latitude", "is", null)
-      .not("longitude", "is", null);
+      .select("id, name, lat, lon")
+      .not("lat", "is", null)
+      .not("lon", "is", null);
 
     if (error) {
       throw new Error(`Failed to fetch beaches: ${error.message}`);

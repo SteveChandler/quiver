@@ -200,7 +200,7 @@ export async function getBestBeachesNearHome() {
 
     const { data: homeBeach, error: homeBeachError } = await supabase
       .from("beaches")
-      .select("id, latitude, longitude")
+      .select("id, lat, lon")
       .eq("id", profile.home_beach_id)
       .maybeSingle();
 
@@ -211,16 +211,16 @@ export async function getBestBeachesNearHome() {
 
     if (
       !homeBeach ||
-      homeBeach.latitude === null ||
-      homeBeach.longitude === null
+      homeBeach.lat === null ||
+      homeBeach.lon === null
     ) {
       console.log("[getBestBeachesNearHome] Home beach missing coordinates");
       return { success: true, data: [] as BeachRecommendation[] };
     }
 
     let nearbyBeachesResult = await supabase.rpc("get_nearby_beaches", {
-      lat: homeBeach.latitude,
-      lng: homeBeach.longitude,
+      lat: homeBeach.lat,
+      lng: homeBeach.lon,
       max_distance_meters: 16093, // 10 miles
       limit_count: 25,
     });
@@ -239,9 +239,9 @@ export async function getBestBeachesNearHome() {
 
       const fallbackResult = await supabase
         .from("beaches")
-        .select("id, name, location, latitude, longitude, is_private")
-        .not("latitude", "is", null)
-        .not("longitude", "is", null)
+        .select("id, name, city, lat, lon, is_private")
+        .not("lat", "is", null)
+        .not("lon", "is", null)
         .limit(50);
 
       if (fallbackResult.error) {
@@ -259,10 +259,10 @@ export async function getBestBeachesNearHome() {
       const filteredFallback = (fallbackResult.data as any[] | null)?.map(
         (beach) => {
           if (
-            beach?.latitude == null ||
-            beach?.longitude == null ||
-            typeof beach.latitude !== "number" ||
-            typeof beach.longitude !== "number"
+            beach?.lat == null ||
+            beach?.lon == null ||
+            typeof beach.lat !== "number" ||
+            typeof beach.lon !== "number"
           ) {
             return {
               ...beach,
@@ -271,10 +271,10 @@ export async function getBestBeachesNearHome() {
           }
 
           const distance = haversineDistanceMeters(
-            homeBeach.latitude,
-            homeBeach.longitude,
-            beach.latitude,
-            beach.longitude
+            homeBeach.lat,
+            homeBeach.lon,
+            beach.lat,
+            beach.lon
           );
 
           return {
@@ -380,7 +380,7 @@ export async function getBestBeachesNearHome() {
     const { data: beachDetails, error: beachDetailsError } = await supabase
       .from("beaches")
       .select(
-        "id, name, location, skill_level, wind_offshore_deg, wind_offshore_tol_deg, wind_onshore_bad_kt, wind_cross_shore_ok_kt, preferred_tide_ft_min, preferred_tide_ft_max"
+        "id, name, city, skill_level, wind_offshore_deg, wind_offshore_tol_deg, wind_onshore_bad_kt, wind_cross_shore_ok_kt, preferred_tide_ft_min, preferred_tide_ft_max"
       )
       .in("id", beachIds);
 
@@ -545,7 +545,7 @@ export async function getBestBeachesNearHome() {
       const recommendation: BeachRecommendation = {
         id: nearby.id,
         name: details.name,
-        location: details.location ?? nearby.location ?? "",
+        location: details.city ?? nearby.city ?? "",
         distance_miles: toDistanceMilesString(nearby.distance_meters),
         score: Math.round(finalScore),
         reasons: reasonsWithIntel,

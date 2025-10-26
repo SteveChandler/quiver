@@ -55,8 +55,8 @@ describe('Intel Actions XP Wiring', () => {
     mockSupabase.single.mockResolvedValueOnce({ data: { id: 'user-1', full_name: 'Test', avatar_url: null }, error: null });
 
     const res = await createIntelPost({
-      latitude: 32.7,
-      longitude: -117.2,
+      lat: 32.7,
+      lon: -117.2,
       tag: 'conditions' as any,
       title: 'Great morning',
       description: 'Light offshore winds.',

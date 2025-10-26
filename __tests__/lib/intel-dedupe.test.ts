@@ -14,8 +14,8 @@ describe("intel dedupe utilities", () => {
       userId: "user-1",
       tag: "conditions",
       beachId: "beach-1",
-      latitude: 32.715,
-      longitude: -117.161,
+      lat: 32.715,
+      lon: -117.161,
     };
 
     const hashA = createIntelDedupeHash({
@@ -40,8 +40,8 @@ describe("intel dedupe utilities", () => {
       beachId: "beach-1",
       title: "Morning surf report",
       description: "Clean 3-4ft with light offshore winds.",
-      latitude: 32.71,
-      longitude: -117.16,
+      lat: 32.71,
+      lon: -117.16,
     };
 
     const original = createIntelDedupeHash(base);

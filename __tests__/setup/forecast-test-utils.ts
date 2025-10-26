@@ -154,7 +154,7 @@ export const createMultipleMockForecastEntities = (
 export const createMockBeach = () => ({
   id: "beach-1",
   name: "Test Beach",
-  coordinates: { latitude: 32.7157, longitude: -117.1611 },
+  coordinates: { lat: 32.7157, lon: -117.1611 },
   county: "San Diego",
   state: "California",
   country: "United States",

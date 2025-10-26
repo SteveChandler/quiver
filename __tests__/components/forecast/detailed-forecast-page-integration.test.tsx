@@ -50,7 +50,7 @@ import { ForecastDisplayWithTransparency } from "@/components/forecast/forecast-
 const mockBeach = {
   id: "beach-1",
   name: "Trestles",
-  coordinates: { latitude: 33.3894, longitude: -117.5547 },
+  coordinates: { lat: 33.3894, lon: -117.5547 },
   county: "Orange County",
   state: "California",
   country: "USA",

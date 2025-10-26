@@ -4,8 +4,8 @@ import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-servic
 const beach = {
   id: "beach-1",
   name: "Test Beach",
-  latitude: 32.7,
-  longitude: -117.2,
+  lat: 32.7,
+  lon: -117.2,
 } as any;
 
 function createWaveResult() {

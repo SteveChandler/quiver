@@ -105,8 +105,8 @@ describe("Map Forecast Basic Tests", () => {
                   {
                     id: "d030911e-71ba-4678-8bbb-cd06a30f8c42",
                     name: "Ocean Beach",
-                    latitude: 32.7493,
-                    longitude: -117.2511,
+                    lat: 32.7493,
+                    lon: -117.2511,
                   },
                 ],
               },

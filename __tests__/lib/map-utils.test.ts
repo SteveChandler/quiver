@@ -98,12 +98,12 @@ describe("Map Utils", () => {
       const beach = {
         id: "test",
         name: "Test Beach",
-        latitude: 32.7,
-        longitude: -117.2,
+        lat: 32.7,
+        lon: -117.2,
       };
 
       const result = getBeachCoordinates(beach);
-      expect(result).toEqual({ latitude: 32.7, longitude: -117.2 });
+      expect(result).toEqual({ lat: 32.7, lon: -117.2 });
     });
 
     it("should extract coordinates from location object", () => {
@@ -114,7 +114,7 @@ describe("Map Utils", () => {
       };
 
       const result = getBeachCoordinates(beach);
-      expect(result).toEqual({ latitude: 32.7, longitude: -117.2 });
+      expect(result).toEqual({ lat: 32.7, lon: -117.2 });
     });
 
     it("should extract coordinates from lat/lng properties", () => {
@@ -126,7 +126,7 @@ describe("Map Utils", () => {
       };
 
       const result = getBeachCoordinates(beach);
-      expect(result).toEqual({ latitude: 32.7, longitude: -117.2 });
+      expect(result).toEqual({ lat: 32.7, lon: -117.2 });
     });
 
     it("should return null for beach without coordinates", () => {
@@ -150,12 +150,12 @@ describe("Map Utils", () => {
       const beach = {
         id: "test",
         name: "Test Beach",
-        latitude: 32.7,
-        longitude: -117.2,
+        lat: 32.7,
+        lon: -117.2,
       };
 
       const result = resolveBeachCoordinates(beach);
-      expect(result).toEqual({ latitude: 32.7, longitude: -117.2 });
+      expect(result).toEqual({ lat: 32.7, lon: -117.2 });
     });
 
     it("should return null when no coordinates found", () => {

@@ -175,8 +175,8 @@ describe("/api/beaches", () => {
 
       const newBeach = {
         name: "New Beach",
-        latitude: 34.0522,
-        longitude: -118.2437,
+        lat: 34.0522,
+        lon: -118.2437,
       };
 
       const createdBeach = createMockBeach({
@@ -210,8 +210,8 @@ describe("/api/beaches", () => {
         data: {
           id: "beach-new",
           name: "New Beach",
-          latitude: 34.0522,
-          longitude: -118.2437,
+          lat: 34.0522,
+          lon: -118.2437,
         },
       });
 
@@ -219,8 +219,8 @@ describe("/api/beaches", () => {
       expect(mockInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           name: "New Beach",
-          latitude: 34.0522,
-          longitude: -118.2437,
+          lat: 34.0522,
+          lon: -118.2437,
         })
       );
     });
@@ -239,8 +239,8 @@ describe("/api/beaches", () => {
       const updateData = {
         id: "beach-123",
         name: "Updated Beach",
-        latitude: 34.0522,
-        longitude: -118.2437,
+        lat: 34.0522,
+        lon: -118.2437,
       };
 
       const updatedBeach = createMockBeach(updateData);
@@ -275,16 +275,16 @@ describe("/api/beaches", () => {
         data: {
           id: "beach-123",
           name: "Updated Beach",
-          latitude: 34.0522,
-          longitude: -118.2437,
+          lat: 34.0522,
+          lon: -118.2437,
         },
       });
 
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           name: "Updated Beach",
-          latitude: 34.0522,
-          longitude: -118.2437,
+          lat: 34.0522,
+          lon: -118.2437,
           updated_at: expect.any(String),
         })
       );
@@ -305,13 +305,13 @@ describe("/api/beaches", () => {
       const request = createMockRequest("POST", "http://localhost:3000/api/beaches", {
         body: {
           name: "New Beach",
-          latitude: 34.0522,
-          longitude: -118.2437,
+          lat: 34.0522,
+          lon: -118.2437,
         },
       });
 
       const response = await POST(request);
-      
+
       expect(response.status).toBe(401);
       const data = await response.json();
       expect(data).toEqual({
@@ -328,8 +328,8 @@ describe("/api/beaches", () => {
       const request = createMockRequest("POST", "http://localhost:3000/api/beaches", {
         body: {
           name: "New Beach",
-          latitude: 34.0522,
-          longitude: -118.2437,
+          lat: 34.0522,
+          lon: -118.2437,
         },
       });
 
@@ -355,27 +355,27 @@ describe("/api/beaches", () => {
 
       const validBeachData = {
         name: "Test Beach",
-        latitude: 34.0522,
-        longitude: -118.2437,
+        lat: 34.0522,
+        lon: -118.2437,
       };
 
       // Test missing name
       let request = createMockRequest("POST", "http://localhost:3000/api/beaches", {
-        body: { latitude: 34.0522, longitude: -118.2437 },
+        body: { lat: 34.0522, lon: -118.2437 },
       });
       let response = await POST(request);
       await expectErrorResponse(response, 400, "Name, latitude, and longitude are required");
 
       // Test missing latitude
       request = createMockRequest("POST", "http://localhost:3000/api/beaches", {
-        body: { name: "Test Beach", longitude: -118.2437 },
+        body: { name: "Test Beach", lon: -118.2437 },
       });
       response = await POST(request);
       await expectErrorResponse(response, 400, "Name, latitude, and longitude are required");
 
       // Test missing longitude
       request = createMockRequest("POST", "http://localhost:3000/api/beaches", {
-        body: { name: "Test Beach", latitude: 34.0522 },
+        body: { name: "Test Beach", lat: 34.0522 },
       });
       response = await POST(request);
       await expectErrorResponse(response, 400, "Name, latitude, and longitude are required");
@@ -409,8 +409,8 @@ describe("/api/beaches", () => {
       const request = createMockRequest("POST", "http://localhost:3000/api/beaches", {
         body: {
           name: "Duplicate Beach",
-          latitude: 34.0522,
-          longitude: -118.2437,
+          lat: 34.0522,
+          lon: -118.2437,
         },
       });
 
@@ -455,8 +455,8 @@ describe("/api/beaches", () => {
 
       const maliciousBeach = createMockBeach({
         name: "<script>alert('xss')</script>Safe Beach",
-        latitude: 34.0522,
-        longitude: -118.2437,
+        lat: 34.0522,
+        lon: -118.2437,
       });
 
       // Mock the full chain: from("beaches").insert().select().single()
@@ -476,8 +476,8 @@ describe("/api/beaches", () => {
       const request = createMockRequest("POST", "http://localhost:3000/api/beaches", {
         body: {
           name: "<script>alert('xss')</script>Safe Beach",
-          latitude: 34.0522,
-          longitude: -118.2437,
+          lat: 34.0522,
+          lon: -118.2437,
         },
       });
 
@@ -515,8 +515,8 @@ describe("/api/beaches", () => {
       const validRequest = createMockRequest("POST", "http://localhost:3000/api/beaches", {
         body: {
           name: "Valid Beach",
-          latitude: 34.0522, // Valid latitude
-          longitude: -118.2437, // Valid longitude
+          lat: 34.0522, // Valid latitude
+          lon: -118.2437, // Valid longitude
         },
       });
 

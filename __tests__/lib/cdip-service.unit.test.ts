@@ -33,7 +33,7 @@ describe("CDIPService (unit)", () => {
         ],
         metadata: {
           station_name: "Torrey Pines Outer",
-          location: { latitude: 32.921, longitude: -117.39 },
+          location: { lat: 32.921, lon: -117.39 },
           parameters: ["wave"],
           units: { waveHeight: "ft", period: "s", direction: "deg" },
         },

@@ -107,9 +107,8 @@ export async function trackSessionShare(input: ShareSessionInput) {
 
 /**
  * Generate a shareable URL with UTM parameters for tracking
- * (Internal utility - not exported as server action)
  */
-function generateShareUrl(options: ShareUrlOptions): string {
+export async function generateShareUrl(options: ShareUrlOptions): Promise<string> {
   const { sessionId, platform, variant = "story" } = options;
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";

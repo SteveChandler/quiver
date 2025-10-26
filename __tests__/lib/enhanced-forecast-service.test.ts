@@ -64,8 +64,8 @@ jest.mock("@/lib/utils/distance-utils", () => ({
 const mockBeach = {
   id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
   name: "Test Beach",
-  latitude: 37.7749,
-  longitude: -122.4194,
+  lat: 37.7749,
+  lon: -122.4194,
   state: "CA",
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
@@ -325,7 +325,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
     }, 10000);
 
     it("should handle invalid beach data", async () => {
-      const invalidBeach = { ...mockBeach, latitude: null };
+      const invalidBeach = { ...mockBeach, lat: null };
 
       await expect(
         service.generateComprehensiveForecast(invalidBeach as any)

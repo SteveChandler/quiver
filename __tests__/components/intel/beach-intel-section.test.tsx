@@ -56,8 +56,8 @@ const mockUser = {
 const mockIntelPost = {
   id: "post123",
   user_id: "user456",
-  latitude: 32.7157,
-  longitude: -117.1611,
+  lat: 32.7157,
+  lon: -117.1611,
   tag: "conditions" as const,
   title: "Great waves today!",
   description: "Perfect conditions with clean 4-6ft waves and offshore winds",
@@ -77,8 +77,8 @@ const mockIntelPost = {
 const defaultProps = {
   beachId: "beach123",
   beachName: "La Jolla Shores",
-  latitude: 32.7157,
-  longitude: -117.1611,
+  lat: 32.7157,
+  lon: -117.1611,
 };
 
 beforeEach(() => {

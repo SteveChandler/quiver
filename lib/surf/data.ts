@@ -25,9 +25,9 @@ export async function getBeachesNear(
 
     const { data: fallback, error: fallbackError } = await supabase
       .from("beaches")
-      .select("id, name, location, latitude, longitude, is_private")
-      .not("latitude", "is", null)
-      .not("longitude", "is", null)
+      .select("id, name, city, lat, lon, is_private")
+      .not("lat", "is", null)
+      .not("lon", "is", null)
       .limit(50);
 
     if (fallbackError) throw fallbackError;

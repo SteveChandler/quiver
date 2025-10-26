@@ -712,7 +712,7 @@ async function fetchRandomBeaches(supabase: any, count: number): Promise<Beach[]
   
   const { data: beaches, error } = await supabase
     .from('beaches')
-    .select('id, name, location, latitude, longitude, skill_level');
+    .select('id, name, city, lat, lon, skill_level');
 
   if (error) {
     throw new Error(`Failed to fetch beaches: ${error.message}`);
@@ -1364,7 +1364,7 @@ async function createDailyNPCActivity(supabase: any) {
 
           const { data: existingIntel, error: existingIntelError } = await supabase
             .from('intel_posts')
-            .select('id, title, description, latitude, longitude, created_at')
+            .select('id, title, description, lat, lon, created_at')
             .eq('user_id', userId)
             .eq('tag', intelTag)
             .eq('beach_id', beachId)

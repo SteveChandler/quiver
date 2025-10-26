@@ -30,8 +30,8 @@ describe("createIntelPost deduplication", () => {
       title: "Found an easy spot near Birdrock",
       description:
         "Rolled up around 10:29AM for the morning window and found a spot in about 6 minutes.",
-      latitude: 32.8,
-      longitude: -117.3,
+      lat: 32.8,
+      lon: -117.3,
       created_at: new Date().toISOString(),
     };
 
@@ -39,8 +39,8 @@ describe("createIntelPost deduplication", () => {
 
     const result = await createIntelPost(
       {
-        latitude: existingRow.latitude,
-        longitude: existingRow.longitude,
+        lat: existingRow.lat,
+        lon: existingRow.lon,
         tag: "parking" as any,
         title: existingRow.title,
         description: existingRow.description,

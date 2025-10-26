@@ -28,9 +28,9 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("beaches")
-      .select("id, name, latitude, longitude")
-      .not("latitude", "is", null)
-      .not("longitude", "is", null);
+      .select("id, name, lat, lon")
+      .not("lat", "is", null)
+      .not("lon", "is", null);
 
     if (onlyBeachId) {
       query = query.eq("id", onlyBeachId);
