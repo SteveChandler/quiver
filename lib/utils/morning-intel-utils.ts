@@ -555,7 +555,19 @@ export function findNextBestWindow(
   let endTime = futureForecasts[endIdx].forecast_time.substring(0, 5);
   if (startTime === endTime) {
     const [hour, minute] = startTime.split(":").map(Number);
-    const endHour = Math.min(hour + 2, 20); // Cap at 8 PM
+    const endHour = hour + 2;
+
+    // If the 2-hour window would extend beyond a reasonable time (8 PM / 20:00),
+    // don't create a window - conditions are too late in the day
+    if (endHour > 20) {
+      return {
+        startTime: null,
+        endTime: null,
+        description: "Too late in the day",
+        conditions: "Check tomorrow's forecast for better windows",
+      };
+    }
+
     endTime = `${endHour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
   }
 

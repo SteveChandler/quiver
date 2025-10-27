@@ -37,13 +37,14 @@ export function BeachActions({
   };
 
   return (
-    <div className={`space-y-4 ${className || ""}`}>
+    <div data-testid="beach-actions" className={`space-y-4 ${className || ""}`}>
       {/* Primary Action Buttons - Phase 3 Spec Compliance */}
       {/* Grid: 2 cols mobile and up | Gap: 12px | Margin: 20px 0 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-5">
         {/* Log Session - Primary Action */}
         {/* Spec: 48px height, #0077B6 bg, white text, 8px radius, 16px font, 600 weight, 0 24px padding, #006699 hover */}
         <Button
+          data-testid="log-session-btn"
           variant="default"
           onClick={onLogSession}
           className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all"
@@ -55,6 +56,7 @@ export function BeachActions({
         {/* Plan Session - Primary Action */}
         {/* Spec: 48px height, #0077B6 bg, white text, 8px radius, 16px font, 600 weight, 0 24px padding, #006699 hover */}
         <Button
+          data-testid="plan-session-btn"
           variant="default"
           onClick={onPlanSession}
           className="h-12 px-6 text-base font-semibold rounded-md bg-ocean-blue hover:bg-ocean-blue-dark active:scale-[0.98] transition-all"
@@ -67,6 +69,7 @@ export function BeachActions({
       {/* Mobile-only Directions & Home Beach Row */}
       <div className="flex flex-wrap items-center gap-3 md:hidden">
         <Button
+          data-testid="get-directions-btn-mobile"
           variant="outline"
           onClick={handleDirectionsClick}
           disabled={!directionsEnabled}

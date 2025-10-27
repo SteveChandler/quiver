@@ -567,7 +567,7 @@ function EmailPasswordForm({
           placeholder="your.email@example.com"
           value={email}
           onChange={(e) => onEmailChange(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+          onKeyDown={(e) => e.key === "Enter" && !loading && onSubmit()}
           autoComplete="email"
           ref={emailInputRef}
           disabled={loading}
@@ -581,7 +581,7 @@ function EmailPasswordForm({
           type="password"
           value={password}
           onChange={(e) => onPasswordChange(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+          onKeyDown={(e) => e.key === "Enter" && !loading && onSubmit()}
           autoComplete={mode === "signup" ? "new-password" : "current-password"}
           disabled={loading}
         />
@@ -639,7 +639,7 @@ function MagicLinkForm({
           placeholder="your.email@example.com"
           value={email}
           onChange={(e) => onEmailChange(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+          onKeyDown={(e) => e.key === "Enter" && !loading && onSubmit()}
           ref={emailInputRef}
           disabled={loading}
         />

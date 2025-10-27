@@ -98,7 +98,7 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   // When no photos available, show only the map in a simple layout
   if (!hasPhotos) {
     return (
-      <div className={`relative ${className || ""}`}>
+      <div data-testid="beach-photo-gallery" className={`relative ${className || ""}`}>
         <div className="relative aspect-[3/2] md:aspect-auto md:min-h-[400px] bg-muted rounded-xl overflow-hidden">
           {beach.lat && beach.lon ? (
             <MapFallback
@@ -108,7 +108,7 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
               priority
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-ocean-blue/10 to-blue-200/20">
+            <div data-testid="camera-icon-fallback" className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-ocean-blue/10 to-blue-200/20">
               <Camera className="h-16 w-16 text-muted-foreground/40" />
             </div>
           )}
@@ -118,7 +118,7 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   }
 
   return (
-    <div className={`relative ${className || ""}`}>
+    <div data-testid="beach-photo-gallery" className={`relative ${className || ""}`}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-xl overflow-hidden">
         {/* Phase 1 Spec: gap-2 = 8px ✅, rounded-xl = 12px ✅ */}
         {/* Main/Hero Photo (left side on desktop, top on mobile) */}

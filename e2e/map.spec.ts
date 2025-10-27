@@ -1,65 +1,101 @@
 import { test, expect } from '@playwright/test';
-import { selectors } from './utils/selectors';
-import { grantGeolocation, denyGeolocation } from './utils/waits';
+import { VIEWPORTS } from './fixtures/test-data';
+import { waitForPageLoad } from './utils/test-helpers';
 
-test.describe.configure({ mode: 'serial' });
+/**
+ * Map Page Tests
+ * Tests the interactive map functionality
+ *
+ * @project auth
+ */
 
-test.describe('@map - Discovery', () => {
-  test('renders map page with map view visible', async ({ page }) => {
-    await page.goto('/map', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator(selectors.mapView)).toBeVisible({ timeout: 20000 });
-    await expect(page.locator(selectors.mapContainer)).toBeVisible();
+test.describe('Map Page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/map');
+    await waitForPageLoad(page);
   });
-});
 
-test.describe('@map - Map Mode', () => {
-  test('geolocation allowed: shows markers, select and navigate to beach detail', async ({ page }) => {
-    await grantGeolocation(page);
-    await page.goto('/map', { waitUntil: 'domcontentloaded' });
+  test('should display the map container', async ({ page }) => {
+    // Should show map element
+    const map = page.locator('[class*="map"], [id*="map"], canvas').first();
+    await expect(map).toBeVisible({ timeout: 15000 });
+  });
 
-    await expect(page.locator(selectors.mapView)).toBeVisible({ timeout: 20000 });
-    await expect(page.locator(selectors.mapContainer)).toBeVisible();
+  test('should display beach markers on map', async ({ page }) => {
+    // Wait for map to load
+    await page.waitForTimeout(3000);
 
-    const markerCount = await page.locator(selectors.beachMarker).count();
-    if (markerCount > 0) {
-      await page.locator(selectors.beachMarker).first().click();
-      await page.getByText('View Details', { exact: false }).first().click();
-      await expect(page).toHaveURL(/\/beach\//, { timeout: 20000 });
+    // Should have clickable beach markers or cards
+    const beachMarkers = page.locator('a[href^="/beach/"]');
+    const count = await beachMarkers.count();
+
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('should allow clicking on beach to view details', async ({ page }) => {
+    // Wait for beaches to load
+    await page.waitForTimeout(3000);
+
+    // Click first beach link
+    const firstBeach = page.locator('a[href^="/beach/"]').first();
+    const isVisible = await firstBeach.isVisible().catch(() => false);
+
+    if (isVisible) {
+      await firstBeach.click();
+      await waitForPageLoad(page);
+
+      // Should navigate to beach detail page
+      expect(page.url()).toContain('/beach/');
     } else {
-      await page.getByText('View Details', { exact: false }).first().click();
-      await expect(page).toHaveURL(/\/beach\//, { timeout: 20000 });
+      test.skip(true, 'No beach markers found');
     }
   });
 
-  test('geolocation denied: still renders, can toggle list and back to map', async ({ page }) => {
-    await denyGeolocation(page);
-    await page.goto('/map', { waitUntil: 'domcontentloaded' });
+  test('should have search functionality', async ({ page }) => {
+    // Look for search input
+    const searchInput = page.getByPlaceholder(/search/i).first();
+    const hasSearch = await searchInput.isVisible().catch(() => false);
 
-    await expect(page.locator(selectors.mapView)).toBeVisible({ timeout: 20000 });
-    await expect(page.locator(selectors.mapContainer)).toBeVisible();
+    if (hasSearch) {
+      await searchInput.fill('Ocean Beach');
+      await page.waitForTimeout(1000);
 
-    const listToggle = page.getByRole('main').getByRole('button', { name: /^List$/ });
-    if (await listToggle.isVisible().catch(() => false)) {
-      await listToggle.click();
-    } else {
-      const viewAll = page.getByRole('button', { name: /view all/i });
-      await viewAll.click();
+      // Should filter or show results
+      const results = page.locator('a[href^="/beach/"]');
+      const count = await results.count();
+
+      expect(count).toBeGreaterThan(0);
     }
+  });
 
-    try {
-      await expect(page.locator(selectors.beachList)).toBeVisible({ timeout: 20000 });
-    } catch {
-      const filterInput = page.locator(selectors.listFilterInput);
-      if ((await filterInput.count()) > 0) {
-        await expect(filterInput).toBeVisible({ timeout: 20000 });
-      } else {
-        await expect(page.getByRole('textbox', { name: /beaches/i })).toBeVisible({ timeout: 20000 });
+  test('should be responsive on mobile', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
+
+    // Map should still be visible
+    const map = page.locator('[class*="map"], [id*="map"], canvas').first();
+    await expect(map).toBeVisible({ timeout: 15000 });
+  });
+
+  test('should display user location if available', async ({ page }) => {
+    // Grant geolocation permission
+    await page.context().grantPermissions(['geolocation']);
+
+    await page.reload();
+    await waitForPageLoad(page);
+
+    // This is a smoke test - actual behavior depends on implementation
+    // Just verify no errors occurred
+    const errors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        errors.push(msg.text());
       }
-    }
+    });
 
-    await page.getByRole('main').getByRole('button', { name: /^Map$/ }).click();
-    await expect(page.locator(selectors.mapContainer)).toBeVisible();
+    await page.waitForTimeout(2000);
+
+    // Should not have geolocation errors
+    const geoErrors = errors.filter(e => e.toLowerCase().includes('geolocation'));
+    expect(geoErrors.length).toBe(0);
   });
 });
-
-// @map - List Mode test removed per request

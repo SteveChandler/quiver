@@ -254,6 +254,7 @@ export function ProfileView() {
                         className="flex-shrink-0"
                       >
                         <UserAvatar
+                          data-testid="user-avatar"
                           src={profile?.avatar_url}
                           name={profile?.full_name}
                           email={user?.email}
