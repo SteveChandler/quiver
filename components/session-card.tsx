@@ -15,17 +15,14 @@ import {
 } from "lucide-react";
 import { MapImage } from "@/components/map-image";
 import Link from "next/link";
-import { useState, useCallback } from "react";
-import type { MouseEvent } from "react";
+import { useState } from "react";
 import { useCommentCount } from "@/hooks/use-comment-count";
 import { useSessionLike } from "@/hooks/use-session-like";
 import { CommentsModal } from "@/components/comments-modal";
-import { ShareModal } from "@/components/share-modal";
-import { Share2 } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useToast } from "@/hooks/use-toast";
-import type { ShareFallbackContext } from "@/lib/mobile/share";
-import { shareSession } from "@/lib/mobile/share";
+import { SessionShareModal } from "@/components/session/session-share-modal";
+import { SessionShareButton } from "@/components/session/session-share-button";
+import { UserPlus } from "lucide-react";
+import { useUserFollow } from "@/hooks/use-user-follow";
 import type { SessionWithDetails } from "@/types/database";
 
 interface SessionCardProps {
@@ -60,9 +57,7 @@ export function SessionCard({
   onUserClick,
 }: SessionCardProps) {
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const isMobile = useIsMobile();
-  const { toast } = useToast();
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Use dynamic comment count if session ID is available
   const { commentCount: dynamicCommentCount, isLoading } = useCommentCount(
@@ -76,6 +71,16 @@ export function SessionCard({
     likes
   );
   const displayLikesCount = id ? likesCount : likes;
+
+  // Use follow functionality for session author
+  const {
+    following,
+    toggleFollow,
+    isToggling: isFollowToggling,
+  } = useUserFollow(session?.user?.id || "");
+
+  // Get share count from session data
+  const shareCount = session?.share_count || 0;
 
   const handleCommentsClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -93,49 +98,23 @@ export function SessionCard({
     }
   };
 
-  const handleShareClick = useCallback(
-    async (e: MouseEvent<HTMLButtonElement>) => {
+  const handleFollowClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isFollowToggling && session?.user?.id) {
+      await toggleFollow();
+    }
+  };
+
+  const handleShareClick = (e?: React.MouseEvent) => {
+    if (e) {
       e.preventDefault();
       e.stopPropagation();
-
-      if (!id) return;
-
-      const beachLabel = session?.beach?.name || beachName;
-      const noteSource = session?.notes || description || "";
-      const shareText = noteSource
-        ? `${noteSource.slice(0, 140)}${noteSource.length > 140 ? "…" : ""}`
-        : undefined;
-
-      const result = await shareSession(id, {
-        title: beachLabel ? `Session at ${beachLabel}` : "Quiver session",
-        text: shareText,
-        analytics: {
-          surface: "session_card",
-          sessionId: id,
-          beachId: session?.beach?.id,
-          variant: session?.status ?? "unknown",
-        },
-        fallback: ({ reason, channel, error }: ShareFallbackContext) => {
-          const message =
-            reason === "unsupported"
-              ? "Share sheet unavailable"
-              : "Share failed";
-
-          toast({
-            title: message,
-            description:
-              error || `Opening social poster instead (from ${channel} share).`,
-          });
-          setShareOpen(true);
-        },
-      });
-
-      if (result.method === "unsupported") {
-        setShareOpen(true);
-      }
-    },
-    [id, session, beachName, description, toast]
-  );
+    }
+    if (id) {
+      setShareModalOpen(true);
+    }
+  };
 
   const cardContent = (
     <CardContent className="p-4 space-y-4 motion-optimized session-card-hover">
@@ -312,6 +291,7 @@ export function SessionCard({
             `Map showing surf session location at ${beachName}`
           }
           fill
+          loading="lazy"
           className="object-cover"
           beachName={beachName}
           latitude={session?.beach?.latitude || session?.beach?.location?.y}
@@ -363,12 +343,27 @@ export function SessionCard({
           <span>{isLoading ? "..." : displayCommentCount}</span>
         </button>
         {id && (
+          <SessionShareButton
+            sessionId={id}
+            shareCount={shareCount}
+            onShareClick={handleShareClick}
+          />
+        )}
+        {id && session?.user?.id && !isOwner && (
           <button
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
-            onClick={handleShareClick}
+            className={`flex items-center gap-1 text-sm transition-colors ${
+              following
+                ? "text-primary"
+                : "text-muted-foreground hover:text-primary"
+            } ${isFollowToggling ? "opacity-75" : ""}`}
+            onClick={handleFollowClick}
+            disabled={isFollowToggling}
+            data-testid="follow-button"
+            aria-pressed={following}
+            aria-label={`${following ? "Unfollow" : "Follow"} ${username}`}
           >
-            <Share2 className="h-4 w-4" />
-            <span>Share</span>
+            <UserPlus className="h-4 w-4" />
+            <span>{following ? "Following" : "Follow"}</span>
           </button>
         )}
       </div>
@@ -382,13 +377,15 @@ export function SessionCard({
           onClose={() => setCommentsModalOpen(false)}
         />
       )}
+
+      {/* Share Modal */}
       {id && (
-        <ShareModal
+        <SessionShareModal
           sessionId={id}
-          defaultVariant={isMobile ? "story" : "square"}
-          isPublic={session?.is_public}
-          open={shareOpen}
-          onClose={() => setShareOpen(false)}
+          beachName={beachName}
+          shareCount={shareCount}
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
         />
       )}
     </CardContent>

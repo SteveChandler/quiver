@@ -136,7 +136,9 @@ export function PhotoTable({
                         src={photo.thumbUrl || photo.imageUrl}
                         alt="Photo preview"
                         fill
+                        loading="lazy"
                         className="object-cover"
+                        // Admin-only: unoptimized for simplicity, low traffic impact
                         unoptimized
                       />
                     </button>

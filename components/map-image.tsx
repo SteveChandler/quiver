@@ -13,6 +13,7 @@ interface MapImageProps {
   className?: string;
   fill?: boolean;
   beachName?: string; // Optional beach name to display in fallback
+  loading?: "lazy" | "eager"; // Loading strategy for Next.js Image
 }
 
 export function MapImage({
@@ -25,6 +26,7 @@ export function MapImage({
   className,
   fill = false,
   beachName,
+  loading = "lazy",
 }: MapImageProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -82,6 +84,7 @@ export function MapImage({
       <img
         src={src}
         alt={alt}
+        loading={loading}
         className={className}
         style={
           fill
@@ -101,6 +104,7 @@ export function MapImage({
       width={fill ? undefined : width}
       height={fill ? undefined : height}
       fill={fill}
+      loading={loading}
       className={className}
       onError={handleImageError}
     />

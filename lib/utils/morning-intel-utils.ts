@@ -536,11 +536,17 @@ export function findNextBestWindow(
   const startTime = bestForecast.forecast_time.substring(0, 5);
 
   // Extend window by looking at adjacent good forecasts
-  let endIdx = futureForecasts.indexOf(bestForecast);
+  // Cap at 4 hours max and require similar quality (>= 75% of best score)
+  const startIdx = futureForecasts.indexOf(bestForecast);
+  let endIdx = startIdx;
+  const bestScore = topForecasts[0].score;
+  const MAX_WINDOW_FORECASTS = 4; // Cap at ~4 hours (assuming hourly forecasts)
+
   while (
     endIdx < futureForecasts.length - 1 &&
+    (endIdx - startIdx) < MAX_WINDOW_FORECASTS &&
     scoredForecasts.find((s) => s.forecast === futureForecasts[endIdx + 1])?.score &&
-    scoredForecasts.find((s) => s.forecast === futureForecasts[endIdx + 1])!.score >= 20
+    scoredForecasts.find((s) => s.forecast === futureForecasts[endIdx + 1])!.score >= bestScore * 0.75
   ) {
     endIdx++;
   }
@@ -549,7 +555,19 @@ export function findNextBestWindow(
   let endTime = futureForecasts[endIdx].forecast_time.substring(0, 5);
   if (startTime === endTime) {
     const [hour, minute] = startTime.split(":").map(Number);
-    const endHour = Math.min(hour + 2, 20); // Cap at 8 PM
+    const endHour = hour + 2;
+
+    // If the 2-hour window would extend beyond a reasonable time (8 PM / 20:00),
+    // don't create a window - conditions are too late in the day
+    if (endHour > 20) {
+      return {
+        startTime: null,
+        endTime: null,
+        description: "Too late in the day",
+        conditions: "Check tomorrow's forecast for better windows",
+      };
+    }
+
     endTime = `${endHour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
   }
 

@@ -148,10 +148,10 @@ export function MapView() {
     const coordinates = regionBeaches
       .map((beach) => {
         if (
-          typeof beach.latitude === "number" &&
-          typeof beach.longitude === "number"
+          typeof beach.lat === "number" &&
+          typeof beach.lon === "number"
         ) {
-          return { lat: beach.latitude, lng: beach.longitude };
+          return { lat: beach.lat, lng: beach.lon };
         }
         return null;
       })

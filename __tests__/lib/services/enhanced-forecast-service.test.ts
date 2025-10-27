@@ -22,8 +22,8 @@ describe("EnhancedForecastService", () => {
   const beach = {
     id: "b1",
     name: "Test Beach",
-    latitude: 32.7157,
-    longitude: -117.1611,
+    lat: 32.7157,
+    lon: -117.1611,
     created_at: "",
     updated_at: "",
   } as any;
@@ -33,8 +33,8 @@ describe("EnhancedForecastService", () => {
     const service = new EnhancedForecastService() as any;
 
     jest.spyOn(service, "fetchWaveDataWithRetry").mockResolvedValue({
-      lat: beach.latitude,
-      lng: beach.longitude,
+      lat: beach.lat,
+      lng: beach.lon,
       data_source: "FALLBACK",
       forecast: [
         {

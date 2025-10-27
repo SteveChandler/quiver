@@ -107,6 +107,9 @@ export function ProfileView() {
   // No local beach name state; prefer DTO fields on profile
   const [statsRefreshToken, setStatsRefreshToken] = useState(0);
 
+  // Get active tab from URL or default to "sessions"
+  const activeTab = searchParams?.get("tab") || "sessions";
+
   const fetchData = useCallback(async () => {
     if (!user) throw new Error("User not authenticated");
     const profileData = await gateway.users.profile.get(user.id);
@@ -251,6 +254,7 @@ export function ProfileView() {
                         className="flex-shrink-0"
                       >
                         <UserAvatar
+                          data-testid="user-avatar"
                           src={profile?.avatar_url}
                           name={profile?.full_name}
                           email={user?.email}
@@ -356,7 +360,16 @@ export function ProfileView() {
               {...ANIMATION_VARIANTS.fadeUpWithDelay(0.3)}
               className="max-w-6xl mx-auto px-2 sm:px-4"
             >
-              <Tabs defaultValue="sessions" className="space-y-8">
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) => {
+                  // Update URL to reflect active tab
+                  const params = new URLSearchParams(searchParams?.toString() || "");
+                  params.set("tab", value);
+                  router.replace(`/profile?${params.toString()}`, { scroll: false });
+                }}
+                className="space-y-8"
+              >
                 <TabsList className="grid grid-cols-4 w-full h-14 lg:h-16 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg">
                   <TabsTrigger
                     value="sessions"

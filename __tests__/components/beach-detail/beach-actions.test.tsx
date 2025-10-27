@@ -40,8 +40,8 @@ describe('BeachActions', () => {
   const mockBeach: Beach = {
     id: 'test-beach-1',
     name: 'Test Beach',
-    latitude: 33.7701,
-    longitude: -118.1937,
+    lat: 33.7701,
+    lon: -118.1937,
     city: 'Test City',
     state: 'CA',
     country: 'USA',
@@ -77,8 +77,8 @@ describe('BeachActions', () => {
     test('Get Directions button is disabled when coordinates missing', () => {
       const beachWithoutCoords = {
         ...mockBeach,
-        latitude: null,
-        longitude: null,
+        lat: null,
+        lon: null,
       };
 
       render(<BeachActions beach={beachWithoutCoords} />);
@@ -143,8 +143,8 @@ describe('BeachActions', () => {
     test('does not open maps when coordinates are missing', () => {
       const beachWithoutCoords = {
         ...mockBeach,
-        latitude: null,
-        longitude: null,
+        lat: null,
+        lon: null,
       };
 
       render(<BeachActions beach={beachWithoutCoords} />);
@@ -491,8 +491,8 @@ describe('BeachActions', () => {
     test('disabled button is properly marked', () => {
       const beachWithoutCoords = {
         ...mockBeach,
-        latitude: null,
-        longitude: null,
+        lat: null,
+        lon: null,
       };
 
       render(<BeachActions beach={beachWithoutCoords} />);
@@ -532,8 +532,8 @@ describe('BeachActions', () => {
     test('handles beach with partial coordinates', () => {
       const beachWithOnlyLat = {
         ...mockBeach,
-        latitude: 33.7701,
-        longitude: null,
+        lat: 33.7701,
+        lon: null,
       };
 
       render(<BeachActions beach={beachWithOnlyLat} />);
@@ -545,8 +545,8 @@ describe('BeachActions', () => {
     test('handles beach with zero coordinates', () => {
       const beachWithZeroCoords = {
         ...mockBeach,
-        latitude: 0,
-        longitude: 0,
+        lat: 0,
+        lon: 0,
       };
 
       render(<BeachActions beach={beachWithZeroCoords} />);

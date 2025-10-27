@@ -43,8 +43,8 @@ describe('BeachStatsGrid', () => {
   const mockBeach: Beach = {
     id: 'test-beach-1',
     name: 'Test Beach',
-    latitude: 33.7701,
-    longitude: -118.1937,
+    lat: 33.7701,
+    lon: -118.1937,
     city: 'Test City',
     state: 'CA',
     country: 'USA',
@@ -418,8 +418,8 @@ describe('BeachStatsGrid', () => {
       const emptyBeach: Beach = {
         id: 'empty-beach',
         name: 'Empty Beach',
-        latitude: null,
-        longitude: null,
+        lat: null,
+        lon: null,
         city: null,
         state: null,
         country: null,

@@ -80,15 +80,15 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   const mapUrl = useMemo(
     () =>
       getStaticMapImageUrl(
-        beach.latitude ?? undefined,
-        beach.longitude ?? undefined,
+        beach.lat ?? undefined,
+        beach.lon ?? undefined,
         {
           width: 600,
           height: 400,
           zoom: 13,
         }
       ),
-    [beach.latitude, beach.longitude]
+    [beach.lat, beach.lon]
   );
 
   const heroPhoto = validPhotos[0];
@@ -98,9 +98,9 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   // When no photos available, show only the map in a simple layout
   if (!hasPhotos) {
     return (
-      <div className={`relative ${className || ""}`}>
+      <div data-testid="beach-photo-gallery" className={`relative ${className || ""}`}>
         <div className="relative aspect-[3/2] md:aspect-auto md:min-h-[400px] bg-muted rounded-xl overflow-hidden">
-          {beach.latitude && beach.longitude ? (
+          {beach.lat && beach.lon ? (
             <MapFallback
               mapUrl={mapUrl}
               beachName={beach.name}
@@ -108,7 +108,7 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
               priority
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-ocean-blue/10 to-blue-200/20">
+            <div data-testid="camera-icon-fallback" className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-ocean-blue/10 to-blue-200/20">
               <Camera className="h-16 w-16 text-muted-foreground/40" />
             </div>
           )}
@@ -118,7 +118,7 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   }
 
   return (
-    <div className={`relative ${className || ""}`}>
+    <div data-testid="beach-photo-gallery" className={`relative ${className || ""}`}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-xl overflow-hidden">
         {/* Phase 1 Spec: gap-2 = 8px ✅, rounded-xl = 12px ✅ */}
         {/* Main/Hero Photo (left side on desktop, top on mobile) */}
@@ -134,9 +134,10 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
               priority
               fetchPriority="high"
               onError={() => handleImageError(heroPhoto.id)}
+              // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
               unoptimized={heroPhoto.public_url.includes("openverse") || heroPhoto.public_url.includes("flickr")}
             />
-          ) : beach.latitude && beach.longitude ? (
+          ) : beach.lat && beach.lon ? (
             <MapFallback
               mapUrl={mapUrl}
               beachName={beach.name}
@@ -160,12 +161,14 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
                 src={sidePhotos[0].public_url}
                 alt={`${beach.name} - view 2`}
                 fill
+                loading="lazy"
                 sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover"
                 onError={() => handleImageError(sidePhotos[0].id)}
+                // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
                 unoptimized={sidePhotos[0].public_url.includes("openverse") || sidePhotos[0].public_url.includes("flickr")}
               />
-            ) : validPhotos.length === 1 && beach.latitude && beach.longitude ? (
+            ) : validPhotos.length === 1 && beach.lat && beach.lon ? (
               <MapFallback
                 mapUrl={mapUrl}
                 beachName={beach.name}
@@ -186,12 +189,14 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
                 src={sidePhotos[1].public_url}
                 alt={`${beach.name} - view 3`}
                 fill
+                loading="lazy"
                 sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover"
                 onError={() => handleImageError(sidePhotos[1].id)}
+                // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
                 unoptimized={sidePhotos[1].public_url.includes("openverse") || sidePhotos[1].public_url.includes("flickr")}
               />
-            ) : validPhotos.length >= 2 && beach.latitude && beach.longitude ? (
+            ) : validPhotos.length >= 2 && beach.lat && beach.lon ? (
               <MapFallback
                 mapUrl={mapUrl}
                 beachName={beach.name}

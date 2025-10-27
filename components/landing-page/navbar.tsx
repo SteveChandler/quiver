@@ -81,6 +81,7 @@ export function Navbar() {
                 alt="Quiver Logo"
                 width={32}
                 height={32}
+                priority
                 className="transition-transform group-hover:scale-110"
               />
               <span className="text-2xl font-bold font-roboto text-white drop-shadow-lg">
@@ -245,6 +246,7 @@ export function Navbar() {
         onClose={() => setAuthModalOpen(false)}
         mode={authMode}
         source="landing-navbar"
+        returnTo="/"
       />
     </nav>
   );

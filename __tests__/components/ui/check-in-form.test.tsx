@@ -54,7 +54,7 @@ describe("CheckInDialog", () => {
         description: "Fun session",
         forecast_accuracy: "accurate",
       },
-      location: { latitude: 32.7, longitude: -117.2 },
+      location: { lat: 32.7, lon: -117.2 },
       beachId: "beach-123",
     });
 
@@ -89,7 +89,7 @@ describe("CheckInDialog", () => {
     const props = latestProps.current;
     await props.beforeSubmit?.({
       values: { forecast_accuracy: "accurate" },
-      location: { latitude: 0, longitude: 0 },
+      location: { lat: 0, lon: 0 },
     });
     props.onSuccess?.(null);
 
@@ -115,7 +115,7 @@ describe("CheckInDialog", () => {
     await expect(
       props.beforeSubmit?.({
         values: { forecast_accuracy: "accurate" },
-        location: { latitude: 0, longitude: 0 },
+        location: { lat: 0, lon: 0 },
       })
     ).rejects.toThrow("fail");
   });

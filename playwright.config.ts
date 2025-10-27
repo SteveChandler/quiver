@@ -15,6 +15,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 4 : undefined,
   reporter: [["list"], ["html", { open: "never" }]],
+  // Grep to skip data-dependent tests in local dev (when SKIP_DATA_TESTS=true)
+  grep: process.env.SKIP_DATA_TESTS === 'true' ? /^(?!.*@requires-data)/ : undefined,
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",
     extraHTTPHeaders: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))

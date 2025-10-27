@@ -139,7 +139,7 @@ export function BeachStatsGrid({
   ];
 
   return (
-    <div className={`bg-gray-50 p-5 rounded-xl my-6 ${className || ""}`}>
+    <div data-testid="beach-stats-grid" className={`bg-gray-50 p-5 rounded-xl my-6 ${className || ""}`}>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon;

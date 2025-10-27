@@ -6,6 +6,7 @@ const config: Config = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "*.{js,ts,jsx,tsx,mdx}",
+    "./node_modules/onborda/dist/**/*.{js,ts,jsx,tsx}", // Onborda styles
   ],
   theme: {
     extend: {
@@ -16,7 +17,6 @@ const config: Config = {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
         roboto: ["var(--font-roboto)", "system-ui", "sans-serif"],
         "open-sans": ["var(--font-open-sans)", "system-ui", "sans-serif"],
-        montserrat: ["var(--font-montserrat)", "system-ui", "sans-serif"],
       },
       colors: {
         "ocean-blue": "#0077B6",

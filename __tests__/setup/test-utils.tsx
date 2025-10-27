@@ -120,8 +120,8 @@ export const createMockSupabaseClient = () => ({
 export const mockBeach = {
   id: "test-beach-id",
   name: "Test Beach",
-  latitude: 32.7841,
-  longitude: -117.2527,
+  lat: 32.7841,
+  lon: -117.2527,
   description: "A beautiful test beach",
   wave_quality_rating: 4.2,
   crowd_density_rating: 3.1,
@@ -188,8 +188,8 @@ export const createMockBeaches = (count: number = 6) =>
     {
       id: "beach-1",
       name: "Ocean Beach",
-      latitude: 32.7503,
-      longitude: -117.2534,
+      lat: 32.7503,
+      lon: -117.2534,
       location_text: "San Diego",
       wave_quality_rating: 4.2,
       crowd_density_rating: 3.8,
@@ -199,8 +199,8 @@ export const createMockBeaches = (count: number = 6) =>
     {
       id: "beach-2",
       name: "Mission Beach",
-      latitude: 32.7641,
-      longitude: -117.253,
+      lat: 32.7641,
+      lon: -117.253,
       location_text: "San Diego",
       wave_quality_rating: 3.8,
       crowd_density_rating: 4.2,
@@ -210,8 +210,8 @@ export const createMockBeaches = (count: number = 6) =>
     {
       id: "beach-3",
       name: "La Jolla Cove",
-      latitude: 32.8509,
-      longitude: -117.2713,
+      lat: 32.8509,
+      lon: -117.2713,
       location_text: "La Jolla",
       wave_quality_rating: 4.5,
       crowd_density_rating: 4.0,
@@ -221,8 +221,8 @@ export const createMockBeaches = (count: number = 6) =>
     {
       id: "beach-4",
       name: "Sunset Cliffs",
-      latitude: 32.7337,
-      longitude: -117.2553,
+      lat: 32.7337,
+      lon: -117.2553,
       location_text: "Point Loma",
       wave_quality_rating: 4.8,
       crowd_density_rating: 3.2,
@@ -232,8 +232,8 @@ export const createMockBeaches = (count: number = 6) =>
     {
       id: "beach-5",
       name: "Windansea Beach",
-      latitude: 32.8276,
-      longitude: -117.2797,
+      lat: 32.8276,
+      lon: -117.2797,
       location_text: "La Jolla",
       wave_quality_rating: 4.6,
       crowd_density_rating: 3.5,
@@ -243,8 +243,8 @@ export const createMockBeaches = (count: number = 6) =>
     {
       id: "beach-6",
       name: "Pacific Beach",
-      latitude: 32.7797,
-      longitude: -117.2531,
+      lat: 32.7797,
+      lon: -117.2531,
       location_text: "San Diego",
       wave_quality_rating: 3.9,
       crowd_density_rating: 4.5,
@@ -287,8 +287,8 @@ export const createMockUseMultipleBeachReviews = (overrides = {}) => ({
 export const mockMapUtils = () => ({
   getStaticMapImageUrl: jest.fn(() => "http://example.com/map.jpg"),
   resolveBeachCoordinates: jest.fn((beach) => ({
-    latitude: beach.latitude,
-    longitude: beach.longitude,
+    lat: beach.lat,
+    lon: beach.lon,
   })),
 });
 

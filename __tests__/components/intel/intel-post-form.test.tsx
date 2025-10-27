@@ -158,8 +158,8 @@ const baseIntelPost = {
   id: "intel-post-id",
   user_id: "user-id",
   beach_id: "beach-123",
-  latitude: 32.7507,
-  longitude: -117.254,
+  lat: 32.7507,
+  lon: -117.254,
   tag: "other",
   title: "Mock Intel",
   description: "Mock description",
@@ -182,7 +182,7 @@ describe("IntelPostForm", () => {
     isOpen: true,
     onClose: jest.fn(),
     onSuccess: jest.fn(),
-    initialLocation: { latitude: 32.7507, longitude: -117.254 },
+    initialLocation: { lat: 32.7507, lon: -117.254 },
     beachId: "beach-123",
   };
 
@@ -260,8 +260,8 @@ describe("IntelPostForm", () => {
 
     await waitFor(() => {
       expect(mockCreateIntelPost).toHaveBeenCalledWith({
-        latitude: 32.7507,
-        longitude: -117.254,
+        lat: 32.7507,
+        lon: -117.254,
         beach_id: "beach-123",
         tag: "other",
         title: "Great parking spot",
@@ -319,8 +319,8 @@ describe("IntelPostForm", () => {
 
     await waitFor(() => {
       expect(mockCreateIntelPost).toHaveBeenCalledWith({
-        latitude: 32.7507,
-        longitude: -117.254,
+        lat: 32.7507,
+        lon: -117.254,
         beach_id: "beach-123",
         tag: "conditions",
         title: "Epic surf conditions",

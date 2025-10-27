@@ -87,6 +87,7 @@ export function BestConditionsCards() {
                   src={beach.image_url}
                   alt={beach.name}
                   fill
+                  loading="lazy"
                   className="object-cover rounded-t-lg"
                   sizes="(max-width: 640px) 280px, 320px"
                 />

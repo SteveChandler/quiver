@@ -44,22 +44,22 @@ export async function searchBeachesMultiple(
     // Look for exact or partial matches with improved fuzzy matching
     const matchingBeaches = allBeachesResult.data.filter((beach) => {
       const beachName = normalizeSearchText(beach.name);
-      const beachLocation = normalizeSearchText(beach.location || "");
+      const beachCity = normalizeSearchText(beach.city || "");
 
-      // Check for matches in name or location with multiple strategies:
+      // Check for matches in name or city with multiple strategies:
 
       // 1. Exact match (highest priority)
       if (
         beachName === normalizedSearch ||
-        beachLocation === normalizedSearch
+        beachCity === normalizedSearch
       ) {
         return true;
       }
 
-      // 2. Direct substring match in name or location
+      // 2. Direct substring match in name or city
       if (
         beachName.includes(normalizedSearch) ||
-        beachLocation.includes(normalizedSearch)
+        beachCity.includes(normalizedSearch)
       ) {
         return true;
       }
@@ -77,26 +77,26 @@ export async function searchBeachesMultiple(
         const nameWords: string[] = beachName
           .split(" ")
           .filter((word: string) => word.length > 0);
-        const locationWords: string[] = beachLocation
+        const cityWords: string[] = beachCity
           .split(" ")
           .filter((word: string) => word.length > 0);
 
-        // Check if all search words are found in the beach name or location
+        // Check if all search words are found in the beach name or city
         const allWordsInName = searchWords.every((searchWord: string) =>
           nameWords.some(
             (nameWord: string) =>
               nameWord.includes(searchWord) || searchWord.includes(nameWord)
           )
         );
-        const allWordsInLocation = searchWords.every((searchWord: string) =>
-          locationWords.some(
-            (locationWord: string) =>
-              locationWord.includes(searchWord) ||
-              searchWord.includes(locationWord)
+        const allWordsInCity = searchWords.every((searchWord: string) =>
+          cityWords.some(
+            (cityWord: string) =>
+              cityWord.includes(searchWord) ||
+              searchWord.includes(cityWord)
           )
         );
 
-        if (allWordsInName || allWordsInLocation) {
+        if (allWordsInName || allWordsInCity) {
           return true;
         }
       }

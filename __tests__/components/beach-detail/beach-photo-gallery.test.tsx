@@ -49,8 +49,8 @@ describe('BeachPhotoGallery', () => {
   const mockBeach: Beach = {
     id: 'test-beach-1',
     name: 'Test Beach',
-    latitude: 33.7701,
-    longitude: -118.1937,
+    lat: 33.7701,
+    lon: -118.1937,
     city: 'Test City',
     state: 'CA',
     country: 'USA',
@@ -236,7 +236,7 @@ describe('BeachPhotoGallery', () => {
     });
 
     test('shows camera icon when no photos and no coordinates', () => {
-      const beachWithoutCoords = { ...mockBeach, latitude: null, longitude: null };
+      const beachWithoutCoords = { ...mockBeach, lat: null, lon: null };
 
       const { useDataFetcher } = require('@/hooks/use-data-fetcher');
       useDataFetcher.mockReturnValue({
@@ -621,7 +621,7 @@ describe('BeachPhotoGallery', () => {
     });
 
     test('camera icon fallback is descriptive', () => {
-      const beachWithoutCoords = { ...mockBeach, latitude: null, longitude: null };
+      const beachWithoutCoords = { ...mockBeach, lat: null, lon: null };
 
       const { useDataFetcher } = require('@/hooks/use-data-fetcher');
       useDataFetcher.mockReturnValue({

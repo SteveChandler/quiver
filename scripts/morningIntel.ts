@@ -124,12 +124,12 @@ async function getOceanBeachId(
 
   const { data, error } = await supabase
     .from("beaches")
-    .select("id, name, latitude, longitude")
+    .select("id, name, lat, lon")
     .ilike("name", "%Ocean Beach%")
-    .gte("latitude", 32.74)
-    .lte("latitude", 32.76)
-    .gte("longitude", -117.26)
-    .lte("longitude", -117.24)
+    .gte("lat", 32.74)
+    .lte("lat", 32.76)
+    .gte("lon", -117.26)
+    .lte("lon", -117.24)
     .limit(1)
     .single();
 
@@ -423,7 +423,7 @@ async function upsertIntelPost(
   // Get beach coordinates for the post
   const { data: beach } = await supabase
     .from("beaches")
-    .select("latitude, longitude")
+    .select("lat, lon")
     .eq("id", beachId)
     .single();
 
@@ -437,8 +437,8 @@ async function upsertIntelPost(
     beachId,
     title,
     description: body,
-    latitude: beach.latitude,
-    longitude: beach.longitude,
+    latitude: beach.lat,
+    longitude: beach.lon,
   });
 
   const expiresAt = new Date();
@@ -475,8 +475,8 @@ async function upsertIntelPost(
       .insert({
         user_id: userId,
         beach_id: beachId,
-        latitude: beach.latitude,
-        longitude: beach.longitude,
+        latitude: beach.lat,
+        longitude: beach.lon,
         tag: "conditions",
         title,
         description: body,

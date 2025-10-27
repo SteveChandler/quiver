@@ -122,8 +122,8 @@ describe("Simple Map Test", () => {
               {
                 id: "test-beach-1",
                 name: "Test Beach",
-                latitude: 32.7493,
-                longitude: -117.2511,
+                lat: 32.7493,
+                lon: -117.2511,
               },
             ],
           }),
@@ -140,14 +140,14 @@ describe("Simple Map Test", () => {
               {
                 id: "test-beach-1",
                 name: "Test Beach",
-                latitude: 32.7493,
-                longitude: -117.2511,
+                lat: 32.7493,
+                lon: -117.2511,
               },
               {
                 id: "test-beach-2", 
                 name: "Test Beach 2",
-                latitude: 32.7600,
-                longitude: -117.2600,
+                lat: 32.7600,
+                lon: -117.2600,
               },
             ]
           }),

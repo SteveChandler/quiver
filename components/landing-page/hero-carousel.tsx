@@ -138,7 +138,6 @@ export function HeroCarousel({
               alt={slide.alt}
               fill
               priority={isFirstSlide}
-              loading={isFirstSlide ? undefined : "eager"}
               quality={85}
               className={`object-cover transition-opacity duration-700 ${
                 loaded[slideIndex] ? "opacity-100" : "opacity-0"

@@ -4,6 +4,9 @@
 
 BEGIN;
 
+-- Allow destructive operations for this migration (we're intentionally deleting mock data)
+SET LOCAL app.allow_destructive = 'on';
+
 -- Remove boards belonging to the safe mock users
 DELETE FROM public.boards b USING public.profiles p
 WHERE b.user_id = p.id AND p.full_name IN (

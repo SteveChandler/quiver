@@ -1,8 +1,8 @@
 import type { IntelPostTag, IntelPostWithUser } from "./database";
 
 export interface CreateIntelPostData {
-  latitude: number;
-  longitude: number;
+  lat: number;
+  lon: number;
   beach_id?: string;
   tag: IntelPostTag;
   title: string;
@@ -20,8 +20,8 @@ export interface CreateIntelPostData {
 }
 
 export interface GetNearbyIntelPostsParams {
-  latitude: number;
-  longitude: number;
+  lat: number;
+  lon: number;
   radius?: number;
   tag?: IntelPostTag | "all";
   limit?: number;
@@ -38,8 +38,8 @@ export interface IntelData {
 }
 
 export interface UseIntelDataParams {
-  latitude?: number;
-  longitude?: number;
+  lat?: number;
+  lon?: number;
   radius?: number;
   tag?: IntelPostTag | "all";
   limit?: number;

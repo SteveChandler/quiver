@@ -16,22 +16,22 @@ const mockBeaches = [
     id: "65809772-20bc-4009-b9b2-89c8ef3c4127",
     name: "Pacific Beach",
     location: "San Diego, CA",
-    latitude: 32.7942,
-    longitude: -117.2542,
+    lat: 32.7942,
+    lon: -117.2542,
   },
   {
     id: "2",
     name: "Ocean Beach",
     location: "San Diego, CA",
-    latitude: 32.7507,
-    longitude: -117.254,
+    lat: 32.7507,
+    lon: -117.254,
   },
   {
     id: "3",
     name: "Mission Beach",
     location: "San Diego, CA",
-    latitude: 32.7697,
-    longitude: -117.2542,
+    lat: 32.7697,
+    lon: -117.2542,
   },
 ];
 

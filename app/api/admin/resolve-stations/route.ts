@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const supabase = createAPIServerClient();
     const { data: beach, error } = await supabase
       .from("beaches")
-      .select("id,name,latitude,longitude,cdip_station,ndbc_station")
+      .select("id,name,lat,lon,cdip_station,ndbc_station")
       .eq("id", beachId)
       .maybeSingle();
     if (error || !beach) throw error || new Error("Beach not found");
@@ -24,14 +24,14 @@ export async function GET(request: NextRequest) {
     const cdipResolved =
       beach.cdip_station ||
       (await cdipService.getNearestStation(
-        beach.latitude,
-        beach.longitude,
+        beach.lat,
+        beach.lon,
         50
       ));
 
     const ndbcResolved =
       beach.ndbc_station ||
-      (await getNearestNDBCStation(beach.latitude, beach.longitude))?.id ||
+      (await getNearestNDBCStation(beach.lat, beach.lon))?.id ||
       null;
 
     return createSuccessResponse({

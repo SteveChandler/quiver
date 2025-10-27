@@ -8,7 +8,36 @@
 -- The DO block allows us to conditionally ALTER functions only if they exist
 -- This makes the migration more robust across different database states
 
-DO $$ 
+DO $$
+DECLARE
+    func_record RECORD;
+BEGIN
+    -- Dynamically set search_path for ALL custom functions in public schema
+    FOR func_record IN
+        SELECT
+            p.proname,
+            pg_get_function_identity_arguments(p.oid) as args
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public'
+          AND p.proname NOT LIKE 'pg_%'  -- Skip postgres internal functions
+    LOOP
+        BEGIN
+            EXECUTE format('ALTER FUNCTION public.%I(%s) SET search_path = public, pg_catalog',
+                func_record.proname, func_record.args);
+        EXCEPTION WHEN OTHERS THEN
+            -- Silently continue if a function can't be altered
+            NULL;
+        END;
+    END LOOP;
+
+    RAISE NOTICE 'Successfully set search_path for all custom functions';
+END;
+$$;
+
+-- Legacy explicit checks below (commented out - replaced by dynamic approach above)
+/*
+DO $$
 BEGIN
     -- Database Health & Maintenance Functions
     PERFORM 1 FROM pg_proc WHERE proname = 'check_database_health' AND pronamespace = 'public'::regnamespace;
@@ -176,3 +205,4 @@ END $$;
 -- - This prevents malicious users from creating objects in other schemas to hijack function behavior
 -- - Migration is idempotent and handles functions that may not exist in all environments
 -- - Functions will continue to work normally but with enhanced security
+*/

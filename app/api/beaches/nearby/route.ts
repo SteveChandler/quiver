@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const { data: allBeaches, error: fallbackError } = await supabase
       .from("beaches")
-      .select("id, name, latitude, longitude");
+      .select("id, name, lat, lon");
 
     if (fallbackError) throw fallbackError;
 
@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
         distance: calculateDistanceInMiles(
           latitude,
           longitude,
-          b.latitude,
-          b.longitude
+          b.lat,
+          b.lon
         ),
       }))
       .filter((b: any) => isFinite(b.distance) && b.distance <= maxDistance)
@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
       .slice(0, limit)
       .map((b: any) => ({
         id: b.id,
-        latitude: b.latitude,
-        longitude: b.longitude,
+        lat: b.lat,
+        lon: b.lon,
         name: b.name,
       }));
 

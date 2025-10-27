@@ -61,17 +61,30 @@ export function MapContent({
 }: MapContentProps) {
   // Memoize the map display coordinates
   const mapCenter = useMemo(() => {
-    if (selectedBeach) {
-      return { lat: selectedBeach.latitude, lng: selectedBeach.longitude };
+    // Helper to check if coordinates are valid
+    const hasValidCoordinates = (lat: any, lng: any) =>
+      typeof lat === "number" &&
+      typeof lng === "number" &&
+      !isNaN(lat) &&
+      !isNaN(lng);
+
+    if (
+      selectedBeach &&
+      hasValidCoordinates(selectedBeach.lat, selectedBeach.lon)
+    ) {
+      return { lat: selectedBeach.lat, lng: selectedBeach.lon };
     }
     // If searching and have results, center on first result
     if (searchQuery && filteredBeaches.length > 0) {
-      return {
-        lat: filteredBeaches[0].latitude,
-        lng: filteredBeaches[0].longitude,
-      };
+      const firstBeach = filteredBeaches[0];
+      if (hasValidCoordinates(firstBeach.lat, firstBeach.lon)) {
+        return {
+          lat: firstBeach.lat,
+          lng: firstBeach.lon,
+        };
+      }
     }
-    if (userLocation) {
+    if (userLocation && hasValidCoordinates(userLocation.lat, userLocation.lng)) {
       return userLocation;
     }
     return { lat: 32.7503, lng: -117.2534 }; // Ocean Beach default

@@ -2,17 +2,17 @@ name: Generate Beach Intel (3x Daily)
 
 on:
     schedule:
-        # 6:00 AM PT (13:00 UTC PDT / 14:00 UTC PST)
-        - cron: "0 12 * * *" # PDT
-        - cron: "0 13 * * *" # PST
+        # 6:00 AM PT (13:00 UTC)
+        # Note: GitHub Actions cron uses UTC. This runs at 6 AM PDT / 5 AM PST
+        - cron: "0 13 * * *"
 
-        # 10:00 AM PT (17:00 UTC PDT / 18:00 UTC PST)
-        - cron: "0 17 * * *" # PDT
-        - cron: "0 18 * * *" # PST
+        # 10:00 AM PT (17:00 UTC)
+        # Note: Runs at 10 AM PDT / 9 AM PST
+        - cron: "0 17 * * *"
 
-        # 2:00 PM PT (21:00 UTC PDT / 22:00 UTC PST)
-        - cron: "0 21 * * *" # PDT
-        - cron: "0 22 * * *" # PST
+        # 2:00 PM PT (21:00 UTC)
+        # Note: Runs at 2 PM PDT / 1 PM PST
+        - cron: "0 21 * * *"
 
     workflow_dispatch: # Allows manual triggering from GitHub Actions UI
 

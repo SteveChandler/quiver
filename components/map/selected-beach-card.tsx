@@ -52,8 +52,8 @@ export function SelectedBeachCard({
                 <span>
                   {userLocation
                     ? getDistanceFromUser(
-                        selectedBeach.latitude,
-                        selectedBeach.longitude
+                        selectedBeach.lat,
+                        selectedBeach.lon
                       )
                     : selectedBeach.location || "San Diego"}
                 </span>

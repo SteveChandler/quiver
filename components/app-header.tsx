@@ -124,7 +124,7 @@ export function AppHeader() {
   const navItems: { name: string; href: string; icon: null }[] = user
     ? [
         { name: "Discover", href: "/map", icon: null },
-        { name: "Sessions", href: "/sessions", icon: null },
+        { name: "Sessions", href: "/profile?tab=sessions", icon: null },
         { name: "Community", href: "/?tab=community", icon: null },
         ...(isUserAdmin ? [{ name: "Admin", href: "/admin", icon: null }] : []),
       ]
@@ -138,7 +138,7 @@ export function AppHeader() {
     { name: "Home", href: "/", icon: Home },
     { name: "Map", href: "/map", icon: Map },
     { name: "Discover", href: "/discover", icon: Users },
-    { name: "Sessions", href: "/sessions", icon: CalendarDays },
+    { name: "Sessions", href: "/profile?tab=sessions", icon: CalendarDays },
     { name: "Profile", href: "/profile", icon: User },
     ...(isUserAdmin ? [{ name: "Admin", href: "/admin", icon: Settings }] : []),
   ];

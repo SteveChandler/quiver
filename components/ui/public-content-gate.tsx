@@ -28,7 +28,7 @@ export function PublicContentGate({
   className = "",
   source = "unknown",
 }: PublicContentGateProps) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const hasTrackedView = useRef(false);
@@ -45,17 +45,18 @@ export function PublicContentGate({
 
   // Track CTA view for non-authenticated users (only once)
   useEffect(() => {
-    if (!user && !hasTrackedView.current) {
+    if (!user && !isLoading && !hasTrackedView.current) {
       track("signup_cta_view", {
         source,
         cta_title: ctaTitle,
       });
       hasTrackedView.current = true;
     }
-  }, [user, source, ctaTitle]);
+  }, [user, isLoading, source, ctaTitle]);
 
-  // If user is authenticated, show full content without blur
-  if (user) {
+  // If user is authenticated OR still loading auth, show full content without blur
+  // This prevents the auth gate from flashing during session restoration
+  if (user || isLoading) {
     return <>{children}</>;
   }
 

@@ -98,8 +98,8 @@ describe("Map Utils", () => {
       const beach = {
         id: "test",
         name: "Test Beach",
-        latitude: 32.7,
-        longitude: -117.2,
+        lat: 32.7,
+        lon: -117.2,
       };
 
       const result = getBeachCoordinates(beach);
@@ -143,6 +143,50 @@ describe("Map Utils", () => {
       expect(getBeachCoordinates(null)).toBeNull();
       expect(getBeachCoordinates(undefined)).toBeNull();
     });
+
+    it("should return null for NaN coordinates", () => {
+      const beachWithNaN = {
+        id: "test",
+        name: "Test Beach",
+        lat: NaN,
+        lon: -117.2,
+      };
+      expect(getBeachCoordinates(beachWithNaN)).toBeNull();
+
+      const beachWithNaN2 = {
+        id: "test",
+        name: "Test Beach",
+        lat: 32.7,
+        lon: NaN,
+      };
+      expect(getBeachCoordinates(beachWithNaN2)).toBeNull();
+
+      const beachWithBothNaN = {
+        id: "test",
+        name: "Test Beach",
+        lat: NaN,
+        lon: NaN,
+      };
+      expect(getBeachCoordinates(beachWithBothNaN)).toBeNull();
+    });
+
+    it("should return null for Infinity coordinates", () => {
+      const beachWithInfinity = {
+        id: "test",
+        name: "Test Beach",
+        lat: Infinity,
+        lon: -117.2,
+      };
+      expect(getBeachCoordinates(beachWithInfinity)).toBeNull();
+
+      const beachWithNegInfinity = {
+        id: "test",
+        name: "Test Beach",
+        lat: 32.7,
+        lon: -Infinity,
+      };
+      expect(getBeachCoordinates(beachWithNegInfinity)).toBeNull();
+    });
   });
 
   describe("resolveBeachCoordinates", () => {
@@ -150,8 +194,8 @@ describe("Map Utils", () => {
       const beach = {
         id: "test",
         name: "Test Beach",
-        latitude: 32.7,
-        longitude: -117.2,
+        lat: 32.7,
+        lon: -117.2,
       };
 
       const result = resolveBeachCoordinates(beach);

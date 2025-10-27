@@ -87,7 +87,7 @@
     "@capacitor/ios": "^7.4.3",
     "@capacitor/push-notifications": "^7.0.3",
     "@capacitor/share": "^7.0.2",
-    "@hookform/resolvers": "3.3.4",
+    "@hookform/resolvers": "^3.3.4",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -110,7 +110,7 @@
     "@radix-ui/react-slider": "1.2.2",
     "@radix-ui/react-slot": "1.1.1",
     "@radix-ui/react-switch": "1.1.2",
-    "@radix-ui/react-tabs": "1.1.2",
+    "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-toast": "1.2.4",
     "@radix-ui/react-toggle": "1.1.1",
     "@radix-ui/react-toggle-group": "1.1.1",
@@ -137,18 +137,17 @@
     "framer-motion": "^12.19.1",
     "image-conversion": "^2.1.1",
     "input-otp": "1.4.1",
-    "lodash": "4.17.21",
     "lucide-react": "0.454.0",
     "mapbox-gl": "^3.13.0",
     "next": "14.2.32",
     "next-pwa": "^5.6.0",
     "node-fetch": "^3.3.2",
+    "onborda": "^1.2.5",
     "p-limit": "^7.2.0",
     "react": "18.3.1",
     "react-day-picker": "^9.7.0",
     "react-dom": "18.3.1",
-    "react-hook-form": "7.53.2",
-    "react-map-gl": "^8.0.4",
+    "react-hook-form": "^7.53.2",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.0",
     "resend": "6.0.1",
@@ -159,8 +158,8 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
     "web-vitals": "^4.2.4",
-    "workbox-window": "^7.3.0",
-    "zod": "^4.0.17"
+    "zod": "^4.1.12",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",
@@ -174,7 +173,6 @@
     "@testing-library/react": "^15.0.7",
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^29.5.14",
-    "@types/lodash": "^4.17.17",
     "@types/node": "^22",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
@@ -188,10 +186,10 @@
     "jest-environment-jsdom": "^29.7.0",
     "knip": "^5.36.6",
     "lighthouse": "^12.2.1",
-    "node-mocks-http": "^1.14.0",
     "playwright": "^1.54.2",
     "postcss": "^8",
     "postcss-load-config": "^6.0.1",
+    "sharp": "^0.34.4",
     "tailwindcss": "^3.4.17",
     "ts-prune": "^0.10.3",
     "tsx": "^4.20.5",
@@ -201,5 +199,8 @@
   "overrides": {
     "tmp": "^0.2.5",
     "undici": "^6.21.2"
+  },
+  "resolutions": {
+    "xmlbuilder": "^15.1.1"
   }
 }

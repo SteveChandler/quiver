@@ -32,6 +32,7 @@ export function useSessionInvitationsSubscription(
     }
 
     const channels: RealtimeChannel[] = [];
+    let isSubscribed = true;
 
     // Subscribe by user ID if available
     if (userId) {
@@ -46,7 +47,9 @@ export function useSessionInvitationsSubscription(
             filter: `invitee_id=eq.${userId}`,
           },
           () => {
-            onUpdateRef.current();
+            if (isSubscribed) {
+              onUpdateRef.current();
+            }
           }
         )
         .subscribe();
@@ -68,7 +71,9 @@ export function useSessionInvitationsSubscription(
             filter: `invitee_email=eq.${emailValue}`,
           },
           () => {
-            onUpdateRef.current();
+            if (isSubscribed) {
+              onUpdateRef.current();
+            }
           }
         )
         .subscribe();
@@ -76,9 +81,18 @@ export function useSessionInvitationsSubscription(
     }
 
     return () => {
-      channels.forEach((channel) => {
-        supabase.removeChannel(channel);
-      });
+      isSubscribed = false;
+      // Small delay to prevent "WebSocket closed before connection established" error
+      setTimeout(() => {
+        channels.forEach((channel) => {
+          supabase.removeChannel(channel).catch(() => {
+            // Silently handle removal errors in dev mode
+            if (process.env.NODE_ENV === 'development') {
+              console.debug('Channel cleanup completed');
+            }
+          });
+        });
+      }, 100);
     };
   }, [supabase, userId, userEmail]);
 }

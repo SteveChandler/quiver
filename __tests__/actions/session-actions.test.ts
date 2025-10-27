@@ -108,8 +108,8 @@ const mockSessionWithDetails: SessionWithDetails = {
   beach: {
     id: "beach-123",
     name: "Test Beach",
-    latitude: 34.0522,
-    longitude: -118.2437,
+    lat: 34.0522,
+    lon: -118.2437,
     state: "CA",
     country: "US",
     created_at: "2024-01-01T00:00:00.000Z",

@@ -28,9 +28,9 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("beaches")
-      .select("id, name, latitude, longitude")
-      .not("latitude", "is", null)
-      .not("longitude", "is", null);
+      .select("id, name, lat, lon")
+      .not("lat", "is", null)
+      .not("lon", "is", null);
 
     if (onlyBeachId) {
       query = query.eq("id", onlyBeachId);
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       // Marine from NDBC/CDIP
       try {
         const marineRows: any[] = [];
-        const ndbc = await getNearestNDBCStation(b.latitude, b.longitude);
+        const ndbc = await getNearestNDBCStation(b.lat, b.lon);
         if (ndbc) {
           console.log("NDBC nearest station", {
             beach: b.name,
@@ -79,8 +79,8 @@ export async function GET(request: Request) {
         }
         if (!marineRows.length) {
           const station = await cdip.getNearestStation(
-            b.latitude,
-            b.longitude,
+            b.lat,
+            b.lon,
             80
           );
           if (station) {
@@ -177,7 +177,7 @@ export async function GET(request: Request) {
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + 5);
         const end = endDate.toISOString();
-        const st = await getNearestTideStation(b.latitude, b.longitude);
+        const st = await getNearestTideStation(b.lat, b.lon);
         if (st) {
           console.log("NOAA tide nearest station", {
             beach: b.name,
@@ -264,7 +264,7 @@ export async function GET(request: Request) {
         for (let i = 0; i < 5; i++) {
           const d = new Date(today);
           d.setDate(today.getDate() + i);
-          const times = SunCalc.getTimes(d, b.latitude, b.longitude);
+          const times = SunCalc.getTimes(d, b.lat, b.lon);
           const row = {
             beach_id: b.id,
             date: d.toISOString().split("T")[0],

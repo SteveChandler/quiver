@@ -71,7 +71,9 @@ export function PhotoPreviewDialog({
               src={photo.imageUrl}
               alt="Photo preview"
               fill
+              loading="lazy"
               className="object-contain"
+              // Admin-only: unoptimized for simplicity, low traffic impact
               unoptimized
             />
           </div>

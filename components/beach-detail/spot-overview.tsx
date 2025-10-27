@@ -206,10 +206,11 @@ export function SpotOverview({ beach }: SpotOverviewProps) {
                     src={p.public_url}
                     alt="Best of spot"
                     fill
+                    loading="lazy"
                     sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
                     className="object-cover"
-                    priority={false}
                     onError={() => handleImageError(p.id)}
+                    // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
                     unoptimized={p.public_url.includes("openverse") || p.public_url.includes("flickr")}
                   />
                 </div>

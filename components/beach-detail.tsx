@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, lazy, Suspense } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import {
@@ -11,6 +12,7 @@ import {
   CloudSun,
   Compass,
   MapPin,
+  Navigation,
   Star,
   Waves,
   Wind,
@@ -93,6 +95,7 @@ import { BeachReviewForm } from "@/components/beach/beach-review-form";
 import { track, slugify } from "@/lib/analytics";
 import { FullPageLoader } from "@/components/ui/loading-states";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
+import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 
 // New AllTrails-style components
 import { BeachBreadcrumb } from "@/components/beach-detail/beach-breadcrumb";
@@ -104,12 +107,15 @@ import { BeachTabs, BeachTabContent, type BeachTabValue } from "@/components/bea
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 
-// Tab content components - lazy loaded for better performance
-const OverviewTab = lazy(() => import("@/components/beach-detail/tabs/overview-tab").then(m => ({ default: m.OverviewTab })));
-const ForecastTab = lazy(() => import("@/components/beach-detail/tabs/forecast-tab").then(m => ({ default: m.ForecastTab })));
-const ReviewsTab = lazy(() => import("@/components/beach-detail/tabs/reviews-tab").then(m => ({ default: m.ReviewsTab })));
-const IntelTab = lazy(() => import("@/components/beach-detail/tabs/intel-tab").then(m => ({ default: m.IntelTab })));
-const SessionsTab = lazy(() => import("@/components/beach-detail/tabs/sessions-tab").then(m => ({ default: m.SessionsTab })));
+// Tab content components - imported directly to avoid lazy loading issues
+import { OverviewTab } from "@/components/beach-detail/tabs/overview-tab";
+import { ForecastTab } from "@/components/beach-detail/tabs/forecast-tab";
+import { ReviewsTab } from "@/components/beach-detail/tabs/reviews-tab";
+import { IntelTab } from "@/components/beach-detail/tabs/intel-tab";
+import { SessionsTab } from "@/components/beach-detail/tabs/sessions-tab";
+
+// Constants to prevent unnecessary re-renders
+const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
 
 interface BeachDetailProps {
   id: string;
@@ -260,7 +266,7 @@ export function BeachDetail({
     refetch,
   } = useDataFetcher(fetchForecasts, {
     immediate: true,
-    initialData: [] as EnhancedForecastEntity[],
+    initialData: EMPTY_FORECASTS,
   });
 
   // Determine if this beach has a live camera available
@@ -276,8 +282,16 @@ export function BeachDetail({
   const { data: sources } = useDataFetcher(fetchSources, { immediate: true });
 
   // Combined loading and error states
-  const loading = beachLoading || forecastsLoading;
-  const error = beachError || forecastsError;
+  // Only beach errors are fatal - forecast errors should be graceful
+  const loading = beachLoading;
+  const error = beachError;
+
+  // Log forecast errors but don't treat them as fatal
+  useEffect(() => {
+    if (forecastsError) {
+      console.warn("⚠️ Forecast data unavailable:", forecastsError);
+    }
+  }, [forecastsError]);
 
   // Track beach view once we have data
   // Note: Hooks must run unconditionally on every render (before any return)
@@ -300,9 +314,6 @@ export function BeachDetail({
     if (!forecasts || forecasts.length === 0) return null;
 
     // Use the same getCurrentForecast utility as the home page for consistency
-    const {
-      getCurrentForecast,
-    } = require("@/lib/utils/current-forecast-utils");
     const selectedForecast = getCurrentForecast(forecasts);
 
     if (process.env.NODE_ENV === "development") {
@@ -454,6 +465,20 @@ export function BeachDetail({
       ? `— · ${snapshotDirection}`
       : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
 
+  // Calculate destination coordinates and directions handler BEFORE early returns
+  // (must be before early returns to maintain consistent hook count)
+  const destinationCoordinates =
+    beach?.lat && beach?.lon
+      ? `${beach.lat},${beach.lon}`
+      : null;
+  const canGetDirections = Boolean(destinationCoordinates);
+
+  const handleGetDirections = useCallback(() => {
+    if (!destinationCoordinates) return;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${destinationCoordinates}`;
+    window.open(url, "_blank", "noopener");
+  }, [destinationCoordinates]);
+
   // Prioritize loading state to prevent erroneous "not found" flash
   if (loading) {
     return <FullPageLoader />;
@@ -462,18 +487,32 @@ export function BeachDetail({
   // After loading finishes, show error only if we truly have an error or no beach
   if (error || !beach) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-        <div className="text-center">
-          <h2 className="text-xl font-roboto font-bold mb-2 text-dark-grey">
-            {error || "Beach data not found"}
-          </h2>
-          <Button
-            onClick={() => router.push("/map")}
-            className="bg-ocean-blue hover:bg-ocean-blue/90"
-          >
-            Back to Map
-          </Button>
+      <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
+        {/* Breadcrumb Navigation in Error State */}
+        <nav aria-label="Breadcrumb" className="px-4 py-3 bg-white border-b">
+          <div className="max-w-6xl mx-auto">
+            <Link
+              href="/map"
+              className="text-ocean-blue hover:underline text-sm font-medium"
+            >
+              ← Back to Map
+            </Link>
+          </div>
+        </nav>
+
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <h2 className="text-xl font-roboto font-bold mb-2 text-dark-grey">
+              {error || "Beach data not found"}
+            </h2>
+            <Button
+              onClick={() => router.push("/map")}
+              className="bg-ocean-blue hover:bg-ocean-blue/90"
+            >
+              Back to Map
+            </Button>
         </div>
+      </div>
       </div>
     );
   }
@@ -488,6 +527,25 @@ export function BeachDetail({
     setSessionPlanningMode("log");
     setSessionPlanningOpen(true);
   };
+
+  const tabActions = (
+    <>
+      <Button
+        variant="outline"
+        onClick={handleGetDirections}
+        disabled={!canGetDirections}
+        className="h-10 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+      >
+        <Navigation className="mr-2 h-4 w-4" />
+        Get directions
+      </Button>
+      <FavoriteButton
+        beachId={beach.id}
+        variant="outline"
+        className="h-10 border-gray-300 text-gray-700 hover:bg-gray-50"
+      />
+    </>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
@@ -514,59 +572,51 @@ export function BeachDetail({
           beach={beach}
           onPlanSession={handlePlanSession}
           onLogSession={handleLogSession}
+          onGetDirections={handleGetDirections}
+          canGetDirections={canGetDirections}
           className="mb-8"
         />
 
         {/* Tabbed Content */}
-        <BeachTabs activeTab={activeTab} onTabChange={setActiveTab}>
+        <BeachTabs activeTab={activeTab} onTabChange={setActiveTab} actions={tabActions}>
           {/* Overview Tab */}
           <BeachTabContent value="overview">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <OverviewTab beach={beach as any} />
-            </Suspense>
+            <OverviewTab beach={beach as any} />
           </BeachTabContent>
 
           {/* Forecast Tab */}
           <BeachTabContent value="forecast">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <ForecastTab
-                beach={beach}
-                forecasts={forecasts || []}
-                currentForecast={currentForecast}
-                hasCamera={hasCamera}
-              />
-            </Suspense>
+            <ForecastTab
+              beach={beach}
+              forecasts={forecasts || []}
+              currentForecast={currentForecast}
+              hasCamera={hasCamera}
+            />
           </BeachTabContent>
 
           {/* Reviews Tab */}
           <BeachTabContent value="reviews">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <ReviewsTab
-                beach={beach}
-                onWriteReview={handleWriteReview}
-                reviewRefreshTrigger={reviewRefreshTrigger}
-              />
-            </Suspense>
+            <ReviewsTab
+              beach={beach}
+              onWriteReview={handleWriteReview}
+              reviewRefreshTrigger={reviewRefreshTrigger}
+            />
           </BeachTabContent>
 
           {/* Local Intel Tab */}
           <BeachTabContent value="intel">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <IntelTab
-                beach={beach}
-                initialShowAll={searchParams?.get("show") === "all"}
-              />
-            </Suspense>
+            <IntelTab
+              beach={beach}
+              initialShowAll={searchParams?.get("show") === "all"}
+            />
           </BeachTabContent>
 
           {/* Sessions Tab */}
           <BeachTabContent value="sessions">
-            <Suspense fallback={<TabLoadingSkeleton />}>
-              <SessionsTab
-                beach={beach}
-                sessionSnapshots={sessionSnapshots}
-              />
-            </Suspense>
+            <SessionsTab
+              beach={beach}
+              sessionSnapshots={sessionSnapshots}
+            />
           </BeachTabContent>
         </BeachTabs>
       </div>

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { getStaticMapImageUrl, resolveBeachCoordinates } from "@/lib/map-utils";
 import { useMultipleBeachReviews } from "@/hooks/use-beach-reviews";
+import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 
 interface BeachCardData {
@@ -45,25 +46,20 @@ const DEFAULT_MAP_OPTIONS = {
   zoom: 15,
 };
 
-// Default distance calculation using Haversine formula
+// Default distance calculation using centralized utility
+// Returns "—" if coordinates are invalid (NaN, null, etc.)
 function defaultCalculateDistance(
   lat1: number,
   lng1: number,
   lat2: number,
   lng2: number
 ): string {
-  const R = 3958.8; // Earth's radius in miles
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c;
-  return `${distance.toFixed(1)} miles`;
+  const formatted = calculateDistanceFormatted(lat1, lng1, lat2, lng2, "miles");
+  // If validation failed, return the fallback character
+  if (formatted === "—") {
+    return "—";
+  }
+  return `${formatted}`;
 }
 
 /**
@@ -102,6 +98,11 @@ export function useBeachCardData(
     error,
   } = useMultipleBeachReviews(beachIds);
 
+  // Extract map options to stable values to prevent unnecessary re-renders
+  const mapWidth = mapOptions.width || DEFAULT_MAP_OPTIONS.width;
+  const mapHeight = mapOptions.height || DEFAULT_MAP_OPTIONS.height;
+  const mapZoom = mapOptions.zoom || DEFAULT_MAP_OPTIONS.zoom;
+
   // Process beach data
   const beachCardData = useMemo(() => {
     return displayBeaches.map((beach): BeachCardData => {
@@ -124,11 +125,11 @@ export function useBeachCardData(
         );
       }
 
-      // Generate map image URL
+      // Generate map image URL (now with caching to prevent duplicates)
       const mapImageUrl = getStaticMapImageUrl(
         coords?.latitude,
         coords?.longitude,
-        mapOptions
+        { width: mapWidth, height: mapHeight, zoom: mapZoom }
       );
 
       return {
@@ -149,7 +150,9 @@ export function useBeachCardData(
     userLocation,
     calculateDistance,
     defaultLocationText,
-    mapOptions,
+    mapWidth,
+    mapHeight,
+    mapZoom,
   ]);
 
   return {

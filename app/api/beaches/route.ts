@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  createSuccessResponse,
+  createCachedResponse,
   createValidationError,
   handleApiError,
+  CacheDuration,
+  checkNotModified,
 } from "@/lib/api-utils";
 import { isAdmin } from "@/lib/auth/admin";
 
-// GET method to retrieve all beaches
+// GET method to retrieve all beaches with optimized caching
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
+    // Selective field query - only fetch fields needed by consumers and that exist in schema
     const { data, error } = await supabase
       .from("beaches")
-      .select("*")
+      .select("id, name, city, lat, lon, state, created_at, is_private")
       .order("name");
 
     if (error) {
@@ -22,10 +25,18 @@ export async function GET(request: NextRequest) {
       return handleApiError(error, "Failed to fetch beaches");
     }
 
-    return createSuccessResponse({
+    const responseData = {
       beaches: data || [],
       count: data?.length || 0,
-    });
+    };
+
+    // Check ETag for 304 Not Modified response
+    const clientETag = request.headers.get('If-None-Match');
+    const notModified = checkNotModified(clientETag, responseData);
+    if (notModified) return notModified;
+
+    // Return cached response with 5min cache + 1hr SWR
+    return createCachedResponse(responseData, CacheDuration.MEDIUM);
   } catch (error) {
     console.error("Error fetching beaches:", error);
     return handleApiError(error, "Failed to fetch beaches");
@@ -46,11 +57,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, latitude, longitude } = body;
+    const { id, name, lat, lon } = body;
 
-    if (!name || !latitude || !longitude) {
+    if (!name || !lat || !lon) {
       return createValidationError(
-        "Name, latitude, and longitude are required"
+        "Name, lat, and lon are required"
       );
     }
 
@@ -62,8 +73,8 @@ export async function POST(request: NextRequest) {
         .from("beaches")
         .update({
           name,
-          latitude,
-          longitude,
+          lat,
+          lon,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id)
@@ -75,8 +86,8 @@ export async function POST(request: NextRequest) {
         .from("beaches")
         .insert({
           name,
-          latitude,
-          longitude,
+          lat,
+          lon,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -94,8 +105,8 @@ export async function POST(request: NextRequest) {
       data: {
         id: result.data.id,
         name: result.data.name,
-        latitude: result.data.latitude,
-        longitude: result.data.longitude,
+        lat: result.data.lat,
+        lon: result.data.lon,
       },
     });
   } catch (error) {

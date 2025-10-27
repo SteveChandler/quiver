@@ -5,8 +5,8 @@ describe("Recommendation Scorer", () => {
   const mockBeach: Beach = {
     id: "test-beach-1",
     name: "Test Beach",
-    latitude: 33.7490,
-    longitude: -118.4095,
+    lat: 33.7490,
+    lon: -118.4095,
     location: "Manhattan Beach, CA",
     region: "Los Angeles",
     country: "USA",

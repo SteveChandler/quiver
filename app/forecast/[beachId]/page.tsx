@@ -5,6 +5,11 @@ import { ForecastPageClient } from "./forecast-page-client";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
+// ISR Configuration: Revalidate every hour (forecasts update hourly via cron)
+// This reduces CDN usage by serving cached pages for 1 hour
+// All pages are generated on-demand (ISR) and cached after first request
+export const revalidate = 3600;
+
 export default async function ForecastPage({
   params,
 }: {

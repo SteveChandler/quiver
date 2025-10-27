@@ -53,10 +53,12 @@ BEGIN
     DROP TRIGGER IF EXISTS update_follow_counts_delete ON user_follows;
     DROP TRIGGER IF EXISTS user_follows_count_trigger ON user_follows;
     
-    -- Storage usage triggers
-    DROP TRIGGER IF EXISTS update_user_storage_usage_insert ON session_media;
-    DROP TRIGGER IF EXISTS update_user_storage_usage_delete ON session_media;
-    
+    -- Storage usage triggers (only if session_media table exists)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'session_media') THEN
+        DROP TRIGGER IF EXISTS update_user_storage_usage_insert ON session_media;
+        DROP TRIGGER IF EXISTS update_user_storage_usage_delete ON session_media;
+    END IF;
+
     RAISE NOTICE 'Dropped all dependent triggers before function recreation';
 END $$;
 
@@ -1002,17 +1004,19 @@ BEGIN
         FOR EACH ROW
         EXECUTE FUNCTION update_follow_counts();
     
-    -- Recreate storage usage triggers
-    CREATE TRIGGER update_user_storage_usage_insert
-        AFTER INSERT ON session_media
-        FOR EACH ROW
-        EXECUTE FUNCTION update_user_storage_usage();
-        
-    CREATE TRIGGER update_user_storage_usage_delete
-        AFTER DELETE ON session_media
-        FOR EACH ROW
-        EXECUTE FUNCTION update_user_storage_usage();
-    
+    -- Recreate storage usage triggers (only if session_media table exists)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'session_media') THEN
+        CREATE TRIGGER update_user_storage_usage_insert
+            AFTER INSERT ON session_media
+            FOR EACH ROW
+            EXECUTE FUNCTION update_user_storage_usage();
+
+        CREATE TRIGGER update_user_storage_usage_delete
+            AFTER DELETE ON session_media
+            FOR EACH ROW
+            EXECUTE FUNCTION update_user_storage_usage();
+    END IF;
+
     RAISE NOTICE 'Recreated all dependent triggers with secure functions';
 END $$;
 

@@ -37,8 +37,8 @@ describe("ForecastAndTides (smoke)", () => {
     const beach = {
       id: "beach-uuid",
       name: "Test Beach",
-      latitude: 32.7,
-      longitude: -117.2,
+      lat: 32.7,
+      lon: -117.2,
     } as any;
     const forecasts: any[] = [];
 

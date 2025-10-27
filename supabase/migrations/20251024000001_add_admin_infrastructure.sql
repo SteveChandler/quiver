@@ -145,13 +145,17 @@ BEGIN
 
         RAISE NOTICE 'team_admin badge definition created/updated';
 
-        -- Assign badge to admin user
+        -- Assign badge to admin user (only if user exists)
         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_badges') THEN
-            INSERT INTO public.user_badges (user_id, badge_slug)
-            VALUES ('bcdc5d59-2e22-4006-98a6-cada8618577a', 'team_admin')
-            ON CONFLICT (user_id, badge_slug) DO NOTHING;
+            IF EXISTS (SELECT 1 FROM public.profiles WHERE id = 'bcdc5d59-2e22-4006-98a6-cada8618577a') THEN
+                INSERT INTO public.user_badges (user_id, badge_slug)
+                VALUES ('bcdc5d59-2e22-4006-98a6-cada8618577a', 'team_admin')
+                ON CONFLICT (user_id, badge_slug) DO NOTHING;
 
-            RAISE NOTICE 'team_admin badge assigned to admin user';
+                RAISE NOTICE 'team_admin badge assigned to admin user';
+            ELSE
+                RAISE NOTICE 'Admin user not found in this environment - skipping badge assignment';
+            END IF;
         END IF;
     ELSE
         RAISE NOTICE 'badge_definitions table not found - skipping badge seeding (will be handled by gamification migration)';

@@ -55,7 +55,7 @@ export class NOAABuoySync {
         `Sample beaches:`,
         beaches
           .slice(0, 3)
-          .map((b) => `${b.name} (${b.latitude}, ${b.longitude})`)
+          .map((b) => `${b.name} (${b.lat}, ${b.lon})`)
       );
 
       // 2. Fetch NOAA station master list
@@ -123,9 +123,9 @@ export class NOAABuoySync {
   private async getExistingBeaches(): Promise<Beach[]> {
     const { data, error } = await this.supabase
       .from("beaches")
-      .select("id, name, latitude, longitude")
-      .not("latitude", "is", null)
-      .not("longitude", "is", null);
+      .select("id, name, lat, lon")
+      .not("lat", "is", null)
+      .not("lon", "is", null);
 
     if (error) {
       throw new Error(`Failed to fetch beaches: ${error.message}`);
@@ -236,8 +236,8 @@ export class NOAABuoySync {
         const distance = this.calculateDistance(
           stationLat,
           stationLng,
-          beach.latitude,
-          beach.longitude
+          beach.lat,
+          beach.lon
         );
         totalDistanceChecks++;
 

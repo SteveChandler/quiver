@@ -166,8 +166,8 @@ describe("Map Forecast Display Feature", () => {
       const expectedBeachStructure = {
         id: "UUID string",
         name: "string",
-        latitude: "number",
-        longitude: "number",
+        lat: "number",
+        lon: "number",
         location: "string (optional)"
       };
       

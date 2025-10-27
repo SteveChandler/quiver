@@ -38,9 +38,9 @@ export default function SocialPostCard({
               src={imageUrl}
               alt={`${name || "User"}'s surf session`}
               fill
+              loading="lazy"
               sizes="(max-width: 640px) 100vw, 33vw"
               className="object-cover"
-              priority={false}
               unoptimized
               onError={() => setImageError(true)}
             />

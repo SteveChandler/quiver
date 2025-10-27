@@ -593,8 +593,8 @@ export function IntelPostForm({
                         </div>
                       )}
                       <div className="text-xs text-muted-foreground">
-                        {location.latitude.toFixed(4)},{" "}
-                        {location.longitude.toFixed(4)}
+                        {location.latitude?.toFixed(4) ?? 'N/A'},{" "}
+                        {location.longitude?.toFixed(4) ?? 'N/A'}
                       </div>
                     </div>
                   ) : (

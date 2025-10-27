@@ -61,8 +61,8 @@ describe("useGeolocation", () => {
   it("should successfully get user location", async () => {
     const mockPosition = {
       coords: {
-        latitude: 33.7701,
-        longitude: -118.1937,
+        lat: 33.7701,
+        lon: -118.1937,
       },
     };
 
@@ -162,8 +162,8 @@ describe("useGeolocation", () => {
     // Now mock successful response for retry
     const mockPosition = {
       coords: {
-        latitude: 33.7701,
-        longitude: -118.1937,
+        lat: 33.7701,
+        lon: -118.1937,
       },
     };
 

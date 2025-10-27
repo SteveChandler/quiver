@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     // Fetch beach lat/lon for on-demand generation
     const { data: beachRow } = await supabase
       .from("beaches")
-      .select("id, latitude, longitude")
+      .select("id, lat, lon")
       .eq("id", beachId)
       .single();
 
@@ -62,8 +62,8 @@ export async function GET(request: Request) {
     // On-demand tide generation if missing
     if (beachRow && (!tides.data || tides.data.length === 0)) {
       const station = await getNearestTideStation(
-        beachRow.latitude,
-        beachRow.longitude
+        beachRow.lat,
+        beachRow.lon
       );
       if (station) {
         try {
@@ -118,8 +118,8 @@ export async function GET(request: Request) {
             const d = Number(date.slice(8, 10));
             const times = SunCalc.getTimes(
               new Date(Date.UTC(y, m, d)),
-              beachRow.latitude,
-              beachRow.longitude
+              beachRow.lat,
+              beachRow.lon
             );
             return {
               beach_id: beachId,

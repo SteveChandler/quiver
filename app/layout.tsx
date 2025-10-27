@@ -2,7 +2,7 @@ import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
-import { Inter, Roboto, Open_Sans, Montserrat } from "next/font/google";
+import { Inter, Roboto, Open_Sans } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
@@ -23,6 +23,14 @@ const PWAAndPushListeners = dynamic(
 );
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+const OnboardingDialog = dynamic(
+  () => import("@/components/onboarding/onboarding-dialog").then(mod => ({ default: mod.OnboardingDialog })),
+  { ssr: false }
+);
+const ProductTour = dynamic(
+  () => import("@/components/onboarding/product-tour").then(mod => ({ default: mod.ProductTour })),
+  { ssr: false }
+);
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL";
 
@@ -50,13 +58,6 @@ const openSans = Open_Sans({
   variable: "--font-open-sans",
 });
 
-const montserrat = Montserrat({
-  weight: ["400", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  preload: false, // Not critical for LCP
-  variable: "--font-montserrat",
-});
 
 // Optimize viewport for mobile performance
 // Note: maximumScale removed for WCAG 1.4.4 compliance (allow user zoom)
@@ -121,7 +122,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${roboto.variable} ${openSans.variable} ${montserrat.variable}`}
+      className={`${inter.variable} ${roboto.variable} ${openSans.variable}`}
     >
       <head>
         {/* Google Analytics (GA4) */}
@@ -195,13 +196,7 @@ export default function RootLayout({
 
         {/* Remove aggressive prefetching on mobile to reduce initial network load */}
 
-        {/* Preload critical resources for faster LCP */}
-        <link
-          rel="preload"
-          href="/logoQuiver.png"
-          as="image"
-          type="image/png"
-        />
+        {/* Note: logoQuiver.png is only used on landing page, so preload is handled there */}
 
         {/* Remove non-existent webpack chunk preload - these are dynamic */}
 
@@ -290,6 +285,13 @@ export default function RootLayout({
               {/* Toast systems: shadcn UI (in-app) and Sonner (global) */}
               <Toaster />
               <SonnerToaster />
+              {/* Onboarding flow and product tour */}
+              <Suspense fallback={null}>
+                <OnboardingDialog />
+              </Suspense>
+              <Suspense fallback={null}>
+                <ProductTour />
+              </Suspense>
               {/* Expose a lightweight confetti availability flag for E2E */}
               <script
                 dangerouslySetInnerHTML={{

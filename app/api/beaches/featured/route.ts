@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     // Fetch beaches that have featured photos - prioritize beaches with images
     const { data: photosData, error: photosError } = await supabase
       .from("beach_photos_featured")
-      .select("beach_id, thumb_url, image_url, beaches(id, name, location, region)")
+      .select("beach_id, thumb_url, image_url, beaches(id, name, city, state)")
       .limit(12);
 
     if (photosError) {
@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
           beaches.push({
             id: photo.beaches.id,
             name: photo.beaches.name,
-            location: photo.beaches.location,
-            region: photo.beaches.region,
+            city: photo.beaches.city,
+            state: photo.beaches.state,
           });
         }
 

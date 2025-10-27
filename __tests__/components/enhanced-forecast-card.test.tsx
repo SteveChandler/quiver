@@ -101,7 +101,7 @@ describe("Enhanced Forecast Components", () => {
   const mockBeach = {
     id: "beach-1",
     name: "Ocean Beach",
-    coordinates: { latitude: 32.7553, longitude: -117.2547 },
+    coordinates: { lat: 32.7553, lon: -117.2547 },
     county: "San Diego",
     state: "California",
     country: "US",

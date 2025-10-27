@@ -28,8 +28,8 @@ const mockBeaches: Beach[] = [
   {
     id: "beach-1",
     name: "Pacific Beach",
-    latitude: 32.7841,
-    longitude: -117.2527,
+    lat: 32.7841,
+    lon: -117.2527,
     description: "Popular beach for surfing and beach volleyball",
     wave_quality_rating: 4.2,
     crowd_density_rating: 3.8,
@@ -41,8 +41,8 @@ const mockBeaches: Beach[] = [
   {
     id: "beach-2",
     name: "Ocean Beach",
-    latitude: 32.7503,
-    longitude: -117.2534,
+    lat: 32.7503,
+    lon: -117.2534,
     description: "Dog-friendly beach with a historic pier",
     wave_quality_rating: 3.9,
     crowd_density_rating: 4.1,
@@ -54,8 +54,8 @@ const mockBeaches: Beach[] = [
   {
     id: "beach-3",
     name: "Mission Beach",
-    latitude: 32.7738,
-    longitude: -117.2528,
+    lat: 32.7738,
+    lon: -117.2528,
     description: "Boardwalk beach with amusement park nearby",
     wave_quality_rating: 3.6,
     crowd_density_rating: 4.5,
@@ -325,8 +325,8 @@ describe("Beach Query Actions", () => {
       const minimalBeach: Beach = {
         id: "minimal-beach",
         name: "Minimal Beach",
-        latitude: 32.7841,
-        longitude: -117.2527,
+        lat: 32.7841,
+        lon: -117.2527,
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
       };
@@ -404,8 +404,8 @@ describe("Beach Query Actions", () => {
         result.data.forEach((beach) => {
           expect(typeof beach.id).toBe("string");
           expect(typeof beach.name).toBe("string");
-          expect(typeof beach.latitude).toBe("number");
-          expect(typeof beach.longitude).toBe("number");
+          expect(typeof beach.lat).toBe("number");
+          expect(typeof beach.lon).toBe("number");
           expect(typeof beach.created_at).toBe("string");
           expect(typeof beach.updated_at).toBe("string");
 
@@ -427,7 +427,7 @@ describe("Beach Query Actions", () => {
         {
           id: "beach-1",
           name: "Pacific Beach",
-          // Missing required latitude/longitude
+          // Missing required lat/lon
           created_at: "2024-01-01T00:00:00Z",
           updated_at: "2024-01-01T00:00:00Z",
         },
@@ -459,8 +459,8 @@ describe("Beach Query Actions", () => {
       const largeBeachList = Array.from({ length: 1000 }, (_, i) => ({
         id: `beach-${i}`,
         name: `Beach ${i.toString().padStart(4, "0")}`, // Ensures proper alphabetical sorting
-        latitude: 32.7841 + i * 0.001,
-        longitude: -117.2527 + i * 0.001,
+        lat: 32.7841 + i * 0.001,
+        lon: -117.2527 + i * 0.001,
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
       }));

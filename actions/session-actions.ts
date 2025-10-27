@@ -81,7 +81,7 @@ export async function addFeaturedPhotoToSessions<T extends { id: string; feature
       .from("session_media")
       .select("session_id, public_url, media_type, created_at")
       .in("session_id", sessionIds)
-      .in("media_type", ["photo", "image"])
+      .in("media_type", ["photo"])
       .order("created_at", { ascending: false });
 
     if (error) {

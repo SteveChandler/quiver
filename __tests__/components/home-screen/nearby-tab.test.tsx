@@ -35,8 +35,8 @@ const mockBeaches: Beach[] = [
   {
     id: "2",
     name: "Far Beach",
-    latitude: 33.8503,
-    longitude: -117.9534,
+    lat: 33.8503,
+    lon: -117.9534,
     created_at: "",
     updated_at: "",
     description: null,
@@ -46,8 +46,8 @@ const mockBeaches: Beach[] = [
   {
     id: "1",
     name: "Near Beach",
-    latitude: 32.7603,
-    longitude: -117.2634,
+    lat: 32.7603,
+    lon: -117.2634,
     created_at: "",
     updated_at: "",
     description: null,

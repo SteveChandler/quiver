@@ -2,11 +2,10 @@ name: Daily Morning Surf Intel
 
 on:
   schedule:
-    # Run daily at 6:00 AM PT
+    # Run daily at 6:00 AM PT (13:00 UTC)
+    # Note: GitHub Actions cron uses UTC. This runs at 6 AM PDT / 5 AM PST
     # PT is UTC-8 (standard) or UTC-7 (daylight)
-    # 6 AM PST = 14:00 UTC (Nov-Mar), 6 AM PDT = 13:00 UTC (Mar-Nov)
-    - cron: "0 13 * * *" # 6 AM PDT (Mar-Nov)
-    - cron: "0 14 * * *" # 6 AM PST (Nov-Mar)
+    - cron: "0 13 * * *"
   workflow_dispatch: # Allows manual triggering from GitHub Actions UI
 
 env:

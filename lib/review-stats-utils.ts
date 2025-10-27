@@ -87,10 +87,16 @@ export function calculateReviewStats(reviews: ReviewRatings[]): ReviewStats {
  */
 export function calculateBeachAverageRatings(reviews: ReviewRatings[]) {
   if (reviews.length === 0) {
-    return {};
+    return {
+      average_rating: null,
+      review_count: 0,
+    };
   }
 
   return {
+    average_rating:
+      reviews.reduce((sum, r) => sum + r.overall_rating, 0) / reviews.length,
+    review_count: reviews.length,
     wave_quality_rating:
       reviews.reduce((sum, r) => sum + r.wave_quality_rating, 0) /
       reviews.length,

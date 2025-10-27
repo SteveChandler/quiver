@@ -124,7 +124,7 @@ describe("BeachDetail loading and error guards", () => {
   it("renders when beach exists even if forecasts empty", () => {
     const spy = mockDataFetcherSequence([
       {
-        data: { id: "beach-1", name: "Test Beach", latitude: 0, longitude: 0 },
+        data: { id: "beach-1", name: "Test Beach", lat: 0, lon: 0 },
         loading: false,
         error: null,
       }, // beach

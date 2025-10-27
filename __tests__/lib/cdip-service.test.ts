@@ -29,8 +29,8 @@ jest.mock("@/lib/constants/cdip-stations", () => {
     100: {
       id: "100",
       name: "Torrey Pines Outer",
-      latitude: 32.921,
-      longitude: -117.39,
+      lat: 32.921,
+      lon: -117.39,
       deployDepth: 550,
       hullType: "3-meter discus buoy",
       parameters: ["wave", "weather", "drifter"],
@@ -38,8 +38,8 @@ jest.mock("@/lib/constants/cdip-stations", () => {
     46225: {
       id: "46225",
       name: "Point Reyes",
-      latitude: 37.751,
-      longitude: -122.839,
+      lat: 37.751,
+      lon: -122.839,
       deployDepth: 430,
       hullType: "3-meter discus buoy",
       parameters: ["wave", "weather"],
@@ -47,8 +47,8 @@ jest.mock("@/lib/constants/cdip-stations", () => {
     46236: {
       id: "46236",
       name: "Monterey Bay",
-      latitude: 36.771,
-      longitude: -122.186,
+      lat: 36.771,
+      lon: -122.186,
       deployDepth: 1100,
       hullType: "3-meter discus buoy",
       parameters: ["wave", "weather", "sst"],

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { MapPin, Waves, Wind, TrendingUp, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getBlurPlaceholder } from "@/lib/constants/blur-placeholders";
 
 export interface SurfSpotCardProps {
   id: string;
@@ -32,6 +33,20 @@ const CROWD_COLORS = {
   Moderate: "bg-yellow-100 text-yellow-800",
   Crowded: "bg-red-100 text-red-800",
 };
+
+/**
+ * Get blur placeholder for an image URL
+ * Extracts filename from URL and looks up the placeholder
+ */
+function getImagePlaceholder(imageUrl: string): string | undefined {
+  // Extract filename without extension from image URL
+  const filename = imageUrl
+    .split("/")
+    .pop()
+    ?.replace(/\.(webp|jpg|jpeg|png)$/i, "");
+
+  return filename ? getBlurPlaceholder(filename) : undefined;
+}
 
 export function SurfSpotCard({
   id,
@@ -62,8 +77,11 @@ export function SurfSpotCard({
                 src={imageUrl}
                 alt={name}
                 fill
+                loading="lazy"
                 className="object-cover group-hover:scale-105 transition-transform duration-300"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                placeholder={getImagePlaceholder(imageUrl) ? "blur" : "empty"}
+                blurDataURL={getImagePlaceholder(imageUrl)}
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">

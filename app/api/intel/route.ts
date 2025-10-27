@@ -18,16 +18,16 @@ export const dynamic = "force-dynamic";
  */
 
 interface GetIntelPostsParams {
-  latitude: number;
-  longitude: number;
+  lat: number;
+  lon: number;
   radius?: number;
   tag?: IntelPostTag | "all";
   limit?: number;
 }
 
 interface CreateIntelPostData {
-  latitude: number;
-  longitude: number;
+  lat: number;
+  lon: number;
   tag: IntelPostTag;
   title: string;
   description: string;

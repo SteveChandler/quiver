@@ -712,7 +712,7 @@ async function fetchRandomBeaches(supabase: any, count: number): Promise<Beach[]
   
   const { data: beaches, error } = await supabase
     .from('beaches')
-    .select('id, name, location, latitude, longitude, skill_level');
+    .select('id, name, city, lat, lon, skill_level');
 
   if (error) {
     throw new Error(`Failed to fetch beaches: ${error.message}`);
@@ -844,8 +844,8 @@ function generateIntelPost(npc: MockUser, beach: Beach): any {
   const { title, description } = generateIntelContent(npc, beach, tag, createdAt, baselineConditions);
 
   // Add slight coordinate offset for realistic posting
-  const latitude = beach.latitude + (Math.random() - 0.5) * 0.002; // ~200m variance
-  const longitude = beach.longitude + (Math.random() - 0.5) * 0.002;
+  const latitude = beach.lat + (Math.random() - 0.5) * 0.002; // ~200m variance
+  const longitude = beach.lon + (Math.random() - 0.5) * 0.002;
 
   return {
     user_id: npc.id,
@@ -1364,7 +1364,7 @@ async function createDailyNPCActivity(supabase: any) {
 
           const { data: existingIntel, error: existingIntelError } = await supabase
             .from('intel_posts')
-            .select('id, title, description, latitude, longitude, created_at')
+            .select('id, title, description, lat, lon, created_at')
             .eq('user_id', userId)
             .eq('tag', intelTag)
             .eq('beach_id', beachId)

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
-import { debounce } from "lodash";
+import { debounce } from "@/lib/utils/debounce";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { IntelPostModal } from "./intel-post-modal";
@@ -63,6 +63,7 @@ export function IntelMap({
 
   // Helper: full cleanup
   const cleanupMap = useCallback(() => {
+    console.log("[IntelMap] Cleaning up map");
     cleanupMarkers();
     if (popupRef.current) popupRef.current.remove();
     if (mapRef.current) {
@@ -166,7 +167,13 @@ export function IntelMap({
 
   // Update markers when posts change
   const updateMarkers = useCallback(() => {
-    if (!mapRef.current || !isMapReady) return;
+    if (!mapRef.current || !isMapReady) {
+      console.log("[IntelMap] Skipping marker update:", {
+        hasMap: !!mapRef.current,
+        isMapReady,
+      });
+      return;
+    }
 
     // Remove existing markers
     cleanupMarkers();
@@ -176,6 +183,12 @@ export function IntelMap({
       selectedTag === "all"
         ? posts
         : posts.filter((post) => post.tag === selectedTag);
+
+    console.log("[IntelMap] Updating markers:", {
+      totalPosts: posts.length,
+      filteredPosts: filteredPosts.length,
+      selectedTag,
+    });
 
     // Create markers for each post
     filteredPosts.forEach((post) => {
@@ -273,6 +286,13 @@ export function IntelMap({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    console.log("[IntelMap] Initializing map with config:", {
+      hasContainer: !!mapContainerRef.current,
+      hasAccessToken: !!mapboxgl.accessToken,
+      initialCenter,
+      initialZoom,
+    });
+
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/streets-v11",
@@ -283,11 +303,12 @@ export function IntelMap({
     mapRef.current = map;
 
     map.on("load", () => {
+      console.log("[IntelMap] Map loaded successfully");
       setIsMapReady(true);
     });
 
     map.on("error", (e) => {
-      console.error("Map error:", e);
+      console.error("[IntelMap] Map error:", e);
     });
 
     map.on("moveend", handleMoveEnd);

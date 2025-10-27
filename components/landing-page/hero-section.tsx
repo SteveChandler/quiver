@@ -37,7 +37,8 @@ export function HeroSection() {
       );
 
       if (response.ok) {
-        const beaches = await response.json();
+        const result = await response.json();
+        const beaches = result.data || [];
 
         if (Array.isArray(beaches) && beaches.length > 0) {
           const beach = beaches[0];

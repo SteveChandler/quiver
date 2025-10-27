@@ -162,7 +162,7 @@ export function BeachTable({
                   <TableCell>{beach.region || "-"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      {beach.latitude && beach.longitude && (
+                      {beach.lat && beach.lon && (
                         <MapPin className="h-3 w-3" />
                       )}
                       {beach.location || "-"}

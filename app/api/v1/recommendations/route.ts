@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       beaches = nearby.data || [];
     } else {
       // Fallback to raw beaches table when rpc is missing
-      const raw = await supabase.from("beaches").select("id,name,latitude,longitude").limit(25);
+      const raw = await supabase.from("beaches").select("id,name,lat,lon").limit(25);
       beaches = raw.data || [];
     }
 

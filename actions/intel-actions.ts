@@ -43,8 +43,8 @@ interface IntelDeps {
 }
 
 const GLOBAL_INTEL_FALLBACK = {
-  latitude: 32.7507, // Ocean Beach, San Diego acts as seeded demo hub
-  longitude: -117.254,
+  lat: 32.7507, // Ocean Beach, San Diego acts as seeded demo hub
+  lon: -117.254,
   radius: 400,
 };
 
@@ -120,8 +120,8 @@ export async function createIntelPost(
 
     const response = await authWrapper(async (user, supabase) => {
       const {
-        latitude,
-        longitude,
+        lat,
+        lon,
         beach_id,
         tag,
         title,
@@ -141,10 +141,10 @@ export async function createIntelPost(
       const sanitizedDescription = description?.trim() ?? "";
 
       if (
-        typeof latitude !== "number" ||
-        Number.isNaN(latitude) ||
-        typeof longitude !== "number" ||
-        Number.isNaN(longitude) ||
+        typeof lat !== "number" ||
+        Number.isNaN(lat) ||
+        typeof lon !== "number" ||
+        Number.isNaN(lon) ||
         !tag ||
         sanitizedTitle.length === 0 ||
         sanitizedDescription.length === 0
@@ -152,7 +152,7 @@ export async function createIntelPost(
         return {
           success: false,
           error:
-            "Missing required fields: latitude, longitude, tag, title, description",
+            "Missing required fields: lat, lon, tag, title, description",
         };
       }
 
@@ -165,8 +165,8 @@ export async function createIntelPost(
         const { data: nearbyBeaches, error: nearestError } = await supabase.rpc(
           "get_nearby_beaches",
           {
-            input_lat: latitude,
-            input_lng: longitude,
+            input_lat: lat,
+            input_lng: lon,
             limit_count: 1,
           }
         );
@@ -199,13 +199,13 @@ export async function createIntelPost(
         beachId: normalizedBeachId,
         title: sanitizedTitle,
         description: sanitizedDescription,
-        latitude,
-        longitude,
+        latitude: lat,
+        longitude: lon,
       });
 
       const { data: recentIntel, error: recentIntelError } = await supabase
         .from("intel_posts")
-        .select("id, title, description, latitude, longitude, created_at")
+        .select("id, title, description, lat, lon, created_at")
         .eq("user_id", user.id)
         .eq("tag", tag)
         .eq("beach_id", normalizedBeachId)
@@ -228,8 +228,8 @@ export async function createIntelPost(
             beachId: normalizedBeachId,
             title: existing.title,
             description: existing.description,
-            latitude: existing.latitude,
-            longitude: existing.longitude,
+            latitude: existing.lat,
+            longitude: existing.lon,
           });
           return existingHash === dedupeHash;
         });
@@ -273,8 +273,8 @@ export async function createIntelPost(
         .insert({
           user_id: user.id,
           beach_id: normalizedBeachId,
-          latitude,
-          longitude,
+          lat,
+          lon,
           tag,
           title: sanitizedTitle,
           description: sanitizedDescription,
@@ -336,7 +336,7 @@ export async function createIntelPost(
         const { data: fetchedIntel, error: fetchFallbackError } = await supabase
           .from("intel_posts")
           .select(
-            `id, user_id, beach_id, latitude, longitude, tag, title, description, photo_url, photo_storage_path, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
+            `id, user_id, beach_id, lat, lon, tag, title, description, photo_url, photo_storage_path, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
           )
           .eq("id", fallbackReport.id)
           .single();
@@ -469,15 +469,15 @@ export async function getNearbyIntelPosts(
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { latitude, longitude, radius = 5, tag, limit = 50 } = params;
+    const { lat, lon, radius = 5, tag, limit = 50 } = params;
 
     // Use the database function for geo-query (preferred)
     let intelPosts: any[] | null = null;
     const { data: rpcPosts, error: intelError } = await supabase.rpc(
       "get_nearby_intel_posts",
       {
-        center_lat: latitude,
-        center_lng: longitude,
+        center_lat: lat,
+        center_lng: lon,
         radius_miles: radius,
         tag_filter: tag === "all" ? null : tag,
         limit_count: limit,
@@ -507,7 +507,7 @@ export async function getNearbyIntelPosts(
         console.error("Fallback intel_posts select failed:", fallbackError);
         return {
           success: true,
-          data: { posts: [], total: 0, filters: { latitude, longitude, radius, tag: tag || "all", limit } },
+          data: { posts: [], total: 0, filters: { lat, lon, radius, tag: tag || "all", limit } },
         };
       }
 
@@ -526,9 +526,9 @@ export async function getNearbyIntelPosts(
       };
 
       intelPosts = (fallback || []).filter((p: any) => {
-        if (!latitude || !longitude || !p?.latitude || !p?.longitude) return true;
+        if (!lat || !lon || !p?.latitude || !p?.longitude) return true;
         try {
-          const dist = haversineMiles(Number(latitude), Number(longitude), Number(p.latitude), Number(p.longitude));
+          const dist = haversineMiles(Number(lat), Number(lon), Number(p.latitude), Number(p.longitude));
           return dist <= (radius || 25);
         } catch {
           return true;
@@ -542,7 +542,7 @@ export async function getNearbyIntelPosts(
         data: {
           posts: [],
           total: 0,
-          filters: { latitude, longitude, radius, tag: tag || "all", limit },
+          filters: { lat, lon, radius, tag: tag || "all", limit },
         },
       };
     }
@@ -593,7 +593,7 @@ export async function getNearbyIntelPosts(
       data: {
         posts: enrichedPosts,
         total: enrichedPosts.length,
-        filters: { latitude, longitude, radius, tag: tag || "all", limit },
+        filters: { lat, lon, radius, tag: tag || "all", limit },
       },
     };
   } catch (error) {
@@ -853,15 +853,15 @@ export async function getPublicIntelPosts(
   try {
     const supabase = await createSupabaseServerClient();
 
-    const { latitude, longitude, radius = 5, tag, limit = 50 } = params;
+    const { lat, lon, radius = 5, tag, limit = 50 } = params;
 
     // Use the database function for geo-query (preferred)
     let intelPosts: any[] | null = null;
     const { data: rpcPosts, error: intelError } = await supabase.rpc(
       "get_nearby_intel_posts",
       {
-        center_lat: latitude,
-        center_lng: longitude,
+        center_lat: lat,
+        center_lng: lon,
         radius_miles: radius,
         tag_filter: tag === "all" ? null : tag,
         limit_count: limit,
@@ -891,7 +891,7 @@ export async function getPublicIntelPosts(
         console.error("Public fallback intel_posts select failed:", fallbackError);
         return {
           success: true,
-          data: { posts: [], total: 0, filters: { latitude, longitude, radius, tag: tag || "all", limit } },
+          data: { posts: [], total: 0, filters: { lat, lon, radius, tag: tag || "all", limit } },
         };
       }
 
@@ -909,9 +909,9 @@ export async function getPublicIntelPosts(
       };
 
       intelPosts = (fallback || []).filter((p: any) => {
-        if (!latitude || !longitude || !p?.latitude || !p?.longitude) return true;
+        if (!lat || !lon || !p?.latitude || !p?.longitude) return true;
         try {
-          const dist = haversineMiles(Number(latitude), Number(longitude), Number(p.latitude), Number(p.longitude));
+          const dist = haversineMiles(Number(lat), Number(lon), Number(p.latitude), Number(p.longitude));
           return dist <= (radius || 25);
         } catch {
           return true;
@@ -925,7 +925,7 @@ export async function getPublicIntelPosts(
         data: {
           posts: [],
           total: 0,
-          filters: { latitude, longitude, radius, tag: tag || "all", limit },
+          filters: { lat, lon, radius, tag: tag || "all", limit },
         },
       };
     }
@@ -960,7 +960,7 @@ export async function getPublicIntelPosts(
       data: {
         posts: enrichedPosts,
         total: enrichedPosts.length,
-        filters: { latitude, longitude, radius, tag: tag || "all", limit },
+        filters: { lat, lon, radius, tag: tag || "all", limit },
       },
     };
   } catch (error) {
@@ -1038,8 +1038,8 @@ export async function getAllIntelPosts(
 
     if (!intelPosts || intelPosts.length === 0) {
       const fallback = await getNearbyIntelPosts({
-        latitude: GLOBAL_INTEL_FALLBACK.latitude,
-        longitude: GLOBAL_INTEL_FALLBACK.longitude,
+        lat: GLOBAL_INTEL_FALLBACK.lat,
+        lon: GLOBAL_INTEL_FALLBACK.lon,
         radius: GLOBAL_INTEL_FALLBACK.radius,
         tag,
         limit,

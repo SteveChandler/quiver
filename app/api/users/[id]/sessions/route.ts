@@ -53,7 +53,76 @@ export async function GET(request: NextRequest, context: { params: { id: string 
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+
+    // If joins fail, fall back to basic query with manual relationship resolution
+    if (error) {
+      console.error("Session query with joins failed, falling back to basic query:", error);
+
+      let basicQuery = supabase
+        .from("sessions")
+        .select("*")
+        .eq("user_id", targetUserId)
+        .order("arrival_time", { ascending: false })
+        .limit(limit);
+
+      if (!isOwn) {
+        basicQuery = basicQuery.eq("is_public", true);
+      }
+
+      const { data: basicData, error: basicError } = await basicQuery;
+      if (basicError) throw basicError;
+
+      // Manually resolve beach and user data for each session
+      const enhancedSessions = await Promise.all(
+        (basicData || []).map(async (session) => {
+          let beach = null;
+          let userData = { full_name: "Anonymous Surfer", avatar_url: null };
+
+          // Try to fetch beach data if beach_id exists
+          if (session.beach_id) {
+            try {
+              const { data: beachData } = await supabase
+                .from("beaches")
+                .select("id, name, latitude, longitude, location")
+                .eq("id", session.beach_id)
+                .single();
+              beach = beachData;
+            } catch (beachError) {
+              console.warn(`Failed to fetch beach ${session.beach_id}:`, beachError);
+            }
+          }
+
+          // Try to fetch user data
+          if (session.user_id) {
+            try {
+              const { data: profileData } = await supabase
+                .from("profiles")
+                .select("id, full_name, avatar_url")
+                .eq("id", session.user_id)
+                .single();
+              if (profileData) {
+                userData = profileData;
+              }
+            } catch (userError) {
+              console.warn(`Failed to fetch user profile ${session.user_id}:`, userError);
+            }
+          }
+
+          return {
+            ...session,
+            beach,
+            user: userData,
+          };
+        })
+      );
+
+      const sessionsWithPhotos = await addFeaturedPhotoToSessions(
+        supabase,
+        enhancedSessions as any[]
+      );
+
+      return createSuccessResponse({ sessions: sessionsWithPhotos });
+    }
 
     const sessionsWithPhotos = await addFeaturedPhotoToSessions(
       supabase,
@@ -62,6 +131,7 @@ export async function GET(request: NextRequest, context: { params: { id: string 
 
     return createSuccessResponse({ sessions: sessionsWithPhotos });
   } catch (error) {
+    console.error("Critical error in sessions API:", error);
     return handleApiError(error, "Failed to load user sessions");
   }
 }

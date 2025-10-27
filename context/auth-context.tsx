@@ -173,27 +173,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           // Handle post-auth redirect when user signs in
           if (event === "SIGNED_IN" && session) {
-            // Check for stored redirect path
+            // Clear stored redirect path - components will re-render with new auth state
+            // This prevents redirect loops caused by hard page reloads
             const storedPath = localStorage.getItem("auth_redirect_path");
-            if (
-              storedPath &&
-              storedPath !== "/" &&
-              storedPath !== window.location.pathname
-            ) {
+            if (storedPath) {
               console.log(
-                "[AuthContext] Redirecting to stored path:",
+                "[AuthContext] Clearing redirect path (already on page):",
                 storedPath
               );
               localStorage.removeItem("auth_redirect_path");
-
-              // Use a small delay to ensure auth state is fully updated
-              setTimeout(() => {
-                window.location.href = storedPath;
-              }, 100);
-            } else if (storedPath) {
-              // Clean up if we're already on the right page
-              localStorage.removeItem("auth_redirect_path");
             }
+            // Note: We don't navigate here. The auth state update (below) will cause
+            // React components to re-render and show authenticated content.
+            // For cross-page redirects (OAuth, magic link), see app/auth/callback/route.ts
           }
 
           updateAuthState(session);
