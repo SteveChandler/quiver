@@ -31,7 +31,11 @@ async function globalSetup(config: FullConfig) {
 
     // Check if already authenticated
     const isAuthenticated = await page.evaluate(() => {
-      return document.cookie.includes('sb-') || localStorage.getItem('sb-');
+      // Check for Supabase auth tokens in localStorage
+      const hasSupabaseAuth = Object.keys(localStorage).some(key =>
+        key.startsWith('sb-') && key.includes('-auth-token')
+      );
+      return document.cookie.includes('sb-') || hasSupabaseAuth;
     });
 
     if (!isAuthenticated) {
@@ -67,12 +71,24 @@ async function globalSetup(config: FullConfig) {
         const submitButton = page.getByRole('button', { name: /log in|sign in/i }).last();
         await submitButton.click();
 
-        // Wait for authentication to complete
-        await page.waitForTimeout(3000);
+        // Wait for authentication to complete - modal should close
+        try {
+          await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 10000 });
+          console.log('[Global Setup] Auth modal closed successfully');
+        } catch {
+          console.log('[Global Setup] Auth modal did not close, but continuing...');
+        }
+
+        // Additional wait for auth tokens to be set
+        await page.waitForTimeout(2000);
 
         // Verify authentication succeeded
         const authSuccess = await page.evaluate(() => {
-          return document.cookie.includes('sb-') || localStorage.getItem('sb-');
+          // Check for Supabase auth tokens in localStorage
+          const hasSupabaseAuth = Object.keys(localStorage).some(key =>
+            key.startsWith('sb-') && key.includes('-auth-token')
+          );
+          return document.cookie.includes('sb-') || hasSupabaseAuth;
         });
 
         if (!authSuccess) {
