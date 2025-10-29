@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Rapid7 MCP Integration - 2025-10-29
+
+#### Added
+- Wired the Rapid7 InsightIDR MCP server into `.mcp.json`, including a launcher (`scripts/run-rapid7-mcp.js`) that loads `RAPID7_API_KEY` from `.env` so Claude can query logs with the stored credentials.
+- Enabled the new server for Claude (`.claude/settings.local.json`) and documented usage in `docs/CLAUDE.md`.
+
 ### Fixed - NaN Distance Display Bug - 2025-10-26
 
 #### Fixed
