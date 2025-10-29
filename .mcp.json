@@ -15,9 +15,13 @@
         "@supabase/mcp-server-supabase@latest",
         "--read-only",
         "--project-ref=vawdnbbgawichorsjiwe"
-      ],
+      ]
+    },
+    "rapid7": {
+      "command": "node",
+      "args": ["scripts/run-rapid7-mcp.js"],
       "env": {
-        "SUPABASE_ACCESS_TOKEN": "sbp_45866425d2d1a66d5fc73de31e75e79e1520b8fd"
+        "RAPID7_API_KEY": "${RAPID7_API_KEY}"
       }
     }
   }
