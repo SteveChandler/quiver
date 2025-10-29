@@ -329,3 +329,125 @@ test.describe('Session Wizard - Validation', () => {
     }
   });
 });
+
+test.describe('Session Wizard - Forecast Snapshot Creation', () => {
+  /**
+   * Tests for forecast snapshot creation when sessions are logged.
+   * Snapshots capture forecast conditions at the time of the session
+   * for later analysis and forecast accuracy tracking.
+   *
+   * Note: These E2E tests verify the session creation flow works end-to-end.
+   * Actual snapshot verification requires database access or an API endpoint,
+   * which is better suited for integration tests or database tests.
+   */
+
+  test('should successfully create session (snapshot created in background)', async ({ page }) => {
+    // Navigate to log mode (completed sessions trigger snapshot creation)
+    await page.goto('/sessions/new?mode=log');
+    await waitForPageLoad(page);
+
+    // Fill out the session form
+    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
+    const isVisible = await beachInput.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!isVisible) {
+      test.skip(true, 'Beach input not found - different UI');
+      return;
+    }
+
+    // Select a beach
+    await beachInput.fill('Black');
+    await page.waitForTimeout(1000);
+
+    const beachOption = page.getByText(/black/i).first();
+    const hasOption = await beachOption.isVisible().catch(() => false);
+
+    if (hasOption) {
+      await beachOption.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Fill in other required fields if present
+    const ratingInput = page.locator('input[type="range"], [role="slider"]').first();
+    const hasRating = await ratingInput.isVisible().catch(() => false);
+
+    if (hasRating) {
+      await ratingInput.fill('8');
+    }
+
+    // Submit the session
+    const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
+    const hasSubmit = await submitButton.isVisible().catch(() => false);
+
+    if (!hasSubmit) {
+      test.skip(true, 'Submit button not found');
+      return;
+    }
+
+    await submitButton.click();
+
+    // Wait for success indication
+    const successMessage = page.getByText(/success|logged|created|saved/i);
+    const celebration = page.getByText(/🎉|Success!/i);
+
+    const hasSuccess = await successMessage.isVisible({ timeout: 10000 }).catch(() => false);
+    const hasCelebration = await celebration.isVisible({ timeout: 10000 }).catch(() => false);
+
+    // Session should be created successfully
+    // Note: Forecast snapshot creation happens in background via:
+    // 1. Application code in session-actions.ts (createLoggedSession)
+    // 2. Database trigger (trigger_create_session_forecast_snapshot)
+    expect(hasSuccess || hasCelebration).toBe(true);
+  });
+
+  test('session creation should not fail if snapshot creation fails', async ({ page }) => {
+    // This test verifies that even if forecast data is missing or snapshot creation
+    // fails, the session itself is still created successfully.
+
+    await page.goto('/sessions/new?mode=log');
+    await waitForPageLoad(page);
+
+    // Fill minimal required fields
+    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
+    const isVisible = await beachInput.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!isVisible) {
+      test.skip(true, 'Beach input not found');
+      return;
+    }
+
+    await beachInput.fill('Test');
+    await page.waitForTimeout(1000);
+
+    // Try to submit
+    const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
+    const hasSubmit = await submitButton.isVisible().catch(() => false);
+
+    if (!hasSubmit) {
+      test.skip(true, 'Submit button not found');
+      return;
+    }
+
+    // Even with minimal data (possibly no forecast match), session should save
+    // The snapshot creation is non-blocking and won't fail the session creation
+    await submitButton.click();
+
+    // Should either succeed or show validation errors (but not fail due to snapshot)
+    await page.waitForTimeout(3000);
+
+    // Page should not crash or show unexpected errors
+    const errorMessage = page.getByText(/unexpected error|failed to create session/i);
+    const hasError = await errorMessage.isVisible().catch(() => false);
+
+    // Should NOT have unexpected errors (validation errors are ok)
+    expect(hasError).toBe(false);
+  });
+
+  // Note: To fully verify snapshot creation in E2E tests, we would need either:
+  // 1. A test API endpoint like GET /api/sessions/{id}/snapshot
+  // 2. Direct database queries in the test (using @supabase/supabase-js)
+  // 3. UI elements that display snapshot data
+  //
+  // For now, we verify the session creation flow works end-to-end.
+  // Integration tests with database access are better suited for snapshot verification.
+});

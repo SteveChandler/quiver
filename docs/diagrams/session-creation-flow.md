@@ -251,8 +251,19 @@ export const createSession = withAuthenticatedAction(
       await uploadSessionMedia(session.id, data.photos)
     }
 
-    // 3. Capture forecast snapshot
-    await captureForecastSnapshot(session.id, data.beach_id, data.session_date)
+    // 3. Capture forecast snapshot (non-blocking)
+    try {
+      const { createForecastSnapshotForSession } = await import('@/lib/utils/forecast-snapshot-utils')
+      await createForecastSnapshotForSession(
+        session.id,
+        session.beach_id,
+        session.arrival_time,
+        userId
+      )
+    } catch (snapshotError) {
+      console.error('Snapshot creation failed:', snapshotError)
+      // Don't fail session creation if snapshot fails
+    }
 
     // 4. Award XP
     const xpEarned = await awardSessionXP(userId, session.id, data)
@@ -360,36 +371,175 @@ async function uploadSessionMedia(
 
 ### Step 6: Forecast Snapshot
 
-**Purpose**: Capture the forecast conditions at the time of the session for historical accuracy.
+**Purpose**: Capture the forecast conditions at the time of the session for historical accuracy and forecast validation.
+
+**Implementation**: Snapshots are created through two mechanisms:
+
+1. **Application Code** (`lib/utils/forecast-snapshot-utils.ts`):
+   - Called asynchronously after session creation
+   - Non-blocking - won't fail session creation if snapshot fails
+   - Handles edge cases (missing forecast data, duplicates)
+
+2. **Database Trigger** (`trigger_create_session_forecast_snapshot`):
+   - Fires on INSERT or UPDATE when `status = 'completed'`
+   - Provides redundancy in case application code fails
+   - Prevents duplicates via unique constraint
+
+**Code** (from `actions/session-actions.ts`):
 
 ```typescript
-async function captureForecastSnapshot(
+// In createLoggedSession() after session creation:
+
+// Create forecast snapshot for condition tracking
+try {
+  const { createForecastSnapshotForSession } = await import("@/lib/utils/forecast-snapshot-utils");
+  await createForecastSnapshotForSession(
+    session.id,
+    session.beach_id,
+    session.arrival_time,
+    session.user_id
+  );
+} catch (snapshotError) {
+  console.error("Failed to create forecast snapshot:", snapshotError);
+  // Don't fail the session creation if snapshot creation fails
+}
+```
+
+**Utility Function** (`lib/utils/forecast-snapshot-utils.ts`):
+
+```typescript
+export async function createForecastSnapshotForSession(
   sessionId: string,
   beachId: string,
-  sessionDate: Date
-): Promise<void> {
-  const supabase = createClient()
+  arrivalTime: string | Date,
+  userId?: string
+): Promise<{ success: boolean; error?: string; snapshot?: any }> {
+  const supabase = await createServiceRoleClient();
 
-  // Get forecast closest to session time
-  const { data: forecast } = await supabase
+  // Convert arrival time to Date
+  const arrivalDate = typeof arrivalTime === 'string'
+    ? new Date(arrivalTime)
+    : arrivalTime;
+
+  // Find the closest forecast to the arrival time
+  const forecasts = await supabase
     .from('enhanced_forecasts')
     .select('*')
     .eq('beach_id', beachId)
-    .gte('forecast_time', sessionDate)
-    .order('forecast_time', { ascending: true })
-    .limit(1)
-    .single()
+    .eq('forecast_date', arrivalDate.toISOString().split('T')[0]);
 
-  if (forecast) {
-    await supabase
-      .from('session_forecast_snapshots')
-      .insert({
-        session_id: sessionId,
-        forecast_data: forecast
-      })
+  // Find closest forecast by time difference
+  let closestForecast = findClosestForecast(forecasts, arrivalDate);
+
+  if (!closestForecast) {
+    return { success: false, error: 'No forecast data available' };
   }
+
+  // Get session details for actual conditions
+  const session = await getSession(sessionId);
+
+  // Insert snapshot with forecast + actual conditions
+  const snapshot = await supabase
+    .from('session_forecast_snapshots')
+    .insert({
+      session_id: sessionId,
+      user_id: userId,
+      beach_id: beachId,
+      forecast_snapshot: closestForecast, // Full forecast record
+      actual_conditions: {
+        wave_quality: session.wave_quality,
+        water_temp: session.water_temp,
+        crowd_level: session.crowd_level,
+        parking_ease: session.parking_ease,
+        rating: session.rating,
+        notes: session.notes,
+      },
+      forecast_confidence_score: closestForecast.confidence_score,
+      data_source: closestForecast.data_source,
+      session_date: arrivalDate.toISOString().split('T')[0],
+    });
+
+  return { success: true, snapshot };
 }
 ```
+
+**Database Trigger**:
+
+```sql
+CREATE OR REPLACE FUNCTION create_session_forecast_snapshot()
+RETURNS TRIGGER AS $$
+DECLARE
+  forecast_data JSONB;
+  conditions_data JSONB;
+BEGIN
+  -- Only proceed if the session is completed
+  IF NEW.status <> 'completed' THEN
+    RETURN NEW;
+  END IF;
+
+  -- For UPDATE events, only proceed if status changed TO completed
+  IF TG_OP = 'UPDATE' AND OLD.status = 'completed' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Check if snapshot already exists (prevents duplicates)
+  IF EXISTS(SELECT 1 FROM session_forecast_snapshots WHERE session_id = NEW.id) THEN
+    RETURN NEW;
+  END IF;
+
+  -- Find the closest forecast to the session arrival_time
+  SELECT to_jsonb(ef.*) INTO forecast_data
+  FROM enhanced_forecasts ef
+  WHERE ef.beach_id::uuid = NEW.beach_id::uuid
+    AND ef.forecast_date = NEW.arrival_time::date
+  ORDER BY ABS(EXTRACT(EPOCH FROM (ef.forecast_time::time - NEW.arrival_time::time))) ASC
+  LIMIT 1;
+
+  -- Build actual conditions from session data
+  conditions_data := jsonb_build_object(
+    'wave_quality', NEW.wave_quality,
+    'water_temp', NEW.water_temp,
+    'crowd_level', NEW.crowd_level,
+    'parking_ease', NEW.parking_ease,
+    'rating', NEW.rating,
+    'notes', NEW.notes,
+    'duration_minutes', NEW.duration_minutes,
+    'arrival_time', NEW.arrival_time
+  );
+
+  -- Only insert if we found forecast data
+  IF forecast_data IS NOT NULL THEN
+    BEGIN
+      INSERT INTO session_forecast_snapshots (
+        session_id, user_id, beach_id, forecast_snapshot, actual_conditions,
+        forecast_confidence_score, data_source, session_date
+      ) VALUES (
+        NEW.id, NEW.user_id, NEW.beach_id::uuid, forecast_data, conditions_data,
+        (forecast_data->>'confidence_score')::integer,
+        forecast_data->>'data_source', NEW.arrival_time::date
+      );
+    EXCEPTION
+      WHEN unique_violation THEN NULL; -- Snapshot already exists
+    END;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_create_session_forecast_snapshot
+  AFTER INSERT OR UPDATE OF status ON sessions
+  FOR EACH ROW
+  WHEN (NEW.status = 'completed')
+  EXECUTE FUNCTION create_session_forecast_snapshot();
+```
+
+**Key Features**:
+- **Dual mechanism**: Application code + database trigger for reliability
+- **Non-blocking**: Snapshot creation won't fail session creation
+- **Duplicate prevention**: Unique constraint + explicit checks
+- **Rich data**: Captures full forecast record + actual conditions
+- **Use cases**: Forecast accuracy tracking, condition-based analysis, ML training data
 
 ### Step 7: XP Calculation
 
