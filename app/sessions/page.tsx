@@ -34,8 +34,11 @@ export default function SessionsPage() {
   useEffect(() => {
     async function fetchPublicSessions() {
       try {
-        // For now, show placeholder content
-        // TODO: Implement public sessions API endpoint
+        const response = await fetch("/api/sessions/public?page=1&limit=10");
+        if (response.ok) {
+          const result = await response.json();
+          setSessions(result.data || []);
+        }
         setLoading(false);
       } catch (error) {
         console.error("Error fetching public sessions:", error);
@@ -82,43 +85,108 @@ export default function SessionsPage() {
           source="sessions-feed"
           className="min-h-[600px]"
         >
-          {/* Placeholder session cards */}
+          {/* Real or placeholder session cards */}
           <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-ocean-blue/20" />
-                      <div>
-                        <CardTitle className="text-lg">User Session</CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          Beach Name • Today
-                        </p>
+            {sessions.length > 0 ? (
+              sessions.map((session: any) => (
+                <Card key={session.id} className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {session.author?.avatar && (
+                          <img
+                            src={session.author.avatar}
+                            alt={session.author.name}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        )}
+                        <div>
+                          <CardTitle className="text-lg">
+                            {session.author?.name || "Surfer"}
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            {session.beachName} •{" "}
+                            {new Date(session.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      {session.rating && (
+                        <div className="flex items-center gap-1">
+                          {[...Array(Math.round(session.rating))].map(
+                            (_, idx) => (
+                              <Sparkles
+                                key={idx}
+                                className="h-4 w-4 text-yellow-500 fill-yellow-500"
+                              />
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    {session.imageUrl && (
+                      <img
+                        src={session.imageUrl}
+                        alt={`Session at ${session.beachName}`}
+                        className="w-full rounded-lg mb-4 max-h-96 object-cover"
+                      />
+                    )}
+                    <p className="text-muted-foreground mb-4">
+                      {session.description ||
+                        session.notes ||
+                        `Great session at ${session.beachName}!`}
+                    </p>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>❤️ {session.likesCount || 0} likes</span>
+                      {session.waveHeight && (
+                        <span>🌊 {session.waveHeight} ft</span>
+                      )}
+                      {session.waveQuality && (
+                        <span>⭐ {session.waveQuality}</span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              // Fallback placeholder cards if no sessions
+              [1, 2, 3].map((i) => (
+                <Card key={i} className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-ocean-blue/20" />
+                        <div>
+                          <CardTitle className="text-lg">User Session</CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            Beach Name • Today
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, idx) => (
+                          <Sparkles
+                            key={idx}
+                            className="h-4 w-4 text-yellow-500 fill-yellow-500"
+                          />
+                        ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, idx) => (
-                        <Sparkles
-                          key={idx}
-                          className="h-4 w-4 text-yellow-500 fill-yellow-500"
-                        />
-                      ))}
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <p className="text-muted-foreground mb-4">
+                      Epic session with clean waves and offshore winds. Perfect
+                      conditions for longboarding...
+                    </p>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>❤️ 12 likes</span>
+                      <span>💬 5 comments</span>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <p className="text-muted-foreground mb-4">
-                    Epic session with clean waves and offshore winds. Perfect
-                    conditions for longboarding...
-                  </p>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>❤️ 12 likes</span>
-                    <span>💬 5 comments</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </PublicContentGate>
 

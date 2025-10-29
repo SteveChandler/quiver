@@ -14,6 +14,7 @@ import {
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
 import { track, slugify } from "@/lib/analytics";
+import { getFavoriteBeaches } from "@/actions/beach/beach-favorite-actions";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -134,9 +135,13 @@ export function InteractiveMap({
         return;
       }
 
-      // For now, just use an empty set until we properly implement client-side favorites loading
-      // TODO: Create a client-side API route to fetch favorites
-      setFavoriteBeachIds(new Set());
+      const result = await getFavoriteBeaches(user.id);
+      if (result.success && result.data) {
+        const beachIds = new Set(result.data.map((beach: Beach) => beach.id));
+        setFavoriteBeachIds(beachIds);
+      } else {
+        setFavoriteBeachIds(new Set());
+      }
     } catch (e) {
       console.error("Error loading favorite beaches", e);
       setFavoriteBeachIds(new Set());

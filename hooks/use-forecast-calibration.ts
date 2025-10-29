@@ -6,16 +6,15 @@ import { toast } from "sonner";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import {
   createForecastSnapshot,
-  // TODO: These functions are not currently exported
-  // getBeachAccuracy,
-  // getSessionForecastSnapshots,
+  getBeachAccuracy,
+  getSessionForecastSnapshots,
 } from "@/actions/forecast-calibration-actions";
 import type {
   BeachForecastAccuracy,
   SessionForecastSnapshot,
   Session,
-  Forecast,
 } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { ForecastFeedback } from "@/components/forecast/forecast-feedback-form";
 
 interface UseForecastCalibrationProps {
@@ -32,9 +31,8 @@ export function useForecastCalibration({
   // Fetch beach accuracy data
   const fetchBeachAccuracy = useCallback(async () => {
     if (!beachId) return null;
-    // TODO: Implement getBeachAccuracy when available
-    // Return null for now instead of error object to prevent rendering issues
-    return null;
+    const result = await getBeachAccuracy(beachId);
+    return result.success ? result.data : null;
   }, [beachId]);
 
   const {
@@ -47,9 +45,8 @@ export function useForecastCalibration({
   // Fetch session snapshots for comparison
   const fetchSessionSnapshots = useCallback(async () => {
     if (!beachId) return [];
-    // TODO: Implement getSessionForecastSnapshots when available
-    // Return empty array for now instead of error object
-    return [];
+    const result = await getSessionForecastSnapshots(beachId);
+    return result.success ? result.data : [];
   }, [beachId]);
 
   const {
@@ -63,7 +60,7 @@ export function useForecastCalibration({
   const submitForecastFeedback = useCallback(
     async (
       session: Session,
-      forecast: Forecast | null,
+      forecast: EnhancedForecastEntity | null,
       feedback: ForecastFeedback
     ) => {
       if (!session.id) {
@@ -76,20 +73,20 @@ export function useForecastCalibration({
         // Prepare forecast snapshot data
         const forecastSnapshot = forecast
           ? {
-              wave_height: (forecast as any).wave_height,
-              wind_speed: (forecast as any).wind_speed,
-              wind_direction: (forecast as any).wind_direction,
-              water_temp: (forecast as any).water_temp,
-              air_temperature: (forecast as any).air_temperature,
-              confidence_score: (forecast as any).confidence_score,
-              data_source: (forecast as any).data_source,
-              swell_1_height: (forecast as any).swell_1_height,
-              swell_1_period: (forecast as any).swell_1_period,
-              swell_1_direction: (forecast as any).swell_1_direction,
-              swell_2_height: (forecast as any).swell_2_height,
-              swell_2_period: (forecast as any).swell_2_period,
-              swell_2_direction: (forecast as any).swell_2_direction,
-              forecast_time: (forecast as any).valid_time || (forecast as any).forecast_time,
+              wave_height: forecast.wave_height,
+              wind_speed: forecast.wind_speed,
+              wind_direction: forecast.wind_direction,
+              water_temp: forecast.water_temp,
+              air_temperature: forecast.air_temperature,
+              confidence_score: forecast.confidence_score,
+              data_source: forecast.data_source,
+              swell_1_height: forecast.swell_1_height,
+              swell_1_period: forecast.swell_1_period,
+              swell_1_direction: forecast.swell_1_direction,
+              swell_2_height: forecast.swell_2_height,
+              swell_2_period: forecast.swell_2_period,
+              swell_2_direction: forecast.swell_2_direction,
+              forecast_time: forecast.forecast_time,
             }
           : {};
 

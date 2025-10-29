@@ -896,8 +896,60 @@ export async function PATCH(request: NextRequest) {
       status: updatedInvitation.status,
     });
 
-    // TODO: Send notification to session creator about the response
-    // TODO: If accepted, add user to session participants
+    // Send notification to session creator about the response
+    try {
+      // Get session details to find the creator
+      const { data: session, error: sessionError } = await supabase
+        .from("sessions")
+        .select("user_id, beach_name, arrival_time")
+        .eq("id", invitation.session_id)
+        .single();
+
+      if (!sessionError && session && session.user_id !== user.id) {
+        // Get creator's notification preferences
+        const { data: creatorPrefs } = await supabase
+          .from("profiles")
+          .select("inapp_session_invites, email_session_invites, email")
+          .eq("id", session.user_id)
+          .single();
+
+        // Create in-app notification if user has not disabled them
+        if (creatorPrefs?.inapp_session_invites !== false) {
+          const notificationData = {
+            action: invitationResponse,
+            invitee_id: user.id,
+            invitee_email: user.email,
+            session_id: invitation.session_id,
+            beach_name: session.beach_name,
+            arrival_time: session.arrival_time,
+          };
+
+          await supabase.from("notifications").insert({
+            user_id: session.user_id,
+            type: "session_invite_response",
+            data: notificationData,
+            title:
+              invitationResponse === "accepted"
+                ? "Invitation Accepted"
+                : "Invitation Declined",
+            message:
+              invitationResponse === "accepted"
+                ? `${user.email} accepted your invitation to surf at ${session.beach_name}`
+                : `${user.email} declined your invitation to surf at ${session.beach_name}`,
+            read: false,
+          });
+
+          debug("Notification sent to session creator", {
+            creator_id: session.user_id,
+            type: "session_invite_response",
+            action: invitationResponse,
+          });
+        }
+      }
+    } catch (notificationError) {
+      // Log error but don't fail the response - notification is non-critical
+      console.error("Failed to send notification to session creator:", notificationError);
+    }
 
     return createSuccessResponse({
       invitation: updatedInvitation,
