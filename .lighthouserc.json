@@ -5,7 +5,7 @@
         "http://localhost:3000",
         "http://localhost:3000/discover",
         "http://localhost:3000/map",
-        "http://localhost:3000/forecast/1",
+        "http://localhost:3000/forecast/84d3468b-c1ec-46ad-8621-d8507e5f167a",
         "http://localhost:3000/beach/84d3468b-c1ec-46ad-8621-d8507e5f167a"
       ],
       "numberOfRuns": 3,

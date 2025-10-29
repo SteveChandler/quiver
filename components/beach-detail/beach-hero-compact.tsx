@@ -3,6 +3,7 @@
 import { Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Beach } from "@/types/database";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BeachHeroCompactProps {
   beach: Beach & {
@@ -16,7 +17,7 @@ export function BeachHeroCompact({ beach, className }: BeachHeroCompactProps) {
   const rating = beach.average_rating || 0;
   const reviewCount = beach.review_count || 0;
   const breakType = beach.break_type || "Beach Break";
-  const location = beach.location || beach.region || "California";
+  const location = getBeachLocation(beach);
 
   // Phase 4 Spec: Determine difficulty/skill level badge styling
   // Easy/Beginner: blue-50/ocean-blue, Moderate: orange-50/orange-600, Hard: red-50/red-600

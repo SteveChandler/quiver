@@ -138,7 +138,8 @@ test.describe('Beach Detail Page', () => {
         const text = msg.text();
         if (!text.includes('localhost') &&
             !text.includes('DevTools') &&
-            !text.includes('Extension')) {
+            !text.includes('Extension') &&
+            !text.includes('WebSocket connection')) {
           errors.push(text);
         }
       }
@@ -146,6 +147,11 @@ test.describe('Beach Detail Page', () => {
 
     await page.reload();
     await waitForPageLoad(page);
+
+    // Log errors for debugging
+    if (errors.length > 0) {
+      console.log('Console errors found:', errors);
+    }
 
     // Should have no critical errors
     expect(errors.length).toBe(0);

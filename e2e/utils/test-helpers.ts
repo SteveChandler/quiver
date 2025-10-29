@@ -1,4 +1,9 @@
 import { Page, expect } from '@playwright/test';
+import {
+  verifySupabaseAuth,
+  waitForAuthCompletion,
+  ensureAuthenticated as ensureAuthenticatedHelper
+} from './auth-helpers';
 
 /**
  * Utility functions for E2E tests
@@ -20,14 +25,25 @@ export async function waitForElement(page: Page, selector: string, timeout = 100
 
 /**
  * Check if user is authenticated
+ * Uses improved authentication verification from auth-helpers
  */
 export async function isAuthenticated(page: Page): Promise<boolean> {
-  return await page.evaluate(() => {
-    // Check for Supabase auth cookies or localStorage
-    return document.cookie.includes('sb-') ||
-           localStorage.getItem('sb-') !== null ||
-           localStorage.getItem('supabase.auth.token') !== null;
-  });
+  return await verifySupabaseAuth(page);
+}
+
+/**
+ * Ensure user is authenticated before running test
+ * Throws a helpful error if authentication is missing
+ *
+ * Use this in test beforeEach hooks:
+ * @example
+ * test.beforeEach(async ({ page }) => {
+ *   await ensureAuthenticated(page);
+ *   await page.goto('/sessions');
+ * });
+ */
+export async function ensureAuthenticated(page: Page): Promise<void> {
+  return await ensureAuthenticatedHelper(page);
 }
 
 /**
@@ -45,6 +61,7 @@ export async function openAuthModal(page: Page) {
 
 /**
  * Login helper (for guest tests)
+ * Uses improved authentication completion detection
  */
 export async function login(page: Page, email: string, password: string) {
   // Open auth modal
@@ -66,8 +83,8 @@ export async function login(page: Page, email: string, password: string) {
   // Submit
   await page.getByRole('button', { name: /log in|sign in/i }).last().click();
 
-  // Wait for auth to complete
-  await page.waitForTimeout(2000);
+  // Wait for auth to complete (using improved helper)
+  await waitForAuthCompletion(page, 15000);
 }
 
 /**

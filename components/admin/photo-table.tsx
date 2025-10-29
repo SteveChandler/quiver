@@ -5,10 +5,11 @@
  *
  * Data table for displaying and managing photos in the admin portal.
  * Supports both session media and beach photos with different actions.
+ * Includes multi-select functionality for bulk deletion.
  */
 
 import { useState, useMemo } from "react";
-import { Eye, Trash2, RotateCcw, CheckCircle, XCircle } from "lucide-react";
+import { Eye, Trash2, RotateCcw, CheckCircle, XCircle, X } from "lucide-react";
 import Image from "next/image";
 
 import {
@@ -22,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import type { PhotoModerationItem } from "@/actions/admin/photos";
 
@@ -31,6 +33,7 @@ interface PhotoTableProps {
   onDelete: (photo: PhotoModerationItem) => void;
   onRestore: (photo: PhotoModerationItem) => void;
   onApprove?: (photo: PhotoModerationItem, approved: boolean) => void; // Beach photos only
+  onBulkDelete?: (photoIds: string[], photoType: "session_media" | "beach_photo") => void; // Bulk delete
   loading?: boolean;
 }
 
@@ -40,9 +43,11 @@ export function PhotoTable({
   onDelete,
   onRestore,
   onApprove,
+  onBulkDelete,
   loading = false,
 }: PhotoTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Filter photos
   const filteredPhotos = useMemo(() => {
@@ -58,6 +63,48 @@ export function PhotoTable({
       );
     });
   }, [photos, searchTerm]);
+
+  // Selection handlers
+  const isAllSelected =
+    filteredPhotos.length > 0 && selectedIds.size === filteredPhotos.length;
+  const isSomeSelected = selectedIds.size > 0 && !isAllSelected;
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredPhotos.map((p) => p.id)));
+    }
+  };
+
+  const handleSelectOne = (photoId: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(photoId)) {
+      newSelected.delete(photoId);
+    } else {
+      newSelected.add(photoId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    if (!onBulkDelete || selectedIds.size === 0) return;
+
+    // Get the selected photos to determine their type
+    const selectedPhotos = filteredPhotos.filter((p) => selectedIds.has(p.id));
+    if (selectedPhotos.length === 0) return;
+
+    // All selected photos should be the same type (enforced by UI - different tabs)
+    const photoType = selectedPhotos[0].type;
+    const selectedIdsArray = Array.from(selectedIds);
+
+    onBulkDelete(selectedIdsArray, photoType);
+    setSelectedIds(new Set());
+  };
 
   const isDeleted = (photo: PhotoModerationItem) => photo.status === "deleted";
   const isBeachPhoto = (photo: PhotoModerationItem) => photo.type === "beach_photo";
@@ -93,11 +140,39 @@ export function PhotoTable({
         </div>
       </div>
 
+      {/* Bulk Action Toolbar */}
+      {selectedIds.size > 0 && onBulkDelete && (
+        <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium">
+              {selectedIds.size} photo{selectedIds.size !== 1 ? "s" : ""} selected
+            </span>
+            <Button variant="ghost" size="sm" onClick={handleClearSelection}>
+              <X className="h-4 w-4 mr-1" />
+              Clear Selection
+            </Button>
+          </div>
+          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete Selected ({selectedIds.size})
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              {onBulkDelete && (
+                <TableHead className="w-[50px]">
+                  <Checkbox
+                    checked={isSomeSelected ? "indeterminate" : isAllSelected}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all photos"
+                  />
+                </TableHead>
+              )}
               <TableHead className="w-[100px]">Preview</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Details</TableHead>
@@ -110,13 +185,19 @@ export function PhotoTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={onBulkDelete ? 8 : 7}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   Loading photos...
                 </TableCell>
               </TableRow>
             ) : filteredPhotos.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell
+                  colSpan={onBulkDelete ? 8 : 7}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   {searchTerm ? "No photos found matching your search" : "No photos found"}
                 </TableCell>
               </TableRow>
@@ -124,8 +205,21 @@ export function PhotoTable({
               filteredPhotos.map((photo) => (
                 <TableRow
                   key={photo.id}
-                  className={isDeleted(photo) ? "bg-muted/30 opacity-60" : ""}
+                  className={`${isDeleted(photo) ? "bg-muted/30 opacity-60" : ""} ${
+                    selectedIds.has(photo.id) ? "bg-blue-50/50" : ""
+                  }`}
                 >
+                  {/* Checkbox */}
+                  {onBulkDelete && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(photo.id)}
+                        onCheckedChange={() => handleSelectOne(photo.id)}
+                        aria-label={`Select photo ${photo.id}`}
+                      />
+                    </TableCell>
+                  )}
+
                   {/* Preview Thumbnail */}
                   <TableCell>
                     <button

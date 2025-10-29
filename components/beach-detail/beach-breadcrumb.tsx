@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import type { Beach } from "@/types/database";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BeachBreadcrumbProps {
   beach: Beach;
@@ -10,7 +11,7 @@ interface BeachBreadcrumbProps {
 }
 
 export function BeachBreadcrumb({ beach, className }: BeachBreadcrumbProps) {
-  const location = beach.location || beach.region || "California";
+  const location = getBeachLocation(beach);
 
   return (
     <nav

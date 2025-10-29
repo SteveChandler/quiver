@@ -67,6 +67,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+**/*.bak
 scripts/setup-dev-cron.sh
 .github/workflows/forecast-update.yml.template
 .env

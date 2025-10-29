@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BeachCard } from "@/components/beach-card";
 import { BeachCardListSkeleton } from "@/components/skeletons/beach-card-skeleton";
 import { useMultipleBeachReviews } from "@/hooks/use-beach-reviews";
-import { prepareMultipleBeachCardData } from "@/lib/utils/beach-card-utils";
+import { prepareMultipleBeachCardData, getBeachLocation } from "@/lib/utils/beach-card-utils";
 import {
   COVERAGE_MESSAGES,
   isLikelyOutOfAreaSearch,
@@ -64,8 +64,7 @@ export function BeachList({
       filtered = filteredBeaches.filter(
         (beach) =>
           beach.name.toLowerCase().includes(filterValue.toLowerCase()) ||
-          (beach.location &&
-            beach.location.toLowerCase().includes(filterValue.toLowerCase()))
+          getBeachLocation(beach).toLowerCase().includes(filterValue.toLowerCase())
       );
     }
     setDisplayedBeaches(filtered);

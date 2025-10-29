@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, lazy, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -48,7 +48,7 @@ const DetailedSwellModal = dynamic(
     ),
   { ssr: false }
 );
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useBeachDetailData } from "@/hooks/use-beach-detail-data";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
@@ -96,6 +96,7 @@ import { track, slugify } from "@/lib/analytics";
 import { FullPageLoader } from "@/components/ui/loading-states";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 // New AllTrails-style components
 import { BeachBreadcrumb } from "@/components/beach-detail/beach-breadcrumb";
@@ -107,12 +108,38 @@ import { BeachTabs, BeachTabContent, type BeachTabValue } from "@/components/bea
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 
-// Tab content components - imported directly to avoid lazy loading issues
-import { OverviewTab } from "@/components/beach-detail/tabs/overview-tab";
-import { ForecastTab } from "@/components/beach-detail/tabs/forecast-tab";
-import { ReviewsTab } from "@/components/beach-detail/tabs/reviews-tab";
-import { IntelTab } from "@/components/beach-detail/tabs/intel-tab";
-import { SessionsTab } from "@/components/beach-detail/tabs/sessions-tab";
+// PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
+// Only load the active tab's code on-demand
+const OverviewTab = lazy(
+  () =>
+    import("@/components/beach-detail/tabs/overview-tab").then((m) => ({
+      default: m.OverviewTab,
+    }))
+);
+const ForecastTab = lazy(
+  () =>
+    import("@/components/beach-detail/tabs/forecast-tab").then((m) => ({
+      default: m.ForecastTab,
+    }))
+);
+const ReviewsTab = lazy(
+  () =>
+    import("@/components/beach-detail/tabs/reviews-tab").then((m) => ({
+      default: m.ReviewsTab,
+    }))
+);
+const IntelTab = lazy(
+  () =>
+    import("@/components/beach-detail/tabs/intel-tab").then((m) => ({
+      default: m.IntelTab,
+    }))
+);
+const SessionsTab = lazy(
+  () =>
+    import("@/components/beach-detail/tabs/sessions-tab").then((m) => ({
+      default: m.SessionsTab,
+    }))
+);
 
 // Constants to prevent unnecessary re-renders
 const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
@@ -173,6 +200,21 @@ export function BeachDetail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // PERFORMANCE OPTIMIZATION: Fetch all data in parallel (beach, forecasts, sources)
+  // This eliminates the waterfall pattern and dramatically improves load time
+  const {
+    beach,
+    forecasts = EMPTY_FORECASTS,
+    sources,
+    loading,
+    errors,
+    refetch,
+  } = useBeachDetailData({
+    beachId: id,
+    initialBeach,
+    forecastDays: 10,
+  });
+
   // Fetch forecast calibration data
   const { sessionSnapshots } = useForecastCalibration({ beachId: id });
 
@@ -186,112 +228,18 @@ export function BeachDetail({
     setReviewRefreshTrigger((prev) => prev + 1);
   }, []);
 
-  // Fetch beach information via API (avoid server actions from client)
-  const fetchBeach = useCallback(async () => {
-    if (process.env.NODE_ENV === "development") {
-      console.log("🏖️ Fetching beach data (API) for:", id);
-    }
-    const res = await fetch(`/api/beaches/${id}`, { cache: "no-store" });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body?.error || `Failed to fetch beach: ${res.status}`);
-    }
-    const body = (await res.json().catch(() => ({}))) as {
-      data?: { beach?: Beach } | Beach;
-      beach?: Beach;
-    };
-    const beachData =
-      (body as any)?.data?.beach || (body as any)?.beach || (body as any)?.data;
-    if (!beachData) throw new Error("Beach data not found");
-    if (process.env.NODE_ENV === "development") {
-      console.log("✅ Beach data:", beachData);
-    }
-    return beachData as Beach;
-  }, [id]);
+  // Combined error states - only beach errors are fatal
+  const error = errors.beach;
 
-  const {
-    data: beach,
-    loading: beachLoading,
-    error: beachError,
-  } = useDataFetcher(fetchBeach, {
-    immediate: !initialBeach,
-    initialData: initialBeach,
-  });
-
-  // Single data fetch - 10-day enhanced forecast via API
-  const fetchForecasts = useCallback(async () => {
-    if (process.env.NODE_ENV === "development") {
-      console.log("🚀 Starting enhanced forecast fetch (API) for beach:", id);
-    }
-    const res = await fetch(
-      `/api/forecasts/update-enhanced?beachId=${id}&days=10`,
-      { cache: "no-store" }
-    );
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(
-        body?.error || `Failed to fetch enhanced forecasts: ${res.status}`
-      );
-    }
-    const body = (await res.json().catch(() => ({}))) as {
-      success?: boolean;
-      data?: { forecasts?: EnhancedForecastEntity[] };
-      forecasts?: EnhancedForecastEntity[];
-      error?: string;
-    };
-    const forecasts: EnhancedForecastEntity[] =
-      body?.data?.forecasts || (body as any)?.forecasts || [];
-    if (process.env.NODE_ENV === "development") {
-      console.log("🔍 Raw forecast data:", {
-        totalForecasts: forecasts.length,
-        dateRange: {
-          first: forecasts[0]?.forecast_date,
-          last: forecasts[forecasts.length - 1]?.forecast_date,
-        },
-        sampleForecast: forecasts[0],
-        uniqueDates: [...new Set(forecasts.map((f) => f.forecast_date))],
-        forecastsByDate: forecasts.reduce((acc, f) => {
-          acc[f.forecast_date] = (acc[f.forecast_date] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>),
-      });
-    }
-    return forecasts;
-  }, [id]);
-
-  const {
-    data: forecasts,
-    loading: forecastsLoading,
-    error: forecastsError,
-    refetch,
-  } = useDataFetcher(fetchForecasts, {
-    immediate: true,
-    initialData: EMPTY_FORECASTS,
-  });
-
-  // Determine if this beach has a live camera available
-  const fetchSources = useCallback(async () => {
-    const res = await fetch(`/api/beaches/${id}/sources`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const body = await res.json().catch(() => ({}));
-    return (body as any)?.data?.sources || (body as any)?.sources || null;
-  }, [id]);
-
-  const { data: sources } = useDataFetcher(fetchSources, { immediate: true });
-
-  // Combined loading and error states
-  // Only beach errors are fatal - forecast errors should be graceful
-  const loading = beachLoading;
-  const error = beachError;
-
-  // Log forecast errors but don't treat them as fatal
+  // Log non-fatal errors
   useEffect(() => {
-    if (forecastsError) {
-      console.warn("⚠️ Forecast data unavailable:", forecastsError);
+    if (errors.forecasts) {
+      console.debug("⚠️ Forecast data unavailable:", errors.forecasts);
     }
-  }, [forecastsError]);
+    if (errors.sources) {
+      console.debug("⚠️ Source data unavailable:", errors.sources);
+    }
+  }, [errors.forecasts, errors.sources]);
 
   // Track beach view once we have data
   // Note: Hooks must run unconditionally on every render (before any return)
@@ -301,7 +249,7 @@ export function BeachDetail({
       const isHome = (searchParams?.get("from") || "") === "home";
       track("beach_view", {
         beach_slug: slugify(beach.name),
-        region: (beach as any).region || (beach as any).location || undefined,
+        region: beach.region_id || getBeachLocation(beach) || undefined,
         is_home: isHome,
       });
     } catch {}
@@ -440,8 +388,7 @@ export function BeachDetail({
     return time;
   };
 
-  const locationLabel =
-    beach?.location || beach?.region || beach?.country || "Untitled coastline";
+  const locationLabel = beach ? getBeachLocation(beach) : "Untitled coastline";
 
   const tideTrend = (currentForecast?.tide_status || "").toLowerCase();
   const TideIcon =
@@ -479,8 +426,10 @@ export function BeachDetail({
     window.open(url, "_blank", "noopener");
   }, [destinationCoordinates]);
 
-  // Prioritize loading state to prevent erroneous "not found" flash
-  if (loading) {
+  // PERFORMANCE OPTIMIZATION: Progressive rendering
+  // Show hero section immediately with beach data, load tab content progressively
+  // Only show full page loader if we don't have beach data yet
+  if (loading && !beach) {
     return <FullPageLoader />;
   }
 
@@ -516,6 +465,9 @@ export function BeachDetail({
       </div>
     );
   }
+
+  // Track if tab data is still loading (for skeleton loaders)
+  const tabDataLoading = loading;
 
   // Session planning handlers
   const handlePlanSession = () => {
@@ -581,42 +533,64 @@ export function BeachDetail({
         <BeachTabs activeTab={activeTab} onTabChange={setActiveTab} actions={tabActions}>
           {/* Overview Tab */}
           <BeachTabContent value="overview">
-            <OverviewTab beach={beach as any} />
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <OverviewTab beach={beach as any} />
+            </Suspense>
           </BeachTabContent>
 
           {/* Forecast Tab */}
           <BeachTabContent value="forecast">
-            <ForecastTab
-              beach={beach}
-              forecasts={forecasts || []}
-              currentForecast={currentForecast}
-              hasCamera={hasCamera}
-            />
+            {tabDataLoading ? (
+              <TabLoadingSkeleton />
+            ) : (
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <ForecastTab
+                  beach={beach}
+                  forecasts={forecasts || []}
+                  currentForecast={currentForecast}
+                  hasCamera={hasCamera}
+                />
+              </Suspense>
+            )}
           </BeachTabContent>
 
           {/* Reviews Tab */}
           <BeachTabContent value="reviews">
-            <ReviewsTab
-              beach={beach}
-              onWriteReview={handleWriteReview}
-              reviewRefreshTrigger={reviewRefreshTrigger}
-            />
+            {tabDataLoading ? (
+              <TabLoadingSkeleton />
+            ) : (
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <ReviewsTab
+                  beach={beach}
+                  onWriteReview={handleWriteReview}
+                  reviewRefreshTrigger={reviewRefreshTrigger}
+                />
+              </Suspense>
+            )}
           </BeachTabContent>
 
           {/* Local Intel Tab */}
           <BeachTabContent value="intel">
-            <IntelTab
-              beach={beach}
-              initialShowAll={searchParams?.get("show") === "all"}
-            />
+            {tabDataLoading ? (
+              <TabLoadingSkeleton />
+            ) : (
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                <IntelTab
+                  beach={beach}
+                  initialShowAll={searchParams?.get("show") === "all"}
+                />
+              </Suspense>
+            )}
           </BeachTabContent>
 
           {/* Sessions Tab */}
           <BeachTabContent value="sessions">
-            <SessionsTab
-              beach={beach}
-              sessionSnapshots={sessionSnapshots}
-            />
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <SessionsTab
+                beach={beach}
+                sessionSnapshots={sessionSnapshots}
+              />
+            </Suspense>
           </BeachTabContent>
         </BeachTabs>
       </div>

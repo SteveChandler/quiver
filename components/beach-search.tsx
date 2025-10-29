@@ -185,36 +185,6 @@ export function BeachSearch({ profile }: BeachSearchProps) {
     }
   };
 
-  // Find beach by name in beaches table - REMOVED, using existing function instead
-  // const findBeachByName = async (
-  //   searchQuery: string
-  // ): Promise<Beach | null> => {
-  //   try {
-  //     const result = await getBeaches();
-  //     if (result.success && result.data) {
-  //       const normalizedQuery = searchQuery.toLowerCase().trim();
-
-  //       // First try exact match
-  //       let matchedBeach = result.data.find(
-  //         (beach) => beach.name.toLowerCase() === normalizedQuery
-  //       );
-
-  //       // If no exact match, try partial match
-  //       if (!matchedBeach) {
-  //         matchedBeach = result.data.find(
-  //           (beach) =>
-  //             beach.name.toLowerCase().includes(normalizedQuery) ||
-  //             normalizedQuery.includes(beach.name.toLowerCase())
-  //         );
-  //       }
-
-  //       return matchedBeach || null;
-  //     }
-  //   } catch (error) {
-  //     console.error("Error searching beaches:", error);
-  //   }
-  //   return null;
-  // };
 
   // Load available beaches for fallback display
   const loadAvailableBeaches = async () => {

@@ -1,16 +1,27 @@
 import { chromium, FullConfig } from '@playwright/test';
 import * as dotenv from 'dotenv';
+import {
+  verifySupabaseAuth,
+  waitForAuthCompletion,
+  logAuthState,
+  getAuthTokens
+} from './utils/auth-helpers';
 
 /**
  * Global setup runs once before all tests
  * Creates authenticated session for tests that require authentication
  */
 async function globalSetup(config: FullConfig) {
-  // Load environment variables
-  dotenv.config({ path: '.env.playwright' });
+  // Load environment variables with .env.playwright taking priority
+  dotenv.config({ path: '.env.playwright', override: true });
   dotenv.config(); // Fallback to .env
 
-  const { baseURL, storageState } = config.projects[0].use;
+  // Get configuration from the correct project
+  // Find the auth project or fallback to first project
+  const authProject = config.projects.find(p => p.name === 'auth');
+  const projectConfig = authProject || config.projects[0];
+  const { baseURL } = projectConfig.use;
+  const storageStatePath = 'e2e/.auth/state.json';
 
   const browser = await chromium.launch();
   const context = await browser.newContext();
@@ -19,99 +30,162 @@ async function globalSetup(config: FullConfig) {
   // Get test credentials from environment
   const testEmail = process.env.TEST_USER_EMAIL || 'test@quiver.com';
   const testPassword = process.env.TEST_USER_PASSWORD || 'testpassword123';
+  const testEnv = process.env.TEST_ENV || 'local';
 
+  console.log(`[Global Setup] ============================================`);
+  console.log(`[Global Setup] Environment: ${testEnv}`);
+  console.log(`[Global Setup] Base URL: ${baseURL}`);
   console.log(`[Global Setup] Authenticating test user: ${testEmail}`);
+  console.log(`[Global Setup] ============================================`);
 
-  try {
-    // Navigate to home page
-    await page.goto(baseURL!);
+  const maxAttempts = 3;
+  let authenticated = false;
+  let lastError: Error | null = null;
 
-    // Wait for page to load
-    await page.waitForLoadState('networkidle', { timeout: 30000 });
+  for (let attempt = 1; attempt <= maxAttempts && !authenticated; attempt++) {
+    try {
+      console.log(`\n[Global Setup] Authentication attempt ${attempt}/${maxAttempts}`);
 
-    // Check if already authenticated
-    const isAuthenticated = await page.evaluate(() => {
-      // Check for Supabase auth tokens in localStorage
-      const hasSupabaseAuth = Object.keys(localStorage).some(key =>
-        key.startsWith('sb-') && key.includes('-auth-token')
-      );
-      return document.cookie.includes('sb-') || hasSupabaseAuth;
-    });
+      // Navigate to home page
+      console.log(`[Global Setup] Navigating to ${baseURL}...`);
+      await page.goto(baseURL!, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    if (!isAuthenticated) {
+      // Wait for page to load
+      await page.waitForLoadState('networkidle', { timeout: 30000 });
+      console.log('[Global Setup] Page loaded');
+
+      // Check if already authenticated
+      const isAlreadyAuth = await verifySupabaseAuth(page);
+
+      if (isAlreadyAuth) {
+        console.log('[Global Setup] ✓ Already authenticated');
+        authenticated = true;
+        break;
+      }
+
       console.log('[Global Setup] Not authenticated, attempting login...');
 
       // Look for login button
       const loginButton = page.getByRole('button', { name: /log in/i });
       const isVisible = await loginButton.isVisible().catch(() => false);
 
-      if (isVisible) {
-        await loginButton.click();
-
-        // Wait for auth modal to appear
-        await page.waitForSelector('[role="dialog"]', { timeout: 10000 });
-
-        // Click "Continue with Email" button to get to email/password form
-        const emailButton = page.getByRole('button', { name: /continue with email|sign in with email/i }).first();
-        const emailButtonVisible = await emailButton.isVisible().catch(() => false);
-
-        if (emailButtonVisible) {
-          await emailButton.click();
-          await page.waitForTimeout(1000);
-        }
-
-        // Fill in email and password
-        const emailInput = page.getByPlaceholder(/email/i);
-        const passwordInput = page.getByLabel(/password/i);
-
-        await emailInput.fill(testEmail);
-        await passwordInput.fill(testPassword);
-
-        // Submit login
-        const submitButton = page.getByRole('button', { name: /log in|sign in/i }).last();
-        await submitButton.click();
-
-        // Wait for authentication to complete - modal should close
-        try {
-          await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 10000 });
-          console.log('[Global Setup] Auth modal closed successfully');
-        } catch {
-          console.log('[Global Setup] Auth modal did not close, but continuing...');
-        }
-
-        // Additional wait for auth tokens to be set
-        await page.waitForTimeout(2000);
-
-        // Verify authentication succeeded
-        const authSuccess = await page.evaluate(() => {
-          // Check for Supabase auth tokens in localStorage
-          const hasSupabaseAuth = Object.keys(localStorage).some(key =>
-            key.startsWith('sb-') && key.includes('-auth-token')
-          );
-          return document.cookie.includes('sb-') || hasSupabaseAuth;
-        });
-
-        if (!authSuccess) {
-          console.warn('[Global Setup] Authentication may have failed, but continuing...');
-        } else {
-          console.log('[Global Setup] Authentication successful');
-        }
+      if (!isVisible) {
+        throw new Error('Login button not found on page');
       }
-    } else {
-      console.log('[Global Setup] Already authenticated');
+
+      await loginButton.click();
+      console.log('[Global Setup] Clicked login button');
+
+      // Wait for auth modal to appear
+      await page.waitForSelector('[role="dialog"]', { timeout: 10000 });
+      console.log('[Global Setup] Auth modal appeared');
+
+      // Click "Continue with Email" button to get to email/password form
+      const emailButton = page.getByRole('button', { name: /continue with email|sign in with email/i }).first();
+      const emailButtonVisible = await emailButton.isVisible().catch(() => false);
+
+      if (emailButtonVisible) {
+        await emailButton.click();
+        await page.waitForTimeout(1000);
+        console.log('[Global Setup] Clicked "Continue with Email"');
+      }
+
+      // Fill in email and password
+      const emailInput = page.getByPlaceholder(/email/i);
+      const passwordInput = page.getByLabel(/password/i);
+
+      await emailInput.fill(testEmail);
+      await passwordInput.fill(testPassword);
+      console.log('[Global Setup] Filled credentials');
+
+      // Submit login
+      const submitButton = page.getByRole('button', { name: /log in|sign in/i }).last();
+      await submitButton.click();
+      console.log('[Global Setup] Submitted login form');
+
+      // Wait for authentication to complete
+      try {
+        await waitForAuthCompletion(page, 15000);
+        authenticated = true;
+        console.log('[Global Setup] ✓ Authentication successful!');
+      } catch (error) {
+        throw new Error(`Authentication verification failed: ${error}`);
+      }
+
+      // Wait for modal to close
+      try {
+        await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 5000 });
+        console.log('[Global Setup] Auth modal closed');
+      } catch {
+        console.log('[Global Setup] Auth modal still visible, but tokens are present');
+      }
+
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`[Global Setup] Attempt ${attempt} failed:`, error);
+
+      if (attempt < maxAttempts) {
+        console.log(`[Global Setup] Retrying in 2 seconds...`);
+        await page.waitForTimeout(2000);
+      }
     }
+  }
 
-    // Save authenticated state
-    await context.storageState({ path: 'e2e/.auth/state.json' });
-    console.log('[Global Setup] Saved authentication state to e2e/.auth/state.json');
+  // Check if authentication succeeded
+  if (!authenticated) {
+    console.error('\n[Global Setup] ❌ AUTHENTICATION FAILED');
+    console.error(`[Global Setup] All ${maxAttempts} attempts failed`);
+    console.error(`[Global Setup] Last error:`, lastError);
 
-  } catch (error) {
-    console.error('[Global Setup] Error during authentication:', error);
-    // Continue anyway - some tests may work without auth
-  } finally {
+    // Get debug information
+    const tokens = await getAuthTokens(page);
+    console.error('[Global Setup] Auth state:', {
+      cookies: tokens.cookies.length,
+      storage: tokens.storage.length
+    });
+
     await context.close();
     await browser.close();
+
+    throw new Error(
+      `Failed to authenticate after ${maxAttempts} attempts. ` +
+      `Last error: ${lastError?.message || 'Unknown error'}. ` +
+      `Please check:\n` +
+      `  1. Test credentials are correct in .env.playwright\n` +
+      `  2. User exists in the target environment (${testEnv})\n` +
+      `  3. ${baseURL} is accessible\n` +
+      `  4. Supabase configuration is correct`
+    );
   }
+
+  // Log final authentication state
+  await logAuthState(page, 'Final Auth State');
+
+  // Save authenticated state
+  try {
+    await context.storageState({ path: storageStatePath });
+    console.log(`[Global Setup] ✓ Saved authentication state to ${storageStatePath}`);
+
+    // Verify the state file contains cookies
+    const tokens = await getAuthTokens(page);
+    console.log(`[Global Setup] State contains ${tokens.cookies.length} cookies and ${tokens.storage.length} storage entries`);
+
+    if (tokens.cookies.length === 0 && tokens.storage.length === 0) {
+      throw new Error('Saved state contains no authentication data');
+    }
+  } catch (error) {
+    console.error('[Global Setup] ❌ Failed to save authentication state:', error);
+    await context.close();
+    await browser.close();
+    throw error;
+  }
+
+  await context.close();
+  await browser.close();
+
+  console.log('\n[Global Setup] ============================================');
+  console.log('[Global Setup] ✓ Global setup completed successfully');
+  console.log('[Global Setup] ============================================\n');
 }
 
 export default globalSetup;

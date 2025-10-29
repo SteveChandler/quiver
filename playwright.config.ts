@@ -8,6 +8,7 @@ config({ path: '.env.playwright', override: true });
 // Minimal fresh Playwright configuration
 export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
   testDir: "./e2e",
   timeout: 120 * 1000,
   fullyParallel: true,

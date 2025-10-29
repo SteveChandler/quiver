@@ -66,7 +66,7 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
   });
 
   const handleImageError = (photoId: string) => {
-    console.warn("Beach photo failed to load:", photoId);
+    console.debug("Beach photo failed to load:", photoId);
     setFailedImages((prev) => new Set(prev).add(photoId));
   };
 

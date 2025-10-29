@@ -51,26 +51,3 @@ export function trackPublicPageView(page: string, params: Record<string, any> = 
   });
 }
 
-export function trackSignupCTAView(source: string, ctaTitle: string) {
-  track("signup_cta_view", {
-    source,
-    cta_title: ctaTitle,
-    platform: currentPlatform(),
-  });
-}
-
-export function trackSignupCTAClick(source: string, ctaTitle: string) {
-  track("signup_cta_click", {
-    source,
-    cta_title: ctaTitle,
-    platform: currentPlatform(),
-  });
-}
-
-export function trackPublicConversion(source: string, method: "signup" | "signin") {
-  track("public_conversion", {
-    source,
-    method,
-    platform: currentPlatform(),
-  });
-}

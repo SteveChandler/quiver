@@ -9,11 +9,3 @@ export const CACHE_TTL = {
   MAP_NEARBY_BUOYS: 24 * 60 * 60 * 1000, // 24 hours - static locations
   MAP_NEARBY_BEACHES: 12 * 60 * 60 * 1000, // 12 hours - static beach data
 } as const;
-
-// UI interaction timings
-export const UI_TIMING = {
-  AUTO_HIDE_DELAY: 3000, // Navigation auto-hide
-  DEBOUNCE_DELAY: 300, // Search input debounce
-  LOADING_SPINNER_DELAY: 200, // Delay before showing spinner
-  TOAST_DURATION: 5000, // Toast notification duration
-} as const;

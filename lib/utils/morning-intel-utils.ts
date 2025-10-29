@@ -26,17 +26,6 @@ const OB_SHORE_NORMAL = 270; // degrees
 /**
  * Convert wave height description to readable format
  */
-export function getWaveHeightDescription(heightFeet: number): string {
-  if (heightFeet < 1) return "flat";
-  if (heightFeet < 2) return "ankle";
-  if (heightFeet < 3) return "knee";
-  if (heightFeet < 4) return "waist";
-  if (heightFeet < 5) return "chest";
-  if (heightFeet < 6) return "head";
-  if (heightFeet < 8) return "overhead";
-  if (heightFeet < 10) return "double overhead";
-  return "triple overhead+";
-}
 
 /**
  * Recommend best tide window based on beach preferences and forecast data
@@ -139,85 +128,6 @@ export function deriveSurfRange(
 /**
  * Get tide metrics at a specific time
  */
-export function tideAt(
-  targetTime: string, // "06:00"
-  tides: ForecastSlice["tides"],
-  timezone: string
-): TideMetrics {
-  if (!tides || tides.length === 0) {
-    return {
-      height: 0,
-      direction: "slack",
-      nextEvent: null,
-    };
-  }
-
-  // Parse target time in the specified timezone
-  const now = new Date();
-  const todayStr = format(now, "yyyy-MM-dd");
-  const targetDateStr = `${todayStr}T${targetTime}:00`;
-  const targetDate = fromZonedTime(new Date(targetDateStr), timezone);
-
-  // Find closest tide reading
-  let closestTide = tides[0];
-  let minDiff = Math.abs(
-    new Date(tides[0].ts).getTime() - targetDate.getTime()
-  );
-
-  for (const tide of tides) {
-    const diff = Math.abs(new Date(tide.ts).getTime() - targetDate.getTime());
-    if (diff < minDiff) {
-      minDiff = diff;
-      closestTide = tide;
-    }
-  }
-
-  // Determine tide direction by comparing with next reading
-  const tideIndex = tides.indexOf(closestTide);
-  let direction: "rising" | "falling" | "slack" = "slack";
-
-  if (tideIndex < tides.length - 1) {
-    const currentHeight = closestTide.tide_height_m;
-    const nextHeight = tides[tideIndex + 1].tide_height_m;
-    const diff = nextHeight - currentHeight;
-
-    if (diff > 0.05) direction = "rising";
-    else if (diff < -0.05) direction = "falling";
-  }
-
-  // Find next high/low tide event
-  let nextEvent: TideMetrics["nextEvent"] = null;
-  for (let i = tideIndex + 1; i < tides.length; i++) {
-    const tide = tides[i];
-    const prevTide = tides[i - 1];
-    const nextTide = tides[i + 1];
-
-    if (prevTide && nextTide) {
-      const isHigh =
-        tide.tide_height_m > prevTide.tide_height_m &&
-        tide.tide_height_m > nextTide.tide_height_m;
-      const isLow =
-        tide.tide_height_m < prevTide.tide_height_m &&
-        tide.tide_height_m < nextTide.tide_height_m;
-
-      if (isHigh || isLow) {
-        const tideTime = utcToZonedTime(new Date(tide.ts), timezone);
-        nextEvent = {
-          type: isHigh ? "HIGH" : "LOW",
-          height: Number((tide.tide_height_m * METERS_TO_FEET).toFixed(1)),
-          time: format(tideTime, "HH:mm"),
-        };
-        break;
-      }
-    }
-  }
-
-  return {
-    height: Number((closestTide.tide_height_m * METERS_TO_FEET).toFixed(1)),
-    direction,
-    nextEvent,
-  };
-}
 
 /**
  * Extract primary and secondary swell components
@@ -340,15 +250,6 @@ export function windAt(
 /**
  * Calculate if wind is offshore relative to beach orientation
  */
-export function calculateOnOffshore(
-  windDir: number,
-  beachAspect: number
-): boolean {
-  // Offshore wind is roughly opposite to shore normal (within 90° tolerance)
-  const diff = normalizeAngle(windDir - beachAspect);
-  // Offshore: wind coming from land (90° to 270° relative to shore normal)
-  return diff > 45 && diff < 315;
-}
 
 /**
  * Normalize angle to 0-360 range
@@ -362,12 +263,6 @@ function normalizeAngle(angle: number): number {
 /**
  * Convert degrees to cardinal direction
  */
-export function degreesToCardinal(degrees: number): string {
-  const normalized = normalizeAngle(degrees);
-  const cardinals = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-  const index = Math.round(normalized / 22.5) % 16;
-  return cardinals[index];
-}
 
 /**
  * Calculate best surf window heuristic
@@ -669,143 +564,14 @@ function isAngleInWindow(
 /**
  * Analyze swell direction match with beach preferences
  */
-export function analyzeSwellMatch(
-  swellDirection: number | null | undefined,
-  beach: BeachPreferences
-): ConditionEvaluation {
-  if (!swellDirection) {
-    return {
-      status: "poor",
-      emoji: "❌",
-      message: "No swell data available",
-    };
-  }
-
-  if (!beach.swellWindowMin || !beach.swellWindowMax) {
-    return {
-      status: "acceptable",
-      emoji: "⚠️",
-      message: `${Math.round(swellDirection)}° (No preference data)`,
-    };
-  }
-
-  const inWindow = isAngleInWindow(
-    swellDirection,
-    beach.swellWindowMin,
-    beach.swellWindowMax
-  );
-
-  if (inWindow) {
-    return {
-      status: "optimal",
-      emoji: "✅",
-      message: `${Math.round(swellDirection)}° (Perfect! In window ${beach.swellWindowMin}-${beach.swellWindowMax}°)`,
-    };
-  } else {
-    return {
-      status: "poor",
-      emoji: "❌",
-      message: `${Math.round(swellDirection)}° (Outside preferred window ${beach.swellWindowMin}-${beach.swellWindowMax}°)`,
-    };
-  }
-}
 
 /**
  * Analyze wind conditions relative to beach preferences
  */
-export function analyzeWindConditions(
-  wind: WindMetrics,
-  beach: BeachPreferences
-): ConditionEvaluation {
-  if (!wind.speed || !wind.direction) {
-    return {
-      status: "poor",
-      emoji: "❌",
-      message: "No wind data available",
-    };
-  }
-
-  if (!beach.windOffshoreDeg) {
-    // Fallback to basic offshore check
-    if (wind.offshore) {
-      return {
-        status: "optimal",
-        emoji: "✅",
-        message: `${wind.speed} mph ${wind.cardinal} (Offshore!)`,
-      };
-    } else {
-      return {
-        status: "acceptable",
-        emoji: "⚠️",
-        message: `${wind.speed} mph ${wind.cardinal} (${wind.description})`,
-      };
-    }
-  }
-
-  const tolerance = beach.windOffshoreTol || 45;
-  const windDiff = Math.abs(
-    normalizeAngle(wind.direction - beach.windOffshoreDeg)
-  );
-  const adjustedDiff = windDiff > 180 ? 360 - windDiff : windDiff;
-
-  if (adjustedDiff <= tolerance && wind.speed < 15) {
-    return {
-      status: "optimal",
-      emoji: "✅",
-      message: `${wind.speed} mph ${wind.cardinal} (Offshore - Clean conditions!)`,
-    };
-  } else if (adjustedDiff <= tolerance * 1.5 || wind.speed < 8) {
-    return {
-      status: "acceptable",
-      emoji: "⚠️",
-      message: `${wind.speed} mph ${wind.cardinal} (${wind.description})`,
-    };
-  } else {
-    return {
-      status: "poor",
-      emoji: "❌",
-      message: `${wind.speed} mph ${wind.cardinal} (Onshore - Choppy conditions)`,
-    };
-  }
-}
 
 /**
  * Analyze tide conditions relative to beach preferences
  */
-export function analyzeTideConditions(
-  tideHeight: number,
-  beach: BeachPreferences
-): ConditionEvaluation {
-  if (!beach.tideMinFt || !beach.tideMaxFt) {
-    return {
-      status: "acceptable",
-      emoji: "⚠️",
-      message: `${tideHeight} ft (No preference data)`,
-    };
-  }
-
-  if (tideHeight >= beach.tideMinFt && tideHeight <= beach.tideMaxFt) {
-    return {
-      status: "optimal",
-      emoji: "✅",
-      message: `${tideHeight} ft (In optimal range ${beach.tideMinFt}-${beach.tideMaxFt} ft)`,
-    };
-  } else if (tideHeight < beach.tideMinFt) {
-    const diff = (beach.tideMinFt - tideHeight).toFixed(1);
-    return {
-      status: "acceptable",
-      emoji: "⚠️",
-      message: `${tideHeight} ft (${diff} ft below preferred min ${beach.tideMinFt} ft)`,
-    };
-  } else {
-    const diff = (tideHeight - beach.tideMaxFt).toFixed(1);
-    return {
-      status: "acceptable",
-      emoji: "⚠️",
-      message: `${tideHeight} ft (${diff} ft above preferred max ${beach.tideMaxFt} ft)`,
-    };
-  }
-}
 
 /**
  * Calculate overall conditions score and analysis
