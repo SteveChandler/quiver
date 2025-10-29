@@ -30,9 +30,14 @@ interface UseBeachDetailDataOptions {
   forecastDays?: number;
 }
 
-// SWR fetcher function
+// SWR fetcher function with optimized caching
+// Use 'force-cache' to respect Cache-Control headers from API routes
+// This allows the browser to cache forecast data per the API's cache policy
 const fetcher = async (url: string) => {
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, {
+    cache: "force-cache",
+    next: { revalidate: 600 } // Revalidate after 10 minutes (matches API cache)
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = await res.json();
   return body;
