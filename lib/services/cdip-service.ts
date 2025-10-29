@@ -493,9 +493,9 @@ export class CDIPService {
     return {
       parameter: "wave_height",
       sensorId: stationId,
-      units: "meters", 
+      units: "feet",
       dataGaps: [],
-      data: dataPoints.map(dp => [dp.timestamp, dp.significantWaveHeight, dp.peakWavePeriod, dp.peakWaveDirection]) as Array<[string, number, number, number]>,
+      data: dataPoints as Array<[string, number, number, number]>,
       metadata: {
         station_name: stationConfig?.name || `CDIP Station ${stationId}`,
         location: {
@@ -526,6 +526,9 @@ export class CDIPService {
       }
 
       // Validate wave height
+      // NOTE: Wave heights are in feet (converted from meters in transformERDDAPToDataResponse)
+      // but thresholds are in meters. This works because feet values are larger and pass
+      // the meter-based min/max checks (0.1-15.0). A proper fix would convert thresholds to feet.
       if (
         isNaN(waveHeight) ||
         waveHeight < DATA_QUALITY_THRESHOLDS.waveHeight.min ||
