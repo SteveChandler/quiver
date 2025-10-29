@@ -95,7 +95,7 @@ export async function logout(page: Page) {
  */
 export async function navigateToBeach(page: Page, beachId: string) {
   await page.goto(`/beach/${beachId}`);
-  await waitForNetwork(page);
+  await waitForPageLoad(page);
 }
 
 /**
