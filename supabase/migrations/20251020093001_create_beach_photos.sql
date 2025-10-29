@@ -28,6 +28,8 @@ order by beach_id, fetched_at desc;
 
 alter table public.beach_photos enable row level security;
 
+drop policy if exists beach_photos_read on public.beach_photos;
+
 create policy beach_photos_read on public.beach_photos
   for select
   using (true);

@@ -48,6 +48,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Add updated_at trigger
+DROP TRIGGER IF EXISTS update_forecast_accuracy_votes_updated_at ON forecast_accuracy_votes;
+
 CREATE TRIGGER update_forecast_accuracy_votes_updated_at
   BEFORE UPDATE ON forecast_accuracy_votes
   FOR EACH ROW
@@ -57,6 +59,12 @@ CREATE TRIGGER update_forecast_accuracy_votes_updated_at
 ALTER TABLE forecast_accuracy_votes ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+
+-- Drop existing policies if they exist (for idempotency)
+DROP POLICY IF EXISTS forecast_votes_select_policy ON forecast_accuracy_votes;
+DROP POLICY IF EXISTS forecast_votes_insert_policy ON forecast_accuracy_votes;
+DROP POLICY IF EXISTS forecast_votes_update_policy ON forecast_accuracy_votes;
+DROP POLICY IF EXISTS forecast_votes_delete_policy ON forecast_accuracy_votes;
 
 -- Policy: Anyone can read votes (public transparency)
 CREATE POLICY forecast_votes_select_policy ON forecast_accuracy_votes

@@ -36,6 +36,12 @@ alter table public.notifications enable row level security;
 
 -- RLS Policies for user_devices
 
+-- Drop existing policies if they exist (for idempotency)
+drop policy if exists "Users can insert their own devices" on public.user_devices;
+drop policy if exists "Users can view their own devices" on public.user_devices;
+drop policy if exists "Users can delete their own devices" on public.user_devices;
+drop policy if exists "Users can update their own devices" on public.user_devices;
+
 -- Users can insert their own device tokens
 create policy "Users can insert their own devices" on public.user_devices
   for insert with check (auth.uid() = user_id);
@@ -54,6 +60,10 @@ create policy "Users can update their own devices" on public.user_devices
 
 -- RLS Policies for notifications
 
+-- Drop existing policies if they exist (for idempotency)
+drop policy if exists "Users can view their own notifications" on public.notifications;
+drop policy if exists "Users can update their own notifications" on public.notifications;
+
 -- Users can view their own notifications
 create policy "Users can view their own notifications" on public.notifications
   for select using (auth.uid() = user_id);
@@ -63,6 +73,8 @@ create policy "Users can update their own notifications" on public.notifications
   for update using (auth.uid() = user_id);
 
 commit;
+
+
 
 
 

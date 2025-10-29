@@ -5,15 +5,8 @@
 BEGIN;
 
 -- Step 1: Ensure lat/lon are populated from any variant column
--- Backfill lat from latitude if lat is null
-UPDATE public.beaches
-SET lat = COALESCE(lat, latitude)
-WHERE lat IS NULL AND latitude IS NOT NULL;
-
--- Backfill lon from longitude if lon is null
-UPDATE public.beaches
-SET lon = COALESCE(lon, longitude)
-WHERE lon IS NULL AND longitude IS NOT NULL;
+-- SKIP: latitude/longitude columns don't exist in current schema
+-- (Already using lat/lon as canonical columns)
 
 -- Step 2: Drop the old coordinates trigger (manually maintained geography column)
 DROP TRIGGER IF EXISTS trg_set_beach_coordinates ON public.beaches;
