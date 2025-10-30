@@ -31,8 +31,8 @@ describe("getNearbyBeaches (RPC + fallback)", () => {
     expect(res.success).toBe(true);
     expect(res.data).toHaveLength(2);
     expect(mockSupabase.rpc).toHaveBeenCalledWith("get_nearby_beaches", expect.objectContaining({
-      lat: lat,
-      lng: lng,
+      input_lat: lat,
+      input_lng: lng,
       max_distance_meters: expect.any(Number),
       limit_count: 50,
     }));

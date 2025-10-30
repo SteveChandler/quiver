@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import type { Beach } from "@/types/database";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
+import { buildLocationUrl } from "@/lib/utils/location-slug";
 
 interface BeachBreadcrumbProps {
   beach: Beach;
@@ -12,6 +13,10 @@ interface BeachBreadcrumbProps {
 
 export function BeachBreadcrumb({ beach, className }: BeachBreadcrumbProps) {
   const location = getBeachLocation(beach);
+
+  // Build location URL if we have city and state
+  const locationUrl = buildLocationUrl(beach.city, beach.state, beach.country);
+  const hasLocationPage = locationUrl !== "/map"; // Check if we have valid location data
 
   return (
     <nav
@@ -31,8 +36,17 @@ export function BeachBreadcrumb({ beach, className }: BeachBreadcrumbProps) {
       {/* Phase 4 Spec: Separator - › character with 8px margins, gray-400 color */}
       <span className="text-gray-400 mx-2" aria-hidden="true">›</span>
 
-      {/* Location */}
-      <span className="text-gray-600">{location}</span>
+      {/* Location - clickable if we have a valid location page */}
+      {hasLocationPage ? (
+        <Link
+          href={locationUrl}
+          className="text-ocean-blue hover:underline transition-colors"
+        >
+          {location}
+        </Link>
+      ) : (
+        <span className="text-gray-600">{location}</span>
+      )}
 
       {/* Phase 4 Spec: Separator - › character with 8px margins, gray-400 color */}
       <span className="text-gray-400 mx-2" aria-hidden="true">›</span>

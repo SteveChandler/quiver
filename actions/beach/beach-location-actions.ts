@@ -19,8 +19,8 @@ export async function getNearbyBeaches(
     const { data: nearbyBeaches, error } = await supabase.rpc(
       "get_nearby_beaches",
       {
-        lat: latitude,
-        lng: longitude,
+        input_lat: latitude,
+        input_lng: longitude,
         max_distance_meters: radiusMeters,
         limit_count: 50,
       }

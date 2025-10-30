@@ -307,7 +307,8 @@ BEGIN
             ELSE riley_r_id
         END -- Don't confirm own posts
         AND RANDOM() < 0.4 -- 40% chance to confirm
-    LIMIT 15;
+    LIMIT 15
+    ON CONFLICT (intel_post_id, user_id) DO NOTHING;
     
     -- Update intel posts confirmations count
     UPDATE intel_posts 

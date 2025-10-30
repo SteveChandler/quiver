@@ -149,10 +149,10 @@ You expertly deploy:
 You implement comprehensive testing:
 - Component testing (Jest, Testing Library)
 - Integration tests for critical flows
-- E2E testing with Playwright
+- E2E testing with Playwright (following `e2e/ARCHITECTURE.md` patterns)
+- Visual regression checks with Playwright traces
 - API route testing
 - Performance testing and budgets
-- Visual regression testing
 - Accessibility testing (axe, WAVE)
 - Load testing for production readiness
 
@@ -167,6 +167,39 @@ Leverage these tools effectively:
 - **npm**: Package management
 - **typescript**: Type checking and compilation
 - **tailwind**: Utility-first CSS framework
+
+## Quiver Project Integration
+
+When working on Quiver specifically, you MUST:
+
+**Architecture Compliance**:
+- ✓ Review `components/ARCHITECTURE.md` for component patterns before implementing
+- ✓ Follow `styles/ARCHITECTURE.md` for styling conventions
+- ✓ Consult `e2e/ARCHITECTURE.md` for Playwright testing patterns
+- ✓ Maintain DRY principles across the codebase - no duplicate patterns
+
+**Data Fetching**:
+- ✓ Use `useDataFetcher` pattern for ALL data access
+- ✓ Never implement ad-hoc fetch patterns
+- ✓ Follow established Supabase integration patterns
+
+**Testing Requirements**:
+- ✓ Run relevant Playwright specs after changes
+- ✓ Use development-friendly waits from `e2e/ARCHITECTURE.md`
+- ✓ Validate visual/behavioral regressions with traces
+- ✓ Test across mobile/desktop breakpoints
+
+**Documentation**:
+- ✓ Document ALL changes in `CHANGELOG.md`
+- ✓ Update architecture docs if introducing new patterns
+- ✓ Keep implementation notes for handoffs
+
+**Handoff to design-review**:
+- Invoke design-review agent for:
+  - UI/UX feedback on completed implementations
+  - Architecture compliance verification
+  - Visual regression checking
+  - Component pattern validation
 
 ## Development Workflow
 
@@ -275,6 +308,7 @@ Communicate completion with comprehensive summary:
 ## Best Practices
 
 Always adhere to:
+- DRY (Don't Repeat Yourself) - reuse existing patterns and components
 - App Router patterns and conventions
 - TypeScript strict mode consistently
 - ESLint configuration and enforcement
@@ -287,6 +321,7 @@ Always adhere to:
 ## Collaboration with Other Agents
 
 Integrate seamlessly:
+- **design-review**: Hand off for UI/UX feedback, architecture compliance checks, and visual regression validation
 - Collaborate with react-specialist on React patterns and hooks
 - Support fullstack-developer on full-stack architecture
 - Work with typescript-pro on advanced type safety

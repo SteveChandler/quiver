@@ -178,6 +178,169 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
     });
   });
 
+  describe("Location Page Links - Phase 1 Enhancement", () => {
+    const beachWithLocationData: Beach = {
+      ...mockBeach,
+      city: "La Jolla",
+      state: "CA",
+      country: "USA",
+    };
+
+    it("should render location as clickable link when city and state are available", () => {
+      render(<BeachBreadcrumb beach={beachWithLocationData} />);
+
+      // Look for a link that is NOT the "Back to Map" link
+      const links = screen.getAllByRole("link");
+      const locationLink = links.find(
+        (link) =>
+          link.getAttribute("href")?.includes("/beaches/") &&
+          !link.getAttribute("href")?.includes("/map")
+      );
+
+      expect(locationLink).toBeDefined();
+      expect(locationLink).toHaveAttribute("href", "/beaches/usa/ca/la-jolla");
+    });
+
+    it("should use ocean-blue color for clickable location link", () => {
+      render(<BeachBreadcrumb beach={beachWithLocationData} />);
+
+      const links = screen.getAllByRole("link");
+      const locationLink = links.find((link) =>
+        link.getAttribute("href")?.includes("/beaches/usa/ca/")
+      );
+
+      expect(locationLink).toHaveClass("text-ocean-blue");
+    });
+
+    it("should have hover:underline on clickable location link", () => {
+      render(<BeachBreadcrumb beach={beachWithLocationData} />);
+
+      const links = screen.getAllByRole("link");
+      const locationLink = links.find((link) =>
+        link.getAttribute("href")?.includes("/beaches/usa/ca/")
+      );
+
+      expect(locationLink).toHaveClass("hover:underline");
+    });
+
+    it("should render location as non-clickable text when city is missing", () => {
+      const beachWithoutCity = {
+        ...beachWithLocationData,
+        city: null,
+      };
+
+      render(<BeachBreadcrumb beach={beachWithoutCity} />);
+
+      // Should only have the "Back to Map" link, no location page link
+      const links = screen.getAllByRole("link");
+      const locationPageLinks = links.filter((link) =>
+        link.getAttribute("href")?.includes("/beaches/")
+      );
+
+      expect(locationPageLinks).toHaveLength(0);
+    });
+
+    it("should render location as non-clickable text when state is missing", () => {
+      const beachWithoutState = {
+        ...beachWithLocationData,
+        state: null,
+      };
+
+      render(<BeachBreadcrumb beach={beachWithoutState} />);
+
+      // Should only have the "Back to Map" link, no location page link
+      const links = screen.getAllByRole("link");
+      const locationPageLinks = links.filter((link) =>
+        link.getAttribute("href")?.includes("/beaches/")
+      );
+
+      expect(locationPageLinks).toHaveLength(0);
+    });
+
+    it("should generate correct URL for international locations", () => {
+      const internationalBeach: Beach = {
+        ...mockBeach,
+        city: "Ensenada",
+        state: "Baja California",
+        country: "Mexico",
+      };
+
+      render(<BeachBreadcrumb beach={internationalBeach} />);
+
+      const links = screen.getAllByRole("link");
+      const locationLink = links.find((link) =>
+        link.getAttribute("href")?.includes("/beaches/mexico/")
+      );
+
+      expect(locationLink).toBeDefined();
+      expect(locationLink).toHaveAttribute(
+        "href",
+        "/beaches/mexico/baja-california/ensenada"
+      );
+    });
+
+    it("should handle multi-word city names in URLs", () => {
+      const multiWordCityBeach: Beach = {
+        ...mockBeach,
+        city: "Pacific Beach",
+        state: "CA",
+        country: "USA",
+      };
+
+      render(<BeachBreadcrumb beach={multiWordCityBeach} />);
+
+      const links = screen.getAllByRole("link");
+      const locationLink = links.find((link) =>
+        link.getAttribute("href")?.includes("/beaches/usa/ca/")
+      );
+
+      expect(locationLink).toHaveAttribute(
+        "href",
+        "/beaches/usa/ca/pacific-beach"
+      );
+    });
+
+    it("should handle hyphenated city names in URLs", () => {
+      const hyphenatedCityBeach: Beach = {
+        ...mockBeach,
+        city: "Cardiff-by-the-Sea",
+        state: "CA",
+        country: "USA",
+      };
+
+      render(<BeachBreadcrumb beach={hyphenatedCityBeach} />);
+
+      const links = screen.getAllByRole("link");
+      const locationLink = links.find((link) =>
+        link.getAttribute("href")?.includes("/beaches/usa/ca/")
+      );
+
+      expect(locationLink).toHaveAttribute(
+        "href",
+        "/beaches/usa/ca/cardiff-by-the-sea"
+      );
+    });
+
+    it("should default to USA when country is null", () => {
+      const beachWithoutCountry: Beach = {
+        ...mockBeach,
+        city: "La Jolla",
+        state: "CA",
+        country: null,
+      };
+
+      render(<BeachBreadcrumb beach={beachWithoutCountry} />);
+
+      const links = screen.getAllByRole("link");
+      const locationLink = links.find((link) =>
+        link.getAttribute("href")?.includes("/beaches/")
+      );
+
+      expect(locationLink).toBeDefined();
+      expect(locationLink?.getAttribute("href")).toContain("/beaches/usa/");
+    });
+  });
+
   describe("Beach Name Display", () => {
     it("should display beach name", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);

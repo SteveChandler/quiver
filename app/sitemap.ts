@@ -6,6 +6,8 @@ import {
   getCityBySlug,
   getSpotBySlug,
 } from "@/lib/data/surf-spots";
+import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
+import { buildLocationUrl } from "@/lib/utils/location-slug";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -65,6 +67,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   );
 
+  // Location pages (AllTrails-style beach listings by city)
+  let locationRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const response = await getAllBeachLocations();
+    if (response.success && response.data) {
+      locationRoutes = response.data.map((location) => {
+        const locationUrl = buildLocationUrl(
+          location.city,
+          location.state,
+          location.country
+        );
+        return {
+          url: `${baseUrl}${locationUrl}`,
+          lastModified: lastmod,
+          changeFrequency: "weekly",
+          priority: 0.75, // High priority for location pages
+        };
+      });
+    }
+  } catch {
+    // Fail silently; return empty location routes
+  }
+
   // Dynamic beaches and forecasts
   let beachEntries: MetadataRoute.Sitemap = [];
   let forecastEntries: MetadataRoute.Sitemap = [];
@@ -102,6 +127,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...cityRoutes,
     ...intentRoutes,
     ...curatedSpotRoutes,
+    ...locationRoutes,
     ...beachEntries,
     ...forecastEntries,
   ];

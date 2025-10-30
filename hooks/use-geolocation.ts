@@ -36,6 +36,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
 
   const hasAttemptedRef = useRef(false);
   const safetyTimeoutRef = useRef<NodeJS.Timeout>();
+  const isRequestInFlightRef = useRef(false); // Track active geolocation requests
 
   const useDefaultLocation = useCallback(() => {
     setState((prev) => ({
@@ -59,14 +60,21 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
 
   const getUserLocation = useCallback(async (forceRetry = false): Promise<void> => {
     // Prevent multiple simultaneous requests (unless force retry)
+    if (isRequestInFlightRef.current && !forceRetry) {
+      console.log("[useGeolocation] Request already in flight, skipping");
+      return;
+    }
+
     if (hasAttemptedRef.current && !forceRetry) return;
     hasAttemptedRef.current = true;
+    isRequestInFlightRef.current = true;
 
     // Safety timeout - force fallback if geolocation hangs (common on iOS simulator)
     safetyTimeoutRef.current = setTimeout(() => {
       console.warn(
         "[useGeolocation] Safety timeout reached - using fallback location"
       );
+      isRequestInFlightRef.current = false; // Clear in-flight flag
       // Log timeout event for monitoring
       if (typeof window !== "undefined" && window.gtag) {
         window.gtag("event", "geolocation_timeout", {
@@ -104,6 +112,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         clearTimeout(safetyTimeoutRef.current);
+        isRequestInFlightRef.current = false; // Clear in-flight flag
         const { latitude, longitude } = position.coords;
 
         setState((prev) => ({
@@ -117,6 +126,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       },
       (error) => {
         clearTimeout(safetyTimeoutRef.current);
+        isRequestInFlightRef.current = false; // Clear in-flight flag
         let errorMessage = "Location access denied";
 
         if (error.code === error.PERMISSION_DENIED) {
@@ -132,7 +142,9 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
           ...prev,
           locationError: errorMessage,
           loading: false,
-          // Keep default location from initial state
+          usingDefaultLocation: true,
+          userLocation: { lat: fallbackLat, lng: fallbackLng },
+          hasTimedOut: false, // Distinguish from safety timeout
         }));
       },
       options
