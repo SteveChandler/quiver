@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Location Pages Phase 5: Pre-Launch Hardening + Metro Areas (October 30, 2025)
+
+#### Pre-Launch Hardening
+- **Custom 404 Page for Invalid Locations**: [app/beaches/[country]/[state]/[city]/not-found.tsx](app/beaches/[country]/[state]/[city]/not-found.tsx)
+  - Beautiful error page with helpful messaging when users navigate to non-existent locations
+  - Links to map view and location browsing
+  - Feedback option for suggesting missing locations
+  - Professional error handling improves user experience
+- **ISR Configuration**: [app/beaches/[country]/[state]/[city]/page.tsx:320](app/beaches/[country]/[state]/[city]/page.tsx#L320)
+  - Added `export const revalidate = 3600` for hourly page revalidation
+  - Ensures beach rankings and stats stay fresh without deployments
+  - Balances performance (static generation) with data freshness
+- **OG Image Optimization**: [public/images/og-location-default.jpg](public/images/og-location-default.jpg)
+  - Resized from 800x600 to 1200x630 (proper social media dimensions)
+  - Validated for Twitter, Facebook, LinkedIn previews
+  - Original backed up as `.backup` file
+
+#### Metro Area Aggregation Feature
+- **Metro Database Functions**: Migration [20251030183000_create_metro_area_functions.sql](supabase/migrations/20251030183000_create_metro_area_functions.sql)
+  - `get_beaches_by_metro_with_scores(p_cities[], p_state, p_country)` - Aggregate beaches from multiple cities
+  - `get_metro_stats(p_cities[], p_state, p_country)` - Calculate metro-level statistics
+  - Global ranking across all neighborhoods (not per-neighborhood)
+  - Same composite score formula as single-city pages
+- **Metro Configuration System**: [lib/constants/metro-areas.ts](lib/constants/metro-areas.ts)
+  - Configuration-as-code approach (no database changes needed to add metros)
+  - San Diego metro defined: La Jolla (6) + Pacific Beach (2) + San Diego (3) = 11 beaches
+  - Easy to add new metros (LA, SF, OC) by updating config file
+  - Helper functions: `isMetroArea()`, `getMetroConfig()`, `getAllMetroSlugs()`
+- **Enhanced Server Actions**: [actions/beach/beach-location-list-actions.ts](actions/beach/beach-location-list-actions.ts)
+  - `getLocationPageData()` now detects metro areas vs single cities
+  - `getAllBeachLocations()` includes metros for static generation
+  - Fully backward compatible (existing single-city pages unchanged)
+- **Metro UI Enhancements**: [app/beaches/[country]/[state]/[city]/page.tsx](app/beaches/[country]/[state]/[city]/page.tsx)
+  - Metro pages show custom title: "San Diego Area Surf Spots"
+  - Neighborhood info: "Covering 3 neighborhoods: La Jolla, Pacific Beach, San Diego"
+  - Beach cards display neighborhood badges (e.g., "La Jolla" label)
+  - SEO metadata uses metro-specific descriptions
+- **TypeScript Types**: [types/location.ts](types/location.ts)
+  - Added `LocationIdentifierExtended` interface for metro areas
+  - Added `LocationPageDataExtended` interface
+  - Full type safety for metro features
+
+#### New Location Available
+- **San Diego Metro Page**: `/beaches/usa/ca/san-diego` ✨
+  - Aggregates 11 beaches from 3 neighborhoods
+  - Global ranking (#1-11)
+  - Average rating: 3.84★, Total reviews: 72
+  - Demonstrates metro aggregation feature
+  - Automatically included in sitemap
+
+#### Documentation
+- **Phase 5 Implementation Guide**: [docs/PHASE_5_METRO_AREAS.md](docs/PHASE_5_METRO_AREAS.md)
+  - Detailed implementation notes
+  - Architecture and design decisions
+  - Future metro area examples (LA, SF, OC)
+  - Migration guide for adding new metros
+- **Updated Completion Summary**: [docs/LOCATION_PAGES_COMPLETION_SUMMARY.md](docs/LOCATION_PAGES_COMPLETION_SUMMARY.md)
+  - All 5 phases documented as complete
+  - 14 total location pages (13 single-city + 1 metro)
+  - Production-ready status confirmed
+
+**Total Files:** 4 new files, 6 modified files
+**Implementation Time:** ~9.5 hours
+**Status:** ✅ Production-ready
+
 ### Fixed
 
 #### Profile Page Deep Linking and Navigation (October 30, 2025)

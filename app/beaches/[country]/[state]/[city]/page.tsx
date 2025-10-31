@@ -16,6 +16,7 @@ import { getLocationPageData, getAllBeachLocations } from "@/actions/beach/beach
 import { generateLocationSlug } from "@/lib/utils/location-slug";
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
+import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
 
 // Dynamically import LocationMap with no SSR since it uses Mapbox (client-only)
 const LocationMap = dynamic(
@@ -56,6 +57,9 @@ export default async function LocationPage({ params }: LocationPageProps) {
   }
 
   const { location, stats, beaches } = response.data;
+
+  // Check if this is a metro area page
+  const metroConfig = isMetroArea(params.city) ? getMetroConfig(params.city) : null;
 
   // JSON-LD structured data for SEO
   const jsonLd = {
@@ -109,8 +113,16 @@ export default async function LocationPage({ params }: LocationPageProps) {
       {/* Header */}
       <header className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-          Best Surf Beaches in {location.city}
+          {metroConfig?.pageTitle || `Best Surf Beaches in ${location.city}`}
         </h1>
+
+        {/* Show metro area info if applicable */}
+        {metroConfig && (
+          <p className="text-gray-600 mb-4">
+            Covering {metroConfig.cities.length} neighborhoods: {metroConfig.cities.join(', ')}
+          </p>
+        )}
+
         <div className="flex flex-wrap items-center gap-4 text-gray-600">
           <div className="flex items-center gap-1">
             <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
@@ -166,6 +178,13 @@ export default async function LocationPage({ params }: LocationPageProps) {
                           {beach.name}
                         </Link>
                         <RankingBadge tier={tier} label={badgeLabel} />
+
+                        {/* Show neighborhood badge for metro areas */}
+                        {metroConfig && beach.city && (
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+                            {beach.city}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -258,6 +277,8 @@ export async function generateStaticParams() {
  * Configure page metadata
  */
 export async function generateMetadata({ params }: LocationPageProps) {
+  const metroConfig = isMetroArea(params.city) ? getMetroConfig(params.city) : null;
+
   const response = await getLocationPageData(
     params.city,
     params.state,
@@ -272,8 +293,15 @@ export async function generateMetadata({ params }: LocationPageProps) {
 
   const { location, stats } = response.data;
 
-  const title = `Best Surf Beaches in ${location.city}, ${location.state} | Quiver`;
-  const description = `Discover the top ${stats.totalBeaches} surf beaches in ${location.city}. Average rating: ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews.`;
+  // Use metro-specific metadata if applicable
+  const title = metroConfig?.pageTitle
+    ? `${metroConfig.pageTitle} | Quiver`
+    : `Best Surf Beaches in ${location.city}, ${location.state} | Quiver`;
+
+  const description = metroConfig?.description
+    ? `${metroConfig.description} Average rating: ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews.`
+    : `Discover the top ${stats.totalBeaches} surf beaches in ${location.city}. Average rating: ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews.`;
+
   const url = `https://quiver.surf/beaches/${params.country}/${params.state}/${params.city}`;
 
   return {
@@ -306,3 +334,15 @@ export async function generateMetadata({ params }: LocationPageProps) {
     },
   };
 }
+
+/**
+ * ISR Configuration: Incremental Static Regeneration
+ *
+ * Revalidates the page every hour (3600 seconds) to ensure:
+ * - Beach rankings stay up-to-date with new reviews
+ * - Intel post counts reflect recent activity
+ * - Stats update without requiring full deployments
+ *
+ * This balances performance (static generation) with freshness (hourly updates).
+ */
+export const revalidate = 3600; // Revalidate every 1 hour

@@ -17,6 +17,17 @@ export interface LocationIdentifier {
 }
 
 /**
+ * Extended location identifier that can represent a metro area
+ */
+export interface LocationIdentifierExtended extends LocationIdentifier {
+  /** Whether this represents a metro area spanning multiple cities */
+  isMetro?: boolean;
+
+  /** If metro, the constituent city names */
+  metroCities?: string[];
+}
+
+/**
  * Location identifier using URL-friendly slugs
  */
 export interface LocationSlug {
@@ -84,6 +95,18 @@ export interface LocationPageData {
 
   /** Ranked list of beaches in this location */
   beaches: BeachWithMetrics[];
+}
+
+/**
+ * Extended location page data with metro information
+ */
+export interface LocationPageDataExtended extends LocationPageData {
+  /** Metro area configuration if applicable */
+  metroConfig?: {
+    displayName: string;
+    cities: string[];
+    description?: string;
+  };
 }
 
 /**
