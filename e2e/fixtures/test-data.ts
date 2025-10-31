@@ -9,11 +9,23 @@ export const TEST_USER = {
   name: 'Test User',
 };
 
-export const TEST_BEACH_IDS = {
-  // Updated with actual IDs from local Supabase database after db reset
-  blacks: '94d0af9e-b90a-40e6-a133-f12c5f128bef',
-  birdrock: '32ceda2f-cf09-42d8-84f3-a4bc65c2283f',
-  beacons: '5b93dc38-dbb2-4de7-815b-e0fa994b18a4',
+// Environment-specific beach identifiers
+// Local: uses slugs from local Supabase database
+// Dev: uses UUIDs from dev.quiversurf.app production database
+const isDevEnvironment = process.env.BASE_URL?.includes('dev.quiversurf.app') || process.env.TEST_ENV === 'dev';
+
+export const TEST_BEACH_IDS = isDevEnvironment ? {
+  // Dev environment: Using actual beach IDs from production dev database
+  // These need to be updated to match beaches that exist in dev
+  // TODO: Query these dynamically or seed test beaches in dev
+  blacks: '208f0c7f-975d-438f-ac75-6c5934b67645', // Blacks Beach, La Jolla
+  birdrock: '8451e66d-5bfe-45d9-a8bb-bb78dd09b7c5', // Birdrock, La Jolla
+  beacons: '268facfd-de83-47d4-b28d-6db9e057f7b4', // Beacons, Encinitas
+} : {
+  // Local environment: using slugs from local database
+  blacks: 'blacks',
+  birdrock: 'birdrock',
+  beacons: 'beacons',
 };
 
 export const VIEWPORTS = {
