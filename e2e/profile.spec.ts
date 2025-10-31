@@ -178,8 +178,15 @@ test.describe('Profile Deep Linking and Navigation', () => {
     // Wait for tab content to load
     await page.waitForTimeout(2000);
 
-    // Click Add Beach button using data-testid
-    const addBeachButton = page.getByTestId('add-beach-button');
+    // Click Add Beach button - try data-testid first, fallback to role+name
+    let addBeachButton = page.getByTestId('add-beach-button');
+    let buttonVisible = await addBeachButton.isVisible().catch(() => false);
+
+    if (!buttonVisible) {
+      // Fallback to button role and text (works without data-testid)
+      addBeachButton = page.getByRole('button', { name: /add beach/i });
+    }
+
     await expect(addBeachButton).toBeVisible({ timeout: 10000 });
     await addBeachButton.click();
 
