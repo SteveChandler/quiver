@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Push Notifications Infrastructure (October 30, 2025)
+
+#### Added
+- **Push Notifications for Mobile**: Complete FCM (Firebase Cloud Messaging) infrastructure for iOS and Android
+  - **Device Token Management API**: [app/api/devices/upsert/route.ts](app/api/devices/upsert/route.ts)
+    - `POST /api/devices/upsert` - Register or update device tokens
+    - `DELETE /api/devices/upsert` - Remove device tokens (on logout)
+    - Supports iOS, Android, and Web platforms
+    - Proper authentication and validation
+  - **Mobile Client Integration**: [lib/mobile/push-notifications.ts](lib/mobile/push-notifications.ts)
+    - Permission request handling
+    - Automatic token registration with backend
+    - Notification listeners for foreground/background handling
+    - Deep linking support for navigation (sessions, profiles, comments)
+    - Graceful degradation for web platform
+  - **Firebase Admin SDK Setup**: [lib/services/firebase-admin.ts](lib/services/firebase-admin.ts)
+    - Server-side Firebase initialization
+    - Singleton pattern for efficient reuse
+    - Environment variable configuration
+    - Proper error handling and logging
+  - **Production Configuration**: [capacitor.config.prod.ts](capacitor.config.prod.ts)
+    - Push notification presentation options (badge, sound, alert)
+    - Production server URL and scheme configuration
+- **Database Schema**: Migration [20250116000000_push_notifications_infrastructure.sql](supabase/migrations/20250116000000_push_notifications_infrastructure.sql)
+  - `user_devices` table for FCM device token storage
+    - Unique constraint on (user_id, device_token) for upsert operations
+    - Platform tracking (ios, android, web)
+    - Automatic timestamps (created_at, updated_at)
+    - Indexed for performance (user_id, device_token)
+  - `notifications` table for in-app notification records
+    - Support for multiple notification types (session_invite, session_update, comment, like, follow)
+    - JSONB data field for flexible metadata
+    - Read/unread tracking with read_at timestamp
+    - Indexed for efficient queries (user_id + created_at, unread status)
+  - Row Level Security (RLS) policies for both tables
+    - Users can only manage their own devices
+    - Users can only view/update their own notifications
+
+#### Environment Variables Required
+New Firebase environment variables needed for production:
+- `FIREBASE_PROJECT_ID` - Firebase project identifier
+- `FIREBASE_CLIENT_EMAIL` - Service account email
+- `FIREBASE_PRIVATE_KEY` - Service account private key
+
+#### Future Work
+- Server-side notification sending (integrate Firebase Admin SDK messaging)
+- Notification preferences UI
+- Web push notifications support
+- Notification templates and localization
+
+---
+
 ### Fixed - Database Coordinate Naming Standardization (October 29, 2025)
 
 #### Fixed
