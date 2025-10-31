@@ -148,3 +148,42 @@ test.describe('User Profile Page', () => {
     test.skip(true, 'Logout functionality not found in expected locations');
   });
 });
+
+test.describe('Profile Deep Linking and Navigation', () => {
+  test('deep link opens edit modal via /profile?edit=true', async ({ page }) => {
+    // Navigate directly to profile with edit param
+    await page.goto('/profile?edit=true');
+
+    // Wait for page to load and modal to appear
+    const editDialog = page.getByRole('dialog', { name: /edit profile/i });
+    await expect(editDialog).toBeVisible({ timeout: 10000 });
+
+    // Verify modal content - should have Edit Profile heading
+    const dialogTitle = page.getByRole('heading', { name: /edit profile/i });
+    await expect(dialogTitle).toBeVisible();
+
+    // Verify form fields are present - looking for "Name" field (not "username")
+    await expect(page.getByLabel(/^name$/i)).toBeVisible();
+  });
+
+  test('clicking Add Beach navigates to map to add beaches', async ({ page }) => {
+    // Navigate to profile
+    await page.goto('/profile');
+    await page.waitForLoadState('networkidle');
+
+    // Click on Beaches tab (it might not be the default tab)
+    const beachesTab = page.getByRole('tab', { name: /^beaches$/i });
+    await beachesTab.click();
+
+    // Wait for tab content to load
+    await page.waitForTimeout(2000);
+
+    // Click Add Beach button using data-testid
+    const addBeachButton = page.getByTestId('add-beach-button');
+    await expect(addBeachButton).toBeVisible({ timeout: 10000 });
+    await addBeachButton.click();
+
+    // Verify navigation to map page
+    await expect(page).toHaveURL(/\/map/, { timeout: 5000 });
+  });
+});

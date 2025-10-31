@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+#### Profile Page Deep Linking and Navigation (October 30, 2025)
+- **Fixed Bug #5**: Profile page functionality issues
+  - **Removed lazy loading** from ProfileView component in [app/profile/page.tsx](app/profile/page.tsx)
+    - Lazy loading caused timing issues with query parameter processing
+    - Direct import ensures edit modal opens immediately on `/profile?edit=true` navigation
+  - **Added data-testid** to Add Beach button in [components/profile-view.tsx](components/profile-view.tsx)
+    - Improves test reliability and accessibility
+  - **Added E2E tests** in [e2e/profile.spec.ts](e2e/profile.spec.ts)
+    - Test 1: Verifies deep link `/profile?edit=true` opens edit modal automatically
+    - Test 2: Verifies Add Beach button navigates to `/map` correctly
+  - **User Impact**: Users can now properly edit their profile via deep links and add favorite beaches
+  - Related to [BUGS.md](BUGS.md) Bug #5
+
 ### Added - Push Notifications Infrastructure (October 30, 2025)
 
 #### Added

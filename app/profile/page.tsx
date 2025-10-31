@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Suspense, lazy } from "react";
 import { buildPageMetadata } from "@/lib/seo/meta";
+import { ProfileView } from "@/components/profile-view";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "My Profile - Manage Your Surf Profile | Quiver",
@@ -15,11 +15,6 @@ export const metadata: Metadata = buildPageMetadata({
     "surf account",
   ],
 });
-
-// Lazy load heavy profile component
-const ProfileView = lazy(() =>
-  import("@/components/profile-view").then((m) => ({ default: m.ProfileView }))
-);
 
 // Loading skeleton for profile
 function ProfileSkeleton() {
@@ -73,9 +68,7 @@ export default function ProfilePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Suspense fallback={<ProfileSkeleton />}>
-        <ProfileView />
-      </Suspense>
+      <ProfileView />
     </div>
   );
 }

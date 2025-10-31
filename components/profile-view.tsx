@@ -431,6 +431,7 @@ export function ProfileView() {
                         Favorite Beaches
                       </h3>
                       <Button
+                        data-testid="add-beach-button"
                         size="sm"
                         onClick={() => {
                           router.push("/map");
