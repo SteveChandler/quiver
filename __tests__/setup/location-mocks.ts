@@ -36,8 +36,6 @@ export function createMockBeach(overrides: Partial<Beach> = {}): Beach {
     is_private: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    swell_rating: null,
-    wind_rating: null,
     best_conditions_prose: null,
     region_id: null,
     ...overrides,

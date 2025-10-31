@@ -140,8 +140,6 @@ https://alltrails.com/us/california/poway
   break_type: string        // "Beach Break", "Point Break", "Reef Break"
   crowd_level: string       // Crowd density indicator
   best_conditions_prose: string
-  swell_rating: number
-  wind_rating: number
 }
 ```
 
