@@ -24,10 +24,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: "yarn"
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: npm ci
+        run: yarn install --frozen-lockfile
 
       - name: Set environment variables
         run: |
@@ -40,7 +43,7 @@ jobs:
           echo "🌊 Generating Morning Surf Intel..."
           echo "📅 $(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z')"
 
-          if npm run morning-intel 2>&1 | tee morning_intel_output.log; then
+          if yarn run morning-intel 2>&1 | tee morning_intel_output.log; then
             echo "✅ Morning Intel completed successfully"
             echo "success=true" >> $GITHUB_OUTPUT
           else

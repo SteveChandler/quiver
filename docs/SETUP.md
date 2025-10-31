@@ -10,7 +10,7 @@ git clone <repository-url>
 cd quiver
 
 # 2. Install all dependencies (Node.js 18+ required)
-npm install
+yarn install
 
 # 3. Set up environment variables
 cp .env.example .env.local
@@ -20,7 +20,7 @@ cp .env.example .env.local
 # Connect to your Supabase project and run migrations from scripts/migrations/
 
 # 5. Start development server
-npm run dev
+yarn dev
 ```
 
 ## 📦 Project Dependencies
@@ -74,36 +74,36 @@ npm run dev
 ### Development
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
+yarn dev             # Start development server
+yarn build           # Build for production
+yarn start           # Start production server
+yarn lint            # Run ESLint
 ```
 
 ### Testing
 
 ```bash
-npm run test         # Run unit tests
-npm run test:watch   # Run tests in watch mode
-npm run test:e2e     # Run E2E tests
-npm run test:e2e:ui  # Run E2E tests with UI
+yarn test            # Run unit tests
+yarn test:watch      # Run tests in watch mode
+yarn test:e2e        # Run E2E tests
+yarn test:e2e:ui     # Run E2E tests with UI
 ```
 
 ### Data Management
 
 ```bash
-npm run buoy:sync              # Sync NOAA buoy data
-npm run buoy:update-conditions # Update buoy conditions
-npm run forecast:update        # Update surf forecasts
-npm run update:all            # Update all data sources
-npm run cleanup:old           # Clean up old data
+yarn buoy:sync               # Sync NOAA buoy data
+yarn buoy:update-conditions  # Update buoy conditions
+yarn forecast:update         # Update surf forecasts
+yarn update:all              # Update all data sources
+yarn cleanup:old             # Clean up old data
 ```
 
 ### Database
 
 ```bash
-npm run db:health    # Check database health
-npm run fix:srid     # Apply SRID fixes if needed
+yarn db:health       # Check database health
+yarn fix:srid        # Apply SRID fixes if needed
 ```
 
 ## 🔧 Environment Variables Required
@@ -132,9 +132,9 @@ NEXT_PUBLIC_VERCEL_URL=your_deployment_url
 ### For New Features
 
 1. Create feature branch
-2. Run tests: `npm run test`
-3. Test E2E flows: `npm run test:e2e`
-4. Build check: `npm run build`
+2. Run tests: `yarn test`
+3. Test E2E flows: `yarn test:e2e`
+4. Build check: `yarn build`
 5. Deploy to staging
 
 ### For Database Changes
@@ -160,8 +160,8 @@ vercel --prod
 ### Manual Deployment
 
 ```bash
-npm run build
-npm run start
+yarn build
+yarn start
 ```
 
 ## 🔍 Troubleshooting
@@ -171,27 +171,27 @@ npm run start
 **Dependencies not installing:**
 
 ```bash
-rm -rf node_modules package-lock.json
-npm install
+rm -rf node_modules yarn.lock
+yarn install
 ```
 
 **TypeScript errors:**
 
 ```bash
-npm run build  # Check for type errors
+yarn build     # Check for type errors
 ```
 
 **Database connection issues:**
 
 - Verify `.env.local` credentials
 - Check Supabase project status
-- Run `npm run db:health`
+- Run `yarn db:health`
 
 **Build failures:**
 
 - Check Node.js version (18+ required)
 - Clear Next.js cache: `rm -rf .next`
-- Rebuild: `npm run build`
+- Rebuild: `yarn build`
 
 ## 📚 Project Structure
 
