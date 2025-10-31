@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { ProfileView } from "@/components/profile-view";
+
+// Force dynamic rendering for this page since it uses useSearchParams
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "My Profile - Manage Your Surf Profile | Quiver",
@@ -68,7 +72,9 @@ export default function ProfilePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <ProfileView />
+      <Suspense fallback={<ProfileSkeleton />}>
+        <ProfileView />
+      </Suspense>
     </div>
   );
 }

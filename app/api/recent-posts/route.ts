@@ -1,4 +1,4 @@
-import { createServerClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import {
   handleApiError,
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = createSupabaseServerClient();
 
     // Parse pagination parameters (default: page=1, limit=4, max=20)
     const { searchParams } = new URL(request.url);

@@ -140,10 +140,16 @@ export function InteractiveMap({
         const beachIds = new Set(result.data.map((beach: Beach) => beach.id));
         setFavoriteBeachIds(beachIds);
       } else {
+        // Silently handle error - favorite beaches are non-critical for map functionality
+        console.debug("No favorite beaches found:", result.error);
         setFavoriteBeachIds(new Set());
       }
     } catch (e) {
-      console.error("Error loading favorite beaches", e);
+      // Silently handle error - favorite beaches are non-critical for map functionality
+      console.debug(
+        "Error loading favorite beaches:",
+        e instanceof Error ? e.message : String(e)
+      );
       setFavoriteBeachIds(new Set());
     }
   }, [user?.id]);
@@ -311,7 +317,7 @@ export function InteractiveMap({
       if (!map || !isMapReadyRef.current) return;
       const zoom = map.getZoom();
       // Include beaches state in cache key: undefined vs empty array vs populated array
-      const beachesKey = beaches === undefined ? 'none' : `${beaches.length}`;
+      const beachesKey = beaches === undefined ? "none" : `${beaches.length}`;
       const populateKey = `${latitude.toFixed(4)}-${longitude.toFixed(
         4
       )}-${zoom.toFixed(2)}-${beachesKey}`;
@@ -387,7 +393,7 @@ export function InteractiveMap({
               .map((beach) => beach.id)
               .filter(Boolean) // Remove any undefined/null IDs
               .join(",");
-            
+
             // Skip API call if no valid IDs after filtering
             if (beachIds) {
               const response = await fetch(

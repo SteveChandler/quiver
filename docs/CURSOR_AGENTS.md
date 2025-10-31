@@ -67,6 +67,13 @@ Configured via `.cursor/mcp.json`:
       "env": {
         "SUPABASE_ACCESS_TOKEN": "<service_role_or_personal_access_token>"
       }
+    },
+    "rapid7": {
+      "command": "node",
+      "args": ["scripts/run-rapid7-mcp.js"],
+      "env": {
+        "RAPID7_API_KEY": "<rapid7_api_key>"
+      }
     }
   }
 }
@@ -78,6 +85,8 @@ Notes:
 - Playwright runs will reuse the signed-in context located at `e2e/.auth/state.json`; refresh it via `npm run test:setup` (or rerun global setup) if auth expires.
 - Ensure the required test credentials (`E2E_USER_EMAIL`/`E2E_USER_PASSWORD` or `TEST_USER_*`) are set before starting Cursor so the global setup can generate the storage state.
 - Local run parity: `npx playwright test` from the repo root.
+- Supabase commands default to read-only; escalate to the Supabase DB Expert agent for mutations.
+- Rapid7 MCP pulls InsightIDR data and requires a valid `RAPID7_API_KEY` in your environment or `.env`.
 
 ## Recommended Workflows
 

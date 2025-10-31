@@ -610,22 +610,24 @@ Both tests should pass.
 
 ---
 
-## Bug #6: Beach Detail Tab Switching Not Working (Radix UI Controlled Mode Issue) 🔧
+## Bug #6: Beach Detail Tab Switching Not Working (Radix UI Controlled Mode Issue) ✅
 
 **Priority:** P0 (Blocker)
-**Status:** 🔧 **IN PROGRESS** - Deep Radix UI Issue (Oct 26, 2025)
-**Failing Tests:** 12 tests (reduced from initial investigation)
-**Passing Tests:** 9 tests (improvement from baseline)
+**Status:** ✅ **RESOLVED** - Fixed via version downgrade (Oct 30, 2025)
+**Resolution:** Downgraded @radix-ui/react-tabs from 1.1.13 → 1.0.4 (exact version)
 **User Impact:** Users cannot switch between tabs on beach detail pages (Forecast, Reviews, Intel, Sessions)
 **Files Affected:**
 - [components/beach-detail/beach-tabs.tsx](components/beach-detail/beach-tabs.tsx) - Tab wrapper component
 - [components/ui/tabs.tsx](components/ui/tabs.tsx) - Base Radix UI tabs
 - [components/beach-detail.tsx](components/beach-detail.tsx) - Parent component
+- [package.json](package.json) - Changed `^1.0.4` to `1.0.4` (exact version, no caret)
 
 ### Description
-Clicking on tabs in the beach detail page **focuses** them but does **not activate** them. The clicked tab shows `[active]` (focused) but remains `data-state="inactive"` instead of becoming `[selected]` with `data-state="active"`.
+Clicking on tabs in the beach detail page **focused** them but did **not activate** them. The clicked tab showed `[active]` (focused) but remained `data-state="inactive"` instead of becoming `[selected]` with `data-state="active"`.
 
-**Key Finding:** Tabs get **keyboard focus** but not **selection state**, indicating a Radix UI controlled mode synchronization issue.
+**Key Finding:** Tabs got **keyboard focus** but not **selection state**, indicating a Radix UI controlled mode synchronization issue.
+
+**Version Discovery:** The actual installed version was **1.1.13** (not 1.1.2 as previously documented). The semver range `^1.0.4` allowed automatic minor version upgrades, resulting in the buggy 1.1.x series being installed.
 
 ### Failing Test Cases
 ```
@@ -653,7 +655,9 @@ Timeout: 5000ms
 
 ### Root Cause Analysis
 
-**Confirmed Issue:** Radix UI `@radix-ui/react-tabs@1.1.2` controlled mode is not properly syncing `value` prop changes with internal state, causing tabs to receive focus but not selection.
+**Confirmed Issue:** Radix UI `@radix-ui/react-tabs@1.1.13` (actual installed version) controlled mode was not properly syncing `value` prop changes with internal state, causing tabs to receive focus but not selection.
+
+**Fix Applied:** Downgraded to exact version 1.0.4 and removed semver caret to prevent auto-upgrades.
 
 **Technical Details:**
 1. **Observed Behavior:**
@@ -737,37 +741,42 @@ Check the tabs implementation:
 5. **Attempt #5:** Remove all optimizations
    - Status: ❌ No effect
 
-### Next Steps / Recommendations
+### Fix Applied (Oct 30, 2025)
 
-**Short-term Options:**
+**Solution:** Version downgrade to 1.0.4 (exact version)
 
-1. **Downgrade Radix UI Tabs** (Recommended for quick fix)
-   ```bash
-   npm install @radix-ui/react-tabs@1.0.4
+1. **Changed package.json:**
+   ```json
+   "@radix-ui/react-tabs": "1.0.4"  // Removed caret (^)
    ```
-   - May resolve controlled mode bugs in 1.1.2
-   - Test with: `npm test e2e/beach-detail.spec.ts`
 
-2. **Switch to Uncontrolled Mode**
-   - Remove `activeTab` prop from parent
-   - Use `defaultValue="overview"` only
-   - Lose deep-linking capability (breaking change)
+2. **Ran yarn install:**
+   ```bash
+   yarn install
+   ```
 
-3. **Rewrite with Native Tabs**
-   - Replace Radix UI with custom tab implementation
-   - Full control, but more code to maintain
+3. **Added controlled mode unit tests:**
+   - Test programmatic tab switching (deep-linking scenario)
+   - Test onTabChange callback fires on user click
+   - Test all 5 tabs switch correctly in controlled mode
+   - File: `__tests__/components/beach-detail/beach-tabs.test.tsx`
 
-**Long-term Solution:**
+4. **Improved E2E test assertions:**
+   - Removed conditional `test.skip()` logic
+   - Added explicit `data-state` attribute assertions
+   - Added comprehensive tab switching test for all 5 tabs
+   - File: `e2e/beach-detail.spec.ts`
 
-4. **File Radix UI Bug Report**
-   - Document controlled mode not syncing in v1.1.2
-   - Provide minimal reproduction
-   - Wait for upstream fix
+5. **Updated documentation:**
+   - Corrected version numbers (1.1.13 → 1.0.4)
+   - Documented controlled mode usage pattern
+   - Added to CHANGELOG.md
 
-5. **Add Keyboard Navigation Workaround**
-   - Detect when tab has focus but not selection
-   - Programmatically trigger selection via keyboard event
-   - Hacky but might work
+**Why This Works:**
+- Radix UI 1.0.4 has stable controlled mode implementation
+- Version 1.1.x introduced regression in controlled mode synchronization
+- Exact version (no caret) prevents automatic minor version upgrades
+- Preserves deep-linking capability (critical UX feature)
 
 ### Proposed Investigation Steps
 

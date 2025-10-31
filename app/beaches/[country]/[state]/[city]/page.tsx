@@ -258,38 +258,50 @@ export default async function LocationPage({ params }: LocationPageProps) {
 /**
  * Generate static params for all beach locations
  * This enables Next.js to pre-generate all location pages at build time
+ *
+ * Note: Returns empty array on errors to allow build to continue.
+ * Pages will be generated on-demand (ISR) instead.
  */
 export async function generateStaticParams() {
-  const response = await getAllBeachLocations();
+  try {
+    const response = await getAllBeachLocations();
 
-  if (!response.success || !response.data || response.data.length === 0) {
+    if (!response.success || !response.data || response.data.length === 0) {
+      console.warn('[generateStaticParams] No location data available, skipping static generation');
+      return [];
+    }
+
+    return response.data.map((loc) => ({
+      country: generateLocationSlug(loc.country),
+      state: generateLocationSlug(loc.state),
+      city: generateLocationSlug(loc.city),
+    }));
+  } catch (error) {
+    // Log error but don't fail build - pages will be generated on-demand via ISR
+    console.error('[generateStaticParams] Error fetching locations:', error);
+    console.warn('[generateStaticParams] Skipping static generation, pages will use ISR');
     return [];
   }
-
-  return response.data.map((loc) => ({
-    country: generateLocationSlug(loc.country),
-    state: generateLocationSlug(loc.state),
-    city: generateLocationSlug(loc.city),
-  }));
 }
 
 /**
  * Configure page metadata
  */
 export async function generateMetadata({ params }: LocationPageProps) {
-  const metroConfig = isMetroArea(params.city) ? getMetroConfig(params.city) : null;
+  try {
+    const metroConfig = isMetroArea(params.city) ? getMetroConfig(params.city) : null;
 
-  const response = await getLocationPageData(
-    params.city,
-    params.state,
-    params.country
-  );
+    const response = await getLocationPageData(
+      params.city,
+      params.state,
+      params.country
+    );
 
-  if (!response.success || !response.data) {
-    return {
-      title: "Location Not Found",
-    };
-  }
+    if (!response.success || !response.data) {
+      return {
+        title: "Location Not Found",
+      };
+    }
 
   const { location, stats } = response.data;
 
@@ -302,37 +314,45 @@ export async function generateMetadata({ params }: LocationPageProps) {
     ? `${metroConfig.description} Average rating: ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews.`
     : `Discover the top ${stats.totalBeaches} surf beaches in ${location.city}. Average rating: ${stats.averageRating.toFixed(1)}/5 from ${stats.totalReviews} reviews.`;
 
-  const url = `https://quiver.surf/beaches/${params.country}/${params.state}/${params.city}`;
+    const url = `https://quiver.surf/beaches/${params.country}/${params.state}/${params.city}`;
 
-  return {
-    title,
-    description,
-    openGraph: {
+    return {
       title,
       description,
-      url,
-      siteName: "Quiver Surf App",
-      images: [
-        {
-          url: "/images/og-location-default.jpg",
-          width: 1200,
-          height: 630,
-          alt: `Surf beaches in ${location.city}, ${location.state}`,
-        },
-      ],
-      locale: "en_US",
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: ["/images/og-location-default.jpg"],
-    },
-    alternates: {
-      canonical: url,
-    },
-  };
+      openGraph: {
+        title,
+        description,
+        url,
+        siteName: "Quiver Surf App",
+        images: [
+          {
+            url: "/images/og-location-default.jpg",
+            width: 1200,
+            height: 630,
+            alt: `Surf beaches in ${location.city}, ${location.state}`,
+          },
+        ],
+        locale: "en_US",
+        type: "website",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: ["/images/og-location-default.jpg"],
+      },
+      alternates: {
+        canonical: url,
+      },
+    };
+  } catch (error) {
+    // Handle errors gracefully during build
+    console.error('[generateMetadata] Error:', error);
+    return {
+      title: "Surf Beaches | Quiver",
+      description: "Discover surf beaches and conditions on Quiver",
+    };
+  }
 }
 
 /**

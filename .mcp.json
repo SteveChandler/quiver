@@ -9,13 +9,8 @@
       }
     },
     "supabase": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@supabase/mcp-server-supabase@latest",
-        "--read-only",
-        "--project-ref=vawdnbbgawichorsjiwe"
-      ]
+      "command": "node",
+      "args": ["scripts/run-supabase-mcp.js"]
     },
     "rapid7": {
       "command": "node",

@@ -76,13 +76,23 @@ test.describe('Beach Detail Page', () => {
   test('should display tabs for different content sections', async ({ page }) => {
     // Should have tabs (Overview, Forecast, Reviews, etc.)
     const tablist = page.getByRole('tablist');
-    const hasTabs = await tablist.isVisible().catch(() => false);
+    await expect(tablist).toBeVisible({ timeout: 10000 });
 
-    if (hasTabs) {
-      // Should have at least Overview tab
-      const overviewTab = page.getByRole('tab', { name: /overview/i });
-      await expect(overviewTab).toBeVisible();
-    }
+    // Should have all five tabs
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    const forecastTab = page.getByRole('tab', { name: /forecast/i });
+    const reviewsTab = page.getByRole('tab', { name: /reviews/i });
+    const intelTab = page.getByRole('tab', { name: /local intel/i });
+    const sessionsTab = page.getByRole('tab', { name: /sessions/i });
+
+    await expect(overviewTab).toBeVisible();
+    await expect(forecastTab).toBeVisible();
+    await expect(reviewsTab).toBeVisible();
+    await expect(intelTab).toBeVisible();
+    await expect(sessionsTab).toBeVisible();
+
+    // Overview should be active by default
+    await expect(overviewTab).toHaveAttribute('data-state', 'active');
   });
 
   test('should allow favoriting/unfavoriting beach', async ({ page }) => {
@@ -165,20 +175,65 @@ test.describe('Beach Detail - Forecast Tab', () => {
   });
 
   test('should switch to forecast tab and display forecast', async ({ page }) => {
-    // Click forecast tab if tabs exist
+    // Verify forecast tab exists and is clickable
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
-    const hasTab = await forecastTab.isVisible().catch(() => false);
+    await expect(forecastTab).toBeVisible({ timeout: 10000 });
 
-    if (hasTab) {
-      await forecastTab.click();
-      await page.waitForTimeout(2000);
+    // Initially should be inactive
+    await expect(forecastTab).toHaveAttribute('data-state', 'inactive');
 
-      // Should show forecast data
-      const forecastData = page.getByText(/wave|swell|wind|tide/i).first();
-      await expect(forecastData).toBeVisible();
-    } else {
-      test.skip(true, 'Forecast tab not found');
+    // Click forecast tab
+    await forecastTab.click();
+
+    // Should become active
+    await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
+
+    // Overview tab should become inactive
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    await expect(overviewTab).toHaveAttribute('data-state', 'inactive');
+
+    // Should show forecast data in tabpanel
+    const forecastContent = page.getByRole('tabpanel');
+    await expect(forecastContent).toBeVisible();
+
+    const forecastData = page.getByText(/wave|swell|wind|tide/i).first();
+    await expect(forecastData).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should switch between all tabs correctly', async ({ page }) => {
+    // Get all tab elements
+    const overviewTab = page.getByRole('tab', { name: /overview/i });
+    const forecastTab = page.getByRole('tab', { name: /forecast/i });
+    const reviewsTab = page.getByRole('tab', { name: /reviews/i });
+    const intelTab = page.getByRole('tab', { name: /local intel/i });
+    const sessionsTab = page.getByRole('tab', { name: /sessions/i });
+
+    // Test switching to each tab in sequence
+    const tabs = [
+      { element: forecastTab, name: 'Forecast' },
+      { element: reviewsTab, name: 'Reviews' },
+      { element: intelTab, name: 'Intel' },
+      { element: sessionsTab, name: 'Sessions' },
+      { element: overviewTab, name: 'Overview' }
+    ];
+
+    for (const tab of tabs) {
+      // Click the tab
+      await tab.element.click();
+
+      // Verify it becomes active
+      await expect(tab.element).toHaveAttribute('data-state', 'active', { timeout: 5000 });
+
+      // Verify content panel is visible
+      const tabpanel = page.getByRole('tabpanel');
+      await expect(tabpanel).toBeVisible();
+
+      // Brief pause to allow content to load
+      await page.waitForTimeout(500);
     }
+
+    // Verify final state - Overview should be active again
+    await expect(overviewTab).toHaveAttribute('data-state', 'active');
   });
 
   test('should display tides if available', async ({ page }) => {

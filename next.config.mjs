@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import withPWA from "next-pwa";
+import withPWA from "@ducanh2912/next-pwa";
 
 const require = createRequire(import.meta.url);
 

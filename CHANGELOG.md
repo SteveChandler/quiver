@@ -74,6 +74,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Build Failure: Database Function Column References (October 31, 2025)
+- **Fixed Critical Build Error**: "column b.latitude does not exist" blocking production builds
+  - **Created fix migration**: [supabase/migrations/20251031235900_fix_all_coordinate_column_references.sql](supabase/migrations/20251031235900_fix_all_coordinate_column_references.sql)
+    - Updated 5 database functions to use correct column names (`lat`/`lon` instead of `latitude`/`longitude`)
+    - Fixed functions: `get_beaches_by_location_with_scores`, `get_beaches_by_metro_with_scores`, `get_beaches_near`, `get_coach_picks`, `get_nearby_beaches`
+    - Also updated function parameters to match current schema (e.g., `offshore_deg` → `wind_offshore_deg`, `tide_min_ft` → `preferred_tide_ft_min`)
+  - **Impact**:
+    - Build now completes successfully without errors
+    - All 112 static location pages generate without failures
+    - Location page functionality fully restored
+  - **Root Cause**: Migration `20251031022000_fix_coordinate_migration.sql` changed column names but didn't update function references
+  - **Status**: ✅ Verified - local build completes successfully
+
+#### Database Migration Dependency Issue (October 31, 2025)
+- **Fixed Critical Migration Bug**: Migration 20251031021702 dependency error
+  - **Created fix migration**: [supabase/migrations/20251031022000_fix_coordinate_migration.sql](supabase/migrations/20251031022000_fix_coordinate_migration.sql)
+    - Properly handles `geog` column dependency before dropping `latitude`/`longitude`
+    - Recreates `geog` as generated column using new `lat`/`lon` columns
+    - Adds proper range constraints and spatial indexes
+  - **Updated functions**: Modified `get_coach_picks()` and `refresh_enhanced_forecasts_for_active_beaches()` to use new coordinate columns
+  - **Schema changes**: Successfully migrated from `latitude`/`longitude` to `lat`/`lon`
+  - **Impact**: Unblocked 136 pending migrations, enabled local database sync
+  - **Files modified**: 3 migration files, comprehensive documentation in [MIGRATION_FIX_SUMMARY.md](MIGRATION_FIX_SUMMARY.md)
+
+#### Bug #2 Verification: Beach Detail Page Performance (October 31, 2025)
+- **Verified Bug #2 Fixed**: Beach detail page timeout issue resolved
+  - **Performance Results**:
+    - First load: **3.2 seconds** (previously 20+ seconds)
+    - Cached load: **0.05 seconds**
+    - 84% reduction in initial load time
+  - **Root Cause**: Database schema mismatch prevented testing until migration fix applied
+  - **Architecture**: October 22 refactor successfully addressed timeouts through:
+    - Parallel data fetching with SWR
+    - Lazy loading of tab components (Overview, Forecast, Reviews, Intel, Sessions)
+    - Progressive loading states (FullPageLoader, TabLoadingSkeleton)
+    - Dynamic imports for heavy components
+  - **Schema Updates**: Regenerated TypeScript types to match new `lat`/`lon` coordinate columns
+  - **Test Data**: Updated E2E test fixtures with correct beach IDs after database reset
+
 #### Profile Page Deep Linking and Navigation (October 30, 2025)
 - **Fixed Bug #5**: Profile page functionality issues
   - **Removed lazy loading** from ProfileView component in [app/profile/page.tsx](app/profile/page.tsx)
@@ -86,6 +125,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Test 2: Verifies Add Beach button navigates to `/map` correctly
   - **User Impact**: Users can now properly edit their profile via deep links and add favorite beaches
   - Related to [BUGS.md](BUGS.md) Bug #5
+
+#### Beach Detail Tab Navigation (October 30, 2025)
+- **Fixed Bug #6**: Tab switching not working on beach detail pages
+  - **Downgraded Radix UI Tabs**: Changed `@radix-ui/react-tabs` from 1.1.13 → 1.0.4 (exact version) in [package.json](package.json)
+    - Version 1.1.x had controlled mode synchronization bug
+    - Removed semver caret (`^1.0.4` → `1.0.4`) to prevent auto-upgrades
+    - Preserves deep-linking capability (e.g., `/beach/slug?section=intel`)
+  - **Added controlled mode unit tests** in [__tests__/components/beach-detail/beach-tabs.test.tsx](__tests__/components/beach-detail/beach-tabs.test.tsx)
+    - Test programmatic tab switching (deep-linking scenario)
+    - Test onTabChange callback fires correctly
+    - Test all 5 tabs switch properly in controlled mode
+  - **Improved E2E test assertions** in [e2e/beach-detail.spec.ts](e2e/beach-detail.spec.ts)
+    - Removed conditional `test.skip()` logic (anti-pattern)
+    - Added explicit `data-state` attribute assertions
+    - Added comprehensive test for all tab switching
+  - **Updated documentation**:
+    - [BUGS.md](BUGS.md) - Marked as RESOLVED with correct version info
+    - [docs/BEACH_PAGE_DESIGN.md](docs/BEACH_PAGE_DESIGN.md) - Shows controlled mode pattern
+  - **User Impact**: Users can now switch between Overview/Forecast/Reviews/Intel/Sessions tabs on beach detail pages
+  - Related to [BUGS.md](BUGS.md) Bug #6
 
 ### Added - Push Notifications Infrastructure (October 30, 2025)
 

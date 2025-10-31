@@ -4,17 +4,16 @@
  */
 
 export const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'test@quiver.com',
+  email: process.env.TEST_USER_EMAIL || 'testuser@quiver.surf',
   password: process.env.TEST_USER_PASSWORD || 'testpassword123',
   name: 'Test User',
 };
 
 export const TEST_BEACH_IDS = {
-  // These should be real beach IDs from your database
-  // Update these with actual IDs from your Supabase database
-  blacks: '01330afc-00d3-461b-88f3-b173774766f4',
-  oceanBeach: '15c7337e-5258-4339-9dc3-c435c666926b',
-  huntingtonPier: '071db1df-b5ee-4af6-a022-ea8a09667cbe',
+  // Updated with actual IDs from local Supabase database after db reset
+  blacks: '94d0af9e-b90a-40e6-a133-f12c5f128bef',
+  birdrock: '32ceda2f-cf09-42d8-84f3-a4bc65c2283f',
+  beacons: '5b93dc38-dbb2-4de7-815b-e0fa994b18a4',
 };
 
 export const VIEWPORTS = {
