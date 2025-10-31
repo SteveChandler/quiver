@@ -51,6 +51,10 @@ DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Anyone can view beach forecast accuracy" ON public.beach_forecast_accuracy;
 DROP POLICY IF EXISTS "Service role can manage beach forecast accuracy" ON public.beach_forecast_accuracy;
 
+-- Drop the consolidated policies if they already exist (for idempotency)
+DROP POLICY IF EXISTS "beach_forecast_accuracy_select" ON public.beach_forecast_accuracy;
+DROP POLICY IF EXISTS "beach_forecast_accuracy_write" ON public.beach_forecast_accuracy;
+
 -- Create consolidated policies
 CREATE POLICY "beach_forecast_accuracy_select" ON public.beach_forecast_accuracy
 FOR SELECT USING (true); -- Anyone can view

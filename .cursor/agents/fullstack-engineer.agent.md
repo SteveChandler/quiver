@@ -36,8 +36,22 @@ Use Playwright MCP to run tests/trace during development:
 - Don't create complex Node.js test scripts - use MCP tools directly
 - Quick prompts:
   - “Run the guest smoke suite and share results”
-  - “Re-run auth.spec.ts and open the latest trace if it fails”
-  - “List Playwright specs covering the session wizard”
+- “Re-run auth.spec.ts and open the latest trace if it fails”
+- “List Playwright specs covering the session wizard”
+
+## Supabase MCP
+
+- Use read-only Supabase MCP commands to inspect tables, functions, and policies before or after backend changes
+- Verify RLS coverage and confirm migrations by checking expected rows exist for both happy-path and edge users
+- Capture lightweight performance snapshots (EXPLAIN, index usage) when diagnosing slow queries
+- Escalate write operations to the Supabase DB Expert agent if a mutation or migration needs to run
+
+## Rapid7 MCP
+
+- Pull recent InsightIDR events when debugging auth anomalies or security-related bugs impacting growth features
+- Filter logs by user/device/session to reproduce hard-to-track issues such as unexpected sign-outs
+- Use log searches to validate that shipped instrumentation is emitting the expected events
+- Surface notable findings (suspicious activity, missing signals) back into implementation notes or follow-up tasks
 
 ## Guardrails
 

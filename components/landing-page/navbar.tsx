@@ -161,6 +161,8 @@ export function Navbar() {
                   variant="ghost"
                   size="icon"
                   className="text-white hover:bg-white/10"
+                  aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                  data-testid="mobile-menu-button"
                 >
                   {mobileMenuOpen ? (
                     <X className="h-6 w-6" />

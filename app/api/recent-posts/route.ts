@@ -1,4 +1,4 @@
-import { createServerClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import {
   handleApiError,
@@ -8,9 +8,13 @@ import {
   createPaginationMeta,
 } from "@/lib/api-utils";
 
+// Mark this route as dynamic to prevent static generation
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = createSupabaseServerClient();
 
     // Parse pagination parameters (default: page=1, limit=4, max=20)
     const { searchParams } = new URL(request.url);
@@ -44,7 +48,16 @@ export async function GET(request: NextRequest) {
         profile_id,
         profiles!sessions_profile_id_fkey (
           id,
-          full_name
+          full_name,
+          avatar_url
+        ),
+        session_media!session_media_session_id_fkey (
+          id,
+          public_url,
+          media_type,
+          caption,
+          file_size,
+          deleted_at
         )
       `
       )
@@ -76,9 +89,17 @@ export async function GET(request: NextRequest) {
         author: {
           id: session.profiles.id,
           name: session.profiles.full_name || "Surfer",
-          avatar: "/placeholder-user.jpg", // TODO: Add avatar_url column to profiles table when user avatars are implemented
+          avatar: session.profiles.avatar_url || "/placeholder-user.jpg",
         },
-        media: [], // TODO: Add session_media table and relationship when media upload is implemented
+        media: (session.session_media || [])
+          .filter((m: any) => !m.deleted_at)
+          .map((m: any) => ({
+            id: m.id,
+            url: m.public_url,
+            type: m.media_type,
+            caption: m.caption,
+            fileSize: m.file_size,
+          }))
       })) || [];
 
     // Create pagination metadata

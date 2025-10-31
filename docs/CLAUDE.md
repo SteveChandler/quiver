@@ -37,6 +37,7 @@ This repo is optimized for AI‑assisted coding. Follow this guide to produce co
   }
 }
 ```
+- **Security tooling:** The **Rapid7 InsightIDR MCP** server is available as `rapid7`. It loads credentials from `.env` via `RAPID7_API_KEY` (and optional `RAPID7_BASE_URL`). Keep the key up to date before asking Claude to query Rapid7 logs.
 
 - **Fallback:** When MCP isn’t available, use `Bash(npx playwright test <pattern>)`.
 

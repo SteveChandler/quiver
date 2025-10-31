@@ -6,15 +6,14 @@ color: cyan
 mcp:
   servers:
     - name: supabase
-      command: supabase-mcp          # your MCP server binary
+      command: npx
       args:
-        - "--project-ref"
-        - "${SUPABASE_PROJECT_REF}"  # e.g., vawdnbbgawichorsjiwe
-        - "--access-token"
-        - "${SUPABASE_ACCESS_TOKEN}"
-        - "--read-only"              # default to read-only; mutations must be approved
+        - "-y"
+        - "@supabase/mcp-server-supabase@latest"
+        - "--read-only"
+        - "--project-ref=vawdnbbgawichorsjiwe"
 env:
-  SUPABASE_PROJECT_REF: "vawdnbbgawichorsjiwe"
+  SUPABASE_ACCESS_TOKEN: "${SUPABASE_ACCESS_TOKEN}"
 # Do NOT commit the token. Provide SUPABASE_ACCESS_TOKEN via shell or CI.
 policy:
   require_plan_for_mutations: true

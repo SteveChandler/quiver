@@ -30,6 +30,8 @@ import {
   restoreBeachPhoto,
   toggleBeachPhotoApproval,
   getPhotoStats,
+  bulkSoftDeleteSessionMedia,
+  bulkSoftDeleteBeachPhotos,
   type PhotoModerationItem,
 } from "@/actions/admin/photos";
 
@@ -197,6 +199,57 @@ export default function AdminPhotosPage() {
     refetchBeach();
   };
 
+  // Handle bulk delete
+  const handleBulkDelete = (photoIds: string[], photoType: "session_media" | "beach_photo") => {
+    const count = photoIds.length;
+    const isSessionMedia = photoType === "session_media";
+
+    setConfirmDialog({
+      open: true,
+      title: `Delete ${count} Photo${count !== 1 ? "s" : ""}`,
+      description: isSessionMedia
+        ? `Are you sure you want to delete ${count} session photo${
+            count !== 1 ? "s" : ""
+          }? This will remove both the database records and the storage files. This action can be undone by restoring the photos later.`
+        : `Are you sure you want to delete ${count} beach photo${
+            count !== 1 ? "s" : ""
+          }? This action can be undone by restoring the photos later.`,
+      variant: "destructive",
+      action: async () => {
+        let result;
+        if (isSessionMedia) {
+          result = await bulkSoftDeleteSessionMedia(photoIds);
+        } else {
+          result = await bulkSoftDeleteBeachPhotos(photoIds);
+        }
+
+        if (!result.success) {
+          toast.error(result.error || "Failed to delete photos");
+          return;
+        }
+
+        const { success, failed, errors } = result.data || { success: 0, failed: 0, errors: [] };
+
+        if (failed > 0) {
+          toast.error(
+            `Deleted ${success} of ${count} photos. ${failed} failed.${
+              errors.length > 0 ? ` First error: ${errors[0].error}` : ""
+            }`
+          );
+        } else {
+          toast.success(`Successfully deleted ${success} photo${success !== 1 ? "s" : ""}`);
+        }
+
+        // Refetch the appropriate tab
+        if (isSessionMedia) {
+          refetchSession();
+        } else {
+          refetchBeach();
+        }
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -313,6 +366,7 @@ export default function AdminPhotosPage() {
             onPreview={handlePreview}
             onDelete={handleDeleteSessionMedia}
             onRestore={handleRestoreSessionMedia}
+            onBulkDelete={handleBulkDelete}
           />
         </TabsContent>
 
@@ -325,6 +379,7 @@ export default function AdminPhotosPage() {
             onDelete={handleDeleteBeachPhoto}
             onRestore={handleRestoreBeachPhoto}
             onApprove={handleApproveBeachPhoto}
+            onBulkDelete={handleBulkDelete}
           />
         </TabsContent>
       </Tabs>

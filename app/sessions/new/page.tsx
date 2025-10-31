@@ -24,15 +24,8 @@ function NewSessionPageContent() {
   const mode = (searchParams.get("mode") as SessionFormMode) || "plan";
   const convertSessionId = searchParams.get("convert"); // For converting planned sessions
 
-  // Redirect unauthenticated users to sign-in
-  useEffect(() => {
-    if (!isLoading && !user) {
-      const currentPath = `/sessions/new${mode ? `?mode=${mode}` : ''}`;
-      router.push(`/auth/sign-in?redirectTo=${encodeURIComponent(currentPath)}`);
-    }
-  }, [user, isLoading, router, mode]);
-
-  // Soft-auth: Allow UI to render; server actions enforce auth
+  // Note: Middleware now handles authentication redirect
+  // Server actions also enforce auth as a safety measure
 
   // Handle session completion
   const handleSessionComplete = async (sessionData: any) => {

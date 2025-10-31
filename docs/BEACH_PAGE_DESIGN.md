@@ -83,8 +83,23 @@ We adopted the following patterns from AllTrails:
 **File:** `components/beach-detail/beach-tabs.tsx`
 **Purpose:** Main content navigation
 
+**Usage:** Controlled mode (for deep-linking support)
+
 ```tsx
-<BeachTabs defaultTab="overview">
+const [activeTab, setActiveTab] = useState<BeachTabValue>("overview");
+
+// Support deep-linking to specific tabs
+useEffect(() => {
+  const section = searchParams?.get("section");
+  if (section === "intel") {
+    setActiveTab("intel");
+  }
+}, [searchParams]);
+
+<BeachTabs
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+>
   <BeachTabContent value="overview">...</BeachTabContent>
   <BeachTabContent value="forecast">...</BeachTabContent>
   <BeachTabContent value="reviews">...</BeachTabContent>
@@ -92,6 +107,11 @@ We adopted the following patterns from AllTrails:
   <BeachTabContent value="sessions">...</BeachTabContent>
 </BeachTabs>
 ```
+
+**Important:** Uses controlled mode to support:
+- Deep-linking (e.g., `/beach/slug?section=intel`)
+- Programmatic tab switching
+- Tab state tracking for analytics
 
 **Tab Structure:**
 | Tab | Content |

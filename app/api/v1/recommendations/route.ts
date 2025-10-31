@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
     // 1) Nearby beaches via PostGIS helper
     let beaches: any[] = [];
     const nearby = await supabase.rpc("get_nearby_beaches", {
-      lat,
-      lng: lon,
+      input_lat: lat,
+      input_lng: lon,
       max_distance_meters: 25000,
       limit_count: 25,
     });

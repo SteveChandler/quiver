@@ -70,13 +70,34 @@ export default function DiscoverPageClient() {
 
   if (!user) {
     return (
-      <div>
-        <div className="container py-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Discover Surfers</h1>
-            <p className="text-muted-foreground">
-              Sign in to discover and follow other surfers in your community.
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="container py-16">
+          <div className="max-w-2xl mx-auto text-center">
+            <Users className="h-20 w-20 text-ocean-blue mx-auto mb-6" />
+            <h1 className="text-4xl font-bold mb-4">Discover Surfers</h1>
+            <p className="text-muted-foreground text-lg mb-8">
+              Sign in to discover and follow other surfers in your community. Connect with local surfers, coordinate sessions, and build your surf network.
             </p>
+            <div className="flex gap-4 justify-center">
+              <Button
+                size="lg"
+                onClick={() => {
+                  window.location.href = "/auth/sign-in";
+                }}
+                className="bg-ocean-blue hover:bg-ocean-blue/90"
+              >
+                Sign In
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => {
+                  window.location.href = "/auth/sign-up";
+                }}
+              >
+                Sign Up
+              </Button>
+            </div>
           </div>
         </div>
       </div>

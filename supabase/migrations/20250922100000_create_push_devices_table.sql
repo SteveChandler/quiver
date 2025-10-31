@@ -15,6 +15,7 @@ create table if not exists public.push_devices (
 create unique index if not exists push_devices_token_key on public.push_devices (token);
 create index if not exists push_devices_user_id_idx on public.push_devices (user_id);
 
+drop trigger if exists trg_push_devices_set_updated_at on public.push_devices;
 create trigger trg_push_devices_set_updated_at
 before update on public.push_devices
 for each row execute function public.set_updated_at();

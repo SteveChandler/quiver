@@ -93,7 +93,8 @@ function TabLoadingSkeleton({ type }: { type: string }) {
   );
 }
 
-export function ProfileView() {
+// Internal component that uses useSearchParams
+function ProfileViewContent() {
   const { user, isLoading: authLoading, refreshSession } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -431,6 +432,7 @@ export function ProfileView() {
                         Favorite Beaches
                       </h3>
                       <Button
+                        data-testid="add-beach-button"
                         size="sm"
                         onClick={() => {
                           router.push("/map");
@@ -473,5 +475,14 @@ export function ProfileView() {
         onProfileUpdated={handleProfileUpdated}
       />
     </div>
+  );
+}
+
+// Wrapper component with Suspense boundary for useSearchParams
+export function ProfileView() {
+  return (
+    <Suspense fallback={<FullPageLoader text="Loading profile..." />}>
+      <ProfileViewContent />
+    </Suspense>
   );
 }

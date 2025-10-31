@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
-import { Suspense, lazy } from "react";
+import { Suspense } from "react";
 import { buildPageMetadata } from "@/lib/seo/meta";
+import { ProfileView } from "@/components/profile-view";
+
+// Force dynamic rendering for this page since it uses useSearchParams
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "My Profile - Manage Your Surf Profile | Quiver",
@@ -15,11 +19,6 @@ export const metadata: Metadata = buildPageMetadata({
     "surf account",
   ],
 });
-
-// Lazy load heavy profile component
-const ProfileView = lazy(() =>
-  import("@/components/profile-view").then((m) => ({ default: m.ProfileView }))
-);
 
 // Loading skeleton for profile
 function ProfileSkeleton() {

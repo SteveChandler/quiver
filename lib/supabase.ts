@@ -6,8 +6,8 @@ import {
 
 // Create a browser client using @supabase/ssr
 const createBrowserClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error("Supabase URL or Anon Key is missing");
@@ -56,8 +56,8 @@ export const getClientBrowserClient = () => {
 
 // Create a server client for server components and server actions
 export const createServerClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error("Server: Supabase URL or Anon Key is missing");
@@ -113,8 +113,8 @@ export const createServerClient = () => {
 
 // Create a server client with service role for admin operations
 export const createServiceRoleClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error("Server: Supabase URL or Service Key is missing");

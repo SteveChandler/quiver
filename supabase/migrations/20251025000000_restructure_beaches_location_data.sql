@@ -4,32 +4,48 @@
 
 BEGIN;
 
--- Step 1: Parse the region data to populate location (city) and update region (state)
--- Pattern: "City Name, ST" where ST is 2-letter state code
--- Examples:
---   "Huntington Beach, CA" → location="Huntington Beach", region="CA"
---   "La Jolla, San Diego, CA" → location="La Jolla, San Diego", region="CA"
---   "Baja California" → location=NULL, region="Baja California"
+-- Step 1: Check if columns need renaming or if they're already renamed
+DO $$
+BEGIN
+  -- If location and region columns exist, parse and rename them
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'beaches'
+    AND column_name = 'location'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'beaches'
+    AND column_name = 'region'
+  ) THEN
+    -- Parse the region data to populate location (city) and update region (state)
+    -- Pattern: "City Name, ST" where ST is 2-letter state code
+    UPDATE public.beaches
+    SET
+      -- Extract city part: everything before the last comma followed by 2-letter code
+      location = CASE
+        WHEN region ~ ',\s+[A-Z]{2}$' THEN
+          TRIM(substring(region from '^(.+),\s+[A-Z]{2}$'))
+        ELSE NULL
+      END,
+      -- Extract state part: just the 2-letter code, or keep entire value if no match
+      region = CASE
+        WHEN region ~ ',\s+[A-Z]{2}$' THEN
+          TRIM(substring(region from ',\s+([A-Z]{2})$'))
+        ELSE region
+      END
+    WHERE region IS NOT NULL;
 
-UPDATE public.beaches
-SET
-  -- Extract city part: everything before the last comma followed by 2-letter code
-  location = CASE
-    WHEN region ~ ',\s+[A-Z]{2}$' THEN
-      TRIM(substring(region from '^(.+),\s+[A-Z]{2}$'))
-    ELSE NULL
-  END,
-  -- Extract state part: just the 2-letter code, or keep entire value if no match
-  region = CASE
-    WHEN region ~ ',\s+[A-Z]{2}$' THEN
-      TRIM(substring(region from ',\s+([A-Z]{2})$'))
-    ELSE region
-  END
-WHERE region IS NOT NULL;
+    -- Rename the columns to their final names
+    ALTER TABLE public.beaches RENAME COLUMN location TO city;
+    ALTER TABLE public.beaches RENAME COLUMN region TO state;
 
--- Step 2: Rename the columns to their final names
-ALTER TABLE public.beaches RENAME COLUMN location TO city;
-ALTER TABLE public.beaches RENAME COLUMN region TO state;
+    RAISE NOTICE 'Renamed location → city and region → state';
+  ELSE
+    RAISE NOTICE 'Columns already renamed or do not exist, skipping';
+  END IF;
+END $$;
 
 -- Step 2.5: Add slug column if it doesn't exist
 ALTER TABLE public.beaches ADD COLUMN IF NOT EXISTS slug TEXT;

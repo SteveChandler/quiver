@@ -2,6 +2,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { NOAAWaveWatchService } from "./noaa-wavewatch-service";
 import { NOAACOOPSService } from "./noaa-coops-service";
 import { CDIPService } from "./cdip-service";
+import { getForecastWeightingService } from "./forecast-weighting-service";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import type { Beach } from "@/types/database";
 import {
@@ -284,7 +285,7 @@ export class EnhancedForecastService {
           logError(cdipData.reason, { beachId: beach.id, dataSource: "cdip" });
 
         // Process and combine all data sources
-        const forecasts = this.combineDataSources(processedData);
+        const forecasts = await this.combineDataSources(processedData);
 
         return forecasts;
       },
@@ -531,7 +532,7 @@ export class EnhancedForecastService {
   /**
    * Combine all data sources into comprehensive forecast
    */
-  private combineDataSources({
+  private async combineDataSources({
     beach,
     waveData,
     tideData,
@@ -545,7 +546,7 @@ export class EnhancedForecastService {
     weatherData: any[];
     buoyData: any;
     cdipData: CDIPBuoyData | null;
-  }): EnhancedForecastWithRawData[] {
+  }): Promise<EnhancedForecastWithRawData[]> {
     const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
 
@@ -807,7 +808,14 @@ export class EnhancedForecastService {
       // Validate forecast values for San Diego area and flag unrealistic conditions
       this.validateForecastValues(forecast, beach.name);
 
-      forecasts.push(forecast);
+      // Apply expert weighting silently (no visible attribution)
+      const weightedForecast = await this.applyExpertWeighting(
+        forecast,
+        beach.name,
+        forecastTime
+      );
+
+      forecasts.push(weightedForecast);
     }
 
     return forecasts;
@@ -1086,6 +1094,91 @@ export class EnhancedForecastService {
     }
 
     return isValid;
+  }
+
+  /**
+   * Apply expert weighting to forecasts silently
+   * Uses calibration data to improve forecast accuracy without exposing sources
+   */
+  private async applyExpertWeighting(
+    forecast: EnhancedForecastWithRawData,
+    beachName: string,
+    forecastTime: Date
+  ): Promise<EnhancedForecastWithRawData> {
+    try {
+      const weightingService = getForecastWeightingService();
+
+      // Parse current forecast values
+      const parseHeight = (str: string | null): number => {
+        if (!str) return 0;
+        const match = str.match(/(\d+\.?\d*)/);
+        return match ? parseFloat(match[1]) : 0;
+      };
+
+      const parsePeriod = (str: string | null): number => {
+        if (!str) return 0;
+        const match = str.match(/(\d+\.?\d*)/);
+        return match ? parseFloat(match[1]) : 0;
+      };
+
+      const parseDirection = (str: string | null): number => {
+        if (!str) return 0;
+        // Convert text direction to degrees if needed
+        const directionMap: { [key: string]: number } = {
+          'N': 0, 'NNE': 22.5, 'NE': 45, 'ENE': 67.5,
+          'E': 90, 'ESE': 112.5, 'SE': 135, 'SSE': 157.5,
+          'S': 180, 'SSW': 202.5, 'SW': 225, 'WSW': 247.5,
+          'W': 270, 'WNW': 292.5, 'NW': 315, 'NNW': 337.5
+        };
+        return directionMap[str] || 0;
+      };
+
+      // Create automated forecast data object
+      const automatedForecast = {
+        wave_height_ft: parseHeight(forecast.wave_height),
+        wave_period_s: parsePeriod(forecast.wave_period),
+        wave_direction_deg: parseDirection(forecast.wave_direction),
+        wind_speed_mph: forecast.wind_speed ? parseFloat(forecast.wind_speed) : undefined,
+        wind_direction_deg: parseDirection(forecast.wind_direction),
+        confidence: forecast.confidence_score || 0.7,
+      };
+
+      // Skip weighting if forecast has no data
+      if (automatedForecast.wave_height_ft === 0) {
+        return forecast;
+      }
+
+      // Get weighted forecast from expert calibration
+      const weightedForecast = await weightingService.blendForecast(
+        automatedForecast,
+        beachName,
+        forecastTime
+      );
+
+      // Format values back to strings
+      const formatHeight = (ft: number): string => {
+        return `${Math.round(ft * 10) / 10} ft`;
+      };
+
+      const formatPeriod = (s: number): string => {
+        return `${Math.round(s * 10) / 10}s`;
+      };
+
+      // Apply weighted values back to forecast
+      const updatedForecast = {
+        ...forecast,
+        wave_height: formatHeight(weightedForecast.wave_height_ft),
+        wave_period: formatPeriod(weightedForecast.wave_period_s),
+        confidence_score: weightedForecast.confidence,
+        // Note: No visible attribution to expert sources - silent integration
+      };
+
+      return updatedForecast;
+    } catch (error) {
+      // If weighting fails, return original forecast
+      console.warn('Expert weighting failed, using original forecast:', error);
+      return forecast;
+    }
   }
 
   /**

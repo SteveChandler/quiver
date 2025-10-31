@@ -60,7 +60,15 @@ export async function GET(
       embed_allowed: embedAllowed,
     };
 
-    return createSuccessResponse({ sources: merged });
+    // PERFORMANCE OPTIMIZATION: Cache sources for 30 minutes (1800s)
+    // Camera URLs and buoy IDs don't change frequently
+    const response = createSuccessResponse({ sources: merged });
+    response.headers.set(
+      "Cache-Control",
+      "public, s-maxage=1800, stale-while-revalidate=7200"
+    );
+
+    return response;
   } catch (err) {
     return handleApiError(err, "Failed to fetch beach sources");
   }

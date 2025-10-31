@@ -13,7 +13,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_beaches_lat_range') THEN
     ALTER TABLE public.beaches
       ADD CONSTRAINT chk_beaches_lat_range
-        CHECK (lat IS NULL OR (lat >= -90 AND lat <= 90));
+        CHECK (latitude IS NULL OR (latitude >= -90 AND latitude <= 90));
   END IF;
 END $$;
 
@@ -22,7 +22,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_beaches_lon_range') THEN
     ALTER TABLE public.beaches
       ADD CONSTRAINT chk_beaches_lon_range
-        CHECK (lon IS NULL OR (lon >= -180 AND lon <= 180));
+        CHECK (longitude IS NULL OR (longitude >= -180 AND longitude <= 180));
   END IF;
 END $$;
 
@@ -111,14 +111,14 @@ CREATE INDEX IF NOT EXISTS idx_beaches_location_hierarchy
 
 -- Public beaches partial index (excludes private beaches from general queries)
 CREATE INDEX IF NOT EXISTS idx_beaches_public
-  ON public.beaches(id, name, lat, lon)
+  ON public.beaches(id, name, latitude, longitude)
   WHERE is_private = false;
 
 -- Active beaches with coordinates (for map/nearby queries)
 CREATE INDEX IF NOT EXISTS idx_beaches_active_with_coords
   ON public.beaches(id)
-  WHERE lat IS NOT NULL
-    AND lon IS NOT NULL
+  WHERE latitude IS NOT NULL
+    AND longitude IS NOT NULL
     AND is_private = false;
 
 -- Country-specific queries
@@ -148,7 +148,7 @@ CREATE INDEX IF NOT EXISTS idx_beaches_skill_level
 -- Beach list query optimization (name, location, coordinates)
 -- Note: This may already exist from previous migrations, using IF NOT EXISTS
 CREATE INDEX IF NOT EXISTS idx_beaches_list_covering
-  ON public.beaches(name, id, lat, lon, city, state)
-  WHERE lat IS NOT NULL AND lon IS NOT NULL;
+  ON public.beaches(name, id, latitude, longitude, city, state)
+  WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
 
 COMMIT;

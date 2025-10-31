@@ -11,8 +11,8 @@ export async function getBeachesNear(
   const radiusMeters = Math.round(radiusKm * 1000);
 
   const { data, error } = await supabase.rpc("get_nearby_beaches", {
-    lat,
-    lng: lon,
+    input_lat: lat,
+    input_lng: lon,
     max_distance_meters: radiusMeters,
     limit_count: 50,
   });

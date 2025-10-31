@@ -4,12 +4,14 @@ import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { ADMIN_USER_IDS } from "@/lib/auth/admin";
 
 // Define paths that require authentication
-// Note: /forecast, /beach, /map, /sessions are now public for SEO and user acquisition
+// Note: /forecast, /beach, /map are now public for SEO and user acquisition
+// /sessions/new requires auth to create sessions, but /sessions/:id is public for sharing
 const protectedPaths = [
   "/profile",
   "/dashboard",
   "/journal",
   "/discover",
+  "/sessions/new",
 ];
 
 // Admin-only paths require additional authorization
@@ -69,8 +71,8 @@ export async function middleware(request: NextRequest) {
   log(`[Middleware] Processing request for: ${pathname}`);
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
     {
       cookies: {
         get(name) {
@@ -126,7 +128,11 @@ export async function middleware(request: NextRequest) {
         if (!fetchedUser || userError) {
           log(`[Middleware] No valid user found, redirecting to sign-in`);
           const signInUrl = new URL("/auth/sign-in", request.url);
-          signInUrl.searchParams.set("redirectTo", pathname);
+          // Preserve query parameters in redirectTo
+          const redirectPath = request.nextUrl.search
+            ? `${pathname}${request.nextUrl.search}`
+            : pathname;
+          signInUrl.searchParams.set("redirectTo", redirectPath);
           return NextResponse.redirect(signInUrl);
         }
         user = fetchedUser;
@@ -156,7 +162,11 @@ export async function middleware(request: NextRequest) {
     } catch (error) {
       logError(`[Middleware] Error checking auth:`, error);
       const signInUrl = new URL("/auth/sign-in", request.url);
-      signInUrl.searchParams.set("redirectTo", pathname);
+      // Preserve query parameters in redirectTo
+      const redirectPath = request.nextUrl.search
+        ? `${pathname}${request.nextUrl.search}`
+        : pathname;
+      signInUrl.searchParams.set("redirectTo", redirectPath);
       return NextResponse.redirect(signInUrl);
     }
   }

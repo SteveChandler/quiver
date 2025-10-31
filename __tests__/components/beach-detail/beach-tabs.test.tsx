@@ -13,7 +13,8 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { BeachTabs, BeachTabContent, BeachTabValue } from '@/components/beach-detail/beach-tabs';
 
@@ -434,6 +435,100 @@ describe('BeachTabs Component', () => {
       );
 
       expect(screen.getByText('Test Content')).toBeInTheDocument();
+    });
+  });
+
+  describe('Controlled Mode Behavior', () => {
+    test('switches tabs when activeTab prop changes programmatically', () => {
+      const { rerender } = render(
+        <BeachTabs activeTab="overview" onTabChange={jest.fn()}>
+          <BeachTabContent value="overview">Overview Content</BeachTabContent>
+          <BeachTabContent value="forecast">Forecast Content</BeachTabContent>
+        </BeachTabs>
+      );
+
+      // Initially overview should be active
+      expect(screen.getByRole('tab', { name: /overview/i }))
+        .toHaveAttribute('data-state', 'active');
+      expect(screen.getByRole('tab', { name: /forecast/i }))
+        .toHaveAttribute('data-state', 'inactive');
+
+      // Parent programmatically changes activeTab prop
+      rerender(
+        <BeachTabs activeTab="forecast" onTabChange={jest.fn()}>
+          <BeachTabContent value="overview">Overview Content</BeachTabContent>
+          <BeachTabContent value="forecast">Forecast Content</BeachTabContent>
+        </BeachTabs>
+      );
+
+      // Should switch to forecast tab
+      expect(screen.getByRole('tab', { name: /forecast/i }))
+        .toHaveAttribute('data-state', 'active');
+      expect(screen.getByRole('tab', { name: /overview/i }))
+        .toHaveAttribute('data-state', 'inactive');
+
+      // Content should update
+      expect(screen.getByText('Forecast Content')).toBeVisible();
+    });
+
+    test('supports deep-linking by programmatically switching tabs', () => {
+      const { rerender } = render(
+        <BeachTabs activeTab="overview" onTabChange={jest.fn()}>
+          <BeachTabContent value="overview">Overview</BeachTabContent>
+          <BeachTabContent value="intel">Intel</BeachTabContent>
+        </BeachTabs>
+      );
+
+      // Simulate deep-link to intel section
+      rerender(
+        <BeachTabs activeTab="intel" onTabChange={jest.fn()}>
+          <BeachTabContent value="overview">Overview</BeachTabContent>
+          <BeachTabContent value="intel">Intel</BeachTabContent>
+        </BeachTabs>
+      );
+
+      // Intel tab should be active (simulating URL param ?section=intel)
+      expect(screen.getByRole('tab', { name: /local intel/i }))
+        .toHaveAttribute('data-state', 'active');
+    });
+
+    test('switches through all tab values in controlled mode', () => {
+      const tabValues: BeachTabValue[] = ['overview', 'forecast', 'reviews', 'intel', 'sessions'];
+
+      const { rerender } = render(
+        <BeachTabs activeTab="overview" onTabChange={jest.fn()}>
+          <BeachTabContent value="overview">Overview</BeachTabContent>
+          <BeachTabContent value="forecast">Forecast</BeachTabContent>
+          <BeachTabContent value="reviews">Reviews</BeachTabContent>
+          <BeachTabContent value="intel">Intel</BeachTabContent>
+          <BeachTabContent value="sessions">Sessions</BeachTabContent>
+        </BeachTabs>
+      );
+
+      // Test switching to each tab programmatically
+      tabValues.forEach((tabValue) => {
+        rerender(
+          <BeachTabs activeTab={tabValue} onTabChange={jest.fn()}>
+            <BeachTabContent value="overview">Overview</BeachTabContent>
+            <BeachTabContent value="forecast">Forecast</BeachTabContent>
+            <BeachTabContent value="reviews">Reviews</BeachTabContent>
+            <BeachTabContent value="intel">Intel</BeachTabContent>
+            <BeachTabContent value="sessions">Sessions</BeachTabContent>
+          </BeachTabs>
+        );
+
+        // Get the tab name for regex matching
+        const tabNameMap: Record<BeachTabValue, string> = {
+          overview: 'overview',
+          forecast: 'forecast',
+          reviews: 'reviews',
+          intel: 'local intel',
+          sessions: 'sessions'
+        };
+
+        const tab = screen.getByRole('tab', { name: new RegExp(tabNameMap[tabValue], 'i') });
+        expect(tab).toHaveAttribute('data-state', 'active');
+      });
     });
   });
 });

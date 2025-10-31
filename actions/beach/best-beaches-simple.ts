@@ -219,8 +219,8 @@ export async function getBestBeachesNearHome() {
     }
 
     let nearbyBeachesResult = await supabase.rpc("get_nearby_beaches", {
-      lat: homeBeach.lat,
-      lng: homeBeach.lon,
+      input_lat: homeBeach.lat,
+      input_lng: homeBeach.lon,
       max_distance_meters: 16093, // 10 miles
       limit_count: 25,
     });

@@ -15,6 +15,7 @@ import { Loader2, ChevronRight, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBeachAutocomplete } from "@/hooks/use-beach-autocomplete";
 import type { Beach } from "@/types/database";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BeachSearchAutocompleteProps {
   onSelect?: (beach: Beach) => void;
@@ -184,7 +185,7 @@ function BeachSuggestionCard({
           {getConditionBadge()}
         </div>
         <p className="text-sm text-muted-foreground truncate">
-          {beach.location && `${beach.location} · `}
+          {getBeachLocation(beach)} ·
           {beach.break_type && `${beach.break_type} · `}
           ⭐ {beach.average_rating?.toFixed(1) || "N/A"}
         </p>

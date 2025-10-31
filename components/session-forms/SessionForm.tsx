@@ -156,21 +156,10 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     ) {
       const loadForecast = async () => {
         try {
-          // TODO: getForecastForDate is not currently exported from forecast-actions
-          // const forecastData = await getForecastForDate(
-          //   formState.selectedBeachId,
-          //   formState.selectedDate
-          // );
-          // if (forecastData.success && forecastData.data) {
-          //   setSessionForecast(forecastData.data);
-          //   setShowFeedbackPrompt(true);
-          // }
-
-          // For now, just show feedback prompt
+          // Show feedback prompt for logged sessions
           setShowFeedbackPrompt(true);
         } catch (error) {
           console.error("Error loading forecast for feedback:", error);
-          // Still show feedback prompt even if forecast loading fails
           setShowFeedbackPrompt(true);
         }
       };

@@ -282,30 +282,31 @@ export function AppHeader() {
             </Link>
           )}
 
-          {/* Mobile Hamburger Menu - Authenticated Users Only, Hidden on Desktop */}
-          {user && (
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <button
-                  className="lg:hidden p-2 rounded-md hover:bg-muted transition-colors"
-                  aria-label="Open navigation menu"
-                  aria-expanded={mobileMenuOpen}
-                  data-testid="mobile-menu-button"
-                >
-                  <Menu className="h-6 w-6 text-foreground/70 hover:text-foreground" />
-                </button>
-              </SheetTrigger>
-
-              <SheetContent
-                side="right"
-                className="w-[320px] sm:w-[320px] flex flex-col"
+          {/* Mobile Hamburger Menu - All Users, Hidden on Desktop */}
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <button
+                className="lg:hidden p-2 rounded-md hover:bg-muted transition-colors"
+                aria-label="Open navigation menu"
+                aria-expanded={mobileMenuOpen}
+                data-testid="mobile-menu-button"
               >
-                <SheetHeader className="pb-0">
-                  <SheetTitle>Navigation</SheetTitle>
-                </SheetHeader>
+                <Menu className="h-6 w-6 text-foreground/70 hover:text-foreground" />
+              </button>
+            </SheetTrigger>
 
-                {/* User Info - Authenticated only */}
-                {user && (
+            <SheetContent
+              side="right"
+              className="w-[320px] sm:w-[320px] flex flex-col"
+            >
+              {user ? (
+                // Authenticated user menu
+                <>
+                  <SheetHeader className="pb-0">
+                    <SheetTitle>Navigation</SheetTitle>
+                  </SheetHeader>
+
+                  {/* User Info */}
                   <div className="py-6 border-b border-border bg-muted/30 -mx-6 px-6">
                     <div className="flex items-center gap-3">
                       <UserAvatar
@@ -322,80 +323,157 @@ export function AppHeader() {
                       </div>
                     </div>
                   </div>
-                )}
 
-                {/* Primary Navigation */}
-                <nav className="flex-1 py-4 flex flex-col gap-1">
-                  {mobileNavItems.map((item) => {
-                    const isActive = pathname === item.href ||
-                      (item.href !== "/" && pathname.startsWith(item.href));
+                  {/* Primary Navigation */}
+                  <nav className="flex-1 py-4 flex flex-col gap-1">
+                    {mobileNavItems.map((item) => {
+                      const isActive = pathname === item.href ||
+                        (item.href !== "/" && pathname.startsWith(item.href));
 
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
-                          isActive
-                            ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
-                            : "text-foreground/80 hover:bg-muted hover:text-foreground"
-                        )}
-                        onClick={() => setMobileMenuOpen(false)}
-                        data-testid={`mobile-nav-${item.name.toLowerCase()}`}
-                      >
-                        <item.icon className="h-5 w-5" />
-                        <span>{item.name}</span>
-                      </Link>
-                    );
-                  })}
-                </nav>
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
+                            isActive
+                              ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
+                              : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                          )}
+                          onClick={() => setMobileMenuOpen(false)}
+                          data-testid={`mobile-nav-${item.name.toLowerCase()}`}
+                        >
+                          <item.icon className="h-5 w-5" />
+                          <span>{item.name}</span>
+                        </Link>
+                      );
+                    })}
+                  </nav>
 
-                {/* Quick Actions */}
-                {user && (
-                  <>
-                    <div className="border-t border-border" />
-                    <div className="py-4 flex flex-col gap-1">
-                      <Link
-                        href="/inbox"
-                        className="flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium text-foreground/80 hover:bg-muted transition-colors"
-                        onClick={() => setMobileMenuOpen(false)}
-                        data-testid="mobile-nav-notifications"
-                      >
-                        <Bell className="h-5 w-5" />
-                        <span>Notifications</span>
-                        {unreadCount > 0 && (
-                          <Badge variant="destructive" className="ml-auto h-5 min-w-5">
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                          </Badge>
-                        )}
-                      </Link>
-                    </div>
-                  </>
-                )}
+                  {/* Quick Actions */}
+                  <div className="border-t border-border" />
+                  <div className="py-4 flex flex-col gap-1">
+                    <Link
+                      href="/inbox"
+                      className="flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium text-foreground/80 hover:bg-muted transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                      data-testid="mobile-nav-notifications"
+                    >
+                      <Bell className="h-5 w-5" />
+                      <span>Notifications</span>
+                      {unreadCount > 0 && (
+                        <Badge variant="destructive" className="ml-auto h-5 min-w-5">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </Badge>
+                      )}
+                    </Link>
+                  </div>
 
-                {/* Log Out */}
-                {user && (
-                  <>
-                    <div className="border-t border-border" />
-                    <div className="py-4">
-                      <button
-                        onClick={async () => {
-                          setMobileMenuOpen(false);
-                          await signOut();
-                          router.push("/");
-                        }}
-                        className="flex items-center gap-3 w-full h-12 px-4 rounded-md text-base font-medium text-destructive hover:bg-destructive/10 transition-colors"
-                        data-testid="mobile-nav-logout"
-                      >
-                        <LogOut className="h-5 w-5" />
-                        <span>Log out</span>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </SheetContent>
-            </Sheet>
-          )}
+                  {/* Log Out */}
+                  <div className="border-t border-border" />
+                  <div className="py-4">
+                    <button
+                      onClick={async () => {
+                        setMobileMenuOpen(false);
+                        await signOut();
+                        router.push("/");
+                      }}
+                      className="flex items-center gap-3 w-full h-12 px-4 rounded-md text-base font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                      data-testid="mobile-nav-logout"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      <span>Log out</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                // Guest user menu
+                <>
+                  <SheetHeader className="pb-0">
+                    <SheetTitle>Menu</SheetTitle>
+                  </SheetHeader>
+
+                  {/* Guest Navigation */}
+                  <nav className="flex-1 py-4 flex flex-col gap-1">
+                    <Link
+                      href="/"
+                      className={cn(
+                        "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
+                        pathname === "/"
+                          ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
+                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                      )}
+                      onClick={() => setMobileMenuOpen(false)}
+                      data-testid="mobile-nav-home"
+                    >
+                      <Home className="h-5 w-5" />
+                      <span>Home</span>
+                    </Link>
+                    <Link
+                      href="/map"
+                      className={cn(
+                        "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
+                        pathname.startsWith("/map")
+                          ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
+                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                      )}
+                      onClick={() => setMobileMenuOpen(false)}
+                      data-testid="mobile-nav-map"
+                    >
+                      <Map className="h-5 w-5" />
+                      <span>Map</span>
+                    </Link>
+                    <Link
+                      href="/discover"
+                      className={cn(
+                        "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
+                        pathname.startsWith("/discover")
+                          ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
+                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                      )}
+                      onClick={() => setMobileMenuOpen(false)}
+                      data-testid="mobile-nav-discover"
+                    >
+                      <Users className="h-5 w-5" />
+                      <span>Discover</span>
+                    </Link>
+                  </nav>
+
+                  {/* Auth Buttons */}
+                  <div className="border-t border-border" />
+                  <div className="py-4 flex flex-col gap-3">
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      className="w-full justify-start h-12 px-4 text-base font-medium"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setAuthMode("login");
+                        setAuthModalOpen(true);
+                        trackAuthModalOpened({ mode: "login", source: "app-header-mobile" });
+                      }}
+                      data-testid="mobile-nav-login"
+                    >
+                      Log in
+                    </Button>
+                    <Button
+                      size="lg"
+                      className="w-full h-12 text-base font-semibold"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setAuthMode("signup");
+                        setAuthModalOpen(true);
+                        trackAuthModalOpened({ mode: "signup", source: "app-header-mobile" });
+                      }}
+                      data-testid="mobile-nav-signup"
+                    >
+                      Sign Up
+                    </Button>
+                  </div>
+                </>
+              )}
+            </SheetContent>
+          </Sheet>
 
           {/* Auth Section - Far Right */}
           {authLoading ? (

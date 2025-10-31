@@ -7,6 +7,332 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Location Pages Phase 5: Pre-Launch Hardening + Metro Areas (October 30, 2025)
+
+#### Pre-Launch Hardening
+- **Custom 404 Page for Invalid Locations**: [app/beaches/[country]/[state]/[city]/not-found.tsx](app/beaches/[country]/[state]/[city]/not-found.tsx)
+  - Beautiful error page with helpful messaging when users navigate to non-existent locations
+  - Links to map view and location browsing
+  - Feedback option for suggesting missing locations
+  - Professional error handling improves user experience
+- **ISR Configuration**: [app/beaches/[country]/[state]/[city]/page.tsx:320](app/beaches/[country]/[state]/[city]/page.tsx#L320)
+  - Added `export const revalidate = 3600` for hourly page revalidation
+  - Ensures beach rankings and stats stay fresh without deployments
+  - Balances performance (static generation) with data freshness
+- **OG Image Optimization**: [public/images/og-location-default.jpg](public/images/og-location-default.jpg)
+  - Resized from 800x600 to 1200x630 (proper social media dimensions)
+  - Validated for Twitter, Facebook, LinkedIn previews
+  - Original backed up as `.backup` file
+
+#### Metro Area Aggregation Feature
+- **Metro Database Functions**: Migration [20251030183000_create_metro_area_functions.sql](supabase/migrations/20251030183000_create_metro_area_functions.sql)
+  - `get_beaches_by_metro_with_scores(p_cities[], p_state, p_country)` - Aggregate beaches from multiple cities
+  - `get_metro_stats(p_cities[], p_state, p_country)` - Calculate metro-level statistics
+  - Global ranking across all neighborhoods (not per-neighborhood)
+  - Same composite score formula as single-city pages
+- **Metro Configuration System**: [lib/constants/metro-areas.ts](lib/constants/metro-areas.ts)
+  - Configuration-as-code approach (no database changes needed to add metros)
+  - San Diego metro defined: La Jolla (6) + Pacific Beach (2) + San Diego (3) = 11 beaches
+  - Easy to add new metros (LA, SF, OC) by updating config file
+  - Helper functions: `isMetroArea()`, `getMetroConfig()`, `getAllMetroSlugs()`
+- **Enhanced Server Actions**: [actions/beach/beach-location-list-actions.ts](actions/beach/beach-location-list-actions.ts)
+  - `getLocationPageData()` now detects metro areas vs single cities
+  - `getAllBeachLocations()` includes metros for static generation
+  - Fully backward compatible (existing single-city pages unchanged)
+- **Metro UI Enhancements**: [app/beaches/[country]/[state]/[city]/page.tsx](app/beaches/[country]/[state]/[city]/page.tsx)
+  - Metro pages show custom title: "San Diego Area Surf Spots"
+  - Neighborhood info: "Covering 3 neighborhoods: La Jolla, Pacific Beach, San Diego"
+  - Beach cards display neighborhood badges (e.g., "La Jolla" label)
+  - SEO metadata uses metro-specific descriptions
+- **TypeScript Types**: [types/location.ts](types/location.ts)
+  - Added `LocationIdentifierExtended` interface for metro areas
+  - Added `LocationPageDataExtended` interface
+  - Full type safety for metro features
+
+#### New Location Available
+- **San Diego Metro Page**: `/beaches/usa/ca/san-diego` ✨
+  - Aggregates 11 beaches from 3 neighborhoods
+  - Global ranking (#1-11)
+  - Average rating: 3.84★, Total reviews: 72
+  - Demonstrates metro aggregation feature
+  - Automatically included in sitemap
+
+#### Documentation
+- **Phase 5 Implementation Guide**: [docs/PHASE_5_METRO_AREAS.md](docs/PHASE_5_METRO_AREAS.md)
+  - Detailed implementation notes
+  - Architecture and design decisions
+  - Future metro area examples (LA, SF, OC)
+  - Migration guide for adding new metros
+- **Updated Completion Summary**: [docs/LOCATION_PAGES_COMPLETION_SUMMARY.md](docs/LOCATION_PAGES_COMPLETION_SUMMARY.md)
+  - All 5 phases documented as complete
+  - 14 total location pages (13 single-city + 1 metro)
+  - Production-ready status confirmed
+
+**Total Files:** 4 new files, 6 modified files
+**Implementation Time:** ~9.5 hours
+**Status:** ✅ Production-ready
+
+### Fixed
+
+#### Build Failure: Database Function Column References (October 31, 2025)
+- **Fixed Critical Build Error**: "column b.latitude does not exist" blocking production builds
+  - **Created fix migration**: [supabase/migrations/20251031235900_fix_all_coordinate_column_references.sql](supabase/migrations/20251031235900_fix_all_coordinate_column_references.sql)
+    - Updated 5 database functions to use correct column names (`lat`/`lon` instead of `latitude`/`longitude`)
+    - Fixed functions: `get_beaches_by_location_with_scores`, `get_beaches_by_metro_with_scores`, `get_beaches_near`, `get_coach_picks`, `get_nearby_beaches`
+    - Also updated function parameters to match current schema (e.g., `offshore_deg` → `wind_offshore_deg`, `tide_min_ft` → `preferred_tide_ft_min`)
+  - **Impact**:
+    - Build now completes successfully without errors
+    - All 112 static location pages generate without failures
+    - Location page functionality fully restored
+  - **Root Cause**: Migration `20251031022000_fix_coordinate_migration.sql` changed column names but didn't update function references
+  - **Status**: ✅ Verified - local build completes successfully
+
+#### Database Migration Dependency Issue (October 31, 2025)
+- **Fixed Critical Migration Bug**: Migration 20251031021702 dependency error
+  - **Created fix migration**: [supabase/migrations/20251031022000_fix_coordinate_migration.sql](supabase/migrations/20251031022000_fix_coordinate_migration.sql)
+    - Properly handles `geog` column dependency before dropping `latitude`/`longitude`
+    - Recreates `geog` as generated column using new `lat`/`lon` columns
+    - Adds proper range constraints and spatial indexes
+  - **Updated functions**: Modified `get_coach_picks()` and `refresh_enhanced_forecasts_for_active_beaches()` to use new coordinate columns
+  - **Schema changes**: Successfully migrated from `latitude`/`longitude` to `lat`/`lon`
+  - **Impact**: Unblocked 136 pending migrations, enabled local database sync
+  - **Files modified**: 3 migration files, comprehensive documentation in [MIGRATION_FIX_SUMMARY.md](MIGRATION_FIX_SUMMARY.md)
+
+#### Bug #2 Verification: Beach Detail Page Performance (October 31, 2025)
+- **Verified Bug #2 Fixed**: Beach detail page timeout issue resolved
+  - **Performance Results**:
+    - First load: **3.2 seconds** (previously 20+ seconds)
+    - Cached load: **0.05 seconds**
+    - 84% reduction in initial load time
+  - **Root Cause**: Database schema mismatch prevented testing until migration fix applied
+  - **Architecture**: October 22 refactor successfully addressed timeouts through:
+    - Parallel data fetching with SWR
+    - Lazy loading of tab components (Overview, Forecast, Reviews, Intel, Sessions)
+    - Progressive loading states (FullPageLoader, TabLoadingSkeleton)
+    - Dynamic imports for heavy components
+  - **Schema Updates**: Regenerated TypeScript types to match new `lat`/`lon` coordinate columns
+  - **Test Data**: Updated E2E test fixtures with correct beach IDs after database reset
+
+#### Profile Page Deep Linking and Navigation (October 30, 2025)
+- **Fixed Bug #5**: Profile page functionality issues
+  - **Removed lazy loading** from ProfileView component in [app/profile/page.tsx](app/profile/page.tsx)
+    - Lazy loading caused timing issues with query parameter processing
+    - Direct import ensures edit modal opens immediately on `/profile?edit=true` navigation
+  - **Added data-testid** to Add Beach button in [components/profile-view.tsx](components/profile-view.tsx)
+    - Improves test reliability and accessibility
+  - **Added E2E tests** in [e2e/profile.spec.ts](e2e/profile.spec.ts)
+    - Test 1: Verifies deep link `/profile?edit=true` opens edit modal automatically
+    - Test 2: Verifies Add Beach button navigates to `/map` correctly
+  - **User Impact**: Users can now properly edit their profile via deep links and add favorite beaches
+  - Related to [BUGS.md](BUGS.md) Bug #5
+
+#### Beach Detail Tab Navigation (October 30, 2025)
+- **Fixed Bug #6**: Tab switching not working on beach detail pages
+  - **Downgraded Radix UI Tabs**: Changed `@radix-ui/react-tabs` from 1.1.13 → 1.0.4 (exact version) in [package.json](package.json)
+    - Version 1.1.x had controlled mode synchronization bug
+    - Removed semver caret (`^1.0.4` → `1.0.4`) to prevent auto-upgrades
+    - Preserves deep-linking capability (e.g., `/beach/slug?section=intel`)
+  - **Added controlled mode unit tests** in [__tests__/components/beach-detail/beach-tabs.test.tsx](__tests__/components/beach-detail/beach-tabs.test.tsx)
+    - Test programmatic tab switching (deep-linking scenario)
+    - Test onTabChange callback fires correctly
+    - Test all 5 tabs switch properly in controlled mode
+  - **Improved E2E test assertions** in [e2e/beach-detail.spec.ts](e2e/beach-detail.spec.ts)
+    - Removed conditional `test.skip()` logic (anti-pattern)
+    - Added explicit `data-state` attribute assertions
+    - Added comprehensive test for all tab switching
+  - **Updated documentation**:
+    - [BUGS.md](BUGS.md) - Marked as RESOLVED with correct version info
+    - [docs/BEACH_PAGE_DESIGN.md](docs/BEACH_PAGE_DESIGN.md) - Shows controlled mode pattern
+  - **User Impact**: Users can now switch between Overview/Forecast/Reviews/Intel/Sessions tabs on beach detail pages
+  - Related to [BUGS.md](BUGS.md) Bug #6
+
+### Added - Push Notifications Infrastructure (October 30, 2025)
+
+#### Added
+- **Push Notifications for Mobile**: Complete FCM (Firebase Cloud Messaging) infrastructure for iOS and Android
+  - **Device Token Management API**: [app/api/devices/upsert/route.ts](app/api/devices/upsert/route.ts)
+    - `POST /api/devices/upsert` - Register or update device tokens
+    - `DELETE /api/devices/upsert` - Remove device tokens (on logout)
+    - Supports iOS, Android, and Web platforms
+    - Proper authentication and validation
+  - **Mobile Client Integration**: [lib/mobile/push-notifications.ts](lib/mobile/push-notifications.ts)
+    - Permission request handling
+    - Automatic token registration with backend
+    - Notification listeners for foreground/background handling
+    - Deep linking support for navigation (sessions, profiles, comments)
+    - Graceful degradation for web platform
+  - **Firebase Admin SDK Setup**: [lib/services/firebase-admin.ts](lib/services/firebase-admin.ts)
+    - Server-side Firebase initialization
+    - Singleton pattern for efficient reuse
+    - Environment variable configuration
+    - Proper error handling and logging
+  - **Production Configuration**: [capacitor.config.prod.ts](capacitor.config.prod.ts)
+    - Push notification presentation options (badge, sound, alert)
+    - Production server URL and scheme configuration
+- **Database Schema**: Migration [20250116000000_push_notifications_infrastructure.sql](supabase/migrations/20250116000000_push_notifications_infrastructure.sql)
+  - `user_devices` table for FCM device token storage
+    - Unique constraint on (user_id, device_token) for upsert operations
+    - Platform tracking (ios, android, web)
+    - Automatic timestamps (created_at, updated_at)
+    - Indexed for performance (user_id, device_token)
+  - `notifications` table for in-app notification records
+    - Support for multiple notification types (session_invite, session_update, comment, like, follow)
+    - JSONB data field for flexible metadata
+    - Read/unread tracking with read_at timestamp
+    - Indexed for efficient queries (user_id + created_at, unread status)
+  - Row Level Security (RLS) policies for both tables
+    - Users can only manage their own devices
+    - Users can only view/update their own notifications
+
+#### Environment Variables Required
+New Firebase environment variables needed for production:
+- `FIREBASE_PROJECT_ID` - Firebase project identifier
+- `FIREBASE_CLIENT_EMAIL` - Service account email
+- `FIREBASE_PRIVATE_KEY` - Service account private key
+
+#### Future Work
+- Server-side notification sending (integrate Firebase Admin SDK messaging)
+- Notification preferences UI
+- Web push notifications support
+- Notification templates and localization
+
+---
+
+### Fixed - Database Coordinate Naming Standardization (October 29, 2025)
+
+#### Fixed
+- **`get_nearby_beaches` Function**: Standardized coordinate return values to use `lat`/`lon` naming convention
+  - Migration: [20251029180000_update_get_nearby_beaches_coordinates.sql](supabase/migrations/20251029180000_update_get_nearby_beaches_coordinates.sql)
+  - Changed RETURNS TABLE from `latitude`/`longitude` to `lat`/`lon`
+  - Added proper column aliases: `b.latitude AS lat`, `b.longitude AS lon`
+  - Updated function parameters to `input_lat`/`input_lng` to avoid naming conflicts with return columns
+  - **Breaking Change**: All consumers must now use `input_lat`/`input_lng` parameter names (previously `lat`/`lng`)
+- **Updated All Consumers**: Fixed 6 locations calling `get_nearby_beaches` with new parameter names
+  - [actions/intel-actions.ts](actions/intel-actions.ts) - Intel post beach lookup
+  - [actions/beach/beach-location-actions.ts](actions/beach/beach-location-actions.ts) - Beach search by location
+  - [lib/surf/data.ts](lib/surf/data.ts) - Forecast data fetching
+  - [actions/beach/best-beaches-simple.ts](actions/beach/best-beaches-simple.ts) - Home beach recommendations
+  - [app/api/v1/recommendations/route.ts](app/api/v1/recommendations/route.ts) - API recommendations
+  - [__tests__/actions/beach/beach-location-actions.test.ts](__tests__/actions/beach/beach-location-actions.test.ts) - Test expectations
+- **Removed Unnecessary Frontend Transformation**: [components/location/location-map.tsx](components/location/location-map.tsx)
+  - Eliminated defensive coordinate transformation (`beach.latitude` → `beach.lat`)
+  - Components now use coordinates directly from database functions
+  - Cleaner code with fewer unnecessary operations
+- **Updated Type Definitions**: [types/location.ts](types/location.ts)
+  - Removed deprecated `latitude?`/`longitude?` properties from `BeachWithMetrics`
+  - Updated documentation comments to reflect standardized naming
+- **Regenerated Database Types**: Updated [types/database.generated.ts](types/database.generated.ts) to reflect new function signature
+
+#### Rationale
+All database functions that return beach coordinates now consistently use `lat`/`lon` naming, matching TypeScript type expectations throughout the application. This eliminates confusion, reduces defensive code, and ensures a single source of truth for coordinate property names.
+
+**Documentation Updated**:
+- [docs/database-coordinate-conventions.md](docs/database-coordinate-conventions.md) - Updated with fix details and deprecated old transformation pattern
+- [docs/coordinate-naming-audit.md](docs/coordinate-naming-audit.md) - Marked `get_nearby_beaches` as compliant
+
+---
+
+### ✅ COMPLETED - Location Pages Feature (October 29, 2025)
+
+**Status:** 100% Complete - Production Ready
+
+All location pages are now fully implemented, tested, and ready for launch. See [LOCATION_PAGES_COMPLETION_SUMMARY.md](docs/LOCATION_PAGES_COMPLETION_SUMMARY.md) for full details.
+
+#### Final Completion Tasks (October 29, 2025)
+- **Sitemap Integration**: Added all 13 location pages to sitemap.xml with priority 0.75 and weekly change frequency
+  - Fixed slug generation using `buildLocationUrl()` utility
+  - All location URLs properly formatted: `/beaches/{country}/{state}/{city}`
+  - Sitemap accessible at `https://quiver.surf/sitemap.xml`
+- **Launch Verification**: Verified all pilot pages load successfully with 200 OK responses
+  - La Jolla: `/beaches/usa/ca/la-jolla` ✓
+  - Newport Beach: `/beaches/usa/ca/newport-beach` ✓
+  - Rosarito, Mexico: `/beaches/mexico/baja-california/rosarito` ✓
+- **E2E Test Infrastructure**: Added test IDs for improved test reliability
+  - `aria-label="breadcrumb"` on navigation element
+  - `data-testid="beach-rank"` on rank display
+  - `data-testid="beach-card"` on beach article elements
+  - `data-beach-slug` attribute for programmatic testing
+- **Documentation**: Updated all documentation to reflect 100% completion status
+  - [location-pages-implementation.md](docs/location-pages-implementation.md) - Updated to version 3.0
+  - [LOCATION_PAGES_COMPLETION_SUMMARY.md](docs/LOCATION_PAGES_COMPLETION_SUMMARY.md) - New completion report
+
+**Launch Ready:** All 13 viable locations can be enabled immediately.
+
+---
+
+### Added - AllTrails-Style Location Pages & Breadcrumb Navigation - 2025-10-29
+
+#### Added
+- **Location Listing Pages**: New `/beaches/[country]/[state]/[city]` routes displaying ranked beaches by location (e.g., `/beaches/usa/ca/la-jolla`)
+  - Composite ranking algorithm combining: rating (40%), review volume (30%), recent intel (20%), intel quality (10%)
+  - Location stats header showing average rating, total reviews, beach count, and top-rated count
+  - Ranked beach cards with #1, #2, #3 position badges
+  - **Ranking Badge Component**: Visual tier badges on beach cards based on composite score
+    - "Top Rated" badge (≥0.8 score) with gold/yellow styling and ⭐ icon
+    - "Highly Rated" badge (0.6-0.79 score) with blue styling and 🌟 icon
+    - "Popular" badge (0.4-0.59 score) with green styling and 👍 icon
+    - Accessible with proper ARIA labels and semantic markup
+  - Static site generation via `generateStaticParams()` for all locations with 3+ beaches
+  - Loading skeletons and error boundaries for better UX
+- **Enhanced Breadcrumb Navigation**: Updated [components/beach-detail/beach-breadcrumb.tsx](components/beach-detail/beach-breadcrumb.tsx) to make location segments clickable
+  - Links to location listing pages when city/state data available
+  - Gracefully falls back to non-clickable text for incomplete location data
+  - Pattern: `Back to Map › [Location] › [Beach]` where location is now interactive
+- **Database Functions**: Created three Postgres functions in migration [20251029172934_create_location_ranking_functions.sql](supabase/migrations/20251029172934_create_location_ranking_functions.sql)
+  - `get_beaches_by_location_with_scores(city, state, country)` - Returns beaches with composite scores, recent intel counts, review stats
+  - `get_all_beach_locations()` - Returns all unique city/state/country combinations with 3+ beaches for static generation
+  - `get_location_stats(city, state, country)` - Returns aggregate statistics for location header
+  - Indexed on `(city, state, country)` and intel posts recent activity for performance
+- **Location Utilities**: New [lib/utils/location-slug.ts](lib/utils/location-slug.ts) with slug generation, URL building, and breadcrumb segment helpers
+  - `generateLocationSlug()` - Creates URL-friendly slugs from location names
+  - `buildLocationUrl()` - Constructs `/beaches/[country]/[state]/[city]` URLs
+  - `parseLocationFromSlug()` - Converts slugs back to human-readable names
+  - `buildBreadcrumbSegments()` - Generates hierarchical breadcrumb data
+  - `normalizeCountry()` and `normalizeState()` for consistent formatting
+- **Location Type Definitions**: New [types/location.ts](types/location.ts) with interfaces for location pages, ranking, and breadcrumbs
+  - `LocationPageData`, `LocationStats`, `BeachWithMetrics` for page data structure
+  - `RankingTier` and `RankingWeights` for composite scoring system
+  - Helper functions `getRankingTier()` and `getRankingBadgeLabel()` for UI badges
+- **Server Actions**: New [actions/beach/beach-location-list-actions.ts](actions/beach/beach-location-list-actions.ts) calling database functions
+  - `getLocationPageData()` - Fetches complete location page data with ranked beaches
+  - `getAllBeachLocations()` - Returns all valid locations for static generation
+  - `getLocationStats()` - Returns aggregate statistics for a specific location
+  - Uses `withDatabaseOperation` wrapper for consistent error handling
+- **Rich SEO Metadata**: Comprehensive SEO optimization for location pages
+  - **Open Graph Tags**: og:title, og:description, og:image, og:url, og:siteName for social sharing
+  - **Twitter Card**: summary_large_image card with title, description, and image
+  - **JSON-LD Structured Data**: Schema.org Place and AggregateRating markup for search engines
+  - **Canonical URLs**: Proper canonical tags for SEO best practices
+  - Includes top 5 beaches from each location in structured data for rich search results
+
+#### Performance
+- Location pages use ISR (Incremental Static Regeneration) for dynamic updates
+- Database indexes on location hierarchy and intel post timestamps
+- Composite scores calculated in database for optimal performance
+- Static generation reduces server load for frequently accessed location pages
+
+#### Fixed
+- **Data Quality**: Resolved location data issues preventing page lookups
+  - Fixed comma-separated city names ("La Jolla, San Diego" → "La Jolla")
+  - Fixed NULL city values for 8 beaches in Baja California, Mexico
+  - Fixed database function column references (lat/lon → latitude/longitude)
+  - Fixed state abbreviation normalization ("Ca" → "CA")
+  - Migration: [20251029000000_fix_location_data_quality.sql](supabase/migrations/20251029000000_fix_location_data_quality.sql)
+  - Result: 100% location data completeness, zero lookup failures
+
+#### Technical Details
+- Ranking algorithm uses logarithmic scaling for review volume to prevent dominance of high-review beaches
+- Recent intel window: 7 days for activity, 30 days for quality scoring
+- Minimum 3 beaches per location to generate listing page
+- Score normalization: all components scaled to 0-1 range before weighted combination
+- Tier thresholds: Top Rated (≥0.8), Highly Rated (0.6-0.79), Popular (0.4-0.59)
+
+### Added - Rapid7 MCP Integration - 2025-10-29
+
+#### Added
+- Wired the Rapid7 InsightIDR MCP server into `.mcp.json`, including a launcher (`scripts/run-rapid7-mcp.js`) that loads `RAPID7_API_KEY` from `.env` so Claude can query logs with the stored credentials.
+- Enabled the new server for Claude (`.claude/settings.local.json`) and documented usage in `docs/CLAUDE.md`.
+
 ### Fixed - NaN Distance Display Bug - 2025-10-26
 
 #### Fixed

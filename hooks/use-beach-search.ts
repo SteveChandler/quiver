@@ -40,6 +40,10 @@ export function useBeachSearch() {
     error: null,
   });
 
+  // Track in-flight requests to prevent duplicates
+  const nearbyRequestInFlightRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // Memoize fetch function to prevent infinite loops - only create once
   const fetchBeaches = useCallback(async () => {
     const result = await getBeaches();
@@ -112,7 +116,9 @@ export function useBeachSearch() {
       // (e.g., "Right point over reef/rock" matches "point" and "reef" filters)
       if (filters.breakTypes && filters.breakTypes.size > 0) {
         working = working.filter((b) => {
-          if (!b.break_type) return false;
+          // Include beaches with unknown break_type (null/undefined) to avoid filtering out all beaches
+          // when data is missing. Once break_type is populated, filtering will work properly.
+          if (!b.break_type) return true;
           const breakTypeLower = b.break_type.toLowerCase();
           // Match if break_type contains ANY of the selected filter keywords
           return Array.from(filters.breakTypes).some(filterType =>
@@ -223,11 +229,26 @@ export function useBeachSearch() {
 
   const loadNearbyBeaches = useCallback(
     async (latitude: number, longitude: number) => {
-      // Prevent multiple simultaneous loads using previous state
-      setBeachesState((prev) => {
-        if (prev.loading) return prev; // Already loading, don't start another
-        return { ...prev, loading: true, error: null };
-      });
+      // Prevent duplicate requests - check ref first (more reliable than state)
+      if (nearbyRequestInFlightRef.current) {
+        console.log("[useBeachSearch] Nearby request already in flight, skipping");
+        return;
+      }
+
+      // Cancel any previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Mark request as in-flight
+      nearbyRequestInFlightRef.current = true;
+      abortControllerRef.current = new AbortController();
+
+      setBeachesState((prev) => ({
+        ...prev,
+        loading: true,
+        error: null,
+      }));
 
       try {
         const result = await getNearbyBeaches(
@@ -235,6 +256,11 @@ export function useBeachSearch() {
           longitude,
           MAX_DISTANCE_MILES
         );
+
+        // Check if request was cancelled
+        if (abortControllerRef.current?.signal.aborted) {
+          return;
+        }
 
         if (result.success && result.data && result.data.length > 0) {
           const sortedBeaches = [...result.data];
@@ -278,6 +304,9 @@ export function useBeachSearch() {
               ? error.message
               : "Failed to load nearby beaches",
         }));
+      } finally {
+        // Clear in-flight flag
+        nearbyRequestInFlightRef.current = false;
       }
     },
     [] // No dependencies to prevent recreation and infinite loops

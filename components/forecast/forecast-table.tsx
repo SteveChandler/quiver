@@ -193,7 +193,8 @@ function ForecastDayTable({
     return "Poor";
   };
 
-  const getWeatherIcon = (condition: string) => {
+  const getWeatherIcon = (condition: string | null | undefined) => {
+    if (!condition) return "🌤️"; // Default icon for null/undefined
     const lower = condition.toLowerCase();
     if (lower.includes("sunny") || lower.includes("clear")) return "☀️";
     if (lower.includes("partly cloudy") || lower.includes("scattered"))

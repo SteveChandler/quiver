@@ -127,5 +127,3 @@ export function NearbyBeachChips({
     </div>
   );
 }
-
-export default NearbyBeachChips;

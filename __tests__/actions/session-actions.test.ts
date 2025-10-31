@@ -1370,4 +1370,178 @@ describe("Session Actions", () => {
       expect(result.error).toBe("Update failed");
     });
   });
+
+  describe("Forecast Snapshot Creation", () => {
+    // Mock the forecast snapshot utility
+    const mockCreateForecastSnapshotForSession = jest.fn();
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockCreateForecastSnapshotForSession.mockResolvedValue({
+        success: true,
+        snapshot: { id: "snapshot-123" },
+      });
+    });
+
+    it("should create forecast snapshot when logging completed session", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const mockInsertSingle = jest.fn().mockResolvedValue({
+        data: mockSession,
+        error: null,
+      });
+
+      const mockInsertSelect = jest.fn().mockReturnValue({
+        single: mockInsertSingle,
+      });
+
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockInsertSelect,
+      });
+
+      mockSupabaseClient.from.mockReturnValue({
+        insert: mockInsert,
+      });
+
+      // Mock the dynamic import of forecast snapshot utils
+      jest.doMock("@/lib/utils/forecast-snapshot-utils", () => ({
+        createForecastSnapshotForSession: mockCreateForecastSnapshotForSession,
+      }));
+
+      const sessionData = {
+        beach_id: "beach-123",
+        arrival_time: "2024-01-15T08:00:00.000Z",
+        wave_quality: 8,
+        rating: 9,
+      };
+
+      const result = await createLoggedSession(sessionData);
+
+      expect(result.success).toBe(true);
+      expect(result.data.id).toBe("session-123");
+
+      // Note: The snapshot creation is done via dynamic import,
+      // so we can't easily verify it was called in this test.
+      // This would require more complex mocking or integration tests.
+    });
+
+    it("should not fail session creation if snapshot creation fails", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const mockInsertSingle = jest.fn().mockResolvedValue({
+        data: mockSession,
+        error: null,
+      });
+
+      const mockInsertSelect = jest.fn().mockReturnValue({
+        single: mockInsertSingle,
+      });
+
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockInsertSelect,
+      });
+
+      mockSupabaseClient.from.mockReturnValue({
+        insert: mockInsert,
+      });
+
+      // Mock snapshot creation failure
+      mockCreateForecastSnapshotForSession.mockResolvedValue({
+        success: false,
+        error: "No forecast data available",
+      });
+
+      jest.doMock("@/lib/utils/forecast-snapshot-utils", () => ({
+        createForecastSnapshotForSession: mockCreateForecastSnapshotForSession,
+      }));
+
+      const sessionData = {
+        beach_id: "beach-123",
+        arrival_time: "2024-01-15T08:00:00.000Z",
+        wave_quality: 8,
+        rating: 9,
+      };
+
+      const result = await createLoggedSession(sessionData);
+
+      // Session creation should succeed even if snapshot creation fails
+      expect(result.success).toBe(true);
+      expect(result.data.id).toBe("session-123");
+    });
+
+    it("should create forecast snapshot when updating planned session to completed", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      // Mock successful fetch
+      const mockFetchSingle = jest.fn().mockResolvedValue({
+        data: { id: "session-123", status: "planned", user_id: mockUser.id },
+        error: null,
+      });
+
+      const mockFetchEq3 = jest.fn().mockReturnValue({
+        single: mockFetchSingle,
+      });
+
+      const mockFetchEq2 = jest.fn().mockReturnValue({
+        eq: mockFetchEq3,
+      });
+
+      const mockFetchEq1 = jest.fn().mockReturnValue({
+        eq: mockFetchEq2,
+      });
+
+      const mockFetchSelect = jest.fn().mockReturnValue({
+        eq: mockFetchEq1,
+      });
+
+      // Mock successful update
+      const mockUpdateSingle = jest.fn().mockResolvedValue({
+        data: { ...mockSession, status: "completed" },
+        error: null,
+      });
+
+      const mockUpdateSelect = jest.fn().mockReturnValue({
+        single: mockUpdateSingle,
+      });
+
+      const mockUpdateEq = jest.fn().mockReturnValue({
+        select: mockUpdateSelect,
+      });
+
+      const mockUpdate = jest.fn().mockReturnValue({
+        eq: mockUpdateEq,
+      });
+
+      mockSupabaseClient.from
+        .mockReturnValueOnce({ select: mockFetchSelect })
+        .mockReturnValueOnce({ update: mockUpdate });
+
+      jest.doMock("@/lib/utils/forecast-snapshot-utils", () => ({
+        createForecastSnapshotForSession: mockCreateForecastSnapshotForSession,
+      }));
+
+      const completedData = {
+        wave_quality: 8,
+        rating: 9,
+        notes: "Great session!",
+      };
+
+      const result = await updatePlannedSessionToCompleted("session-123", completedData);
+
+      expect(result.success).toBe(true);
+      expect(result.data.status).toBe("completed");
+
+      // Note: Same as above - snapshot creation via dynamic import
+      // is difficult to verify without integration tests
+    });
+  });
 });

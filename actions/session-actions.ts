@@ -674,6 +674,20 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
       // Don't fail the session creation if XP tracking fails
     }
 
+    // Create forecast snapshot for condition tracking
+    try {
+      const { createForecastSnapshotForSession } = await import("@/lib/utils/forecast-snapshot-utils");
+      await createForecastSnapshotForSession(
+        session.id,
+        session.beach_id,
+        session.arrival_time,
+        session.user_id
+      );
+    } catch (snapshotError) {
+      console.error("Failed to create forecast snapshot:", snapshotError);
+      // Don't fail the session creation if snapshot creation fails
+    }
+
     revalidatePath("/sessions");
     revalidatePath("/profile");
     return session;
@@ -1111,6 +1125,22 @@ export async function updatePlannedSessionToCompleted(
       }
     } catch (xpError) {
       // Non-blocking
+    }
+
+    // Create forecast snapshot for condition tracking
+    // Note: This should also be triggered by the database trigger, but we add it here
+    // for redundancy and to ensure it works even if the trigger fails
+    try {
+      const { createForecastSnapshotForSession } = await import("@/lib/utils/forecast-snapshot-utils");
+      await createForecastSnapshotForSession(
+        updatedSession.id,
+        updatedSession.beach_id,
+        updatedSession.arrival_time,
+        updatedSession.user_id
+      );
+    } catch (snapshotError) {
+      console.error("Failed to create forecast snapshot:", snapshotError);
+      // Don't fail the session update if snapshot creation fails
     }
 
     revalidatePath("/sessions");

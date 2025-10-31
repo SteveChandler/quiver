@@ -23,7 +23,15 @@ export async function GET(
       return handleApiError(new Error("Beach not found"), "Beach not found");
     }
 
-    return createSuccessResponse({ beach: data });
+    // PERFORMANCE OPTIMIZATION: Cache beach data for 1 hour (3600s)
+    // Beach metadata rarely changes
+    const response = createSuccessResponse({ beach: data });
+    response.headers.set(
+      "Cache-Control",
+      "public, s-maxage=3600, stale-while-revalidate=86400"
+    );
+
+    return response;
   } catch (err) {
     return handleApiError(err, "Failed to fetch beach");
   }

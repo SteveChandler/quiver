@@ -1,9 +1,18 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useCallback } from "react";
 
 export type BeachTabValue = "overview" | "forecast" | "reviews" | "intel" | "sessions";
+
+// Prefetch functions for each tab component
+const prefetchTabModules: Record<BeachTabValue, () => Promise<any>> = {
+  overview: () => import("@/components/beach-detail/tabs/overview-tab"),
+  forecast: () => import("@/components/beach-detail/tabs/forecast-tab"),
+  reviews: () => import("@/components/beach-detail/tabs/reviews-tab"),
+  intel: () => import("@/components/beach-detail/tabs/intel-tab"),
+  sessions: () => import("@/components/beach-detail/tabs/sessions-tab"),
+};
 
 interface BeachTabsProps {
   defaultTab?: BeachTabValue;
@@ -61,6 +70,16 @@ export function BeachTabs({
     }
   };
 
+  // Prefetch tab module on hover for instant loading
+  const handleTabHover = useCallback((tabValue: BeachTabValue) => {
+    const prefetchFn = prefetchTabModules[tabValue];
+    if (prefetchFn) {
+      prefetchFn().catch(() => {
+        // Silently fail if prefetch doesn't work
+      });
+    }
+  }, []);
+
   // Phase 5: Common tab trigger classes following AllTrails spec
   const tabTriggerClasses =
     "rounded-none border-b-2 border-transparent -mb-0.5 " + // Phase 5: Border and negative margin for overlap
@@ -88,19 +107,39 @@ export function BeachTabs({
       >
         <div className="flex w-full items-center gap-3 px-0 py-2 sm:py-0">
           <TabsList className="flex flex-1 items-center justify-start gap-1 overflow-x-auto bg-transparent p-0 h-auto text-muted-foreground">
-            <TabsTrigger value="overview" className={tabTriggerClasses}>
+            <TabsTrigger
+              value="overview"
+              className={tabTriggerClasses}
+              onMouseEnter={() => handleTabHover("overview")}
+            >
               Overview
             </TabsTrigger>
-            <TabsTrigger value="forecast" className={tabTriggerClasses}>
+            <TabsTrigger
+              value="forecast"
+              className={tabTriggerClasses}
+              onMouseEnter={() => handleTabHover("forecast")}
+            >
               Forecast
             </TabsTrigger>
-            <TabsTrigger value="reviews" className={tabTriggerClasses}>
+            <TabsTrigger
+              value="reviews"
+              className={tabTriggerClasses}
+              onMouseEnter={() => handleTabHover("reviews")}
+            >
               Reviews
             </TabsTrigger>
-            <TabsTrigger value="intel" className={tabTriggerClasses}>
+            <TabsTrigger
+              value="intel"
+              className={tabTriggerClasses}
+              onMouseEnter={() => handleTabHover("intel")}
+            >
               Local Intel
             </TabsTrigger>
-            <TabsTrigger value="sessions" className={tabTriggerClasses}>
+            <TabsTrigger
+              value="sessions"
+              className={tabTriggerClasses}
+              onMouseEnter={() => handleTabHover("sessions")}
+            >
               Sessions
             </TabsTrigger>
           </TabsList>
