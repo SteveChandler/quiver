@@ -19,7 +19,7 @@ Comprehensive guide for running and maintaining Playwright end-to-end tests for 
 
 ```bash
 # 1. Install dependencies
-npm install
+yarn install
 
 # 2. Copy environment template
 cp .env.playwright.example .env.playwright
@@ -28,10 +28,10 @@ cp .env.playwright.example .env.playwright
 # Edit TEST_USER_EMAIL and TEST_USER_PASSWORD
 
 # 4. Start local development server
-npm run dev
+yarn dev
 
 # 5. Run all tests
-npm run test:e2e
+yarn test:e2e
 ```
 
 ---
@@ -40,7 +40,7 @@ npm run test:e2e
 
 ### Prerequisites
 
-- Node.js 18+ installed
+- Node.js 20.18+ installed
 - Local Supabase instance running (for local testing)
 - Valid test user credentials
 
@@ -70,7 +70,7 @@ npm run test:e2e
 
 4. **Generate Authentication State**
    ```bash
-   npm run test:e2e:auth:setup
+   yarn test:e2e:auth:setup
    ```
 
    This will:
@@ -86,16 +86,16 @@ npm run test:e2e
 
 ```bash
 # Run all tests (headless)
-npm run test:e2e
+yarn test:e2e
 
 # Run all tests with UI
-npm run test:e2e:ui
+yarn test:e2e:ui
 
 # Run all tests in headed mode
-npm run test:e2e:headed
+yarn test:e2e:headed
 
 # Run with debug mode
-npm run test:e2e:debug
+yarn test:e2e:debug
 ```
 
 ### Specific Tests
@@ -125,16 +125,16 @@ npx playwright test --project=auth
 
 ```bash
 # Test on local development server (default)
-npm run test:e2e
+yarn test:e2e
 
 # Test on dev environment
-npm run test:e2e:dev
+yarn test:e2e:dev
 
 # Test on dev with UI
-npm run test:e2e:dev:ui
+yarn test:e2e:dev:ui
 
 # Test on dev in headed mode
-npm run test:e2e:dev:headed
+yarn test:e2e:dev:headed
 ```
 
 ---
@@ -172,8 +172,8 @@ VERCEL_BYPASS_TOKEN=your-vercel-bypass-token
 
 **Important:** When switching environments, you MUST regenerate auth state:
 ```bash
-npm run test:e2e:auth:reset
-npm run test:e2e:auth:setup
+yarn test:e2e:auth:reset
+yarn test:e2e:auth:setup
 ```
 
 This is because auth cookies are domain-specific (localhost vs dev.quiversurf.app).
@@ -205,7 +205,7 @@ This is because auth cookies are domain-specific (localhost vs dev.quiversurf.ap
 
 ```bash
 # View current auth state
-npm run test:e2e:auth:debug
+yarn test:e2e:auth:debug
 
 # Check if auth state has cookies
 cat e2e/.auth/state.json | jq '.cookies | length'
@@ -215,21 +215,21 @@ cat e2e/.auth/state.json | jq '.cookies | length'
 
 ```bash
 # Clear auth state (useful when authentication fails)
-npm run test:e2e:auth:reset
+yarn test:e2e:auth:reset
 ```
 
 #### Regenerate Auth State
 
 ```bash
 # Regenerate auth state (runs global setup in headed mode)
-npm run test:e2e:auth:setup
+yarn test:e2e:auth:setup
 ```
 
 #### Full Auth Reset
 
 ```bash
 # Complete auth reset and regeneration
-npm run test:e2e:auth:reset && npm run test:e2e:auth:setup
+yarn test:e2e:auth:reset && yarn test:e2e:auth:setup
 ```
 
 ### Authentication Verification in Tests
@@ -327,11 +327,11 @@ test.describe('Feature Name', () => {
 **Solution:**
 ```bash
 # 1. Check auth state
-npm run test:e2e:auth:debug
+yarn test:e2e:auth:debug
 
 # 2. If empty or invalid, regenerate
-npm run test:e2e:auth:reset
-npm run test:e2e:auth:setup
+yarn test:e2e:auth:reset
+yarn test:e2e:auth:setup
 
 # 3. Verify test credentials in .env.playwright
 # 4. Ensure test user exists in target environment
@@ -362,7 +362,7 @@ cat .env.playwright | grep TEST_USER
 npx supabase status
 
 # 4. Run global setup with more logging
-DEBUG_AUTH=true npm run test:e2e:auth:setup
+DEBUG_AUTH=true yarn test:e2e:auth:setup
 ```
 
 #### Problem: Domain mismatch (localhost vs dev)
@@ -374,8 +374,8 @@ DEBUG_AUTH=true npm run test:e2e:auth:setup
 **Solution:**
 ```bash
 # Auth state is domain-specific, regenerate for new environment
-npm run test:e2e:auth:reset
-npm run test:e2e:auth:setup
+yarn test:e2e:auth:reset
+yarn test:e2e:auth:setup
 ```
 
 ### Test Failures
@@ -414,7 +414,7 @@ test('slow test', async ({ page }) => {
 });
 
 # Run with headed mode to see what's happening
-npm run test:e2e:headed
+yarn test:e2e:headed
 ```
 
 ### Configuration Issues
@@ -442,7 +442,7 @@ EOF
 **Solution:**
 ```bash
 # Ensure dev server is running
-npm run dev
+yarn dev
 
 # Or configure Playwright to start server automatically
 # (Already configured in playwright.config.ts)
@@ -452,19 +452,19 @@ npm run dev
 
 1. **Run in Headed Mode**
    ```bash
-   npm run test:e2e:headed
+   yarn test:e2e:headed
    ```
    Watch tests execute in real browser
 
 2. **Use Debug Mode**
    ```bash
-   npm run test:e2e:debug
+   yarn test:e2e:debug
    ```
    Step through tests line by line
 
 3. **Enable Verbose Logging**
    ```bash
-   DEBUG_AUTH=true DEBUG_TESTS=true npm run test:e2e
+   DEBUG_AUTH=true DEBUG_TESTS=true yarn test:e2e
    ```
 
 4. **View Test Reports**
@@ -553,7 +553,7 @@ npm run dev
 
 3. **Regenerate auth state when switching environments**
    ```bash
-   npm run test:e2e:auth:reset && npm run test:e2e:auth:setup
+   yarn test:e2e:auth:reset && yarn test:e2e:auth:setup
    ```
 
 ### Test Organization
@@ -587,7 +587,7 @@ npm run dev
    });
    ```
 
-   Skip with: `SKIP_DATA_TESTS=true npm run test:e2e`
+   Skip with: `SKIP_DATA_TESTS=true yarn test:e2e`
 
 ### Performance
 
@@ -625,9 +625,9 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
-      - run: npm ci
+      - run: yarn install --frozen-lockfile
       - run: npx playwright install --with-deps
-      - run: npm run test:e2e
+      - run: yarn test:e2e
         env:
           BASE_URL: https://dev.quiversurf.app
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
@@ -674,7 +674,7 @@ If you encounter issues not covered in this guide:
 - **Regenerate auth state** after Supabase updates
 - **Review flaky tests** and fix root causes
 - **Update test helpers** when app patterns change
-- **Keep Playwright updated** (`npm update @playwright/test`)
+- **Keep Playwright updated** (`yarn upgrade @playwright/test`)
 
 ### When to Regenerate Auth State
 
@@ -691,18 +691,18 @@ If you encounter issues not covered in this guide:
 ```bash
 # Setup
 cp .env.playwright.example .env.playwright
-npm run test:e2e:auth:setup
+yarn test:e2e:auth:setup
 
 # Run tests
-npm run test:e2e              # All tests
-npm run test:e2e:headed       # With browser visible
-npm run test:e2e:dev          # On dev environment
+yarn test:e2e              # All tests
+yarn test:e2e:headed       # With browser visible
+yarn test:e2e:dev          # On dev environment
 
 # Debug
-npm run test:e2e:auth:debug   # Show auth state
-npm run test:e2e:auth:reset   # Clear auth state
-npm run test:e2e:debug        # Step through tests
-DEBUG_AUTH=true npm run test  # Verbose auth logging
+yarn test:e2e:auth:debug   # Show auth state
+yarn test:e2e:auth:reset   # Clear auth state
+yarn test:e2e:debug        # Step through tests
+DEBUG_AUTH=true yarn test  # Verbose auth logging
 
 # Specific tests
 npx playwright test e2e/sessions.spec.ts

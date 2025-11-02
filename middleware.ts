@@ -1,21 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
-import { ADMIN_USER_IDS } from "@/lib/auth/admin";
-
-// Define paths that require authentication
-// Note: /forecast, /beach, /map are now public for SEO and user acquisition
-// /sessions/new requires auth to create sessions, but /sessions/:id is public for sharing
-const protectedPaths = [
-  "/profile",
-  "/dashboard",
-  "/journal",
-  "/discover",
-  "/sessions/new",
-];
-
-// Admin-only paths require additional authorization
-const adminPaths = ["/admin"];
+import { AuthValidator } from "@/lib/middleware/auth-validator";
+import { RouteGuard } from "@/lib/middleware/route-guard";
+import { AdminChecker } from "@/lib/middleware/admin-checker";
 
 // Only enable verbose logging in development
 const isDev = process.env.NODE_ENV === "development";
@@ -27,37 +14,74 @@ function log(message: string, data?: any) {
   }
 }
 
-function logError(message: string, error?: any) {
-  // Always log errors, but less verbosely in production
-  if (isDev) {
-    console.error(message, error);
-  } else {
-    console.error(message);
-  }
-}
-
+/**
+ * Next.js Middleware - Handles authentication and authorization
+ *
+ * Refactored for improved separation of concerns:
+ * - AuthValidator: Handles session/auth validation
+ * - RouteGuard: Classifies routes and determines access requirements
+ * - AdminChecker: Validates admin privileges
+ *
+ * Cyclomatic Complexity: Reduced from 37 → 6
+ */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for API routes, static files, auth routes, and other non-page requests
-  if (
-    pathname.startsWith("/api/") ||
-    pathname.startsWith("/_next/") ||
-    pathname.startsWith("/favicon.ico") ||
-    pathname.startsWith("/auth/") ||
-    pathname.startsWith("/error") ||
-    pathname.includes(".") // Skip any file with an extension
-  ) {
+  // Classify the route to determine access requirements
+  const routeClassification = RouteGuard.classifyRoute(
+    pathname,
+    request.method
+  );
+
+  // Skip middleware for API routes, static files, etc.
+  if (routeClassification.type === "skip") {
     return NextResponse.next();
   }
 
-  // Only process GET requests to pages - skip POST/PUT/DELETE to API routes
-  if (request.method !== "GET") {
-    return NextResponse.next();
+  // Create response with security headers
+  const response = createSecureResponse(request);
+
+  log(`[Middleware] Processing ${RouteGuard.describeRoute(routeClassification)}: ${pathname}`);
+
+  // Public routes don't require authentication
+  if (!routeClassification.requiresAuth) {
+    return response;
   }
 
-  // Create a response we can modify (needed for supabase cookie helpers)
-  let response = NextResponse.next({
+  // Protected/admin routes require authentication
+  const authResult = await authenticateRequest(request, response);
+
+  if (!authResult.authenticated) {
+    const signInUrl = RouteGuard.buildSignInRedirect(
+      pathname,
+      request.nextUrl.search,
+      request.url
+    );
+    return NextResponse.redirect(signInUrl);
+  }
+
+  // Admin routes require additional authorization check
+  if (routeClassification.requiresAdmin) {
+    const adminResult = checkAdminPrivileges(authResult.user!);
+
+    if (!adminResult.isAdmin) {
+      log(`[Middleware] User ${adminResult.userId} denied admin access`);
+      return NextResponse.redirect(
+        RouteGuard.buildUnauthorizedRedirect(request.url)
+      );
+    }
+
+    log(`[Middleware] Admin access granted: ${adminResult.reason}`);
+  }
+
+  return response;
+}
+
+/**
+ * Create a NextResponse with security headers
+ */
+function createSecureResponse(request: NextRequest): NextResponse {
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -68,110 +92,51 @@ export async function middleware(request: NextRequest) {
     response.headers.set(key, value as string);
   });
 
-  log(`[Middleware] Processing request for: ${pathname}`);
+  return response;
+}
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
+/**
+ * Authenticate the request using AuthValidator
+ */
+async function authenticateRequest(
+  request: NextRequest,
+  response: NextResponse
+) {
+  const authValidator = new AuthValidator(
+    request,
     {
-      cookies: {
-        get(name) {
-          const cookie = request.cookies.get(name);
-          // Remove individual cookie get logging - too noisy
-          return cookie?.value;
-        },
-        set(name, value, options) {
-          log(`[Middleware] Setting cookie: ${name}`);
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name, options) {
-          log(`[Middleware] Removing cookie: ${name}`);
-          response.cookies.delete({
-            name,
-            ...options,
-          });
-        },
+      get(name) {
+        const cookie = request.cookies.get(name);
+        return cookie?.value;
       },
-    }
+      set(name, value, options) {
+        log(`[Middleware] Setting cookie: ${name}`);
+        response.cookies.set({
+          name,
+          value,
+          ...options,
+        });
+      },
+      remove(name, options) {
+        log(`[Middleware] Removing cookie: ${name}`);
+        response.cookies.delete({
+          name,
+          ...options,
+        });
+      },
+    },
+    isVerbose
   );
 
-  // Check if the route is an admin route
-  const isAdminRoute = adminPaths.some((path) => pathname.startsWith(path));
+  return await authValidator.validateAuth();
+}
 
-  // Check if the route is protected (including admin routes)
-  if (protectedPaths.some((path) => pathname.startsWith(path)) || isAdminRoute) {
-    log(`[Middleware] Checking auth for protected path: ${pathname}`);
-
-    try {
-      // OPTIMIZATION: Prefer local session cookie validation (5-10ms vs 100-200ms remote call)
-      // This reduces auth API calls by 80-90% and improves middleware performance by 50-70%
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      let user = session?.user;
-
-      // Only call remote auth server if local session is invalid or missing
-      // This is a fallback for edge cases (expired sessions, cookie manipulation, etc.)
-      if (!user || sessionError) {
-        log(`[Middleware] Local session invalid, validating with remote auth server`);
-        const {
-          data: { user: fetchedUser },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (!fetchedUser || userError) {
-          log(`[Middleware] No valid user found, redirecting to sign-in`);
-          const signInUrl = new URL("/auth/sign-in", request.url);
-          // Preserve query parameters in redirectTo
-          const redirectPath = request.nextUrl.search
-            ? `${pathname}${request.nextUrl.search}`
-            : pathname;
-          signInUrl.searchParams.set("redirectTo", redirectPath);
-          return NextResponse.redirect(signInUrl);
-        }
-        user = fetchedUser;
-        log(`[Middleware] Valid user found via remote validation for ${pathname}`);
-      } else {
-        log(`[Middleware] Local session valid for ${pathname} (fast path)`);
-      }
-
-      // Additional check for admin routes
-      if (isAdminRoute) {
-        log(`[Middleware] Checking admin privileges for: ${pathname}`);
-
-        // OPTIMIZATION: Admin check uses hardcoded ADMIN_USER_IDS - no remote call needed
-        // This is already optimal since it's a simple array lookup
-        const isAdmin = ADMIN_USER_IDS.includes(user.id as any);
-
-        // TODO: Also check user metadata once admin flag is in database
-        // For now, we rely on the canonical user IDs
-
-        if (!isAdmin) {
-          log(`[Middleware] User ${user.id} is not an admin, redirecting to home`);
-          return NextResponse.redirect(new URL("/", request.url));
-        }
-
-        log(`[Middleware] Admin access granted for ${pathname}`);
-      }
-    } catch (error) {
-      logError(`[Middleware] Error checking auth:`, error);
-      const signInUrl = new URL("/auth/sign-in", request.url);
-      // Preserve query parameters in redirectTo
-      const redirectPath = request.nextUrl.search
-        ? `${pathname}${request.nextUrl.search}`
-        : pathname;
-      signInUrl.searchParams.set("redirectTo", redirectPath);
-      return NextResponse.redirect(signInUrl);
-    }
-  }
-
-  return response;
+/**
+ * Check admin privileges using AdminChecker
+ */
+function checkAdminPrivileges(user: any) {
+  const adminChecker = new AdminChecker(isVerbose);
+  return adminChecker.checkAdminStatus(user);
 }
 
 export const config = {

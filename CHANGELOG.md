@@ -74,6 +74,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Map Page Filter and Test Bugs (October 31, 2025)
+- **BUG-007: Fixed Break Types Filter Returning Zero Results**
+  - **Issue**: When all three break type filters (Beach, Point, Reef) were selected simultaneously, the map incorrectly showed zero beaches instead of showing beaches matching ANY of the selected types
+  - **Root Cause**: NULL/undefined `break_type` values were incorrectly passing the filter (returned `true` instead of `false`)
+  - **Fix**: Updated filter logic in [hooks/use-beach-search.ts:121](hooks/use-beach-search.ts#L121)
+    - Changed NULL handling from `return true` to `return false`
+    - Beaches without break_type data are now correctly excluded from filtered results
+  - **Data Impact**: 78% of beaches (56/72) have NULL break_type and are now properly filtered out
+  - **Status**: ✅ Fixed - Filter now correctly shows beaches matching ANY selected break type
+
+- **BUG-001: Fixed List View Toggle E2E Test Failures**
+  - **Issue**: List view toggle E2E tests were failing with "element not visible" errors, despite manual testing passing
+  - **Root Cause**: Test was only waiting 300ms after clicking List button, but beach data was still loading. Test looked for beach cards while loading skeletons were still displayed
+  - **Fix**: Updated test in [e2e/performance/map-page-performance.spec.ts:362](e2e/performance/map-page-performance.spec.ts#L362)
+    - Added proper wait for `data-testid="beach-list"` container to appear
+    - Added wait for loading state to complete (`aria-busy !== "true"`)
+    - Test now correctly waits up to 10 seconds for data to load before counting beach cards
+  - **Verification**: Test now passes consistently, rendering 17 beach cards as expected
+  - **Status**: ✅ Fixed - This was a test implementation issue, not a code bug
+
+- **Bonus Fix: Region Tabs Selector Syntax Error**
+  - **Issue**: E2E test "should switch region tabs quickly" failing with invalid CSS selector error
+  - **Root Cause**: Incorrect selector syntax `role=tab, [role="tab"]` caused parsing error
+  - **Fix**: Updated to proper Playwright API `page.getByRole('tab')`
+  - **Status**: ✅ Fixed - Test now passes
+
 #### Build Failure: Database Function Column References (October 31, 2025)
 - **Fixed Critical Build Error**: "column b.latitude does not exist" blocking production builds
   - **Created fix migration**: [supabase/migrations/20251031235900_fix_all_coordinate_column_references.sql](supabase/migrations/20251031235900_fix_all_coordinate_column_references.sql)

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import {
   SURF_SPOT_SLUGS,
@@ -169,12 +170,12 @@ export default function SpotPage({ params }: SpotPageParams) {
                 <p>
                   Hazards to watch: {spot.hazards.join(", ")}. Log the session in
                   your{" "}
-                  <a
+                  <Link
                     href="/app"
                     className="font-semibold text-sky-700 underline-offset-2 hover:underline"
                   >
                     Quiver journal
-                  </a>{" "}
+                  </Link>{" "}
                   to track how these variables impacted your surf.
                 </p>
               </div>

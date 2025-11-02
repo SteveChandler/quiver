@@ -119,15 +119,18 @@ export async function generateShareUrl(options: ShareUrlOptions): Promise<string
  */
 export async function generateShareImageUrl(
   sessionId: string,
-  variant: ShareVariant = "story"
+  variant: ShareVariant = "story",
+  aspectRatio?: string
 ): Promise<string> {
   const secret = process.env.SOCIAL_SHARE_SECRET;
   if (!secret) {
     throw new Error("SOCIAL_SHARE_SECRET not configured");
   }
 
-  // Create signature
-  const canonical = `${sessionId}:${variant}`;
+  // Create signature - include aspect ratio if provided
+  const canonical = aspectRatio
+    ? `${sessionId}:${variant}:${aspectRatio}`
+    : `${sessionId}:${variant}`;
   const signature = crypto
     .createHmac("sha256", secret)
     .update(canonical)
@@ -137,6 +140,9 @@ export async function generateShareImageUrl(
   const imageUrl = new URL(`${baseUrl}/api/social/share/og`);
   imageUrl.searchParams.set("sessionId", sessionId);
   imageUrl.searchParams.set("variant", variant);
+  if (aspectRatio) {
+    imageUrl.searchParams.set("ratio", aspectRatio);
+  }
   imageUrl.searchParams.set("t", signature);
 
   return imageUrl.toString();

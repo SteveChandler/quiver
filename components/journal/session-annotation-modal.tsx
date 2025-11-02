@@ -97,7 +97,7 @@ export function SessionAnnotationModal({
         rating,
       };
 
-      const result = await updateSession(session.id, user.id, updateData);
+      const result = await updateSession(session.id, updateData);
       if (result.success) {
         onSave();
       } else {

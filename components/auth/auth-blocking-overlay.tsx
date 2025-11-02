@@ -84,7 +84,6 @@ export function AuthBlockingOverlay({
         onKeyDown={handleInteraction}
         onKeyUp={handleInteraction}
         onKeyPress={handleInteraction}
-        tabIndex={0}
         aria-hidden="true"
       />
     </>

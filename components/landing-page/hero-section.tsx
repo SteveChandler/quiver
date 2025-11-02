@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,9 +121,9 @@ export function HeroSection() {
             asChild
             className="text-white underline underline-offset-4 hover:text-white/90 text-base sm:text-lg p-0 h-auto font-normal"
           >
-            <a href="/map" onClick={handleExploreClick}>
+            <Link href="/map" onClick={handleExploreClick}>
               Explore nearby spots
-            </a>
+            </Link>
           </Button>
         </motion.div>
       </motion.div>

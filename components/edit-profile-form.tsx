@@ -2,23 +2,12 @@
 
 import type React from "react";
 
-import { useState, useRef, useEffect, startTransition, useId } from "react";
+import { startTransition } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
 import {
   Card,
   CardContent,
@@ -27,50 +16,28 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, X, Camera } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { updateProfile } from "@/actions/profile-actions";
 import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
-import { uploadImage, deleteImage } from "@/lib/image-upload";
-import { toast } from "@/components/ui/use-toast";
-import { BeachSelector } from "@/components/BeachSelector";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { track, slugify } from "@/lib/analytics";
 import { NotificationsSection } from "@/components/profile/notifications-section";
-
-const profileFormSchema = z.object({
-  full_name: z
-    .string()
-    .min(2, "Name must be at least 2 characters")
-    .max(50, "Name must be less than 50 characters"),
-  bio: z.string().max(300, "Bio must be less than 300 characters").optional(),
-  location: z
-    .string()
-    .max(100, "Location must be less than 100 characters")
-    .optional(),
-  experience_level: z
-    .string()
-    .max(50, "Experience level must be less than 50 characters")
-    .optional(),
-  instagram: z
-    .string()
-    .max(30, "Instagram username must be less than 30 characters")
-    .optional(),
-  home_beach_id: z.string().uuid().nullable().optional(),
-  // Notification preferences - master toggles
-  notif_push_enabled: z.boolean().optional(),
-  notif_email_enabled: z.boolean().optional(),
-  notif_inapp_enabled: z.boolean().optional(),
-  // Notification preferences - feature toggles
-  notif_session_invites: z.boolean().optional(),
-  notif_likes: z.boolean().optional(),
-  notif_follows: z.boolean().optional(),
-  notif_reminders: z.boolean().optional(),
-  notif_xp_updates: z.boolean().optional(),
-});
-
-type ProfileFormValues = z.infer<typeof profileFormSchema>;
+import {
+  profileFormSchema,
+  type ProfileFormValues,
+} from "@/lib/schemas/profile-schema";
+import { AvatarUpload } from "@/components/profile/shared/avatar-upload";
+import { BasicInfoFields } from "@/components/profile/shared/basic-info-fields";
+import { SurfInfoFields } from "@/components/profile/shared/surf-info-fields";
+import {
+  useProfileFormState,
+  useProfileSuccessCallback,
+} from "@/lib/hooks/useProfileFormState";
+import {
+  getInitials,
+  prepareAvatarPayload,
+} from "@/lib/utils/profile-form-utils";
 
 interface EditProfileFormProps {
   initialData?: {
@@ -100,14 +67,19 @@ export function EditProfileForm({
   const { user } = useAuth();
   const router = useRouter();
   const { profile, mutate } = useProfile();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(initialData?.avatar_url || "");
-  const [isUploading, setIsUploading] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [homeBeachText, setHomeBeachText] = useState("");
-  const homeBeachFieldId = useId();
-  // Remove immediate update for home beach; save on form submit
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    avatarUrl,
+    setAvatarUrl,
+    isSubmitting,
+    setIsSubmitting,
+    submitSuccess,
+    setSubmitSuccess,
+    homeBeachText,
+    setHomeBeachText,
+  } = useProfileFormState({
+    initialAvatarUrl: initialData?.avatar_url || "",
+    initialHomeBeachText: "",
+  });
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -130,16 +102,11 @@ export function EditProfileForm({
     },
   });
 
-  // Handle success callback in useEffect to avoid state updates during render
-  useEffect(() => {
-    if (submitSuccess && onSuccess) {
-      // Reset success state and call callback
-      setSubmitSuccess(false);
-      onSuccess();
-    }
-  }, [submitSuccess, onSuccess]);
-
-  // RHF controls the field directly; no shadow state
+  // Handle success callback using the custom hook
+  useProfileSuccessCallback(submitSuccess, () => {
+    setSubmitSuccess(false);
+    onSuccess?.();
+  });
 
   async function onSubmit(data: ProfileFormValues) {
     if (!user) {
@@ -152,17 +119,12 @@ export function EditProfileForm({
     });
     setIsSubmitting(true);
     try {
-      const includeAvatar =
-        !!avatarUrl &&
-        avatarUrl.trim() !== "" &&
-        !avatarUrl.includes("placeholder.svg");
-
       const result = await updateProfile({
         ...data,
         ...(homeBeachText && !data.home_beach_id
           ? { home_beach_text: homeBeachText }
           : {}),
-        ...(includeAvatar ? { avatar_url: avatarUrl.trim() } : {}),
+        ...prepareAvatarPayload(avatarUrl),
       });
 
       if (!result.success) {
@@ -199,133 +161,6 @@ export function EditProfileForm({
     }
   }
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please select an image smaller than 5MB.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check file type
-    if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Invalid file type",
-        description: "Please select an image file.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUploading(true);
-    let uploadSuccess = false;
-
-    try {
-      // First, upload the new image
-      const result = await uploadImage(file, "avatars", "profiles");
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to upload image");
-      }
-      uploadSuccess = true;
-
-      // Persist the avatar change immediately so profile views see it
-      const persisted = await updateProfile({ avatar_url: result.url });
-      if (!persisted.success) {
-        throw new Error(persisted.error || "Failed to save profile picture");
-      }
-
-      // Only delete old image after successful upload + DB update
-      if (avatarUrl && !avatarUrl.includes("placeholder.svg")) {
-        try {
-          await deleteImage(avatarUrl, "avatars");
-        } catch (deleteError) {
-          console.warn(
-            "Failed to delete old image, but new image uploaded successfully:",
-            deleteError
-          );
-        }
-      }
-
-      // Update the local avatar URL for immediate UI feedback
-      setAvatarUrl(result.url);
-
-      toast({
-        title: "Profile picture updated",
-        description: "Your profile picture has been updated successfully.",
-      });
-    } catch (error) {
-      console.error("Error uploading avatar:", error);
-
-      // Only show error if upload actually failed
-      if (!uploadSuccess) {
-        toast({
-          title: "Upload failed",
-          description:
-            error instanceof Error
-              ? error.message
-              : "Failed to upload image. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setIsUploading(false);
-      // Clear the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
-  const handleRemoveAvatar = async () => {
-    if (!avatarUrl || avatarUrl.includes("placeholder.svg")) return;
-
-    setIsUploading(true);
-    try {
-      // Delete the image
-      await deleteImage(avatarUrl, "avatars");
-
-      // Persist removal in DB
-      const persisted = await updateProfile({ avatar_url: "" });
-      if (!persisted.success) {
-        throw new Error(persisted.error || "Failed to remove profile picture");
-      }
-
-      // Set to placeholder locally
-      setAvatarUrl("/placeholder.svg?height=200&width=200");
-      toast({
-        title: "Image removed",
-        description: "Your profile picture has been removed.",
-      });
-    } catch (error) {
-      console.error("Error removing avatar:", error);
-      toast({
-        title: "Error",
-        description: "Failed to remove image. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Get initials for avatar fallback
-  const getInitials = () => {
-    const name = form.getValues("full_name");
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -338,170 +173,26 @@ export function EditProfileForm({
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
             {/* Avatar Upload */}
-            <div className="flex flex-col items-center space-y-4">
-              <div className="relative">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage
-                    src={avatarUrl || "/placeholder.svg?height=96&width=96"}
-                    alt="Profile"
-                  />
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
-                </Avatar>
-                {isUploading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
-                    <Loader2 className="h-8 w-8 animate-spin text-white" />
-                  </div>
-                )}
-                {avatarUrl && !avatarUrl.includes("placeholder.svg") && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
-                    onClick={handleRemoveAvatar}
-                    disabled={isUploading}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  <Camera className="mr-2 h-4 w-4" />
-                  Change Photo
-                </Button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  disabled={isUploading}
-                />
-              </div>
-            </div>
+            <AvatarUpload
+              avatarUrl={avatarUrl}
+              onAvatarChange={setAvatarUrl}
+              initials={getInitials(form.getValues("full_name"))}
+              persistImmediately={true}
+            />
 
             {/* Basic Info */}
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="full_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Your name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="bio"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bio</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Tell us about yourself and your surfing journey"
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Where are you based?" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <BasicInfoFields control={form.control} />
 
             {/* Surf Info */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Surf Information</h3>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor={homeBeachFieldId}>
-                  Home Beach
-                </label>
-                <BeachSelector
-                  initialValue={homeBeachText}
-                  inputId={homeBeachFieldId}
-                  onBeachSelected={(beach) => {
-                    // If a real beach was selected, set the id; else keep text fallback
-                    if (beach?.id) {
-                      form.setValue("home_beach_id", beach.id);
-                      setHomeBeachText(beach.name);
-                    } else {
-                      form.setValue("home_beach_id", null);
-                      setHomeBeachText(beach?.name || "");
-                    }
-                  }}
-                />
-                <p className="text-sm text-muted-foreground">
-                  This beach will be shown on your home screen and pre-selected
-                  when logging sessions
-                </p>
-              </div>
-
-              <FormField
-                control={form.control}
-                name="experience_level"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Experience Level</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Beginner, Intermediate, Advanced, etc."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <SurfInfoFields
+              control={form.control}
+              setValue={form.setValue}
+              homeBeachText={homeBeachText}
+              onHomeBeachTextChange={setHomeBeachText}
+            />
 
             {/* Notifications */}
             <NotificationsSection control={form.control} />
-
-            {/* Social Media */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Social Media</h3>
-
-              <FormField
-                control={form.control}
-                name="instagram"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Instagram</FormLabel>
-                    <FormControl>
-                      <Input placeholder="@yourusername" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
           </CardContent>
           <CardFooter className="flex justify-between">
             <Button

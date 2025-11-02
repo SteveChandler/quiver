@@ -165,15 +165,38 @@ function describeWaveHeight(hMin?: number, hMax?: number): string {
   return "Well overhead";
 }
 
-function containerStyle(variant: ShareVariant): React.CSSProperties {
-  const { width, height } = variant === "story" ? { width: 1080, height: 1920 } : { width: 1080, height: 1080 };
+/**
+ * Calculate dimensions from aspect ratio
+ */
+function getDimensions(aspectRatio?: string): { width: number; height: number } {
+  const baseWidth = 1080;
+
+  switch (aspectRatio) {
+    case "1:1":
+      return { width: baseWidth, height: baseWidth }; // 1080x1080
+    case "4:5":
+      return { width: baseWidth, height: Math.round(baseWidth * 1.25) }; // 1080x1350
+    case "9:16":
+      return { width: baseWidth, height: Math.round(baseWidth * 16 / 9) }; // 1080x1920
+    default:
+      // Fallback: use default for square
+      return { width: baseWidth, height: baseWidth };
+  }
+}
+
+function containerStyle(variant: ShareVariant, aspectRatio?: string): React.CSSProperties {
+  // Use aspect ratio if provided, otherwise fall back to variant-based dimensions
+  const { width, height } = aspectRatio
+    ? getDimensions(aspectRatio)
+    : (variant === "story" ? { width: 1080, height: 1920 } : { width: 1080, height: 1080 });
+
   return {
     width,
     height,
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    padding: variant === "story" ? 72 : 64,
+    padding: variant === "story" || aspectRatio === "9:16" ? 72 : 64,
     color: BRAND.white,
     backgroundImage: `linear-gradient(135deg, ${BRAND.oceanBlue} 0%, ${BRAND.sunsetOrange} 100%)`,
   };
@@ -296,19 +319,19 @@ function watermark(): React.ReactElement {
   );
 }
 
-export function getTemplate(session: SessionData, variant: ShareVariant): React.ReactElement {
+export function getTemplate(session: SessionData, variant: ShareVariant, aspectRatio?: string): React.ReactElement {
   const formatted = formatSessionForShare(session);
 
   // Build container with optional photo background
   const containerStyles = session.photoUrl
     ? {
-        ...containerStyle(variant),
+        ...containerStyle(variant, aspectRatio),
         backgroundImage: `linear-gradient(135deg, rgba(0, 119, 182, 0.85) 0%, rgba(255, 127, 17, 0.85) 100%), url(${session.photoUrl})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundBlend: "overlay",
       }
-    : containerStyle(variant);
+    : containerStyle(variant, aspectRatio);
 
   return React.createElement(
     "div",
@@ -319,22 +342,32 @@ export function getTemplate(session: SessionData, variant: ShareVariant): React.
   );
 }
 
-export async function renderShareImage(session: SessionData, variant: ShareVariant): Promise<{
+export async function renderShareImage(
+  session: SessionData,
+  variant: ShareVariant,
+  aspectRatio?: string
+): Promise<{
   png: Uint8Array;
   w: number;
   h: number;
 }> {
-  const { w, h } = variant === "story" ? { w: 1080, h: 1920 } : { w: 1080, h: 1080 };
-  
+  // Use aspect ratio if provided, otherwise fall back to variant-based dimensions
+  const { w, h } = aspectRatio
+    ? (() => {
+        const dims = getDimensions(aspectRatio);
+        return { w: dims.width, h: dims.height };
+      })()
+    : (variant === "story" ? { w: 1080, h: 1920 } : { w: 1080, h: 1080 });
+
   try {
     const fonts = await loadFonts();
-    const satoriOptions: SatoriOptions = { 
-      width: w, 
+    const satoriOptions: SatoriOptions = {
+      width: w,
       height: h,
       fonts: fonts.length > 0 ? fonts : []
     };
-    
-    const svg = await satori(getTemplate(session, variant), satoriOptions);
+
+    const svg = await satori(getTemplate(session, variant, aspectRatio), satoriOptions);
     const png = new Resvg(svg, { fitTo: { mode: "width", value: w } }).render().asPng();
     return { png, w, h };
   } catch (fontError) {

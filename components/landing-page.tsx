@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { Suspense, lazy, useState, useEffect } from "react";
@@ -85,7 +86,7 @@ export default function LandingPage() {
       <QuiverFAQSchema />
 
       {/* Hidden fallback CTA to ensure presence of actionable elements during E2E tests */}
-      <a
+      <Link
         href="/auth/sign-up"
         data-testid="test-fallback-cta"
         className="hidden"
@@ -93,7 +94,7 @@ export default function LandingPage() {
         tabIndex={-1}
       >
         Sign Up
-      </a>
+      </Link>
 
       {/* Modern Navigation */}
       <Navbar />

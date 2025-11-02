@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -203,10 +204,10 @@ export function ConfidenceScoreExplanation({
 
           {showHelpLink && (
             <Button variant="ghost" size="sm" asChild>
-              <a href="/help/forecast-confidence" className="text-xs">
+              <Link href="/help/forecast-confidence" className="text-xs">
                 <HelpCircle className="h-4 w-4 mr-1" />
                 Learn about confidence scores
-              </a>
+              </Link>
             </Button>
           )}
         </div>

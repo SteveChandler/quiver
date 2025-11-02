@@ -30,7 +30,7 @@ Quiver is a full-stack surf tracking application that combines session logging, 
 ### Prerequisites
 
 - Node.js 20+ (LTS recommended)
-- npm or yarn
+- Yarn 1.22+ (package manager)
 - Supabase CLI (`npm install -g supabase`)
 
 ### Installation
@@ -41,7 +41,7 @@ git clone https://github.com/your-org/quiver.git
 cd quiver
 
 # Install dependencies
-npm install
+yarn install
 
 # Set up environment variables
 cp .env.example .env.local
@@ -54,7 +54,7 @@ supabase start
 supabase db reset
 
 # Start development server
-npm run dev
+yarn dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) to see the app.
@@ -156,20 +156,20 @@ quiver/
 
 ```bash
 # Development
-npm run dev              # Start dev server (localhost:3000)
-npm run build            # Build for production
-npm start                # Start production server
+yarn dev                 # Start dev server (localhost:3000)
+yarn build               # Build for production
+yarn start               # Start production server
 
 # Testing
-npm test                 # Run unit tests (Jest)
-npm run test:watch       # Run tests in watch mode
+yarn test                # Run unit tests (Jest)
+yarn test:watch          # Run tests in watch mode
 npx playwright test      # Run E2E tests
-npm run test:e2e         # Run E2E tests with UI
+yarn test:e2e            # Run E2E tests with UI
 
 # Code Quality
-npm run lint             # Run ESLint
-npm run type-check       # TypeScript type checking
-npm run format           # Format code with Prettier
+yarn lint                # Run ESLint
+yarn type-check          # TypeScript type checking
+yarn format              # Format code with Prettier
 
 # Database
 supabase start           # Start local Supabase
@@ -179,8 +179,8 @@ supabase db pull         # Pull schema from remote
 supabase gen types typescript --project-id <id> > types/database.ts
 
 # Mobile
-npm run build:ios        # Build iOS app
-npm run build:android    # Build Android app
+yarn build:ios           # Build iOS app
+yarn build:android       # Build Android app
 npx cap sync             # Sync web assets to mobile
 npx cap open ios         # Open in Xcode
 npx cap open android     # Open in Android Studio
@@ -206,8 +206,8 @@ npx cap open android     # Open in Android Studio
 
 4. **Run tests and build**
    ```bash
-   npm test
-   npm run build
+   yarn test
+   yarn build
    npx playwright test
    ```
 
@@ -232,19 +232,19 @@ npx cap open android     # Open in Android Studio
 
 ```bash
 # Unit tests
-npm test                          # Run all unit tests
-npm test -- --watch              # Watch mode
-npm test -- --coverage           # Coverage report
+yarn test                         # Run all unit tests
+yarn test --watch                 # Watch mode
+yarn test --coverage              # Coverage report
 
 # E2E tests
-npx playwright test              # Run all E2E tests
-npx playwright test --headed     # With browser UI
-npx playwright test --debug      # Debug mode
-npx playwright test <file>       # Run specific test file
+npx playwright test               # Run all E2E tests
+npx playwright test --headed      # With browser UI
+npx playwright test --debug       # Debug mode
+npx playwright test <file>        # Run specific test file
 
 # Specific test patterns
-npm test session                 # Unit tests matching "session"
-npx playwright test --grep auth  # E2E tests matching "auth"
+yarn test session                 # Unit tests matching "session"
+npx playwright test --grep auth   # E2E tests matching "auth"
 ```
 
 ### Testing Principles
@@ -370,7 +370,7 @@ See [Database Schema Documentation](docs/diagrams/database-schema.md) for comple
 
 **iOS:**
 ```bash
-npm run build:ios
+yarn build:ios
 npx cap sync ios
 npx cap open ios
 # Build in Xcode: Product > Archive
@@ -378,7 +378,7 @@ npx cap open ios
 
 **Android:**
 ```bash
-npm run build:android
+yarn build:android
 npx cap sync android
 npx cap open android
 # Build in Android Studio: Build > Generate Signed Bundle
@@ -431,7 +431,7 @@ See [Mobile Development Guide](docs/MOBILE_LOCAL_DEV.md) for detailed instructio
 1. Create feature branch from `main`
 2. Make changes following coding standards
 3. Write/update tests
-4. Run `npm test` and `npm run build`
+4. Run `yarn test` and `yarn build`
 5. Update `CHANGELOG.md`
 6. Create PR with clear description
 7. Address review feedback
@@ -501,8 +501,8 @@ Refs: #issue-number
 rm -rf .next
 
 # Reinstall dependencies
-rm -rf node_modules package-lock.json
-npm install
+rm -rf node_modules yarn.lock
+yarn install
 ```
 
 **Database Connection Issues:**

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import {
   SURF_CITY_SLUGS,
@@ -102,12 +103,12 @@ export default function CityPage({ params }: CityPageParams) {
           </p>
           <p className="text-base text-slate-700">
             Use this hub to move from dawn patrol scouting to an evening{" "}
-            <a
+            <Link
               href="/app"
               className="font-semibold text-sky-700 underline-offset-2 hover:underline"
             >
               session log
-            </a>
+            </Link>
             . We surface tide swings, alternative peaks, and intent-based guides
             so you pivot faster than the crowd.
           </p>

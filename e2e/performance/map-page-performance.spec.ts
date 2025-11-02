@@ -202,7 +202,7 @@ test.describe('Map Page Performance', () => {
     await page.waitForLoadState('load');
 
     // Find region tabs (ALL, region names)
-    const regionTabs = page.locator('role=tab, [role="tab"]');
+    const regionTabs = page.getByRole('tab');
     const tabCount = await regionTabs.count();
 
     if (tabCount > 1) {
@@ -369,6 +369,20 @@ test.describe('Map Page Performance', () => {
 
     if (isVisible) {
       await listButton.click();
+
+      // Wait for beach list container to appear
+      const beachList = page.locator('[data-testid="beach-list"]');
+      await beachList.waitFor({ state: 'visible', timeout: 5000 });
+
+      // Wait for loading to complete (aria-busy will be removed or set to false)
+      await page.waitForFunction(() => {
+        const list = document.querySelector('[data-testid="beach-list"]');
+        return list && list.getAttribute('aria-busy') !== 'true';
+      }, { timeout: 10000 }).catch(() => {
+        console.log('[List View] Loading state did not complete within timeout');
+      });
+
+      // Give a small buffer for React rendering
       await page.waitForTimeout(300);
 
       // Count rendered beach cards

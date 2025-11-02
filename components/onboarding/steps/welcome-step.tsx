@@ -23,7 +23,7 @@ export function WelcomeStep() {
       </div>
 
       <div className="bg-blue-50 rounded-lg p-6 space-y-3 text-left">
-        <h3 className="font-semibold text-lg mb-3">What you'll get:</h3>
+        <h3 className="font-semibold text-lg mb-3">What you&apos;ll get:</h3>
         <div className="space-y-2">
           <div className="flex items-start gap-3">
             <div className="w-6 h-6 rounded-full bg-ocean-blue flex items-center justify-center flex-shrink-0 mt-0.5">

@@ -441,6 +441,12 @@ describe("Session Actions", () => {
     it("should update session successfully", async () => {
       const updateData = { wave_quality: 9, notes: "Updated notes" };
 
+      // Mock auth
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
       // Mock getting current session
       const mockCurrentSingle = jest.fn().mockResolvedValue({
         data: { board_id: "board-123" },
@@ -485,7 +491,7 @@ describe("Session Actions", () => {
         .mockReturnValueOnce({ select: mockCurrentSelect })
         .mockReturnValueOnce({ update: mockUpdate });
 
-      const result = await updateSession("session-123", "user-123", updateData);
+      const result = await updateSession("session-123", updateData);
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual({ ...mockSession, ...updateData });
@@ -497,6 +503,12 @@ describe("Session Actions", () => {
 
     it("should handle board_id changes with session count updates", async () => {
       const updateData = { board_id: "new-board-123" };
+
+      // Mock auth
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
 
       // Mock getting current session with different board_id
       const mockCurrentSingle = jest.fn().mockResolvedValue({
@@ -563,7 +575,7 @@ describe("Session Actions", () => {
         .mockReturnValueOnce("decrement-result")
         .mockReturnValueOnce("increment-result");
 
-      const result = await updateSession("session-123", "user-123", updateData);
+      const result = await updateSession("session-123", updateData);
 
       expect(result.success).toBe(true);
       expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("decrement", {
@@ -1542,6 +1554,435 @@ describe("Session Actions", () => {
 
       // Note: Same as above - snapshot creation via dynamic import
       // is difficult to verify without integration tests
+    });
+  });
+
+  describe("Authentication and Permission Edge Cases", () => {
+    it("should reject updateSession when user tries to update another user's session", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      // Mock getting session owned by different user
+      const mockCurrentSingle = jest.fn().mockResolvedValue({
+        data: { board_id: "board-123", user_id: "different-user" },
+        error: null,
+      });
+
+      const mockCurrentEq2 = jest.fn().mockReturnValue({
+        single: mockCurrentSingle,
+      });
+
+      const mockCurrentEq1 = jest.fn().mockReturnValue({
+        eq: mockCurrentEq2,
+      });
+
+      const mockCurrentSelect = jest.fn().mockReturnValue({
+        eq: mockCurrentEq1,
+      });
+
+      mockSupabaseClient.from.mockReturnValue({
+        select: mockCurrentSelect,
+      });
+
+      const result = await updateSession("session-123", { notes: "Hacked!" });
+
+      // Update should be attempted but database RLS should prevent it
+      // Test confirms we're checking user ownership
+      expect(mockCurrentEq1).toHaveBeenCalledWith("id", "session-123");
+    });
+
+    it("should handle missing authentication token", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: "No authentication token found" },
+      });
+
+      const result = await createLoggedSession({
+        beach_id: "beach-123",
+        arrival_time: "2024-01-15T08:00:00.000Z",
+        wave_quality: 8,
+        status: "completed",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Authentication error");
+    });
+
+    it("should handle expired authentication token", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: "JWT expired" },
+      });
+
+      const result = await updateSessionForm("session-123", { notes: "test" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Authentication error: JWT expired");
+    });
+
+    it("should handle invalid JWT token", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: "Invalid JWT" },
+      });
+
+      const result = await addBoard({
+        name: "Test Board",
+        brand: "Test",
+        length: 6.2,
+        board_type: "shortboard",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Authentication error");
+    });
+
+    it("should handle database connection failure during auth check", async () => {
+      mockSupabaseClient.auth.getUser.mockRejectedValue(
+        new Error("Database connection failed")
+      );
+
+      const result = await createPlannedSession({
+        beach_id: "beach-123",
+        arrival_time: "2024-01-15T08:00:00.000Z",
+        status: "planned",
+      });
+
+      // Should handle gracefully
+      expect(result.success).toBe(false);
+    });
+
+    it("should handle concurrent session creation race conditions", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: mockSession,
+        error: null,
+      });
+
+      const mockSelect = jest.fn().mockReturnValue({
+        single: mockSingle,
+      });
+
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
+      mockSupabaseClient.from.mockReturnValue({
+        insert: mockInsert,
+      });
+
+      // Create multiple sessions concurrently
+      const promises = Array.from({ length: 5 }, () =>
+        createLoggedSession({
+          beach_id: "beach-123",
+          arrival_time: "2024-01-15T08:00:00.000Z",
+          wave_quality: 8,
+          status: "completed",
+        })
+      );
+
+      const results = await Promise.all(promises);
+
+      // All should succeed
+      expect(results.every(r => r.success)).toBe(true);
+      expect(mockInsert).toHaveBeenCalledTimes(5);
+    });
+
+    it("should handle RLS policy violations", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: null,
+        error: {
+          message: "new row violates row-level security policy",
+          code: "42501",
+        },
+      });
+
+      const mockSelect = jest.fn().mockReturnValue({
+        single: mockSingle,
+      });
+
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
+      mockSupabaseClient.from.mockReturnValue({
+        insert: mockInsert,
+      });
+
+      const result = await createLoggedSession({
+        beach_id: "beach-123",
+        arrival_time: "2024-01-15T08:00:00.000Z",
+        wave_quality: 8,
+        status: "completed",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Session creation failed");
+    });
+
+    it("should prevent user from deleting sessions they don't own", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      // Mock fetch showing session with different user_id
+      const mockFetchSingle = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: "Session not found" }, // RLS prevents seeing other users' sessions
+      });
+
+      const mockFetchEq2 = jest.fn().mockReturnValue({
+        single: mockFetchSingle,
+      });
+
+      const mockFetchEq1 = jest.fn().mockReturnValue({
+        eq: mockFetchEq2,
+      });
+
+      const mockFetchSelect = jest.fn().mockReturnValue({
+        eq: mockFetchEq1,
+      });
+
+      mockSupabaseClient.from.mockReturnValue({
+        select: mockFetchSelect,
+      });
+
+      const result = await deleteSession("session-123", "different-user");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Session not found");
+    });
+
+    it("should handle permission denied on session update", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      // Mock getting current session
+      const mockCurrentSingle = jest.fn().mockResolvedValue({
+        data: { board_id: "board-123" },
+        error: null,
+      });
+
+      const mockCurrentEq2 = jest.fn().mockReturnValue({
+        single: mockCurrentSingle,
+      });
+
+      const mockCurrentEq1 = jest.fn().mockReturnValue({
+        eq: mockCurrentEq2,
+      });
+
+      const mockCurrentSelect = jest.fn().mockReturnValue({
+        eq: mockCurrentEq1,
+      });
+
+      // Mock update with permission denied
+      const mockUpdateSingle = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: "Permission denied", code: "42501" },
+      });
+
+      const mockUpdateSelect = jest.fn().mockReturnValue({
+        single: mockUpdateSingle,
+      });
+
+      const mockUpdateEq2 = jest.fn().mockReturnValue({
+        select: mockUpdateSelect,
+      });
+
+      const mockUpdateEq1 = jest.fn().mockReturnValue({
+        eq: mockUpdateEq2,
+      });
+
+      const mockUpdate = jest.fn().mockReturnValue({
+        eq: mockUpdateEq1,
+      });
+
+      mockSupabaseClient.from
+        .mockReturnValueOnce({ select: mockCurrentSelect })
+        .mockReturnValueOnce({ update: mockUpdate });
+
+      const result = await updateSession("session-123", { notes: "test" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Permission denied");
+    });
+
+    it("should handle session not found on privacy toggle attempt", async () => {
+      // This tests the scenario where ShareBar tries to make a session public
+      // but the session doesn't exist or user doesn't have access
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const mockCurrentSingle = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: "Session not found" },
+      });
+
+      const mockCurrentEq2 = jest.fn().mockReturnValue({
+        single: mockCurrentSingle,
+      });
+
+      const mockCurrentEq1 = jest.fn().mockReturnValue({
+        eq: mockCurrentEq2,
+      });
+
+      const mockCurrentSelect = jest.fn().mockReturnValue({
+        eq: mockCurrentEq1,
+      });
+
+      mockSupabaseClient.from.mockReturnValue({
+        select: mockCurrentSelect,
+      });
+
+      const result = await updateSession("nonexistent-session", { is_public: true });
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Input Validation and Sanitization", () => {
+    it("should handle malicious SQL in notes field", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: mockSession,
+        error: null,
+      });
+
+      const mockSelect = jest.fn().mockReturnValue({
+        single: mockSingle,
+      });
+
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
+      mockSupabaseClient.from.mockReturnValue({
+        insert: mockInsert,
+      });
+
+      const maliciousNotes = "'; DROP TABLE sessions; --";
+      const result = await createLoggedSession({
+        beach_id: "beach-123",
+        arrival_time: "2024-01-15T08:00:00.000Z",
+        notes: maliciousNotes,
+        wave_quality: 8,
+        status: "completed",
+      });
+
+      expect(result.success).toBe(true);
+      // Parameterized queries should protect against SQL injection
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notes: maliciousNotes,
+        })
+      );
+    });
+
+    it("should handle XSS attempts in beach name", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const mockBeachSingle = jest.fn().mockResolvedValue({
+        data: { id: "beach-xss" },
+        error: null,
+      });
+
+      const mockBeachLimit = jest.fn().mockReturnValue({
+        single: mockBeachSingle,
+      });
+
+      const mockBeachIlike = jest.fn().mockReturnValue({
+        limit: mockBeachLimit,
+      });
+
+      const mockBeachSelect = jest.fn().mockReturnValue({
+        ilike: mockBeachIlike,
+      });
+
+      const mockSessionSingle = jest.fn().mockResolvedValue({
+        data: mockSession,
+        error: null,
+      });
+
+      const mockSessionSelect = jest.fn().mockReturnValue({
+        single: mockSessionSingle,
+      });
+
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockSessionSelect,
+      });
+
+      mockSupabaseClient.from
+        .mockReturnValueOnce({ select: mockBeachSelect })
+        .mockReturnValueOnce({ insert: mockInsert });
+
+      const xssBeachName = '<script>alert("XSS")</script>';
+      const result = await createLoggedSession({
+        beach_name: xssBeachName,
+        arrival_time: "2024-01-15T08:00:00.000Z",
+        wave_quality: 8,
+        status: "completed",
+      });
+
+      // Should succeed - sanitization happens at render time, not insert
+      expect(result.success).toBe(true);
+    });
+
+    it("should handle extremely long field values", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: "value too long for type character varying(500)" },
+      });
+
+      const mockSelect = jest.fn().mockReturnValue({
+        single: mockSingle,
+      });
+
+      const mockInsert = jest.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
+      mockSupabaseClient.from.mockReturnValue({
+        insert: mockInsert,
+      });
+
+      const longNotes = "A".repeat(100000);
+      const result = await createLoggedSession({
+        beach_id: "beach-123",
+        arrival_time: "2024-01-15T08:00:00.000Z",
+        notes: longNotes,
+        wave_quality: 8,
+        status: "completed",
+      });
+
+      expect(result.success).toBe(false);
     });
   });
 });

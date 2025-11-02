@@ -25,8 +25,15 @@ export const toastUtils = {
         "Profile updated",
         "Your profile has been updated successfully."
       ),
+    updatedWithEmail: () =>
+      showSuccessToast(
+        "Profile updated",
+        "Your profile has been updated. Please check your email to confirm your new email address."
+      ),
     updateFailed: () =>
       showErrorToast("Error", "Failed to update profile. Please try again."),
+    emailUpdateFailed: () =>
+      showErrorToast("Error", "Failed to update email. Please try again."),
   },
 
   image: {
