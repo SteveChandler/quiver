@@ -14,6 +14,21 @@ import { Waves as WavesIcon, Wind as WindIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
+ * Custom hook to extract and format session data
+ * Eliminates duplication of data parsing across all variants
+ */
+function useSessionData(session: SurfSessionCardProps["session"]) {
+  return {
+    beachName: session.beaches?.name || "Unknown Beach",
+    date: format(new Date(session.arrival_time), "MMM d, yyyy"),
+    rating: session.rating || 0,
+    waveHeight: "4-6 ft", // Simplified for design
+    wind: "5-10 mph",
+    notes: session.notes || session.description || "Perfect morning session! Glassy conditions with consistent sets. Caught some amazing rides on the point break.",
+  };
+}
+
+/**
  * QuiverSurf Logo Component (inline SVG)
  */
 function QuiverSurfLogo({ className }: { className?: string }) {
@@ -45,6 +60,120 @@ function StarRating({ rating, className }: { rating: number; className?: string 
 }
 
 /**
+ * CTA Button Component
+ * Supports multiple style variants for different card designs
+ */
+type CTAStyle = "white-on-black" | "black-on-white" | "cyan" | "blue" | "bold-black" | "rounded-xl";
+
+function CTAButton({ style = "white-on-black", className }: { style?: CTAStyle; className?: string }) {
+  const baseClasses = "py-3 px-6 text-center font-semibold";
+
+  const styleClasses = {
+    "white-on-black": "bg-white text-black rounded-lg",
+    "black-on-white": "bg-black text-white rounded-lg",
+    "cyan": "bg-cyan-400 text-black rounded-lg font-bold",
+    "blue": "bg-white text-blue-600 rounded-2xl font-bold shadow-xl",
+    "bold-black": "bg-black text-white border-4 border-black uppercase tracking-wide font-black",
+    "rounded-xl": "bg-black text-white rounded-xl",
+  };
+
+  return (
+    <div className={cn(baseClasses, styleClasses[style], className)}>
+      Track your sessions at quiversurf.app
+    </div>
+  );
+}
+
+/**
+ * Condition Badge Components
+ * Reusable wave/wind condition displays
+ */
+function ConditionBadges({
+  waveHeight,
+  wind,
+  className
+}: {
+  waveHeight: string;
+  wind: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex gap-4", className)}>
+      <div className="flex items-center gap-2 text-lg">
+        <WavesIcon className="w-6 h-6" />
+        <span>{waveHeight}</span>
+      </div>
+      <div className="flex items-center gap-2 text-lg">
+        <WindIcon className="w-6 h-6" />
+        <span>{wind}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Condition Cards for grid layouts (Variant 3, 4, 5)
+ */
+type ConditionCardStyle = "minimal-dark" | "glass" | "bold-grid";
+
+function ConditionCards({
+  waveHeight,
+  wind,
+  style
+}: {
+  waveHeight: string;
+  wind: string;
+  style: ConditionCardStyle;
+}) {
+  const cardClasses = {
+    "minimal-dark": "bg-gray-900 border border-cyan-400/30 rounded-lg p-6",
+    "glass": "bg-white/30 backdrop-blur-sm rounded-2xl p-5 border border-white/40",
+    "bold-grid": "border-4 border-black p-5",
+  };
+
+  const labelClasses = {
+    "minimal-dark": "flex items-center gap-2 text-cyan-400 mb-2",
+    "glass": "text-sm opacity-90 mb-1",
+    "bold-grid": "text-sm font-bold mb-1 uppercase tracking-wide",
+  };
+
+  const valueClasses = {
+    "minimal-dark": "text-2xl font-bold",
+    "glass": "text-2xl font-bold",
+    "bold-grid": "text-3xl font-black",
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <div className={cardClasses[style]}>
+        {style === "minimal-dark" && (
+          <div className={labelClasses[style]}>
+            <WavesIcon className="w-5 h-5" />
+            <span className="text-sm font-medium">Wave Height</span>
+          </div>
+        )}
+        {style !== "minimal-dark" && (
+          <p className={labelClasses[style]}>Waves</p>
+        )}
+        <p className={valueClasses[style]}>{waveHeight}</p>
+      </div>
+      <div className={cardClasses[style]}>
+        {style === "minimal-dark" && (
+          <div className={labelClasses[style]}>
+            <WindIcon className="w-5 h-5" />
+            <span className="text-sm font-medium">Wind</span>
+          </div>
+        )}
+        {style !== "minimal-dark" && (
+          <p className={labelClasses[style]}>Wind</p>
+        )}
+        <p className={valueClasses[style]}>{wind}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Variant 1: Classic Overlay
  * Image background with gradient overlay and white text
  */
@@ -53,13 +182,7 @@ function Variant1({
   aspectRatio,
   backgroundImage,
 }: SurfSessionCardProps) {
-  const beachName = session.beaches?.name || "Unknown Beach";
-  const date = format(new Date(session.arrival_time), "MMM d, yyyy");
-  const rating = session.rating || 0;
-  const waveHeight = "4-6 ft"; // Simplified for design
-  const wind = "5-10 mph";
-  const notes = session.notes || session.description || "Perfect morning session! Glassy conditions with consistent sets. Caught some amazing rides on the point break.";
-
+  const { beachName, date, rating, waveHeight, wind, notes } = useSessionData(session);
   const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio];
 
   return (
@@ -96,16 +219,7 @@ function Variant1({
           </p>
 
           {/* Conditions */}
-          <div className="flex gap-4 mb-6">
-            <div className="flex items-center gap-2 text-lg">
-              <WavesIcon className="w-6 h-6" />
-              <span>{waveHeight}</span>
-            </div>
-            <div className="flex items-center gap-2 text-lg">
-              <WindIcon className="w-6 h-6" />
-              <span>{wind}</span>
-            </div>
-          </div>
+          <ConditionBadges waveHeight={waveHeight} wind={wind} className="mb-6" />
 
           {/* Rating */}
           <StarRating rating={rating} className="mb-4 text-3xl" />
@@ -116,9 +230,7 @@ function Variant1({
           )}
 
           {/* CTA */}
-          <div className="bg-white text-black py-3 px-6 rounded-lg text-center font-semibold">
-            Track your sessions at quiversurf.app
-          </div>
+          <CTAButton style="white-on-black" />
         </div>
       </div>
     </div>
@@ -134,13 +246,7 @@ function Variant2({
   aspectRatio,
   backgroundImage,
 }: SurfSessionCardProps) {
-  const beachName = session.beaches?.name || "Unknown Beach";
-  const date = format(new Date(session.arrival_time), "MMM d, yyyy");
-  const rating = session.rating || 0;
-  const waveHeight = "4-6 ft";
-  const wind = "5-10 mph";
-  const notes = session.notes || session.description || "Perfect morning session! Glassy conditions with consistent sets. Caught some amazing rides on the point break.";
-
+  const { beachName, date, rating, waveHeight, wind, notes } = useSessionData(session);
   const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio];
   const imageHeight = aspectRatio === "1:1" ? "50%" : aspectRatio === "4:5" ? "45%" : "40%";
 
@@ -192,9 +298,7 @@ function Variant2({
           )}
         </div>
 
-        <div className="bg-black text-white py-3 px-6 rounded-lg text-center font-semibold">
-          Track your sessions at quiversurf.app
-        </div>
+        <CTAButton style="black-on-white" />
       </div>
     </div>
   );
@@ -208,13 +312,7 @@ function Variant3({
   session,
   aspectRatio,
 }: SurfSessionCardProps) {
-  const beachName = session.beaches?.name || "Unknown Beach";
-  const date = format(new Date(session.arrival_time), "MMM d, yyyy");
-  const rating = session.rating || 0;
-  const waveHeight = "4-6 ft";
-  const wind = "5-10 mph";
-  const notes = session.notes || session.description || "Perfect morning session! Glassy conditions with consistent sets. Caught some amazing rides on the point break.";
-
+  const { beachName, date, rating, waveHeight, wind, notes } = useSessionData(session);
   const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio];
 
   return (
@@ -238,21 +336,8 @@ function Variant3({
           <p className="text-xl text-gray-300 mb-8">{date}</p>
 
           {/* Condition Cards */}
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            <div className="bg-gray-900 border border-cyan-400/30 rounded-lg p-6">
-              <div className="flex items-center gap-2 text-cyan-400 mb-2">
-                <WavesIcon className="w-5 h-5" />
-                <span className="text-sm font-medium">Wave Height</span>
-              </div>
-              <p className="text-2xl font-bold">{waveHeight}</p>
-            </div>
-            <div className="bg-gray-900 border border-cyan-400/30 rounded-lg p-6">
-              <div className="flex items-center gap-2 text-cyan-400 mb-2">
-                <WindIcon className="w-5 h-5" />
-                <span className="text-sm font-medium">Wind</span>
-              </div>
-              <p className="text-2xl font-bold">{wind}</p>
-            </div>
+          <div className="mb-8">
+            <ConditionCards waveHeight={waveHeight} wind={wind} style="minimal-dark" />
           </div>
 
           {/* Rating */}
@@ -267,9 +352,7 @@ function Variant3({
           )}
 
           {/* CTA */}
-          <div className="mt-8 bg-cyan-400 text-black py-3 px-6 rounded-lg text-center font-bold">
-            Track your sessions at quiversurf.app
-          </div>
+          <CTAButton style="cyan" className="mt-8" />
         </div>
       </div>
     </div>
@@ -284,13 +367,7 @@ function Variant4({
   session,
   aspectRatio,
 }: SurfSessionCardProps) {
-  const beachName = session.beaches?.name || "Unknown Beach";
-  const date = format(new Date(session.arrival_time), "MMM d, yyyy");
-  const rating = session.rating || 0;
-  const waveHeight = "4-6 ft";
-  const wind = "5-10 mph";
-  const notes = session.notes || session.description || "Perfect morning session! Glassy conditions with consistent sets. Caught some amazing rides on the point break.";
-
+  const { beachName, date, rating, waveHeight, wind, notes } = useSessionData(session);
   const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio];
 
   return (
@@ -316,15 +393,8 @@ function Variant4({
             <p className="text-xl mb-8 drop-shadow">{date}</p>
 
             {/* Condition Cards */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-white/30 backdrop-blur-sm rounded-2xl p-5 border border-white/40">
-                <p className="text-sm opacity-90 mb-1">Waves</p>
-                <p className="text-2xl font-bold">{waveHeight}</p>
-              </div>
-              <div className="bg-white/30 backdrop-blur-sm rounded-2xl p-5 border border-white/40">
-                <p className="text-sm opacity-90 mb-1">Wind</p>
-                <p className="text-2xl font-bold">{wind}</p>
-              </div>
+            <div className="mb-6">
+              <ConditionCards waveHeight={waveHeight} wind={wind} style="glass" />
             </div>
 
             {aspectRatio !== "1:1" && (
@@ -333,9 +403,7 @@ function Variant4({
           </div>
 
           {/* CTA */}
-          <div className="mt-6 bg-white text-blue-600 py-3 px-6 rounded-2xl text-center font-bold shadow-xl">
-            Track your sessions at quiversurf.app
-          </div>
+          <CTAButton style="blue" className="mt-6" />
         </div>
       </div>
     </div>
@@ -350,13 +418,7 @@ function Variant5({
   session,
   aspectRatio,
 }: SurfSessionCardProps) {
-  const beachName = session.beaches?.name || "Unknown Beach";
-  const date = format(new Date(session.arrival_time), "MMM d, yyyy");
-  const rating = session.rating || 0;
-  const waveHeight = "4-6 ft";
-  const wind = "5-10 mph";
-  const notes = session.notes || session.description || "Perfect morning session! Glassy conditions with consistent sets. Caught some amazing rides on the point break.";
-
+  const { beachName, date, rating, waveHeight, wind, notes } = useSessionData(session);
   const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio];
 
   return (
@@ -382,15 +444,8 @@ function Variant5({
         </div>
 
         {/* Conditions Grid */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="border-4 border-black p-5">
-            <p className="text-sm font-bold mb-1 uppercase tracking-wide">Waves</p>
-            <p className="text-3xl font-black">{waveHeight}</p>
-          </div>
-          <div className="border-4 border-black p-5">
-            <p className="text-sm font-bold mb-1 uppercase tracking-wide">Wind</p>
-            <p className="text-3xl font-black">{wind}</p>
-          </div>
+        <div className="mb-6">
+          <ConditionCards waveHeight={waveHeight} wind={wind} style="bold-grid" />
         </div>
 
         {/* Notes */}
@@ -401,9 +456,7 @@ function Variant5({
         )}
 
         {/* CTA */}
-        <div className="mt-auto border-4 border-black bg-black text-white py-3 px-6 text-center font-black uppercase tracking-wide">
-          Track your sessions at quiversurf.app
-        </div>
+        <CTAButton style="bold-black" className="mt-auto" />
       </div>
     </div>
   );
@@ -418,13 +471,7 @@ function Variant6({
   aspectRatio,
   backgroundImage,
 }: SurfSessionCardProps) {
-  const beachName = session.beaches?.name || "Unknown Beach";
-  const date = format(new Date(session.arrival_time), "MMM d, yyyy");
-  const rating = session.rating || 0;
-  const waveHeight = "4-6 ft";
-  const wind = "5-10 mph";
-  const notes = session.notes || session.description || "Perfect morning session! Glassy conditions with consistent sets. Caught some amazing rides on the point break.";
-
+  const { beachName, date, rating, waveHeight, wind, notes } = useSessionData(session);
   const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio];
 
   return (
@@ -477,9 +524,7 @@ function Variant6({
           )}
 
           {/* CTA */}
-          <div className="bg-black text-white py-3 px-6 rounded-xl text-center font-semibold">
-            Track your sessions at quiversurf.app
-          </div>
+          <CTAButton style="rounded-xl" />
         </div>
       </div>
     </div>

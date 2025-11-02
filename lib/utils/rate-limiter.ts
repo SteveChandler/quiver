@@ -221,76 +221,69 @@ export function createRateLimiter(
   return new RateLimiter(name, config);
 }
 
-// Singleton rate limiters for specific services
-class CDIPRateLimiterSingleton {
-  private static instance: RateLimiter | null = null;
-
-  private static getInstance(): RateLimiter {
-    if (!this.instance) {
-      this.instance = new RateLimiter("CDIP", {
-        requestsPerMinute: 60, // CDIP allows 60 requests per minute
-        requestsPerHour: 3000, // Conservative hourly limit
-        burstLimit: 10, // Allow small bursts
-      });
-    }
-    return this.instance;
-  }
-
-  static canMakeRequest(): boolean {
-    return this.getInstance().canMakeRequest();
-  }
-
-  static recordRequest(endpoint?: string): void {
-    this.getInstance().recordRequest(endpoint);
-  }
-
-  static getTimeUntilReset(): number {
-    return this.getInstance().getTimeUntilReset();
-  }
-
-  static getStatus(): RateLimitStatus {
-    return this.getInstance().getStatus();
-  }
+/**
+ * Generic singleton wrapper interface for rate limiters
+ */
+export interface RateLimiterSingleton {
+  canMakeRequest(): boolean;
+  recordRequest(endpoint?: string): void;
+  getTimeUntilReset(): number;
+  getStatus(): RateLimitStatus;
 }
 
-class NOAARateLimiterSingleton {
-  private static instance: RateLimiter | null = null;
+/**
+ * Creates a singleton wrapper for a rate limiter with the specified configuration.
+ * This eliminates code duplication by providing a generic factory function.
+ *
+ * @param name - The name of the service for logging
+ * @param config - Rate limiter configuration
+ * @returns A singleton wrapper object with static-like methods
+ */
+function createRateLimiterSingleton(
+  name: string,
+  config: RateLimiterConfig
+): RateLimiterSingleton {
+  let instance: RateLimiter | null = null;
 
-  private static getInstance(): RateLimiter {
-    if (!this.instance) {
-      this.instance = new RateLimiter("NOAA", {
-        requestsPerMinute: 300, // NOAA is more generous
-        requestsPerHour: 10000, // High hourly limit
-        burstLimit: 20, // Allow larger bursts
-      });
+  const getInstance = (): RateLimiter => {
+    if (!instance) {
+      instance = new RateLimiter(name, config);
     }
-    return this.instance;
-  }
+    return instance;
+  };
 
-  static canMakeRequest(): boolean {
-    return this.getInstance().canMakeRequest();
-  }
-
-  static recordRequest(endpoint?: string): void {
-    this.getInstance().recordRequest(endpoint);
-  }
-
-  static getTimeUntilReset(): number {
-    return this.getInstance().getTimeUntilReset();
-  }
-
-  static getStatus(): RateLimitStatus {
-    return this.getInstance().getStatus();
-  }
+  return {
+    canMakeRequest(): boolean {
+      return getInstance().canMakeRequest();
+    },
+    recordRequest(endpoint?: string): void {
+      getInstance().recordRequest(endpoint);
+    },
+    getTimeUntilReset(): number {
+      return getInstance().getTimeUntilReset();
+    },
+    getStatus(): RateLimitStatus {
+      return getInstance().getStatus();
+    },
+  };
 }
 
-// Export singleton instances
-export const CDIPRateLimiter = CDIPRateLimiterSingleton;
-export const NOAARateLimiter = NOAARateLimiterSingleton;
+// Service-specific singleton rate limiters
+export const CDIPRateLimiter = createRateLimiterSingleton("CDIP", {
+  requestsPerMinute: 60, // CDIP allows 60 requests per minute
+  requestsPerHour: 3000, // Conservative hourly limit
+  burstLimit: 10, // Allow small bursts
+});
+
+export const NOAARateLimiter = createRateLimiterSingleton("NOAA", {
+  requestsPerMinute: 300, // NOAA is more generous
+  requestsPerHour: 10000, // High hourly limit
+  burstLimit: 20, // Allow larger bursts
+});
 
 // Utility function to wait for rate limit reset
 export async function waitForRateLimit(
-  rateLimiter: RateLimiter | typeof CDIPRateLimiter | typeof NOAARateLimiter
+  rateLimiter: RateLimiter | RateLimiterSingleton
 ): Promise<void> {
   if (rateLimiter.canMakeRequest()) {
     return;

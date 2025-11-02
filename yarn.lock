@@ -4620,7 +4620,7 @@
     "@sentry/utils" "7.120.4"
     localforage "^1.8.1"
 
-"@sentry/nextjs@^10.22.0":
+"@sentry/nextjs@^10":
   version "10.22.0"
   resolved "https://registry.yarnpkg.com/@sentry/nextjs/-/nextjs-10.22.0.tgz#7d2db2fa27b468d6803219221c044b93073ee4fd"
   integrity sha512-9Np176cDMLTl98QRqESe6STyaQ0SKiWTDRdF3GPYPEB9s4t5Qz2zZJ9A40Fz3fZ33kW4Z/qscDx3WpCwFLe5Bg==
