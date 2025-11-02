@@ -36,7 +36,9 @@ import {
   triggerNativeShare,
   isWebShareAvailable,
   copyShareUrl,
+  mapVariantToSignedParams,
 } from "@/lib/share/share-url-builder";
+import { generateShareImageUrl } from "@/actions/social-share-actions";
 import {
   trackShare,
   trackSharePlatformSelected,
@@ -106,17 +108,9 @@ async function executePlatformShare(
   surface: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const shareData = buildPlatformShareUrl(
-      platform,
-      session,
-      sessionId,
-      variant,
-      aspectRatio
-    );
-
     switch (platform) {
       case "instagram": {
-        // Download image for Instagram
+        // Download image for Instagram using signed URL
         trackDownloadStarted({
           sessionId,
           variant,
@@ -124,8 +118,14 @@ async function executePlatformShare(
           surface,
         });
 
+        // Map variant and aspect ratio to signed params
+        const { variant: stringVariant, ratio } = mapVariantToSignedParams(variant, aspectRatio);
+
+        // Generate signed image URL
+        const imageUrl = await generateShareImageUrl(sessionId, stringVariant, ratio);
+
         const filename = buildImageFilename(session, variant, aspectRatio);
-        const success = await downloadImage(shareData.url, filename);
+        const success = await downloadImage(imageUrl, filename);
 
         if (!success) {
           throw new Error("Failed to download image");
@@ -144,7 +144,7 @@ async function executePlatformShare(
           userId,
           variant,
           aspectRatio,
-          shareUrl: shareData.url,
+          shareUrl: imageUrl,
           surface,
         });
 
@@ -160,13 +160,22 @@ async function executePlatformShare(
           success: true,
           data: {
             message: "Image downloaded!",
-            description: shareData.tooltip || "Share to Instagram Stories and add a link sticker",
+            description: "Share to Instagram Stories and add a link sticker",
           },
         };
       }
 
       case "x":
       case "facebook": {
+        // Build platform-specific share URL for X/Facebook
+        const shareData = buildPlatformShareUrl(
+          platform,
+          session,
+          sessionId,
+          variant,
+          aspectRatio
+        );
+
         // Open share URL
         openShareUrl(shareData.url);
 
@@ -192,7 +201,7 @@ async function executePlatformShare(
       }
 
       case "download": {
-        // Download image
+        // Download image using signed URL
         trackDownloadStarted({
           sessionId,
           variant,
@@ -200,8 +209,14 @@ async function executePlatformShare(
           surface,
         });
 
+        // Map variant and aspect ratio to signed params
+        const { variant: stringVariant, ratio } = mapVariantToSignedParams(variant, aspectRatio);
+
+        // Generate signed image URL
+        const imageUrl = await generateShareImageUrl(sessionId, stringVariant, ratio);
+
         const filename = buildImageFilename(session, variant, aspectRatio);
-        const success = await downloadImage(shareData.url, filename);
+        const success = await downloadImage(imageUrl, filename);
 
         if (!success) {
           throw new Error("Failed to download image");
@@ -220,7 +235,7 @@ async function executePlatformShare(
           userId,
           variant,
           aspectRatio,
-          shareUrl: shareData.url,
+          shareUrl: imageUrl,
           surface,
         });
 
@@ -242,6 +257,15 @@ async function executePlatformShare(
       }
 
       case "generic": {
+        // Build generic share URL
+        const shareData = buildPlatformShareUrl(
+          platform,
+          session,
+          sessionId,
+          variant,
+          aspectRatio
+        );
+
         // Try native share first
         if (isWebShareAvailable()) {
           const nativeSuccess = await triggerNativeShare(session, sessionId);

@@ -15,6 +15,24 @@ function getBaseUrl(): string {
 }
 
 /**
+ * Map numeric ShareVariant (1-6) and AspectRatio to string variant for HMAC-signed endpoint
+ * This provides compatibility between the old authenticated endpoint and new signed endpoint
+ */
+export function mapVariantToSignedParams(
+  variant: ShareVariant,
+  aspectRatio: AspectRatio
+): { variant: "story" | "square"; ratio: AspectRatio } {
+  // Map based on aspect ratio primarily, as that determines the actual dimensions
+  // variant parameter becomes the string variant for the signed endpoint
+  const stringVariant = aspectRatio === "9:16" ? "story" : "square";
+
+  return {
+    variant: stringVariant,
+    ratio: aspectRatio,
+  };
+}
+
+/**
  * Build share page URL for a session
  */
 export function buildSharePageUrl(sessionId: string): string {
