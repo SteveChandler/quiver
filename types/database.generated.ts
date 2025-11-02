@@ -1,6 +1,3 @@
-WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID
-WARN: environment variable is unset: SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET
-Connecting to db 5432
 export type Json =
   | string
   | number
@@ -2185,6 +2182,7 @@ export type Database = {
       }
       session_shares: {
         Row: {
+          aspect_ratio: string | null
           created_at: string
           id: string
           platform: string
@@ -2195,6 +2193,7 @@ export type Database = {
           variant: string | null
         }
         Insert: {
+          aspect_ratio?: string | null
           created_at?: string
           id?: string
           platform: string
@@ -2205,6 +2204,7 @@ export type Database = {
           variant?: string | null
         }
         Update: {
+          aspect_ratio?: string | null
           created_at?: string
           id?: string
           platform?: string
@@ -3597,13 +3597,13 @@ export type Database = {
           lat: number
           lon: number
           name: string
-          offshore_deg: number
+          preferred_tide_ft_max: number
+          preferred_tide_ft_min: number
           swell_window_center_deg: number
           swell_window_halfwidth_deg: number
-          tide_max_ft: number
-          tide_min_ft: number
-          wind_cross_ok_kts: number
-          wind_onshore_bad_kts: number
+          wind_cross_shore_ok_kt: number
+          wind_offshore_deg: number
+          wind_onshore_bad_kt: number
         }[]
       }
       get_best_times: {
@@ -3780,6 +3780,10 @@ export type Database = {
         Returns: number
       }
       gettransactionid: { Args: never; Returns: unknown }
+      increment_session_share_count: {
+        Args: { session_id: string }
+        Returns: undefined
+      }
       is_admin_user: { Args: never; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }
       nightly_forecast_maintenance: { Args: never; Returns: Json }

@@ -14,8 +14,10 @@ const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, "..");
 const outDir = path.join(root, "public", "fonts");
 
-// Reliable sources: use Noto Sans from googlefonts repo (raw URLs stable)
+// Reliable sources: use fonts from official Google Fonts repos (raw URLs stable)
+// All fonts required for Satori rendering of session share card variants 1-6
 const FILES = [
+  // NotoSans - Required for all variants
   {
     url: "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
     dest: path.join(outDir, "NotoSans", "NotoSans-Regular.ttf"),
@@ -23,6 +25,40 @@ const FILES = [
   {
     url: "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf",
     dest: path.join(outDir, "NotoSans", "NotoSans-Bold.ttf"),
+  },
+  // Roboto - Used in various variants
+  {
+    url: "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf",
+    dest: path.join(outDir, "Roboto", "Roboto-Regular.ttf"),
+  },
+  {
+    url: "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf",
+    dest: path.join(outDir, "Roboto", "Roboto-Bold.ttf"),
+  },
+  // Open Sans - Used in various variants
+  {
+    url: "https://github.com/googlefonts/opensans/raw/main/fonts/ttf/OpenSans-Regular.ttf",
+    dest: path.join(outDir, "OpenSans", "OpenSans-Regular.ttf"),
+  },
+  {
+    url: "https://github.com/googlefonts/opensans/raw/main/fonts/ttf/OpenSans-SemiBold.ttf",
+    dest: path.join(outDir, "OpenSans", "OpenSans-SemiBold.ttf"),
+  },
+  // Montserrat - Used in variant designs
+  {
+    url: "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-SemiBold.ttf",
+    dest: path.join(outDir, "Montserrat", "Montserrat-SemiBold.ttf"),
+  },
+  // Inter - Modern sans-serif for clean variants
+  // Note: Using WOFF2 format (Satori supports both TTF and WOFF2)
+  // TODO: Convert to TTF for optimal Satori compatibility
+  {
+    url: "https://unpkg.com/@fontsource/inter@5.0.16/files/inter-latin-400-normal.woff2",
+    dest: path.join(outDir, "Inter", "Inter-Regular.woff2"),
+  },
+  {
+    url: "https://unpkg.com/@fontsource/inter@5.0.16/files/inter-latin-700-normal.woff2",
+    dest: path.join(outDir, "Inter", "Inter-Bold.woff2"),
   },
 ];
 

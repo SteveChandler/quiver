@@ -218,16 +218,20 @@ describe("Social Share Utils", () => {
     });
 
     it("should filter out failed font loads", async () => {
+      // Font loading order matches CANDIDATE_FONTS:
+      // 1. Noto Sans Regular (succeeds)
+      // 2. Noto Sans Bold (fails)
+      // 3. Roboto Regular (succeeds)
       mockReadFile
-        .mockResolvedValueOnce(Buffer.from("roboto data"))
+        .mockResolvedValueOnce(Buffer.from("noto sans regular data"))
         .mockRejectedValueOnce(new Error("Font not found"))
-        .mockResolvedValueOnce(Buffer.from("opensans data"));
+        .mockResolvedValueOnce(Buffer.from("roboto regular data"));
 
       const fonts = await loadFonts();
 
       expect(fonts.length).toBe(2);
       const names = fonts.map((f) => f.name);
-      expect(names).toEqual(expect.arrayContaining(["Roboto", "Open Sans"]));
+      expect(names).toEqual(expect.arrayContaining(["Noto Sans", "Roboto"]));
     });
   });
 

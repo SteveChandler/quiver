@@ -1,6 +1,7 @@
 # Quiver Surf App Dependencies
-# NOTE: This is for reference only. For Node.js projects, use: npm install
-# The actual dependencies are managed in package.json and package-lock.json
+# NOTE: This is for reference only. For Node.js projects, install with Yarn:
+#   yarn install --frozen-lockfile
+# The actual dependencies are managed in package.json and yarn.lock
 
 # =============================================================================
 # CORE FRAMEWORK & RUNTIME
@@ -126,15 +127,15 @@ ts-node@^10.9.2
 #
 # For Node.js projects, use these commands instead:
 #
-# npm install                    # Install all dependencies
-# npm ci                         # Clean install (production)
-# npm install --only=dev         # Install only dev dependencies
-# npm install --only=prod        # Install only production dependencies
+# yarn install --frozen-lockfile # Install all dependencies
+# yarn install                   # Install (skips lockfile verification)
+# yarn add <package>             # Add a dependency
+# yarn remove <package>          # Remove a dependency
 #
 # To recreate this environment:
-# 1. Ensure Node.js 18+ is installed
-# 2. Run: npm install
+# 1. Ensure Node.js 20.18+ is installed
+# 2. Run: yarn install --frozen-lockfile
 # 3. Copy environment variables from .env.example to .env.local
-# 4. Run: npm run dev
+# 4. Run: yarn dev
 #
-# ============================================================================= 
+# =============================================================================

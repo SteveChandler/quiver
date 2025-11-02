@@ -26,7 +26,7 @@ Stale Next.js build cache conflicting with recent code changes, particularly sch
 **Resolution:**
 1. Stop the development server (`Ctrl+C`)
 2. Clear the Next.js cache: `rm -rf .next`
-3. Restart the development server: `npm run dev`
+3. Restart the development server: `yarn dev`
 
 **Prevention:**
 - Clear cache after major schema changes
@@ -41,7 +41,7 @@ Stale Next.js build cache conflicting with recent code changes, particularly sch
 
 **Resolution:**
 1. Kill processes using the port: `lsof -ti:3000 | xargs kill`
-2. Or use a specific port: `PORT=3000 npm run dev`
+2. Or use a specific port: `PORT=3000 yarn dev`
 
 ---
 
@@ -177,8 +177,8 @@ Running TypeScript compiler directly instead of through Next.js build system.
 Use Next.js build commands instead:
 ```bash
 # ✅ Use these
-npm run build
-npm run dev
+yarn build
+yarn dev
 
 # ❌ Don't use these directly
 npx tsc --noEmit
@@ -258,7 +258,7 @@ Always use `instagram` (not `instagram_username`) throughout the codebase:
 
 When experiencing unexplained errors:
 1. Clear Next.js cache: `rm -rf .next`
-2. Clear node modules: `rm -rf node_modules && npm install`
+2. Clear node modules: `rm -rf node_modules && yarn install --frozen-lockfile`
 3. Clear browser cache and localStorage
 
 ### 3. Server Action Patterns
@@ -319,7 +319,7 @@ const [loading, setLoading] = useState(true);
 When reporting issues, include:
 
 1. **Error Messages**: Full error text and stack traces
-2. **Environment**: Node version, npm version, browser
+2. **Environment**: Node version, Yarn version, browser
 3. **Steps to Reproduce**: Minimal reproduction steps
 4. **Expected vs Actual**: What should happen vs what happens
 5. **Recent Changes**: Code changes made before issue appeared
@@ -338,7 +338,7 @@ Use these tools:
 - React DevTools Profiler
 - Chrome DevTools Performance tab
 - Lighthouse audits
-- Bundle analyzer: `npm run analyze`
+- Bundle analyzer: `yarn analyze`
 
 ---
 
@@ -356,10 +356,10 @@ npx supabase db reset
 rm -rf .next
 
 # 3. Reinstall dependencies
-rm -rf node_modules && npm install
+rm -rf node_modules && yarn install --frozen-lockfile
 
 # 4. Restart server
-npm run dev
+yarn dev
 ```
 
 ### Quick Test Environment Reset
@@ -374,7 +374,7 @@ npx jest --clearCache
 npx playwright install
 
 # 3. Run tests with clean state
-npm run test:clean
+yarn test:clean
 ```
 
 This guide should help diagnose and resolve common development issues in the Quiver codebase.

@@ -36,7 +36,7 @@ supabase db push
 Ensure `ts-node` is installed:
 
 ```bash
-npm install  # ts-node is now included in devDependencies
+yarn install --frozen-lockfile  # ts-node is included in devDependencies
 ```
 
 ## Usage
@@ -44,7 +44,7 @@ npm install  # ts-node is now included in devDependencies
 ### Run the Seeding Script
 
 ```bash
-npm run seed:prod-mock-users
+yarn seed:prod-mock-users
 ```
 
 ### Expected Output

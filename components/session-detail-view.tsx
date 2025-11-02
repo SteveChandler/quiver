@@ -15,7 +15,6 @@ import {
   Edit,
   Trash2,
   Loader2,
-  Share2,
   CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
@@ -41,12 +40,8 @@ import { SessionComments } from "@/components/session-comments";
 import dynamic from "next/dynamic";
 import { MapImage } from "@/components/map-image";
 import { getSessionMapImageUrl } from "@/lib/utils/session-utils";
-import { ShareModal } from "@/components/share-modal";
+import { ShareBar } from "@/components/share/ShareBar";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useToast } from "@/hooks/use-toast";
-import type { ShareFallbackContext } from "@/lib/mobile/share";
-import { shareSession } from "@/lib/mobile/share";
-import { isNativeApp } from "@/lib/mobile/platform";
 import type { SessionPhoto } from "@/lib/supabase/storage";
 
 // Dynamically import SessionPhotoGallery to avoid SSR issues
@@ -75,9 +70,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
   const [deleting, setDeleting] = useState(false);
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const isMobile = useIsMobile();
-  const { toast } = useToast();
 
   useEffect(() => {
     async function loadSession() {
@@ -141,41 +134,9 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     }
   };
 
-  const handleShareClick = useCallback(async () => {
-    if (!session) return;
-
-    const shareText = session.notes
-      ? `${session.notes.slice(0, 140)}${session.notes.length > 140 ? "…" : ""}`
-      : "Catch this Quiver session!";
-
-    const result = await shareSession(session.id, {
-      title: session.beach?.name
-        ? `Session at ${session.beach.name}`
-        : "Quiver session",
-      text: shareText,
-      analytics: {
-        surface: "session_detail",
-        sessionId: session.id,
-        beachId: session.beach?.id,
-        variant: session.status,
-      },
-      fallback: ({ reason, channel, error }: ShareFallbackContext) => {
-        const message =
-          reason === "unsupported" ? "Share sheet unavailable" : "Share failed";
-
-        toast({
-          title: message,
-          description:
-            error || `Opening social poster instead (from ${channel} share).`,
-        });
-        setShareOpen(true);
-      },
-    });
-
-    if (result.method === "unsupported") {
-      setShareOpen(true);
-    }
-  }, [session, toast]);
+  const handleSessionUpdated = useCallback((updatedSession: SessionWithDetails) => {
+    setSession(updatedSession);
+  }, []);
 
   if (loading) {
     return (
@@ -477,13 +438,17 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           </div>
         </div>
 
-        {/* Share CTA under header/hero */}
+        {/* Share Bar */}
         {session && (
-          <div className="flex justify-end mb-4">
-            <Button onClick={handleShareClick} data-testid="share-button">
-              <Share2 className="mr-2 h-4 w-4" /> Share
-            </Button>
-          </div>
+          <ShareBar
+            session={session}
+            sessionId={session.id}
+            surface="session_detail"
+            defaultVariant={isMobile ? 4 : 1}
+            defaultRatio={isMobile ? "9:16" : "1:1"}
+            className="mb-4"
+            onSessionUpdated={handleSessionUpdated}
+          />
         )}
 
         {/* Session Photos */}
@@ -510,20 +475,6 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           </CardContent>
         </Card>
       </main>
-      {/* Share Modal */}
-      {session && (
-        <ShareModal
-          sessionId={session.id}
-          defaultVariant={isMobile ? "story" : "square"}
-          isPublic={session.is_public}
-          open={shareOpen}
-          onClose={() => setShareOpen(false)}
-          onMadePublic={() => {
-            // reflect locally
-            setSession({ ...session, is_public: true } as any);
-          }}
-        />
-      )}
     </div>
   );
 }
