@@ -43,6 +43,7 @@ import { getSessionMapImageUrl } from "@/lib/utils/session-utils";
 import { ShareBar } from "@/components/share/ShareBar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { SessionPhoto } from "@/lib/supabase/storage";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 // Dynamically import SessionPhotoGallery to avoid SSR issues
 const SessionPhotoGallery = dynamic(
@@ -330,7 +331,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-1 text-muted-foreground">
               <MapPin className="h-4 w-4" />
-              <span>{session.beach?.location || "Unknown Location"}</span>
+              <span>{session.beach ? getBeachLocation(session.beach) : "Unknown Location"}</span>
             </div>
             <div className="flex items-center gap-1 text-muted-foreground">
               <Calendar className="h-4 w-4" />
