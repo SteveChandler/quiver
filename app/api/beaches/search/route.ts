@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     if (!query) {
       // Empty query - return empty results with cache
-      return createPaginatedResponse(
+      return await createPaginatedResponse(
         [],
         createPaginationMeta(page, limit, 0),
         CacheDuration.MEDIUM
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const meta = createPaginationMeta(page, limit, total);
 
     // Return paginated results with 5min cache + SWR
-    return createPaginatedResponse(
+    return await createPaginatedResponse(
       paginatedResults,
       meta,
       CacheDuration.MEDIUM

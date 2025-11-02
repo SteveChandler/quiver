@@ -1,5 +1,3 @@
-import crypto from 'crypto';
-
 /**
  * Cache header utilities for API response optimization
  *
@@ -71,15 +69,22 @@ export function generateCacheControl(
  * Creates a hash of the response data to enable 304 Not Modified responses
  * when the content hasn't changed.
  *
+ * Uses Web Crypto API (available in Node.js 18+, Edge Runtime, and browsers).
+ *
  * @param data - Response data to hash (will be JSON stringified)
- * @returns ETag string (MD5 hash)
+ * @returns ETag string (SHA-256 hash)
  */
-export function generateETag(data: any): string {
+export async function generateETag(data: any): Promise<string> {
   const jsonString = JSON.stringify(data);
-  return crypto
-    .createHash('md5')
-    .update(jsonString)
-    .digest('hex');
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(jsonString);
+
+  // Use Web Crypto API - available in Node.js 18+, Edge Runtime, and browsers
+  // globalThis.crypto is available in all modern JavaScript runtimes
+  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', dataBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -89,10 +94,10 @@ export function generateETag(data: any): string {
  * @param currentData - Current response data
  * @returns true if ETags match (data unchanged)
  */
-export function isETagMatch(requestETag: string | null, currentData: any): boolean {
+export async function isETagMatch(requestETag: string | null, currentData: any): Promise<boolean> {
   if (!requestETag) return false;
 
-  const currentETag = generateETag(currentData);
+  const currentETag = await generateETag(currentData);
   // Handle weak ETags (W/"...") and strong ETags
   const normalizedRequestETag = requestETag.replace(/^W\//, '').replace(/"/g, '');
 
