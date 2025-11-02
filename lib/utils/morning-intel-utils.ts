@@ -1,6 +1,9 @@
 /**
  * Morning Intel Utilities
  * Helper functions for analyzing and formatting surf conditions
+ *
+ * NOTE: This file is being refactored into focused modules.
+ * Formatting functions have been extracted to lib/formatters/intel-formatter.ts
  */
 
 import { format, parseISO } from "date-fns";
@@ -16,6 +19,13 @@ import type {
   ConditionEvaluation,
   ConditionsAnalysis,
 } from "@/types/morning-intel";
+
+// Re-export formatting functions for backward compatibility
+export {
+  getWaveHeightDescription,
+  deriveSurfRange,
+  renderIntelMarkdown,
+} from "@/lib/formatters/intel-formatter";
 
 const FEET_TO_METERS = 0.3048;
 const METERS_TO_FEET = 3.28084;
@@ -38,18 +48,6 @@ function normalizeTideDirection(status: string | null | undefined): TideDirectio
     return normalized as TideDirection;
   }
   return "slack";
-}
-
-/**
- * Convert wave height description to readable format
- */
-function getWaveHeightDescription(avgHeight: number): string {
-  if (avgHeight < 1) return "Knee-high";
-  if (avgHeight < 2) return "Waist-high";
-  if (avgHeight < 3.5) return "Chest-high";
-  if (avgHeight < 5) return "Head-high";
-  if (avgHeight < 7) return "Overhead";
-  return "Double overhead+";
 }
 
 /**
@@ -113,30 +111,7 @@ export function recommendTideWindow(
   };
 }
 
-/**
- * Derive surf range from forecast data
- */
-export function deriveSurfRange(
-  forecasts: ForecastSlice["forecasts"]
-): SurfMetrics {
-  const waveHeights = forecasts
-    .map((f) => f.wave_height || f.swell_height || null)
-    .filter((h): h is number => h !== null);
-
-  if (waveHeights.length === 0) {
-    return { min: 0, max: 0, dominant: "N/A" };
-  }
-
-  const min = Math.min(...waveHeights);
-  const max = Math.max(...waveHeights);
-  const avg = waveHeights.reduce((a, b) => a + b, 0) / waveHeights.length;
-
-  return {
-    min: Math.round(min * 10) / 10,
-    max: Math.round(max * 10) / 10,
-    dominant: getWaveHeightDescription(avg),
-  };
-}
+// Surf range derivation moved to IntelFormatter module
 
 /**
  * Get tide metrics at a specific time
@@ -850,74 +825,4 @@ export function analyzeConditions(
   };
 }
 
-/**
- * Render Markdown body for intel post
- */
-export function renderIntelMarkdown(data: MorningIntelData): string {
-  const {
-    spotName,
-    time,
-    surf,
-    tide,
-    swells,
-    wind,
-    bestWindow,
-    confidence,
-    notes,
-    conditions,
-    beachPreferences,
-  } = data;
-
-  const tideDirection =
-    tide.direction === "rising"
-      ? "rising"
-      : tide.direction === "falling"
-      ? "falling"
-      : "slack";
-
-  const tideNext = tide.nextEvent
-    ? `next ${tide.nextEvent.type} ${tide.nextEvent.height} ft @ ${tide.nextEvent.time}`
-    : "N/A";
-
-  const primarySwell = swells.primary
-    ? `${swells.primary.height} ft @ ${swells.primary.period}s from ${swells.primary.cardinal} (${swells.primary.direction}°)`
-    : "N/A";
-
-  const secondarySwell = swells.secondary
-    ? `${swells.secondary.height} ft @ ${swells.secondary.period}s from ${swells.secondary.cardinal} (${swells.secondary.direction}°)`
-    : "N/A";
-
-  // Build conditions section if available
-  let conditionsSection = "";
-  if (conditions && beachPreferences) {
-    conditionsSection = `
-📊 **CONDITIONS SCORE: ${conditions.score}/10**
-
-${conditions.swell.emoji} **Swell Direction:** ${conditions.swell.message}
-${conditions.wind.emoji} **Wind:** ${conditions.wind.message}
-${conditions.tide.emoji} **Tide:** ${conditions.tide.message}`;
-
-    if (beachPreferences.skillLevel) {
-      conditionsSection += `\n🏄 **Skill Level:** ${beachPreferences.skillLevel}`;
-    }
-
-    if (beachPreferences.hazards && beachPreferences.hazards.length > 0) {
-      conditionsSection += `\n\n⚠️ **HAZARDS:** ${beachPreferences.hazards.join(", ")}`;
-    }
-
-    conditionsSection += "\n";
-  }
-
-  return `**${spotName} — Morning Surf Intel (${time})**
-${conditionsSection}
-- **Surf:** ${surf.min}–${surf.max} ft (${surf.dominant})
-- **Tide @ ${time}:** ${tide.height} ft, ${tideDirection} (${tideNext})
-- **Swell:**
-  - Primary: ${primarySwell}
-  - Secondary: ${secondarySwell}
-- **Wind:** ${wind.speed} mph ${wind.cardinal} (${wind.direction}°) — ${wind.description}
-- **Best Window:** ${bestWindow}
-- **Confidence:** ${confidence}
-
-**Notes:** ${notes || "Standard morning conditions"}`;
-}
+// Intel markdown rendering moved to IntelFormatter module
