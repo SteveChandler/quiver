@@ -65,12 +65,15 @@ async function globalSetup(config: FullConfig) {
 
       console.log('[Global Setup] Not authenticated, attempting login...');
 
-      // Look for login button
+      // Wait for login button to appear (React app needs time to complete auth check)
+      console.log('[Global Setup] Waiting for login button to appear...');
       const loginButton = page.getByRole('button', { name: /log in/i });
-      const isVisible = await loginButton.isVisible().catch(() => false);
 
-      if (!isVisible) {
-        throw new Error('Login button not found on page');
+      try {
+        await loginButton.waitFor({ state: 'visible', timeout: 15000 });
+        console.log('[Global Setup] Login button found');
+      } catch (error) {
+        throw new Error('Login button not found after 15 seconds. Page may still be checking authentication.');
       }
 
       await loginButton.click();

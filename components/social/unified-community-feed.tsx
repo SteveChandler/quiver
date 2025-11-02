@@ -1,24 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { UserAvatar } from "@/components/user-avatar";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { LoadingStates } from "@/lib/utils/loading-utils";
 import { UserProfileModal } from "@/components/social/user-profile-modal";
 import { useActivityFeed } from "@/hooks/use-activity-feed";
-import { formatDistanceToNow } from "date-fns";
-import {
-  Waves,
-  Star,
-  Users,
-  MessageSquare,
-  RefreshCw,
-  UserPlus,
-  Activity,
-} from "lucide-react";
-import Link from "next/link";
+import { ActivityItem, getActivityLink } from "@/components/social/activity";
+import { RefreshCw, Activity } from "lucide-react";
 import type { ActivityFeedItem, SessionWithDetails } from "@/types/database";
 
 interface UnifiedCommunityFeedProps {
@@ -102,155 +91,6 @@ export function UnifiedCommunityFeed({
     setProfileModalOpen(true);
   };
 
-  const renderActivityIcon = (activityType: string) => {
-    switch (activityType) {
-      case "session_logged":
-      case "session_completed":
-        return <Waves className="h-4 w-4 text-blue-500" />;
-      case "beach_reviewed":
-        return <Star className="h-4 w-4 text-yellow-500" />;
-      case "user_followed":
-        return <UserPlus className="h-4 w-4 text-green-500" />;
-      case "session_liked":
-        return <MessageSquare className="h-4 w-4 text-red-500" />;
-      default:
-        return <Users className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const renderActivityText = (activity: ActivityFeedItem) => {
-    const userName = activity.user_name || "Someone";
-    const metadata = activity.metadata || {};
-
-    switch (activity.activity_type) {
-      case "session_logged":
-        return (
-          <span>
-            <button
-              className="font-medium hover:underline text-primary"
-              onClick={(e) => handleUserClick(activity.user_id, e)}
-            >
-              {userName}
-            </button>{" "}
-            logged a surf session at{" "}
-            <strong>{metadata.beach_name || "a beach"}</strong>
-          </span>
-        );
-      case "session_completed":
-        return (
-          <span>
-            <button
-              className="font-medium hover:underline text-primary"
-              onClick={(e) => handleUserClick(activity.user_id, e)}
-            >
-              {userName}
-            </button>{" "}
-            completed a surf session at{" "}
-            <strong>{metadata.beach_name || "a beach"}</strong>
-            {metadata.rating && (
-              <span> and rated it {metadata.rating}/5 stars</span>
-            )}
-          </span>
-        );
-      case "beach_reviewed":
-        return (
-          <span>
-            <button
-              className="font-medium hover:underline text-primary"
-              onClick={(e) => handleUserClick(activity.user_id, e)}
-            >
-              {userName}
-            </button>{" "}
-            reviewed a beach
-            {metadata.overall_rating && (
-              <span> - {metadata.overall_rating}/5 stars</span>
-            )}
-          </span>
-        );
-      case "user_followed":
-        return (
-          <span>
-            <button
-              className="font-medium hover:underline text-primary"
-              onClick={(e) => handleUserClick(activity.user_id, e)}
-            >
-              {userName}
-            </button>{" "}
-            started following someone
-          </span>
-        );
-      default:
-        return (
-          <span>
-            <button
-              className="font-medium hover:underline text-primary"
-              onClick={(e) => handleUserClick(activity.user_id, e)}
-            >
-              {userName}
-            </button>{" "}
-            had some activity
-          </span>
-        );
-    }
-  };
-
-  const getActivityLink = (activity: ActivityFeedItem) => {
-    switch (activity.entity_type) {
-      case "session":
-        return `/sessions/${activity.entity_id}`;
-      case "beach_review":
-        return `/beach/${activity.metadata?.beach_id || activity.entity_id}`;
-      case "user_follow":
-        return `/profile/${
-          activity.metadata?.followed_user_id || activity.user_id
-        }`;
-      default:
-        return null;
-    }
-  };
-
-  const renderActivityItem = (activity: ActivityFeedItem) => {
-    const activityLink = getActivityLink(activity);
-    const activityContent = (
-      <Card className="hover:shadow-md transition-shadow">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <button
-              onClick={(e) => handleUserClick(activity.user_id, e)}
-              className="shrink-0"
-            >
-              <UserAvatar
-                src={activity.user_avatar}
-                name={activity.user_name}
-                size="sm"
-              />
-            </button>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                {renderActivityIcon(activity.activity_type)}
-                <span className="text-sm text-muted-foreground">
-                  {formatDistanceToNow(new Date(activity.created_at), {
-                    addSuffix: true,
-                  })}
-                </span>
-              </div>
-              <p className="text-sm leading-relaxed">
-                {renderActivityText(activity)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-
-    return activityLink ? (
-      <Link href={activityLink} className="block">
-        {activityContent}
-      </Link>
-    ) : (
-      activityContent
-    );
-  };
 
   const renderSessionItem = (session: SessionWithDetails) => {
     return (
@@ -325,9 +165,15 @@ export function UnifiedCommunityFeed({
       <div className="space-y-4">
         {combinedFeed.map((item) => (
           <div key={item.id}>
-            {item.type === "activity"
-              ? renderActivityItem(item.data as ActivityFeedItem)
-              : renderSessionItem(item.data as SessionWithDetails)}
+            {item.type === "activity" ? (
+              <ActivityItem
+                activity={item.data as ActivityFeedItem}
+                link={getActivityLink(item.data as ActivityFeedItem)}
+                onUserClick={handleUserClick}
+              />
+            ) : (
+              renderSessionItem(item.data as SessionWithDetails)
+            )}
           </div>
         ))}
       </div>

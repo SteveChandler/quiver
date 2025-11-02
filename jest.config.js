@@ -19,6 +19,7 @@ const customJestConfig = {
     // Ignore internal mock modules stored next to tests
     "<rootDir>/__tests__/__mocks__/",
     "<rootDir>/__tests__/setup/",
+    "<rootDir>/__tests__/performance/helpers/",
   ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
@@ -28,6 +29,8 @@ const customJestConfig = {
     "^@/lib/supabase$": "<rootDir>/__tests__/setup/mock-supabase.ts",
     // Mock the realtime module specifically
     "^@supabase/realtime-js$": "<rootDir>/__tests__/setup/mock-supabase.ts",
+    // Mock canvas module that jsdom tries to require
+    "^canvas$": "<rootDir>/__tests__/setup/mock-canvas.js",
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [

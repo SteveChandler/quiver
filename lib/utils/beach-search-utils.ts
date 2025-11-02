@@ -9,6 +9,14 @@ import {
   normalizeSearchText,
   BEACH_ALIASES,
 } from "@/lib/utils/text-normalization";
+import type { MatchStrategy } from "@/lib/utils/beach-search/match-strategy";
+import {
+  ExactMatchStrategy,
+  AliasMatchStrategy,
+  SubstringMatchStrategy,
+  WordMatchStrategy,
+} from "@/lib/utils/beach-search/strategies";
+import { BeachRelevanceScorer } from "@/lib/utils/beach-search/beach-relevance-scorer";
 
 interface SearchResult {
   beach: Beach | null;
@@ -19,14 +27,16 @@ interface SearchResult {
 
 /**
  * Search for beaches by name with fuzzy matching - returns array of all matches
+ * Refactored to use Strategy pattern for maintainability and reduced complexity
  */
 export async function searchBeachesMultiple(
   searchText: string
 ): Promise<Beach[]> {
   try {
     console.log(`🔍 searchBeachesMultiple called with: "${searchText}"`);
-    const allBeachesResult = await getBeaches();
 
+    // Fetch all beaches
+    const allBeachesResult = await getBeaches();
     if (!allBeachesResult.success || !allBeachesResult.data) {
       console.log(`❌ Failed to get beaches:`, allBeachesResult.error);
       return [];
@@ -34,146 +44,49 @@ export async function searchBeachesMultiple(
 
     console.log(`📊 Found ${allBeachesResult.data.length} beaches in database`);
 
-    // Normalize the search text (punctuation-insensitive, case-insensitive)
+    // Normalize search text and check for aliases
     const normalizedSearch = normalizeSearchText(searchText);
-
-    console.log(`🔧 Normalized search: "${normalizedSearch}"`);
-
     const aliasTarget = BEACH_ALIASES[normalizedSearch] || null;
+    console.log(`🔧 Normalized search: "${normalizedSearch}"`, aliasTarget ? `(alias: ${aliasTarget})` : "");
 
-    // Look for exact or partial matches with improved fuzzy matching
-    const matchingBeaches = allBeachesResult.data.filter((beach) => {
-      const beachName = normalizeSearchText(beach.name);
-      const beachCity = normalizeSearchText(beach.city || "");
+    // Initialize strategies in priority order
+    const strategies: MatchStrategy[] = [
+      new ExactMatchStrategy(),
+      new AliasMatchStrategy(),
+      new SubstringMatchStrategy(),
+      new WordMatchStrategy(),
+    ];
 
-      // Check for matches in name or city with multiple strategies:
+    // Initialize scorer
+    const scorer = new BeachRelevanceScorer(normalizedSearch, aliasTarget);
 
-      // 1. Exact match (highest priority)
-      if (
-        beachName === normalizedSearch ||
-        beachCity === normalizedSearch
-      ) {
-        return true;
-      }
-
-      // 2. Direct substring match in name or city
-      if (
-        beachName.includes(normalizedSearch) ||
-        beachCity.includes(normalizedSearch)
-      ) {
-        return true;
-      }
-
-      // 3. Reverse substring match (search term contains beach name)
-      if (normalizedSearch.includes(beachName)) {
-        return true;
-      }
-
-      // 4. Word-by-word matching for multi-word searches
-      const searchWords: string[] = normalizedSearch
-        .split(" ")
-        .filter((word: string) => word.length > 0);
-      if (searchWords.length > 1) {
-        const nameWords: string[] = beachName
-          .split(" ")
-          .filter((word: string) => word.length > 0);
-        const cityWords: string[] = beachCity
-          .split(" ")
-          .filter((word: string) => word.length > 0);
-
-        // Check if all search words are found in the beach name or city
-        const allWordsInName = searchWords.every((searchWord: string) =>
-          nameWords.some(
-            (nameWord: string) =>
-              nameWord.includes(searchWord) || searchWord.includes(nameWord)
-          )
-        );
-        const allWordsInCity = searchWords.every((searchWord: string) =>
-          cityWords.some(
-            (cityWord: string) =>
-              cityWord.includes(searchWord) ||
-              searchWord.includes(cityWord)
-          )
-        );
-
-        if (allWordsInName || allWordsInCity) {
-          return true;
+    // Find and score matches
+    const scoredMatches = allBeachesResult.data
+      .map((beach) => {
+        // Try each strategy until we get a match
+        for (const strategy of strategies) {
+          const result = strategy.matches(beach, normalizedSearch, aliasTarget);
+          if (result.matches) {
+            return scorer.score(beach, result.matchType || strategy.name, result.score);
+          }
         }
-      }
+        return null;
+      })
+      .filter((match): match is NonNullable<typeof match> => match !== null);
 
-      // 5. Common abbreviations and variations
-      if (aliasTarget) {
-        if (beachName === aliasTarget) {
-          return true;
-        }
-        if (beachName.startsWith(`${aliasTarget} `)) {
-          return true;
-        }
-        if (aliasTarget.startsWith(beachName)) {
-          return true;
-        }
-      }
-
-      return false;
-    });
-
-    // Sort matches by relevance (using normalized text for consistency)
-    matchingBeaches.sort((a, b) => {
-      const aName = normalizeSearchText(a.name);
-      const bName = normalizeSearchText(b.name);
-      const aLocation = normalizeSearchText(a.location || "");
-      const bLocation = normalizeSearchText(b.location || "");
-
-      if (aliasTarget) {
-        const aliasScore = (name: string) => {
-          if (name === aliasTarget) return 3;
-          if (name.startsWith(`${aliasTarget} `)) return 2;
-          if (aliasTarget.startsWith(name)) return 1;
-          return 0;
-        };
-
-        const aAliasScore = aliasScore(aName);
-        const bAliasScore = aliasScore(bName);
-        if (aAliasScore !== bAliasScore) {
-          return bAliasScore - aAliasScore;
-        }
-      }
-
-      // 1. Exact name matches first
-      if (aName === normalizedSearch && bName !== normalizedSearch) return -1;
-      if (bName === normalizedSearch && aName !== normalizedSearch) return 1;
-
-      // 2. Name contains search term (higher priority)
-      const aNameContains = aName.includes(normalizedSearch);
-      const bNameContains = bName.includes(normalizedSearch);
-      if (aNameContains && !bNameContains) return -1;
-      if (bNameContains && !aNameContains) return 1;
-
-      // 3. Among name matches, shorter names are more specific
-      if (aNameContains && bNameContains) {
-        return aName.length - bName.length;
-      }
-
-      // 4. Location matches (secondary priority)
-      const aLocationContains = aLocation.includes(normalizedSearch);
-      const bLocationContains = bLocation.includes(normalizedSearch);
-      if (aLocationContains && !bLocationContains) return -1;
-      if (bLocationContains && !aLocationContains) return 1;
-
-      // 5. Finally, sort by name length
-      return aName.length - bName.length;
-    });
+    // Sort and extract beaches
+    const sortedBeaches = BeachRelevanceScorer.sort(scoredMatches);
 
     console.log(
-      `🎯 Found ${matchingBeaches.length} matching beaches:`,
-      matchingBeaches.map((b) => b.name)
+      `🎯 Found ${sortedBeaches.length} matching beaches:`,
+      sortedBeaches.map((b) => b.name)
     );
 
-    if (matchingBeaches.length > 0) {
-      console.log(`🏆 Returning best match: "${matchingBeaches[0].name}"`);
+    if (sortedBeaches.length > 0) {
+      console.log(`🏆 Best match: "${sortedBeaches[0].name}"`);
     }
 
-    return matchingBeaches;
+    return sortedBeaches;
   } catch (error) {
     console.error("💥 Error searching beaches by name:", error);
     return [];
