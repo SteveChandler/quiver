@@ -453,20 +453,21 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
         )}
 
         {/* Session Photos */}
-        {!photosLoading && sessionPhotos.length > 0 && (
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Session Photos</h3>
-              <SessionPhotoGallery
-                sessionId={session.id}
-                photos={sessionPhotos}
-                canEdit={user?.id === session.user_id}
-                showMetadata={true}
-                onPhotosChange={setSessionPhotos}
-              />
-            </CardContent>
-          </Card>
-        )}
+        {!photosLoading &&
+          (sessionPhotos.length > 0 || user?.id === session.user_id) && (
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Session Photos</h3>
+                <SessionPhotoGallery
+                  sessionId={session.id}
+                  photos={sessionPhotos}
+                  canEdit={user?.id === session.user_id}
+                  showMetadata={true}
+                  onPhotosChange={setSessionPhotos}
+                />
+              </CardContent>
+            </Card>
+          )}
 
         {/* Comments Section */}
         <Card>

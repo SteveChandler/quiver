@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Trash2,
   Edit2,
@@ -10,6 +10,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Camera,
+  Upload,
+  Loader2,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,7 @@ import {
   deleteSessionPhotoAction,
   updatePhotoCaptionAction,
   getSessionPhotosAction,
+  uploadSessionPhotosAction,
 } from "@/actions/session-media-actions";
 import { toast } from "sonner";
 
@@ -80,6 +84,11 @@ export default function SessionPhotoGallery({
   const [editingCaption, setEditingCaption] = useState<string | null>(null);
   const [captionText, setCaptionText] = useState("");
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+
+  // Upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Update photos when prop changes
   useEffect(() => {
@@ -191,16 +200,127 @@ export default function SessionPhotoGallery({
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    setSelectedFiles(files);
+  };
+
+  const handleUpload = async () => {
+    if (selectedFiles.length === 0 || !canEdit) return;
+
+    setIsUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("fileCount", selectedFiles.length.toString());
+
+      selectedFiles.forEach((file, index) => {
+        formData.append(`file_${index}`, file);
+      });
+
+      const result = await uploadSessionPhotosAction(sessionId, formData);
+
+      if (result.success) {
+        const uploaded = result.data?.uploaded ?? selectedFiles.length;
+        toast.success(`Photos uploaded: ${uploaded} of ${selectedFiles.length}`);
+
+        // Refresh photos
+        const photosResult = await getSessionPhotosAction(sessionId);
+        if (photosResult.success) {
+          const newPhotos = photosResult.data || [];
+          setPhotos(newPhotos);
+          onPhotosChange?.(newPhotos);
+        }
+
+        // Clear selection
+        setSelectedFiles([]);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      } else {
+        toast.error(result.error || "Failed to upload photos");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload photos");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const clearSelectedFiles = () => {
+    setSelectedFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   if (photos.length === 0) {
     return (
       <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-          <div className="p-3 rounded-full bg-muted mb-4">
+        <CardContent className="flex flex-col items-center justify-center py-8 text-center space-y-4">
+          <div className="p-3 rounded-full bg-muted mb-2">
             <Camera className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground">
             No photos in this session yet
           </p>
+
+          {canEdit && (
+            <div className="space-y-3 w-full max-w-xs">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
+              {selectedFiles.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    {selectedFiles.length} photo(s) selected
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleUpload}
+                      disabled={isUploading}
+                      className="flex-1"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={clearSelectedFiles}
+                      variant="outline"
+                      disabled={isUploading}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Photos
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -210,6 +330,77 @@ export default function SessionPhotoGallery({
 
   return (
     <>
+      {/* Upload UI */}
+      {canEdit && (
+        <div className="mb-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/jpg,image/png,image/webp"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {selectedFiles.length > 0 ? (
+            <Card className="border-dashed border-primary bg-primary/5">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Camera className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">
+                        {selectedFiles.length} photo(s) selected
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Ready to upload
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleUpload}
+                      disabled={isUploading}
+                      size="sm"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={clearSelectedFiles}
+                      variant="outline"
+                      size="sm"
+                      disabled={isUploading}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add More Photos
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Photo Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {photos.map((photo, index) => (
