@@ -51,6 +51,7 @@ import {
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 import { updateSession } from "@/actions/session-actions";
+import { useServerAction } from "@/hooks/use-data-fetcher";
 
 export interface ShareBarProps {
   session: SessionWithDetails;
@@ -60,6 +61,261 @@ export interface ShareBarProps {
   surface?: string;
   className?: string;
   onSessionUpdated?: (session: SessionWithDetails) => void;
+}
+
+/**
+ * Make session public
+ * Extracted logic for converting a private session to public
+ */
+async function makeSessionPublicAction(
+  sessionId: string
+): Promise<{ success: boolean; data?: SessionWithDetails; error?: string }> {
+  try {
+    const result = await updateSession(sessionId, { is_public: true });
+
+    if (!result.success || result.error) {
+      return {
+        success: false,
+        error: result.error || "Failed to make session public",
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data as SessionWithDetails,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to make session public",
+    };
+  }
+}
+
+/**
+ * Execute platform share
+ * Extracted logic for sharing to different platforms
+ */
+async function executePlatformShare(
+  platform: SharePlatform,
+  session: SessionWithDetails,
+  sessionId: string,
+  userId: string,
+  variant: ShareVariant,
+  aspectRatio: AspectRatio,
+  surface: string
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const shareData = buildPlatformShareUrl(
+      platform,
+      session,
+      sessionId,
+      variant,
+      aspectRatio
+    );
+
+    switch (platform) {
+      case "instagram": {
+        // Download image for Instagram
+        trackDownloadStarted({
+          sessionId,
+          variant,
+          aspectRatio,
+          surface,
+        });
+
+        const filename = buildImageFilename(session, variant, aspectRatio);
+        const success = await downloadImage(shareData.url, filename);
+
+        if (!success) {
+          throw new Error("Failed to download image");
+        }
+
+        trackDownloadCompleted({
+          sessionId,
+          variant,
+          aspectRatio,
+          surface,
+        });
+
+        // Track share
+        await trackShare("instagram", {
+          sessionId,
+          userId,
+          variant,
+          aspectRatio,
+          shareUrl: shareData.url,
+          surface,
+        });
+
+        await incrementSessionShareCount(sessionId);
+        trackShareCompleted("instagram", {
+          sessionId,
+          variant,
+          aspectRatio,
+          surface,
+        });
+
+        return {
+          success: true,
+          data: {
+            message: "Image downloaded!",
+            description: shareData.tooltip || "Share to Instagram Stories and add a link sticker",
+          },
+        };
+      }
+
+      case "x":
+      case "facebook": {
+        // Open share URL
+        openShareUrl(shareData.url);
+
+        // Track share
+        await trackShare(platform, {
+          sessionId,
+          userId,
+          variant,
+          aspectRatio,
+          shareUrl: shareData.url,
+          surface,
+        });
+
+        await incrementSessionShareCount(sessionId);
+        trackShareCompleted(platform, {
+          sessionId,
+          variant,
+          aspectRatio,
+          surface,
+        });
+
+        return { success: true };
+      }
+
+      case "download": {
+        // Download image
+        trackDownloadStarted({
+          sessionId,
+          variant,
+          aspectRatio,
+          surface,
+        });
+
+        const filename = buildImageFilename(session, variant, aspectRatio);
+        const success = await downloadImage(shareData.url, filename);
+
+        if (!success) {
+          throw new Error("Failed to download image");
+        }
+
+        trackDownloadCompleted({
+          sessionId,
+          variant,
+          aspectRatio,
+          surface,
+        });
+
+        // Track download as share
+        await trackShare("download", {
+          sessionId,
+          userId,
+          variant,
+          aspectRatio,
+          shareUrl: shareData.url,
+          surface,
+        });
+
+        await incrementSessionShareCount(sessionId);
+        trackShareCompleted("download", {
+          sessionId,
+          variant,
+          aspectRatio,
+          surface,
+        });
+
+        return {
+          success: true,
+          data: {
+            message: "Image downloaded!",
+            description: `Saved as ${filename}`,
+          },
+        };
+      }
+
+      case "generic": {
+        // Try native share first
+        if (isWebShareAvailable()) {
+          const nativeSuccess = await triggerNativeShare(session, sessionId);
+          if (nativeSuccess) {
+            await trackShare("generic", {
+              sessionId,
+              userId,
+              variant,
+              aspectRatio,
+              shareUrl: shareData.url,
+              surface,
+            });
+
+            await incrementSessionShareCount(sessionId);
+            trackShareCompleted("generic", {
+              sessionId,
+              variant,
+              aspectRatio,
+              surface,
+            });
+            return { success: true };
+          }
+        }
+
+        // Fall back to copy link
+        const copySuccess = await copyShareUrl(sessionId);
+        if (!copySuccess) {
+          throw new Error("Failed to copy link");
+        }
+
+        await trackShare("generic", {
+          sessionId,
+          userId,
+          variant,
+          aspectRatio,
+          shareUrl: shareData.url,
+          surface,
+        });
+
+        await incrementSessionShareCount(sessionId);
+        trackShareCompleted("generic", {
+          sessionId,
+          variant,
+          aspectRatio,
+          surface,
+        });
+
+        return {
+          success: true,
+          data: {
+            copiedLink: true,
+            message: "Link copied!",
+            description: "Share link copied to clipboard",
+          },
+        };
+      }
+
+      default:
+        throw new Error(`Unknown platform: ${platform}`);
+    }
+  } catch (error) {
+    trackShareFailed(platform, {
+      sessionId,
+      variant,
+      aspectRatio,
+      error: error instanceof Error ? error.message : "Unknown error",
+      surface,
+    });
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Share failed",
+    };
+  }
 }
 
 export function ShareBar({
@@ -74,9 +330,87 @@ export function ShareBar({
   const { user } = useAuth();
   const [selectedVariant, setSelectedVariant] = useState<ShareVariant>(defaultVariant);
   const [selectedRatio, setSelectedRatio] = useState<AspectRatio>(defaultRatio);
-  const [isSharing, setIsSharing] = useState(false);
-  const [isUpdatingPrivacy, setIsUpdatingPrivacy] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Use server action hooks for platform sharing
+  const shareAction = useServerAction(
+    async (platform: SharePlatform) => {
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Auto-make session public before sharing if needed
+      if (!session.is_public) {
+        const publicResult = await makeSessionPublicAction(sessionId);
+
+        if (!publicResult.success) {
+          // Show specific error for privacy update failure
+          toast({
+            title: "Failed to make session public",
+            description: publicResult.error || "Please try again or check your permissions",
+            variant: "destructive",
+          });
+          throw new Error(publicResult.error || "Failed to make session public");
+        }
+
+        // Update parent component with new session state
+        // Handle both cases: when data is present and when it's just success: true
+        if (onSessionUpdated) {
+          const updatedSession = publicResult.data || { ...session, is_public: true };
+          onSessionUpdated(updatedSession);
+        }
+
+        toast({
+          title: "Session is now public",
+          description: "Your session can now be shared with others",
+        });
+      }
+
+      // Track platform selection
+      trackSharePlatformSelected(platform, {
+        sessionId,
+        variant: selectedVariant,
+        aspectRatio: selectedRatio,
+        surface,
+      });
+
+      return executePlatformShare(
+        platform,
+        session,
+        sessionId,
+        user.id,
+        selectedVariant,
+        selectedRatio,
+        surface
+      );
+    },
+    {
+      onSuccess: (data) => {
+        if (data?.message) {
+          toast({
+            title: data.message,
+            description: data.description,
+            duration: data.message.includes("downloaded") ? 5000 : undefined,
+          });
+        }
+
+        if (data?.copiedLink) {
+          setCopiedLink(true);
+          setTimeout(() => setCopiedLink(false), 2000);
+        }
+      },
+      onError: (error) => {
+        // Don't show toast if it's already been shown for privacy update failure
+        if (!error.includes("Failed to make session public")) {
+          toast({
+            title: "Share failed",
+            description: error,
+            variant: "destructive",
+          });
+        }
+      },
+    }
+  );
 
   /**
    * Handle variant change
@@ -128,270 +462,10 @@ export function ShareBar({
         return;
       }
 
-      // Auto-make session public before sharing
-      if (!session.is_public && !isUpdatingPrivacy) {
-        setIsUpdatingPrivacy(true);
-        try {
-          const result = await updateSession(sessionId, user.id, { is_public: true });
-
-          if (!result || (result as any).error) {
-            toast({
-              title: "Failed to make session public",
-              description: "Please try again or check your permissions",
-              variant: "destructive",
-            });
-            return;
-          }
-
-          // Update parent component with new session state
-          if (onSessionUpdated) {
-            onSessionUpdated({ ...session, is_public: true });
-          }
-
-          toast({
-            title: "Session is now public",
-            description: "Your session can now be shared with others",
-          });
-        } catch (error) {
-          console.error("Failed to make session public:", error);
-          toast({
-            title: "Failed to make session public",
-            description: error instanceof Error ? error.message : "Please try again",
-            variant: "destructive",
-          });
-          return;
-        } finally {
-          setIsUpdatingPrivacy(false);
-        }
-      }
-
-      setIsSharing(true);
-
-      try {
-        // Track platform selection
-        trackSharePlatformSelected(platform, {
-          sessionId,
-          variant: selectedVariant,
-          aspectRatio: selectedRatio,
-          surface,
-        });
-
-        const shareData = buildPlatformShareUrl(
-          platform,
-          session,
-          sessionId,
-          selectedVariant,
-          selectedRatio
-        );
-
-        switch (platform) {
-          case "instagram":
-            // Download image for Instagram
-            trackDownloadStarted({
-              sessionId,
-              variant: selectedVariant,
-              aspectRatio: selectedRatio,
-              surface,
-            });
-
-            const instagramFilename = buildImageFilename(
-              session,
-              selectedVariant,
-              selectedRatio
-            );
-            const instagramSuccess = await downloadImage(
-              shareData.url,
-              instagramFilename
-            );
-
-            if (instagramSuccess) {
-              trackDownloadCompleted({
-                sessionId,
-                variant: selectedVariant,
-                aspectRatio: selectedRatio,
-                surface,
-              });
-
-              toast({
-                title: "Image downloaded!",
-                description: shareData.tooltip || "Share to Instagram Stories and add a link sticker",
-                duration: 5000,
-              });
-
-              // Track share
-              await trackShare("instagram", {
-                sessionId,
-                userId: user.id,
-                variant: selectedVariant,
-                aspectRatio: selectedRatio,
-                shareUrl: shareData.url,
-                surface,
-              });
-
-              await incrementSessionShareCount(sessionId);
-              trackShareCompleted("instagram", {
-                sessionId,
-                variant: selectedVariant,
-                aspectRatio: selectedRatio,
-                surface,
-              });
-            } else {
-              throw new Error("Failed to download image");
-            }
-            break;
-
-          case "x":
-          case "facebook":
-            // Open share URL
-            openShareUrl(shareData.url);
-
-            // Track share
-            await trackShare(platform, {
-              sessionId,
-              userId: user.id,
-              variant: selectedVariant,
-              aspectRatio: selectedRatio,
-              shareUrl: shareData.url,
-              surface,
-            });
-
-            await incrementSessionShareCount(sessionId);
-            trackShareCompleted(platform, {
-              sessionId,
-              variant: selectedVariant,
-              aspectRatio: selectedRatio,
-              surface,
-            });
-            break;
-
-          case "download":
-            // Download image
-            trackDownloadStarted({
-              sessionId,
-              variant: selectedVariant,
-              aspectRatio: selectedRatio,
-              surface,
-            });
-
-            const filename = buildImageFilename(
-              session,
-              selectedVariant,
-              selectedRatio
-            );
-            const downloadSuccess = await downloadImage(shareData.url, filename);
-
-            if (downloadSuccess) {
-              trackDownloadCompleted({
-                sessionId,
-                variant: selectedVariant,
-                aspectRatio: selectedRatio,
-                surface,
-              });
-
-              toast({
-                title: "Image downloaded!",
-                description: `Saved as ${filename}`,
-              });
-
-              // Track download as share
-              await trackShare("download", {
-                sessionId,
-                userId: user.id,
-                variant: selectedVariant,
-                aspectRatio: selectedRatio,
-                shareUrl: shareData.url,
-                surface,
-              });
-
-              await incrementSessionShareCount(sessionId);
-              trackShareCompleted("download", {
-                sessionId,
-                variant: selectedVariant,
-                aspectRatio: selectedRatio,
-                surface,
-              });
-            } else {
-              throw new Error("Failed to download image");
-            }
-            break;
-
-          case "generic":
-            // Try native share first
-            if (isWebShareAvailable()) {
-              const nativeSuccess = await triggerNativeShare(session, sessionId);
-              if (nativeSuccess) {
-                await trackShare("generic", {
-                  sessionId,
-                  userId: user.id,
-                  variant: selectedVariant,
-                  aspectRatio: selectedRatio,
-                  shareUrl: shareData.url,
-                  surface,
-                });
-
-                await incrementSessionShareCount(sessionId);
-                trackShareCompleted("generic", {
-                  sessionId,
-                  variant: selectedVariant,
-                  aspectRatio: selectedRatio,
-                  surface,
-                });
-                break;
-              }
-            }
-
-            // Fall back to copy link
-            const copySuccess = await copyShareUrl(sessionId);
-            if (copySuccess) {
-              setCopiedLink(true);
-              setTimeout(() => setCopiedLink(false), 2000);
-
-              toast({
-                title: "Link copied!",
-                description: "Share link copied to clipboard",
-              });
-
-              await trackShare("generic", {
-                sessionId,
-                userId: user.id,
-                variant: selectedVariant,
-                aspectRatio: selectedRatio,
-                shareUrl: shareData.url,
-                surface,
-              });
-
-              await incrementSessionShareCount(sessionId);
-              trackShareCompleted("generic", {
-                sessionId,
-                variant: selectedVariant,
-                aspectRatio: selectedRatio,
-                surface,
-              });
-            } else {
-              throw new Error("Failed to copy link");
-            }
-            break;
-        }
-      } catch (error) {
-        console.error("Share failed:", error);
-        trackShareFailed(platform, {
-          sessionId,
-          variant: selectedVariant,
-          aspectRatio: selectedRatio,
-          error: error instanceof Error ? error.message : "Unknown error",
-          surface,
-        });
-
-        toast({
-          title: "Share failed",
-          description: error instanceof Error ? error.message : "Please try again",
-          variant: "destructive",
-        });
-      } finally {
-        setIsSharing(false);
-      }
+      // Execute the share action (which handles making session public if needed)
+      await shareAction.execute(platform);
     },
-    [user, session, sessionId, selectedVariant, selectedRatio, surface, isUpdatingPrivacy, onSessionUpdated]
+    [user, shareAction]
   );
 
   return (
@@ -434,11 +508,11 @@ export function ShareBar({
         <Button
           variant="outline"
           onClick={() => handleShare("instagram")}
-          disabled={isSharing || isUpdatingPrivacy}
+          disabled={shareAction.loading}
           aria-label="Share to Instagram"
           className="flex items-center gap-2"
         >
-          {isSharing || isUpdatingPrivacy ? (
+          {shareAction.loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Instagram className="w-4 h-4" />
@@ -450,11 +524,11 @@ export function ShareBar({
         <Button
           variant="outline"
           onClick={() => handleShare("x")}
-          disabled={isSharing || isUpdatingPrivacy}
+          disabled={shareAction.loading}
           aria-label="Share to X (Twitter)"
           className="flex items-center gap-2"
         >
-          {isSharing || isUpdatingPrivacy ? (
+          {shareAction.loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Twitter className="w-4 h-4" />
@@ -466,11 +540,11 @@ export function ShareBar({
         <Button
           variant="outline"
           onClick={() => handleShare("facebook")}
-          disabled={isSharing || isUpdatingPrivacy}
+          disabled={shareAction.loading}
           aria-label="Share to Facebook"
           className="flex items-center gap-2"
         >
-          {isSharing || isUpdatingPrivacy ? (
+          {shareAction.loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Facebook className="w-4 h-4" />
@@ -482,11 +556,11 @@ export function ShareBar({
         <Button
           variant="outline"
           onClick={() => handleShare("download")}
-          disabled={isSharing || isUpdatingPrivacy}
+          disabled={shareAction.loading}
           aria-label="Download image"
           className="flex items-center gap-2"
         >
-          {isSharing || isUpdatingPrivacy ? (
+          {shareAction.loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Download className="w-4 h-4" />
@@ -498,11 +572,11 @@ export function ShareBar({
         <Button
           variant="outline"
           onClick={() => handleShare("generic")}
-          disabled={isSharing || isUpdatingPrivacy}
+          disabled={shareAction.loading}
           aria-label="Share link"
           className="flex items-center gap-2"
         >
-          {isSharing || isUpdatingPrivacy ? (
+          {shareAction.loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : copiedLink ? (
             <CheckCircle2 className="w-4 h-4" />

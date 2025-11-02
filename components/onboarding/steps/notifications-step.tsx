@@ -100,7 +100,7 @@ export function NotificationsStep() {
       <div className="bg-gray-50 rounded-lg p-4">
         <p className="text-xs text-gray-600">
           You can change these preferences anytime from your account settings.
-          We respect your privacy and won't spam you.
+          We respect your privacy and won&apos;t spam you.
         </p>
       </div>
 

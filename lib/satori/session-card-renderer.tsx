@@ -107,6 +107,147 @@ function renderLogo(color: string = "#FFFFFF") {
 }
 
 /**
+ * Card styling configuration for two-column layouts
+ */
+interface TwoColumnCardStyle {
+  background?: string;
+  border?: string;
+  borderRadius?: number;
+  padding?: number;
+}
+
+/**
+ * Label styling configuration
+ */
+interface LabelStyle {
+  fontSize?: number;
+  fontWeight?: number;
+  color?: string;
+  marginBottom?: number;
+  letterSpacing?: number;
+  opacity?: number;
+}
+
+/**
+ * Value styling configuration
+ */
+interface ValueStyle {
+  fontSize?: number;
+  fontWeight?: number;
+  color?: string;
+}
+
+/**
+ * Renders a two-column condition layout with customizable styling
+ *
+ * @param waveHeight - Wave height value to display
+ * @param wind - Wind condition value to display
+ * @param cardStyle - Styling for the condition cards
+ * @param labelStyle - Styling for the label text
+ * @param valueStyle - Styling for the value text
+ * @param waveLabel - Custom label for wave height (default: "🌊 Wave Height")
+ * @param windLabel - Custom label for wind (default: "💨 Wind")
+ * @param gap - Gap between columns (default: 32)
+ * @returns React element with two-column layout
+ */
+function renderTwoColumnConditions(
+  waveHeight: string,
+  wind: string,
+  cardStyle: TwoColumnCardStyle,
+  labelStyle: LabelStyle,
+  valueStyle: ValueStyle,
+  waveLabel: string = "🌊 Wave Height",
+  windLabel: string = "💨 Wind",
+  gap: number = 32
+) {
+  return React.createElement(
+    "div",
+    {
+      style: {
+        display: "flex",
+        gap,
+      },
+    },
+    // Wave height card
+    React.createElement(
+      "div",
+      {
+        style: {
+          flex: 1,
+          background: cardStyle.background,
+          border: cardStyle.border,
+          borderRadius: cardStyle.borderRadius,
+          padding: cardStyle.padding,
+        },
+      },
+      React.createElement(
+        "div",
+        {
+          style: {
+            color: labelStyle.color,
+            fontSize: labelStyle.fontSize,
+            fontWeight: labelStyle.fontWeight,
+            marginBottom: labelStyle.marginBottom,
+            letterSpacing: labelStyle.letterSpacing,
+            opacity: labelStyle.opacity,
+          },
+        },
+        waveLabel
+      ),
+      React.createElement(
+        "p",
+        {
+          style: {
+            fontSize: valueStyle.fontSize,
+            fontWeight: valueStyle.fontWeight,
+            color: valueStyle.color,
+          },
+        },
+        waveHeight
+      )
+    ),
+    // Wind card
+    React.createElement(
+      "div",
+      {
+        style: {
+          flex: 1,
+          background: cardStyle.background,
+          border: cardStyle.border,
+          borderRadius: cardStyle.borderRadius,
+          padding: cardStyle.padding,
+        },
+      },
+      React.createElement(
+        "div",
+        {
+          style: {
+            color: labelStyle.color,
+            fontSize: labelStyle.fontSize,
+            fontWeight: labelStyle.fontWeight,
+            marginBottom: labelStyle.marginBottom,
+            letterSpacing: labelStyle.letterSpacing,
+            opacity: labelStyle.opacity,
+          },
+        },
+        windLabel
+      ),
+      React.createElement(
+        "p",
+        {
+          style: {
+            fontSize: valueStyle.fontSize,
+            fontWeight: valueStyle.fontWeight,
+            color: valueStyle.color,
+          },
+        },
+        wind
+      )
+    )
+  );
+}
+
+/**
  * Variant 1: Classic Overlay
  */
 function renderVariant1(
@@ -420,78 +561,28 @@ function renderVariant3(
         "div",
         {
           style: {
-            display: "flex",
-            gap: 32,
             marginBottom: 48,
           },
         },
-        React.createElement(
-          "div",
+        renderTwoColumnConditions(
+          data.waveHeight,
+          data.wind,
           {
-            style: {
-              flex: 1,
-              background: "#1F2937",
-              border: "2px solid rgba(6, 182, 212, 0.3)",
-              borderRadius: 16,
-              padding: 48,
-            },
+            background: "#1F2937",
+            border: "2px solid rgba(6, 182, 212, 0.3)",
+            borderRadius: 16,
+            padding: 48,
           },
-          React.createElement(
-            "div",
-            {
-              style: {
-                color: "#06B6D4",
-                fontSize: 20,
-                fontWeight: 600,
-                marginBottom: 16,
-              },
-            },
-            "🌊 Wave Height"
-          ),
-          React.createElement(
-            "p",
-            {
-              style: {
-                fontSize: 48,
-                fontWeight: 800,
-              },
-            },
-            data.waveHeight
-          )
-        ),
-        React.createElement(
-          "div",
           {
-            style: {
-              flex: 1,
-              background: "#1F2937",
-              border: "2px solid rgba(6, 182, 212, 0.3)",
-              borderRadius: 16,
-              padding: 48,
-            },
+            color: "#06B6D4",
+            fontSize: 20,
+            fontWeight: 600,
+            marginBottom: 16,
           },
-          React.createElement(
-            "div",
-            {
-              style: {
-                color: "#06B6D4",
-                fontSize: 20,
-                fontWeight: 600,
-                marginBottom: 16,
-              },
-            },
-            "💨 Wind"
-          ),
-          React.createElement(
-            "p",
-            {
-              style: {
-                fontSize: 48,
-                fontWeight: 800,
-              },
-            },
-            data.wind
-          )
+          {
+            fontSize: 48,
+            fontWeight: 800,
+          }
         )
       ),
       // Rating
@@ -616,76 +707,29 @@ function renderVariant4(
         "div",
         {
           style: {
-            display: "flex",
-            gap: 32,
             marginBottom: "auto",
           },
         },
-        React.createElement(
-          "div",
+        renderTwoColumnConditions(
+          data.waveHeight,
+          data.wind,
           {
-            style: {
-              flex: 1,
-              background: "rgba(255, 255, 255, 0.3)",
-              borderRadius: 32,
-              padding: 40,
-              border: "2px solid rgba(255, 255, 255, 0.4)",
-            },
+            background: "rgba(255, 255, 255, 0.3)",
+            borderRadius: 32,
+            padding: 40,
+            border: "2px solid rgba(255, 255, 255, 0.4)",
           },
-          React.createElement(
-            "p",
-            {
-              style: {
-                fontSize: 20,
-                opacity: 0.9,
-                marginBottom: 8,
-              },
-            },
-            "Waves"
-          ),
-          React.createElement(
-            "p",
-            {
-              style: {
-                fontSize: 40,
-                fontWeight: 800,
-              },
-            },
-            data.waveHeight
-          )
-        ),
-        React.createElement(
-          "div",
           {
-            style: {
-              flex: 1,
-              background: "rgba(255, 255, 255, 0.3)",
-              borderRadius: 32,
-              padding: 40,
-              border: "2px solid rgba(255, 255, 255, 0.4)",
-            },
+            fontSize: 20,
+            opacity: 0.9,
+            marginBottom: 8,
           },
-          React.createElement(
-            "p",
-            {
-              style: {
-                fontSize: 20,
-                opacity: 0.9,
-                marginBottom: 8,
-              },
-            },
-            "Wind"
-          ),
-          React.createElement(
-            "p",
-            {
-              style: {
-                fontSize: 40,
-                fontWeight: 800,
-              },
-            },
-            data.wind
-          )
+          {
+            fontSize: 40,
+            fontWeight: 800,
+          },
+          "Waves",
+          "Wind"
         )
       )
     ),
@@ -785,74 +829,28 @@ function renderVariant5(
       "div",
       {
         style: {
-          display: "flex",
-          gap: 32,
           marginBottom: "auto",
         },
       },
-      React.createElement(
-        "div",
+      renderTwoColumnConditions(
+        data.waveHeight,
+        data.wind,
         {
-          style: {
-            flex: 1,
-            border: "8px solid #000000",
-            padding: 40,
-          },
+          border: "8px solid #000000",
+          padding: 40,
         },
-        React.createElement(
-          "p",
-          {
-            style: {
-              fontSize: 20,
-              fontWeight: 800,
-              marginBottom: 8,
-              letterSpacing: 2,
-            },
-          },
-          "WAVES"
-        ),
-        React.createElement(
-          "p",
-          {
-            style: {
-              fontSize: 56,
-              fontWeight: 900,
-            },
-          },
-          data.waveHeight
-        )
-      ),
-      React.createElement(
-        "div",
         {
-          style: {
-            flex: 1,
-            border: "8px solid #000000",
-            padding: 40,
-          },
+          fontSize: 20,
+          fontWeight: 800,
+          marginBottom: 8,
+          letterSpacing: 2,
         },
-        React.createElement(
-          "p",
-          {
-            style: {
-              fontSize: 20,
-              fontWeight: 800,
-              marginBottom: 8,
-              letterSpacing: 2,
-            },
-          },
-          "WIND"
-        ),
-        React.createElement(
-          "p",
-          {
-            style: {
-              fontSize: 56,
-              fontWeight: 900,
-            },
-          },
-          data.wind
-        )
+        {
+          fontSize: 56,
+          fontWeight: 900,
+        },
+        "WAVES",
+        "WIND"
       )
     ),
     // CTA

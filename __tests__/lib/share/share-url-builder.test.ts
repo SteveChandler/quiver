@@ -31,6 +31,7 @@ const mockSession: SessionWithDetails = {
   user_id: 'user-123',
   beach_id: 'beach-123',
   scheduled_at: '2024-01-15T08:00:00Z',
+  arrival_time: '2024-01-15T08:00:00Z',
   rating: 4,
   notes: 'Great session!',
   is_public: true,
@@ -40,13 +41,13 @@ const mockSession: SessionWithDetails = {
     id: 'beach-123',
     name: 'Test Beach',
     slug: 'test-beach',
-    latitude: 33.0,
-    longitude: -117.0,
+    lat: 33.0,
+    lng: -117.0,
     country: 'USA',
-  },
+  } as any,
   wave_height_min: 4,
   wave_height_max: 6,
-};
+} as any;
 
 describe('share-url-builder', () => {
   describe('buildSharePageUrl', () => {
@@ -160,7 +161,7 @@ describe('share-url-builder', () => {
     it('should include link sticker instructions', () => {
       const result = buildInstagramShareUrl('session-123', 1, '9:16');
 
-      expect(result.tooltip).toContain('link sticker' || 'Link sticker');
+      expect(result.tooltip).toMatch(/link sticker|Link sticker/i);
     });
   });
 
@@ -203,19 +204,19 @@ describe('share-url-builder', () => {
 
       expect(filename).toContain('quiver');
       expect(filename).toContain('.png');
-      expect(filename.toLowerCase()).toContain('test-beach' || 'test_beach' || 'testbeach');
+      expect(filename.toLowerCase()).toMatch(/test-beach|test_beach|testbeach/);
     });
 
     it('should include variant in filename', () => {
       const filename = buildImageFilename(mockSession, 3, '1:1');
 
-      expect(filename).toContain('3' || 'variant-3' || 'variant_3');
+      expect(filename).toMatch(/3|variant-3|variant_3/);
     });
 
     it('should include aspect ratio in filename', () => {
       const filename = buildImageFilename(mockSession, 1, '9:16');
 
-      expect(filename).toContain('9x16' || '9-16' || 'story');
+      expect(filename).toMatch(/9x16|9-16|story/);
     });
 
     it('should have .png extension', () => {
@@ -259,9 +260,15 @@ describe('share-url-builder', () => {
     });
 
     it('should not throw when called with valid URL', () => {
+      // Mock window.open to avoid jsdom error
+      const mockOpen = jest.fn();
+      global.window.open = mockOpen;
+
       expect(() => {
         openShareUrl('https://twitter.com/intent/tweet');
       }).not.toThrow();
+
+      expect(mockOpen).toHaveBeenCalled();
     });
   });
 
@@ -400,6 +407,103 @@ describe('share-url-builder', () => {
       await downloadImage('https://example.com/image.png', 'my-custom-file.png');
 
       expect(mockAnchor.download).toBe('my-custom-file.png');
+    });
+
+    // Edge case: timeout handling
+    it('should handle fetch timeout', async () => {
+      (global.fetch as jest.Mock).mockImplementation(() =>
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), 100)
+        )
+      );
+
+      const result = await downloadImage('https://example.com/image.png', 'test.png');
+      expect(result).toBe(false);
+    });
+
+    // Edge case: malformed JSON in error response
+    it('should handle malformed JSON in error response', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: async () => { throw new Error('Invalid JSON'); },
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const result = await downloadImage('https://example.com/image.png', 'test.png');
+      expect(result).toBe(false);
+    });
+
+    // Edge case: 500 server error
+    it('should return false on 500 server error', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: async () => ({ error: 'Server error generating image' }),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const result = await downloadImage('https://example.com/image.png', 'test.png');
+      expect(result).toBe(false);
+    });
+
+    // Edge case: 503 service unavailable
+    it('should return false on 503 service unavailable', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+        json: async () => ({ error: 'Service temporarily unavailable' }),
+        headers: new Headers({ 'content-type': 'application/json' }),
+      });
+
+      const result = await downloadImage('https://example.com/image.png', 'test.png');
+      expect(result).toBe(false);
+    });
+
+    // Edge case: blob creation failure
+    it('should handle blob creation errors', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        headers: new Headers({ 'content-type': 'image/png' }),
+        blob: async () => { throw new Error('Failed to create blob'); },
+      });
+
+      const result = await downloadImage('https://example.com/image.png', 'test.png');
+      expect(result).toBe(false);
+    });
+
+    // Edge case: missing content-type header
+    it('should handle missing content-type header', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        headers: new Headers({}),
+        blob: async () => new Blob(['test'], { type: 'image/png' }),
+      });
+
+      const result = await downloadImage('https://example.com/image.png', 'test.png');
+      // Should succeed if blob is valid even without explicit content-type
+      expect(result).toBe(true);
+    });
+
+    // Edge case: AbortError (user cancelled request)
+    it('should handle AbortError when request is cancelled', async () => {
+      const abortError = new Error('The user aborted a request.');
+      abortError.name = 'AbortError';
+      (global.fetch as jest.Mock).mockRejectedValue(abortError);
+
+      const result = await downloadImage('https://example.com/image.png', 'test.png');
+      expect(result).toBe(false);
+    });
+
+    // Edge case: CORS error
+    it('should handle CORS errors', async () => {
+      (global.fetch as jest.Mock).mockRejectedValue(new TypeError('Failed to fetch'));
+
+      const result = await downloadImage('https://example.com/image.png', 'test.png');
+      expect(result).toBe(false);
     });
   });
 });

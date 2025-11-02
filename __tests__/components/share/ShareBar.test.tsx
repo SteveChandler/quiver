@@ -79,15 +79,16 @@ describe('ShareBar Component', () => {
 
       // Look for variant selector (could be dropdown or buttons)
       const variantElement = screen.queryByText(/variant/i) || screen.queryByLabelText(/variant/i);
-      expect(variantElement || screen.getByRole('combobox')).toBeInTheDocument();
+      const comboboxes = screen.queryAllByRole('combobox');
+      expect(variantElement || comboboxes.length > 0).toBeTruthy();
     });
 
     it('should render aspect ratio selector', () => {
       render(<ShareBar session={mockSession} sessionId="test-session-123" />);
 
-      // Look for aspect ratio selector
-      const ratioElement = screen.queryByText(/aspect|ratio|1:1|4:5|9:16/i);
-      expect(ratioElement || screen.getAllByRole('combobox').length).toBeGreaterThan(0);
+      // Look for aspect ratio selector - should have at least one combobox
+      const comboboxes = screen.getAllByRole('combobox');
+      expect(comboboxes.length).toBeGreaterThan(0);
     });
 
     it('should render platform share buttons', () => {
@@ -689,7 +690,6 @@ describe('ShareBar Component', () => {
         await waitFor(() => {
           expect(updateSession).toHaveBeenCalledWith(
             'test-session-123',
-            'user-123',
             { is_public: true }
           );
         });

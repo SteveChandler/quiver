@@ -403,7 +403,7 @@ export function UnifiedAuthModal({
           <DialogFooter className="sm:justify-center">
             {mode === "login" ? (
               <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <button
                   onClick={switchToSignup}
                   className="text-primary hover:underline"
@@ -703,7 +703,7 @@ function SuccessMessage() {
       <div>
         <h3 className="font-semibold">Success!</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          You're now signed in.
+          You&apos;re now signed in.
         </p>
       </div>
     </div>

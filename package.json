@@ -191,6 +191,7 @@
     "depcheck": "^1.4.7",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.3",
+    "eslint-plugin-complexity": "^1.0.2",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "jest": "^29.7.0",
     "jest-axe": "^9.0.0",

@@ -79,7 +79,7 @@ export function SharePageClient({
             {beachName}
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
-            {userName}'s Surf Session
+            {userName}&apos;s Surf Session
           </p>
         </div>
 

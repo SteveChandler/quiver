@@ -26,7 +26,7 @@ export default function ShareNotFound() {
               Session Not Found
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              This session is private, has been deleted, or doesn't exist.
+              This session is private, has been deleted, or doesn&apos;t exist.
             </p>
           </div>
 

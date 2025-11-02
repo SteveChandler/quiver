@@ -32,7 +32,7 @@ export function ProfileStep() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">What's your name?</h2>
+        <h2 className="text-2xl font-bold mb-2">What&apos;s your name?</h2>
         <p className="text-gray-600 text-sm">
           Let the community know who you are
         </p>
@@ -63,7 +63,7 @@ export function ProfileStep() {
             aria-invalid={!!errors.displayName}
           />
           <p className="text-xs text-gray-500 mt-1">
-            This is how you'll appear to other surfers
+            This is how you&apos;ll appear to other surfers
           </p>
           {errors.displayName && (
             <p className="text-sm text-red-600 mt-1" role="alert">
