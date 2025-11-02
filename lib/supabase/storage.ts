@@ -343,6 +343,7 @@ export async function getSessionPhotos(
       `
       )
       .eq("session_id", sessionId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (error) {

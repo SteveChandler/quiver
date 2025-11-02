@@ -213,8 +213,9 @@ function NewSessionPageContent() {
       const uploadResult = await uploadSessionPhotosAction(sessionId, formData);
 
       if (uploadResult.success) {
+        const uploaded = uploadResult.data?.uploaded ?? photos.length;
         toast.success(
-          `Photos uploaded: ${uploadResult.data.uploaded} of ${photos.length}`
+          `Photos uploaded: ${uploaded} of ${photos.length}`
         );
       } else {
         toast.warning("Some photos failed to upload");
