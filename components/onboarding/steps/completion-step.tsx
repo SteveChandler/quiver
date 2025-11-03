@@ -44,14 +44,14 @@ export function CompletionStep() {
       </div>
 
       <div>
-        <h1 className="text-3xl font-bold mb-3">You're all set!</h1>
+        <h1 className="text-3xl font-bold mb-3">You&apos;re all set!</h1>
         <p className="text-gray-600 text-lg">
           {data.fullName ? `Welcome, ${data.fullName.split(' ')[0]}!` : 'Welcome to Quiver!'}
         </p>
       </div>
 
       <div className="bg-gradient-to-r from-green-50 to-teal-50 rounded-lg p-6 border border-green-200">
-        <h3 className="font-bold text-lg mb-2">You've earned +100 XP! 🎉</h3>
+        <h3 className="font-bold text-lg mb-2">You&apos;ve earned +100 XP! 🎉</h3>
         <p className="text-sm text-gray-700">
           Your surf journey starts now. Track sessions, earn achievements, and connect with the community.
         </p>

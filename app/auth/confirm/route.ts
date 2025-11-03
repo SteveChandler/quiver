@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export async function GET(request: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     redirect("/error?reason=invalid_or_expired_link");
   }
 
-  const supabase = createClient();
+  const supabase = createSupabaseServerClient();
 
   try {
     const { error } = await supabase.auth.verifyOtp({

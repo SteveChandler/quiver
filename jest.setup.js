@@ -195,3 +195,9 @@ jest.mock("date-fns/formatDistanceToNow", () => ({
   __esModule: true,
   default: (date, opts) => "1h ago",
 }));
+
+// Mock canvas module that jsdom tries to require but isn't installed
+jest.mock("canvas", () => ({
+  createCanvas: jest.fn(),
+  loadImage: jest.fn(),
+}), { virtual: true });

@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     const meta = createPaginationMeta(page, limit, count || 0);
 
     // Cache for 2 minutes (public content, updated frequently)
-    return createPaginatedResponse(publicSessions, meta, CacheDuration.SHORT);
+    return await createPaginatedResponse(publicSessions, meta, CacheDuration.SHORT);
   } catch (error) {
     return handleApiError(error, "Failed to fetch public sessions");
   }

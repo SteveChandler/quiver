@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
  * OAuth callback route handler
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   
   // Create Supabase client - the SSR helper automatically handles
   // exchanging the auth code/hash from the URL for a session
-  const supabase = createClient();
+  const supabase = createSupabaseServerClient();
   
   // The session exchange happens automatically when we create the client
   // with the auth code in the URL. We just need to redirect the user back.

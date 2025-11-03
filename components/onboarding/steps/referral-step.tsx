@@ -111,7 +111,7 @@ export function ReferralStep() {
         {validationStatus === 'valid' && (
           <p className="text-sm text-green-600 mt-2 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
-            Valid code! You'll both get bonus XP
+            Valid code! You&apos;ll both get bonus XP
           </p>
         )}
         {validationStatus === 'invalid' && (

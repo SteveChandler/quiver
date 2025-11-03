@@ -32,11 +32,11 @@ export async function GET(request: NextRequest) {
 
     // Check ETag for 304 Not Modified response
     const clientETag = request.headers.get('If-None-Match');
-    const notModified = checkNotModified(clientETag, responseData);
+    const notModified = await checkNotModified(clientETag, responseData);
     if (notModified) return notModified;
 
     // Return cached response with 5min cache + 1hr SWR
-    return createCachedResponse(responseData, CacheDuration.MEDIUM);
+    return await createCachedResponse(responseData, CacheDuration.MEDIUM);
   } catch (error) {
     console.error("Error fetching beaches:", error);
     return handleApiError(error, "Failed to fetch beaches");

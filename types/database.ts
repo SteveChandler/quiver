@@ -30,9 +30,11 @@ export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 export type IntelPost = Database['public']['Tables']['intel_posts']['Row']
 export type IntelPostInsert = Database['public']['Tables']['intel_posts']['Insert']
 export type IntelPostUpdate = Database['public']['Tables']['intel_posts']['Update']
+export type IntelPostTag = Database['public']['Enums']['intel_post_tag']
 
-export type Follow = Database['public']['Tables']['follows']['Row']
-export type FollowInsert = Database['public']['Tables']['follows']['Insert']
+// Note: follows table not yet in schema - uncomment when migration is applied
+// export type Follow = Database['public']['Tables']['follows']['Row']
+// export type FollowInsert = Database['public']['Tables']['follows']['Insert']
 
 export type SessionShare = Database['public']['Tables']['session_shares']['Row']
 export type SessionShareInsert = Database['public']['Tables']['session_shares']['Insert']
@@ -66,13 +68,21 @@ export interface SessionWithDetails extends Session {
 export interface BeachWithReviews extends Beach {
   reviews: BeachReview[]
   review_count?: number
-  average_rating?: number
+  average_rating?: number | null
 }
 
 export interface ProfileWithStats extends Profile {
-  session_count?: number
-  follower_count?: number
-  following_count?: number
+  session_count?: number | null
+  follower_count?: number | null
+  following_count?: number | null
+}
+
+export interface IntelPostWithUser extends IntelPost {
+  profiles: {
+    id: string
+    full_name: string | null
+    avatar_url: string | null
+  } | null
 }
 
 // ===================================================

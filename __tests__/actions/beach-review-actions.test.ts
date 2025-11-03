@@ -43,14 +43,16 @@ const mockReview: BeachReview = {
   visit_date: "2024-01-15",
   created_at: "2024-01-16T10:00:00Z",
   updated_at: "2024-01-16T10:00:00Z",
+  deleted_at: null,
+  helpful_count: 0,
 };
 
 const mockReviewWithUser: BeachReviewWithUser = {
   ...mockReview,
-  user: {
+  profiles: {
+    id: "user-1",
     full_name: "John Doe",
     avatar_url: "https://example.com/avatar.jpg",
-    email: "john@example.com",
   },
 };
 

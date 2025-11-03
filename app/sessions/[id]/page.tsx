@@ -69,6 +69,7 @@ export async function generateMetadata({
         title,
         description,
         path: `/sessions/${params.id}`,
+        image: `/api/og/session/${params.id}?variant=1`,
       });
     }
   } catch (error) {

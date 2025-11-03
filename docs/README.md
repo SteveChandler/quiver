@@ -2,22 +2,44 @@
 
 This directory contains the essential documentation for the Quiver surf app, focused on current architecture, design principles, and development patterns.
 
+## 🚀 **Quick Start (New Developers)**
+
+**First time here? Start with these guides:**
+
+| Guide | Time | Purpose |
+|-------|------|---------|
+| **[quick-start/NEW_DEVELOPER.md](quick-start/NEW_DEVELOPER.md)** ⭐ | 15 min | Complete setup from zero to running |
+| **[SUPABASE_SETUP.md](SUPABASE_SETUP.md)** ⭐ | 10 min | How to connect to Supabase correctly |
+| **[TESTING_GUIDE.md](TESTING_GUIDE.md)** | 15 min | Running and writing tests |
+| **[quick-start/COMMON_TASKS.md](quick-start/COMMON_TASKS.md)** | 5 min | Daily development tasks |
+
 ## 📚 **Core Documentation**
+
+### **Setup & Configuration**
+
+- **[SUPABASE_SETUP.md](SUPABASE_SETUP.md)** ⭐ - **NEW!** Complete Supabase connection guide - which client to use when
+- **[TESTING_GUIDE.md](TESTING_GUIDE.md)** ⭐ - **NEW!** Comprehensive testing guide with Jest and Playwright
+- **[SETUP.md](SETUP.md)** - Development environment setup guide
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Development troubleshooting guide and common issues
+
+### **Quick Reference Guides** ✨ NEW
+
+- **[quick-start/NEW_DEVELOPER.md](quick-start/NEW_DEVELOPER.md)** - 15-minute onboarding guide
+- **[quick-start/RUNNING_TESTS.md](quick-start/RUNNING_TESTS.md)** - Quick test command reference
+- **[quick-start/COMMON_TASKS.md](quick-start/COMMON_TASKS.md)** - Common development tasks
 
 ### **Architecture & Strategy**
 
-- **`ARCHITECTURE_REVIEW.md`** - Comprehensive system overview, product vision, current status, and growth strategy
-- **`ARCHITECTURE.md`** - Top-level architecture index with mobile architecture, stack overview, and pattern references
-- **`DESIGN_PRINCIPLES.md`** - Core design philosophy, technical patterns, and motion design system
+- **[ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)** - Comprehensive system overview, product vision, current status, and growth strategy
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Top-level architecture index with mobile architecture, stack overview, and pattern references
+- **[DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md)** - Core design philosophy, technical patterns, and motion design system
 
 ### **Development Standards**
 
-- **`STYLE_GUIDE.md`** - Brand identity, UI/UX standards, design tokens, and DRY component patterns
-- **`CLAUDE.md`** - Claude Code contributor guide and development workflow
-- **`CURSOR_AGENTS.md`** - Cursor agent configurations and MCP integration
-- **`TROUBLESHOOTING.md`** - Development troubleshooting guide and common issues
-- **`E2E_TEST_PLAN.md`** - End-to-end testing strategy, notification testing, and accessibility testing
-- **`SETUP.md`** - Development environment setup guide
+- **[STYLE_GUIDE.md](STYLE_GUIDE.md)** - Brand identity, UI/UX standards, design tokens, and DRY component patterns
+- **[CLAUDE.md](CLAUDE.md)** - Claude Code contributor guide and development workflow
+- **[CURSOR_AGENTS.md](CURSOR_AGENTS.md)** - Cursor agent configurations and MCP integration
+- **[E2E_TEST_PLAN.md](E2E_TEST_PLAN.md)** - End-to-end testing strategy, notification testing, and accessibility testing
 
 ### **Technical Reference**
 
@@ -66,9 +88,19 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 3. **Developer-Friendly**: Clear patterns and examples for rapid development
 4. **Maintained**: Regular updates to match actual implementation
 
-## 🔄 **Recent Cleanup**
+## 🔄 **Recent Updates**
 
-**January 2025 (Latest)**: Aggressive documentation consolidation from 42 → 26 files (38% reduction):
+**January 2025 (Latest)**: Major documentation improvements - See [DOCUMENTATION_IMPROVEMENTS_2025.md](DOCUMENTATION_IMPROVEMENTS_2025.md)
+
+**Key Additions:**
+- ✨ **NEW:** [SUPABASE_SETUP.md](SUPABASE_SETUP.md) - Eliminates #1 confusion point
+- ✨ **NEW:** [TESTING_GUIDE.md](TESTING_GUIDE.md) - Comprehensive test guide
+- ✨ **NEW:** [quick-start/](quick-start/) guides for new developers
+- ✨ **NEW:** `.env.example` with detailed comments
+- 📁 Moved 10 completed reports to `reports/archive/`
+- 🧹 Root directory cleanup: 14 → 4 files (71% reduction)
+
+**Previous (January 2025)**: Aggressive documentation consolidation from 42 → 26 files (38% reduction):
 
 **Deleted & Merged (16 files):**
 - **Product docs** (3): prd.txt, Quiver_TechSpec.md, Quiver_Implementation_Plan.md → merged into ARCHITECTURE_REVIEW.md
@@ -83,7 +115,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 - **Outdated reports** (3): TEST_SUMMARY.md, BEACH_DETAIL_TEST_BUGS.md, DATABASE_SECURITY_FIXES_2025_10.md
 - **Gamification** (1): NPC_DAILY_ACTIVITY_GUIDE.md → merged into GAMIFICATION.md
 
-**Result:** Streamlined to 26 focused files (25 .md + 1 .sql) with all content preserved
+**Result:** Streamlined to 33 focused files with significantly improved organization and new developer experience
 
 **Previous (January 2025)**: Major docs folder consolidation from 56 → 42 files (25% reduction):
 - Removed 23 completed implementation guides
@@ -94,5 +126,20 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 
 ---
 
+## 🎯 **Finding What You Need**
+
+### I need to...
+
+- **Set up my dev environment** → [quick-start/NEW_DEVELOPER.md](quick-start/NEW_DEVELOPER.md)
+- **Connect to Supabase** → [SUPABASE_SETUP.md](SUPABASE_SETUP.md)
+- **Run tests** → [quick-start/RUNNING_TESTS.md](quick-start/RUNNING_TESTS.md)
+- **Fix a problem** → [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- **Add a feature** → [quick-start/COMMON_TASKS.md](quick-start/COMMON_TASKS.md)
+- **Understand the architecture** → [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md)
+- **Follow code standards** → [STYLE_GUIDE.md](STYLE_GUIDE.md) and [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md)
+
+---
+
 **Last Updated**: January 2025
-**Status**: Focused on 26 essential, actively-maintained documentation files
+**Status**: Complete documentation overhaul with focus on developer experience
+**Next Review**: March 2025

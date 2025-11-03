@@ -101,9 +101,9 @@ export async function PATCH(request: NextRequest) {
     const { sessionId, isPrivate } = await request.json();
 
     if (!sessionId || typeof isPrivate !== "boolean") {
-      return createSuccessResponse(
-        { error: "Session ID and privacy flag are required" },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: "Session ID and privacy flag are required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -116,9 +116,9 @@ export async function PATCH(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return createSuccessResponse(
-        { error: "Authentication required" },
-        { status: 401 }
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 

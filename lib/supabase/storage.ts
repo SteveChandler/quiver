@@ -1,7 +1,5 @@
-import { createClient } from "@/lib/supabase/client";
-
-const supabase = createClient();
 import { compress } from "image-conversion";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const STORAGE_BUCKET = "session-media";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB per image (free tier consideration)
@@ -41,9 +39,18 @@ export interface StorageUsageInfo {
 
 /**
  * Compress and optimize image for free tier storage
+ * Returns compressed file or original file if compression fails (with detailed logging)
  */
 async function compressImage(file: File): Promise<File> {
   try {
+    // Log attempt for diagnostics
+    console.log("[Image Compression] Attempting compression:", {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      fileSizeMB: (file.size / (1024 * 1024)).toFixed(2) + "MB",
+    });
+
     const compressedFile = await compress(file, {
       quality: 0.8,
       maxWidth: 1920,
@@ -52,7 +59,7 @@ async function compressImage(file: File): Promise<File> {
 
     // Convert blob to File if needed
     if (compressedFile instanceof Blob && !(compressedFile instanceof File)) {
-      return new File(
+      const convertedFile = new File(
         [compressedFile],
         file.name.replace(/\.[^/.]+$/, ".jpg"),
         {
@@ -60,12 +67,41 @@ async function compressImage(file: File): Promise<File> {
           lastModified: Date.now(),
         }
       );
+
+      console.log("[Image Compression] Success:", {
+        originalSize: file.size,
+        compressedSize: convertedFile.size,
+        reduction: (
+          ((file.size - convertedFile.size) / file.size) *
+          100
+        ).toFixed(1),
+      });
+
+      return convertedFile;
     }
 
     return compressedFile as File;
   } catch (error) {
-    console.error("Image compression failed:", error);
-    throw new Error("Failed to compress image. Please try a different image.");
+    // Log detailed error for debugging
+    console.error("[Image Compression] Failed:", {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      error: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+    });
+
+    // Return original file if it's small enough, otherwise throw
+    if (file.size <= MAX_FILE_SIZE) {
+      console.warn(
+        `[Image Compression] Using original file (${(file.size / (1024 * 1024)).toFixed(2)}MB) - compression failed but size is acceptable`
+      );
+      return file;
+    }
+
+    throw new Error(
+      `Failed to compress image. File is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please choose an image under ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(0)}MB or try a different image format.`
+    );
   }
 }
 
@@ -95,7 +131,8 @@ function validateFile(file: File): { valid: boolean; error?: string } {
  * Get user's current storage usage
  */
 export async function getUserStorageUsage(
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<StorageUsageInfo> {
   try {
     const { data, error } = await supabase
@@ -135,7 +172,8 @@ export async function getUserStorageUsage(
  */
 async function updateStorageUsage(
   userId: string,
-  bytesToAdd: number
+  bytesToAdd: number,
+  supabase: SupabaseClient
 ): Promise<void> {
   try {
     const { error } = await supabase.rpc("update_user_storage_usage", {
@@ -158,39 +196,64 @@ async function updateStorageUsage(
 export async function uploadSessionPhoto(
   file: File,
   sessionId: string,
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<UploadResult> {
   try {
+    console.log("[Upload] Starting upload:", {
+      fileName: file.name,
+      sessionId,
+      userId,
+    });
+
     // Validate file
     const validation = validateFile(file);
     if (!validation.valid) {
+      console.warn("[Upload] Validation failed:", validation.error);
       return { success: false, error: validation.error };
     }
 
     // Check storage quota
-    const usage = await getUserStorageUsage(userId);
+    const usage = await getUserStorageUsage(userId, supabase);
     if (!usage.can_upload) {
+      const usedMB = (usage.total_bytes / (1024 * 1024)).toFixed(2);
+      const remainingMB = (usage.remaining_bytes / (1024 * 1024)).toFixed(2);
+      console.warn("[Upload] Quota exceeded:", {
+        usedMB,
+        remainingMB,
+        imageCount: usage.image_count,
+      });
       return {
         success: false,
-        error:
-          "Storage quota exceeded. Please delete some images to free up space.",
+        error: `Storage quota exceeded. You've used ${usedMB}MB of your 100MB limit (${usage.image_count} images). Please delete some images to free up space.`,
       };
     }
 
-    // Compress image
+    // Compress image (with fallback to original if compression fails)
     const compressedFile = await compressImage(file);
 
     if (compressedFile.size > MAX_FILE_SIZE) {
+      const fileSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
+      const maxSizeMB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+      console.error("[Upload] File too large after compression:", {
+        fileSizeMB,
+        maxSizeMB,
+      });
       return {
         success: false,
-        error:
-          "File size too large even after compression. Please choose a smaller image.",
+        error: `File size is ${fileSizeMB}MB even after compression. Please choose an image under ${maxSizeMB}MB.`,
       };
     }
 
     // Generate unique filename
     const timestamp = Date.now();
     const fileName = `${sessionId}/${userId}/${timestamp}.jpg`;
+
+    console.log("[Upload] Uploading to storage:", {
+      bucket: STORAGE_BUCKET,
+      path: fileName,
+      size: compressedFile.size,
+    });
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
@@ -201,7 +264,10 @@ export async function uploadSessionPhoto(
       });
 
     if (error) {
-      throw error;
+      console.error("[Upload] Storage upload failed:", error);
+      throw new Error(
+        `Storage upload failed: ${error.message}. Please try again.`
+      );
     }
 
     // Get public URL
@@ -209,8 +275,13 @@ export async function uploadSessionPhoto(
       .from(STORAGE_BUCKET)
       .getPublicUrl(data.path);
 
+    console.log("[Upload] Upload successful:", {
+      path: data.path,
+      publicUrl: urlData.publicUrl,
+    });
+
     // Update storage usage
-    await updateStorageUsage(userId, compressedFile.size);
+    await updateStorageUsage(userId, compressedFile.size, supabase);
 
     return {
       success: true,
@@ -219,10 +290,13 @@ export async function uploadSessionPhoto(
       fileSize: compressedFile.size,
     };
   } catch (error) {
-    console.error("Upload failed:", error);
+    console.error("[Upload] Upload failed:", {
+      error: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+    });
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Upload failed",
+      error: error instanceof Error ? error.message : "Upload failed. Please try again.",
     };
   }
 }
@@ -233,7 +307,8 @@ export async function uploadSessionPhoto(
 export async function uploadMultiplePhotos(
   files: File[],
   sessionId: string,
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<UploadResult[]> {
   if (files.length > MAX_IMAGES_PER_SESSION) {
     throw new Error(
@@ -257,7 +332,7 @@ export async function uploadMultiplePhotos(
   // Upload files sequentially to avoid overwhelming the storage
   const results: UploadResult[] = [];
   for (const file of files) {
-    const result = await uploadSessionPhoto(file, sessionId, userId);
+    const result = await uploadSessionPhoto(file, sessionId, userId, supabase);
     results.push(result);
 
     // If any upload fails, stop uploading more
@@ -274,7 +349,8 @@ export async function uploadMultiplePhotos(
  */
 export async function deleteSessionPhoto(
   path: string,
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Get file info before deletion for storage tracking
@@ -307,7 +383,7 @@ export async function deleteSessionPhoto(
 
     // Update storage usage
     if (fileData?.file_size) {
-      await updateStorageUsage(userId, -fileData.file_size);
+      await updateStorageUsage(userId, -fileData.file_size, supabase);
     }
 
     return { success: true };
@@ -324,7 +400,8 @@ export async function deleteSessionPhoto(
  * Get photos for a session
  */
 export async function getSessionPhotos(
-  sessionId: string
+  sessionId: string,
+  supabase: SupabaseClient
 ): Promise<SessionPhoto[]> {
   try {
     const { data, error } = await supabase
@@ -343,6 +420,7 @@ export async function getSessionPhotos(
       `
       )
       .eq("session_id", sessionId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -362,7 +440,8 @@ export async function getSessionPhotos(
 export async function updatePhotoCaption(
   photoId: string,
   caption: string,
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await supabase

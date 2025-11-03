@@ -67,6 +67,13 @@ export async function getLocationPageData(
       }
 
       if (!beaches || beaches.length === 0) {
+        console.error(`[getLocationPageData] No beaches found for metro area:`, {
+          city,
+          state,
+          country,
+          metroConfig,
+          queryParams: { p_cities: metroConfig.cities, p_state: state, p_country: country },
+        });
         throw new Error("No beaches found for this metro area");
       }
 
@@ -138,6 +145,12 @@ export async function getLocationPageData(
       }
 
       if (!beaches || beaches.length === 0) {
+        console.error(`[getLocationPageData] No beaches found for location:`, {
+          city,
+          state,
+          country,
+          queryParams: { p_city: city, p_state: state, p_country: country },
+        });
         throw new Error("No beaches found for this location");
       }
 

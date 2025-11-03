@@ -116,9 +116,9 @@ export function useBeachSearch() {
       // (e.g., "Right point over reef/rock" matches "point" and "reef" filters)
       if (filters.breakTypes && filters.breakTypes.size > 0) {
         working = working.filter((b) => {
-          // Include beaches with unknown break_type (null/undefined) to avoid filtering out all beaches
-          // when data is missing. Once break_type is populated, filtering will work properly.
-          if (!b.break_type) return true;
+          // Exclude beaches with unknown break_type (null/undefined) from filtered results
+          // to ensure accurate filter matching. Beaches without break_type won't match any filter.
+          if (!b.break_type) return false;
           const breakTypeLower = b.break_type.toLowerCase();
           // Match if break_type contains ANY of the selected filter keywords
           return Array.from(filters.breakTypes).some(filterType =>

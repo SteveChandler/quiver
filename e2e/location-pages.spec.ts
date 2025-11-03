@@ -71,18 +71,26 @@ test.describe("Location Pages - URL and Routing", () => {
   test("should navigate from breadcrumb to location page", async ({
     page,
   }) => {
-    // Start at a beach detail page with location data
-    await page.goto("/beaches/blacks-beach"); // Assumes this beach has La Jolla, CA
+    // Start at a location page
+    await navigateToLocation(page, "La Jolla", "CA", "USA");
+    await waitForLocationPageLoad(page);
 
-    // Click location breadcrumb segment
-    const locationLink = page.getByRole("link", { name: /la jolla/i });
-    if (await locationLink.isVisible()) {
-      await locationLink.click();
-      await waitForLocationPageLoad(page);
+    // Click on first beach card to go to beach detail
+    const firstCard = page.locator('[data-testid="beach-card"]').first();
+    if (await firstCard.isVisible()) {
+      await firstCard.click();
+      await page.waitForURL(/\/beach\/.+/, { timeout: 10000 });
 
-      // Verify we're on the location page
-      const url = page.url();
-      expect(url).toContain("/beaches/usa/ca/la-jolla");
+      // Now click location breadcrumb to return to location page
+      const locationLink = page.getByRole("link", { name: /la jolla/i }).first();
+      if (await locationLink.isVisible()) {
+        await locationLink.click();
+        await waitForLocationPageLoad(page);
+
+        // Verify we're back on the location page
+        const url = page.url();
+        expect(url).toContain("/beaches/usa/ca/la-jolla");
+      }
     }
   });
 
@@ -240,15 +248,14 @@ test.describe("Location Pages - Beach Rankings and Cards", () => {
     const firstCard = page.locator('[data-testid="beach-card"]').first();
     await firstCard.click();
 
-    // Should navigate to beach detail page
-    await page.waitForURL(/\/beaches\/.+/, {
+    // Should navigate to beach detail page (singular /beach/)
+    await page.waitForURL(/\/beach\/.+/, {
       timeout: LOCATION_PAGE_TIMEOUTS.navigation,
     });
 
     // Verify we're on a beach detail page (not location page)
     const url = page.url();
-    const segments = url.split("/").filter(Boolean);
-    expect(segments.length).toBeGreaterThan(3); // More segments than location page
+    expect(url).toMatch(/\/beach\/[a-z-]+$/); // Should match /beach/{slug} pattern
   });
 
   test("should show empty state when no beaches in location", async ({

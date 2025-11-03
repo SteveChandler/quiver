@@ -106,10 +106,10 @@ export function BeachSearchAutocomplete({
             <CommandEmpty>
               <div className="py-6 text-center">
                 <p className="text-sm text-muted-foreground">
-                  No beaches found matching "{query}"
+                  No beaches found matching &quot;{query}&quot;
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Try searching for a specific beach name like "Swami's" or "Ocean Beach"
+                  Try searching for a specific beach name like &quot;Swami&apos;s&quot; or &quot;Ocean Beach&quot;
                 </p>
               </div>
             </CommandEmpty>

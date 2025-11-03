@@ -356,7 +356,6 @@ export async function getSessionMetadata(sessionId: string) {
 
 export async function updateSession(
   id: string,
-  userId: string,
   sessionData: Partial<
     Omit<
       Session,
@@ -369,15 +368,13 @@ export async function updateSession(
     >
   >
 ) {
-  const supabase = await createSupabaseServerClient();
-
-  try {
+  return withAuthenticatedAction(async (user, supabase) => {
     // First, get the current session to check if board_id/water_temp and arrays are changing
     const { data: currentSession, error: fetchError } = await supabase
       .from("sessions")
       .select("board_id, water_temp, invitee_ids, goals")
       .eq("id", id)
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .single();
 
     if (fetchError) {
@@ -392,7 +389,7 @@ export async function updateSession(
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .select()
       .single();
 
@@ -416,7 +413,7 @@ export async function updateSession(
             updated_at: new Date().toISOString(),
           })
           .eq("id", currentSession.board_id)
-          .eq("user_id", userId);
+          .eq("user_id", user.id);
       }
 
       // Increment new board's session count if it exists
@@ -430,7 +427,7 @@ export async function updateSession(
             updated_at: new Date().toISOString(),
           })
           .eq("id", sessionData.board_id)
-          .eq("user_id", userId);
+          .eq("user_id", user.id);
 
         // Track XP for tagging a board to a session (non-blocking)
         try {
@@ -488,13 +485,8 @@ export async function updateSession(
 
     revalidatePath("/sessions");
     revalidatePath("/profile");
-    return { success: true, data: data as Session };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+    return data as Session;
+  });
 }
 
 /**
@@ -844,69 +836,59 @@ export async function uploadSessionMedia(
   file: File,
   mediaType: "image" | "video"
 ) {
-  const supabase = await createSupabaseServerClient();
+  return withAuthenticatedAction(async (user, supabase) => {
+    // Verify user owns this session
+    const { data: session, error: sessionError } = await supabase
+      .from("sessions")
+      .select("id")
+      .eq("id", sessionId)
+      .eq("user_id", user.id)
+      .single();
 
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    if (sessionError || !session) {
+      throw new Error("Session not found or access denied");
+    }
 
-  if (userError || !user) {
-    throw new Error("Authentication required");
-  }
+    // Upload the file to storage
+    const fileName = `${sessionId}/${Date.now()}-${file.name}`;
+    const filePath = `session-media/${fileName}`;
 
-  // Verify user owns this session
-  const { data: session, error: sessionError } = await supabase
-    .from("sessions")
-    .select("id")
-    .eq("id", sessionId)
-    .eq("user_id", user.id)
-    .single();
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("media")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
 
-  if (sessionError || !session) {
-    throw new Error("Session not found or access denied");
-  }
+    if (uploadError) {
+      throw new Error("Failed to upload file");
+    }
 
-  // Upload the file to storage
-  const fileName = `${sessionId}/${Date.now()}-${file.name}`;
-  const filePath = `session-media/${fileName}`;
+    // Add media record to database
+    const { data: media, error: mediaError } = await supabase
+      .from("session_media")
+      .insert({
+        session_id: sessionId,
+        storage_path: filePath,
+        media_type: mediaType,
+      })
+      .select()
+      .single();
 
-  const { data: uploadData, error: uploadError } = await supabase.storage
-    .from("media")
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
+    if (mediaError) {
+      throw new Error("Failed to record media");
+    }
 
-  if (uploadError) {
-    throw new Error("Failed to upload file");
-  }
+    // Track XP for posting surf photos (non-blocking)
+    try {
+      await trackXPOptional("post_surf_photos", media.id, "photo");
+    } catch (xpError) {
+      // Ignore XP errors
+    }
 
-  // Add media record to database
-  const { data: media, error: mediaError } = await supabase
-    .from("session_media")
-    .insert({
-      session_id: sessionId,
-      storage_path: filePath,
-      media_type: mediaType,
-    })
-    .select()
-    .single();
-
-  if (mediaError) {
-    throw new Error("Failed to record media");
-  }
-
-  // Track XP for posting surf photos (non-blocking)
-  try {
-    await trackXPOptional("post_surf_photos", media.id, "photo");
-  } catch (xpError) {
-    // Ignore XP errors
-  }
-
-  revalidatePath(`/sessions/${sessionId}`);
-  return media;
+    revalidatePath(`/sessions/${sessionId}`);
+    return media;
+  });
 }
 
 /**

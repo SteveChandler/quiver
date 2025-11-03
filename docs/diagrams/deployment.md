@@ -244,17 +244,17 @@ sequenceDiagram
 
     Note over Actions: 1. Install Dependencies
 
-    Actions->>Actions: npm ci
+    Actions->>Actions: yarn install --frozen-lockfile
 
     Note over Actions: 2. Run Checks
 
-    Actions->>Actions: npm run lint
+    Actions->>Actions: yarn lint
     Actions->>Actions: npx tsc --noEmit
-    Actions->>Actions: npm run test
+    Actions->>Actions: yarn test
 
     Note over Actions: 3. Build Application
 
-    Actions->>Actions: npm run build
+    Actions->>Actions: yarn build
     Actions->>Actions: Generate static pages
     Actions->>Actions: Optimize assets
 
@@ -303,8 +303,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-      - run: npm ci
-      - run: npm run build
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
       - uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -321,7 +321,7 @@ jobs:
 
 ```mermaid
 graph TD
-    Start[Code Ready] --> CapSync[npm run build:ios]
+    Start[Code Ready] --> CapSync[yarn build:ios]
     CapSync --> UpdateCap[Sync Capacitor<br/>npx cap sync ios]
     UpdateCap --> Xcode[Open Xcode]
 
@@ -362,7 +362,7 @@ graph TD
 
 ```bash
 # Build for Android
-npm run build:android
+yarn build:android
 npx cap sync android
 
 # Open Android Studio and build AAB
@@ -382,9 +382,9 @@ npx cap sync android
 {
   "version": 2,
   "regions": ["sfo1"],
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
+  "buildCommand": "yarn build",
+  "devCommand": "yarn dev",
+  "installCommand": "yarn install --frozen-lockfile",
   "framework": "nextjs",
   "env": {
     "NEXT_PUBLIC_SUPABASE_URL": "@supabase-url",

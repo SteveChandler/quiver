@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
+import { getOptimizedImageUrl } from "@/lib/image-proxy";
 
 interface BestPhoto {
   id: string;
@@ -47,7 +48,8 @@ function MapFallback({ mapUrl, beachName, sizes, priority = false }: MapFallback
       sizes={sizes}
       className="object-cover"
       priority={priority}
-      unoptimized
+      placeholder="blur"
+      blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg=="
     />
   );
 }
@@ -126,7 +128,7 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
         <div className="relative aspect-[3/2] md:aspect-auto md:min-h-[400px] md:row-span-2 bg-muted">
           {heroPhoto ? (
             <Image
-              src={heroPhoto.public_url}
+              src={getOptimizedImageUrl(heroPhoto.public_url)}
               alt={`${beach.name} - main view`}
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
@@ -134,8 +136,6 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
               priority
               fetchPriority="high"
               onError={() => handleImageError(heroPhoto.id)}
-              // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
-              unoptimized={heroPhoto.public_url.includes("openverse") || heroPhoto.public_url.includes("flickr")}
             />
           ) : beach.lat && beach.lon ? (
             <MapFallback
@@ -158,15 +158,15 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
           <div className="relative aspect-[3/2] md:aspect-auto md:h-[196px] bg-muted">
             {sidePhotos[0] ? (
               <Image
-                src={sidePhotos[0].public_url}
+                src={getOptimizedImageUrl(sidePhotos[0].public_url)}
                 alt={`${beach.name} - view 2`}
                 fill
                 loading="lazy"
                 sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover"
+                placeholder="blur"
+                blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg=="
                 onError={() => handleImageError(sidePhotos[0].id)}
-                // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
-                unoptimized={sidePhotos[0].public_url.includes("openverse") || sidePhotos[0].public_url.includes("flickr")}
               />
             ) : validPhotos.length === 1 && beach.lat && beach.lon ? (
               <MapFallback
@@ -186,15 +186,15 @@ export function BeachPhotoGallery({ beach, className }: BeachPhotoGalleryProps) 
           <div className="relative aspect-[3/2] md:aspect-auto md:h-[196px] bg-muted">
             {sidePhotos[1] ? (
               <Image
-                src={sidePhotos[1].public_url}
+                src={getOptimizedImageUrl(sidePhotos[1].public_url)}
                 alt={`${beach.name} - view 3`}
                 fill
                 loading="lazy"
                 sizes="(max-width: 768px) 50vw, 25vw"
                 className="object-cover"
+                placeholder="blur"
+                blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg=="
                 onError={() => handleImageError(sidePhotos[1].id)}
-                // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
-                unoptimized={sidePhotos[1].public_url.includes("openverse") || sidePhotos[1].public_url.includes("flickr")}
               />
             ) : validPhotos.length >= 2 && beach.lat && beach.lon ? (
               <MapFallback

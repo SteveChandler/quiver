@@ -87,7 +87,8 @@ describe("/api/social/share/og", () => {
           beachName: "Test Beach",
           scheduledAt: "2024-01-15T08:00:00Z",
         }),
-        "story"
+        "story",
+        undefined
       );
     });
 
@@ -118,7 +119,8 @@ describe("/api/social/share/og", () => {
           title: "Planned Session",
           beachName: "Malibu",
         }),
-        "square"
+        "square",
+        undefined
       );
     });
 
@@ -280,7 +282,8 @@ describe("/api/social/share/og", () => {
       expect(response.status).toBe(200);
       expect(mockRenderShareImage).toHaveBeenCalledWith(
         expect.anything(),
-        "story"
+        "story",
+        undefined
       );
     });
 
@@ -331,7 +334,8 @@ describe("/api/social/share/og", () => {
         expect.objectContaining({
           beachName: "",
         }),
-        "story"
+        "story",
+        undefined
       );
     });
 

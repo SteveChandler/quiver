@@ -189,16 +189,16 @@ export function isValidUuid(value: string | undefined | null): boolean {
  *
  * @example
  * ```ts
- * return createCachedResponse(beaches, CacheDuration.MEDIUM);
+ * return await createCachedResponse(beaches, CacheDuration.MEDIUM);
  * ```
  */
-export function createCachedResponse<T>(
+export async function createCachedResponse<T>(
   data: T,
   duration: typeof CacheDuration[keyof typeof CacheDuration] = CacheDuration.MEDIUM,
   meta?: PaginationMeta,
   status = 200
-): NextResponse<ApiSuccess<T>> {
-  const eTag = generateETag(data);
+): Promise<NextResponse<ApiSuccess<T>>> {
+  const eTag = await generateETag(data);
   const cacheHeaders = createCacheHeaders(duration, eTag);
 
   return NextResponse.json(
@@ -228,15 +228,15 @@ export function createCachedResponse<T>(
  * @example
  * ```ts
  * const clientETag = request.headers.get('If-None-Match');
- * const notModified = checkNotModified(clientETag, data);
+ * const notModified = await checkNotModified(clientETag, data);
  * if (notModified) return notModified;
  * ```
  */
-export function checkNotModified(
+export async function checkNotModified(
   requestETag: string | null,
   currentData: any
-): NextResponse | null {
-  if (isETagMatch(requestETag, currentData)) {
+): Promise<NextResponse | null> {
+  if (await isETagMatch(requestETag, currentData)) {
     return new NextResponse(null, {
       status: 304,
       headers: DEFAULT_SECURITY_HEADERS,
@@ -256,15 +256,15 @@ export function checkNotModified(
  * @example
  * ```ts
  * const meta = createPaginationMeta(page, limit, totalCount);
- * return createPaginatedResponse(results, meta, CacheDuration.MEDIUM);
+ * return await createPaginatedResponse(results, meta, CacheDuration.MEDIUM);
  * ```
  */
-export function createPaginatedResponse<T>(
+export async function createPaginatedResponse<T>(
   data: T[],
   pagination: PaginationMeta,
   duration: typeof CacheDuration[keyof typeof CacheDuration] = CacheDuration.MEDIUM
-): NextResponse<ApiSuccess<T[]>> {
-  return createCachedResponse(data, duration, pagination);
+): Promise<NextResponse<ApiSuccess<T[]>>> {
+  return await createCachedResponse(data, duration, pagination);
 }
 
 // Re-export cache utilities for convenience

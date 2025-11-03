@@ -72,7 +72,7 @@ export function HomeBeachStep() {
       <div>
         <h2 className="text-2xl font-bold mb-2">Where do you usually surf?</h2>
         <p className="text-gray-600 text-sm">
-          We'll show you personalized forecasts for your home beach
+          We&apos;ll show you personalized forecasts for your home beach
         </p>
       </div>
 

@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       console.error("Error fetching recent posts:", error);
       // In dev/test environments with new schema, return empty posts to keep public endpoint stable
       const meta = createPaginationMeta(page, limit, 0);
-      return createPaginatedResponse([], meta, CacheDuration.SHORT);
+      return await createPaginatedResponse([], meta, CacheDuration.SHORT);
     }
 
     // Transform the data for the frontend
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     const meta = createPaginationMeta(page, limit, total);
 
     // Return with 2min cache + 5min SWR (shorter cache for recent/dynamic content)
-    return createPaginatedResponse(posts, meta, CacheDuration.SHORT);
+    return await createPaginatedResponse(posts, meta, CacheDuration.SHORT);
   } catch (error) {
     console.error("Error in recent-posts API:", error);
     return handleApiError(error, "Failed to fetch recent posts");

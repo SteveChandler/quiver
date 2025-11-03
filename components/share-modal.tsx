@@ -106,7 +106,7 @@ export function ShareModal({
     if (!user) return;
     try {
       setUpdating(true);
-      const res = await updateSession(sessionId, user.id, { is_public: true });
+      const res = await updateSession(sessionId, { is_public: true });
       if ((res as any)?.success !== false) {
         setIsPublic(true);
         onMadePublic?.();

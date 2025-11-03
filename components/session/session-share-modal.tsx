@@ -248,7 +248,7 @@ export function SessionShareModal({
         <div className="space-y-6">
           {/* Variant Selection */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Format</label>
+            <div className="text-sm font-medium">Format</div>
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -273,7 +273,7 @@ export function SessionShareModal({
 
           {/* Platform Selection */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Share to</label>
+            <div className="text-sm font-medium">Share to</div>
             <div className="grid grid-cols-2 gap-2">
               {PLATFORMS.map((platform) => {
                 const isShared = sharedPlatforms.has(platform.id);

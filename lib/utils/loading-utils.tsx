@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 export const LoadingStates = {
@@ -28,7 +29,7 @@ export const LoadingStates = {
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Quiver</h1>
         <p className="text-gray-600">{message}</p>
         {/* Hidden fallback CTA ensures at least one actionable element exists during E2E while auth is checking */}
-        <a
+        <Link
           href="/auth/sign-up"
           data-testid="test-fallback-cta"
           className="hidden"
@@ -36,7 +37,7 @@ export const LoadingStates = {
           tabIndex={-1}
         >
           Sign Up
-        </a>
+        </Link>
       </div>
     </div>
   ),

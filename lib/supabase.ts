@@ -74,7 +74,10 @@ export const createServerClient = () => {
     }
   } catch (error) {
     // Running outside of Next.js middleware/route handler context
-    console.warn("Could not access cookies, running outside Next.js context");
+    // Only log in development to avoid cluttering build logs
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Could not access cookies, running outside Next.js context");
+    }
   }
 
   if (cookieStore) {

@@ -1,8 +1,9 @@
 name: Database Backup
 
 on:
-  schedule:
-    - cron: '0 2 * * *'   # daily at 02:00 UTC
+  # Temporarily disabled - authentication issue needs fixing
+  # schedule:
+  #   - cron: '0 2 * * *'   # daily at 02:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -13,6 +14,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5  # requires runner >= 2.327.1 (you have 2.328.0)
         # if you need full history: with: { fetch-depth: 0 }
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -26,7 +33,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          PROJECT_REF: vawdnbbgawichorsjiwe
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
           set -euo pipefail
           DATE=$(date +%Y%m%d_%H%M%S)
@@ -49,11 +56,13 @@ jobs:
           retention-days: 30
 
       - name: Create backup report
+        env:
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
           {
             echo "## Database Backup Report"
             echo "Date: $(date)"
-            echo "Project: vawdnbbgawichorsjiwe"
+            echo "Project: $PROJECT_REF"
             echo
             echo "### Files Created:"
             ls -lh backups/*.sql.gz | awk '{print "- " $9 " (" $5 ")"}'

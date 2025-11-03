@@ -110,3 +110,6 @@ scripts/*-to-delete.txt
 .tunnel-url
 .tunnel-pid
 e2e/.auth/state.json
+
+# Sentry Config File
+.env.sentry-build-plugin

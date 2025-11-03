@@ -1,6 +1,9 @@
 /**
  * Morning Intel Utilities
  * Helper functions for analyzing and formatting surf conditions
+ *
+ * NOTE: This file is being refactored into focused modules.
+ * Formatting functions have been extracted to lib/formatters/intel-formatter.ts
  */
 
 import { format, parseISO } from "date-fns";
@@ -16,6 +19,42 @@ import type {
   ConditionEvaluation,
   ConditionsAnalysis,
 } from "@/types/morning-intel";
+
+// Re-export formatting functions for backward compatibility
+export {
+  getWaveHeightDescription,
+  deriveSurfRange,
+  renderIntelMarkdown,
+} from "@/lib/formatters/intel-formatter";
+
+// Re-export swell analysis functions for backward compatibility
+export {
+  primarySecondarySwell,
+  analyzeSwellMatch,
+  isAngleInWindow,
+} from "@/lib/analyzers/swell-analyzer";
+
+// Re-export wind analysis functions for backward compatibility
+export {
+  windAt,
+  calculateOnOffshore,
+  normalizeAngle,
+  degreesToCardinal,
+  analyzeWindConditions,
+} from "@/lib/analyzers/wind-analyzer";
+
+// Import for internal use in this module
+import {
+  primarySecondarySwell,
+  analyzeSwellMatch,
+} from "@/lib/analyzers/swell-analyzer";
+
+import {
+  windAt,
+  calculateOnOffshore,
+  normalizeAngle,
+  analyzeWindConditions,
+} from "@/lib/analyzers/wind-analyzer";
 
 const FEET_TO_METERS = 0.3048;
 const METERS_TO_FEET = 3.28084;
@@ -38,18 +77,6 @@ function normalizeTideDirection(status: string | null | undefined): TideDirectio
     return normalized as TideDirection;
   }
   return "slack";
-}
-
-/**
- * Convert wave height description to readable format
- */
-function getWaveHeightDescription(avgHeight: number): string {
-  if (avgHeight < 1) return "Knee-high";
-  if (avgHeight < 2) return "Waist-high";
-  if (avgHeight < 3.5) return "Chest-high";
-  if (avgHeight < 5) return "Head-high";
-  if (avgHeight < 7) return "Overhead";
-  return "Double overhead+";
 }
 
 /**
@@ -113,30 +140,7 @@ export function recommendTideWindow(
   };
 }
 
-/**
- * Derive surf range from forecast data
- */
-export function deriveSurfRange(
-  forecasts: ForecastSlice["forecasts"]
-): SurfMetrics {
-  const waveHeights = forecasts
-    .map((f) => f.wave_height || f.swell_height || null)
-    .filter((h): h is number => h !== null);
-
-  if (waveHeights.length === 0) {
-    return { min: 0, max: 0, dominant: "N/A" };
-  }
-
-  const min = Math.min(...waveHeights);
-  const max = Math.max(...waveHeights);
-  const avg = waveHeights.reduce((a, b) => a + b, 0) / waveHeights.length;
-
-  return {
-    min: Math.round(min * 10) / 10,
-    max: Math.round(max * 10) / 10,
-    dominant: getWaveHeightDescription(avg),
-  };
-}
+// Surf range derivation moved to IntelFormatter module
 
 /**
  * Get tide metrics at a specific time
@@ -211,157 +215,15 @@ function tideAt(
   };
 }
 
-/**
- * Extract primary and secondary swell components
- */
-export function primarySecondarySwell(
-  forecasts: ForecastSlice["forecasts"]
-): { primary: SwellComponent | null; secondary: SwellComponent | null } {
-  if (forecasts.length === 0) {
-    return { primary: null, secondary: null };
-  }
+// primarySecondarySwell function moved to lib/analyzers/swell-analyzer.ts
 
-  // Get most recent forecast with swell data
-  const forecastWithSwell = forecasts.find(
-    (f) =>
-      f.swell_height !== null &&
-      f.swell_period !== null &&
-      f.swell_direction !== null
-  );
+// windAt function moved to lib/analyzers/wind-analyzer.ts
 
-  if (!forecastWithSwell) {
-    return { primary: null, secondary: null };
-  }
+// calculateOnOffshore function moved to lib/analyzers/wind-analyzer.ts
 
-  const primary: SwellComponent | null = forecastWithSwell.swell_height
-    ? {
-        height: Number(forecastWithSwell.swell_height.toFixed(1)),
-        period: Math.round(forecastWithSwell.swell_period || 0),
-        direction: Math.round(forecastWithSwell.swell_direction || 0),
-        cardinal: degreesToCardinal(forecastWithSwell.swell_direction || 0),
-      }
-    : null;
+// normalizeAngle function moved to lib/analyzers/wind-analyzer.ts
 
-  const secondary: SwellComponent | null =
-    forecastWithSwell.secondary_swell_height
-      ? {
-          height: Number(forecastWithSwell.secondary_swell_height.toFixed(1)),
-          period: Math.round(forecastWithSwell.secondary_swell_period || 0),
-          direction: Math.round(
-            forecastWithSwell.secondary_swell_direction || 0
-          ),
-          cardinal: degreesToCardinal(
-            forecastWithSwell.secondary_swell_direction || 0
-          ),
-        }
-      : null;
-
-  return { primary, secondary };
-}
-
-/**
- * Get wind metrics at a specific time
- */
-export function windAt(
-  targetTime: string,
-  forecasts: ForecastSlice["forecasts"],
-  timezone: string
-): WindMetrics {
-  if (forecasts.length === 0) {
-    return {
-      speed: 0,
-      direction: 0,
-      cardinal: "N/A",
-      offshore: false,
-      description: "N/A",
-    };
-  }
-
-  // Find forecast closest to target time
-  const now = new Date();
-  const todayStr = format(now, "yyyy-MM-dd");
-  const targetDateStr = `${todayStr}T${targetTime}:00`;
-  const targetDate = fromZonedTime(new Date(targetDateStr), timezone);
-
-  let closestForecast = forecasts[0];
-  let minDiff = Math.abs(
-    new Date(`${forecasts[0].forecast_date}T${forecasts[0].forecast_time}`)
-      .getTime() - targetDate.getTime()
-  );
-
-  for (const forecast of forecasts) {
-    const forecastDate = new Date(
-      `${forecast.forecast_date}T${forecast.forecast_time}`
-    );
-    const diff = Math.abs(forecastDate.getTime() - targetDate.getTime());
-    if (diff < minDiff) {
-      minDiff = diff;
-      closestForecast = forecast;
-    }
-  }
-
-  const windSpeed = closestForecast.wind_speed || 0;
-  const windDir = closestForecast.wind_direction || 0;
-  const offshore = calculateOnOffshore(windDir, OB_SHORE_NORMAL);
-
-  let description = "N/A";
-  if (windSpeed === 0) {
-    description = "calm";
-  } else if (offshore) {
-    description = windSpeed < 5 ? "light offshore" : "offshore";
-  } else {
-    const angleDiff = Math.abs(normalizeAngle(windDir - OB_SHORE_NORMAL));
-    if (angleDiff > 135) {
-      // Onshore
-      description = windSpeed < 8 ? "light onshore" : "onshore";
-    } else {
-      // Cross-shore
-      description = "cross-shore";
-    }
-  }
-
-  return {
-    speed: Math.round(windSpeed),
-    direction: Math.round(windDir),
-    cardinal: degreesToCardinal(windDir),
-    offshore,
-    description,
-  };
-}
-
-/**
- * Calculate if wind is offshore relative to beach orientation
- * Wind is considered offshore if it's within ±45° of the beach normal
- */
-function calculateOnOffshore(windDir: number, beachNormal: number): boolean {
-  const angleDiff = Math.abs(normalizeAngle(windDir - beachNormal));
-  // Offshore is within 45° on either side (0-45° or 315-360°)
-  return angleDiff <= 45 || angleDiff >= 315;
-}
-
-/**
- * Normalize angle to 0-360 range
- */
-function normalizeAngle(angle: number): number {
-  while (angle < 0) angle += 360;
-  while (angle >= 360) angle -= 360;
-  return angle;
-}
-
-/**
- * Convert degrees to cardinal direction
- */
-function degreesToCardinal(degrees: number): string {
-  const normalized = normalizeAngle(degrees);
-  const directions = [
-    "N", "NNE", "NE", "ENE",
-    "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW",
-    "W", "WNW", "NW", "NNW"
-  ];
-  const index = Math.round(normalized / 22.5) % 16;
-  return directions[index];
-}
+// degreesToCardinal function moved to lib/analyzers/wind-analyzer.ts
 
 /**
  * Calculate best surf window heuristic
@@ -481,7 +343,7 @@ export function findNextBestWindow(
   const scoredForecasts = futureForecasts.map((f) => {
     let score = 0;
     const windSpeed = f.wind_speed || 999;
-    const period = f.wave_period || f.swell_period || 0;
+    const period = f.wave_period || f.swell_1_period || 0;
     const windDir = f.wind_direction || 0;
 
     // Wind scoring (most important)
@@ -569,7 +431,7 @@ export function findNextBestWindow(
   const wind = bestForecast.wind_speed || 0;
   const windDir = bestForecast.wind_direction || 0;
   const isOffshore = calculateOnOffshore(windDir, beachAspect);
-  const period = bestForecast.wave_period || bestForecast.swell_period || 0;
+  const period = bestForecast.wave_period || bestForecast.swell_1_period || 0;
 
   let conditions = "";
   if (isOffshore && wind < 8) {
@@ -637,143 +499,11 @@ export function confidenceHeuristic(
   return "Low";
 }
 
-/**
- * Check if angle is within window (handles 0/360 wraparound)
- */
-function isAngleInWindow(
-  angle: number,
-  minDeg: number,
-  maxDeg: number
-): boolean {
-  // Normalize all angles to 0-360
-  const norm = (deg: number) => ((deg % 360) + 360) % 360;
-  const a = norm(angle);
-  const min = norm(minDeg);
-  const max = norm(maxDeg);
+// isAngleInWindow function moved to lib/analyzers/swell-analyzer.ts
 
-  if (min <= max) {
-    // Normal case: window doesn't cross 0°
-    return a >= min && a <= max;
-  } else {
-    // Window crosses 0° (e.g., 350° to 10°)
-    return a >= min || a <= max;
-  }
-}
+// analyzeSwellMatch function moved to lib/analyzers/swell-analyzer.ts
 
-/**
- * Analyze swell direction match with beach preferences
- */
-function analyzeSwellMatch(
-  swellDirection: number | null | undefined,
-  beach: BeachPreferences
-): ConditionEvaluation {
-  // If no swell window defined, consider acceptable
-  if (!beach.swellWindowMin || !beach.swellWindowMax) {
-    return {
-      status: "acceptable",
-      emoji: "⚠️",
-      message: "Swell direction not configured for this beach",
-    };
-  }
-
-  // If no swell data, mark as poor
-  if (swellDirection == null) {
-    return {
-      status: "poor",
-      emoji: "❌",
-      message: "No swell direction data available",
-    };
-  }
-
-  // Check if swell is within window
-  const isInWindow = isAngleInWindow(
-    swellDirection,
-    beach.swellWindowMin,
-    beach.swellWindowMax
-  );
-
-  if (isInWindow) {
-    return {
-      status: "optimal",
-      emoji: "✅",
-      message: `${degreesToCardinal(swellDirection)} (${Math.round(swellDirection)}°) - within optimal window`,
-    };
-  }
-
-  // Calculate how far outside the window
-  const centerWindow = (beach.swellWindowMin + beach.swellWindowMax) / 2;
-  const angleDiff = Math.abs(normalizeAngle(swellDirection - centerWindow));
-
-  if (angleDiff < 45) {
-    return {
-      status: "acceptable",
-      emoji: "⚠️",
-      message: `${degreesToCardinal(swellDirection)} (${Math.round(swellDirection)}°) - slightly off optimal`,
-    };
-  }
-
-  return {
-    status: "poor",
-    emoji: "❌",
-    message: `${degreesToCardinal(swellDirection)} (${Math.round(swellDirection)}°) - outside optimal window`,
-  };
-}
-
-/**
- * Analyze wind conditions relative to beach preferences
- */
-function analyzeWindConditions(
-  wind: WindMetrics,
-  beach: BeachPreferences
-): ConditionEvaluation {
-  // If no wind offshore preference defined, evaluate based on general conditions
-  if (!beach.windOffshoreDeg) {
-    if (wind.speed < 5) {
-      return {
-        status: "optimal",
-        emoji: "✅",
-        message: `Light winds (${wind.speed} mph ${wind.cardinal})`,
-      };
-    } else if (wind.speed < 10) {
-      return {
-        status: "acceptable",
-        emoji: "⚠️",
-        message: `Moderate winds (${wind.speed} mph ${wind.cardinal})`,
-      };
-    } else {
-      return {
-        status: "poor",
-        emoji: "❌",
-        message: `Strong winds (${wind.speed} mph ${wind.cardinal})`,
-      };
-    }
-  }
-
-  // Calculate if wind is offshore
-  const tolerance = beach.windOffshoreTol || 45;
-  const angleDiff = Math.abs(normalizeAngle(wind.direction - beach.windOffshoreDeg));
-  const isOffshore = angleDiff <= tolerance || angleDiff >= (360 - tolerance);
-
-  if (isOffshore && wind.speed < 8) {
-    return {
-      status: "optimal",
-      emoji: "✅",
-      message: `${wind.description} (${wind.speed} mph ${wind.cardinal})`,
-    };
-  } else if (isOffshore || wind.speed < 8) {
-    return {
-      status: "acceptable",
-      emoji: "⚠️",
-      message: `${wind.description} (${wind.speed} mph ${wind.cardinal})`,
-    };
-  } else {
-    return {
-      status: "poor",
-      emoji: "❌",
-      message: `${wind.description} (${wind.speed} mph ${wind.cardinal})`,
-    };
-  }
-}
+// analyzeWindConditions function moved to lib/analyzers/wind-analyzer.ts
 
 /**
  * Analyze tide conditions relative to beach preferences
@@ -850,74 +580,4 @@ export function analyzeConditions(
   };
 }
 
-/**
- * Render Markdown body for intel post
- */
-export function renderIntelMarkdown(data: MorningIntelData): string {
-  const {
-    spotName,
-    time,
-    surf,
-    tide,
-    swells,
-    wind,
-    bestWindow,
-    confidence,
-    notes,
-    conditions,
-    beachPreferences,
-  } = data;
-
-  const tideDirection =
-    tide.direction === "rising"
-      ? "rising"
-      : tide.direction === "falling"
-      ? "falling"
-      : "slack";
-
-  const tideNext = tide.nextEvent
-    ? `next ${tide.nextEvent.type} ${tide.nextEvent.height} ft @ ${tide.nextEvent.time}`
-    : "N/A";
-
-  const primarySwell = swells.primary
-    ? `${swells.primary.height} ft @ ${swells.primary.period}s from ${swells.primary.cardinal} (${swells.primary.direction}°)`
-    : "N/A";
-
-  const secondarySwell = swells.secondary
-    ? `${swells.secondary.height} ft @ ${swells.secondary.period}s from ${swells.secondary.cardinal} (${swells.secondary.direction}°)`
-    : "N/A";
-
-  // Build conditions section if available
-  let conditionsSection = "";
-  if (conditions && beachPreferences) {
-    conditionsSection = `
-📊 **CONDITIONS SCORE: ${conditions.score}/10**
-
-${conditions.swell.emoji} **Swell Direction:** ${conditions.swell.message}
-${conditions.wind.emoji} **Wind:** ${conditions.wind.message}
-${conditions.tide.emoji} **Tide:** ${conditions.tide.message}`;
-
-    if (beachPreferences.skillLevel) {
-      conditionsSection += `\n🏄 **Skill Level:** ${beachPreferences.skillLevel}`;
-    }
-
-    if (beachPreferences.hazards && beachPreferences.hazards.length > 0) {
-      conditionsSection += `\n\n⚠️ **HAZARDS:** ${beachPreferences.hazards.join(", ")}`;
-    }
-
-    conditionsSection += "\n";
-  }
-
-  return `**${spotName} — Morning Surf Intel (${time})**
-${conditionsSection}
-- **Surf:** ${surf.min}–${surf.max} ft (${surf.dominant})
-- **Tide @ ${time}:** ${tide.height} ft, ${tideDirection} (${tideNext})
-- **Swell:**
-  - Primary: ${primarySwell}
-  - Secondary: ${secondarySwell}
-- **Wind:** ${wind.speed} mph ${wind.cardinal} (${wind.direction}°) — ${wind.description}
-- **Best Window:** ${bestWindow}
-- **Confidence:** ${confidence}
-
-**Notes:** ${notes || "Standard morning conditions"}`;
-}
+// Intel markdown rendering moved to IntelFormatter module
