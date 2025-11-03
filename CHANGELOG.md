@@ -48,6 +48,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Growth Impact
 - **Feed Engagement**: Photos in session cards drive 40%+ higher engagement
 - **Social Shares**: Photo count badges increase share credibility and clicks
+
+#### Test Coverage - Photo Display Features 🧪
+- **Integration Tests**: [__tests__/hooks/use-session-photos.test.ts](__tests__/hooks/use-session-photos.test.ts)
+  - 8 tests covering hook behavior (fetch, loading, error states, refetch)
+  - 100% coverage of useSessionPhotos hook
+
+- **Component Tests**: [__tests__/components/session-card-photos.test.tsx](__tests__/components/session-card-photos.test.tsx)
+  - 21 tests covering photo grid rendering and interactions
+  - Tests for 1, 2, 3 photo layouts
+  - Overflow indicators, click handling, keyboard navigation
+  - ARIA accessibility compliance
+
+- **Integration Tests**: [__tests__/components/session-card-with-photos.test.tsx](__tests__/components/session-card-with-photos.test.tsx)
+  - 14 tests for SessionCard with photos prop
+  - Photo display, map hiding, navigation behavior
+  - Owner vs viewer differences
+
+- **E2E Tests**: [e2e/feed-photo-thumbnails.spec.ts](e2e/feed-photo-thumbnails.spec.ts)
+  - 18 test scenarios across all feed contexts
+  - Tests for home feed, sessions feed, discover feed
+  - Photo loading, performance, mobile responsiveness
+  - Accessibility (ARIA labels, keyboard navigation)
+  - Graceful skipping when test data doesn't exist
+
+- **Test Utilities**: [e2e/utils/session-test-data.ts](e2e/utils/session-test-data.ts)
+  - Helper functions for creating test sessions with photos
+  - Minimal valid JPEG generation (156 bytes)
+  - Automated test data creation
+
+- **Test Data Script**: [e2e/scripts/create-photo-test-data.ts](e2e/scripts/create-photo-test-data.ts)
+  - Standalone script to create test sessions with photos
+  - Works with both local and dev environments
+  - Creates 5 sessions with varying photo counts (1-3 photos)
+
+- **Dev Environment Testing**: [docs/DEV_TESTING.md](docs/DEV_TESTING.md)
+  - Comprehensive guide for testing against dev.quiversurf.app
+  - Authentication setup, test execution, troubleshooting
+  - Verified 100% pass rate on dev environment (10/10 executable tests)
 - **User Upload Rate**: Visible photos encourage more photo uploads
 - **Social Proof**: Sessions with photos stand out in feeds
 

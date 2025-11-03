@@ -14,9 +14,15 @@ Some E2E tests (like `feed-photo-thumbnails.spec.ts`) require sessions with phot
 ### Running the Script
 
 ```bash
-# From project root
+# Local environment (default)
+npx ts-node e2e/scripts/create-photo-test-data.ts
+
+# Dev environment (uses BASE_URL from .env.playwright)
+# Make sure BASE_URL=https://dev.quiversurf.app in .env.playwright
 npx ts-node e2e/scripts/create-photo-test-data.ts
 ```
+
+The script automatically uses the `BASE_URL` from your `.env.playwright` file and the authentication state from `e2e/.auth/state.json`.
 
 This will:
 - Check your test account for existing sessions

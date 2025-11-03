@@ -4,6 +4,8 @@
 
 This document describes the refactored test architecture following the principle of **separation of concerns**. Tests are now organized by their purpose and scope, not by the feature they test.
 
+**Tests-first requirement:** Always codify new behavior in failing unit tests before implementing or refactoring the production code, and only land changes once those tests pass cleanly.
+
 ## Test Pyramid
 
 ```
@@ -173,6 +175,10 @@ test('should prevent invalid submission', async ({ page }) => {
 ```
 
 ## Guidelines
+
+### Process Guardrails
+- ✅ Start every change by writing or updating unit tests that fail for the new or regressed behavior.
+- ✅ Iterate on the implementation until those tests pass, then run the full validation loop (`yarn test`, `yarn typecheck`, `npx playwright test`, `yarn build`).
 
 ### When to Write Unit Tests
 
