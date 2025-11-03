@@ -1,7 +1,5 @@
-import { createClient } from "@/lib/supabase/client";
-
-const supabase = createClient();
 import { compress } from "image-conversion";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const STORAGE_BUCKET = "session-media";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB per image (free tier consideration)
@@ -95,7 +93,8 @@ function validateFile(file: File): { valid: boolean; error?: string } {
  * Get user's current storage usage
  */
 export async function getUserStorageUsage(
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<StorageUsageInfo> {
   try {
     const { data, error } = await supabase
@@ -135,7 +134,8 @@ export async function getUserStorageUsage(
  */
 async function updateStorageUsage(
   userId: string,
-  bytesToAdd: number
+  bytesToAdd: number,
+  supabase: SupabaseClient
 ): Promise<void> {
   try {
     const { error } = await supabase.rpc("update_user_storage_usage", {
@@ -158,7 +158,8 @@ async function updateStorageUsage(
 export async function uploadSessionPhoto(
   file: File,
   sessionId: string,
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<UploadResult> {
   try {
     // Validate file
@@ -168,7 +169,7 @@ export async function uploadSessionPhoto(
     }
 
     // Check storage quota
-    const usage = await getUserStorageUsage(userId);
+    const usage = await getUserStorageUsage(userId, supabase);
     if (!usage.can_upload) {
       return {
         success: false,
@@ -210,7 +211,7 @@ export async function uploadSessionPhoto(
       .getPublicUrl(data.path);
 
     // Update storage usage
-    await updateStorageUsage(userId, compressedFile.size);
+    await updateStorageUsage(userId, compressedFile.size, supabase);
 
     return {
       success: true,
@@ -233,7 +234,8 @@ export async function uploadSessionPhoto(
 export async function uploadMultiplePhotos(
   files: File[],
   sessionId: string,
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<UploadResult[]> {
   if (files.length > MAX_IMAGES_PER_SESSION) {
     throw new Error(
@@ -257,7 +259,7 @@ export async function uploadMultiplePhotos(
   // Upload files sequentially to avoid overwhelming the storage
   const results: UploadResult[] = [];
   for (const file of files) {
-    const result = await uploadSessionPhoto(file, sessionId, userId);
+    const result = await uploadSessionPhoto(file, sessionId, userId, supabase);
     results.push(result);
 
     // If any upload fails, stop uploading more
@@ -274,7 +276,8 @@ export async function uploadMultiplePhotos(
  */
 export async function deleteSessionPhoto(
   path: string,
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Get file info before deletion for storage tracking
@@ -307,7 +310,7 @@ export async function deleteSessionPhoto(
 
     // Update storage usage
     if (fileData?.file_size) {
-      await updateStorageUsage(userId, -fileData.file_size);
+      await updateStorageUsage(userId, -fileData.file_size, supabase);
     }
 
     return { success: true };
@@ -324,7 +327,8 @@ export async function deleteSessionPhoto(
  * Get photos for a session
  */
 export async function getSessionPhotos(
-  sessionId: string
+  sessionId: string,
+  supabase: SupabaseClient
 ): Promise<SessionPhoto[]> {
   try {
     const { data, error } = await supabase
@@ -363,7 +367,8 @@ export async function getSessionPhotos(
 export async function updatePhotoCaption(
   photoId: string,
   caption: string,
-  userId: string
+  userId: string,
+  supabase: SupabaseClient
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await supabase

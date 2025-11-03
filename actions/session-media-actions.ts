@@ -68,7 +68,8 @@ export async function uploadSessionPhotosAction(
       const uploadResults = await uploadMultiplePhotos(
         files,
         sessionId,
-        userId
+        userId,
+        supabase
       );
 
       // Save successful uploads to database
@@ -147,7 +148,7 @@ export async function deleteSessionPhotoAction(
       }
 
       // Delete from storage and database
-      const result = await deleteSessionPhoto(photo.storage_path, userId);
+      const result = await deleteSessionPhoto(photo.storage_path, userId, supabase);
 
       if (!result.success) {
         return { success: false, error: result.error };
@@ -178,7 +179,7 @@ export async function updatePhotoCaptionAction(
     try {
       const supabase = await createSupabaseServerClient();
 
-      const result = await updatePhotoCaption(photoId, caption, userId);
+      const result = await updatePhotoCaption(photoId, caption, userId, supabase);
 
       if (!result.success) {
         return { success: false, error: result.error };
@@ -213,7 +214,8 @@ export async function getSessionPhotosAction(
   sessionId: string
 ): Promise<ActionResult<SessionPhoto[]>> {
   try {
-    const photos = await getSessionPhotos(sessionId);
+    const supabase = await createSupabaseServerClient();
+    const photos = await getSessionPhotos(sessionId, supabase);
     return { success: true, data: photos };
   } catch (error) {
     console.error("Get session photos error:", error);
@@ -230,7 +232,8 @@ export async function getSessionPhotosAction(
 export async function getUserStorageUsageAction(): Promise<ActionResult<StorageUsageInfo>> {
   return withAuth(async (userId) => {
     try {
-      const usage = await getUserStorageUsage(userId);
+      const supabase = await createSupabaseServerClient();
+      const usage = await getUserStorageUsage(userId, supabase);
       return { success: true, data: usage };
     } catch (error) {
       console.error("Get storage usage error:", error);
