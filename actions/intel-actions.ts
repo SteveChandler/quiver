@@ -487,53 +487,28 @@ export async function getNearbyIntelPosts(
     if (!intelError && rpcPosts) {
       intelPosts = rpcPosts as any[];
     } else {
-      // Graceful fallback: fetch recent active posts and filter by distance in app
-      console.warn("RPC get_nearby_intel_posts failed; falling back to direct select", {
+      // CRITICAL ERROR: RPC function failed - this should not happen
+      console.error("[CRITICAL] RPC get_nearby_intel_posts failed - returning empty results", {
         code: (intelError as any)?.code,
         message: (intelError as any)?.message,
+        details: (intelError as any)?.details,
+        hint: (intelError as any)?.hint,
+        params: { lat, lon, radius, tag, limit },
+        timestamp: new Date().toISOString(),
       });
 
-      const { data: fallback, error: fallbackError } = await supabase
-        .from("intel_posts")
-        .select(
-          `id, user_id, beach_id, latitude, longitude, tag, title, description, photo_url, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
-        )
-        .eq("is_active", true)
-        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-        .order("created_at", { ascending: false })
-        .limit(Math.max(limit, 50));
-
-      if (fallbackError) {
-        console.error("Fallback intel_posts select failed:", fallbackError);
-        return {
-          success: true,
-          data: { posts: [], total: 0, filters: { lat, lon, radius, tag: tag || "all", limit } },
-        };
-      }
-
-      // Simple distance filter (Haversine) to approximate radius locally
-      const toRad = (n: number) => (n * Math.PI) / 180;
-      const haversineMiles = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 3958.7613; // miles
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
+      // DO NOT fall back to global posts - return empty results instead
+      // The RPC function should always work if the database is healthy
+      // If it fails, it indicates a serious issue that needs investigation
+      return {
+        success: true,
+        data: {
+          posts: [],
+          total: 0,
+          filters: { lat, lon, radius, tag: tag || "all", limit },
+        },
+        error: "Unable to fetch nearby intel posts. Please try again later.",
       };
-
-      intelPosts = (fallback || []).filter((p: any) => {
-        if (!lat || !lon || !p?.latitude || !p?.longitude) return true;
-        try {
-          const dist = haversineMiles(Number(lat), Number(lon), Number(p.latitude), Number(p.longitude));
-          return dist <= (radius || 25);
-        } catch {
-          return true;
-        }
-      }).slice(0, limit);
     }
 
     if (!intelPosts || intelPosts.length === 0) {
@@ -871,52 +846,28 @@ export async function getPublicIntelPosts(
     if (!intelError && rpcPosts) {
       intelPosts = rpcPosts as any[];
     } else {
-      // Graceful fallback: fetch recent active posts and filter by distance in app
-      console.warn("RPC get_nearby_intel_posts failed (public); falling back to direct select", {
+      // CRITICAL ERROR: RPC function failed for public access - this should not happen
+      console.error("[CRITICAL] RPC get_nearby_intel_posts failed (public) - returning empty results", {
         code: (intelError as any)?.code,
         message: (intelError as any)?.message,
+        details: (intelError as any)?.details,
+        hint: (intelError as any)?.hint,
+        params: { lat, lon, radius, tag, limit },
+        timestamp: new Date().toISOString(),
       });
 
-      const { data: fallback, error: fallbackError } = await supabase
-        .from("intel_posts")
-        .select(
-          `id, user_id, beach_id, latitude, longitude, tag, title, description, photo_url, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
-        )
-        .eq("is_active", true)
-        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-        .order("created_at", { ascending: false })
-        .limit(Math.max(limit, 50));
-
-      if (fallbackError) {
-        console.error("Public fallback intel_posts select failed:", fallbackError);
-        return {
-          success: true,
-          data: { posts: [], total: 0, filters: { lat, lon, radius, tag: tag || "all", limit } },
-        };
-      }
-
-      const toRad = (n: number) => (n * Math.PI) / 180;
-      const haversineMiles = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 3958.7613;
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
+      // DO NOT fall back to global posts - return empty results instead
+      // The RPC function should always work if the database is healthy
+      // If it fails, it indicates a serious issue that needs investigation
+      return {
+        success: true,
+        data: {
+          posts: [],
+          total: 0,
+          filters: { lat, lon, radius, tag: tag || "all", limit },
+        },
+        error: "Unable to fetch nearby intel posts. Please try again later.",
       };
-
-      intelPosts = (fallback || []).filter((p: any) => {
-        if (!lat || !lon || !p?.latitude || !p?.longitude) return true;
-        try {
-          const dist = haversineMiles(Number(lat), Number(lon), Number(p.latitude), Number(p.longitude));
-          return dist <= (radius || 25);
-        } catch {
-          return true;
-        }
-      }).slice(0, limit);
     }
 
     if (!intelPosts || intelPosts.length === 0) {
