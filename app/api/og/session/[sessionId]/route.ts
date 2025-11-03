@@ -79,12 +79,21 @@ export async function GET(
 
     const typedSession = session as SessionWithDetails;
 
+    // Fetch session photos count
+    const { data: photos } = await supabase
+      .from("session_media")
+      .select("id")
+      .eq("session_id", sessionId);
+
+    const photoCount = photos?.length || 0;
+
     // Generate image using Satori renderer
     // Use 16:9 aspect ratio (1200x630) for optimal OpenGraph display
     const { png } = await renderSessionCardImage(
       typedSession,
       variant,
-      "16:9" // OpenGraph standard: 1200x630 landscape
+      "16:9", // OpenGraph standard: 1200x630 landscape
+      photoCount // Pass photo count for display
     );
 
     // Return PNG with proper headers

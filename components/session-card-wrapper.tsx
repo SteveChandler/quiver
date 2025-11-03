@@ -1,3 +1,5 @@
+"use client";
+
 import { SessionCard } from "@/components/session-card";
 import {
   formatSessionDescription,
@@ -5,6 +7,7 @@ import {
   getSessionMapImageUrl,
 } from "@/lib/utils/session-utils";
 import type { SessionWithDetails } from "@/types/database";
+import { useSessionPhotos } from "@/hooks/use-session-photos";
 
 interface SessionCardWrapperProps {
   session: SessionWithDetails;
@@ -19,6 +22,9 @@ export function SessionCardWrapper({
   showUserInfo = true,
   onUserClick,
 }: SessionCardWrapperProps) {
+  // Fetch session photos
+  const { photos } = useSessionPhotos(session.id);
+
   const username = showUserInfo
     ? session.user?.full_name || "Anonymous Surfer"
     : "You";
@@ -49,6 +55,7 @@ export function SessionCardWrapper({
       comments={session.comments_count || 0}
       isOwner={isOwner}
       session={session}
+      photos={photos}
       onUserClick={onUserClick}
     />
   );

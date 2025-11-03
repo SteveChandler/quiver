@@ -24,6 +24,7 @@ import { SessionShareButton } from "@/components/session/session-share-button";
 import { UserPlus } from "lucide-react";
 import { useUserFollow } from "@/hooks/use-user-follow";
 import type { SessionWithDetails } from "@/types/database";
+import { SessionCardPhotos, type SessionPhoto } from "@/components/session-card-photos";
 
 interface SessionCardProps {
   id?: string;
@@ -38,6 +39,7 @@ interface SessionCardProps {
   comments: number;
   isOwner?: boolean;
   session?: SessionWithDetails; // Add optional session data for enhanced display
+  photos?: SessionPhoto[]; // Optional photos to display
   onUserClick?: (userId: string) => void;
 }
 
@@ -54,6 +56,7 @@ export function SessionCard({
   comments,
   isOwner = false,
   session,
+  photos,
   onUserClick,
 }: SessionCardProps) {
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
@@ -282,8 +285,24 @@ export function SessionCard({
         </div>
       )}
 
-      {/* Map Preview */}
-      <div className="relative h-48 w-full rounded-md overflow-hidden">
+      {/* Session Photos */}
+      {photos && photos.length > 0 && (
+        <SessionCardPhotos
+          photos={photos}
+          maxDisplay={3}
+          onClick={() => {
+            if (id && isOwner) {
+              // Navigate to session detail page to view photos
+              window.location.href = `/sessions/${id}`;
+            }
+          }}
+          className="my-3"
+        />
+      )}
+
+      {/* Map Preview - Only show if no photos, or show smaller if photos exist */}
+      {(!photos || photos.length === 0) && (
+        <div className="relative h-48 w-full rounded-md overflow-hidden">
         <MapImage
           src={imageUrl || "/placeholder.svg"}
           alt={
@@ -298,6 +317,7 @@ export function SessionCard({
           longitude={session?.beach?.longitude || session?.beach?.location?.x}
         />
       </div>
+      )}
 
       {/* Engagement */}
       <div className="flex items-center gap-4 pt-2">

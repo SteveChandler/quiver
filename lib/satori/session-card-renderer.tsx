@@ -15,7 +15,7 @@ import { format } from "date-fns";
 /**
  * Extract session data for rendering
  */
-function extractSessionData(session: SessionWithDetails) {
+function extractSessionData(session: SessionWithDetails, photoCount: number = 0) {
   const beachName = session.beaches?.name || "Unknown Beach";
   const date = format(new Date(session.arrival_time), "MMM d, yyyy");
   const rating = session.rating || 0;
@@ -33,6 +33,7 @@ function extractSessionData(session: SessionWithDetails) {
     waveHeight,
     wind,
     notes,
+    photoCount,
   };
 }
 
@@ -103,6 +104,32 @@ function renderLogo(color: string = "#FFFFFF") {
       },
       "QuiverSurf"
     )
+  );
+}
+
+/**
+ * Photo count badge component for Satori
+ */
+function renderPhotoBadge(photoCount: number, color: string = "#FFFFFF") {
+  if (photoCount === 0) return null;
+
+  return React.createElement(
+    "div",
+    {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        background: "rgba(0, 0, 0, 0.75)",
+        color: color,
+        padding: "12px 20px",
+        borderRadius: 24,
+        fontSize: 24,
+        fontWeight: 600,
+      },
+    },
+    React.createElement("span", null, "📷"),
+    React.createElement("span", null, `${photoCount} ${photoCount === 1 ? "photo" : "photos"}`)
   );
 }
 
@@ -252,9 +279,10 @@ function renderTwoColumnConditions(
  */
 function renderVariant1(
   session: SessionWithDetails,
-  dimensions: { width: number; height: number }
+  dimensions: { width: number; height: number },
+  photoCount: number = 0
 ): React.ReactElement {
-  const data = extractSessionData(session);
+  const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
 
   return React.createElement(
@@ -281,7 +309,8 @@ function renderVariant1(
           justifyContent: "space-between",
         },
       },
-      renderLogo("#FFFFFF")
+      renderLogo("#FFFFFF"),
+      photoCount > 0 ? renderPhotoBadge(photoCount, "#FFFFFF") : null
     ),
     // Main content
     React.createElement(
@@ -377,9 +406,10 @@ function renderVariant1(
  */
 function renderVariant2(
   session: SessionWithDetails,
-  dimensions: { width: number; height: number }
+  dimensions: { width: number; height: number },
+  photoCount: number = 0
 ): React.ReactElement {
-  const data = extractSessionData(session);
+  const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
   const imageHeight = height * 0.45;
 
@@ -502,9 +532,10 @@ function renderVariant2(
  */
 function renderVariant3(
   session: SessionWithDetails,
-  dimensions: { width: number; height: number }
+  dimensions: { width: number; height: number },
+  photoCount: number = 0
 ): React.ReactElement {
-  const data = extractSessionData(session);
+  const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
 
   return React.createElement(
@@ -633,9 +664,10 @@ function renderVariant3(
  */
 function renderVariant4(
   session: SessionWithDetails,
-  dimensions: { width: number; height: number }
+  dimensions: { width: number; height: number },
+  photoCount: number = 0
 ): React.ReactElement {
-  const data = extractSessionData(session);
+  const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
 
   return React.createElement(
@@ -758,9 +790,10 @@ function renderVariant4(
  */
 function renderVariant5(
   session: SessionWithDetails,
-  dimensions: { width: number; height: number }
+  dimensions: { width: number; height: number },
+  photoCount: number = 0
 ): React.ReactElement {
-  const data = extractSessionData(session);
+  const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
 
   return React.createElement(
@@ -879,9 +912,10 @@ function renderVariant5(
  */
 function renderVariant6(
   session: SessionWithDetails,
-  dimensions: { width: number; height: number }
+  dimensions: { width: number; height: number },
+  photoCount: number = 0
 ): React.ReactElement {
-  const data = extractSessionData(session);
+  const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
 
   return React.createElement(
@@ -1015,25 +1049,26 @@ function renderVariant6(
 function renderVariant(
   session: SessionWithDetails,
   variant: ShareVariant,
-  aspectRatio: AspectRatio
+  aspectRatio: AspectRatio,
+  photoCount: number = 0
 ): React.ReactElement {
   const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio];
 
   switch (variant) {
     case 1:
-      return renderVariant1(session, dimensions);
+      return renderVariant1(session, dimensions, photoCount);
     case 2:
-      return renderVariant2(session, dimensions);
+      return renderVariant2(session, dimensions, photoCount);
     case 3:
-      return renderVariant3(session, dimensions);
+      return renderVariant3(session, dimensions, photoCount);
     case 4:
-      return renderVariant4(session, dimensions);
+      return renderVariant4(session, dimensions, photoCount);
     case 5:
-      return renderVariant5(session, dimensions);
+      return renderVariant5(session, dimensions, photoCount);
     case 6:
-      return renderVariant6(session, dimensions);
+      return renderVariant6(session, dimensions, photoCount);
     default:
-      return renderVariant1(session, dimensions);
+      return renderVariant1(session, dimensions, photoCount);
   }
 }
 
@@ -1043,7 +1078,8 @@ function renderVariant(
 export async function renderSessionCardImage(
   session: SessionWithDetails,
   variant: ShareVariant,
-  aspectRatio: AspectRatio
+  aspectRatio: AspectRatio,
+  photoCount: number = 0
 ): Promise<GeneratedImage> {
   const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio];
 
@@ -1056,7 +1092,7 @@ export async function renderSessionCardImage(
     }
 
     // Render JSX to SVG using Satori
-    const jsx = renderVariant(session, variant, aspectRatio);
+    const jsx = renderVariant(session, variant, aspectRatio, photoCount);
     const satoriOptions: SatoriOptions = {
       width: dimensions.width,
       height: dimensions.height,
