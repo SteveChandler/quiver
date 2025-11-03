@@ -61,6 +61,24 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
 ---
 
+## 🚨 Common Setup Confusion Points
+
+**New to the project?** These guides eliminate common confusion:
+
+| Guide | Solves |
+|-------|--------|
+| **[Supabase Setup Guide](docs/SUPABASE_SETUP.md)** ⭐ | "Which Supabase client should I use?" |
+| **[Environment Variables](.env.example)** | "What environment variables do I need?" |
+| **[Testing Guide](docs/TESTING_GUIDE.md)** _(coming soon)_ | "How do I run tests?" |
+| **[Troubleshooting](docs/TROUBLESHOOTING.md)** | "Why isn't X working?" |
+
+**Quick Answers:**
+- **Supabase Connection**: Use `lib/supabase/client` for browser, `lib/supabase/server` for server components, `lib/supabase/api-server-client` for API routes. See [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)
+- **Running Tests**: `yarn test` (unit tests), `npx playwright test` (E2E tests). See [TEST_ARCHITECTURE.md](TEST_ARCHITECTURE.md)
+- **Local Supabase**: Run `supabase start`, copy keys from `supabase status` to `.env.local`
+
+---
+
 ## 📚 Documentation
 
 ### Architecture & Design
@@ -87,8 +105,10 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
 | Guide | Description |
 |-------|-------------|
-| **[CLAUDE.md](docs/CLAUDE.md)** | AI-assisted development guide and coding standards |
+| **[SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)** ⭐ | Complete Supabase connection guide - which client to use when |
+| **[SETUP.md](docs/SETUP.md)** | Development environment setup and configuration |
 | **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Common development issues and solutions |
+| **[CLAUDE.md](docs/CLAUDE.md)** | AI-assisted development guide and coding standards |
 | **[MOBILE_LOCAL_DEV.md](docs/MOBILE_LOCAL_DEV.md)** | Mobile development with local tunnels |
 
 ---

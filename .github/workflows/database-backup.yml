@@ -1,8 +1,9 @@
 name: Database Backup
 
 on:
-  schedule:
-    - cron: '0 2 * * *'   # daily at 02:00 UTC
+  # Temporarily disabled - authentication issue needs fixing
+  # schedule:
+  #   - cron: '0 2 * * *'   # daily at 02:00 UTC
   workflow_dispatch:
 
 jobs:
