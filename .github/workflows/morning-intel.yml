@@ -9,7 +9,7 @@ on:
   workflow_dispatch: # Allows manual triggering from GitHub Actions UI
 
 env:
-  NODE_VERSION: "18"
+  NODE_VERSION: "20"
 
 jobs:
   morning-intel:
@@ -55,8 +55,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           MORNING_INTEL_USER_EMAIL: ${{ secrets.MORNING_INTEL_USER_EMAIL }}
-          MORNING_INTEL_SPOT_ID: "65d177de-e75a-4ad8-aa0d-48a67c0851b0"
-          MORNING_INTEL_SPOT_NAME: "Ocean Beach Pier"
+          MORNING_INTEL_SPOT_ID: ${{ secrets.MORNING_INTEL_SPOT_ID }}
+          MORNING_INTEL_SPOT_NAME: ${{ secrets.MORNING_INTEL_SPOT_NAME }}
 
       - name: Upload logs
         if: always()

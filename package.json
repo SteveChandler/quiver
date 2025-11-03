@@ -2,6 +2,7 @@
   "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "yarn@1.22.17",
   "engines": {
     "node": ">=18.0.0 <23.0.0",
     "yarn": "^1.22.0",
@@ -19,6 +20,7 @@
     "test:ui": "playwright test --ui",
     "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
+    "test:unit": "jest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",

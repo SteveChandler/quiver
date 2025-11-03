@@ -17,7 +17,7 @@ on:
     workflow_dispatch: # Allows manual triggering from GitHub Actions UI
 
 env:
-    NODE_VERSION: "18"
+    NODE_VERSION: "20"
 
 jobs:
     generate-intel:
