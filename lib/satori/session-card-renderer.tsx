@@ -6,6 +6,7 @@
 import React from "react";
 import satori, { type SatoriOptions } from "satori";
 import { Resvg } from "@resvg/resvg-js";
+import QRCode from "qrcode";
 import type { SessionWithDetails } from "@/types/database";
 import type { ShareVariant, AspectRatio, GeneratedImage } from "@/types/session-share";
 import { ASPECT_RATIO_DIMENSIONS } from "@/types/session-share";
@@ -102,7 +103,7 @@ function renderLogo(color: string = "#FFFFFF") {
           color: color,
         },
       },
-      "QuiverSurf"
+      "Quiver"
     )
   );
 }
@@ -131,6 +132,27 @@ function renderPhotoBadge(photoCount: number, color: string = "#FFFFFF") {
     React.createElement("span", null, "📷"),
     React.createElement("span", null, `${photoCount} ${photoCount === 1 ? "photo" : "photos"}`)
   );
+}
+
+/**
+ * Generate QR code data URI
+ */
+async function generateQRCode(url: string): Promise<string> {
+  try {
+    const qrDataUrl = await QRCode.toDataURL(url, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 200,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF",
+      },
+    });
+    return qrDataUrl;
+  } catch (error) {
+    console.error("QR Code generation failed:", error);
+    return "";
+  }
 }
 
 /**
@@ -275,15 +297,20 @@ function renderTwoColumnConditions(
 }
 
 /**
- * Variant 1: Classic Overlay
+ * Variant 1: Session Ready (Beach Background)
+ * Matches mock design with ocean background, SESSION READY text, and QR code
  */
 function renderVariant1(
   session: SessionWithDetails,
   dimensions: { width: number; height: number },
-  photoCount: number = 0
+  photoCount: number = 0,
+  qrCode: string = ""
 ): React.ReactElement {
   const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
+
+  // Default ocean background (can be overridden with session photo in future)
+  const backgroundImage = "linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%), linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #f59e0b 100%)";
 
   return React.createElement(
     "div",
@@ -293,110 +320,164 @@ function renderVariant1(
         height,
         display: "flex",
         flexDirection: "column",
-        padding: 64,
+        padding: 48,
         color: "#FFFFFF",
-        backgroundImage:
-          "linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.6) 100%), linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        backgroundImage,
+        position: "relative",
       },
     },
-    // Header
+    // Header row
     React.createElement(
       "div",
       {
         style: {
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
+          marginBottom: "auto",
         },
       },
-      renderLogo("#FFFFFF"),
+      // Left: Logo + Beach name
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          },
+        },
+        renderLogo("#FFFFFF"),
+        React.createElement(
+          "div",
+          {
+            style: {
+              fontSize: 32,
+              fontWeight: 600,
+              color: "#FFFFFF",
+              opacity: 0.95,
+            },
+          },
+          data.beachName
+        )
+      ),
+      // Right: Photo badge
       photoCount > 0 ? renderPhotoBadge(photoCount, "#FFFFFF") : null
     ),
-    // Main content
+    // Center content
     React.createElement(
       "div",
       {
         style: {
           display: "flex",
           flexDirection: "column",
-          justifyContent: "flex-end",
+          alignItems: "center",
+          justifyContent: "center",
           flex: 1,
-          marginTop: 40,
+          gap: 24,
         },
       },
-      // Beach name
+      // SESSION READY heading
       React.createElement(
         "h1",
         {
           style: {
-            fontSize: 88,
-            fontWeight: 800,
-            lineHeight: 1.1,
-            marginBottom: 16,
+            fontSize: 96,
+            fontWeight: 900,
+            lineHeight: 1,
+            textAlign: "center",
+            letterSpacing: -2,
+            textShadow: "0 4px 20px rgba(0,0,0,0.4)",
           },
         },
-        data.beachName
+        "SESSION",
+        React.createElement("br"),
+        "READY"
       ),
-      // Date
+      // Compact conditions
       React.createElement(
-        "p",
+        "div",
         {
           style: {
             fontSize: 40,
-            marginBottom: 48,
-            opacity: 0.9,
+            fontWeight: 700,
+            display: "flex",
+            gap: 16,
+            textShadow: "0 2px 10px rgba(0,0,0,0.3)",
           },
         },
-        `📅 ${data.date}`
-      ),
-      // Conditions
+        React.createElement("span", null, `${data.waveHeight}`),
+        React.createElement("span", null, "•"),
+        React.createElement("span", null, "Clean"),
+        React.createElement("span", null, "•"),
+        React.createElement("span", null, "9s")
+      )
+    ),
+    // Bottom row
+    React.createElement(
+      "div",
+      {
+        style: {
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          marginTop: "auto",
+        },
+      },
+      // Left: Timing + Tide info
       React.createElement(
         "div",
         {
           style: {
             display: "flex",
-            gap: 32,
-            marginBottom: 48,
+            flexDirection: "column",
+            gap: 16,
           },
         },
+        // Best time
         React.createElement(
           "div",
           {
             style: {
-              fontSize: 36,
+              background: "rgba(251, 191, 36, 0.95)",
+              color: "#000000",
+              padding: "16px 32px",
+              borderRadius: 12,
+              fontSize: 32,
+              fontWeight: 800,
             },
           },
-          `🌊 ${data.waveHeight}`
+          "BEST 7-9AM"
         ),
+        // Tide
         React.createElement(
           "div",
           {
             style: {
-              fontSize: 36,
+              background: "rgba(255, 255, 255, 0.95)",
+              color: "#000000",
+              padding: "16px 32px",
+              borderRadius: 12,
+              fontSize: 28,
+              fontWeight: 700,
             },
           },
-          `💨 ${data.wind}`
+          "TIDE 1.2→3.0ft"
         )
       ),
-      // Rating
-      renderStars(data.rating),
-      // CTA
-      React.createElement(
-        "div",
-        {
-          style: {
-            marginTop: 48,
-            background: "#FFFFFF",
-            color: "#000000",
-            padding: "24px 48px",
-            borderRadius: 16,
-            textAlign: "center",
-            fontSize: 28,
-            fontWeight: 600,
-          },
-        },
-        "Track your sessions at quiversurf.app"
-      )
+      // Right: QR Code
+      qrCode
+        ? React.createElement("img", {
+            src: qrCode,
+            width: 180,
+            height: 180,
+            style: {
+              background: "#FFFFFF",
+              padding: 12,
+              borderRadius: 16,
+            },
+          })
+        : null
     )
   );
 }
@@ -407,7 +488,8 @@ function renderVariant1(
 function renderVariant2(
   session: SessionWithDetails,
   dimensions: { width: number; height: number },
-  photoCount: number = 0
+  photoCount: number = 0,
+  qrCode: string = ""
 ): React.ReactElement {
   const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
@@ -533,7 +615,8 @@ function renderVariant2(
 function renderVariant3(
   session: SessionWithDetails,
   dimensions: { width: number; height: number },
-  photoCount: number = 0
+  photoCount: number = 0,
+  qrCode: string = ""
 ): React.ReactElement {
   const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
@@ -665,7 +748,8 @@ function renderVariant3(
 function renderVariant4(
   session: SessionWithDetails,
   dimensions: { width: number; height: number },
-  photoCount: number = 0
+  photoCount: number = 0,
+  qrCode: string = ""
 ): React.ReactElement {
   const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
@@ -791,7 +875,8 @@ function renderVariant4(
 function renderVariant5(
   session: SessionWithDetails,
   dimensions: { width: number; height: number },
-  photoCount: number = 0
+  photoCount: number = 0,
+  qrCode: string = ""
 ): React.ReactElement {
   const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
@@ -913,7 +998,8 @@ function renderVariant5(
 function renderVariant6(
   session: SessionWithDetails,
   dimensions: { width: number; height: number },
-  photoCount: number = 0
+  photoCount: number = 0,
+  qrCode: string = ""
 ): React.ReactElement {
   const data = extractSessionData(session, photoCount);
   const { width, height } = dimensions;
@@ -1050,25 +1136,26 @@ function renderVariant(
   session: SessionWithDetails,
   variant: ShareVariant,
   aspectRatio: AspectRatio,
-  photoCount: number = 0
+  photoCount: number = 0,
+  qrCode: string = ""
 ): React.ReactElement {
   const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio];
 
   switch (variant) {
     case 1:
-      return renderVariant1(session, dimensions, photoCount);
+      return renderVariant1(session, dimensions, photoCount, qrCode);
     case 2:
-      return renderVariant2(session, dimensions, photoCount);
+      return renderVariant2(session, dimensions, photoCount, qrCode);
     case 3:
-      return renderVariant3(session, dimensions, photoCount);
+      return renderVariant3(session, dimensions, photoCount, qrCode);
     case 4:
-      return renderVariant4(session, dimensions, photoCount);
+      return renderVariant4(session, dimensions, photoCount, qrCode);
     case 5:
-      return renderVariant5(session, dimensions, photoCount);
+      return renderVariant5(session, dimensions, photoCount, qrCode);
     case 6:
-      return renderVariant6(session, dimensions, photoCount);
+      return renderVariant6(session, dimensions, photoCount, qrCode);
     default:
-      return renderVariant1(session, dimensions, photoCount);
+      return renderVariant1(session, dimensions, photoCount, qrCode);
   }
 }
 
@@ -1091,8 +1178,13 @@ export async function renderSessionCardImage(
       throw new Error("No fonts available for Satori rendering");
     }
 
+    // Generate QR code for session share URL
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+    const shareUrl = `${baseUrl}/s/${session.id}`;
+    const qrCode = await generateQRCode(shareUrl);
+
     // Render JSX to SVG using Satori
-    const jsx = renderVariant(session, variant, aspectRatio, photoCount);
+    const jsx = renderVariant(session, variant, aspectRatio, photoCount, qrCode);
     const satoriOptions: SatoriOptions = {
       width: dimensions.width,
       height: dimensions.height,

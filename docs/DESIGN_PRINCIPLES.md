@@ -77,6 +77,34 @@ References: `components/forecast/ARCHITECTURE.md`, `docs/ARCHITECTURE_REVIEW.md`
 
 ---
 
+## Personalization & Learning from Behavior
+
+**Status**: Planning Phase - See [docs/PERSONALIZATION_STRATEGY.md](./PERSONALIZATION_STRATEGY.md)
+
+Core principles for building truly personal surf recommendations:
+
+- **Learn from actions, not declarations**: Analyze what users actually surf (logged sessions with conditions), not just what they say they prefer. Behavior is more honest than stated preferences.
+
+- **Progressive enhancement**: System works without learning data (generic scoring), but improves over time as users log more sessions. Never penalize new users.
+
+- **Transparency in learning**: Show users what data drives recommendations ("Based on your 18 logged sessions") and display confidence levels. Users should understand and trust the personalization.
+
+- **Privacy-first collaborative filtering**: When recommending based on "surfers like you", anonymize all user data. Show aggregate statistics only, never reveal specific similar users. Allow opt-out.
+
+- **User control over personalization**: Give users explicit preference controls that override learned preferences. Support filtering by beach type, amenities, crowd level. Respect user choice.
+
+- **Fail gracefully with low confidence**: When sample size is small (< 5 sessions), show generic recommendations with clear messaging: "Getting to know your style..." Don't pretend to know preferences.
+
+- **Recency bias in learning**: Weight recent sessions more heavily than old ones (exponential decay). Surfers' preferences evolve over time.
+
+- **Hyper-local focus**: Personalization within practical constraints (10-mile radius from home beach or current location). Don't overwhelm users with distant beaches.
+
+- **Encourage data contribution**: Make logging sessions easy and rewarding. More sessions = better recommendations = more value for user. Close the feedback loop.
+
+References: `docs/PERSONALIZATION_STRATEGY.md`, `lib/services/preference-learning-service.ts` (planned), `actions/beach/best-beaches-simple.ts`
+
+---
+
 ## Comprehensive Testing & QA
 
 - Multi-layered testing: Unit (utils), integration (actions/API), component (UI), E2E (critical flows). See `test-utils/ARCHITECTURE.md` and `e2e/ARCHITECTURE.md`.

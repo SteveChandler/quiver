@@ -19,6 +19,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Declare at function scope for error logging access
+  let variant: ShareVariant | undefined;
+  let aspectRatio: AspectRatio | undefined;
+
   try {
     // Require authentication for image generation
     const { supabase, user, error: authError } = await getAuthenticatedAPIClient();
@@ -45,7 +49,7 @@ export async function GET(
         { status: 400 }
       );
     }
-    const variant = variantNum as ShareVariant;
+    variant = variantNum as ShareVariant;
 
     // Validate aspect ratio
     if (!isAspectRatio(ratioParam)) {
@@ -54,7 +58,7 @@ export async function GET(
         { status: 400 }
       );
     }
-    const aspectRatio = ratioParam as AspectRatio;
+    aspectRatio = ratioParam as AspectRatio;
 
     // Rate limiting: Check recent share image requests from this user
     // Allow 10 requests per minute, 100 requests per hour
@@ -158,15 +162,15 @@ export async function GET(
     Sentry.captureException(error, {
       tags: {
         feature: "social-share",
-        variant: String(variant),
-        aspectRatio,
+        variant: variant ? String(variant) : "unknown",
+        aspectRatio: aspectRatio || "unknown",
         sessionId: params.id,
       },
       contexts: {
         session: {
           id: params.id,
-          variant,
-          aspectRatio,
+          variant: variant || "unknown",
+          aspectRatio: aspectRatio || "unknown",
         },
       },
       level: "error",

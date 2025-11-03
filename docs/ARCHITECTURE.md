@@ -139,6 +139,35 @@ See `docs/DESIGN_PRINCIPLES.md` for the canonical principles that govern impleme
 
 ---
 
+### Personalization & Recommendation Engine
+
+**Status**: Planning Phase - See [docs/PERSONALIZATION_STRATEGY.md](./PERSONALIZATION_STRATEGY.md) for comprehensive implementation plan
+
+**Vision**: Learn from user behavior to deliver truly personal surf recommendations within a 10-mile radius
+
+**Key Features** (Planned):
+- **Session Condition Capture**: Record actual conditions when users surf (wave height, wind, tide)
+- **Preference Learning**: Analyze session history to discover each user's preferred conditions
+- **Beach Affinity Tracking**: Boost beaches users have surfed before
+- **Collaborative Filtering**: "Surfers like you also surf at..." discovery
+- **Advanced Filters**: Beach type, amenities, crowd avoidance
+- **Current Location Support**: GPS-based recommendations for traveling surfers
+
+**Architecture Highlights**:
+- New tables: `session_conditions`, `user_surf_preferences`, `user_beach_affinity`
+- Enhanced scoring algorithm with learned preferences (0-120 pts normalized to 0-100)
+- Nightly preference recomputation for active users
+- Privacy-first collaborative filtering (anonymized, opt-out available)
+
+**Current State**:
+- Basic scoring with skill level only (1 of 4 criteria personalized)
+- 10-mile radius filtering via PostGIS spatial queries
+- Generic beach metadata-based recommendations
+
+**See**: [docs/PERSONALIZATION_STRATEGY.md](./PERSONALIZATION_STRATEGY.md) for phased implementation roadmap
+
+---
+
 ### Testing Strategy
 
 - Test types: unit (utils), integration (actions/API), component (UI), e2e (critical flows).

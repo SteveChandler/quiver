@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation - Personalization Strategy & Architecture (November 2, 2025)
+
+#### Comprehensive Personalization Planning 🎯
+- **New: docs/PERSONALIZATION_STRATEGY.md**
+  - Complete specification for enhanced surf recommendation personalization
+  - 6-phase implementation roadmap with technical details
+  - Database schema design: `session_conditions`, `user_surf_preferences`, `user_beach_affinity`
+  - Enhanced scoring algorithm (0-120 pts with 7 criteria)
+  - Preference learning algorithms with confidence scoring
+  - Collaborative filtering ("surfers like you") design
+  - Privacy-first approach with user controls
+  - Success metrics and testing strategy
+  - Quick wins that can be implemented immediately
+
+- **Updated: docs/ARCHITECTURE.md**
+  - Added "Personalization & Recommendation Engine" section
+  - Describes vision: learn from user behavior for truly personal recommendations
+  - Links to comprehensive strategy document
+
+- **Updated: docs/DESIGN_PRINCIPLES.md**
+  - Added "Personalization & Learning from Behavior" section
+  - 9 core principles for building personalization features
+  - Emphasis on learning from actions, not declarations
+  - Privacy-first collaborative filtering guidelines
+  - Progressive enhancement and user control principles
+
+- **Updated: .claude/CLAUDE.md**
+  - Promoted personalization to #1 growth priority
+  - Added reference to strategy documentation
+
+#### Core Feature Vision
+Transform recommendations from generic beach scoring (only 1 of 4 criteria personalized today) to truly personal suggestions by:
+- Capturing actual conditions when users surf (wave height, wind, tide)
+- Learning each user's preferred conditions from session history
+- Tracking beach affinity (boost beaches user has surfed)
+- Collaborative filtering (discover spots popular with similar surfers)
+- Advanced filters (beach type, amenities, crowd avoidance)
+- GPS-based recommendations for traveling surfers
+
+All within 10-mile radius using PostGIS spatial queries.
+
+**Status**: Planning phase - comprehensive blueprint created for future implementation
+
+---
+
 ### Added - Session Photos Feature Completion (November 2, 2025)
 
 #### Feed Integration - Photos in Session Cards 📸

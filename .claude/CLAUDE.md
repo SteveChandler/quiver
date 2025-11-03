@@ -16,11 +16,12 @@
 - **Performance:** <150ms API p50, 90+ Lighthouse score
 
 ### Growth Priorities (ALWAYS PRIORITIZE)
-1. **Social Sharing** — Session summaries, viral content
-2. **Session Photos** — Upload, display, social integration
-3. **Viral Mechanics** — Referrals, challenges, leaderboards
-4. **Community Features** — Crews, buddies, collaborative planning
-5. **Forecast Transparency** — Show data sources, confidence indicators
+1. **Personalization** — Learn from user behavior, recommend perfect spots (see [docs/PERSONALIZATION_STRATEGY.md](/docs/PERSONALIZATION_STRATEGY.md))
+2. **Social Sharing** — Session summaries, viral content
+3. **Session Photos** — Upload, display, social integration
+4. **Viral Mechanics** — Referrals, challenges, leaderboards
+5. **Community Features** — Crews, buddies, collaborative planning
+6. **Forecast Transparency** — Show data sources, confidence indicators
 
 **❌ DO NOT:** Add monetization features without explicit approval
 
