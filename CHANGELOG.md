@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Profile Preference Editing (November 3, 2025) ✅
+- **Feature**: Users can now view and edit surf preferences from their profile page
+- **Access**: Navigate to Profile → Preferences tab
+- **Preferences Editable**:
+  - Experience Level (Beginner 🏄‍♂️, Intermediate 🌊, Advanced 🏆, Expert 🔥)
+  - Surf Styles (Multi-select: Longboard, Shortboard, Funboard, Bodyboard, SUP, Foil)
+  - Preferred Wave Size (Small 🌊, Medium 🌊🌊, Large 🌊🌊🌊, Any 🤙)
+  - Preferred Break Type (Beach 🏖️, Point 🪨, Reef 🪸, Any ✨)
+  - Crowd Preference (Social 👥, Moderate 🧘, Solitude 🏝️)
+- **Implementation**:
+  - Updated [components/profile/profile-preferences.tsx](components/profile/profile-preferences.tsx)
+  - Updated [actions/profile-actions.ts](actions/profile-actions.ts)
+  - Matches onboarding UI with emoji SelectCard buttons
+  - Full Zod validation and TypeScript type safety
+- **Benefits**:
+  - Users can refine preferences as skills evolve
+  - No need to re-onboard to update choices
+  - Enables future personalized forecast recommendations (Phase 3)
+- **Testing**: ✅ TypeScript compilation, production build, form validation all passing
+- **Related**: Phase 2, Workpath 2.5 in [PERSONALIZATION_FORECAST_IMPLEMENTATION.md](docs/features/PERSONALIZATION_FORECAST_IMPLEMENTATION.md)
+
+### Fixed - Session Sharing (November 3, 2025)
+
+#### Instagram Sharing Errors - 400 & 500 Status Codes ✅
+- **Issue**: Instagram sharing and other social platforms failing with 400 (Bad Request) and 500 (Internal Server Error)
+- **Root Causes**:
+  1. Database constraint rejected platforms: `copy`, `tiktok`, `native`, `other` (only allowed `instagram`, `x`, `facebook`, `generic`, `download`)
+  2. Type definition mismatch: `ShareVariant` defined as strings (`"story"`, `"square"`) in actions, but numeric (1-6) in types
+  3. Incomplete platform list across frontend, backend, and database
+- **Fixes**:
+  - **Migration**: [supabase/migrations/20251103000005_fix_session_shares_platform_constraint.sql](supabase/migrations/20251103000005_fix_session_shares_platform_constraint.sql)
+    - Updated `check_platform` constraint to accept all platforms: `instagram`, `x`, `twitter`, `facebook`, `tiktok`, `copy`, `native`, `other`, `generic`, `download`
+  - **Type Unification**: [types/session-share.ts](types/session-share.ts)
+    - Extended `SharePlatform` type to include all platforms used across app
+    - Updated `PLATFORM_NAMES` mapping with display names for all platforms
+    - Updated `isSharePlatform()` type guard to validate all platform values
+  - **Type Imports**: [actions/social-share-actions.ts](actions/social-share-actions.ts)
+    - Imported `SharePlatform` and `ShareVariant` from canonical source (`types/session-share.ts`)
+    - Added `normalizeVariant()` helper to support legacy string variants (`"story"`, `"square"`) and new numeric variants (1-6)
+    - Updated all functions to normalize variants before database insertion
+  - **Error Handling**: [lib/share/track-share.ts](lib/share/track-share.ts)
+    - Enhanced error logging with platform, variant, and session context
+    - Added user-friendly error messages for constraint violations (error code 23514)
+    - Improved debugging with detailed error context
+- **Impact**: All social sharing platforms now work correctly (Instagram, Twitter, Facebook, Copy Link, etc.)
+- **Migration Status**: ✅ Tested locally with `supabase db reset`, constraint verified
+
 ### In Progress
 
 #### PersonalizedBadge UI Integration - Phase 6.3 (Final 2%) 🔄

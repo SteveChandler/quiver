@@ -455,6 +455,7 @@ Test Scenarios:
 - ✅ Workpath 2.2: UI Components (3 preference questions with emoji SelectCards)
 - ✅ Workpath 2.3: Update Onboarding Save Action (32 tests passing)
 - ✅ Workpath 2.4: Regenerate Database Types
+- ✅ Workpath 2.5: Profile Preference Editing (users can now edit preferences anytime)
 
 ### Background
 
@@ -920,6 +921,89 @@ export interface Database {
 ```
 
 **Result:** TypeScript types properly reflect all new database columns with correct enum constraints.
+
+### Workpath 2.5: Profile Preference Editing ✅ COMPLETED
+
+**Status:** ✅ Completed on 2025-11-03
+**Agent:** `frontend-developer`
+
+**Goal:** Allow users to view and edit surf preferences from their profile page
+
+**Problem:** Surf preferences were captured during onboarding but users had no way to:
+- View their current preferences
+- Update preferences as their skills/interests change
+- Access preferences without re-onboarding
+
+**Implementation:**
+
+**Files Modified:**
+- `components/profile/profile-preferences.tsx` - Added surf preference UI sections
+- `actions/profile-actions.ts` - Updated schema to validate preference fields
+
+**New UI Sections Added:**
+
+1. **Experience Level** (single select)
+   - Beginner 🏄‍♂️ | Intermediate 🌊 | Advanced 🏆 | Expert 🔥
+   - Emoji SelectCard buttons matching onboarding style
+
+2. **Surf Styles** (multi-select)
+   - Longboard 🏄 | Shortboard 🏄‍♀️ | Funboard 🏄‍♂️
+   - Bodyboard 🏊 | SUP 🚣 | Foil ✨
+   - Toggle selection with visual feedback
+
+3. **Preferred Wave Size** (single select)
+   - Small 🌊 (1-3ft) | Medium 🌊🌊 (3-6ft)
+   - Large 🌊🌊🌊 (6ft+) | Any Size 🤙
+
+4. **Preferred Break Type** (single select)
+   - Beach Break 🏖️ | Point Break 🪨
+   - Reef Break 🪸 | Any Type ✨
+
+5. **Crowd Preference** (single select)
+   - Love the crew 👥 | A few people is fine 🧘 | Prefer solitude 🏝️
+
+**Validation:**
+```typescript
+const preferencesFormSchema = z.object({
+  home_beach_id: z.string().uuid().nullable().optional(),
+  experience_level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).nullable().optional(),
+  surf_styles: z.array(z.string()).nullable().optional(),
+  preferred_wave_size: z.enum(['small', 'medium', 'large', 'any']).nullable().optional(),
+  preferred_break_type: z.enum(['beach', 'point', 'reef', 'any']).nullable().optional(),
+  crowd_preference: z.enum(['social', 'moderate', 'solitude']).nullable().optional(),
+  // ... notification preferences
+});
+```
+
+**User Experience:**
+1. Navigate to **Profile → Preferences** tab
+2. View current preferences (populated from database)
+3. Click any emoji card to change selection
+4. Click "Save Preferences" to persist changes
+5. Toast notification confirms successful update
+6. Page refreshes to show updated values
+
+**Technical Details:**
+- Uses `react-hook-form` with `Controller` for form state management
+- Matches exact UI pattern from onboarding (`SelectCard` style buttons)
+- Type-safe with Zod validation and TypeScript
+- Properly handles nullable database values
+- Updates Profile type interface to match database schema
+
+**Testing:**
+- ✅ TypeScript compilation passes
+- ✅ Production build succeeds
+- ✅ Form validation works correctly
+- ✅ All fields save to database
+- ✅ Values populate correctly from existing profile
+
+**Access:** `http://localhost:3000/profile` → **Preferences** tab
+
+**Benefits:**
+- Users can refine preferences as skills evolve
+- No need to re-onboard to update choices
+- Consistent UI with onboarding flow
+- Enables future personalization features (Phase 3+)
 
 ---
 

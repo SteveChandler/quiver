@@ -77,6 +77,26 @@ async function createTestUser() {
         console.log(`✅ Profile exists`);
         console.log(`   Display Name: ${profile.display_name || '(not set)'}`);
         console.log(`   Name: ${profile.full_name || '(not set)'}`);
+
+        // Check if onboarding is complete
+        if (!profile.onboarding_completed_at) {
+          console.log('⚠️  Onboarding not complete, updating...');
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              onboarding_completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingUser.id);
+
+          if (updateError) {
+            throw new Error(`Failed to update profile: ${updateError.message}`);
+          }
+
+          console.log('✅ Onboarding marked as complete');
+        } else {
+          console.log(`✅ Onboarding already complete: ${profile.onboarding_completed_at}`);
+        }
       }
 
       console.log('\n✅ Test user ready for use!');
@@ -146,6 +166,7 @@ async function createProfile(supabase: any, userId: string) {
       id: userId,
       display_name: TEST_USER.displayName,
       full_name: TEST_USER.name,
+      onboarding_completed_at: new Date().toISOString(), // Mark onboarding as complete
       updated_at: new Date().toISOString(),
     })
     .select()
@@ -155,12 +176,27 @@ async function createProfile(supabase: any, userId: string) {
     // Profile might already exist from trigger, check if it's a unique constraint error
     if (profileError.code === '23505') {
       console.log('✅ Profile already exists (created by trigger)');
+
+      // Update existing profile to complete onboarding
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          onboarding_completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (updateError) {
+        throw new Error(`Failed to update profile: ${updateError.message}`);
+      }
+
+      console.log('✅ Onboarding marked as complete');
       return;
     }
     throw new Error(`Failed to create profile: ${profileError.message}`);
   }
 
-  console.log('✅ Profile created successfully');
+  console.log('✅ Profile created successfully with onboarding complete');
 }
 
 // Run the script
