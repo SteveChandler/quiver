@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Profile Preferences Integration in Profile Tab (November 4, 2025) ✅
+- **Feature**: Integrated preference editing into the "Profile" tab for easy access
+- **UI Layout**: Two-section design in Profile tab
+  - **Your Preferences** (top) - Explicit onboarding preferences with emoji selectors
+    - Wave Size (Small 🌊, Medium 🌊🌊, Large 🌊🌊🌊, Any 🤙)
+    - Break Type (Beach 🏖️, Point 🪨, Reef 🪸, Any ✨)
+    - Crowd Preference (Social 👥, Moderate 🧘, Solitude 🏝️)
+  - **Learned from Sessions** (bottom) - Calculated preferences from session history
+    - Wave height/period ranges, wind tolerance, tide preferences
+    - Requires 5+ rated sessions to display
+- **Implementation**:
+  - Updated [components/profile/surf-profile-section.tsx](components/profile/surf-profile-section.tsx:187-239)
+  - Integrated `ProfilePreferences` component with data fetching for profile and beaches
+  - Added Settings icon header and divider for visual separation
+  - Renamed "Edit Preferences" button to "Edit Learned Preferences" for clarity
+- **User Experience**:
+  - Profile preferences always visible (set during onboarding or defaults)
+  - Learned preferences show when 5+ rated sessions exist
+  - Users can compare their stated vs. revealed preferences
+  - All preferences editable with emoji button cards (no free text)
+- **Testing**: ✅ Dev server running, no TypeScript errors, UI renders correctly
+- **Access**: Navigate to Profile → "Profile" tab (5th tab with User icon)
+- **Related**: Completes Phase 2, Workpath 2.5 from [PERSONALIZATION_FORECAST_IMPLEMENTATION.md](docs/features/PERSONALIZATION_FORECAST_IMPLEMENTATION.md)
+
 #### Profile Preference Editing (November 3, 2025) ✅
 - **Feature**: Users can now view and edit surf preferences from their profile page
 - **Access**: Navigate to Profile → Preferences tab
@@ -55,6 +79,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Improved debugging with detailed error context
 - **Impact**: All social sharing platforms now work correctly (Instagram, Twitter, Facebook, Copy Link, etc.)
 - **Migration Status**: ✅ Tested locally with `supabase db reset`, constraint verified
+
+#### Personalization - 0° Wind Direction Bug ✅
+- **Issue**: Users with North wind (0°) preferences were not receiving personalization bonuses because `matchesLearnedWindPrefs` treated 0° as falsy
+- **Root Cause**: Guard clause used `&& windDir` which evaluates to `false` when `windDir === 0`, skipping the direction matching loop entirely
+- **Fix**: Changed guard clause from `&& windDir` to `&& !isNaN(windDir)` in [lib/services/personalized-scoring-service.ts:264](lib/services/personalized-scoring-service.ts#L264)
+- **Testing**: Added 2 new test cases to verify 0° wind direction matching works correctly
+- **Impact**: Users preferring North wind now correctly receive up to +10 × confidence personalization bonuses for matching beaches
 
 ### In Progress
 

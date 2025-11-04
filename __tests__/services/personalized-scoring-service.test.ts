@@ -259,6 +259,18 @@ describe('personalized-scoring-service', () => {
       const prefs = { max_wind_mph: null, preferred_wind_directions: [0] };
       expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(true);
     });
+
+    it('should match exact 0° (North) wind direction with 0° preference', () => {
+      const forecast = createMockForecast('4.0', '5', '0', 'rising');
+      const prefs = { max_wind_mph: 15, preferred_wind_directions: [0] };
+      expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(true);
+    });
+
+    it('should NOT match 0° wind direction when user prefers South (180°)', () => {
+      const forecast = createMockForecast('4.0', '5', '0', 'rising');
+      const prefs = { max_wind_mph: 15, preferred_wind_directions: [180] };
+      expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(false);
+    });
   });
 
   describe('matchesLearnedTidePrefs', () => {

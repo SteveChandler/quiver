@@ -6,19 +6,24 @@ import { getUserLearnedPreferences, validateUserPreferences, updateUserSurfPrefe
 import { LearnedPreferencesDisplay } from './learned-preferences-display';
 import { ValidationPrompt } from './validation-prompt';
 import { PreferenceOverrideForm } from './preference-override-form';
+import { ProfilePreferences } from './profile-preferences';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Loader2, Waves } from 'lucide-react';
+import { Loader2, Waves, Settings } from 'lucide-react';
 import type { UserSurfPreferences } from '@/lib/services/preference-learning-service';
+import { useAuth } from '@/context/auth-context';
+import { data as gateway } from '@/lib/data/client';
+import type { Beach, Profile } from '@/types/database';
 
 /**
  * SurfProfileSection - Main container for the "Your Surf Profile" feature
  *
  * Manages the full workflow:
  * 1. Fetches learned + onboarding preferences
- * 2. Shows validation prompt (if unvalidated)
- * 3. Displays learned preferences
- * 4. Handles edit mode (override form)
+ * 2. Shows explicit preference editing (ProfilePreferences)
+ * 3. Shows validation prompt (if unvalidated)
+ * 4. Displays learned preferences
+ * 5. Handles edit mode (override form)
  *
  * States:
  * - Loading: Skeleton loader
@@ -37,14 +42,37 @@ import type { UserSurfPreferences } from '@/lib/services/preference-learning-ser
  * ```
  */
 export function SurfProfileSection() {
+  const { user } = useAuth();
   const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [beaches, setBeaches] = useState<Beach[]>([]);
+
+  // Fetch profile and beaches data
+  const fetchProfileData = useCallback(async () => {
+    if (!user) throw new Error('User not authenticated');
+
+    const profileData = await gateway.users.profile.get(user.id);
+    setProfile(profileData as Profile);
+
+    const beachesData = await gateway.beaches.list();
+    setBeaches(beachesData as Beach[]);
+
+    return { profile: profileData, beaches: beachesData };
+  }, [user]);
+
+  const { loading: profileLoading } = useDataFetcher(fetchProfileData, {
+    immediate: true,
+    skip: !user,
+  });
 
   // Fetch preferences with useDataFetcher pattern
   const fetchPreferences = useCallback(async () => {
     return await getUserLearnedPreferences();
   }, []);
 
-  const { data, loading, error, refetch } = useDataFetcher(fetchPreferences);
+  const { data, loading: prefsLoading, error, refetch } = useDataFetcher(fetchPreferences);
+
+  const loading = profileLoading || prefsLoading;
 
   // Handle validation confirmation
   const handleValidate = async () => {
@@ -98,31 +126,45 @@ export function SurfProfileSection() {
     );
   }
 
-  // No data state (< 5 rated sessions)
+  // No data state (< 5 rated sessions) - Still show explicit preferences
   if (!data?.learned) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Waves className="h-5 w-5 text-ocean-blue" />
-            Your Surf Profile
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-center py-8 space-y-4">
-          <div className="text-6xl mb-4">🏄‍♂️</div>
-          <h3 className="text-lg font-semibold">Not enough data yet</h3>
-          <p className="text-gray-600 max-w-md mx-auto">
-            Log at least 5 surf sessions with ratings to see your learned preferences.
-            We'll analyze your sessions to understand what conditions you love!
-          </p>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6 max-w-md mx-auto">
-            <p className="text-sm text-gray-700">
-              💡 <strong>Tip:</strong> Rate your sessions to help us learn your preferences faster.
-              The more sessions you log, the better we understand your ideal conditions.
-            </p>
+      <div className="space-y-8">
+        {/* Explicit Preferences - Always visible */}
+        {user && profile && (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Settings className="h-5 w-5 text-ocean-blue" />
+              <h2 className="text-lg font-semibold text-dark-grey">Your Preferences</h2>
+            </div>
+            <ProfilePreferences userId={user.id} profile={profile} beaches={beaches} />
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        {/* Learned Preferences - Not enough data yet */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Waves className="h-5 w-5 text-ocean-blue" />
+              Learned from Your Sessions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center py-8 space-y-4">
+            <div className="text-6xl mb-4">🏄‍♂️</div>
+            <h3 className="text-lg font-semibold">Not enough data yet</h3>
+            <p className="text-gray-600 max-w-md mx-auto">
+              Log at least 5 surf sessions with ratings to see your learned preferences.
+              We'll analyze your sessions to understand what conditions you love!
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6 max-w-md mx-auto">
+              <p className="text-sm text-gray-700">
+                💡 <strong>Tip:</strong> Rate your sessions to help us learn your preferences faster.
+                The more sessions you log, the better we understand your ideal conditions.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -141,33 +183,57 @@ export function SurfProfileSection() {
   const isValidated = !!data.learned.validated_at;
 
   return (
-    <div className="space-y-6">
-      {/* Validation Prompt (only if not validated) */}
-      {!isValidated && (
-        <ValidationPrompt
-          onValidate={handleValidate}
-          onEdit={handleEdit}
-          sampleSize={data.learned.sample_size}
-        />
+    <div className="space-y-8">
+      {/* Explicit Preferences Section - Always visible */}
+      {user && profile && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Settings className="h-5 w-5 text-ocean-blue" />
+            <h2 className="text-lg font-semibold text-dark-grey">Your Preferences</h2>
+          </div>
+          <ProfilePreferences userId={user.id} profile={profile} beaches={beaches} />
+        </div>
       )}
 
-      {/* Learned Preferences Display */}
-      <LearnedPreferencesDisplay preferences={data.learned} />
-
-      {/* Edit Button */}
-      <div className="flex justify-center pt-4">
-        <Button onClick={handleEdit} variant="outline" className="w-full sm:w-auto">
-          Edit Preferences
-        </Button>
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-gray-200" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-white px-2 text-gray-500">Learned from Sessions</span>
+        </div>
       </div>
 
-      {/* Additional Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
-        <p>
-          <strong>How it works:</strong> We analyze your highly-rated sessions (3+ stars)
-          to learn your ideal wave height, period, wind, and tide conditions.
-          {data.learned.sample_size && ` Based on ${data.learned.sample_size} sessions.`}
-        </p>
+      {/* Learned Preferences Section */}
+      <div className="space-y-6">
+        {/* Validation Prompt (only if not validated) */}
+        {!isValidated && (
+          <ValidationPrompt
+            onValidate={handleValidate}
+            onEdit={handleEdit}
+            sampleSize={data.learned.sample_size}
+          />
+        )}
+
+        {/* Learned Preferences Display */}
+        <LearnedPreferencesDisplay preferences={data.learned} />
+
+        {/* Edit Button */}
+        <div className="flex justify-center pt-4">
+          <Button onClick={handleEdit} variant="outline" className="w-full sm:w-auto">
+            Edit Learned Preferences
+          </Button>
+        </div>
+
+        {/* Additional Info */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+          <p>
+            <strong>How it works:</strong> We analyze your highly-rated sessions (3+ stars)
+            to learn your ideal wave height, period, wind, and tide conditions.
+            {data.learned.sample_size && ` Based on ${data.learned.sample_size} sessions.`}
+          </p>
+        </div>
       </div>
     </div>
   );

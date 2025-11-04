@@ -261,7 +261,7 @@ export function matchesLearnedWindPrefs(
   }
 
   // Check wind direction preference (within ±30 degrees)
-  if (prefs.preferred_wind_directions && prefs.preferred_wind_directions.length > 0 && windDir) {
+  if (prefs.preferred_wind_directions && prefs.preferred_wind_directions.length > 0 && !isNaN(windDir)) {
     const matches = prefs.preferred_wind_directions.some((prefDir) => {
       const diff = Math.abs(windDir - prefDir);
       // Handle wrapping around 0/360

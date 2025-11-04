@@ -64,14 +64,14 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
 
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-base font-semibold text-foreground">
+      <h3 className="text-sm font-medium">
         Notifications
       </h3>
       <p className="text-sm text-muted-foreground">
         Choose how you&apos;d like to get updates about your sessions and
         friends.
       </p>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         You can change these anytime — we&apos;ll only notify you about things
         you care about.
       </p>
