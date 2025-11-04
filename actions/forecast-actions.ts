@@ -4,6 +4,44 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import { updateBeachForecast } from "@/lib/utils/forecast-service-utils";
 import type { Beach, Forecast } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+
+// Metadata interface for forecast transparency
+export interface ForecastMetadata {
+  primarySource: "NOAA_NWS" | "CDIP" | "FALLBACK" | string;
+  allSources: string[];
+  confidenceScore: number;
+  lastUpdated: string;
+  cdipStation?: string;
+  cdipStationName?: string;
+  cdipDistance?: number;
+  isRealTimeData?: boolean;
+  isStaleData?: boolean;
+}
+
+// Helper function to extract metadata from enhanced forecast
+function extractForecastMetadata(
+  forecast: EnhancedForecastEntity
+): ForecastMetadata {
+  const now = Date.now();
+  const updatedAt = new Date(forecast.updated_at).getTime();
+  const hoursSinceUpdate = (now - updatedAt) / (1000 * 60 * 60);
+
+  return {
+    primarySource: forecast.data_source || "FALLBACK",
+    allSources: forecast.raw_forecast?.data_sources || [
+      forecast.data_source || "FALLBACK",
+    ],
+    confidenceScore: forecast.confidence_score ?? 50,
+    lastUpdated: forecast.updated_at,
+    cdipStation: forecast.raw_forecast?.cdip_data?.stationId,
+    cdipStationName: forecast.raw_forecast?.cdip_data?.stationName,
+    // CDIP is real-time data
+    isRealTimeData: forecast.data_source === "CDIP",
+    // Data is stale if updated more than 6 hours ago
+    isStaleData: hoursSinceUpdate > 6,
+  };
+}
 
 // Get forecast data for a specific beach
 export async function getBeachForecasts(beachId: string) {
@@ -104,7 +142,12 @@ export async function checkEnhancedForecastExists(beachId: string) {
   }
 }
 
-// Get enhanced forecast data for a beach
+// Enhanced forecast with metadata interface
+export interface EnhancedForecastWithMetadata extends EnhancedForecastEntity {
+  metadata: ForecastMetadata;
+}
+
+// Get enhanced forecast data for a beach with transparency metadata
 export async function getEnhancedBeachForecasts(
   beachId: string,
   days: number = 12
@@ -158,7 +201,15 @@ export async function getEnhancedBeachForecasts(
       lastRowDate: data?.[data.length - 1]?.forecast_date,
     });
 
-    return { success: true, data };
+    // Enrich forecasts with metadata for transparency
+    const forecastsWithMetadata: EnhancedForecastWithMetadata[] = (
+      data || []
+    ).map((forecast: EnhancedForecastEntity) => ({
+      ...forecast,
+      metadata: extractForecastMetadata(forecast),
+    }));
+
+    return { success: true, data: forecastsWithMetadata };
   } catch (error) {
     console.error("Error in getEnhancedBeachForecasts:", error);
     return {
@@ -246,6 +297,17 @@ export async function getBeachForecastPreview(beachId: string) {
             wind_direction: currentForecast.wind_direction,
             weather_condition: currentForecast.weather_condition,
             confidence_score: currentForecast.confidence_score,
+            // Include metadata for transparency
+            metadata: {
+              primarySource: currentForecast.data_source || "FALLBACK",
+              allSources: currentForecast.data_sources || [
+                currentForecast.data_source || "FALLBACK",
+              ],
+              confidenceScore: currentForecast.confidence_score ?? 50,
+              lastUpdated: new Date().toISOString(), // Will be from DB if available
+              isRealTimeData: currentForecast.data_source === "CDIP",
+              isStaleData: false, // Can't determine without updated_at
+            },
           },
         };
       }

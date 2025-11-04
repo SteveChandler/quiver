@@ -10,6 +10,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Wifi, WifiOff, Info, AlertTriangle } from "lucide-react";
+import { BuoyStationLink } from "./buoy-station-link";
 
 interface DataQuality {
   cdip?: number;
@@ -26,6 +27,11 @@ interface ForecastDataSourceIndicatorProps {
   fallbackLocation?: string;
   nearestBuoyDistance?: number;
   nearestBuoyName?: string;
+  nearestBuoyStationId?: string;
+  beachLocation?: {
+    latitude: number;
+    longitude: number;
+  };
   dataQuality?: DataQuality;
   isRealTimeData?: boolean;
   isStaleData?: boolean;
@@ -44,6 +50,8 @@ export function ForecastDataSourceIndicator({
   fallbackLocation,
   nearestBuoyDistance,
   nearestBuoyName,
+  nearestBuoyStationId,
+  beachLocation,
   dataQuality,
   isRealTimeData = false,
   isStaleData = false,
@@ -202,11 +210,16 @@ export function ForecastDataSourceIndicator({
             )}
 
             {/* Nearest buoy info */}
-            {nearestBuoyName && nearestBuoyDistance && (
-              <p className="text-xs text-gray-500 mt-1">
-                Nearest buoy: {nearestBuoyName} ({nearestBuoyDistance} miles
-                away)
-              </p>
+            {nearestBuoyName && nearestBuoyDistance && nearestBuoyStationId && (
+              <div className="mt-2">
+                <BuoyStationLink
+                  stationId={nearestBuoyStationId}
+                  stationName={nearestBuoyName}
+                  distance={nearestBuoyDistance * 1.60934} // Convert miles to km
+                  beachLocation={beachLocation}
+                  variant="compact"
+                />
+              </div>
             )}
 
             {/* Stale data warning */}

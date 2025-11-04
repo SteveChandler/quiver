@@ -60,6 +60,11 @@ const JournalView = lazy(() =>
     default: m.JournalView,
   }))
 );
+const SurfProfileSection = lazy(() =>
+  import("@/components/profile/surf-profile-section").then((m) => ({
+    default: m.SurfProfileSection,
+  }))
+);
 
 // Loading skeletons for tabs
 function SessionsLoadingSkeleton() {
@@ -371,7 +376,7 @@ function ProfileViewContent() {
                 }}
                 className="space-y-8"
               >
-                <TabsList className="grid grid-cols-4 w-full h-14 lg:h-16 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg">
+                <TabsList className="grid grid-cols-5 w-full h-14 lg:h-16 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg">
                   <TabsTrigger
                     value="sessions"
                     className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-ocean-blue data-[state=active]:to-blue-600 data-[state=active]:text-white transition-all duration-300 rounded-lg"
@@ -399,6 +404,13 @@ function ProfileViewContent() {
                   >
                     <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
                     Comments
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="surf-profile"
+                    className="text-sm lg:text-base font-roboto data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                  >
+                    <User className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
+                    Profile
                   </TabsTrigger>
                 </TabsList>
 
@@ -459,6 +471,15 @@ function ProfileViewContent() {
                         <UserComments userId={user.id} />
                       </Suspense>
                     )}
+                  </TabsContent>
+
+                  <TabsContent
+                    value="surf-profile"
+                    className="p-4 sm:p-6 space-y-4 m-0"
+                  >
+                    <Suspense fallback={<TabLoadingSkeleton type="Surf Profile" />}>
+                      <SurfProfileSection />
+                    </Suspense>
                   </TabsContent>
                 </div>
               </Tabs>

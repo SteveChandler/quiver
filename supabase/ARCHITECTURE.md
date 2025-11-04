@@ -179,6 +179,106 @@ idx_enhanced_forecasts_beach_data_source
 - Quality score indexing for filtering
 - Data source specific indexes
 
+#### **Session Forecast Snapshots (20250822190000)**
+
+**Purpose**: Capture forecast conditions at session time for personalization and learning user preferences.
+
+**Schema Design**:
+
+```sql
+CREATE TABLE session_forecast_snapshots (
+  id UUID PRIMARY KEY,
+  session_id UUID REFERENCES sessions(id) UNIQUE,
+  user_id UUID REFERENCES profiles(id),
+  beach_id UUID REFERENCES beaches(id),
+  forecast_snapshot JSONB NOT NULL,        -- Full forecast data
+  actual_conditions JSONB NOT NULL,        -- User's session feedback
+  forecast_confidence_score INTEGER,
+  data_source TEXT,
+  session_date DATE NOT NULL,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+);
+```
+
+**Automatic Capture Mechanism**:
+
+- **Database Trigger**: `trigger_create_session_forecast_snapshot`
+- **Fires On**: INSERT or UPDATE when `sessions.status = 'completed'`
+- **Function**: `create_session_forecast_snapshot()`
+- **Process**:
+  1. Query `enhanced_forecasts` for closest temporal match to `session.arrival_time`
+  2. Store full forecast as JSONB in `forecast_snapshot`
+  3. Store session feedback (rating, notes, wave_quality) in `actual_conditions`
+  4. Handle errors gracefully - logs warning but doesn't fail session creation
+
+**JSONB Structure**:
+
+forecast_snapshot:
+```typescript
+{
+  wave_height: number,
+  wave_period: number,
+  wave_direction: number,
+  wind_speed: number,
+  wind_direction: number,
+  tide_status: string,
+  tide_height: number,
+  confidence_score: number,
+  data_source: string,
+  forecast_time: string,
+  // ... additional forecast fields
+}
+```
+
+actual_conditions:
+```typescript
+{
+  wave_quality: string,
+  water_temp: number,
+  crowd_level: string,
+  parking_ease: string,
+  rating: number,
+  notes: string,
+  duration_minutes: number,
+  arrival_time: string
+}
+```
+
+**Performance Optimizations**:
+
+- GIN indexes on JSONB columns for efficient queries
+- Standard B-tree indexes on user_id, beach_id, session_date
+- Compound indexes for common query patterns (beach_id + session_date)
+- Duplicate prevention via unique constraint on session_id
+
+**Benefits**:
+
+- **Personalization**: Learn user's preferred conditions from session history
+- **Zero Integration**: Automatic capture requires no code changes in session actions
+- **Flexible Schema**: JSONB allows adding new forecast fields without migrations
+- **Backfill Capable**: Historical sessions can be retroactively populated
+
+**Trigger Improvements**:
+
+- **20251028000000**: Added INSERT event handling (95%+ of sessions created with status='completed')
+- **20251028000001**: Enhanced error handling and duplicate prevention
+- **20251028000002**: Backfilled historical sessions with snapshots
+
+**RLS Policies**:
+
+- Users can SELECT/INSERT/UPDATE/DELETE their own snapshots (scoped to `auth.uid() = user_id`)
+- All snapshot operations isolated per user for security
+
+**Query Service**:
+
+- [lib/services/session-forecast-service.ts](/lib/services/session-forecast-service.ts) provides query functions:
+  - `getSessionForecastSnapshot()` - Get snapshot for specific session
+  - `getUserForecastHistory()` - Get user's historical snapshots with filters
+  - `analyzePreferredConditions()` - Aggregate analysis of user's preferred conditions
+  - `getDataSourceDistribution()` - Understand which forecast sources are most common
+  - `getMonthlyCoverage()` - Track data collection coverage over time
+
 ### **3. Data Source Integration**
 
 #### **CDIP Data Source (20250805030000)**

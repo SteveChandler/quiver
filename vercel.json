@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/refresh-forecasts",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/update-user-preferences",
+      "schedule": "0 3 * * *"
     }
   ]
 }

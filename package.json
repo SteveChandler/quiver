@@ -57,6 +57,7 @@
     "db:reset": "supabase db reset",
     "db:reset:types": "supabase db reset && yarn db:types",
     "seed:prod-mock-users": "tsx scripts/seed-prod-mock-users.ts",
+    "affinity:compute": "tsx scripts/compute-initial-affinities.ts",
     "seed:npc-content:dev": "CONFIRM_TARGET=DEV RATING_COLS='overall_rating,wave_quality_rating,crowd_density_rating,parking_rating,accessibility_rating' tsx scripts/seed-npc-reviews-and-intel.ts",
     "seed:npc-content:prod": "CONFIRM_TARGET=PROD RATING_COLS='overall_rating,wave_quality_rating,crowd_density_rating,parking_rating,accessibility_rating' tsx scripts/seed-npc-reviews-and-intel.ts",
     "npc:daily": "tsx scripts/npc-daily-activity.ts",

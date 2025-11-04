@@ -6,6 +6,9 @@ import { ArrowUp, ArrowDown, Waves, Wind } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
+import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
+import { ForecastFreshnessBadge } from "@/components/ui/forecast-freshness-badge";
+import { BuoyStationLink } from "@/components/forecast/buoy-station-link";
 
 const ForecastAndTides = dynamic(
   () =>
@@ -145,8 +148,65 @@ export function ForecastTab({
       ? `— · ${snapshotDirection}`
       : `${snapshotSwellPeriod} s · ${snapshotDirection}`;
 
+  // Extract transparency metadata from current forecast
+  const forecastMetadata = useMemo(() => {
+    if (!currentForecast) return null;
+
+    const now = Date.now();
+    const updatedAt = new Date(currentForecast.updated_at).getTime();
+    const hoursSinceUpdate = (now - updatedAt) / (1000 * 60 * 60);
+
+    return {
+      dataSource: currentForecast.data_source || "FALLBACK",
+      confidenceScore: currentForecast.confidence_score ?? 50,
+      dataSources: (currentForecast.raw_forecast as any)?.data_sources || [
+        currentForecast.data_source || "FALLBACK",
+      ],
+      lastUpdated: currentForecast.updated_at,
+      isRealTimeData: currentForecast.data_source === "CDIP",
+      isStaleData: hoursSinceUpdate > 6,
+      cdipStation: (currentForecast.raw_forecast as any)?.cdip_data?.stationId,
+      cdipStationName: (currentForecast.raw_forecast as any)?.cdip_data?.stationName,
+    };
+  }, [currentForecast]);
+
   return (
     <div className="space-y-6 py-6">
+      {/* Forecast Transparency Section */}
+      {currentForecast && forecastMetadata && (
+        <section className="rounded-2xl bg-blue-50/50 border border-blue-100 p-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex-1 space-y-3">
+              <ForecastDataSourceIndicator
+                dataSource={forecastMetadata.dataSource}
+                confidenceScore={forecastMetadata.confidenceScore}
+                dataSources={forecastMetadata.dataSources}
+                isRealTimeData={forecastMetadata.isRealTimeData}
+                isStaleData={forecastMetadata.isStaleData}
+                lastUpdated={forecastMetadata.lastUpdated}
+                expandable={true}
+              />
+              {forecastMetadata.cdipStation && forecastMetadata.cdipStationName && (
+                <BuoyStationLink
+                  stationId={forecastMetadata.cdipStation}
+                  stationName={forecastMetadata.cdipStationName}
+                  beachLocation={{
+                    latitude: beach.latitude,
+                    longitude: beach.longitude,
+                  }}
+                  variant="compact"
+                />
+              )}
+            </div>
+            <ForecastFreshnessBadge
+              updatedAt={new Date(forecastMetadata.lastUpdated)}
+              showRefresh={true}
+              variant="default"
+            />
+          </div>
+        </section>
+      )}
+
       {/* Current Forecast Snapshot */}
       {currentForecast && (
         <section className="rounded-3xl bg-white/95 p-4 md:p-6 shadow-lg backdrop-blur">

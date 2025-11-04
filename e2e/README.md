@@ -313,6 +313,241 @@ test.describe('Feature Name', () => {
 
 ---
 
+## Personalization Testing
+
+### Overview
+
+Personalization tests validate user-specific features including:
+- **Forecast Transparency** - Data source indicators, confidence scores, buoy station links
+- **Enhanced Onboarding** - Surf preference questions (wave size, break type, crowd preference)
+- **Session Conditions** - Automatic forecast snapshot capture during sessions
+- **Beach Affinity** - Familiarity indicators for frequently visited beaches
+- **Personalized Recommendations** - Tailored beach scoring based on user preferences
+
+**Important:** Personalization tests require local environment with seeded data and skip automatically in dev/production.
+
+### Database Setup
+
+Before running personalization tests, you must set up the database with test data:
+
+```bash
+# 1. Ensure local Supabase is running
+supabase status
+
+# 2. Ensure dev server is running
+yarn dev
+
+# 3. Ensure authentication state exists
+yarn test:e2e:auth:setup
+
+# 4. Run personalization database setup
+npx tsx e2e/scripts/setup-personalization-db.ts
+```
+
+**What the setup script does:**
+- Creates 12 sessions across 3 beaches (Blacks: 6, Swamis: 4, Birdrock: 2)
+- Triggers beach affinity calculation (auto-updates via database trigger)
+- Triggers preference learning (requires 5+ rated sessions)
+- Populates tables:
+  - `session_forecast_snapshots` (~12 records)
+  - `user_beach_affinity` (~3 records)
+  - `user_surf_preferences` (~1 record with confidence > 0.5)
+
+**Expected Duration:** 2-3 minutes
+
+### Running Personalization Tests
+
+```bash
+# Run all personalization tests
+npx playwright test e2e/personalization.spec.ts
+
+# Run specific test groups
+npx playwright test e2e/personalization.spec.ts --grep "Forecast Transparency"
+npx playwright test e2e/personalization.spec.ts --grep "Beach Affinity"
+npx playwright test e2e/personalization.spec.ts --grep "Personalized Recommendations"
+
+# Run in headed mode to see UI interactions
+npx playwright test e2e/personalization.spec.ts --headed
+
+# Run specific test by name
+npx playwright test e2e/personalization.spec.ts --grep "should show PersonalizedBadge"
+```
+
+### Test Suite Structure
+
+The personalization test suite (`e2e/personalization.spec.ts`) contains 26 tests across 5 categories:
+
+1. **Forecast Transparency (5 tests)**
+   - Data source badges (CDIP, NOAA, Fallback)
+   - Confidence indicators
+   - Data freshness displays
+   - BuoyStationLink component (3 variants)
+   - Fallback data messaging
+
+2. **Enhanced Onboarding (8 tests)**
+   - Wave size preference questions
+   - Break type preference questions
+   - Crowd preference questions
+   - Preference persistence to database
+   - Profile display of preferences
+
+3. **Session Conditions Capture (3 tests)**
+   - Automatic forecast snapshot on session creation
+   - Conditions display in session detail
+   - Historical conditions from session time
+
+4. **Beach Affinity (4 tests)**
+   - Familiarity badges on beach cards
+   - Visit count indicators
+   - Last surfed dates
+   - Affinity boost in recommendations
+
+5. **Personalized Recommendations (6 tests)**
+   - PersonalizedBadge component rendering
+   - Score breakdown tooltips
+   - Affinity badge display
+   - Morning API personalization data
+   - Beach re-ranking by preference
+   - Graceful fallback without preferences
+
+### Environment Detection
+
+Personalization tests automatically skip in dev/production environments:
+
+```typescript
+// Tests skip with this message:
+// "Personalization tests require local environment with seeded data"
+
+const isDevEnvironment =
+  process.env.BASE_URL?.includes('dev.quiversurf.app') ||
+  process.env.BASE_URL?.includes('quiversurf.app') ||
+  process.env.TEST_ENV === 'dev';
+```
+
+### Verifying Test Data
+
+Check if personalization data exists in your database:
+
+```bash
+# Check session forecast snapshots
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+  -c "SELECT COUNT(*) FROM session_forecast_snapshots;"
+
+# Check beach affinity
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+  -c "SELECT beach_id, affinity_score, session_count FROM user_beach_affinity;"
+
+# Check user preferences
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+  -c "SELECT confidence, sample_size FROM user_surf_preferences;"
+```
+
+### Test Data Maintenance
+
+If personalization tests start failing:
+
+1. **Check if test data exists:**
+   ```bash
+   # Verify session count
+   PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+     -c "SELECT COUNT(*) FROM sessions;"
+
+   # Expected: 12+ sessions
+   ```
+
+2. **Re-run database setup:**
+   ```bash
+   npx tsx e2e/scripts/setup-personalization-db.ts
+   ```
+
+3. **Clear and recreate (if needed):**
+   ```bash
+   # Reset database
+   supabase db reset
+
+   # Regenerate types
+   yarn db:types
+
+   # Re-run setup
+   npx tsx e2e/scripts/setup-personalization-db.ts
+   ```
+
+### Helper Functions
+
+Personalization tests use specialized helpers from `e2e/utils/personalization-helpers.ts`:
+
+```typescript
+import {
+  hasPersonalizationData,      // Check if user has preferences/affinity
+  verifyAffinityScore,          // Check beach affinity exists
+  getPersonalizedRecommendations, // Fetch from morning API
+  skipIfNoPersonalizationData,  // Conditionally skip tests
+  verifyPersonalizedBadge,      // Assert badge rendering
+} from './utils/personalization-helpers';
+```
+
+**Example usage:**
+```typescript
+test('should show personalized badge', async ({ page }) => {
+  // Skip if insufficient data
+  await skipIfNoPersonalizationData(page, test, {
+    needsPreferences: true,
+    minSessions: 5
+  });
+
+  // Verify badge displays
+  await verifyPersonalizedBadge(page, {
+    shouldBeVisible: true,
+    shouldShowBreakdown: true
+  });
+});
+```
+
+### Troubleshooting Personalization Tests
+
+#### Problem: Tests skip with "No personalization data"
+
+**Cause:** Database not seeded with test data
+
+**Solution:**
+```bash
+npx tsx e2e/scripts/setup-personalization-db.ts
+```
+
+#### Problem: Beach affinity not updating
+
+**Cause:** Affinity trigger may not have fired
+
+**Solution:**
+```bash
+# Manually run affinity computation
+yarn affinity:compute
+
+# Or via script
+npx tsx scripts/compute-initial-affinities.ts
+```
+
+#### Problem: Preferences not computed
+
+**Cause:** Need 5+ rated sessions for preference learning
+
+**Solution:**
+```bash
+# Check session count
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+  -c "SELECT COUNT(*) FROM sessions WHERE rating >= 3;"
+
+# If <5, re-run setup script to create more sessions
+```
+
+#### Problem: PersonalizedBadge not visible
+
+**Cause:** UI integration may not be complete (Phase 6.3)
+
+**Note:** PersonalizedBadge component exists but may not be integrated into all screens yet. Tests will skip gracefully when component is not found.
+
+---
+
 ## Troubleshooting
 
 ### Authentication Issues

@@ -9,6 +9,8 @@ import { apiCache } from '@/lib/utils/request-cache';
 import { createAPIServerClient } from '@/lib/supabase/api-server-client';
 import { getMorningWindow } from '@/lib/time';
 import { handleApiError, createValidationError } from '@/lib/api-utils';
+import { scoreBeachForUser, type PersonalizedScore } from '@/lib/services/personalized-scoring-service';
+import { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 
 const schema = z.object({
   lat: z.number(),
@@ -35,6 +37,17 @@ export async function POST(req: NextRequest) {
     }
 
     const { lat, lon, radius_km = 25, tz = 'America/Los_Angeles', horizon_hours = 5 } = result.data;
+
+    // Try to get authenticated user for personalization (graceful fallback to anonymous)
+    const supabase = createAPIServerClient();
+    let userId: string | null = null;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      userId = user?.id || null;
+    } catch {
+      // Graceful fallback - continue as anonymous user
+      userId = null;
+    }
 
     const nowLocal = toZonedTime(new Date(), tz);
     const todayLocal = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate());
@@ -66,10 +79,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Thin cache key: geohash(lat,lon, precision=4) | local date | radius | horizon | tz
+    // Thin cache key: geohash(lat,lon, precision=4) | local date | radius | horizon | tz | userId (if authenticated)
     const gh4 = geohashEncode(lat, lon, 4);
     const keyDate = `${startLocal.getFullYear()}-${String(startLocal.getMonth() + 1).padStart(2, '0')}-${String(startLocal.getDate()).padStart(2, '0')}`;
-    const cacheKey = `morning:${gh4}|${keyDate}|r${radius_km}|h${horizon_hours}|${tz}`;
+    const cacheKey = userId
+      ? `morning:${gh4}|${keyDate}|r${radius_km}|h${horizon_hours}|${tz}|u${userId}`
+      : `morning:${gh4}|${keyDate}|r${radius_km}|h${horizon_hours}|${tz}`;
     const cached = apiCache.get<any>(cacheKey);
     if (cached) {
       return NextResponse.json(cached);
@@ -92,7 +107,7 @@ export async function POST(req: NextRequest) {
       }
       return arr.slice(0, 8);
     })();
-    const supabase = createAPIServerClient();
+    // supabase client already created above for auth check
     const winsAll: any[] = [];
 
     for (const b of candidates) {
@@ -146,14 +161,109 @@ export async function POST(req: NextRequest) {
       apiCache.set(cacheKey, payload, 12 * 60 * 1000); // 12 minutes
       return NextResponse.json(payload);
     }
-    const cards = winsAll.slice(0, 3).map((w) => windowBlurbDetailed(w));
+
+    // Apply personalization if user is authenticated
+    let personalizationEnabled = false;
+    if (userId) {
+      try {
+        // Batch load user preferences once for performance
+        const [profile, learnedPrefs, affinities] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('preferred_wave_size, preferred_break_type, crowd_preference')
+            .eq('id', userId)
+            .single(),
+          getUserSurfPreferences(userId),
+          supabase
+            .from('user_beach_affinity')
+            .select('beach_id, affinity_score, session_count, last_surfed_at')
+            .eq('user_id', userId)
+        ]);
+
+        // Create affinity lookup map
+        const affinityMap = new Map<string, any>();
+        if (affinities.data) {
+          for (const aff of affinities.data) {
+            affinityMap.set(aff.beach_id, aff);
+          }
+        }
+
+        // Apply personalized scoring to each window
+        for (const w of winsAll) {
+          // Convert window forecast data to format expected by scoreBeachForUser
+          const forecast = {
+            wave_height: w.avg_hs_m ? w.avg_hs_m * 3.28084 : null, // meters to feet
+            wave_period: w.avg_tp_s || null,
+            wind_speed: w.avg_wind_spd_kts || null,
+            wind_direction: w.avg_wind_dir_deg || null,
+            tide_status: null, // Not available in window data
+          };
+
+          const baseScore = w.meanScore ?? 0;
+          const personalizedResult = await scoreBeachForUser(
+            userId,
+            w.beach.id,
+            forecast as any,
+            baseScore
+          );
+
+          // Store both base and personalized scores
+          w.baseScore = baseScore;
+          w.personalizedScore = personalizedResult.score;
+          w.personalized = personalizedResult.personalized;
+          w.scoreBreakdown = personalizedResult.breakdown;
+
+          // Update meanScore to personalized score for re-sorting
+          w.meanScore = personalizedResult.score;
+
+          if (personalizedResult.personalized) {
+            personalizationEnabled = true;
+          }
+
+          // Add affinity data if available
+          const affinity = affinityMap.get(w.beach.id);
+          if (affinity) {
+            w.affinityData = {
+              sessionCount: affinity.session_count,
+              lastSurfed: affinity.last_surfed_at,
+              score: affinity.affinity_score
+            };
+          }
+        }
+
+        // Re-sort by personalized scores
+        winsAll.sort((a,b) => (b.meanScore ?? 0) - (a.meanScore ?? 0));
+      } catch (error) {
+        // Graceful fallback - if personalization fails, continue with base scores
+        console.error('Personalization failed, using base scores:', error);
+      }
+    }
+
+    const cards = winsAll.slice(0, 3).map((w) => {
+      const card = windowBlurbDetailed(w);
+
+      // Add personalization data if available
+      if (w.personalizedScore !== undefined) {
+        return {
+          ...card,
+          baseScore: w.baseScore,
+          personalizedScore: w.personalizedScore,
+          personalized: w.personalized ?? false,
+          scoreBreakdown: w.scoreBreakdown,
+          affinityData: w.affinityData
+        };
+      }
+
+      return card;
+    });
 
     const title = mode === 'tomorrow_morning' ? "Tomorrow morning's picks" : "Next best windows near you";
     const payload = {
       mode,
       title,
       range_local: { start: startLocal.toISOString(), end: endLocal.toISOString(), tz },
-      picks: cards
+      picks: cards,
+      personalizationEnabled
     };
     apiCache.set(cacheKey, payload, 12 * 60 * 1000); // 12 minutes
     return NextResponse.json(payload);

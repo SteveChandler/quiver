@@ -78,31 +78,53 @@ export async function createTestSession(
   } = options;
 
   try {
-    // Navigate to session wizard
-    await page.goto("/new");
+    // Navigate to session wizard in log mode (for completed sessions)
+    await page.goto("/sessions/new?mode=log");
     await page.waitForLoadState("networkidle");
 
     // Search for beach
-    const beachSearch = page.getByPlaceholder(/search.*beach/i);
+    const beachSearch = page.getByPlaceholder(/beach|location|search/i);
+    const hasBeachInput = await beachSearch.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!hasBeachInput) {
+      throw new Error("Beach input not found");
+    }
+
     await beachSearch.fill(beachName);
     await page.waitForTimeout(1000);
 
-    // Select first beach from results
-    const firstBeach = page.locator('[role="option"]').first();
-    await firstBeach.click();
+    // Select beach from dropdown options
+    const beachOption = page.locator('[role="option"]').filter({ hasText: new RegExp(beachName, 'i') }).first();
+    const hasOption = await beachOption.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!hasOption) {
+      throw new Error(`Beach option "${beachName}" not found in dropdown`);
+    }
+
+    await beachOption.click();
     await page.waitForTimeout(500);
 
-    // Continue to next step
-    const continueButton = page.getByRole("button", { name: /continue|next/i });
-    await continueButton.click();
-    await page.waitForTimeout(1000);
+    // Continue to next step if button exists
+    const continueButton = page.getByRole("button", { name: /continue|next/i }).first();
+    const hasContinue = await continueButton.isVisible().catch(() => false);
 
-    // Set rating
+    if (hasContinue) {
+      await continueButton.click();
+      await page.waitForTimeout(1000);
+    }
+
+    // Set rating (stars or slider)
     const stars = page.locator('[data-testid*="star"], [aria-label*="star"]');
+    const ratingSlider = page.locator('input[type="range"], [role="slider"]').first();
+
     const starCount = await stars.count();
+    const hasSlider = await ratingSlider.isVisible().catch(() => false);
 
     if (starCount > 0) {
       await stars.nth(rating - 1).click();
+      await page.waitForTimeout(500);
+    } else if (hasSlider) {
+      await ratingSlider.fill(rating.toString());
       await page.waitForTimeout(500);
     }
 
@@ -122,16 +144,45 @@ export async function createTestSession(
 
     // Submit session
     const submitButton = page.getByRole("button", {
-      name: /save|submit|log session/i,
-    });
-    await submitButton.click();
-    await page.waitForTimeout(2000);
+      name: /log|submit|save|complete/i,
+    }).first();
 
-    // Extract session ID from URL
+    const hasSubmit = await submitButton.isVisible().catch(() => false);
+    if (!hasSubmit) {
+      throw new Error("Submit button not found");
+    }
+
+    await submitButton.click();
+
+    // Wait for success indication (celebration or redirect)
+    await page.waitForTimeout(3000);
+
+    // Try to extract session ID from URL (might redirect to /profile)
     const url = page.url();
     const match = url.match(/\/sessions\/([a-f0-9-]+)/);
 
-    return match ? match[1] : null;
+    if (match) {
+      return match[1];
+    }
+
+    // If redirected to profile, try to get the latest session
+    if (url.includes('/profile')) {
+      await page.goto('/sessions');
+      await page.waitForLoadState('networkidle');
+
+      const firstSessionLink = page.locator('a[href^="/sessions/"]').first();
+      const hasLink = await firstSessionLink.isVisible().catch(() => false);
+
+      if (hasLink) {
+        const href = await firstSessionLink.getAttribute('href');
+        const sessionMatch = href?.match(/\/sessions\/([a-f0-9-]+)/);
+        if (sessionMatch) {
+          return sessionMatch[1];
+        }
+      }
+    }
+
+    return null;
   } catch (error) {
     console.error("Failed to create test session:", error);
     return null;

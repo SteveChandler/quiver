@@ -17,6 +17,9 @@ const XP_ACTION_MAP = {
   add_surf_tags: 20,
   record_temperature: 10,
   submit_crowd_parking: 10,
+  onboarding_completed: 100,
+  referral_signup: 50,
+  successful_referral: 100,
 } as const;
 
 // Level progression thresholds (9 tiers as per spec)

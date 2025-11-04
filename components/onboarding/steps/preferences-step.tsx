@@ -24,14 +24,38 @@ const SURF_STYLES = [
   { value: 'foil', label: 'Foil', emoji: '✨' },
 ] as const;
 
+const WAVE_SIZES = [
+  { value: 'small', label: 'Small', emoji: '🌊', description: '1-3 feet' },
+  { value: 'medium', label: 'Medium', emoji: '🌊🌊', description: '3-6 feet' },
+  { value: 'large', label: 'Large', emoji: '🌊🌊🌊', description: '6+ feet' },
+  { value: 'any', label: 'Any Size', emoji: '🤙', description: "I'll surf anything" },
+] as const;
+
+const BREAK_TYPES = [
+  { value: 'beach', label: 'Beach Break', emoji: '🏖️', description: 'Sandy bottom' },
+  { value: 'point', label: 'Point Break', emoji: '🪨', description: 'Rocky point' },
+  { value: 'reef', label: 'Reef Break', emoji: '🪸', description: 'Coral or rock reef' },
+  { value: 'any', label: 'Any Type', emoji: '✨', description: "I'll surf anywhere" },
+] as const;
+
+const CROWD_PREFERENCES = [
+  { value: 'social', label: 'Love the crew', emoji: '👥', description: 'Enjoy surfing with others' },
+  { value: 'moderate', label: 'A few people is fine', emoji: '🧘', description: 'Small crowds are okay' },
+  { value: 'solitude', label: 'Prefer solitude', emoji: '🏝️', description: 'Like uncrowded spots' },
+] as const;
+
 export function PreferencesStep() {
   const { data, updateData, nextStep, prevStep } = useOnboardingStore();
 
   const { handleSubmit, control, formState: { errors, isValid } } = useForm<PreferencesFormData>({
     resolver: zodResolver(preferencesSchema),
+    mode: 'onSubmit',
     defaultValues: {
       experienceLevel: data.experienceLevel,
       surfStyles: data.surfStyles || [],
+      preferredWaveSize: data.preferredWaveSize,
+      preferredBreakType: data.preferredBreakType,
+      crowdPreference: data.crowdPreference,
     },
   });
 
@@ -125,6 +149,110 @@ export function PreferencesStep() {
             {errors.surfStyles.message}
           </p>
         )}
+      </div>
+
+      {/* Preferred Wave Size (Optional) */}
+      <div>
+        <Label>Preferred Wave Size (optional)</Label>
+        <Controller
+          name="preferredWaveSize"
+          control={control}
+          render={({ field }) => (
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              {WAVE_SIZES.map((size) => (
+                <button
+                  key={size.value}
+                  type="button"
+                  onClick={() => field.onChange(size.value)}
+                  className={cn(
+                    'p-4 border-2 rounded-lg text-left transition-all',
+                    field.value === size.value
+                      ? 'border-ocean-blue bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  )}
+                  aria-label={`${size.label} waves - ${size.description}`}
+                >
+                  <div className="text-3xl mb-2">{size.emoji}</div>
+                  <div className="font-medium text-sm">{size.label}</div>
+                  <div className="text-xs text-gray-500">{size.description}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        />
+      </div>
+
+      {/* Preferred Break Type (Optional) */}
+      <div>
+        <Label>Preferred Break Type (optional)</Label>
+        <Controller
+          name="preferredBreakType"
+          control={control}
+          render={({ field }) => (
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              {BREAK_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => field.onChange(type.value)}
+                  className={cn(
+                    'p-4 border-2 rounded-lg text-left transition-all',
+                    field.value === type.value
+                      ? 'border-ocean-blue bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  )}
+                  aria-label={`${type.label} - ${type.description}`}
+                >
+                  <div className="text-3xl mb-2">{type.emoji}</div>
+                  <div className="font-medium text-sm">{type.label}</div>
+                  <div className="text-xs text-gray-500">{type.description}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        />
+      </div>
+
+      {/* Crowd Preference (Optional) */}
+      <div>
+        <Label>Crowd Tolerance (optional)</Label>
+        <Controller
+          name="crowdPreference"
+          control={control}
+          render={({ field }) => (
+            <div className="grid grid-cols-1 gap-3 mt-2">
+              {CROWD_PREFERENCES.map((pref) => (
+                <button
+                  key={pref.value}
+                  type="button"
+                  onClick={() => field.onChange(pref.value)}
+                  className={cn(
+                    'p-4 border-2 rounded-lg text-left transition-all',
+                    field.value === pref.value
+                      ? 'border-ocean-blue bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  )}
+                  aria-label={`${pref.label} - ${pref.description}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="text-3xl">{pref.emoji}</div>
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{pref.label}</div>
+                      <div className="text-xs text-gray-500">{pref.description}</div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        />
+      </div>
+
+      {/* Helper Text */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-gray-700">
+          ℹ️ These preferences are optional. We&apos;ll also learn from your surf sessions over time to personalize recommendations.
+        </p>
       </div>
 
       <div className="flex gap-3">
