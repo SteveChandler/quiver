@@ -11,8 +11,6 @@ import { useCachedProfile } from "@/hooks/use-cached-profile";
 import type { Beach } from "@/types/database";
 import { BeachSearchBar } from "./beach-search-bar";
 import { useGeo } from "@/hooks/useGeo";
-import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
-import { useOnboarding } from "@/hooks/use-onboarding";
 import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 import { track } from "@/lib/analytics";
 import { BookOpen, Plus } from "lucide-react";
@@ -58,25 +56,6 @@ export function HomeScreen() {
     });
   };
 
-  // Server-truth onboarding flow
-  const {
-    open,
-    loading: onboardingLoading,
-    complete,
-  } = useOnboarding(user?.id);
-  const {
-    requestPushOptIn,
-    canPrompt,
-    status: pushStatus,
-  } = useNativePushRegistration();
-
-  const handleOnboardingComplete = useCallback(() => {
-    void complete("completed");
-    if (canPrompt) {
-      void requestPushOptIn();
-    }
-  }, [complete, canPrompt, requestPushOptIn]);
-
   // Use cached profile hook to prevent flickering on navigation
   const { profile, homeBeach, profileLoading, hasCachedData } =
     useCachedProfile();
@@ -104,19 +83,8 @@ export function HomeScreen() {
     return () => controller.abort();
   }, [coords]);
 
-  // Push opt-in is requested in handleOnboardingComplete; no additional effect needed
-
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Onboarding Flow (no flash: gated by onboardingLoading) */}
-      {!onboardingLoading && (
-        <OnboardingFlow
-          isOpen={open}
-          onClose={() => complete("skipped")}
-          onComplete={handleOnboardingComplete}
-        />
-      )}
-
       {/* Note: EngagementProgressTracker removed - only needed for unauthenticated landing page visitors */}
 
       {/* Optional: Interaction hints can be reintroduced with server flag if desired */}
@@ -167,18 +135,11 @@ export function HomeScreen() {
         </section>
 
         {/* Best Conditions Section - Only show if user has home beach */}
-        {(() => {
-          console.log("[HomeScreen] homeBeach check:", {
-            hasHomeBeach: !!homeBeach,
-            homeBeachId: homeBeach?.id,
-            homeBeachName: homeBeach?.name,
-          });
-          return homeBeach ? (
-            <section className="centered-container">
-              <BestConditionsCards />
-            </section>
-          ) : null;
-        })()}
+        {homeBeach && (
+          <section className="centered-container">
+            <BestConditionsCards />
+          </section>
+        )}
 
         {/* Tabs Section */}
         <section className="centered-container">

@@ -7,6 +7,20 @@
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 
+// Debug logging only in development
+const DEBUG = process.env.NODE_ENV === "development";
+const debugLog = DEBUG ? console.log.bind(console) : () => {};
+
+// Navigation helper for mobile apps
+// Uses Capacitor's App API to handle navigation within the app
+function navigateToUrl(url: string) {
+  // Use window.location for mobile as Capacitor handles routing
+  // This is correct for mobile apps - router.push() doesn't work in Capacitor
+  if (Capacitor.isNativePlatform()) {
+    window.location.href = url;
+  }
+}
+
 /**
  * Initialize and register push notifications
  * Call this after user authentication
@@ -14,7 +28,7 @@ import { PushNotifications } from "@capacitor/push-notifications";
 export async function registerPushNotifications() {
   // Only run on native platforms (iOS/Android)
   if (!Capacitor.isNativePlatform()) {
-    console.log("Push notifications: Web platform, skipping native registration");
+    debugLog("Push notifications: Web platform, skipping native registration");
     return;
   }
 
@@ -23,13 +37,13 @@ export async function registerPushNotifications() {
     const permissionStatus = await PushNotifications.requestPermissions();
 
     if (permissionStatus.receive !== "granted") {
-      console.log("Push notification permissions not granted");
+      debugLog("Push notification permissions not granted");
       return;
     }
 
     // Register with FCM
     await PushNotifications.register();
-    console.log("Push notifications: Registration initiated");
+    debugLog("Push notifications: Registration initiated");
   } catch (error) {
     console.error("Push notifications: Registration failed", error);
   }
@@ -48,7 +62,7 @@ export function setupPushNotificationListeners() {
   PushNotifications.addListener("registration", async (token) => {
     const platform = Capacitor.getPlatform() as "ios" | "android";
 
-    console.log("Push notifications: Token received", {
+    debugLog("Push notifications: Token received", {
       platform,
       tokenPreview: token.value.substring(0, 20) + "...",
     });
@@ -70,7 +84,7 @@ export function setupPushNotificationListeners() {
         const errorData = await response.json().catch(() => ({}));
         console.error("Push notifications: Token registration failed", errorData);
       } else {
-        console.log("Push notifications: Token registered with backend");
+        debugLog("Push notifications: Token registered with backend");
       }
     } catch (error) {
       console.error("Push notifications: Failed to register token with backend", error);
@@ -84,7 +98,7 @@ export function setupPushNotificationListeners() {
 
   // Handle notification received while app is in foreground
   PushNotifications.addListener("pushNotificationReceived", (notification) => {
-    console.log("Push notifications: Received in foreground", {
+    debugLog("Push notifications: Received in foreground", {
       title: notification.title,
       body: notification.body,
       data: notification.data,
@@ -98,7 +112,7 @@ export function setupPushNotificationListeners() {
   PushNotifications.addListener(
     "pushNotificationActionPerformed",
     (action) => {
-      console.log("Push notifications: Action performed", {
+      debugLog("Push notifications: Action performed", {
         actionId: action.actionId,
         data: action.notification.data,
       });
@@ -109,22 +123,22 @@ export function setupPushNotificationListeners() {
       if (data.type === "session_invite" && data.session_id) {
         // Navigate to session details
         const sessionUrl = `/sessions/${data.session_id}`;
-        console.log("Push notifications: Navigating to", sessionUrl);
-        window.location.href = sessionUrl;
+        debugLog("Push notifications: Navigating to", sessionUrl);
+        navigateToUrl(sessionUrl);
       } else if (data.type === "comment" && data.session_id) {
         // Navigate to session with comments visible
-        window.location.href = `/sessions/${data.session_id}#comments`;
+        navigateToUrl(`/sessions/${data.session_id}#comments`);
       } else if (data.type === "like" && data.session_id) {
         // Navigate to session
-        window.location.href = `/sessions/${data.session_id}`;
+        navigateToUrl(`/sessions/${data.session_id}`);
       } else if (data.type === "follow" && data.user_id) {
         // Navigate to user profile
-        window.location.href = `/user/${data.user_id}`;
+        navigateToUrl(`/user/${data.user_id}`);
       }
     }
   );
 
-  console.log("Push notifications: Listeners configured");
+  debugLog("Push notifications: Listeners configured");
 }
 
 /**
@@ -143,7 +157,7 @@ export async function unregisterPushNotifications() {
     // Remove all listeners
     await PushNotifications.removeAllListeners();
 
-    console.log("Push notifications: Unregistered and listeners removed");
+    debugLog("Push notifications: Unregistered and listeners removed");
   } catch (error) {
     console.error("Push notifications: Unregistration failed", error);
   }
@@ -171,6 +185,7 @@ export async function checkNotificationPermissions(): Promise<{
     return { granted: false, status: "error" };
   }
 }
+
 
 
 

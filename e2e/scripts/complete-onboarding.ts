@@ -6,6 +6,7 @@
  *
  * Usage:
  *   BASE_URL=http://localhost:3000 npx tsx e2e/scripts/complete-onboarding.ts
+ *   BASE_URL=http://localhost:3000 npx tsx e2e/scripts/complete-onboarding.ts --referral-code ABC123
  */
 
 import { chromium } from '@playwright/test';
@@ -13,6 +14,14 @@ import * as path from 'path';
 
 async function completeOnboarding() {
   console.log('🎯 Completing onboarding for test user...\n');
+
+  // Parse command line arguments
+  const referralCodeArg = process.argv.find(arg => arg.startsWith('--referral-code='));
+  const referralCode = referralCodeArg ? referralCodeArg.split('=')[1] : null;
+
+  if (referralCode) {
+    console.log(`🎁 Using referral code: ${referralCode}\n`);
+  }
 
   const baseURL = process.env.BASE_URL || 'http://localhost:3000';
   const storageStatePath = path.join(process.cwd(), 'e2e', '.auth', 'state.json');
@@ -88,8 +97,35 @@ async function completeOnboarding() {
       }
     }
 
+    // Step 4: Referral code (if provided)
+    if (referralCode) {
+      console.log(`\n🎁 Looking for referral step...`);
+      const referralInput = page.getByLabel(/referral.*code/i);
+      const hasReferralInput = await referralInput.isVisible({ timeout: 2000 }).catch(() => false);
+
+      if (hasReferralInput) {
+        console.log(`   Entering referral code: ${referralCode}`);
+        await referralInput.fill(referralCode);
+
+        // Wait for validation (500ms debounce + request)
+        await page.waitForTimeout(1000);
+
+        // Check validation status
+        const successIcon = page.locator('[class*="text-green"]');
+        const hasSuccess = await successIcon.isVisible({ timeout: 2000 }).catch(() => false);
+
+        if (hasSuccess) {
+          console.log('   ✓ Referral code validated successfully');
+        } else {
+          console.warn('   ⚠️  Referral code may not be valid');
+        }
+      } else {
+        console.log('   ℹ️  Referral step not found (may be skipped)');
+      }
+    }
+
     // Look for "Continue", "Next", or "Finish" buttons
-    console.log('🔄 Looking for navigation buttons...');
+    console.log('\n🔄 Looking for navigation buttons...');
 
     let attempts = 0;
     const maxAttempts = 10;

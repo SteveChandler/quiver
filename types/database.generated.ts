@@ -1718,6 +1718,7 @@ export type Database = {
           phone_number: string | null
           preferred_break_type: string | null
           preferred_wave_size: string | null
+          referral_code: string | null
           surf_styles: string[] | null
           updated_at: string | null
         }
@@ -1755,6 +1756,7 @@ export type Database = {
           phone_number?: string | null
           preferred_break_type?: string | null
           preferred_wave_size?: string | null
+          referral_code?: string | null
           surf_styles?: string[] | null
           updated_at?: string | null
         }
@@ -1792,6 +1794,7 @@ export type Database = {
           phone_number?: string | null
           preferred_break_type?: string | null
           preferred_wave_size?: string | null
+          referral_code?: string | null
           surf_styles?: string[] | null
           updated_at?: string | null
         }
@@ -1864,6 +1867,68 @@ export type Database = {
           {
             foreignKeyName: "push_devices_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          referee_id: string
+          referral_code: string
+          referrer_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referee_id: string
+          referral_code: string
+          referrer_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          referee_id?: string
+          referral_code?: string
+          referrer_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_referee_id_fkey"
+            columns: ["referee_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referee_id_fkey"
+            columns: ["referee_id"]
+            isOneToOne: true
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
             isOneToOne: false
             referencedRelation: "profiles_with_home_beach"
             referencedColumns: ["id"]
@@ -2888,12 +2953,14 @@ export type Database = {
           created_at: string | null
           id: string
           last_computed_at: string | null
+          manual_override: boolean | null
           max_wind_mph: number | null
           preferred_tide_statuses: string[] | null
           preferred_wind_directions: number[] | null
           sample_size: number
           updated_at: string | null
           user_id: string
+          validated_at: string | null
           wave_max_ft: number | null
           wave_min_ft: number | null
           wave_period_max_s: number | null
@@ -2904,12 +2971,14 @@ export type Database = {
           created_at?: string | null
           id?: string
           last_computed_at?: string | null
+          manual_override?: boolean | null
           max_wind_mph?: number | null
           preferred_tide_statuses?: string[] | null
           preferred_wind_directions?: number[] | null
           sample_size?: number
           updated_at?: string | null
           user_id: string
+          validated_at?: string | null
           wave_max_ft?: number | null
           wave_min_ft?: number | null
           wave_period_max_s?: number | null
@@ -2920,12 +2989,14 @@ export type Database = {
           created_at?: string | null
           id?: string
           last_computed_at?: string | null
+          manual_override?: boolean | null
           max_wind_mph?: number | null
           preferred_tide_statuses?: string[] | null
           preferred_wind_directions?: number[] | null
           sample_size?: number
           updated_at?: string | null
           user_id?: string
+          validated_at?: string | null
           wave_max_ft?: number | null
           wave_min_ft?: number | null
           wave_period_max_s?: number | null
@@ -3541,6 +3612,7 @@ export type Database = {
           storage_path: string
         }[]
       }
+      generate_referral_code: { Args: never; Returns: string }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }
@@ -3919,6 +3991,16 @@ export type Database = {
           total_shares: number
           twitter_shares: number
           unique_sharers: number
+        }[]
+      }
+      get_user_referral_stats: {
+        Args: { user_id: string }
+        Returns: {
+          completed_referrals: number
+          expired_referrals: number
+          pending_referrals: number
+          referral_code: string
+          total_referrals: number
         }[]
       }
       get_user_storage_stats: {

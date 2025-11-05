@@ -80,25 +80,19 @@ export function PreferencesStep() {
           name="experienceLevel"
           control={control}
           render={({ field }) => (
-            <div className="grid grid-cols-2 gap-3 mt-2">
+            <select
+              {...field}
+              value={field.value || ""}
+              onChange={(e) => field.onChange(e.target.value || null)}
+              className="w-full px-3 py-2 mt-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-ocean-blue focus:border-transparent"
+            >
+              <option value="">Select your experience level</option>
               {EXPERIENCE_LEVELS.map((level) => (
-                <button
-                  key={level.value}
-                  type="button"
-                  onClick={() => field.onChange(level.value)}
-                  className={cn(
-                    'p-4 border-2 rounded-lg text-left transition-all',
-                    field.value === level.value
-                      ? 'border-ocean-blue bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  )}
-                >
-                  <div className="text-3xl mb-2">{level.emoji}</div>
-                  <div className="font-medium text-sm">{level.label}</div>
-                  <div className="text-xs text-gray-500">{level.description}</div>
-                </button>
+                <option key={level.value} value={level.value}>
+                  {level.emoji} {level.label} - {level.description}
+                </option>
               ))}
-            </div>
+            </select>
           )}
         />
         {errors.experienceLevel && (
@@ -158,26 +152,19 @@ export function PreferencesStep() {
           name="preferredWaveSize"
           control={control}
           render={({ field }) => (
-            <div className="grid grid-cols-2 gap-3 mt-2">
+            <select
+              {...field}
+              value={field.value || ""}
+              onChange={(e) => field.onChange(e.target.value || null)}
+              className="w-full px-3 py-2 mt-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-ocean-blue focus:border-transparent"
+            >
+              <option value="">Select preferred wave size</option>
               {WAVE_SIZES.map((size) => (
-                <button
-                  key={size.value}
-                  type="button"
-                  onClick={() => field.onChange(size.value)}
-                  className={cn(
-                    'p-4 border-2 rounded-lg text-left transition-all',
-                    field.value === size.value
-                      ? 'border-ocean-blue bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  )}
-                  aria-label={`${size.label} waves - ${size.description}`}
-                >
-                  <div className="text-3xl mb-2">{size.emoji}</div>
-                  <div className="font-medium text-sm">{size.label}</div>
-                  <div className="text-xs text-gray-500">{size.description}</div>
-                </button>
+                <option key={size.value} value={size.value}>
+                  {size.emoji} {size.label} - {size.description}
+                </option>
               ))}
-            </div>
+            </select>
           )}
         />
       </div>
@@ -189,26 +176,19 @@ export function PreferencesStep() {
           name="preferredBreakType"
           control={control}
           render={({ field }) => (
-            <div className="grid grid-cols-2 gap-3 mt-2">
+            <select
+              {...field}
+              value={field.value || ""}
+              onChange={(e) => field.onChange(e.target.value || null)}
+              className="w-full px-3 py-2 mt-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-ocean-blue focus:border-transparent"
+            >
+              <option value="">Select preferred break type</option>
               {BREAK_TYPES.map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => field.onChange(type.value)}
-                  className={cn(
-                    'p-4 border-2 rounded-lg text-left transition-all',
-                    field.value === type.value
-                      ? 'border-ocean-blue bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  )}
-                  aria-label={`${type.label} - ${type.description}`}
-                >
-                  <div className="text-3xl mb-2">{type.emoji}</div>
-                  <div className="font-medium text-sm">{type.label}</div>
-                  <div className="text-xs text-gray-500">{type.description}</div>
-                </button>
+                <option key={type.value} value={type.value}>
+                  {type.emoji} {type.label} - {type.description}
+                </option>
               ))}
-            </div>
+            </select>
           )}
         />
       </div>
@@ -220,30 +200,19 @@ export function PreferencesStep() {
           name="crowdPreference"
           control={control}
           render={({ field }) => (
-            <div className="grid grid-cols-1 gap-3 mt-2">
+            <select
+              {...field}
+              value={field.value || ""}
+              onChange={(e) => field.onChange(e.target.value || null)}
+              className="w-full px-3 py-2 mt-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-ocean-blue focus:border-transparent"
+            >
+              <option value="">Select crowd preference</option>
               {CROWD_PREFERENCES.map((pref) => (
-                <button
-                  key={pref.value}
-                  type="button"
-                  onClick={() => field.onChange(pref.value)}
-                  className={cn(
-                    'p-4 border-2 rounded-lg text-left transition-all',
-                    field.value === pref.value
-                      ? 'border-ocean-blue bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  )}
-                  aria-label={`${pref.label} - ${pref.description}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-3xl">{pref.emoji}</div>
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{pref.label}</div>
-                      <div className="text-xs text-gray-500">{pref.description}</div>
-                    </div>
-                  </div>
-                </button>
+                <option key={pref.value} value={pref.value}>
+                  {pref.emoji} {pref.label} - {pref.description}
+                </option>
               ))}
-            </div>
+            </select>
           )}
         />
       </div>

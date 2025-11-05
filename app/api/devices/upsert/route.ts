@@ -4,7 +4,7 @@
  * Following patterns from app/api/session-planner/invitations/route.ts
  */
 
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -19,16 +19,24 @@ export async function POST(request: NextRequest) {
 
     // Validate input
     if (!platform || !device_token) {
-      return handleApiError(
-        new Error("Platform and device_token are required"),
-        400
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Platform and device_token are required",
+          timestamp: new Date().toISOString(),
+        },
+        { status: 400 }
       );
     }
 
     if (!["ios", "android", "web"].includes(platform)) {
-      return handleApiError(
-        new Error('Invalid platform. Must be "ios", "android", or "web"'),
-        400
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid platform. Must be "ios", "android", or "web"',
+          timestamp: new Date().toISOString(),
+        },
+        { status: 400 }
       );
     }
 
@@ -40,7 +48,14 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return handleApiError(new Error("Authentication required"), 401);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Authentication required",
+          timestamp: new Date().toISOString(),
+        },
+        { status: 401 }
+      );
     }
 
     // Upsert device token (insert or update if exists)
@@ -63,8 +78,6 @@ export async function POST(request: NextRequest) {
       throw upsertError;
     }
 
-    console.log(`Device token registered: ${platform} for user ${user.id}`);
-
     return createSuccessResponse({
       message: "Device registered successfully",
       platform,
@@ -85,7 +98,14 @@ export async function DELETE(request: NextRequest) {
     const { device_token } = body;
 
     if (!device_token) {
-      return handleApiError(new Error("device_token is required"), 400);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "device_token is required",
+          timestamp: new Date().toISOString(),
+        },
+        { status: 400 }
+      );
     }
 
     // Authenticate user
@@ -96,7 +116,14 @@ export async function DELETE(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return handleApiError(new Error("Authentication required"), 401);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Authentication required",
+          timestamp: new Date().toISOString(),
+        },
+        { status: 401 }
+      );
     }
 
     // Delete device token
@@ -111,14 +138,13 @@ export async function DELETE(request: NextRequest) {
       throw deleteError;
     }
 
-    console.log(`Device token removed for user ${user.id}`);
-
     return createSuccessResponse({ message: "Device removed successfully" });
   } catch (error) {
     console.error("Device deletion error:", error);
     return handleApiError(error);
   }
 }
+
 
 
 

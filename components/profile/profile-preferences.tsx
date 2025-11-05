@@ -103,12 +103,12 @@ export function ProfilePreferences({
     resolver: zodResolver(preferencesFormSchema),
     defaultValues: {
       home_beach_id: profile?.home_beach_id ?? null,
-      // Surf preferences
-      experience_level: (profile as any)?.experience_level ?? null,
-      surf_styles: (profile as any)?.surf_styles ?? [],
-      preferred_wave_size: (profile as any)?.preferred_wave_size ?? null,
-      preferred_break_type: (profile as any)?.preferred_break_type ?? null,
-      crowd_preference: (profile as any)?.crowd_preference ?? null,
+      // Surf preferences - cast to proper enum types
+      experience_level: (profile?.experience_level as 'beginner' | 'intermediate' | 'advanced' | 'expert' | null) ?? null,
+      surf_styles: profile?.surf_styles ?? [],
+      preferred_wave_size: (profile?.preferred_wave_size as 'small' | 'medium' | 'large' | 'any' | null) ?? null,
+      preferred_break_type: (profile?.preferred_break_type as 'beach' | 'point' | 'reef' | 'any' | null) ?? null,
+      crowd_preference: (profile?.crowd_preference as 'social' | 'moderate' | 'solitude' | null) ?? null,
       // Notification preferences
       notif_reminders: profile?.notif_reminders || false,
       digest_session_invites: profile?.digest_session_invites || false,
@@ -120,9 +120,6 @@ export function ProfilePreferences({
   async function onSubmit(data: PreferencesFormValues) {
     if (!userId) return;
 
-    console.debug("[HomeBeach/UI] submit payload", {
-      home_beach_id: form.getValues("home_beach_id"),
-    });
     setIsSubmitting(true);
     try {
       const result = await updateProfile({
@@ -150,7 +147,8 @@ export function ProfilePreferences({
       });
 
       // Navigate to profile page with fresh data
-      window.location.href = "/profile";
+      router.push("/profile");
+      router.refresh();
     } catch (error) {
       console.error("Error updating preferences:", error);
       toast({
@@ -186,9 +184,6 @@ export function ProfilePreferences({
                     <BeachSelector
                       initialValue={""}
                       onBeachSelected={(beach) => {
-                        console.debug("[HomeBeach/UI] change", {
-                          selectedId: beach?.id,
-                        });
                         field.onChange(beach?.id || null);
                       }}
                     />
@@ -212,27 +207,22 @@ export function ProfilePreferences({
                 render={({ field }) => (
                   <div className="space-y-2">
                     <Label>Experience Level</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <select
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isSubmitting}
+                    >
+                      <option value="">Select your experience level</option>
                       {EXPERIENCE_LEVELS.map((level) => (
-                        <button
-                          key={level.value}
-                          type="button"
-                          onClick={() => field.onChange(level.value)}
-                          className={cn(
-                            "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
-                            field.value === level.value
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          )}
-                        >
-                          <span className="text-3xl">{level.emoji}</span>
-                          <div className="text-center">
-                            <div className="font-medium text-sm">{level.label}</div>
-                            <div className="text-xs text-muted-foreground">{level.description}</div>
-                          </div>
-                        </button>
+                        <option key={level.value} value={level.value}>
+                          {level.emoji} {level.label} - {level.description}
+                        </option>
                       ))}
-                    </div>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      How experienced are you with surfing?
+                    </p>
                   </div>
                 )}
               />
@@ -282,27 +272,22 @@ export function ProfilePreferences({
                 render={({ field }) => (
                   <div className="space-y-2">
                     <Label>Preferred Wave Size</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <select
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isSubmitting}
+                    >
+                      <option value="">Select preferred wave size</option>
                       {WAVE_SIZES.map((size) => (
-                        <button
-                          key={size.value}
-                          type="button"
-                          onClick={() => field.onChange(size.value)}
-                          className={cn(
-                            "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
-                            field.value === size.value
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          )}
-                        >
-                          <span className="text-3xl">{size.emoji}</span>
-                          <div className="text-center">
-                            <div className="font-medium text-sm">{size.label}</div>
-                            <div className="text-xs text-muted-foreground">{size.description}</div>
-                          </div>
-                        </button>
+                        <option key={size.value} value={size.value}>
+                          {size.emoji} {size.label} - {size.description}
+                        </option>
                       ))}
-                    </div>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      What wave size do you prefer surfing?
+                    </p>
                   </div>
                 )}
               />
@@ -314,27 +299,22 @@ export function ProfilePreferences({
                 render={({ field }) => (
                   <div className="space-y-2">
                     <Label>Preferred Break Type</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <select
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isSubmitting}
+                    >
+                      <option value="">Select preferred break type</option>
                       {BREAK_TYPES.map((type) => (
-                        <button
-                          key={type.value}
-                          type="button"
-                          onClick={() => field.onChange(type.value)}
-                          className={cn(
-                            "flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
-                            field.value === type.value
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          )}
-                        >
-                          <span className="text-3xl">{type.emoji}</span>
-                          <div className="text-center">
-                            <div className="font-medium text-sm">{type.label}</div>
-                            <div className="text-xs text-muted-foreground">{type.description}</div>
-                          </div>
-                        </button>
+                        <option key={type.value} value={type.value}>
+                          {type.emoji} {type.label} - {type.description}
+                        </option>
                       ))}
-                    </div>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      What type of break do you prefer?
+                    </p>
                   </div>
                 )}
               />
@@ -346,27 +326,22 @@ export function ProfilePreferences({
                 render={({ field }) => (
                   <div className="space-y-2">
                     <Label>Crowd Preference</Label>
-                    <div className="grid grid-cols-1 gap-3">
+                    <select
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isSubmitting}
+                    >
+                      <option value="">Select crowd preference</option>
                       {CROWD_PREFERENCES.map((pref) => (
-                        <button
-                          key={pref.value}
-                          type="button"
-                          onClick={() => field.onChange(pref.value)}
-                          className={cn(
-                            "flex items-center gap-3 p-4 rounded-lg border-2 transition-all",
-                            field.value === pref.value
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          )}
-                        >
-                          <span className="text-2xl">{pref.emoji}</span>
-                          <div className="flex-1 text-left">
-                            <div className="font-medium text-sm">{pref.label}</div>
-                            <div className="text-xs text-muted-foreground">{pref.description}</div>
-                          </div>
-                        </button>
+                        <option key={pref.value} value={pref.value}>
+                          {pref.emoji} {pref.label} - {pref.description}
+                        </option>
                       ))}
-                    </div>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      How do you feel about crowds at the beach?
+                    </p>
                   </div>
                 )}
               />

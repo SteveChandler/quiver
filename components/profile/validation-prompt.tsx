@@ -23,7 +23,7 @@ interface ValidationPromptProps {
   error?: string | null;
 }
 
-export default function ValidationPrompt({
+export function ValidationPrompt({
   onValidate,
   onEdit,
   sampleSize,

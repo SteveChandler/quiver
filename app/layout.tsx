@@ -82,7 +82,22 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
 
-  // Favicon configuration - uses default favicon.ico
+  // Favicon configuration
+  icons: {
+    icon: [
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    other: [
+      { rel: 'icon', url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+      { rel: 'icon', url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+  },
 
   // Open Graph optimizations for social sharing
   openGraph: {
@@ -104,7 +119,7 @@ export const metadata: Metadata = {
     description: SEO_CONFIG.twitter.description,
     site: SEO_CONFIG.twitter.site,
     creator: SEO_CONFIG.twitter.creator,
-    images: [SEO_CONFIG.openGraph.images?.[0]?.url || "/images/buoy.png"],
+    images: ["/twitter-image.png"],
   },
 
   // Performance hints
