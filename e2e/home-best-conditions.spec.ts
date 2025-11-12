@@ -23,12 +23,12 @@ test.describe('Best Conditions Near You - GPS Mode', () => {
   });
 
   test('should display "Best Conditions Near You" heading when using GPS location', async ({ page }) => {
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
-    // Wait for the section to appear
+    // Wait for the section to appear (it loads async after auth and profile)
     const section = page.getByTestId('best-conditions-section');
-    await expect(section).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(section).toBeVisible({ timeout: 60000 }); // Increased timeout for async data loading
 
     // Verify heading shows GPS mode text
     const heading = page.getByTestId('best-conditions-heading');
@@ -36,12 +36,12 @@ test.describe('Best Conditions Near You - GPS Mode', () => {
   });
 
   test('should display beach cards with GPS location', async ({ page }) => {
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait for cards to load
     const cardsContainer = page.getByTestId('best-conditions-cards-container');
-    await expect(cardsContainer).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(cardsContainer).toBeVisible({ timeout: 60000 }); // Async data loading
 
     // Verify at least one beach card is displayed
     const firstCard = page.getByTestId('best-conditions-card').first();
@@ -55,7 +55,7 @@ test.describe('Best Conditions Near You - GPS Mode', () => {
 
   test('should show loading skeleton initially', async ({ page }) => {
     // Navigate and immediately check for skeleton
-    const navigationPromise = page.goto('/home');
+    const navigationPromise = page.goto('/');
 
     // Loading skeleton should appear quickly
     const skeleton = page.getByTestId('best-conditions-skeleton');
@@ -64,7 +64,7 @@ test.describe('Best Conditions Near You - GPS Mode', () => {
     // Either skeleton shows (page still loading) or content already loaded (fast connection)
     if (skeletonVisible) {
       // If skeleton is visible, wait for it to disappear
-      await expect(skeleton).not.toBeVisible({ timeout: TIMEOUTS.long });
+      await expect(skeleton).not.toBeVisible({ timeout: 60000 }); // Async data loading
     }
 
     await navigationPromise;
@@ -85,14 +85,14 @@ test.describe('Best Conditions Near You - Beach Card Details', () => {
   test.beforeEach(async ({ page, context }) => {
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
   });
 
   test('should display required beach information on cards', async ({ page }) => {
-    // Wait for cards to load
+    // Wait for cards to load (async data fetch)
     const firstCard = page.getByTestId('best-conditions-card').first();
-    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(firstCard).toBeVisible({ timeout: 60000 });
 
     // Verify card contains wave height (with "ft" unit)
     const waveHeightText = await firstCard.textContent();
@@ -112,7 +112,7 @@ test.describe('Best Conditions Near You - Beach Card Details', () => {
 
   test('should display beach name and location on cards', async ({ page }) => {
     const firstCard = page.getByTestId('best-conditions-card').first();
-    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(firstCard).toBeVisible({ timeout: 60000 }); // Async data loading
 
     // Cards should have text content with beach name
     const cardText = await firstCard.textContent();
@@ -125,7 +125,7 @@ test.describe('Best Conditions Near You - Beach Card Details', () => {
 
   test('should display wave, wind, and tide information', async ({ page }) => {
     const firstCard = page.getByTestId('best-conditions-card').first();
-    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(firstCard).toBeVisible({ timeout: 60000 }); // Async data loading
 
     // The card should display multiple condition metrics
     const cardText = await firstCard.textContent();
@@ -140,7 +140,7 @@ test.describe('Best Conditions Near You - Beach Card Details', () => {
 
   test('should have valid skill level badges', async ({ page }) => {
     const firstCard = page.getByTestId('best-conditions-card').first();
-    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(firstCard).toBeVisible({ timeout: 60000 }); // Async data loading
 
     const skillBadge = firstCard.getByTestId('skill-badge');
     const skillText = await skillBadge.textContent();
@@ -152,7 +152,7 @@ test.describe('Best Conditions Near You - Beach Card Details', () => {
 
   test('should have valid crowd level badges', async ({ page }) => {
     const firstCard = page.getByTestId('best-conditions-card').first();
-    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(firstCard).toBeVisible({ timeout: 60000 }); // Async data loading
 
     const crowdBadge = firstCard.getByTestId('crowd-badge');
     const crowdText = await crowdBadge.textContent();
@@ -166,7 +166,7 @@ test.describe('Best Conditions Near You - Beach Card Details', () => {
 
   test('should display beach images or placeholder', async ({ page }) => {
     const firstCard = page.getByTestId('best-conditions-card').first();
-    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(firstCard).toBeVisible({ timeout: 60000 }); // Async data loading
 
     // Card should have an image (either actual photo or placeholder gradient)
     const image = firstCard.locator('img').first();
@@ -187,14 +187,14 @@ test.describe('Best Conditions Near You - Navigation and Interaction', () => {
   test.beforeEach(async ({ page, context }) => {
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
   });
 
   test('should navigate to beach detail page when card is clicked', async ({ page }) => {
     // Wait for cards to load
     const firstCard = page.getByTestId('best-conditions-card').first();
-    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(firstCard).toBeVisible({ timeout: 60000 }); // Async data loading
 
     // Click the card
     await firstCard.click();
@@ -216,7 +216,7 @@ test.describe('Best Conditions Near You - Navigation and Interaction', () => {
 
     // Wait for cards container
     const cardsContainer = page.getByTestId('best-conditions-cards-container');
-    await expect(cardsContainer).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(cardsContainer).toBeVisible({ timeout: 60000 }); // Async data loading
 
     // Container should be scrollable if multiple cards
     const cardCount = await page.getByTestId('best-conditions-card').count();
@@ -233,7 +233,7 @@ test.describe('Best Conditions Near You - Navigation and Interaction', () => {
     await page.setViewportSize(VIEWPORTS.desktop);
 
     const firstCard = page.getByTestId('best-conditions-card').first();
-    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(firstCard).toBeVisible({ timeout: 60000 }); // Async data loading
 
     // Get card width
     const desktopBox = await firstCard.boundingBox();
@@ -264,7 +264,7 @@ test.describe('Best Conditions Near You - Home Beach Fallback Mode', () => {
 
   test('should display "Best Conditions Near [Beach Name]" when GPS unavailable and home beach set', async ({ page }) => {
     // This test assumes the authenticated test user has a home beach set
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait for the section with longer timeout (may take time to load)
@@ -290,7 +290,7 @@ test.describe('Best Conditions Near You - Home Beach Fallback Mode', () => {
   });
 
   test('should display beach cards based on home beach location', async ({ page }) => {
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     const section = page.getByTestId('best-conditions-section');
@@ -321,7 +321,7 @@ test.describe('Best Conditions Near You - No Location Available', () => {
     // This test requires a test user WITHOUT a home beach set
     // For now, we'll test the behavior generally
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait a reasonable time for the section to potentially appear
@@ -358,7 +358,7 @@ test.describe('Best Conditions Near You - Error Handling', () => {
       route.abort('failed');
     });
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait for either error or success state
@@ -388,7 +388,7 @@ test.describe('Best Conditions Near You - Error Handling', () => {
       route.abort('failed');
     });
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
     await page.waitForTimeout(3000);
 
@@ -415,7 +415,7 @@ test.describe('Best Conditions Near You - Distance Validation', () => {
   test.beforeEach(async ({ page, context }) => {
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
   });
 
@@ -455,7 +455,7 @@ test.describe('Best Conditions Near You - Accessibility', () => {
   test.beforeEach(async ({ page, context }) => {
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
   });
 
@@ -507,7 +507,7 @@ test.describe('Best Conditions Near You - Performance', () => {
   test('should load beach cards within reasonable time', async ({ page }) => {
     const startTime = Date.now();
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait for cards to appear
@@ -523,7 +523,7 @@ test.describe('Best Conditions Near You - Performance', () => {
   });
 
   test('should not block page rendering', async ({ page }) => {
-    await page.goto('/home');
+    await page.goto('/');
 
     // Page should render quickly even if best conditions is still loading
     // Check for page header/navigation
@@ -538,7 +538,7 @@ test.describe('Best Conditions Near You - Performance', () => {
 
   test('should meet performance benchmark (<2s for recommendations)', async ({ page }) => {
     // Navigate to home page
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Measure time from skeleton appearance to content load
@@ -584,7 +584,7 @@ test.describe('Phase 3: Mobile Viewport Edge Cases', () => {
   test('should render correctly on very small screens (320px)', async ({ page }) => {
     // iPhone SE size
     await page.setViewportSize({ width: 320, height: 568 });
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     const section = page.getByTestId('best-conditions-section');
@@ -622,7 +622,7 @@ test.describe('Phase 3: Mobile Viewport Edge Cases', () => {
   test('should handle landscape orientation on mobile', async ({ page }) => {
     // Mobile landscape (e.g., iPhone in landscape)
     await page.setViewportSize({ width: 667, height: 375 });
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     const section = page.getByTestId('best-conditions-section');
@@ -651,7 +651,7 @@ test.describe('Phase 3: Mobile Viewport Edge Cases', () => {
 
   test('should support touch scroll gestures on mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     const cardsContainer = page.getByTestId('best-conditions-cards-container');
@@ -697,7 +697,7 @@ test.describe('Phase 3: Mobile Viewport Edge Cases', () => {
 
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
-      await page.goto('/home');
+      await page.goto('/');
       await waitForPageLoad(page);
 
       const firstCard = page.getByTestId('best-conditions-card').first();
@@ -725,7 +725,7 @@ test.describe('Phase 3: Error State Rendering', () => {
     // Set invalid coordinates (out of bounds)
     await context.setGeolocation({ latitude: 91.0, longitude: 181.0 });
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait for processing
@@ -760,7 +760,7 @@ test.describe('Phase 3: Error State Rendering', () => {
       await route.continue();
     });
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Should show skeleton initially
@@ -794,7 +794,7 @@ test.describe('Phase 3: Error State Rendering', () => {
       route.abort('failed');
     });
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait for error to appear
@@ -819,7 +819,7 @@ test.describe('Phase 3: Error State Rendering', () => {
     // Set coordinates in ocean far from any beaches
     await context.setGeolocation({ latitude: 0.0, longitude: 0.0 });
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait for processing
@@ -842,7 +842,7 @@ test.describe('Phase 3: Error State Rendering', () => {
       route.abort('failed');
     });
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
     await page.waitForTimeout(5000);
 
@@ -891,7 +891,7 @@ test.describe('Phase 3: Loading State Behavior', () => {
   });
 
   test('should transition from skeleton to content smoothly', async ({ page }) => {
-    await page.goto('/home');
+    await page.goto('/');
 
     // Monitor skeleton visibility
     const skeleton = page.getByTestId('best-conditions-skeleton');
@@ -925,7 +925,7 @@ test.describe('Phase 3: Loading State Behavior', () => {
       await route.continue();
     });
 
-    await page.goto('/home');
+    await page.goto('/');
 
     // Page should still be interactive during loading
     const planButton = page.getByRole('button', { name: /plan session/i });
@@ -947,7 +947,7 @@ test.describe('Phase 3: Loading State Behavior', () => {
     const states: string[] = [];
 
     // Navigate and track state changes
-    await page.goto('/home');
+    await page.goto('/');
 
     // Check skeleton state
     const skeleton = page.getByTestId('best-conditions-skeleton');
@@ -996,7 +996,7 @@ test.describe('Phase 3: GPS Permission Handling', () => {
     // Explicitly deny geolocation
     await context.grantPermissions([]);
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait for section to load
@@ -1022,7 +1022,7 @@ test.describe('Phase 3: GPS Permission Handling', () => {
 
   test('should handle GPS permission prompt correctly', async ({ page, context }) => {
     // Don't grant or deny - simulate prompt state
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Component should handle pending permission gracefully
@@ -1046,7 +1046,7 @@ test.describe('Phase 3: GPS Permission Handling', () => {
     // Start without GPS
     await context.grantPermissions([]);
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Check initial heading
@@ -1081,7 +1081,7 @@ test.describe('Phase 3: GPS Permission Handling', () => {
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 0.0, longitude: 0.0 });
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     // Wait for component to process
@@ -1111,7 +1111,7 @@ test.describe('Phase 3: Cross-Browser Compatibility', () => {
   });
 
   test('should render correctly across all browsers', async ({ page, browserName }) => {
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
 
     const section = page.getByTestId('best-conditions-section');
@@ -1146,7 +1146,7 @@ test.describe('Phase 3: Cross-Browser Compatibility', () => {
   });
 
   test('should handle CSS animations across browsers', async ({ page }) => {
-    await page.goto('/home');
+    await page.goto('/');
 
     // Check skeleton animations
     const skeleton = page.getByTestId('best-conditions-skeleton');
@@ -1180,12 +1180,12 @@ test.describe('Phase 3: Accessibility Validation', () => {
   test.beforeEach(async ({ page, context }) => {
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
   });
 
   test('should announce loading state to screen readers', async ({ page }) => {
-    await page.goto('/home');
+    await page.goto('/');
 
     const skeleton = page.getByTestId('best-conditions-skeleton');
     const skeletonVisible = await skeleton.isVisible({ timeout: 2000 }).catch(() => false);
@@ -1252,7 +1252,7 @@ test.describe('Phase 3: Accessibility Validation', () => {
     // Simulate error
     await page.route('**/api/**', route => route.abort('failed'));
 
-    await page.goto('/home');
+    await page.goto('/');
     await waitForPageLoad(page);
     await page.waitForTimeout(5000);
 

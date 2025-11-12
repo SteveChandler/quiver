@@ -256,7 +256,7 @@ export function matchesLearnedWindPrefs(
   const windDir = parseFloat(forecast.wind_direction || '0');
 
   // Check wind speed tolerance
-  if (prefs.max_wind_mph && windSpeed) {
+  if (prefs.max_wind_mph !== null && !isNaN(windSpeed)) {
     if (windSpeed > prefs.max_wind_mph) return false;
   }
 
@@ -272,7 +272,7 @@ export function matchesLearnedWindPrefs(
   }
 
   // If we have max_wind_mph but no direction prefs, just check speed
-  if (prefs.max_wind_mph) {
+  if (prefs.max_wind_mph !== null) {
     return windSpeed <= prefs.max_wind_mph;
   }
 

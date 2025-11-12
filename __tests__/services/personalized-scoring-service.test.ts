@@ -271,6 +271,49 @@ describe('personalized-scoring-service', () => {
       const prefs = { max_wind_mph: 15, preferred_wind_directions: [180] };
       expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(false);
     });
+
+    // Edge cases for windSpeed = 0 (calm conditions)
+    it('should match 0 mph wind with max_wind_mph = 0 (both calm)', () => {
+      const forecast = createMockForecast('4.0', '0', '180', 'rising');
+      const prefs = { max_wind_mph: 0, preferred_wind_directions: null };
+      expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(true);
+    });
+
+    it('should match 0 mph wind with max_wind_mph = 10 (calm within tolerance)', () => {
+      const forecast = createMockForecast('4.0', '0', '180', 'rising');
+      const prefs = { max_wind_mph: 10, preferred_wind_directions: null };
+      expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(true);
+    });
+
+    it('should NOT match 5 mph wind when max_wind_mph = 0 (too windy for calm preference)', () => {
+      const forecast = createMockForecast('4.0', '5', '180', 'rising');
+      const prefs = { max_wind_mph: 0, preferred_wind_directions: null };
+      expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(false);
+    });
+
+    it('should handle 0 mph wind with direction preferences', () => {
+      const forecast = createMockForecast('4.0', '0', '180', 'rising');
+      const prefs = { max_wind_mph: 10, preferred_wind_directions: [180] };
+      expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(true);
+    });
+
+    it('should handle 0 mph wind with 0° direction', () => {
+      const forecast = createMockForecast('4.0', '0', '0', 'rising');
+      const prefs = { max_wind_mph: 10, preferred_wind_directions: [0] };
+      expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(true);
+    });
+
+    it('should handle both 0 mph wind and 0° direction together', () => {
+      const forecast = createMockForecast('4.0', '0', '0', 'rising');
+      const prefs = { max_wind_mph: 0, preferred_wind_directions: [0] };
+      expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(true);
+    });
+
+    it('should NOT match 0 mph wind with 0° direction when preferring opposite direction', () => {
+      const forecast = createMockForecast('4.0', '0', '0', 'rising');
+      const prefs = { max_wind_mph: 10, preferred_wind_directions: [180] };
+      expect(matchesLearnedWindPrefs(forecast, prefs)).toBe(false);
+    });
   });
 
   describe('matchesLearnedTidePrefs', () => {
