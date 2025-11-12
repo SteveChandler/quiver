@@ -197,7 +197,7 @@ describe('SurfProfileSection', () => {
       render(<SurfProfileSection />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /edit preferences/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit learned preferences/i })).toBeInTheDocument();
       });
     });
 
@@ -239,7 +239,7 @@ describe('SurfProfileSection', () => {
       render(<SurfProfileSection />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /edit preferences/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit learned preferences/i })).toBeInTheDocument();
       });
     });
   });
@@ -326,16 +326,16 @@ describe('SurfProfileSection', () => {
       });
     });
 
-    it('should enter edit mode when "Edit Preferences" button clicked', async () => {
+    it('should enter edit mode when "Edit Learned Preferences" button clicked', async () => {
       (getUserLearnedPreferences as jest.Mock).mockResolvedValue(mockValidatedData);
 
       render(<SurfProfileSection />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /edit preferences/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit learned preferences/i })).toBeInTheDocument();
       });
 
-      const editButton = screen.getByRole('button', { name: /edit preferences/i });
+      const editButton = screen.getByRole('button', { name: /edit learned preferences/i });
       fireEvent.click(editButton);
 
       await waitFor(() => {
@@ -386,10 +386,10 @@ describe('SurfProfileSection', () => {
       render(<SurfProfileSection />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /edit preferences/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit learned preferences/i })).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByRole('button', { name: /edit preferences/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit learned preferences/i }));
 
       await waitFor(() => {
         expect(screen.getByTestId('preference-override-form')).toBeInTheDocument();
@@ -413,10 +413,10 @@ describe('SurfProfileSection', () => {
       render(<SurfProfileSection />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /edit preferences/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit learned preferences/i })).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByRole('button', { name: /edit preferences/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit learned preferences/i }));
 
       await waitFor(() => {
         expect(screen.getByTestId('preference-override-form')).toBeInTheDocument();
@@ -437,12 +437,12 @@ describe('SurfProfileSection', () => {
       render(<SurfProfileSection />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /edit preferences/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit learned preferences/i })).toBeInTheDocument();
       });
 
       expect(getUserLearnedPreferences).toHaveBeenCalledTimes(1);
 
-      fireEvent.click(screen.getByRole('button', { name: /edit preferences/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit learned preferences/i }));
 
       await waitFor(() => {
         expect(screen.getByTestId('preference-override-form')).toBeInTheDocument();
@@ -464,10 +464,10 @@ describe('SurfProfileSection', () => {
       render(<SurfProfileSection />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /edit preferences/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit learned preferences/i })).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByRole('button', { name: /edit preferences/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit learned preferences/i }));
 
       await waitFor(() => {
         expect(screen.getByTestId('preference-override-form')).toBeInTheDocument();
@@ -487,10 +487,10 @@ describe('SurfProfileSection', () => {
       render(<SurfProfileSection />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /edit preferences/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit learned preferences/i })).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByRole('button', { name: /edit preferences/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit learned preferences/i }));
 
       await waitFor(() => {
         expect(screen.getByTestId('preference-override-form')).toBeInTheDocument();
@@ -508,10 +508,10 @@ describe('SurfProfileSection', () => {
       render(<SurfProfileSection />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /edit preferences/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /edit learned preferences/i })).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByRole('button', { name: /edit preferences/i }));
+      fireEvent.click(screen.getByRole('button', { name: /edit learned preferences/i }));
 
       await waitFor(() => {
         expect(screen.queryByTestId('learned-preferences-display')).not.toBeInTheDocument();

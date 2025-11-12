@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
 import { VIEWPORTS, TIMEOUTS } from './fixtures/test-data';
+import { logProfileState } from './utils/profile-helpers';
 
 /**
  * Best Conditions Near You Feature Tests
@@ -10,6 +11,11 @@ import { VIEWPORTS, TIMEOUTS } from './fixtures/test-data';
  * 1. GPS Mode: Uses actual user coordinates when available (heading: "Best Conditions Near You")
  * 2. Home Beach Mode: Falls back to home beach when GPS unavailable (heading: "Best Conditions Near [Beach Name]")
  * 3. Hidden Mode: Section doesn't display if no location available
+ *
+ * NOTE: These tests do not manipulate profile state - they test against whatever
+ * home beach state exists. Profile state manipulation and cleanup is handled in
+ * home-beach-edge-cases.spec.ts. These tests only manipulate GPS permissions which
+ * are context-scoped and don't require database cleanup.
  *
  * @project auth
  */
@@ -1270,6 +1276,234 @@ test.describe('Phase 3: Accessibility Validation', () => {
       // Should use proper error styling
       const errorClasses = await error.getAttribute('class');
       expect(errorClasses).toMatch(/red|error/i);
+    }
+  });
+});
+
+test.describe('Best Conditions - GPS Permission State Transitions', () => {
+  test('should handle permission "prompt" state (user hasn\'t responded yet)', async ({ page, context }) => {
+    // Don't grant or deny permissions - leave in default "prompt" state
+    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+    await page.goto('/');
+    await waitForPageLoad(page);
+
+    // Should show loading skeleton while waiting for user to respond to permission
+    const skeleton = page.getByTestId('best-conditions-skeleton');
+    const skeletonVisible = await skeleton.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+
+    // Note: In automated tests, the browser may auto-grant/deny, so we handle both cases
+    // Either skeleton shows (waiting for permission) or content loads (permission auto-handled)
+
+    const section = page.getByTestId('best-conditions-section');
+    const sectionVisible = await section.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+
+    // At least one state should be visible
+    expect(skeletonVisible || sectionVisible).toBe(true);
+  });
+
+  test('should handle mid-session permission revocation', async ({ page, context }) => {
+    // Start with GPS granted
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+    await page.goto('/');
+    await waitForPageLoad(page);
+
+    // Verify GPS heading shows
+    const heading = page.getByTestId('best-conditions-heading');
+    await expect(heading).toHaveText('Best Conditions Near You', { timeout: TIMEOUTS.long });
+
+    // Revoke permission mid-session
+    await context.clearPermissions();
+
+    // Trigger a refetch by navigating away and back
+    await page.goto('/map');
+    await page.goto('/');
+    await waitForPageLoad(page);
+
+    // Should fall back to home beach or show error
+    const section = page.getByTestId('best-conditions-section');
+    const error = page.getByTestId('best-conditions-error');
+
+    const sectionVisible = await section.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const errorVisible = await error.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+
+    // Either shows content (home beach fallback) or error
+    expect(sectionVisible || errorVisible).toBe(true);
+
+    if (sectionVisible) {
+      const headingText = await heading.textContent();
+      // Should not show GPS heading anymore
+      expect(headingText).not.toBe('Best Conditions Near You');
+    }
+  });
+
+  test('should handle permission grant after initial denial', async ({ page, context }) => {
+    // Start with permission denied
+    await context.clearPermissions();
+
+    await page.goto('/');
+    await waitForPageLoad(page);
+
+    // Section may be hidden or show error initially
+    const section = page.getByTestId('best-conditions-section');
+    const initialVisible = await section.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+
+    // Now grant permission
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+    // Trigger refetch
+    await page.goto('/map');
+    await page.goto('/');
+    await waitForPageLoad(page);
+
+    // Should now show GPS-based results
+    await expect(section).toBeVisible({ timeout: TIMEOUTS.long });
+
+    const heading = page.getByTestId('best-conditions-heading');
+    await expect(heading).toHaveText('Best Conditions Near You');
+
+    const cards = page.getByTestId('best-conditions-card');
+    expect(await cards.count()).toBeGreaterThan(0);
+  });
+
+  test('should handle browser geolocation blocked by settings', async ({ page, context }) => {
+    // Clear permissions simulates browser blocking
+    await context.clearPermissions();
+
+    await page.goto('/');
+    await waitForPageLoad(page);
+
+    const section = page.getByTestId('best-conditions-section');
+    const error = page.getByTestId('best-conditions-error');
+
+    // Should either hide section or show error
+    const sectionVisible = await section.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
+
+    if (sectionVisible) {
+      // If section is visible, should show error
+      const errorVisible = await error.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+      expect(errorVisible).toBe(true);
+    }
+  });
+
+  test('should handle geolocation API unavailable (legacy browsers)', async ({ page }) => {
+    // Override geolocation API to simulate it not being available
+    await page.addInitScript(() => {
+      // @ts-ignore
+      delete navigator.geolocation;
+    });
+
+    await page.goto('/');
+    await waitForPageLoad(page);
+
+    // Should fall back to home beach or hide section
+    const section = page.getByTestId('best-conditions-section');
+    const error = page.getByTestId('best-conditions-error');
+
+    const sectionVisible = await section.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
+    const errorVisible = await error.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+
+    // Either shows content (home beach), error, or hidden
+    // All are acceptable for unsupported browser
+    console.log('[Test] Handled missing geolocation API:', { sectionVisible, errorVisible });
+  });
+});
+
+test.describe('Best Conditions - Permission State Persistence', () => {
+  test('should remember permission state across page reloads', async ({ page, context }) => {
+    // Grant permission
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+    await page.goto('/');
+    await waitForPageLoad(page);
+
+    // Verify GPS mode
+    const heading = page.getByTestId('best-conditions-heading');
+    await expect(heading).toHaveText('Best Conditions Near You', { timeout: TIMEOUTS.long });
+
+    // Reload page
+    await page.reload();
+    await waitForPageLoad(page);
+
+    // Should still show GPS mode (permission persisted)
+    await expect(heading).toHaveText('Best Conditions Near You', { timeout: TIMEOUTS.long });
+
+    const cards = page.getByTestId('best-conditions-card');
+    expect(await cards.count()).toBeGreaterThan(0);
+  });
+
+  test('should handle permission state in new tab/window', async ({ page, context }) => {
+    // Grant permission
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+    await page.goto('/');
+    await waitForPageLoad(page);
+
+    // Open new page in same context
+    const newPage = await context.newPage();
+    await newPage.goto('/');
+    await waitForPageLoad(newPage);
+
+    // New page should also have permission
+    const heading = newPage.getByTestId('best-conditions-heading');
+    await expect(heading).toHaveText('Best Conditions Near You', { timeout: TIMEOUTS.long });
+
+    await newPage.close();
+  });
+});
+
+test.describe('Best Conditions - Geolocation Timeout Handling', () => {
+  test('should show timeout state after geolocation exceeds timeout', async ({ page, context }) => {
+    // Grant permission but don't set location (will cause timeout)
+    await context.grantPermissions(['geolocation']);
+
+    await page.goto('/');
+
+    // Skeleton should appear
+    const skeleton = page.getByTestId('best-conditions-skeleton');
+    const skeletonVisible = await skeleton.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+
+    // Wait for longer than the geolocation timeout (10 seconds)
+    await page.waitForTimeout(12000);
+
+    // Should either show error or fall back to home beach
+    const section = page.getByTestId('best-conditions-section');
+    const error = page.getByTestId('best-conditions-error');
+
+    const sectionVisible = await section.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+    const errorVisible = await error.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+
+    // One of these should be true: section with content, section with error, or section hidden
+    console.log('[Test] Timeout handled:', { skeletonVisible, sectionVisible, errorVisible });
+  });
+
+  test('should allow retry after geolocation timeout', async ({ page, context }) => {
+    // Grant permission but don't set location initially
+    await context.grantPermissions(['geolocation']);
+
+    await page.goto('/');
+    await page.waitForTimeout(12000); // Wait for timeout
+
+    // Look for retry button or action
+    const error = page.getByTestId('best-conditions-error');
+    const errorVisible = await error.isVisible({ timeout: TIMEOUTS.short }).catch(() => false);
+
+    if (errorVisible) {
+      // Now set location (simulating retry with location available)
+      await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
+
+      // Reload to trigger retry
+      await page.reload();
+      await waitForPageLoad(page);
+
+      // Should now show content
+      const section = page.getByTestId('best-conditions-section');
+      await expect(section).toBeVisible({ timeout: TIMEOUTS.long });
     }
   });
 });

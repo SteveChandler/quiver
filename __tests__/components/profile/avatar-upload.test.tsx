@@ -13,14 +13,14 @@ import { toast } from '@/components/ui/use-toast';
 import * as imageUpload from '@/lib/image-upload';
 import * as profileActions from '@/actions/profile-actions';
 
-// Create mock function that can be reused
-const profileActions.updateProfile as jest.Mock = jest.fn().mockResolvedValue({ success: true });
+// Create mock functions
+const mockUpdateProfile = jest.fn().mockResolvedValue({ success: true });
 
 // Mock dependencies
 jest.mock('@/components/ui/use-toast');
 jest.mock('@/lib/image-upload');
 jest.mock('@/actions/profile-actions', () => ({
-  updateProfile: jest.fn().mockResolvedValue({ success: true }),
+  updateProfile: mockUpdateProfile,
 }));
 
 describe('AvatarUpload', () => {
@@ -29,16 +29,13 @@ describe('AvatarUpload', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset mock call history but keep implementation
-    (profileActions.updateProfile as jest.Mock).mockClear();
-    // Ensure mock returns success by default
-    (profileActions.updateProfile as jest.Mock).mockResolvedValue({ success: true });
-    // Ensure uploadImage mock is set up
-    (imageUpload.uploadImage as jest.Mock).mockResolvedValue({ 
-      success: true, 
-      url: 'https://example.com/avatar.png' 
+    // Set up default mock implementations
+    (imageUpload.uploadImage as jest.Mock).mockResolvedValue({
+      success: true,
+      url: 'https://example.com/avatar.png'
     });
     (imageUpload.deleteImage as jest.Mock).mockResolvedValue({ success: true });
+    mockUpdateProfile.mockResolvedValue({ success: true });
   });
 
   describe('File Validation', () => {
@@ -159,7 +156,7 @@ describe('AvatarUpload', () => {
       const mockUpdateResult = { success: true };
 
       (imageUpload.uploadImage as jest.Mock).mockResolvedValue(mockUploadResult);
-      (profileActions.updateProfile as jest.Mock).mockResolvedValue(mockUpdateResult);
+      (mockUpdateProfile).mockResolvedValue(mockUpdateResult);
 
       render(
         <AvatarUpload
@@ -196,7 +193,7 @@ describe('AvatarUpload', () => {
       }, { timeout: 5000 });
 
       // Verify persistence was called (happens before callback/toast)
-      expect(profileActions.updateProfile as jest.Mock).toHaveBeenCalledWith({
+      expect(mockUpdateProfile).toHaveBeenCalledWith({
         avatar_url: mockUploadResult.url,
       });
 
@@ -235,14 +232,14 @@ describe('AvatarUpload', () => {
         expect(imageUpload.uploadImage).toHaveBeenCalled();
       });
 
-      expect(profileActions.updateProfile as jest.Mock).not.toHaveBeenCalled();
+      expect(mockUpdateProfile).not.toHaveBeenCalled();
     });
   });
 
   describe('Avatar Removal', () => {
     it('should delete avatar and update state', async () => {
       (imageUpload.deleteImage as jest.Mock).mockResolvedValue({ success: true });
-      (profileActions.updateProfile as jest.Mock).mockResolvedValue({ success: true });
+      (mockUpdateProfile).mockResolvedValue({ success: true });
 
       render(
         <AvatarUpload
@@ -282,7 +279,7 @@ describe('AvatarUpload', () => {
       }, { timeout: 5000 });
 
       // Verify persistence was called (happens before callback/toast)
-      expect(profileActions.updateProfile as jest.Mock).toHaveBeenCalledWith({
+      expect(mockUpdateProfile).toHaveBeenCalledWith({
         avatar_url: '',
       });
 
@@ -347,7 +344,7 @@ describe('AvatarUpload', () => {
         success: true,
         url: 'https://example.com/avatar.png',
       });
-      (profileActions.updateProfile as jest.Mock).mockResolvedValue({
+      (mockUpdateProfile).mockResolvedValue({
         success: false,
         error: 'Database error',
       });
@@ -390,7 +387,7 @@ describe('AvatarUpload', () => {
       }, { timeout: 5000 });
 
       // Verify persistence was attempted (even though it fails)
-      expect(profileActions.updateProfile as jest.Mock).toHaveBeenCalledWith({
+      expect(mockUpdateProfile).toHaveBeenCalledWith({
         avatar_url: 'https://example.com/avatar.png',
       });
 
