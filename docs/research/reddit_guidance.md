@@ -4,8 +4,31 @@
 
 This guide provides step-by-step instructions for implementing Reddit user-informed features following Quiver's architecture patterns, DRY principles, and growth-focused strategy.
 
-**Last Updated:** January 2025
-**Status:** Partially Implemented - Phase 1 in progress
+**Last Updated:** January 2025 (Implementation Status Review)  
+**Status:** Phase 1 Partially Complete (3/7 features), Phase 2 Partially Complete (1/6 features)
+
+## Overall Implementation Progress
+
+**Phase 1 (MVP)**: 3 of 7 features complete (43%)
+
+- ✅ 1.2 Observed vs. Modeled Labels
+- ✅ 1.4 Confidence Indicator
+- ✅ 1.5 Session Logging & Rating Foundation (partial)
+- ❌ 1.1 Beginner Fit Badges
+- ❌ 1.3 Water Temperature & Anomaly Alerts
+- ❌ 1.6 Initial Education Content
+- ❌ 1.7 Crowd/Safety Disclaimer
+
+**Phase 2 (Advanced Personalization)**: 1 of 6 features complete (17%)
+
+- ✅ 2.1 Preference Modeling & Match Scores (backend complete, UI pending)
+- ❌ 2.2 Explainer Panel
+- ❌ 2.3 Toggle Observed Heights
+- ❌ 2.4 Expanded Education
+- 🔶 2.5 Community Notes (Intel system exists)
+- ❌ 2.6 Regional Fairness
+
+**Phase 3 (Full Release)**: 0 of 3 features complete (0%)
 
 ---
 
@@ -25,12 +48,15 @@ This guide provides step-by-step instructions for implementing Reddit user-infor
 ### ✅ Completed Features
 
 **Phase 1 - Core UX Features:**
+
 - **1.2 Observed vs. Modeled Labels** - Implemented via `components/forecast/forecast-data-source-indicator.tsx`
+
   - Shows CDIP buoy data vs NOAA forecast data
   - Displays confidence scores and data source details
   - Includes fallback location indicators
 
 - **1.4 Confidence Indicator** - Implemented via `components/forecast/forecast-confidence-badge.tsx`
+
   - Visual badges showing High/Medium/Low confidence (75%/50% thresholds)
   - Color-coded indicators integrated into forecast displays
 
@@ -40,16 +66,20 @@ This guide provides step-by-step instructions for implementing Reddit user-infor
   - ⚠️ Missing: Separate `experience_rating` and `conditions_accuracy` fields (see recommendations below)
 
 **Additional Implemented Features:**
+
 - **Forecast Accuracy Verification** - `forecast_accuracy_votes` table with voting system
+
   - Users can vote on forecast accuracy
   - Tracks actual vs predicted conditions
   - Streak tracking for verification contributions
 
 - **Beach Photos** - Openverse API integration for beach imagery
+
   - Automated photo fetching and storage
   - Attribution tracking for CC-licensed photos
 
 - **Intel Posts** - Community condition reporting system
+
   - Deduplication for duplicate posts
   - Tagging system (conditions, parking, crowd, access)
   - Geographic location tracking
@@ -60,15 +90,29 @@ This guide provides step-by-step instructions for implementing Reddit user-infor
 ### 🚧 In Progress / Not Yet Implemented
 
 **Phase 1 - Remaining Features:**
+
 - **1.1 Beginner "Fit" Badges** - Not implemented
 - **1.3 Water Temperature & Anomaly Alerts** - Not implemented
 - **1.6 Initial Education Content** - Not implemented
 - **1.7 Crowd/Safety Disclaimer** - Not implemented
 
 **Phase 2 - Advanced Personalization:**
-- All features pending (preference modeling, match scores, explainer panels, etc.)
+
+- **2.1 Preference Modeling & Match Scores** - ✅ **PARTIALLY IMPLEMENTED**
+  - `lib/services/preference-learning-service.ts` - Learns preferences from session history
+  - `lib/services/personalized-scoring-service.ts` - Scores beaches for users
+  - User surf preferences table (`user_surf_preferences`) tracks learned preferences
+  - Beach affinity system (`user_beach_affinity`) tracks familiarity
+  - ⚠️ Missing: UI components to display match scores to users
+  - ⚠️ Missing: Explainer panels for "why this forecast" recommendations
+- **2.2 "Why This Forecast?" Explainer Panel** - ❌ Not implemented
+- **2.3 Toggle Observed Surf Heights** - ❌ Not implemented
+- **2.4 Expanded Education Modules** - ❌ Not implemented
+- **2.5 Community Notes & Heuristics** - 🔶 Intel posts system exists, but not formal heuristics
+- **2.6 Regional Fairness Adjustments** - ❌ Not implemented
 
 **Phase 3 - Full Release:**
+
 - All features pending (advanced guides, anomaly analysis, performance optimization)
 
 ### 📝 Recommendations for Next Implementation
@@ -85,11 +129,13 @@ This guide provides step-by-step instructions for implementing Reddit user-infor
 ### Core Principles
 
 **DRY (Don't Repeat Yourself)**
+
 - Reuse existing components from [components/](../components/)
 - Extend base UI components from [components/ui/](../components/ui/)
 - Follow compound component patterns
 
 **Data Access Pattern**
+
 ```typescript
 // ✅ CORRECT: Use data gateway
 import { data } from "@/lib/data/client";
@@ -112,6 +158,7 @@ export const data = {
 ```
 
 **Component Patterns**
+
 ```typescript
 // Standard component interface
 interface ComponentProps {
@@ -131,12 +178,14 @@ interface ComponentProps {
 ```
 
 **Mobile-First Design**
+
 - Start with mobile layouts
 - Use responsive breakpoints: `sm:`, `md:`, `lg:`, `xl:`
 - Touch-friendly targets (minimum 44px)
 - Test on actual devices
 
 **Semantic Colors**
+
 ```tsx
 // ✅ USE: Semantic colors from design system
 <div className="bg-background text-foreground border-border">
@@ -161,7 +210,12 @@ Create `components/forecast/beginner-fit-badges.tsx`:
 
 ```typescript
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface BeginnerFitBadgesProps {
   waveHeight?: number;
@@ -192,13 +246,19 @@ export function BeginnerFitBadges({
       label: "Soft Roll",
       description: "Wave height under 3ft with long period (12s+)",
       active: (waveHeight || 0) < 3 && (wavePeriod || 0) >= 12,
-      color: (waveHeight || 0) < 3 && (wavePeriod || 0) >= 12 ? "success" : "default",
+      color:
+        (waveHeight || 0) < 3 && (wavePeriod || 0) >= 12
+          ? "success"
+          : "default",
     },
     {
       label: "Small Faces",
       description: "Wave faces suitable for beginners (2-4ft)",
       active: (waveHeight || 0) >= 2 && (waveHeight || 0) <= 4,
-      color: (waveHeight || 0) >= 2 && (waveHeight || 0) <= 4 ? "success" : "default",
+      color:
+        (waveHeight || 0) >= 2 && (waveHeight || 0) <= 4
+          ? "success"
+          : "default",
     },
     {
       label: "Low Wind",
@@ -210,7 +270,8 @@ export function BeginnerFitBadges({
       label: "Friendly Currents",
       description: "Minimal rip current risk",
       active: (waveHeight || 0) < 3 && (windSpeed || 0) < 15,
-      color: (waveHeight || 0) < 3 && (windSpeed || 0) < 15 ? "success" : "default",
+      color:
+        (waveHeight || 0) < 3 && (windSpeed || 0) < 15 ? "success" : "default",
     },
   ];
 
@@ -222,7 +283,9 @@ export function BeginnerFitBadges({
             <TooltipTrigger asChild>
               <Badge
                 variant={badge.active ? "default" : "outline"}
-                className={badge.active ? "bg-success text-success-foreground" : ""}
+                className={
+                  badge.active ? "bg-success text-success-foreground" : ""
+                }
               >
                 {badge.label}
               </Badge>
@@ -254,7 +317,7 @@ import { BeginnerFitBadges } from "./beginner-fit-badges";
     windSpeed={forecast.windSpeed}
     variant="compact"
   />
-</section>
+</section>;
 ```
 
 #### Step 3: Add Unit Tests
@@ -267,7 +330,9 @@ import { BeginnerFitBadges } from "@/components/forecast/beginner-fit-badges";
 
 describe("BeginnerFitBadges", () => {
   it("shows active Soft Roll badge for ideal conditions", () => {
-    render(<BeginnerFitBadges waveHeight={2.5} wavePeriod={14} windSpeed={5} />);
+    render(
+      <BeginnerFitBadges waveHeight={2.5} wavePeriod={14} windSpeed={5} />
+    );
 
     const softRollBadge = screen.getByText("Soft Roll");
     expect(softRollBadge).toBeInTheDocument();
@@ -278,7 +343,7 @@ describe("BeginnerFitBadges", () => {
     render(<BeginnerFitBadges waveHeight={8} wavePeriod={8} windSpeed={20} />);
 
     const badges = screen.getAllByRole("status");
-    badges.forEach(badge => {
+    badges.forEach((badge) => {
       expect(badge).not.toHaveClass("bg-success");
     });
   });
@@ -317,7 +382,12 @@ Create `components/forecast/data-source-badge.tsx`:
 
 ```typescript
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Eye, Brain } from "lucide-react";
 
 type DataSource = "observed" | "modeled" | "hybrid";
@@ -363,7 +433,10 @@ export function DataSourceBadge({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge variant="outline" className={`${config.color} ${className || ""}`}>
+          <Badge
+            variant="outline"
+            className={`${config.color} ${className || ""}`}
+          >
             <Icon className="w-3 h-3 mr-1" />
             {config.label}
             {confidence !== undefined && variant === "detailed" && (
@@ -375,7 +448,9 @@ export function DataSourceBadge({
           <div className="space-y-1">
             <p className="text-sm font-medium">{config.description}</p>
             {confidence !== undefined && (
-              <p className="text-xs text-muted-foreground">Confidence: {confidence}%</p>
+              <p className="text-xs text-muted-foreground">
+                Confidence: {confidence}%
+              </p>
             )}
           </div>
         </TooltipContent>
@@ -442,7 +517,7 @@ import { DataSourceBadge } from "./data-source-badge";
     confidence={forecast.confidenceScore}
     variant="detailed"
   />
-</div>
+</div>;
 ```
 
 ---
@@ -481,7 +556,10 @@ export function TemperatureAnomalyAlert({
   if (!isAnomaly) return null;
 
   return (
-    <Alert variant={isUpwelling ? "destructive" : "default"} className={className}>
+    <Alert
+      variant={isUpwelling ? "destructive" : "default"}
+      className={className}
+    >
       <AlertTriangle className="h-4 w-4" />
       <AlertTitle className="flex items-center gap-2">
         <Thermometer className="h-4 w-4" />
@@ -490,7 +568,8 @@ export function TemperatureAnomalyAlert({
       <AlertDescription>
         <div className="space-y-2 text-sm">
           <p>
-            <strong>Buoy reading:</strong> {buoyTemp}°F | <strong>Forecast:</strong> {forecastTemp}°F
+            <strong>Buoy reading:</strong> {buoyTemp}°F |{" "}
+            <strong>Forecast:</strong> {forecastTemp}°F
           </p>
           <p className="text-muted-foreground">
             Difference of {delta.toFixed(1)}°F detected.
@@ -597,7 +676,12 @@ Create `components/forecast/confidence-bar.tsx`:
 
 ```typescript
 import { Progress } from "@/components/ui/progress";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ConfidenceBarProps {
   confidence: number; // 0-100
@@ -663,10 +747,8 @@ import { ConfidenceBar } from "@/components/forecast/confidence-bar";
     <CardTitle>12:00 PM</CardTitle>
     <ConfidenceBar confidence={forecast.confidence} variant="minimal" />
   </CardHeader>
-  <CardContent>
-    {/* Forecast details */}
-  </CardContent>
-</Card>
+  <CardContent>{/* Forecast details */}</CardContent>
+</Card>;
 ```
 
 ---
@@ -780,7 +862,7 @@ const [conditionsAccuracy, setConditionsAccuracy] = useState(0);
     label="Forecast Accuracy"
     description="How accurate was the forecast?"
   />
-</section>
+</section>;
 ```
 
 #### Step 4: Update Session Actions
@@ -817,7 +899,12 @@ export async function createSession(data: SessionFormData) {
 Create `components/education/learn-modal.tsx`:
 
 ```typescript
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -827,7 +914,11 @@ interface LearnModalProps {
   initialTopic?: "forecasts" | "tides" | "buoys" | "safety";
 }
 
-export function LearnModal({ open, onOpenChange, initialTopic = "forecasts" }: LearnModalProps) {
+export function LearnModal({
+  open,
+  onOpenChange,
+  initialTopic = "forecasts",
+}: LearnModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh]">
@@ -846,30 +937,36 @@ export function LearnModal({ open, onOpenChange, initialTopic = "forecasts" }: L
           <ScrollArea className="h-[60vh] mt-4">
             <TabsContent value="forecasts" className="space-y-4">
               <section>
-                <h3 className="font-semibold mb-2">Understanding Wave Forecasts</h3>
+                <h3 className="font-semibold mb-2">
+                  Understanding Wave Forecasts
+                </h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Wave forecasts use computer models to predict ocean conditions. Here's what the key metrics mean:
+                  Wave forecasts use computer models to predict ocean
+                  conditions. Here's what the key metrics mean:
                 </p>
 
                 <div className="space-y-3">
                   <div className="bg-muted p-3 rounded-lg">
                     <h4 className="font-medium text-sm">Wave Height</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Measured from trough to crest. Face height (what surfers see) is typically 1.5-2x the reported height.
+                      Measured from trough to crest. Face height (what surfers
+                      see) is typically 1.5-2x the reported height.
                     </p>
                   </div>
 
                   <div className="bg-muted p-3 rounded-lg">
                     <h4 className="font-medium text-sm">Wave Period</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Time between waves in seconds. Longer periods (12s+) mean more powerful waves with better shape.
+                      Time between waves in seconds. Longer periods (12s+) mean
+                      more powerful waves with better shape.
                     </p>
                   </div>
 
                   <div className="bg-muted p-3 rounded-lg">
                     <h4 className="font-medium text-sm">Swell Direction</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Compass direction waves are coming from. Different beaches work better with different directions.
+                      Compass direction waves are coming from. Different beaches
+                      work better with different directions.
                     </p>
                   </div>
                 </div>
@@ -880,28 +977,36 @@ export function LearnModal({ open, onOpenChange, initialTopic = "forecasts" }: L
               <section>
                 <h3 className="font-semibold mb-2">Reading Tide Charts</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Tides dramatically affect surf conditions. Most breaks have a preferred tide window.
+                  Tides dramatically affect surf conditions. Most breaks have a
+                  preferred tide window.
                 </p>
 
                 <div className="space-y-3">
                   <div className="bg-muted p-3 rounded-lg">
-                    <h4 className="font-medium text-sm">Incoming (Flooding) Tide</h4>
+                    <h4 className="font-medium text-sm">
+                      Incoming (Flooding) Tide
+                    </h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Water level rising. Can improve some breaks as it covers shallow rocks.
+                      Water level rising. Can improve some breaks as it covers
+                      shallow rocks.
                     </p>
                   </div>
 
                   <div className="bg-muted p-3 rounded-lg">
-                    <h4 className="font-medium text-sm">Outgoing (Ebbing) Tide</h4>
+                    <h4 className="font-medium text-sm">
+                      Outgoing (Ebbing) Tide
+                    </h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Water level dropping. May create stronger currents but better waves at some spots.
+                      Water level dropping. May create stronger currents but
+                      better waves at some spots.
                     </p>
                   </div>
 
                   <div className="bg-muted p-3 rounded-lg">
                     <h4 className="font-medium text-sm">High/Low Tide</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Extreme points of tide cycle. Each break performs differently at these times.
+                      Extreme points of tide cycle. Each break performs
+                      differently at these times.
                     </p>
                   </div>
                 </div>
@@ -912,28 +1017,32 @@ export function LearnModal({ open, onOpenChange, initialTopic = "forecasts" }: L
               <section>
                 <h3 className="font-semibold mb-2">Understanding Buoy Data</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Buoys provide real-time ocean observations from offshore instruments.
+                  Buoys provide real-time ocean observations from offshore
+                  instruments.
                 </p>
 
                 <div className="space-y-3">
                   <div className="bg-muted p-3 rounded-lg">
                     <h4 className="font-medium text-sm">Why Buoys Matter</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Buoy data is observed (real), not modeled. Use it to verify forecasts and detect anomalies.
+                      Buoy data is observed (real), not modeled. Use it to
+                      verify forecasts and detect anomalies.
                     </p>
                   </div>
 
                   <div className="bg-muted p-3 rounded-lg">
                     <h4 className="font-medium text-sm">Wave Spectrum</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Shows energy distribution across frequencies. Helps identify multiple swells.
+                      Shows energy distribution across frequencies. Helps
+                      identify multiple swells.
                     </p>
                   </div>
 
                   <div className="bg-muted p-3 rounded-lg">
                     <h4 className="font-medium text-sm">Water Temperature</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Real-time water temp. Large differences from forecast may indicate upwelling.
+                      Real-time water temp. Large differences from forecast may
+                      indicate upwelling.
                     </p>
                   </div>
                 </div>
@@ -949,23 +1058,28 @@ export function LearnModal({ open, onOpenChange, initialTopic = "forecasts" }: L
 
                 <div className="space-y-3">
                   <div className="bg-destructive/10 p-3 rounded-lg border border-destructive">
-                    <h4 className="font-medium text-sm text-destructive">Rip Currents</h4>
+                    <h4 className="font-medium text-sm text-destructive">
+                      Rip Currents
+                    </h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Fast-moving channels of water going offshore. Swim parallel to shore to escape.
+                      Fast-moving channels of water going offshore. Swim
+                      parallel to shore to escape.
                     </p>
                   </div>
 
                   <div className="bg-muted p-3 rounded-lg">
                     <h4 className="font-medium text-sm">Know Your Limits</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Start with small conditions. Gradually progress as your skills improve.
+                      Start with small conditions. Gradually progress as your
+                      skills improve.
                     </p>
                   </div>
 
                   <div className="bg-muted p-3 rounded-lg">
                     <h4 className="font-medium text-sm">Local Knowledge</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Talk to locals. Every break has unique hazards and etiquette.
+                      Talk to locals. Every break has unique hazards and
+                      etiquette.
                     </p>
                   </div>
                 </div>
@@ -1025,9 +1139,10 @@ export function CrowdSafetyDisclaimer() {
     <Alert variant="default" className="border-muted">
       <Info className="h-4 w-4" />
       <AlertDescription className="text-xs text-muted-foreground">
-        <strong>Note:</strong> Quiver does not predict crowd levels or guarantee safety conditions.
-        Always assess conditions yourself, check with locals, and surf within your ability level.
-        Ocean conditions can change rapidly and forecasts are not always accurate.
+        <strong>Note:</strong> Quiver does not predict crowd levels or guarantee
+        safety conditions. Always assess conditions yourself, check with locals,
+        and surf within your ability level. Ocean conditions can change rapidly
+        and forecasts are not always accurate.
       </AlertDescription>
     </Alert>
   );
@@ -1045,7 +1160,7 @@ import { CrowdSafetyDisclaimer } from "@/components/ui/crowd-safety-disclaimer";
 <section className="space-y-4">
   <ForecastDisplay forecast={forecast} />
   <CrowdSafetyDisclaimer />
-</section>
+</section>;
 ```
 
 #### Step 3: Add to FAQ/Help Page
@@ -1056,7 +1171,9 @@ Create or update help documentation:
 ## What Quiver Does NOT Provide
 
 ### Crowd Predictions
+
 Quiver does not predict how crowded a beach will be. Crowd levels vary by:
+
 - Time of day and week
 - Season and weather
 - Local events
@@ -1065,7 +1182,9 @@ Quiver does not predict how crowded a beach will be. Crowd levels vary by:
 We recommend checking webcams, arriving early, or asking locals for crowd information.
 
 ### Safety Guarantees
+
 Forecasts are predictions, not guarantees. Always:
+
 - Assess conditions yourself before entering the water
 - Know your limits and surf within them
 - Be aware of local hazards
@@ -1116,7 +1235,10 @@ export interface ConditionMatchScore {
 Create `lib/services/preference-learner.ts`:
 
 ```typescript
-import { UserPreferences, ConditionMatchScore } from "@/lib/types/preference-model";
+import {
+  UserPreferences,
+  ConditionMatchScore,
+} from "@/lib/types/preference-model";
 
 interface SessionDataPoint {
   experienceRating: number;
@@ -1137,7 +1259,7 @@ export class PreferenceLearner {
     userId: string
   ): UserPreferences {
     // Filter to well-rated sessions (4-5 stars)
-    const goodSessions = sessions.filter(s => s.experienceRating >= 4);
+    const goodSessions = sessions.filter((s) => s.experienceRating >= 4);
 
     if (goodSessions.length === 0) {
       // Return defaults for new users
@@ -1145,26 +1267,32 @@ export class PreferenceLearner {
     }
 
     // Calculate weighted averages
-    const totalWeight = goodSessions.reduce((sum, s) => sum + s.experienceRating, 0);
-
-    const avgWaveHeight = goodSessions.reduce(
-      (sum, s) => sum + s.waveHeight * s.experienceRating,
+    const totalWeight = goodSessions.reduce(
+      (sum, s) => sum + s.experienceRating,
       0
-    ) / totalWeight;
+    );
 
-    const avgWavePeriod = goodSessions.reduce(
-      (sum, s) => sum + s.wavePeriod * s.experienceRating,
-      0
-    ) / totalWeight;
+    const avgWaveHeight =
+      goodSessions.reduce(
+        (sum, s) => sum + s.waveHeight * s.experienceRating,
+        0
+      ) / totalWeight;
 
-    const avgWindSpeed = goodSessions.reduce(
-      (sum, s) => sum + s.windSpeed * s.experienceRating,
-      0
-    ) / totalWeight;
+    const avgWavePeriod =
+      goodSessions.reduce(
+        (sum, s) => sum + s.wavePeriod * s.experienceRating,
+        0
+      ) / totalWeight;
+
+    const avgWindSpeed =
+      goodSessions.reduce(
+        (sum, s) => sum + s.windSpeed * s.experienceRating,
+        0
+      ) / totalWeight;
 
     // Calculate ranges (standard deviation)
     const heightStdDev = this.calculateStdDev(
-      goodSessions.map(s => s.waveHeight),
+      goodSessions.map((s) => s.waveHeight),
       avgWaveHeight
     );
 
@@ -1212,20 +1340,29 @@ export class PreferenceLearner {
       preferences.preferredWaveHeight.ideal
     );
     if (heightScore >= 80) {
-      reasoning.push(`Wave height (${conditions.waveHeight}ft) matches your preference`);
+      reasoning.push(
+        `Wave height (${conditions.waveHeight}ft) matches your preference`
+      );
     } else if (heightScore < 50) {
       reasoning.push(`Wave height is outside your typical range`);
     }
 
     // Wave period score
-    const periodScore = conditions.wavePeriod >= preferences.preferredWavePeriod.min ? 100 : 50;
+    const periodScore =
+      conditions.wavePeriod >= preferences.preferredWavePeriod.min ? 100 : 50;
     if (periodScore === 100) {
       reasoning.push(`Good wave period (${conditions.wavePeriod}s)`);
     }
 
     // Wind score
-    const windScore = conditions.windSpeed <= preferences.preferredWindSpeed.max ? 100 :
-      Math.max(0, 100 - (conditions.windSpeed - preferences.preferredWindSpeed.max) * 10);
+    const windScore =
+      conditions.windSpeed <= preferences.preferredWindSpeed.max
+        ? 100
+        : Math.max(
+            0,
+            100 -
+              (conditions.windSpeed - preferences.preferredWindSpeed.max) * 10
+          );
     if (windScore >= 80) {
       reasoning.push("Wind conditions favorable");
     } else if (windScore < 50) {
@@ -1233,17 +1370,18 @@ export class PreferenceLearner {
     }
 
     // Tide score
-    const tideScore = preferences.preferredTideStage.includes(conditions.tideStage as any) ? 100 : 50;
+    const tideScore = preferences.preferredTideStage.includes(
+      conditions.tideStage as any
+    )
+      ? 100
+      : 50;
     if (tideScore === 100) {
       reasoning.push(`${conditions.tideStage} tide matches your preference`);
     }
 
     // Overall weighted score
     const overall = Math.round(
-      (heightScore * 0.4) +
-      (periodScore * 0.3) +
-      (windScore * 0.2) +
-      (tideScore * 0.1)
+      heightScore * 0.4 + periodScore * 0.3 + windScore * 0.2 + tideScore * 0.1
     );
 
     return {
@@ -1276,12 +1414,15 @@ export class PreferenceLearner {
   }
 
   private static calculateStdDev(values: number[], mean: number): number {
-    const squareDiffs = values.map(v => Math.pow(v - mean, 2));
-    const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / values.length;
+    const squareDiffs = values.map((v) => Math.pow(v - mean, 2));
+    const avgSquareDiff =
+      squareDiffs.reduce((a, b) => a + b, 0) / values.length;
     return Math.sqrt(avgSquareDiff);
   }
 
-  private static getMostFrequentDirections(sessions: SessionDataPoint[]): string[] {
+  private static getMostFrequentDirections(
+    sessions: SessionDataPoint[]
+  ): string[] {
     const directionCounts = sessions.reduce((acc, s) => {
       acc[s.windDirection] = (acc[s.windDirection] || 0) + s.experienceRating;
       return acc;
@@ -1293,7 +1434,9 @@ export class PreferenceLearner {
       .map(([dir]) => dir);
   }
 
-  private static getMostFrequentTideStages(sessions: SessionDataPoint[]): ("low" | "mid" | "high")[] {
+  private static getMostFrequentTideStages(
+    sessions: SessionDataPoint[]
+  ): ("low" | "mid" | "high")[] {
     const stageCounts = sessions.reduce((acc, s) => {
       acc[s.tideStage] = (acc[s.tideStage] || 0) + s.experienceRating;
       return acc;
@@ -1372,7 +1515,9 @@ export function ConditionMatchScoreDisplay({
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Match for Your Preferences</span>
-          <span className={`text-2xl font-bold ${getScoreColor(score.overall)}`}>
+          <span
+            className={`text-2xl font-bold ${getScoreColor(score.overall)}`}
+          >
             {score.overall}%
           </span>
         </CardTitle>
@@ -1382,7 +1527,9 @@ export function ConditionMatchScoreDisplay({
           {Object.entries(score.breakdown).map(([key, value]) => (
             <div key={key} className="space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</span>
+                <span className="capitalize">
+                  {key.replace(/([A-Z])/g, " $1").trim()}
+                </span>
                 <span className={getScoreColor(value)}>{value}%</span>
               </div>
               <Progress value={value} className="h-1" />
@@ -1392,10 +1539,14 @@ export function ConditionMatchScoreDisplay({
 
         {score.reasoning.length > 0 && (
           <div className="space-y-1 pt-2 border-t">
-            <p className="text-xs font-medium text-muted-foreground">Why this score:</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Why this score:
+            </p>
             <ul className="text-xs space-y-1">
               {score.reasoning.map((reason, i) => (
-                <li key={i} className="text-muted-foreground">• {reason}</li>
+                <li key={i} className="text-muted-foreground">
+                  • {reason}
+                </li>
               ))}
             </ul>
           </div>
@@ -1434,7 +1585,9 @@ export function useUserPreferences() {
         setLoading(true);
 
         // Fetch user's rated sessions
-        const response = await fetch(`/api/users/${user.id}/sessions?rated=true`);
+        const response = await fetch(
+          `/api/users/${user.id}/sessions?rated=true`
+        );
         if (!response.ok) throw new Error("Failed to fetch sessions");
 
         const { sessions } = await response.json();
@@ -1446,7 +1599,10 @@ export function useUserPreferences() {
         // Cache preferences
         localStorage.setItem(
           `preferences_${user.id}`,
-          JSON.stringify({ ...prefs, lastUpdated: prefs.lastUpdated.toISOString() })
+          JSON.stringify({
+            ...prefs,
+            lastUpdated: prefs.lastUpdated.toISOString(),
+          })
         );
       } catch (err) {
         setError(err instanceof Error ? err : new Error("Unknown error"));
@@ -1505,9 +1661,7 @@ return (
         <ConditionMatchScoreDisplay score={matchScore} variant="compact" />
       )}
     </CardHeader>
-    <CardContent>
-      {/* Forecast details */}
-    </CardContent>
+    <CardContent>{/* Forecast details */}</CardContent>
   </Card>
 );
 ```
@@ -1525,7 +1679,11 @@ return (
 Create `components/forecast/forecast-explainer-panel.tsx`:
 
 ```typescript
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronDown, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1561,7 +1719,11 @@ export function ForecastExplainerPanel({
         <Button variant="outline" size="sm" className="w-full">
           <Info className="w-4 h-4 mr-2" />
           {isOpen ? "Hide" : "Show"} Forecast Explanation
-          <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${isOpen ? "rotate-180" : ""}`} />
+          <ChevronDown
+            className={`w-4 h-4 ml-auto transition-transform ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
         </Button>
       </CollapsibleTrigger>
 
@@ -1569,9 +1731,12 @@ export function ForecastExplainerPanel({
         <Card>
           <CardContent className="pt-4 space-y-4">
             <div>
-              <h4 className="text-sm font-semibold mb-2">How We Calculate This Forecast</h4>
+              <h4 className="text-sm font-semibold mb-2">
+                How We Calculate This Forecast
+              </h4>
               <p className="text-xs text-muted-foreground">
-                This forecast combines multiple data sources and oceanographic models to predict conditions at this beach.
+                This forecast combines multiple data sources and oceanographic
+                models to predict conditions at this beach.
               </p>
             </div>
 
@@ -1579,12 +1744,23 @@ export function ForecastExplainerPanel({
               <div className="bg-muted p-3 rounded-lg">
                 <h5 className="text-xs font-medium mb-1">Primary Swell</h5>
                 <p className="text-xs text-muted-foreground">
-                  <strong>{forecast.modelInputs?.primarySwell.height || forecast.waveHeight}ft @ {forecast.modelInputs?.primarySwell.period || forecast.wavePeriod}s</strong>
+                  <strong>
+                    {forecast.modelInputs?.primarySwell.height ||
+                      forecast.waveHeight}
+                    ft @{" "}
+                    {forecast.modelInputs?.primarySwell.period ||
+                      forecast.wavePeriod}
+                    s
+                  </strong>
                   {" from "}
-                  <strong>{forecast.modelInputs?.primarySwell.direction || forecast.swellDirection}</strong>
+                  <strong>
+                    {forecast.modelInputs?.primarySwell.direction ||
+                      forecast.swellDirection}
+                  </strong>
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  The main wave energy driving surf at this location. Generated by distant storms.
+                  The main wave energy driving surf at this location. Generated
+                  by distant storms.
                 </p>
               </div>
 
@@ -1592,9 +1768,14 @@ export function ForecastExplainerPanel({
                 <div className="bg-muted p-3 rounded-lg">
                   <h5 className="text-xs font-medium mb-1">Secondary Swell</h5>
                   <p className="text-xs text-muted-foreground">
-                    <strong>{forecast.modelInputs.secondarySwell.height}ft @ {forecast.modelInputs.secondarySwell.period}s</strong>
+                    <strong>
+                      {forecast.modelInputs.secondarySwell.height}ft @{" "}
+                      {forecast.modelInputs.secondarySwell.period}s
+                    </strong>
                     {" from "}
-                    <strong>{forecast.modelInputs.secondarySwell.direction}</strong>
+                    <strong>
+                      {forecast.modelInputs.secondarySwell.direction}
+                    </strong>
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Additional wave energy that may mix with the primary swell.
@@ -1605,7 +1786,9 @@ export function ForecastExplainerPanel({
               <div className="bg-muted p-3 rounded-lg">
                 <h5 className="text-xs font-medium mb-1">Local Wind Effects</h5>
                 <p className="text-xs text-muted-foreground">
-                  <strong>{forecast.windSpeed}mph from {forecast.windDirection}</strong>
+                  <strong>
+                    {forecast.windSpeed}mph from {forecast.windDirection}
+                  </strong>
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {forecast.windSpeed < 10
@@ -1619,17 +1802,19 @@ export function ForecastExplainerPanel({
               <div className="bg-muted p-3 rounded-lg">
                 <h5 className="text-xs font-medium mb-1">Bathymetry & Tide</h5>
                 <p className="text-xs text-muted-foreground">
-                  {forecast.modelInputs?.bathymetry || "Local seafloor shape affects wave breaking patterns."}
-                  {" "}
-                  {forecast.modelInputs?.tidalEffect || "Tide stage influences wave shape and power."}
+                  {forecast.modelInputs?.bathymetry ||
+                    "Local seafloor shape affects wave breaking patterns."}{" "}
+                  {forecast.modelInputs?.tidalEffect ||
+                    "Tide stage influences wave shape and power."}
                 </p>
               </div>
             </div>
 
             <div className="border-t pt-3">
               <p className="text-xs text-muted-foreground">
-                <strong>Data Sources:</strong> NOAA WaveWatch III (offshore swell), NDBC buoys (validation),
-                NOAA CO-OPS (tides), GFS (local wind)
+                <strong>Data Sources:</strong> NOAA WaveWatch III (offshore
+                swell), NDBC buoys (validation), NOAA CO-OPS (tides), GFS (local
+                wind)
               </p>
             </div>
           </CardContent>
@@ -1651,7 +1836,7 @@ import { ForecastExplainerPanel } from "@/components/forecast/forecast-explainer
 <div className="space-y-4">
   <ForecastDisplay forecast={forecast} />
   <ForecastExplainerPanel forecast={forecast} />
-</div>
+</div>;
 ```
 
 ---
@@ -1661,12 +1846,14 @@ import { ForecastExplainerPanel } from "@/components/forecast/forecast-explainer
 Due to length constraints, here's the implementation approach for remaining Phase 2 features:
 
 **2.3 Toggle Observed Surf Heights**
+
 - Create a toggle component using `Switch` from ui/
 - Add conditional rendering logic in forecast display
 - Store preference in localStorage or user settings
 - Show cam/report data when toggle is active
 
 **2.4 Expanded Education Modules**
+
 - Create dedicated `/learn` route
 - Use existing tab/card components for lessons
 - Add interactive diagrams with SVG/canvas
@@ -1674,12 +1861,14 @@ Due to length constraints, here's the implementation approach for remaining Phas
 - Track progress with localStorage
 
 **2.5 Community Notes & Heuristics**
+
 - Extend intel system (already exists at `components/intel/`)
 - Add generic tips without user-generated crowd data
 - Use existing confirmation system for validation
 - Add disclaimers to all community notes
 
 **2.6 Regional Fairness Adjustments**
+
 - Create cam availability checker
 - Display "No live cam" badge when unavailable
 - Emphasize buoy data in cam-sparse regions
@@ -1692,18 +1881,21 @@ Due to length constraints, here's the implementation approach for remaining Phas
 **Phase 3 features focus on advanced content, historical analysis, and performance:**
 
 **3.1 Stormsurf-Style Guides**
+
 - Create comprehensive markdown content
 - Consider partnerships with surf educators
 - Add downloadable PDFs
 - Include regional specific guides
 
 **3.2 Advanced Anomaly Analysis**
+
 - Build historical data aggregation
 - Compare current conditions to climatology
 - Add anomaly detection algorithms
 - Visualize with charts (use existing chart components)
 
 **3.3 Performance & Scale**
+
 - Profile with React DevTools
 - Implement virtual scrolling for long lists
 - Add lazy loading for images
@@ -1717,17 +1909,29 @@ Due to length constraints, here's the implementation approach for remaining Phas
 ### Unit Tests (Jest + React Testing Library)
 
 **Required for Each Component:**
+
 ```typescript
 describe("ComponentName", () => {
-  it("renders with required props", () => { /* ... */ });
-  it("handles user interactions", () => { /* ... */ });
-  it("displays loading states", () => { /* ... */ });
-  it("shows error states appropriately", () => { /* ... */ });
-  it("is accessible (a11y)", () => { /* ... */ });
+  it("renders with required props", () => {
+    /* ... */
+  });
+  it("handles user interactions", () => {
+    /* ... */
+  });
+  it("displays loading states", () => {
+    /* ... */
+  });
+  it("shows error states appropriately", () => {
+    /* ... */
+  });
+  it("is accessible (a11y)", () => {
+    /* ... */
+  });
 });
 ```
 
 **Run tests:**
+
 ```bash
 npm run test:unit
 ```
@@ -1735,6 +1939,7 @@ npm run test:unit
 ### E2E Tests (Playwright)
 
 **Critical User Journeys:**
+
 1. View forecast with new features
 2. Rate a session
 3. View personalized match scores
@@ -1742,11 +1947,14 @@ npm run test:unit
 5. Toggle data source views
 
 **Example E2E test:**
+
 ```typescript
 // e2e/forecast-personalization.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("displays personalized match score after rating sessions", async ({ page }) => {
+test("displays personalized match score after rating sessions", async ({
+  page,
+}) => {
   // Login
   await page.goto("/sign-in");
   // ... auth flow
@@ -1767,6 +1975,7 @@ test("displays personalized match score after rating sessions", async ({ page })
 ```
 
 **Run E2E tests:**
+
 ```bash
 BASE_URL=http://localhost:3000 npx playwright test
 ```
@@ -1807,12 +2016,14 @@ Each feature aligns with growth goals:
 ## Support & Maintenance
 
 **Documentation Locations:**
+
 - [Components Architecture](../components/ARCHITECTURE.md)
 - [Styles Guide](../styles/ARCHITECTURE.md)
 - [E2E Testing](../e2e/ARCHITECTURE.md)
 - [API Documentation](../app/api/)
 
 **Getting Help:**
+
 - Check existing patterns in codebase
 - Review component examples in `/components`
 - Test with Playwright MCP for UI validation

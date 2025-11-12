@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Preferences v2 Announcement Popup Integration (November 4, 2025) ✅
+- **Feature**: Integrated PreferencesAnnouncementDialog on home page for returning users
+- **Status**: ✅ Implemented and tested
+- **Components**:
+  - Created API endpoint: `/api/user/preferences-popup-shown` (POST)
+  - Integrated dialog into `components/home-screen/index.tsx`
+  - Tracks dismissal via `profiles.preferences_v2_shown_at` timestamp
+- **User Experience**:
+  - Dialog displays when: `preferences_v2_shown_at IS NULL AND onboarding_completed_at IS NOT NULL`
+  - "Update Profile" button navigates to `/profile` page
+  - "Maybe Later" button marks popup as shown and closes dialog
+  - Analytics tracking for shown/dismissed/update actions
+- **Technical Implementation**:
+  - Server-side API route with Supabase authentication
+  - Client-side React hooks for state management
+  - Cached profile integration via `useCachedProfile` hook
+  - TypeScript strict mode compliant
+- **Database**:
+  - Uses existing `profiles.preferences_v2_shown_at` column (added in migration 20251104203430)
+  - One-time popup per user (dismissed timestamp persists)
+- **Integration Pattern**:
+  - Follows Next.js App Router patterns
+  - DRY principle: reuses existing data fetching patterns
+  - Analytics integration via `track()` utility
+- **Files Modified**:
+  - `app/api/user/preferences-popup-shown/route.ts` (NEW)
+  - `components/home-screen/index.tsx` (UPDATED)
+
 #### Referrals System Database Infrastructure (November 4, 2025) ✅
 - **Feature**: Complete database infrastructure for user referral tracking and rewards
 - **Migration**: [supabase/migrations/20251104120000_create_referrals_infrastructure.sql](supabase/migrations/20251104120000_create_referrals_infrastructure.sql)

@@ -1716,6 +1716,7 @@ export type Database = {
           notif_xp_updates: boolean
           onboarding_completed_at: string | null
           phone_number: string | null
+          preferences_v2_shown_at: string | null
           preferred_break_type: string | null
           preferred_wave_size: string | null
           referral_code: string | null
@@ -1754,6 +1755,7 @@ export type Database = {
           notif_xp_updates?: boolean
           onboarding_completed_at?: string | null
           phone_number?: string | null
+          preferences_v2_shown_at?: string | null
           preferred_break_type?: string | null
           preferred_wave_size?: string | null
           referral_code?: string | null
@@ -1792,6 +1794,7 @@ export type Database = {
           notif_xp_updates?: boolean
           onboarding_completed_at?: string | null
           phone_number?: string | null
+          preferences_v2_shown_at?: string | null
           preferred_break_type?: string | null
           preferred_wave_size?: string | null
           referral_code?: string | null

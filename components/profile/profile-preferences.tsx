@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,49 +24,17 @@ import {
   FormItem,
   FormLabel,
 } from "@/components/ui/form";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { updateProfile } from "@/actions/profile-actions";
 import { BeachSelector } from "@/components/BeachSelector";
-import { cn } from "@/lib/utils";
+import {
+  ExperienceLevelField,
+  SurfStylesField,
+  PreferredWaveSizeField,
+  PreferredBreakTypeField,
+  CrowdPreferenceField,
+} from "@/components/profile/shared/preference-fields";
 import type { Beach, Profile } from "@/types/database";
-
-// Surf preference options (matching onboarding)
-const EXPERIENCE_LEVELS = [
-  { value: 'beginner', label: 'Beginner', emoji: '🏄‍♂️', description: 'Just getting started' },
-  { value: 'intermediate', label: 'Intermediate', emoji: '🌊', description: 'Catching waves regularly' },
-  { value: 'advanced', label: 'Advanced', emoji: '🏆', description: 'Experienced surfer' },
-  { value: 'expert', label: 'Expert', emoji: '🔥', description: 'Highly skilled' },
-] as const;
-
-const SURF_STYLES = [
-  { value: 'longboard', label: 'Longboard', emoji: '🏄' },
-  { value: 'shortboard', label: 'Shortboard', emoji: '🏄‍♀️' },
-  { value: 'funboard', label: 'Funboard', emoji: '🏄‍♂️' },
-  { value: 'bodyboard', label: 'Bodyboard', emoji: '🏊' },
-  { value: 'sup', label: 'SUP', emoji: '🚣' },
-  { value: 'foil', label: 'Foil', emoji: '✨' },
-] as const;
-
-const WAVE_SIZES = [
-  { value: 'small', label: 'Small', emoji: '🌊', description: '1-3 feet' },
-  { value: 'medium', label: 'Medium', emoji: '🌊🌊', description: '3-6 feet' },
-  { value: 'large', label: 'Large', emoji: '🌊🌊🌊', description: '6+ feet' },
-  { value: 'any', label: 'Any Size', emoji: '🤙', description: "I'll surf anything" },
-] as const;
-
-const BREAK_TYPES = [
-  { value: 'beach', label: 'Beach Break', emoji: '🏖️', description: 'Sandy bottom' },
-  { value: 'point', label: 'Point Break', emoji: '🪨', description: 'Rocky point' },
-  { value: 'reef', label: 'Reef Break', emoji: '🪸', description: 'Coral or rock reef' },
-  { value: 'any', label: 'Any Type', emoji: '✨', description: "I'll surf anywhere" },
-] as const;
-
-const CROWD_PREFERENCES = [
-  { value: 'social', label: 'Love the crew', emoji: '👥', description: 'Enjoy surfing with others' },
-  { value: 'moderate', label: 'A few people is fine', emoji: '🧘', description: 'Small crowds are okay' },
-  { value: 'solitude', label: 'Prefer solitude', emoji: '🏝️', description: 'Like uncrowded spots' },
-] as const;
 
 const preferencesFormSchema = z.object({
   home_beach_id: z.string().uuid().nullable().optional(),
@@ -200,150 +168,34 @@ export function ProfilePreferences({
             <div className="space-y-6">
               <h3 className="text-sm font-medium">Surf Preferences</h3>
 
-              {/* Experience Level */}
-              <Controller
+              <ExperienceLevelField
                 control={form.control}
                 name="experience_level"
-                render={({ field }) => (
-                  <div className="space-y-2">
-                    <Label>Experience Level</Label>
-                    <select
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value || null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={isSubmitting}
-                    >
-                      <option value="">Select your experience level</option>
-                      {EXPERIENCE_LEVELS.map((level) => (
-                        <option key={level.value} value={level.value}>
-                          {level.emoji} {level.label} - {level.description}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-muted-foreground">
-                      How experienced are you with surfing?
-                    </p>
-                  </div>
-                )}
+                disabled={isSubmitting}
               />
 
-              {/* Surf Styles */}
-              <Controller
+              <SurfStylesField
                 control={form.control}
                 name="surf_styles"
-                render={({ field }) => (
-                  <div className="space-y-2">
-                    <Label>Surf Styles (select all that apply)</Label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {SURF_STYLES.map((style) => {
-                        const isSelected = field.value?.includes(style.value) ?? false;
-                        return (
-                          <button
-                            key={style.value}
-                            type="button"
-                            onClick={() => {
-                              const current = field.value || [];
-                              const updated = isSelected
-                                ? current.filter((v) => v !== style.value)
-                                : [...current, style.value];
-                              field.onChange(updated);
-                            }}
-                            className={cn(
-                              "flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all",
-                              isSelected
-                                ? "border-primary bg-primary/5"
-                                : "border-border hover:border-primary/50"
-                            )}
-                          >
-                            <span className="text-2xl">{style.emoji}</span>
-                            <div className="font-medium text-xs">{style.label}</div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                disabled={isSubmitting}
               />
 
-              {/* Wave Size */}
-              <Controller
+              <PreferredWaveSizeField
                 control={form.control}
                 name="preferred_wave_size"
-                render={({ field }) => (
-                  <div className="space-y-2">
-                    <Label>Preferred Wave Size</Label>
-                    <select
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value || null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={isSubmitting}
-                    >
-                      <option value="">Select preferred wave size</option>
-                      {WAVE_SIZES.map((size) => (
-                        <option key={size.value} value={size.value}>
-                          {size.emoji} {size.label} - {size.description}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-muted-foreground">
-                      What wave size do you prefer surfing?
-                    </p>
-                  </div>
-                )}
+                disabled={isSubmitting}
               />
 
-              {/* Break Type */}
-              <Controller
+              <PreferredBreakTypeField
                 control={form.control}
                 name="preferred_break_type"
-                render={({ field }) => (
-                  <div className="space-y-2">
-                    <Label>Preferred Break Type</Label>
-                    <select
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value || null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={isSubmitting}
-                    >
-                      <option value="">Select preferred break type</option>
-                      {BREAK_TYPES.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.emoji} {type.label} - {type.description}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-muted-foreground">
-                      What type of break do you prefer?
-                    </p>
-                  </div>
-                )}
+                disabled={isSubmitting}
               />
 
-              {/* Crowd Preference */}
-              <Controller
+              <CrowdPreferenceField
                 control={form.control}
                 name="crowd_preference"
-                render={({ field }) => (
-                  <div className="space-y-2">
-                    <Label>Crowd Preference</Label>
-                    <select
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value || null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={isSubmitting}
-                    >
-                      <option value="">Select crowd preference</option>
-                      {CROWD_PREFERENCES.map((pref) => (
-                        <option key={pref.value} value={pref.value}>
-                          {pref.emoji} {pref.label} - {pref.description}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-muted-foreground">
-                      How do you feel about crowds at the beach?
-                    </p>
-                  </div>
-                )}
+                disabled={isSubmitting}
               />
             </div>
 

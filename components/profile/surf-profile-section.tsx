@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { useDataFetcher } from '@/hooks/use-data-fetcher';
 import { getUserLearnedPreferences, validateUserPreferences, updateUserSurfPreferences } from '@/actions/preference-actions';
 import { LearnedPreferencesDisplay } from './learned-preferences-display';
 import { ValidationPrompt } from './validation-prompt';
 import { PreferenceOverrideForm } from './preference-override-form';
 import { ProfilePreferences } from './profile-preferences';
+import { PreferencesDisplayCard } from './preferences-display-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2, Waves, Settings } from 'lucide-react';
@@ -46,6 +47,8 @@ export function SurfProfileSection() {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [profile, setProfile] = useState<Profile | null>(null);
   const [beaches, setBeaches] = useState<Beach[]>([]);
+  const [isEditingExplicit, setIsEditingExplicit] = useState(false); // Toggle for explicit preferences edit
+  const editFormRef = useRef<HTMLDivElement>(null);
 
   // Fetch profile and beaches data
   const fetchProfileData = useCallback(async () => {
@@ -101,6 +104,25 @@ export function SurfProfileSection() {
     setMode('view');
   };
 
+  // Handle edit button click from display card - toggle to edit mode
+  const handleEditClick = () => {
+    setIsEditingExplicit(true);
+    // Scroll to form after state update
+    setTimeout(() => {
+      editFormRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 100);
+  };
+
+  // Handle save complete from edit form
+  const handleEditComplete = async () => {
+    setIsEditingExplicit(false);
+    // Refresh profile data
+    await fetchProfileData();
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -130,14 +152,37 @@ export function SurfProfileSection() {
   if (!data?.learned) {
     return (
       <div className="space-y-8">
-        {/* Explicit Preferences - Always visible */}
+        {/* Explicit Preferences - Toggle between display and edit */}
         {user && profile && (
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Settings className="h-5 w-5 text-ocean-blue" />
               <h2 className="text-lg font-semibold text-dark-grey">Your Preferences</h2>
             </div>
-            <ProfilePreferences userId={user.id} profile={profile} beaches={beaches} />
+
+            {!isEditingExplicit ? (
+              /* Display Card - Read-only view */
+              <div className="mb-6">
+                <PreferencesDisplayCard profile={profile} onEdit={handleEditClick} />
+              </div>
+            ) : (
+              /* Editable Form - Only shown when editing */
+              <div ref={editFormRef} className="transition-all duration-300 rounded-lg space-y-4">
+                <ProfilePreferences
+                  userId={user.id}
+                  profile={profile}
+                  beaches={beaches}
+                  onSaveComplete={handleEditComplete}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditingExplicit(false)}
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -184,14 +229,37 @@ export function SurfProfileSection() {
 
   return (
     <div className="space-y-8">
-      {/* Explicit Preferences Section - Always visible */}
+      {/* Explicit Preferences Section - Toggle between display and edit */}
       {user && profile && (
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Settings className="h-5 w-5 text-ocean-blue" />
             <h2 className="text-lg font-semibold text-dark-grey">Your Preferences</h2>
           </div>
-          <ProfilePreferences userId={user.id} profile={profile} beaches={beaches} />
+
+          {!isEditingExplicit ? (
+            /* Display Card - Read-only view */
+            <div className="mb-6">
+              <PreferencesDisplayCard profile={profile} onEdit={handleEditClick} />
+            </div>
+          ) : (
+            /* Editable Form - Only shown when editing */
+            <div ref={editFormRef} className="transition-all duration-300 rounded-lg space-y-4">
+              <ProfilePreferences
+                userId={user.id}
+                profile={profile}
+                beaches={beaches}
+                onSaveComplete={handleEditComplete}
+              />
+              <Button
+                variant="outline"
+                onClick={() => setIsEditingExplicit(false)}
+                className="w-full"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
