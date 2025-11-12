@@ -39,10 +39,34 @@ async function trackShareToDatabase(
       .single();
 
     if (error) {
-      console.error("Failed to track share to database:", error);
+      // Enhanced error logging with context
+      console.error("Failed to track share to database:", {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        platform: event.platform,
+        variant: event.variant,
+        aspectRatio: event.aspectRatio,
+        sessionId: event.sessionId,
+      });
+
+      // Provide user-friendly error messages based on error codes
+      let userMessage = error.message;
+      if (error.code === "23514") {
+        // Check constraint violation
+        if (error.message.includes("check_platform")) {
+          userMessage = `Platform "${event.platform}" is not supported. Please try a different sharing method.`;
+        } else if (error.message.includes("check_variant")) {
+          userMessage = `Share variant "${event.variant}" is not valid. Please try a different card style.`;
+        }
+      } else if (error.code === "23505") {
+        // Unique constraint violation (duplicate share)
+        userMessage = "You've already shared this session with this platform today.";
+      }
+
       return {
         success: false,
-        error: error.message,
+        error: userMessage,
       };
     }
 
@@ -51,7 +75,12 @@ async function trackShareToDatabase(
       shareId: data?.id,
     };
   } catch (error) {
-    console.error("Exception tracking share to database:", error);
+    console.error("Exception tracking share to database:", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      platform: event.platform,
+      variant: event.variant,
+      sessionId: event.sessionId,
+    });
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

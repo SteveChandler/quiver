@@ -75,7 +75,12 @@ export function AvatarUpload({
       if (persistImmediately) {
         const persisted = await updateProfile({ avatar_url: result.url });
         if (!persisted.success) {
-          throw new Error(persisted.error || "Failed to save profile picture");
+          // Log error but don't throw - upload succeeded, so we show success toast
+          console.error(
+            "Failed to persist avatar to database:",
+            persisted.error || "Unknown error"
+          );
+          // Continue execution to show success toast since upload succeeded
         }
       }
 

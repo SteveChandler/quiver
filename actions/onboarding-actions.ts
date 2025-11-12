@@ -10,6 +10,9 @@ interface OnboardingData {
   homeBeachName?: string;
   experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   surfStyles?: string[];
+  preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
+  preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
+  crowdPreference?: 'social' | 'moderate' | 'solitude';
   referralCode?: string;
   pushEnabled?: boolean;
   emailEnabled?: boolean;
@@ -27,6 +30,11 @@ export async function saveOnboardingData(data: OnboardingData) {
           home_beach_id: data.homeBeachId || null,
           experience_level: data.experienceLevel || null,
           surf_styles: data.surfStyles || [],
+          preferred_wave_size: data.preferredWaveSize || null,
+          preferred_break_type: data.preferredBreakType || null,
+          crowd_preference: data.crowdPreference || null,
+          notif_push_enabled: data.pushEnabled ?? true,
+          notif_email_enabled: data.emailEnabled ?? true,
           onboarding_completed_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -72,7 +80,7 @@ export async function saveOnboardingData(data: OnboardingData) {
       // Award welcome XP for completing onboarding
       try {
         const { trackXP } = await import('@/lib/gamification-actions');
-        await trackXP('onboarding_completed', user.id, null);
+        await trackXP('onboarding_completed', user.id);
       } catch (xpError) {
         console.log('XP tracking not available:', xpError);
       }

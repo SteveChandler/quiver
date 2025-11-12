@@ -30,7 +30,7 @@ test.describe('API Performance', () => {
 
   test('should respond to /api/beaches/search within SLA', async ({ request }) => {
     const startTime = Date.now();
-    const response = await request.get(`${BASE_URL}/api/beaches/search?q=blacks`);
+    const response = await request.get(`${BASE_URL}/api/beaches/search?query=blacks`);
     const duration = Date.now() - startTime;
 
     console.log(`[API] /api/beaches/search: ${duration}ms (${response.status()})`);

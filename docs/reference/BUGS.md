@@ -856,19 +856,9 @@ All tab-related tests should pass.
 
 ### Test Issues (Not App Bugs)
 
-**Onboarding Flow Test - Strict Mode Violation**
-- **Test:** `onboarding-flow.spec.ts:13` - "complete onboarding flow for new authenticated user"
-- **Issue:** Selector `getByText(/where do you|home beach|usually surf/i)` matches 3 elements
-- **Type:** Test selector issue, not application bug
-- **Status:** Test needs to be fixed to use more specific selector
-- **Error:**
-  ```
-  Error: strict mode violation: getByText(...) resolved to 3 elements:
-  1) <h2>Where do you usually surf?</h2>
-  2) <p>We'll show you personalized forecasts...</p>
-  3) <p>Tip: You can change your home...</p>
-  ```
-- **Fix:** Use `getByRole('heading', { name: 'Where do you usually surf?' })` instead
+**Note:** This section tracks test-specific issues that are not actual application bugs.
+
+_No active test issues as of November 4, 2025._
 
 ### Network Issues
 - **2 failed network requests detected** during testing

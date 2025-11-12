@@ -27,6 +27,9 @@ export const preferencesSchema = z.object({
     required_error: 'Please select your experience level',
   }),
   surfStyles: z.array(z.string()).min(1, 'Select at least one style'),
+  preferredWaveSize: z.enum(['small', 'medium', 'large', 'any']).optional(),
+  preferredBreakType: z.enum(['beach', 'point', 'reef', 'any']).optional(),
+  crowdPreference: z.enum(['social', 'moderate', 'solitude']).optional(),
 });
 
 export type PreferencesFormData = z.infer<typeof preferencesSchema>;

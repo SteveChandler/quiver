@@ -224,7 +224,8 @@ export async function checkUserExists(email: string): Promise<boolean> {
  */
 export function incrementRedirectAttempt(): number {
   const current = parseInt(localStorage.getItem(REDIRECT_ATTEMPTS_KEY) || "0");
-  const next = current + 1;
+  // Handle NaN case (invalid value in localStorage)
+  const next = (isNaN(current) ? 0 : current) + 1;
   localStorage.setItem(REDIRECT_ATTEMPTS_KEY, next.toString());
   return next;
 }

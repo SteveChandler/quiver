@@ -43,10 +43,10 @@ export function HomeBeachStep() {
 
     setIsSearching(true);
     try {
-      const res = await fetch(`/api/beaches/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/beaches/search?query=${encodeURIComponent(query)}`);
       if (res.ok) {
-        const beaches = await res.json();
-        setSearchResults(beaches);
+        const result = await res.json();
+        setSearchResults(result.data || []);
       }
     } catch (error) {
       console.error('Failed to search beaches:', error);

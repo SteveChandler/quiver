@@ -20,7 +20,7 @@ jest.mock("@/lib/api-utils", () => ({
 }));
 
 jest.mock("@/lib/middleware/auth-validator");
-jest.mock("@/lib/middleware/route-guard");
+// Don't mock RouteGuard - we'll use the real implementation
 jest.mock("@/lib/middleware/admin-checker");
 jest.mock("@/lib/auth/admin", () => ({
   ADMIN_USER_IDS: ["bcdc5d59-2e22-4006-98a6-cada8618577a"],
@@ -33,6 +33,26 @@ import { AdminChecker } from "@/lib/middleware/admin-checker";
 describe("Middleware Integration Tests", () => {
   let mockAuthValidator: jest.Mocked<AuthValidator>;
   let mockAdminChecker: jest.Mocked<AdminChecker>;
+
+  // Helper to create mock NextRequest
+  const createMockRequest = (pathname: string, search: string = ""): any => {
+    const url = `http://localhost:3000${pathname}${search}`;
+    return {
+      nextUrl: {
+        pathname,
+        search,
+        searchParams: new URLSearchParams(search.replace(/^\?/, "")),
+      },
+      url,
+      method: "GET",
+      headers: new Headers(),
+      cookies: {
+        get: jest.fn(() => undefined),
+        set: jest.fn(),
+        delete: jest.fn(),
+      },
+    };
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -57,11 +77,22 @@ describe("Middleware Integration Tests", () => {
       const publicRoutes = ["/", "/map", "/beach/123", "/forecast"];
 
       for (const path of publicRoutes) {
-        const request = new NextRequest(
-          new Request(`http://localhost:3000${path}`, {
-            method: "GET",
-          })
-        );
+        // Create a mock request object compatible with middleware
+        const request: any = {
+          nextUrl: {
+            pathname: path,
+            search: "",
+            searchParams: new URLSearchParams(),
+          },
+          url: `http://localhost:3000${path}`,
+          method: "GET",
+          headers: new Headers(),
+          cookies: {
+            get: jest.fn(() => undefined),
+            set: jest.fn(),
+            delete: jest.fn(),
+          },
+        };
 
         const response = await middleware(request);
 
@@ -71,11 +102,21 @@ describe("Middleware Integration Tests", () => {
     });
 
     it("should add security headers to public routes", async () => {
-      const request = new NextRequest(
-        new Request("http://localhost:3000/map", {
-          method: "GET",
-        })
-      );
+      const request: any = {
+        nextUrl: {
+          pathname: "/map",
+          search: "",
+          searchParams: new URLSearchParams(),
+        },
+        url: "http://localhost:3000/map",
+        method: "GET",
+        headers: new Headers(),
+        cookies: {
+          get: jest.fn(() => undefined),
+          set: jest.fn(),
+          delete: jest.fn(),
+        },
+      };
 
       const response = await middleware(request);
 
@@ -91,11 +132,7 @@ describe("Middleware Integration Tests", () => {
         error: "No session",
       });
 
-      const request = new NextRequest(
-        new Request("http://localhost:3000/profile", {
-          method: "GET",
-        })
-      );
+      const request = createMockRequest("/profile");
 
       const response = await middleware(request);
 
@@ -114,11 +151,7 @@ describe("Middleware Integration Tests", () => {
         } as any,
       });
 
-      const request = new NextRequest(
-        new Request("http://localhost:3000/profile", {
-          method: "GET",
-        })
-      );
+      const request = createMockRequest("/profile");
 
       const response = await middleware(request);
 
@@ -132,21 +165,8 @@ describe("Middleware Integration Tests", () => {
         error: "No session",
       });
 
-      const request = new NextRequest(
-        new Request("http://localhost:3000/beach/123?tab=forecast&date=2024-01", {
-          method: "GET",
-        })
-      );
-
       // This should be a public route, so adjust test
-      const protectedRequest = new NextRequest(
-        new Request(
-          "http://localhost:3000/profile?setting=notifications",
-          {
-            method: "GET",
-          }
-        )
-      );
+      const protectedRequest = createMockRequest("/profile", "?setting=notifications");
 
       const response = await middleware(protectedRequest);
 
@@ -171,11 +191,7 @@ describe("Middleware Integration Tests", () => {
         reason: "No admin privileges",
       });
 
-      const request = new NextRequest(
-        new Request("http://localhost:3000/admin", {
-          method: "GET",
-        })
-      );
+      const request = createMockRequest("/admin");
 
       const response = await middleware(request);
 
@@ -198,11 +214,7 @@ describe("Middleware Integration Tests", () => {
         reason: "Canonical admin user ID",
       });
 
-      const request = new NextRequest(
-        new Request("http://localhost:3000/admin/users", {
-          method: "GET",
-        })
-      );
+      const request = createMockRequest("/admin/users");
 
       const response = await middleware(request);
 
@@ -217,11 +229,7 @@ describe("Middleware Integration Tests", () => {
         error: "No session",
       });
 
-      const request = new NextRequest(
-        new Request("http://localhost:3000/admin", {
-          method: "GET",
-        })
-      );
+      const request = createMockRequest("/admin");
 
       const response = await middleware(request);
 
@@ -234,11 +242,7 @@ describe("Middleware Integration Tests", () => {
 
   describe("Skip Routes", () => {
     it("should skip middleware for API routes", async () => {
-      const request = new NextRequest(
-        new Request("http://localhost:3000/api/beaches", {
-          method: "GET",
-        })
-      );
+      const request = createMockRequest("/api/beaches");
 
       const response = await middleware(request);
 
@@ -255,11 +259,7 @@ describe("Middleware Integration Tests", () => {
       ];
 
       for (const path of staticFiles) {
-        const request = new NextRequest(
-          new Request(`http://localhost:3000${path}`, {
-            method: "GET",
-          })
-        );
+        const request = createMockRequest(path);
 
         const response = await middleware(request);
         expect(mockAuthValidator.validateAuth).not.toHaveBeenCalled();
@@ -270,11 +270,7 @@ describe("Middleware Integration Tests", () => {
       const authRoutes = ["/auth/sign-in", "/auth/sign-up", "/auth/callback"];
 
       for (const path of authRoutes) {
-        const request = new NextRequest(
-          new Request(`http://localhost:3000${path}`, {
-            method: "GET",
-          })
-        );
+        const request = createMockRequest(path);
 
         const response = await middleware(request);
         expect(mockAuthValidator.validateAuth).not.toHaveBeenCalled();
@@ -285,11 +281,10 @@ describe("Middleware Integration Tests", () => {
       const methods = ["POST", "PUT", "DELETE", "PATCH"];
 
       for (const method of methods) {
-        const request = new NextRequest(
-          new Request("http://localhost:3000/any-path", {
-            method,
-          })
-        );
+        const request: any = {
+          ...createMockRequest("/any-path"),
+          method,
+        };
 
         const response = await middleware(request);
         expect(mockAuthValidator.validateAuth).not.toHaveBeenCalled();
@@ -313,11 +308,7 @@ describe("Middleware Integration Tests", () => {
       });
 
       for (const path of paths) {
-        const request = new NextRequest(
-          new Request(`http://localhost:3000${path}`, {
-            method: "GET",
-          })
-        );
+        const request = createMockRequest(path);
 
         const response = await middleware(request);
 
@@ -330,11 +321,7 @@ describe("Middleware Integration Tests", () => {
   describe("Edge Cases", () => {
     it("should handle shared session URLs as public", async () => {
       // /sessions/:id should be public (shareable)
-      const request = new NextRequest(
-        new Request("http://localhost:3000/sessions/abc-123-shared", {
-          method: "GET",
-        })
-      );
+      const request = createMockRequest("/sessions/abc-123-shared");
 
       const response = await middleware(request);
 
@@ -347,11 +334,7 @@ describe("Middleware Integration Tests", () => {
         authenticated: false,
       });
 
-      const request = new NextRequest(
-        new Request("http://localhost:3000/sessions/new", {
-          method: "GET",
-        })
-      );
+      const request = createMockRequest("/sessions/new");
 
       const response = await middleware(request);
 
@@ -365,11 +348,7 @@ describe("Middleware Integration Tests", () => {
         user: { id: "user-123" } as any,
       });
 
-      const withSlash = new NextRequest(
-        new Request("http://localhost:3000/profile/", {
-          method: "GET",
-        })
-      );
+      const withSlash = createMockRequest("/profile/");
 
       const response = await middleware(withSlash);
       expect(response.status).not.toBe(307);

@@ -45,7 +45,8 @@ describe("auth-utils", () => {
       delete localStorageMock[key];
     });
 
-    global.localStorage = {
+    // Create a proper Storage mock
+    const storageMock = {
       getItem: getItemSpy,
       setItem: setItemSpy,
       removeItem: removeItemSpy,
@@ -54,7 +55,21 @@ describe("auth-utils", () => {
       }),
       length: 0,
       key: jest.fn(),
-    } as Storage;
+    };
+
+    // Mock both global.localStorage and window.localStorage
+    Object.defineProperty(global, 'localStorage', {
+      value: storageMock,
+      writable: true,
+    });
+    
+    // Ensure window.localStorage is also set
+    if (typeof window !== 'undefined') {
+      Object.defineProperty(window, 'localStorage', {
+        value: storageMock,
+        writable: true,
+      });
+    }
 
     // Mock window.location
     delete (global as any).window;
@@ -83,10 +98,16 @@ describe("auth-utils", () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    // Clear localStorage mock state
     localStorageMock = {};
+    // Reset spy call counts
     getItemSpy.mockClear();
     setItemSpy.mockClear();
     removeItemSpy.mockClear();
+    // Clear the actual localStorage mock implementation
+    if (global.localStorage && typeof global.localStorage.clear === 'function') {
+      global.localStorage.clear();
+    }
   });
 
   describe("Redirect handling", () => {

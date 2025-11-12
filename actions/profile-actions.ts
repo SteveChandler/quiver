@@ -39,6 +39,16 @@ const profileUpdateSchema = z.object({
   notif_follows: z.boolean().optional(),
   notif_reminders: z.boolean().optional(),
   notif_xp_updates: z.boolean().optional(),
+  // Surf preferences
+  experience_level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).nullable().optional(),
+  surf_styles: z.array(z.string()).nullable().optional(),
+  preferred_wave_size: z.enum(['small', 'medium', 'large', 'any']).nullable().optional(),
+  preferred_break_type: z.enum(['beach', 'point', 'reef', 'any']).nullable().optional(),
+  crowd_preference: z.enum(['social', 'moderate', 'solitude']).nullable().optional(),
+  // Session invite preferences
+  digest_session_invites: z.boolean().optional(),
+  inapp_session_invites: z.boolean().optional(),
+  email_session_invites: z.boolean().optional(),
 }).passthrough(); // Allow extra fields that aren't in schema
 
 export async function getProfile(userId: string) {

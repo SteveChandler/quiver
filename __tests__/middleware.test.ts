@@ -55,16 +55,18 @@ describe("Middleware", () => {
     expect(mockRedirect).toHaveBeenCalled();
   });
 
-  test("redirects to sign-in for beach detail page when unauthenticated", async () => {
+  test("allows unauthenticated access to beach detail page (public for SEO)", async () => {
     const request: any = { nextUrl: { pathname: "/beach/blacks-beach" }, url: "http://localhost/beach/blacks-beach", method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
     await middleware(request);
-    expect(mockRedirect).toHaveBeenCalled();
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  test("redirects to sign-in for forecast page when unauthenticated", async () => {
+  test("allows unauthenticated access to forecast page (public for SEO)", async () => {
     const request: any = { nextUrl: { pathname: "/forecast/123" }, url: "http://localhost/forecast/123", method: "GET", headers: new Headers(), cookies: { get: () => undefined } };
     await middleware(request);
-    expect(mockRedirect).toHaveBeenCalled();
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   test("allows authenticated user to access beach page", async () => {

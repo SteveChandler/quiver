@@ -27,12 +27,26 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { updateProfile } from "@/actions/profile-actions";
 import { BeachSelector } from "@/components/BeachSelector";
+import {
+  ExperienceLevelField,
+  SurfStylesField,
+  PreferredWaveSizeField,
+  PreferredBreakTypeField,
+  CrowdPreferenceField,
+} from "@/components/profile/shared/preference-fields";
 import type { Beach, Profile } from "@/types/database";
 
 const preferencesFormSchema = z.object({
   home_beach_id: z.string().uuid().nullable().optional(),
-  notification_session_reminders: z.boolean().default(false),
-  notification_community_replies: z.boolean().default(false),
+  // Surf preferences
+  experience_level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).nullable().optional(),
+  surf_styles: z.array(z.string()).nullable().optional(),
+  preferred_wave_size: z.enum(['small', 'medium', 'large', 'any']).nullable().optional(),
+  preferred_break_type: z.enum(['beach', 'point', 'reef', 'any']).nullable().optional(),
+  crowd_preference: z.enum(['social', 'moderate', 'solitude']).nullable().optional(),
+  // Notification preferences
+  notif_reminders: z.boolean().default(false),
+  digest_session_invites: z.boolean().default(false),
   inapp_session_invites: z.boolean().default(true),
   email_session_invites: z.boolean().default(true),
 });
@@ -57,27 +71,36 @@ export function ProfilePreferences({
     resolver: zodResolver(preferencesFormSchema),
     defaultValues: {
       home_beach_id: profile?.home_beach_id ?? null,
-      notification_session_reminders:
-        profile?.notification_session_reminders || false,
-      notification_community_replies:
-        profile?.notification_community_replies || false,
-      inapp_session_invites: (profile as any)?.inapp_session_invites ?? true,
-      email_session_invites: (profile as any)?.email_session_invites ?? true,
+      // Surf preferences - cast to proper enum types
+      experience_level: (profile?.experience_level as 'beginner' | 'intermediate' | 'advanced' | 'expert' | null) ?? null,
+      surf_styles: profile?.surf_styles ?? [],
+      preferred_wave_size: (profile?.preferred_wave_size as 'small' | 'medium' | 'large' | 'any' | null) ?? null,
+      preferred_break_type: (profile?.preferred_break_type as 'beach' | 'point' | 'reef' | 'any' | null) ?? null,
+      crowd_preference: (profile?.crowd_preference as 'social' | 'moderate' | 'solitude' | null) ?? null,
+      // Notification preferences
+      notif_reminders: profile?.notif_reminders || false,
+      digest_session_invites: profile?.digest_session_invites || false,
+      inapp_session_invites: profile?.inapp_session_invites ?? true,
+      email_session_invites: profile?.email_session_invites ?? true,
     },
   });
 
   async function onSubmit(data: PreferencesFormValues) {
     if (!userId) return;
 
-    console.debug("[HomeBeach/UI] submit payload", {
-      home_beach_id: form.getValues("home_beach_id"),
-    });
     setIsSubmitting(true);
     try {
       const result = await updateProfile({
         home_beach_id: data.home_beach_id ?? null,
-        notification_session_reminders: data.notification_session_reminders,
-        notification_community_replies: data.notification_community_replies,
+        // Surf preferences
+        experience_level: data.experience_level ?? null,
+        surf_styles: data.surf_styles ?? [],
+        preferred_wave_size: data.preferred_wave_size ?? null,
+        preferred_break_type: data.preferred_break_type ?? null,
+        crowd_preference: data.crowd_preference ?? null,
+        // Notification preferences
+        notif_reminders: data.notif_reminders,
+        digest_session_invites: data.digest_session_invites,
         inapp_session_invites: data.inapp_session_invites,
         email_session_invites: data.email_session_invites,
       });
@@ -92,7 +115,8 @@ export function ProfilePreferences({
       });
 
       // Navigate to profile page with fresh data
-      window.location.href = "/profile";
+      router.push("/profile");
+      router.refresh();
     } catch (error) {
       console.error("Error updating preferences:", error);
       toast({
@@ -128,9 +152,6 @@ export function ProfilePreferences({
                     <BeachSelector
                       initialValue={""}
                       onBeachSelected={(beach) => {
-                        console.debug("[HomeBeach/UI] change", {
-                          selectedId: beach?.id,
-                        });
                         field.onChange(beach?.id || null);
                       }}
                     />
@@ -143,13 +164,48 @@ export function ProfilePreferences({
               />
             </div>
 
+            {/* Surf Preferences */}
+            <div className="space-y-6">
+              <h3 className="text-sm font-medium">Surf Preferences</h3>
+
+              <ExperienceLevelField
+                control={form.control}
+                name="experience_level"
+                disabled={isSubmitting}
+              />
+
+              <SurfStylesField
+                control={form.control}
+                name="surf_styles"
+                disabled={isSubmitting}
+              />
+
+              <PreferredWaveSizeField
+                control={form.control}
+                name="preferred_wave_size"
+                disabled={isSubmitting}
+              />
+
+              <PreferredBreakTypeField
+                control={form.control}
+                name="preferred_break_type"
+                disabled={isSubmitting}
+              />
+
+              <CrowdPreferenceField
+                control={form.control}
+                name="crowd_preference"
+                disabled={isSubmitting}
+              />
+            </div>
+
             {/* Notification Toggles */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium">Notification Settings</h3>
 
               <FormField<PreferencesFormValues>
                 control={form.control}
-                name="notification_session_reminders"
+                name="notif_reminders"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
@@ -162,7 +218,7 @@ export function ProfilePreferences({
                     </div>
                     <FormControl>
                       <Switch
-                        checked={field.value}
+                        checked={field.value as boolean}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
@@ -172,21 +228,20 @@ export function ProfilePreferences({
 
               <FormField<PreferencesFormValues>
                 control={form.control}
-                name="notification_community_replies"
+                name="digest_session_invites"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
                       <FormLabel className="text-base">
-                        Community Replies
+                        Session Invite Digests
                       </FormLabel>
                       <FormDescription>
-                        Get notified when someone responds to your posts or
-                        reviews
+                        Get periodic digest of session invitations
                       </FormDescription>
                     </div>
                     <FormControl>
                       <Switch
-                        checked={field.value}
+                        checked={field.value as boolean}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
@@ -209,7 +264,7 @@ export function ProfilePreferences({
                     </div>
                     <FormControl>
                       <Switch
-                        checked={field.value}
+                        checked={field.value as boolean}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
@@ -232,7 +287,7 @@ export function ProfilePreferences({
                     </div>
                     <FormControl>
                       <Switch
-                        checked={field.value}
+                        checked={field.value as boolean}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>

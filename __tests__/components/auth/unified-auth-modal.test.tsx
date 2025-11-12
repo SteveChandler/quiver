@@ -19,6 +19,7 @@ jest.mock("@/lib/auth/auth-utils", () => ({
   validateEmail: jest.fn(),
   validatePassword: jest.fn(),
   getAuthRedirect: jest.fn(),
+  setAuthRedirect: jest.fn(),
   clearAuthRedirect: jest.fn(),
 }));
 
@@ -65,6 +66,8 @@ describe("UnifiedAuthModal", () => {
       valid: true,
     });
     (authUtils.getAuthRedirect as jest.Mock).mockReturnValue(null);
+    (authUtils.setAuthRedirect as jest.Mock).mockImplementation(() => {});
+    (authUtils.clearAuthRedirect as jest.Mock).mockImplementation(() => {});
     (authUtils.initiateOAuthFlow as jest.Mock).mockResolvedValue({});
     (authUtils.sendMagicLink as jest.Mock).mockResolvedValue({});
   });
@@ -106,7 +109,7 @@ describe("UnifiedAuthModal", () => {
         />
       );
 
-      expect(screen.getByText("Sign up Free")).toBeInTheDocument();
+      expect(screen.getByText("Sign Up")).toBeInTheDocument();
       expect(
         screen.getByText(
           "Join Quiver to plan sessions and connect with surfers."

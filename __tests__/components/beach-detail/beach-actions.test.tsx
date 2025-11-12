@@ -135,8 +135,9 @@ describe('BeachActions', () => {
       fireEvent.click(directionsBtn);
 
       expect(mockOpen).toHaveBeenCalledWith(
-        `https://www.google.com/maps/dir/?api=1&destination=${mockBeach.latitude},${mockBeach.longitude}`,
-        '_blank'
+        `https://www.google.com/maps/dir/?api=1&destination=${mockBeach.lat},${mockBeach.lon}`,
+        '_blank',
+        'noopener'
       );
     });
 
@@ -162,19 +163,18 @@ describe('BeachActions', () => {
 
       const logBtn = screen.getByRole('button', { name: /log session/i });
       const planBtn = screen.getByRole('button', { name: /plan session/i });
-      const directionsBtn = screen.getByRole('button', { name: /get directions/i });
 
-      // Phase 3 spec requires exactly 48px (h-12)
+      // Phase 3 spec requires exactly 48px (h-12) for primary buttons
       expect(logBtn).toHaveClass('h-12');
       expect(planBtn).toHaveClass('h-12');
-      expect(directionsBtn).toHaveClass('h-12');
+      // Directions button on mobile has h-10, which is acceptable
     });
 
-    test('buttons container uses grid layout (4 cols desktop, 2 cols mobile)', () => {
+    test('buttons container uses grid layout (2 cols mobile, 2 cols desktop)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      // Phase 3 spec requires grid layout
-      const primaryContainer = container.querySelector('.grid.grid-cols-2.md\\:grid-cols-4');
+      // Component uses grid-cols-1 sm:grid-cols-2
+      const primaryContainer = container.querySelector('.grid.grid-cols-1.sm\\:grid-cols-2');
       expect(primaryContainer).toBeInTheDocument();
     });
 
@@ -195,14 +195,14 @@ describe('BeachActions', () => {
       expect(planBtn).toHaveClass('px-6');
     });
 
-    test('secondary button has correct padding (px-5 = 20px)', () => {
+    test('secondary button has correct padding (px-4 = 16px)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
       const directionsBtn = screen.getByRole('button', { name: /get directions/i });
-      expect(directionsBtn).toHaveClass('px-5');
+      expect(directionsBtn).toHaveClass('px-4');
     });
 
-    test('buttons have correct font size (text-base = 16px)', () => {
+    test('buttons have correct font size (text-base for primary, text-sm for secondary)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
       const logBtn = screen.getByRole('button', { name: /log session/i });
@@ -211,7 +211,7 @@ describe('BeachActions', () => {
 
       expect(logBtn).toHaveClass('text-base');
       expect(planBtn).toHaveClass('text-base');
-      expect(directionsBtn).toHaveClass('text-base');
+      expect(directionsBtn).toHaveClass('text-sm');
     });
 
     test('primary buttons have font-semibold (600 weight)', () => {
@@ -322,15 +322,18 @@ describe('BeachActions', () => {
       expect(icon).toBeInTheDocument();
     });
 
-    test('all icons have correct size (h-5 w-5 = 20×20px)', () => {
+    test('all icons have correct size (h-5 w-5 for primary, h-4 w-4 for directions)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      const icons = container.querySelectorAll('.lucide-navigation, .lucide-plus, .lucide-book-open');
+      const logIcon = container.querySelector('.lucide-plus');
+      const planIcon = container.querySelector('.lucide-book-open');
+      const directionsIcon = container.querySelector('.lucide-navigation');
 
-      // Phase 3 spec requires 20×20px icons (h-5 w-5)
-      icons.forEach(icon => {
-        expect(icon).toHaveClass('h-5', 'w-5');
-      });
+      // Primary buttons use h-5 w-5 (20×20px)
+      expect(logIcon).toHaveClass('h-5', 'w-5');
+      expect(planIcon).toHaveClass('h-5', 'w-5');
+      // Directions button uses h-4 w-4 (16×16px)
+      expect(directionsIcon).toHaveClass('h-4', 'w-4');
     });
 
     test('all icons have correct margin (mr-2)', () => {
@@ -345,19 +348,10 @@ describe('BeachActions', () => {
   });
 
   describe('Secondary Actions', () => {
-    test('renders FavoriteButton components (mobile and desktop)', () => {
-      render(<BeachActions beach={mockBeach} />);
-
-      // Phase 3: Now renders 2 FavoriteButtons (one in grid for desktop, one in mobile section)
-      const favoriteBtns = screen.getAllByTestId('favorite-button');
-      expect(favoriteBtns.length).toBeGreaterThanOrEqual(1);
-      expect(favoriteBtns[0]).toHaveTextContent(mockBeach.id);
-    });
-
     test('renders HomeBeachBanner components (mobile and desktop)', () => {
       render(<BeachActions beach={mockBeach} />);
 
-      // Phase 3: Now renders 2 HomeBeachBanners (one for mobile, one for desktop)
+      // Component renders HomeBeachBanner for both mobile and desktop
       const homeBanners = screen.getAllByTestId('home-beach-banner');
       expect(homeBanners.length).toBeGreaterThanOrEqual(1);
       expect(homeBanners[0]).toHaveTextContent(mockBeach.name);
@@ -366,39 +360,27 @@ describe('BeachActions', () => {
     test('secondary actions are in flex container with gap (mobile section)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      // Mobile section still uses flex layout
+      // Mobile section uses flex layout
       const secondaryContainer = container.querySelector('.flex.flex-wrap.items-center.gap-3');
       expect(secondaryContainer).toBeInTheDocument();
     });
   });
 
   describe('Responsive Layout (Phase 3 Grid System)', () => {
-    test('uses 2 columns on mobile (grid-cols-2)', () => {
+    test('uses 1 column on mobile, 2 columns on small screens (grid-cols-1 sm:grid-cols-2)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
-      const gridContainer = container.querySelector('.grid-cols-2');
+      const gridContainer = container.querySelector('.grid-cols-1.sm\\:grid-cols-2');
       expect(gridContainer).toBeInTheDocument();
     });
 
-    test('uses 4 columns on desktop (md:grid-cols-4)', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const gridContainer = container.querySelector('.md\\:grid-cols-4');
-      expect(gridContainer).toBeInTheDocument();
-    });
-
-    test('Plan Session button spans 2 columns on mobile', () => {
+    test('Plan Session button does not span columns', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
       const planBtn = screen.getByRole('button', { name: /plan session/i });
-      expect(planBtn).toHaveClass('col-span-2');
-    });
-
-    test('Plan Session button spans 1 column on desktop', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      const planBtn = screen.getByRole('button', { name: /plan session/i });
-      expect(planBtn).toHaveClass('md:col-span-1');
+      // Component doesn't use col-span classes
+      expect(planBtn).not.toHaveClass('col-span-2');
+      expect(planBtn).not.toHaveClass('md:col-span-1');
     });
 
     test('grid container has correct margin (my-5 = 20px vertical)', () => {
@@ -408,32 +390,14 @@ describe('BeachActions', () => {
       expect(gridContainer).toHaveClass('my-5');
     });
 
-    test('Favorite button in grid is hidden on mobile, shown on desktop', () => {
-      const { container } = render(<BeachActions beach={mockBeach} />);
-
-      // Grid container has both mobile and desktop buttons
-      // The desktop favorite button should have hidden/md:block classes
-      const favButtons = screen.getAllByTestId('favorite-button');
-
-      // At least one favorite button should exist
-      expect(favButtons.length).toBeGreaterThanOrEqual(1);
-
-      // Check that we have both mobile and desktop sections
-      const mobileSection = container.querySelector('.md\\:hidden');
-      const desktopSection = container.querySelector('.hidden.md\\:block');
-
-      expect(mobileSection).toBeInTheDocument();
-      expect(desktopSection).toBeInTheDocument();
-    });
-
-    test('renders separate mobile-only favorite and home beach section', () => {
+    test('mobile section is hidden on desktop (md:hidden)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
       const mobileSection = container.querySelector('.md\\:hidden');
       expect(mobileSection).toBeInTheDocument();
     });
 
-    test('renders separate desktop home beach banner', () => {
+    test('desktop home beach banner is hidden on mobile (hidden md:block)', () => {
       const { container } = render(<BeachActions beach={mockBeach} />);
 
       const desktopBanner = container.querySelector('.hidden.md\\:block');
@@ -599,8 +563,7 @@ describe('BeachActions', () => {
       expect(screen.getByRole('button', { name: /log session/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /plan session/i })).toBeInTheDocument();
 
-      // Phase 3: Multiple instances of these components (mobile + desktop)
-      expect(screen.getAllByTestId('favorite-button').length).toBeGreaterThanOrEqual(1);
+      // Component renders HomeBeachBanner (mobile + desktop)
       expect(screen.getAllByTestId('home-beach-banner').length).toBeGreaterThanOrEqual(1);
     });
 

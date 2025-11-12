@@ -87,7 +87,11 @@ jest.mock("@supabase/realtime-js", () => ({
 global.fetch = jest.fn(() =>
   Promise.resolve({
     json: () => Promise.resolve({ success: true, data: {} }),
+    text: () => Promise.resolve(JSON.stringify({ success: true, data: {} })),
     ok: true,
+    status: 200,
+    statusText: "OK",
+    headers: new Map(),
   })
 );
 
@@ -122,6 +126,10 @@ if (typeof Response === "undefined") {
 
     async json() {
       return JSON.parse(this.body);
+    }
+
+    async text() {
+      return String(this.body);
     }
 
     static json(body, options = {}) {

@@ -173,15 +173,15 @@ describe('findNextBestWindow', () => {
   describe('Scoring Behavior', () => {
     test('should prefer offshore winds in scoring', () => {
       const forecasts = [
-        createForecast('10:00', 5, 90, 10, 3),  // Offshore
-        createForecast('11:00', 5, 270, 10, 3), // Onshore (270° is onshore for OB)
+        createForecast('10:00', 5, 270, 10, 3), // Offshore (270° matches beach normal 270°)
+        createForecast('11:00', 5, 90, 10, 3),   // Onshore (90° is opposite to beach normal)
       ];
 
       const currentTime = new Date('2025-10-26T09:00:00');
       const result = findNextBestWindow(forecasts, currentTime);
 
       expect(result).not.toBeNull();
-      // Should pick the offshore window
+      // Should pick the offshore window (270° gets +30 points vs 90° gets +10 points)
       expect(result?.startTime).toBe('10:00');
     });
 

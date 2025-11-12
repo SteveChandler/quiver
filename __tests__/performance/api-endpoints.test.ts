@@ -43,7 +43,7 @@ describe('API Endpoint Performance', () => {
       const metrics = await measureAPIPerformance(
         '/api/beaches/search',
         () =>
-          fetch(`${BASE_URL}/api/beaches/search?q=blacks`, {
+          fetch(`${BASE_URL}/api/beaches/search?query=blacks`, {
             headers: getHeaders(),
           })
       );

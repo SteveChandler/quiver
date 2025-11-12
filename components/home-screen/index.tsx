@@ -11,11 +11,10 @@ import { useCachedProfile } from "@/hooks/use-cached-profile";
 import type { Beach } from "@/types/database";
 import { BeachSearchBar } from "./beach-search-bar";
 import { useGeo } from "@/hooks/useGeo";
-import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
-import { useOnboarding } from "@/hooks/use-onboarding";
 import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 import { track } from "@/lib/analytics";
 import { BookOpen, Plus } from "lucide-react";
+import { PreferencesAnnouncementDialog } from "@/components/profile/preferences-announcement-dialog";
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
@@ -45,6 +44,7 @@ export function HomeScreen() {
   );
   const [selectedBeachOverride, setSelectedBeachOverride] =
     useState<Beach | null>(null);
+  const [showPreferencesPopup, setShowPreferencesPopup] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
   const { beaches, sessions, loading } = useHomeData();
@@ -57,25 +57,6 @@ export function HomeScreen() {
       user_authenticated: !!user,
     });
   };
-
-  // Server-truth onboarding flow
-  const {
-    open,
-    loading: onboardingLoading,
-    complete,
-  } = useOnboarding(user?.id);
-  const {
-    requestPushOptIn,
-    canPrompt,
-    status: pushStatus,
-  } = useNativePushRegistration();
-
-  const handleOnboardingComplete = useCallback(() => {
-    void complete("completed");
-    if (canPrompt) {
-      void requestPushOptIn();
-    }
-  }, [complete, canPrompt, requestPushOptIn]);
 
   // Use cached profile hook to prevent flickering on navigation
   const { profile, homeBeach, profileLoading, hasCachedData } =
@@ -104,18 +85,60 @@ export function HomeScreen() {
     return () => controller.abort();
   }, [coords]);
 
-  // Push opt-in is requested in handleOnboardingComplete; no additional effect needed
+  // Check if we should show the preferences announcement popup
+  useEffect(() => {
+    if (!profile || profileLoading) return;
+
+    const shouldShow =
+      profile.preferences_v2_shown_at === null &&
+      profile.onboarding_completed_at !== null;
+
+    if (shouldShow) {
+      setShowPreferencesPopup(true);
+      track("preferences_announcement_shown", {
+        user_id: profile.id,
+      });
+    }
+  }, [profile, profileLoading]);
+
+  // Handle "Update Profile" action from preferences popup
+  const handleUpdateProfile = useCallback(() => {
+    setShowPreferencesPopup(false);
+    track("preferences_announcement_update_clicked", {
+      user_id: profile?.id,
+    });
+    router.push("/profile");
+  }, [profile?.id, router]);
+
+  // Handle "Maybe Later" action from preferences popup
+  const handleDismissPopup = useCallback(async () => {
+    setShowPreferencesPopup(false);
+    track("preferences_announcement_dismissed", {
+      user_id: profile?.id,
+    });
+
+    try {
+      const response = await fetch("/api/user/preferences-popup-shown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        console.error("Failed to mark preferences popup as shown");
+      }
+    } catch (error) {
+      console.error("Error marking preferences popup as shown:", error);
+    }
+  }, [profile?.id]);
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Onboarding Flow (no flash: gated by onboardingLoading) */}
-      {!onboardingLoading && (
-        <OnboardingFlow
-          isOpen={open}
-          onClose={() => complete("skipped")}
-          onComplete={handleOnboardingComplete}
-        />
-      )}
+      {/* Preferences Announcement Dialog */}
+      <PreferencesAnnouncementDialog
+        open={showPreferencesPopup}
+        onClose={handleDismissPopup}
+        onUpdateProfile={handleUpdateProfile}
+      />
 
       {/* Note: EngagementProgressTracker removed - only needed for unauthenticated landing page visitors */}
 
@@ -167,18 +190,11 @@ export function HomeScreen() {
         </section>
 
         {/* Best Conditions Section - Only show if user has home beach */}
-        {(() => {
-          console.log("[HomeScreen] homeBeach check:", {
-            hasHomeBeach: !!homeBeach,
-            homeBeachId: homeBeach?.id,
-            homeBeachName: homeBeach?.name,
-          });
-          return homeBeach ? (
-            <section className="centered-container">
-              <BestConditionsCards />
-            </section>
-          ) : null;
-        })()}
+        {homeBeach && (
+          <section className="centered-container">
+            <BestConditionsCards homeBeach={homeBeach} />
+          </section>
+        )}
 
         {/* Tabs Section */}
         <section className="centered-container">
