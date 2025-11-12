@@ -192,7 +192,7 @@ export function HomeScreen() {
         {/* Best Conditions Section - Only show if user has home beach */}
         {homeBeach && (
           <section className="centered-container">
-            <BestConditionsCards />
+            <BestConditionsCards homeBeach={homeBeach} />
           </section>
         )}
 

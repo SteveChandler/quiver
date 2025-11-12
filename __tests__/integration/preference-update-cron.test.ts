@@ -22,9 +22,50 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const cronSecret = process.env.CRON_SECRET_TOKEN || process.env.CRON_SECRET;
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
-// Restore real fetch for API tests
+// Ensure fetch is available for API tests
+// Node.js 18+ has fetch built-in, but Jest might not expose it
 // @ts-ignore
-delete global.fetch;
+if (typeof global.fetch === 'undefined' && typeof fetch !== 'undefined') {
+  // @ts-ignore
+  global.fetch = fetch;
+} else if (typeof global.fetch === 'undefined') {
+  // Fallback: try to use node-fetch if available
+  try {
+    // @ts-ignore
+    global.fetch = require('node-fetch');
+  } catch {
+    // If node-fetch is not available, create a simple mock
+    // @ts-ignore
+    global.fetch = async (url: string, options?: any) => {
+      const http = require('http');
+      const https = require('https');
+      const { URL } = require('url');
+      const urlObj = new URL(url);
+      const client = urlObj.protocol === 'https:' ? https : http;
+      
+      return new Promise((resolve, reject) => {
+        const req = client.request(urlObj, options || {}, (res: any) => {
+          let data = '';
+          res.on('data', (chunk: any) => { data += chunk; });
+          res.on('end', () => {
+            resolve({
+              ok: res.statusCode >= 200 && res.statusCode < 300,
+              status: res.statusCode,
+              statusText: res.statusMessage,
+              json: async () => JSON.parse(data),
+              text: async () => data,
+            } as Response);
+          });
+        });
+        req.on('error', reject);
+        if (options?.body) {
+          req.write(options.body);
+        }
+        req.end();
+      });
+    };
+  }
+}
 
 describe('Preference Update Cron Integration', () => {
   let supabaseAdmin: ReturnType<typeof createClient<Database>>;
@@ -114,6 +155,18 @@ describe('Preference Update Cron Integration', () => {
           crowd_level: 'moderate',
         };
 
+        // Parse arrival_time safely
+        const arrivalTime = sessionData.arrival_time 
+          ? (typeof sessionData.arrival_time === 'string' 
+              ? new Date(sessionData.arrival_time) 
+              : new Date(sessionData.arrival_time))
+          : new Date();
+        
+        if (isNaN(arrivalTime.getTime())) {
+          console.warn(`Invalid arrival_time for session ${sessionData.id}: ${sessionData.arrival_time}`);
+          continue;
+        }
+        
         await supabaseAdmin.from('session_forecast_snapshots').insert({
           session_id: sessionData.id,
           user_id: userData.user.id,
@@ -122,7 +175,7 @@ describe('Preference Update Cron Integration', () => {
           actual_conditions: actualConditions,
           forecast_confidence_score: 80,
           data_source: 'CDIP',
-          session_date: new Date(sessionData.arrival_time).toISOString().split('T')[0],
+          session_date: arrivalTime.toISOString().split('T')[0],
         });
       }
     }

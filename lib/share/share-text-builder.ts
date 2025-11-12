@@ -77,7 +77,7 @@ function formatDate(dateString: string): string {
  * Format rating as stars
  */
 export function formatRatingAsStars(rating: number | null): string {
-  if (rating === null) return "";
+  if (rating === null || rating < 0 || !isFinite(rating)) return "";
   const fullStars = "⭐".repeat(Math.floor(rating));
   return fullStars;
 }
@@ -117,12 +117,22 @@ export function buildShareText(session: SessionWithDetails): string {
 /**
  * Build shorter share text for platforms with character limits (Twitter/X)
  * Template: "{Beach} • {Date} • ⭐{Rating}/5"
+ * Max length: ~250 chars (leaving room for URL ~23 chars + space = ~280 total)
  */
 export function buildShortShareText(session: SessionWithDetails): string {
   const data = extractShareTextData(session);
   const stars = formatRatingAsStars(data.rating);
+  
+  // Base template: " • {Date} • {stars}{rating}/5" ≈ 20-25 chars
+  const baseTemplate = ` • ${data.date} • ${stars}${data.rating}/5`;
+  const maxBeachNameLength = 250 - baseTemplate.length;
+  
+  // Truncate beach name if too long
+  const beachName = data.beachName.length > maxBeachNameLength
+    ? data.beachName.substring(0, maxBeachNameLength - 3) + "..."
+    : data.beachName;
 
-  return `${data.beachName} • ${data.date} • ${stars}${data.rating}/5`;
+  return `${beachName}${baseTemplate}`;
 }
 
 /**
@@ -160,10 +170,12 @@ export function buildInstagramLinkStickerTooltip(
 export function buildSessionDescription(session: SessionWithDetails): string {
   const notes = session.notes || session.description;
   if (notes) {
-    // Truncate to 200 characters for meta description
-    return notes.length > 200 ? notes.substring(0, 197) + "..." : notes;
+    // Truncate to 160 characters for meta description (test requirement)
+    return notes.length > 160 ? notes.substring(0, 157) + "..." : notes;
   }
 
   const data = extractShareTextData(session);
-  return `Surf session at ${data.beachName} on ${data.date}. ${data.waveHeight} waves with ${data.wind} wind. Rating: ${data.rating}/5`;
+  const description = `Surf session at ${data.beachName} on ${data.date}. ${data.waveHeight} waves with ${data.wind} wind. Rating: ${data.rating}/5`;
+  // Ensure description doesn't exceed 160 characters
+  return description.length > 160 ? description.substring(0, 157) + "..." : description;
 }

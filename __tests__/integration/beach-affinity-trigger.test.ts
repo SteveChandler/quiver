@@ -51,6 +51,13 @@ describe("Beach Affinity Trigger Integration", () => {
 
     testUserId = userData.user.id;
 
+    // Create profile for the user (required for sessions)
+    await supabase.from("profiles").insert({
+      id: testUserId,
+      email: userData.user.email!,
+      full_name: "Test User",
+    });
+
     // Create test beach
     const { data: beachData, error: beachError } = await supabase
       .from("beaches")
@@ -97,12 +104,13 @@ describe("Beach Affinity Trigger Integration", () => {
       expect(initialAffinity).toBeNull();
 
       // Insert a session (trigger should fire)
+      const arrivalTime = new Date();
       const { error: sessionError } = await supabase.from("sessions").insert({
         user_id: testUserId,
+        profile_id: testUserId, // profile_id is required
         beach_id: testBeachId,
-        arrival_time: new Date().toISOString(),
-        departure_time: new Date(Date.now() + 7200000).toISOString(),
-        wave_count: 10,
+        arrival_time: arrivalTime.toISOString(),
+        duration_minutes: 120, // Use duration_minutes instead of departure_time
         notes: "First session",
       });
 
@@ -129,10 +137,10 @@ describe("Beach Affinity Trigger Integration", () => {
       // Insert first session
       await supabase.from("sessions").insert({
         user_id: testUserId,
+        profile_id: testUserId,
         beach_id: testBeachId,
         arrival_time: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-        departure_time: new Date(Date.now() - 86400000 + 7200000).toISOString(),
-        wave_count: 10,
+        duration_minutes: 120,
         notes: "First session",
       });
 
@@ -150,10 +158,10 @@ describe("Beach Affinity Trigger Integration", () => {
       // Insert second session (more recent)
       await supabase.from("sessions").insert({
         user_id: testUserId,
+        profile_id: testUserId,
         beach_id: testBeachId,
         arrival_time: new Date().toISOString(),
-        departure_time: new Date(Date.now() + 7200000).toISOString(),
-        wave_count: 15,
+        duration_minutes: 90,
         notes: "Second session",
       });
 
@@ -177,12 +185,10 @@ describe("Beach Affinity Trigger Integration", () => {
       // Insert multiple sessions at once
       const sessions = Array.from({ length: 5 }, (_, i) => ({
         user_id: testUserId,
+        profile_id: testUserId,
         beach_id: testBeachId,
         arrival_time: new Date(Date.now() - i * 86400000).toISOString(),
-        departure_time: new Date(
-          Date.now() - i * 86400000 + 7200000
-        ).toISOString(),
-        wave_count: 10,
+        duration_minutes: 120,
         notes: `Session ${i + 1}`,
       }));
 
@@ -212,8 +218,8 @@ describe("Beach Affinity Trigger Integration", () => {
           user_id: testUserId,
           beach_id: testBeachId,
           arrival_time: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          departure_time: new Date(Date.now() - 86400000 + 7200000).toISOString(),
-          wave_count: 10,
+          profile_id: testUserId,
+          duration_minutes: 120,
           notes: "Original session",
         })
         .select()
@@ -236,7 +242,6 @@ describe("Beach Affinity Trigger Integration", () => {
         .from("sessions")
         .update({
           arrival_time: new Date().toISOString(),
-          departure_time: new Date(Date.now() + 7200000).toISOString(),
         })
         .eq("id", sessionData.id);
 
@@ -262,20 +267,18 @@ describe("Beach Affinity Trigger Integration", () => {
         .insert([
           {
             user_id: testUserId,
+            profile_id: testUserId,
             beach_id: testBeachId,
             arrival_time: new Date(Date.now() - 86400000).toISOString(),
-            departure_time: new Date(
-              Date.now() - 86400000 + 7200000
-            ).toISOString(),
-            wave_count: 10,
+            duration_minutes: 120,
             notes: "Session 1",
           },
           {
             user_id: testUserId,
+            profile_id: testUserId,
             beach_id: testBeachId,
             arrival_time: new Date().toISOString(),
-            departure_time: new Date(Date.now() + 7200000).toISOString(),
-            wave_count: 10,
+            duration_minutes: 90,
             notes: "Session 2",
           },
         ])
@@ -296,6 +299,9 @@ describe("Beach Affinity Trigger Integration", () => {
 
       // Delete one session
       await supabase.from("sessions").delete().eq("id", sessions![0].id);
+
+      // Wait for trigger to process
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Verify affinity was updated
       const { data: updatedAffinity } = await supabase
@@ -320,8 +326,8 @@ describe("Beach Affinity Trigger Integration", () => {
           user_id: testUserId,
           beach_id: testBeachId,
           arrival_time: new Date().toISOString(),
-          departure_time: new Date(Date.now() + 7200000).toISOString(),
-          wave_count: 10,
+          profile_id: testUserId,
+          duration_minutes: 120,
           notes: "Only session",
         })
         .select()
@@ -363,8 +369,8 @@ describe("Beach Affinity Trigger Integration", () => {
           user_id: testUserId,
           beach_id: testBeachId,
           arrival_time: new Date().toISOString(),
-          departure_time: new Date(Date.now() + 7200000).toISOString(),
-          wave_count: 10,
+          profile_id: testUserId,
+          duration_minutes: 120,
           notes: "Test",
         })
         .select()
@@ -373,12 +379,12 @@ describe("Beach Affinity Trigger Integration", () => {
       // Rapidly update and delete
       await supabase
         .from("sessions")
-        .update({ wave_count: 20 })
+        .update({ duration_minutes: 90 })
         .eq("id", session!.id);
 
       await supabase
         .from("sessions")
-        .update({ wave_count: 30 })
+        .update({ duration_minutes: 60 })
         .eq("id", session!.id);
 
       await supabase.from("sessions").delete().eq("id", session!.id);
@@ -415,16 +421,16 @@ describe("Beach Affinity Trigger Integration", () => {
           user_id: testUserId,
           beach_id: testBeachId,
           arrival_time: new Date().toISOString(),
-          departure_time: new Date(Date.now() + 7200000).toISOString(),
-          wave_count: 10,
+          profile_id: testUserId,
+          duration_minutes: 120,
           notes: "Beach 1",
         },
         {
           user_id: testUserId,
           beach_id: beach2!.id,
           arrival_time: new Date().toISOString(),
-          departure_time: new Date(Date.now() + 7200000).toISOString(),
-          wave_count: 10,
+          profile_id: testUserId,
+          duration_minutes: 120,
           notes: "Beach 2",
         },
       ]);
@@ -448,10 +454,10 @@ describe("Beach Affinity Trigger Integration", () => {
       // Insert session (creates affinity)
       await supabase.from("sessions").insert({
         user_id: testUserId,
+        profile_id: testUserId,
         beach_id: testBeachId,
         arrival_time: new Date().toISOString(),
-        departure_time: new Date(Date.now() + 7200000).toISOString(),
-        wave_count: 10,
+        duration_minutes: 120,
         notes: "Session 1",
       });
 
@@ -465,10 +471,10 @@ describe("Beach Affinity Trigger Integration", () => {
       // Insert another session (should UPDATE existing affinity, not create new)
       await supabase.from("sessions").insert({
         user_id: testUserId,
+        profile_id: testUserId,
         beach_id: testBeachId,
         arrival_time: new Date().toISOString(),
-        departure_time: new Date(Date.now() + 7200000).toISOString(),
-        wave_count: 10,
+        duration_minutes: 90,
         notes: "Session 2",
       });
 

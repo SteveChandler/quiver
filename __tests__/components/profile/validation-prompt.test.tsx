@@ -11,9 +11,8 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, jest } from '@testing/globals';
 import '@testing-library/jest-dom';
-import ValidationPrompt from '@/components/profile/validation-prompt';
+import { ValidationPrompt } from '@/components/profile/validation-prompt';
 
 // Mock UI components
 jest.mock('@/components/ui/button', () => ({

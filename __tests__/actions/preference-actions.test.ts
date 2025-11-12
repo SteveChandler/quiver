@@ -79,10 +79,18 @@ jest.mock('@/lib/server-action-utils', () => {
             return {
               select: () => ({
                 eq: () => ({
-                  single: () => Promise.resolve({
-                    data: mockState.profileData,
-                    error: null,
-                  }),
+                  single: () => {
+                    if (mockState.shouldFailFetch) {
+                      return Promise.resolve({
+                        data: null,
+                        error: { message: 'Database connection failed' },
+                      });
+                    }
+                    return Promise.resolve({
+                      data: mockState.profileData || {},
+                      error: null,
+                    });
+                  },
                 }),
               }),
             };
@@ -150,6 +158,7 @@ describe('getUserLearnedPreferences', () => {
   });
 
   it('should return null learned preferences when none exist', async () => {
+    mockState.preferencesData = null; // Explicitly set to null
     mockState.profileData = { experience_level: 'beginner' };
 
     const result = await getUserLearnedPreferences();

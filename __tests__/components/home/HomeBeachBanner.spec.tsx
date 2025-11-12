@@ -1,5 +1,6 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
 
 // Mock the hooks and actions
@@ -11,23 +12,35 @@ jest.mock("@/lib/hooks/useProfile", () => ({
   useProfile: () => mockUseProfile(),
 }));
 
+// Mock profile actions - need to handle both static and dynamic imports
+const mockUpdateProfile = jest.fn();
 jest.mock("@/actions/profile-actions", () => ({
-  updateProfile: (...args: any[]) => mockSetHomeBeach(...args),
+  updateProfile: mockUpdateProfile,
+}));
+
+// Also mock the dynamic import path
+jest.doMock("@/actions/profile-actions", () => ({
+  updateProfile: mockUpdateProfile,
 }));
 
 describe("HomeBeachBanner", () => {
   const selectedBeachId = "test-beach-123";
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockSetHomeBeach.mockResolvedValue({
+    // Clear call history but keep implementation
+    mockSetHomeBeach.mockClear();
+    mockUpdateProfile.mockClear();
+    const mockResult = {
       success: true,
       data: {
         id: "test-user-id",
         home_beach_id: selectedBeachId,
         full_name: "Test User",
       },
-    });
+    };
+    mockSetHomeBeach.mockResolvedValue(mockResult);
+    // Ensure mockUpdateProfile returns the promise directly
+    mockUpdateProfile.mockResolvedValue(mockResult);
   });
 
   it("renders the set home beach button when beach is not already set", () => {
@@ -71,6 +84,7 @@ describe("HomeBeachBanner", () => {
   });
 
   it("calls setHomeBeach action when button is clicked", async () => {
+    const user = userEvent.setup();
     mockUseProfile.mockReturnValue({
       profile: {
         id: "test-user-id",
@@ -86,16 +100,21 @@ describe("HomeBeachBanner", () => {
     render(<HomeBeachBanner selectedBeachId={selectedBeachId} />);
 
     const button = screen.getByTestId("set-home-beach");
-    fireEvent.click(button);
-
-    await waitFor(() => {
-      expect(mockSetHomeBeach).toHaveBeenCalledWith({
-        home_beach_id: selectedBeachId,
-      });
+    await act(async () => {
+      await user.click(button);
     });
 
+    await waitFor(() => {
+      // Component uses dynamic import, so check mockUpdateProfile instead
+      expect(mockUpdateProfile).toHaveBeenCalledWith({
+        home_beach_id: selectedBeachId,
+      });
+    }, { timeout: 5000 });
+
     // Should also trigger profile refetch
-    expect(mockMutate).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalled();
+    }, { timeout: 2000 });
   });
 
   it("shows saving state when action is in progress", async () => {

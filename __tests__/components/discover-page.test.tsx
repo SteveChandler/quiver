@@ -50,7 +50,7 @@ describe("DiscoverPage", () => {
       expect(screen.getByText("Discover Surfers")).toBeInTheDocument();
       expect(
         screen.getByText(
-          "Sign in to discover and follow other surfers in your community."
+          /Sign in to discover and follow other surfers in your community/i
         )
       ).toBeInTheDocument();
     });

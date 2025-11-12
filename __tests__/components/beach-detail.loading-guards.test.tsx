@@ -1,5 +1,5 @@
-jest.mock("@/hooks/use-data-fetcher", () => ({
-  useDataFetcher: jest.fn(),
+jest.mock("@/hooks/use-beach-detail-data", () => ({
+  useBeachDetailData: jest.fn(),
 }));
 jest.mock("@/hooks/use-forecast-calibration", () => ({
   useForecastCalibration: () => ({ sessionSnapshots: [] }),
@@ -33,52 +33,27 @@ jest.mock("@/components/home/HomeBeachBanner", () => ({
 
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useBeachDetailData } from "@/hooks/use-beach-detail-data";
 import { BeachDetail } from "@/components/beach-detail";
 
-// Helper to mock useDataFetcher for all calls (beach, forecasts, sources, photos)
-function mockDataFetcherSequence(
-  states: Array<{ data: any; loading: boolean; error: string | null }>
+// Helper to mock useBeachDetailData
+function mockBeachDetailData(
+  beach: any,
+  loading: boolean,
+  error: string | null
 ) {
-  const fn = useDataFetcher as unknown as jest.Mock;
-  fn.mockReset();
-  const wrap = (s: any) => ({
-    ...s,
+  const fn = useBeachDetailData as unknown as jest.Mock;
+  fn.mockReturnValue({
+    beach: beach || null,
+    forecasts: [],
+    sources: null,
+    loading,
+    errors: {
+      beach: error,
+      forecasts: null,
+      sources: null,
+    },
     refetch: jest.fn(),
-    retry: jest.fn(),
-    reset: jest.fn(),
-  });
-  const beachState = states[0] || { data: null, loading: false, error: null };
-  const forecastsState = states[1] || { data: [], loading: false, error: null };
-  const sourcesState = states[2] || { data: null, loading: false, error: null };
-  const photosState = states[3] || { data: [], loading: false, error: null };
-  const coerceArray = (d: any) => (Array.isArray(d) ? d : []);
-  const normalizedBeach = { ...beachState, data: beachState?.data };
-  const normalizedForecasts = {
-    ...forecastsState,
-    data: coerceArray(forecastsState?.data),
-  };
-  const normalizedSources = {
-    ...sourcesState,
-    data: sourcesState?.data,
-  };
-  const normalizedPhotos = {
-    ...photosState,
-    data: coerceArray(photosState?.data),
-  };
-  let call = 0;
-  fn.mockImplementation(() => {
-    const idx = call % 4; // beach, forecasts, sources, photos (repeat)
-    call += 1;
-    const state =
-      idx === 0
-        ? normalizedBeach
-        : idx === 1
-        ? normalizedForecasts
-        : idx === 2
-        ? normalizedSources
-        : normalizedPhotos;
-    return wrap(state);
   });
   return fn;
 }
@@ -90,12 +65,7 @@ describe("BeachDetail loading and error guards", () => {
   });
 
   it("shows loader while loading and not error", () => {
-    const spy = mockDataFetcherSequence([
-      { data: null, loading: true, error: null }, // beach
-      { data: [], loading: true, error: null }, // forecasts
-      { data: null, loading: false, error: null }, // sources
-      { data: [], loading: false, error: null }, // photos
-    ]);
+    const spy = mockBeachDetailData(null, true, null);
 
     render(<BeachDetail id="beach-1" />);
 
@@ -105,12 +75,7 @@ describe("BeachDetail loading and error guards", () => {
   });
 
   it("shows error when finished loading and beach missing", () => {
-    const spy = mockDataFetcherSequence([
-      { data: null, loading: false, error: "Failed" }, // beach
-      { data: [], loading: false, error: null }, // forecasts
-      { data: null, loading: false, error: null }, // sources
-      { data: [], loading: false, error: null }, // photos
-    ]);
+    const spy = mockBeachDetailData(null, false, "Failed");
 
     render(<BeachDetail id="beach-1" />);
 
@@ -122,16 +87,19 @@ describe("BeachDetail loading and error guards", () => {
   });
 
   it("renders when beach exists even if forecasts empty", () => {
-    const spy = mockDataFetcherSequence([
-      {
-        data: { id: "beach-1", name: "Test Beach", lat: 0, lon: 0 },
-        loading: false,
-        error: null,
-      }, // beach
-      { data: [], loading: false, error: null }, // forecasts
-      { data: null, loading: false, error: null }, // sources
-      { data: [], loading: false, error: null }, // photos
-    ]);
+    const beach = {
+      id: "beach-1",
+      name: "Test Beach",
+      lat: 0,
+      lon: 0,
+      city: "Test City",
+      state: "CA",
+      country: "USA",
+      break_type: "Beach Break",
+      created_at: "2024-01-01",
+      updated_at: "2024-01-01",
+    };
+    const spy = mockBeachDetailData(beach, false, null);
 
     render(<BeachDetail id="beach-1" />);
 

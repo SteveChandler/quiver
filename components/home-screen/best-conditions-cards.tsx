@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo, memo } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getBestBeachesNearHome } from "@/actions/beach/best-beaches-simple";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,39 +9,55 @@ import { Waves, Wind, TrendingUp } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { BeachRecommendation } from "@/types/beach-recommendations";
+import type { Beach } from "@/types/database";
+import { useGeo } from "@/hooks/useGeo";
+import {
+  getSkillLevelStyle,
+  getCrowdLevelStyle,
+} from "@/lib/constants/beach-badge-styles";
+import { getBestConditionsHeading } from "@/lib/utils/best-conditions-helpers";
 
-export function BestConditionsCards() {
-  console.log("[BestConditionsCards] 🎯 Component rendering!");
+interface BestConditionsCardsProps {
+  homeBeach?: Beach | null;
+}
+
+const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) => {
   const router = useRouter();
+  const { coords, source } = useGeo();
 
   const fetchData = useCallback(async () => {
-    console.log("[BestConditionsCards] 📞 Calling getBestBeachesNearHome");
-    return await getBestBeachesNearHome();
-  }, []);
+    return await getBestBeachesNearHome(coords);
+  }, [coords]);
 
   const { data: result, loading, error } = useDataFetcher(fetchData);
 
-  // Debug logging
-  console.log("[BestConditionsCards] Loading:", loading);
-  console.log("[BestConditionsCards] Error:", error);
-  console.log("[BestConditionsCards] Result:", result);
+  // Determine heading based on location source from metadata
+  // Memoized to avoid recalculating on every render
+  // Must be called before any conditional returns to follow Rules of Hooks
+  const headingText = useMemo(
+    () => getBestConditionsHeading(
+      result?.metadata?.locationSource === 'gps' ? 'gps' : 'home-beach',
+      homeBeach?.name
+    ),
+    [result?.metadata?.locationSource, homeBeach?.name]
+  );
 
   if (loading) {
-    return <BestConditionsCardsSkeleton />;
+    return <BestConditionsCardsSkeleton data-testid="best-conditions-skeleton" />;
   }
 
   if (error) {
     // Show error state instead of hiding
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" data-testid="best-conditions-error">
         <div>
-          <h3 className="text-2xl font-roboto font-bold text-gray-900">Best Conditions Near You</h3>
+          <h3 className="text-2xl font-roboto font-bold text-gray-900">{headingText}</h3>
           <p className="text-sm text-gray-600 mt-1">
             Top surf spots within 10 miles right now
           </p>
         </div>
         <div className="p-8 bg-red-50 border-2 border-red-200 rounded-lg text-center">
-          <p className="text-lg font-medium text-red-900">
+          <p className="text-lg font-medium text-red-900" data-testid="error-message">
             Error loading beaches: {error}
           </p>
         </div>
@@ -50,22 +66,16 @@ export function BestConditionsCards() {
   }
 
   if (!result?.success || !result.data || result.data.length === 0) {
-    console.log("[BestConditionsCards] No beaches found:", {
-      hasResult: !!result,
-      success: result?.success,
-      hasData: !!result?.data,
-      dataLength: result?.data?.length,
-    });
     return null; // Hide if no beaches within range
   }
 
   const beaches = result.data as BeachRecommendation[];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="best-conditions-section">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-2xl font-roboto font-bold text-gray-900">Best Conditions Near You</h3>
+          <h3 className="text-2xl font-roboto font-bold text-gray-900" data-testid="best-conditions-heading">{headingText}</h3>
           <p className="text-sm text-gray-600 mt-1">
             Top surf spots within 10 miles right now
           </p>
@@ -73,10 +83,11 @@ export function BestConditionsCards() {
       </div>
 
       {/* Horizontal Scrollable Cards */}
-      <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+      <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide" data-testid="best-conditions-cards-container">
         {beaches.map((beach) => (
           <Card
             key={beach.id}
+            data-testid="best-conditions-card"
             className="flex-shrink-0 w-[280px] sm:w-[320px] cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.99] snap-start rounded-lg"
             onClick={() => router.push(`/beach/${beach.id}`)}
           >
@@ -146,13 +157,15 @@ export function BestConditionsCards() {
               <div className="flex gap-2 pt-2 flex-wrap">
                 <Badge
                   variant="outline"
-                  className={getSkillLevelColor(beach.skill_level)}
+                  className={getSkillLevelStyle(beach.skill_level)}
+                  data-testid="skill-badge"
                 >
                   {beach.skill_level}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className={getCrowdLevelColor(beach.crowd_level)}
+                  className={getCrowdLevelStyle(beach.crowd_level)}
+                  data-testid="crowd-badge"
                 >
                   <span className="mr-1">👥</span>
                   {beach.crowd_level}
@@ -164,17 +177,22 @@ export function BestConditionsCards() {
       </div>
     </div>
   );
-}
+};
 
-function BestConditionsCardsSkeleton() {
+// Memoized to prevent unnecessary re-renders when parent re-renders
+// Component will only re-render when homeBeach prop changes (shallow comparison)
+export const BestConditionsCards = memo(BestConditionsCardsComponent);
+BestConditionsCards.displayName = 'BestConditionsCards';
+
+function BestConditionsCardsSkeleton({ "data-testid": dataTestId }: { "data-testid"?: string }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid={dataTestId}>
       <div className="space-y-2">
         <div className="h-6 w-48 bg-gray-200 animate-pulse rounded" />
         <div className="h-4 w-64 bg-gray-200 animate-pulse rounded" />
       </div>
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {[1, 2, 3, 4].map((i) => (
+        {[1, 2, 3].map((i) => (
           <Card key={i} className="flex-shrink-0 w-[280px] sm:w-[320px]">
             <div className="h-48 bg-gray-200 animate-pulse rounded-t-lg" />
             <CardContent className="p-4 space-y-3">
@@ -199,21 +217,3 @@ function BestConditionsCardsSkeleton() {
   );
 }
 
-function getSkillLevelColor(level: string): string {
-  const colors: Record<string, string> = {
-    Beginner: "bg-blue-50 text-ocean-blue border-transparent",
-    Intermediate: "bg-orange-50 text-orange-600 border-transparent",
-    Advanced: "bg-red-50 text-red-600 border-transparent",
-    Expert: "bg-red-50 text-red-700 border-transparent",
-  };
-  return colors[level] || colors.Intermediate;
-}
-
-function getCrowdLevelColor(level: string): string {
-  const colors: Record<string, string> = {
-    Uncrowded: "bg-green-50 text-green-700 border-green-200",
-    Moderate: "bg-yellow-50 text-yellow-700 border-yellow-200",
-    Crowded: "bg-red-50 text-red-700 border-red-200",
-  };
-  return colors[level] || colors.Moderate;
-}

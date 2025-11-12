@@ -172,7 +172,8 @@ describe("Map Forecast Display Feature", () => {
       };
       
       expect(expectedBeachStructure.id).toBe("UUID string");
-      expect(expectedBeachStructure.latitude).toBe("number");
+      expect(expectedBeachStructure.lat).toBe("number");
+      expect(expectedBeachStructure.lon).toBe("number");
     });
   });
 
