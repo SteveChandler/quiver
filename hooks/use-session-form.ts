@@ -21,8 +21,13 @@ export type SessionFormState = {
   parkingEase: string;
   overallRating: string;
   notes: string;
-  photos: string[];
+  photos: File[]; // Changed from string[] to File[] to fix photo handling
   waveTypes: string[]; // Array of wave type IDs
+  // NEW FIELDS (fix data loss from ConditionsSection):
+  waveHeight?: number; // Actual wave height in feet
+  windSpeed?: number; // Wind speed in mph
+  windDirection?: string; // Wind direction (N, NE, E, etc.)
+  forecastAccuracy?: "accurate" | "somewhat" | "inaccurate"; // User-reported forecast accuracy
   // New Session Planner Pro fields
   optimalTimes?: Array<{
     time: string;
@@ -79,6 +84,11 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     notes: "",
     photos: [],
     waveTypes: [],
+    // NEW FIELDS (initialize to undefined to prevent data loss)
+    waveHeight: undefined,
+    windSpeed: undefined,
+    windDirection: undefined,
+    forecastAccuracy: undefined,
     // Initialize new Session Planner Pro fields
     optimalTimes: undefined,
     selectedOptimalTime: undefined,
@@ -163,6 +173,11 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
       notes: "",
       photos: [],
       waveTypes: [],
+      // Reset NEW FIELDS
+      waveHeight: undefined,
+      windSpeed: undefined,
+      windDirection: undefined,
+      forecastAccuracy: undefined,
       // Reset new Session Planner Pro fields
       optimalTimes: undefined,
       selectedOptimalTime: undefined,

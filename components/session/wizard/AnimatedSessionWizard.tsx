@@ -32,6 +32,7 @@ import { GoalsSection } from "@/components/session-forms/GoalsSection";
 import { ConditionsSection } from "@/components/session-forms/ConditionsSection";
 import { PhotoSelectionSection } from "@/components/session-forms/PhotoSelectionSection";
 import { NotesSection } from "@/components/session-forms/NotesSection";
+import { SessionDetailsSection } from "@/components/session-forms/SessionDetailsSection";
 import {
   createPlannedSession,
   createLoggedSession,
@@ -53,8 +54,12 @@ interface AnimatedSessionWizardProps {
   onCancel?: () => void;
 }
 
-// Define step configurations for both modes
-const WIZARD_STEPS: Record<SessionFormMode, WizardStep[]> = {
+// Feature flag for consolidated wizard (safe rollout)
+// Set to true to enable the new 4-step consolidated flow for log mode
+const USE_CONSOLIDATED_WIZARD = true;
+
+// Legacy step configurations (6 steps for log mode)
+const WIZARD_STEPS_V1: Record<SessionFormMode, WizardStep[]> = {
   plan: [
     {
       id: "location",
@@ -141,6 +146,80 @@ const WIZARD_STEPS: Record<SessionFormMode, WizardStep[]> = {
   ],
 };
 
+// New consolidated step configurations (4 steps for log mode)
+const WIZARD_STEPS_V2: Record<SessionFormMode, WizardStep[]> = {
+  plan: [
+    // Plan mode unchanged (same as V1)
+    {
+      id: "location",
+      title: "Location",
+      description: "Choose where you'll be surfing",
+      icon: <MapPin className="w-5 h-5" />,
+      component: "LocationStep",
+      isRequired: true,
+    },
+    {
+      id: "datetime",
+      title: "When",
+      description: "Set your session date and time",
+      icon: <Calendar className="w-5 h-5" />,
+      component: "DateTimeSection",
+      isRequired: true,
+    },
+    {
+      id: "goals",
+      title: "Goals",
+      description: "What do you want to focus on?",
+      icon: <Target className="w-5 h-5" />,
+      component: "GoalsSection",
+      isRequired: false,
+    },
+    {
+      id: "notes",
+      title: "Notes & Invites",
+      description: "Add notes and invite friends",
+      icon: <FileText className="w-5 h-5" />,
+      component: "NotesSection",
+      isRequired: false,
+    },
+  ],
+  log: [
+    // CONSOLIDATED: 4 steps (was 6)
+    {
+      id: "location",
+      title: "Location",
+      description: "Where did your session take place?",
+      icon: <MapPin className="w-5 h-5" />,
+      component: "LocationStep",
+      isRequired: true,
+    },
+    {
+      id: "datetime",
+      title: "When",
+      description: "When did you surf?",
+      icon: <Calendar className="w-5 h-5" />,
+      component: "DateTimeSection",
+      isRequired: true,
+    },
+    {
+      id: "equipment",
+      title: "Equipment",
+      description: "Which board did you ride?",
+      icon: <Target className="w-5 h-5" />,
+      component: "EquipmentStep",
+      isRequired: false,
+    },
+    {
+      id: "session-details",
+      title: "Session Details",
+      description: "Rate conditions, add photos, and share your experience",
+      icon: <FileText className="w-5 h-5" />,
+      component: "SessionDetailsSection", // NEW CONSOLIDATED COMPONENT
+      isRequired: false,
+    },
+  ],
+};
+
 export function AnimatedSessionWizard({
   initialMode,
   className,
@@ -211,6 +290,8 @@ export function AnimatedSessionWizard({
     []
   );
 
+  // Select wizard steps based on feature flag
+  const WIZARD_STEPS = USE_CONSOLIDATED_WIZARD ? WIZARD_STEPS_V2 : WIZARD_STEPS_V1;
   const steps = WIZARD_STEPS[mode];
   const currentWizardStep = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;
@@ -456,6 +537,16 @@ export function AnimatedSessionWizard({
         );
       case "NotesSection":
         return <NotesSection {...baseProps} />;
+      case "SessionDetailsSection":
+        return (
+          <SessionDetailsSection
+            mode={mode}
+            formState={formState}
+            updateField={updateField}
+            selectedPhotos={selectedPhotos}
+            onPhotosChange={handlePhotosChange}
+          />
+        );
       default:
         return <div>Step content not found</div>;
     }

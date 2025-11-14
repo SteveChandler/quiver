@@ -2333,6 +2333,7 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           duration_minutes: number
+          forecast_accuracy: string | null
           goals: string[]
           id: string
           image_url: string | null
@@ -2347,7 +2348,10 @@ export type Database = {
           status: string | null
           user_id: string
           water_temp: number | null
+          wave_height_ft: number | null
           wave_quality: number | null
+          wind_direction: string | null
+          wind_speed_mph: number | null
         }
         Insert: {
           arrival_time?: string
@@ -2360,6 +2364,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           duration_minutes?: number
+          forecast_accuracy?: string | null
           goals?: string[]
           id?: string
           image_url?: string | null
@@ -2374,7 +2379,10 @@ export type Database = {
           status?: string | null
           user_id: string
           water_temp?: number | null
+          wave_height_ft?: number | null
           wave_quality?: number | null
+          wind_direction?: string | null
+          wind_speed_mph?: number | null
         }
         Update: {
           arrival_time?: string
@@ -2387,6 +2395,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           duration_minutes?: number
+          forecast_accuracy?: string | null
           goals?: string[]
           id?: string
           image_url?: string | null
@@ -2401,7 +2410,10 @@ export type Database = {
           status?: string | null
           user_id?: string
           water_temp?: number | null
+          wave_height_ft?: number | null
           wave_quality?: number | null
+          wind_direction?: string | null
+          wind_speed_mph?: number | null
         }
         Relationships: [
           {
@@ -2449,6 +2461,7 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           duration_minutes: number | null
+          forecast_accuracy: string | null
           goals: string[] | null
           history_id: string
           id: string
@@ -2463,7 +2476,10 @@ export type Database = {
           status: string | null
           user_id: string | null
           water_temp: number | null
+          wave_height_ft: number | null
           wave_quality: number | null
+          wind_direction: string | null
+          wind_speed_mph: number | null
         }
         Insert: {
           arrival_time?: string | null
@@ -2479,6 +2495,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           duration_minutes?: number | null
+          forecast_accuracy?: string | null
           goals?: string[] | null
           history_id?: string
           id: string
@@ -2493,7 +2510,10 @@ export type Database = {
           status?: string | null
           user_id?: string | null
           water_temp?: number | null
+          wave_height_ft?: number | null
           wave_quality?: number | null
+          wind_direction?: string | null
+          wind_speed_mph?: number | null
         }
         Update: {
           arrival_time?: string | null
@@ -2509,6 +2529,7 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           duration_minutes?: number | null
+          forecast_accuracy?: string | null
           goals?: string[] | null
           history_id?: string
           id?: string
@@ -2523,7 +2544,10 @@ export type Database = {
           status?: string | null
           user_id?: string | null
           water_temp?: number | null
+          wave_height_ft?: number | null
           wave_quality?: number | null
+          wind_direction?: string | null
+          wind_speed_mph?: number | null
         }
         Relationships: [
           {
