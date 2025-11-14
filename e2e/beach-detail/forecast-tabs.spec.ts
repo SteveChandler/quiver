@@ -29,7 +29,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     });
 
     // Wait for forecast transparency section (indicator that forecast loaded)
-    await expect(page.getByText(/data source/i).first()).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(page.getByTestId('data-source-indicator')).toBeVisible({ timeout: TIMEOUTS.medium });
   });
 
   test.describe('Default Tab Behavior', () => {
@@ -59,13 +59,13 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     });
 
     test('should not display Tides or Conditions content on load', async ({ page }) => {
-      // Check that tide chart canvas is not visible
-      const tideCanvas = page.locator('canvas').first();
-      const isCanvasVisible = await tideCanvas.isVisible().catch(() => false);
+      // Check that tide chart SVG is not visible
+      const tideSvg = page.locator('svg').first();
+      const isCanvasVisible = await tideSvg.isVisible().catch(() => false);
 
-      // If canvas exists, it shouldn't be visible initially
+      // If SVG exists, it shouldn't be visible initially
       // (It may not exist at all if not rendered, which is also correct)
-      if (await tideCanvas.count() > 0) {
+      if (await tideSvg.count() > 0) {
         expect(isCanvasVisible).toBe(false);
       }
     });
@@ -94,8 +94,8 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await page.waitForTimeout(500); // Allow tab transition
 
       // Verify tide chart becomes visible
-      const tideCanvas = page.locator('canvas').first();
-      await expect(tideCanvas).toBeVisible({ timeout: TIMEOUTS.short });
+      const tideSvg = page.locator('svg').first();
+      await expect(tideSvg).toBeVisible({ timeout: TIMEOUTS.short });
     });
 
     test('should hide "Today" content when switching to "Tides"', async ({ page }) => {
@@ -272,7 +272,7 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
     test('should display forecast transparency section', async ({ page }) => {
       // Data source indicator should be visible
-      const dataSourceIndicator = page.getByText(/data source/i).first();
+      const dataSourceIndicator = page.getByTestId('data-source-indicator');
       await expect(dataSourceIndicator).toBeVisible({ timeout: TIMEOUTS.short });
 
       // Forecast freshness badge should be visible
@@ -307,15 +307,15 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     });
 
     test('should render TideChart component', async ({ page }) => {
-      // Verify tide chart canvas is visible
-      const tideCanvas = page.locator('canvas').first();
-      await expect(tideCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
+      // Verify tide chart SVG is visible
+      const tideSvg = page.locator('svg').first();
+      await expect(tideSvg).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
     test('should display tide chart with data visualization', async ({ page }) => {
       // Canvas should have non-zero dimensions (indicating it's rendered)
-      const canvas = page.locator('canvas').first();
-      const boundingBox = await canvas.boundingBox();
+      const svg = page.locator('svg').first();
+      const boundingBox = await svg.boundingBox();
 
       expect(boundingBox).not.toBeNull();
       expect(boundingBox!.width).toBeGreaterThan(0);
@@ -329,12 +329,12 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     });
 
     test('should have interactive chart elements', async ({ page }) => {
-      // Verify canvas is interactive (not just a static image)
-      const canvas = page.locator('canvas').first();
+      // Verify SVG is interactive (not just a static image)
+      const svg = page.locator('svg').first();
 
-      // Canvas should be attached and visible
-      await expect(canvas).toBeAttached();
-      await expect(canvas).toBeVisible();
+      // SVG should be attached and visible
+      await expect(svg).toBeAttached();
+      await expect(svg).toBeVisible();
     });
   });
 
@@ -444,8 +444,8 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await expect(tidesTab).toHaveAttribute('data-state', 'active', { timeout: TIMEOUTS.short });
 
       // Verify content switches
-      const tideCanvas = page.locator('canvas').first();
-      await expect(tideCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
+      const tideSvg = page.locator('svg').first();
+      await expect(tideSvg).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
     test('should maintain readable text on all viewports', async ({ page }) => {
@@ -614,8 +614,8 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await expect(tidesTab).toHaveAttribute('data-state', 'active', { timeout: TIMEOUTS.short });
 
       // Content should be visible
-      const tideCanvas = page.locator('canvas').first();
-      await expect(tideCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
+      const tideSvg = page.locator('svg').first();
+      await expect(tideSvg).toBeVisible({ timeout: TIMEOUTS.medium });
     });
   });
 

@@ -4,6 +4,7 @@ import {
   waitForAuthCompletion,
   ensureAuthenticated as ensureAuthenticatedHelper
 } from './auth-helpers';
+import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
 
 /**
  * Utility functions for E2E tests
@@ -109,9 +110,24 @@ export async function logout(page: Page) {
 
 /**
  * Navigate to a beach detail page
+ * @param page - Playwright page object
+ * @param beach - Beach object with slug, city, state OR legacy beach ID string
  */
-export async function navigateToBeach(page: Page, beachId: string) {
-  await page.goto(`/beach/${beachId}`);
+export async function navigateToBeach(
+  page: Page,
+  beach: { slug: string | null; city: string | null; state: string | null; id?: string } | string
+) {
+  let url: string;
+
+  if (typeof beach === 'string') {
+    // Legacy: support old beach ID format during migration
+    url = `/beach/${beach}`;
+  } else {
+    // New hierarchical URL format using the same utility as production code
+    url = buildBeachUrl(beach);
+  }
+
+  await page.goto(url);
   await waitForPageLoad(page);
 }
 

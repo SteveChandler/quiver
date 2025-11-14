@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { useAuth } from "@/context/auth-context";
 import { UserProfileModal } from "@/components/social/user-profile-modal";
 
 export default function DiscoverPageClient() {
+  const router = useRouter();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -82,7 +84,7 @@ export default function DiscoverPageClient() {
               <Button
                 size="lg"
                 onClick={() => {
-                  window.location.href = "/auth/sign-in";
+                  router.push("/auth/sign-in");
                 }}
                 className="bg-ocean-blue hover:bg-ocean-blue/90"
               >
@@ -92,7 +94,7 @@ export default function DiscoverPageClient() {
                 size="lg"
                 variant="outline"
                 onClick={() => {
-                  window.location.href = "/auth/sign-up";
+                  router.push("/auth/sign-up");
                 }}
               >
                 Sign Up

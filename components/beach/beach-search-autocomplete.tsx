@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useBeachAutocomplete } from "@/hooks/use-beach-autocomplete";
 import type { Beach } from "@/types/database";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
+import { beachNavigation } from "@/lib/navigation-utils";
 
 interface BeachSearchAutocompleteProps {
   onSelect?: (beach: Beach) => void;
@@ -60,8 +61,8 @@ export function BeachSearchAutocomplete({
       if (onSelect) {
         onSelect(beach);
       } else {
-        // Default behavior: navigate to beach detail page
-        router.push(`/beach/${beach.slug || beach.id}`);
+        // Default behavior: navigate to beach detail page using hierarchical URLs
+        beachNavigation.navigateToBeach(router, beach);
       }
     },
     [handleSelect, onSelect, router]

@@ -86,6 +86,9 @@ export function BeachPageStructuredData({
   longitude,
   rating,
   reviewCount,
+  city,
+  state,
+  country,
 }: {
   beachName: string;
   description: string;
@@ -93,6 +96,9 @@ export function BeachPageStructuredData({
   longitude: number;
   rating?: number;
   reviewCount?: number;
+  city?: string;
+  state?: string;
+  country?: string;
 }) {
   const beachData = {
     "@context": "https://schema.org",
@@ -107,9 +113,9 @@ export function BeachPageStructuredData({
     },
     address: {
       "@type": "PostalAddress",
-      addressLocality: "San Diego",
-      addressRegion: "CA",
-      addressCountry: "US",
+      addressLocality: city || undefined,
+      addressRegion: state || undefined,
+      addressCountry: country || "US",
     },
     ...(rating &&
       reviewCount && {

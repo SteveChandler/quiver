@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";
@@ -15,7 +19,6 @@ import {
 } from "lucide-react";
 import { MapImage } from "@/components/map-image";
 import Link from "next/link";
-import { useState } from "react";
 import { useCommentCount } from "@/hooks/use-comment-count";
 import { useSessionLike } from "@/hooks/use-session-like";
 import { CommentsModal } from "@/components/comments-modal";
@@ -59,6 +62,7 @@ export function SessionCard({
   photos,
   onUserClick,
 }: SessionCardProps) {
+  const router = useRouter();
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
@@ -293,7 +297,7 @@ export function SessionCard({
           onClick={() => {
             if (id && isOwner) {
               // Navigate to session detail page to view photos
-              window.location.href = `/sessions/${id}`;
+              router.push(`/sessions/${id}`);
             }
           }}
           className="my-3"

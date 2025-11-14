@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +94,7 @@ function FallbackForecastDisplay({ forecast }: { forecast: any }) {
  * Beach search component that uses enhanced forecast data
  */
 export function BeachSearch({ profile }: BeachSearchProps) {
+  const router = useRouter();
   const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [originalSearchQuery, setOriginalSearchQuery] = useState("");
@@ -451,7 +453,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 className="text-sm"
                 onClick={() => {
                   // Navigate directly to beach detail page instead of searching
-                  window.location.href = `/beach/${availableBeach.id}`;
+                  router.push(`/beach/${availableBeach.id}`);
                 }}
               >
                 {availableBeach.name}
@@ -533,7 +535,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                         <button
                           onClick={() => {
                             // Open profile page with edit modal
-                            window.location.href = "/profile?edit=true";
+                            router.push("/profile?edit=true");
                           }}
                           className="ml-1 text-blue-600 hover:text-blue-800 font-medium underline"
                         >
@@ -721,7 +723,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                   <Button
                     onClick={() => {
                       // Navigate to full beach detail page
-                      window.location.href = `/beach/${beach.id}`;
+                      router.push(`/beach/${beach.id}`);
                     }}
                     className="w-full sm:w-auto"
                     variant="default"

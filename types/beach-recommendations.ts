@@ -11,6 +11,11 @@ export interface BeachRecommendation {
   reasons: string[];
   image_url: string | null;
 
+  // URL generation fields
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+
   // Current conditions
   wave_height: string;
   wave_direction: string;

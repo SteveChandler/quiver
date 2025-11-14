@@ -16,6 +16,7 @@ import {
   getCrowdLevelStyle,
 } from "@/lib/constants/beach-badge-styles";
 import { getBestConditionsHeading } from "@/lib/utils/best-conditions-helpers";
+import { beachNavigation } from "@/lib/navigation-utils";
 
 interface BestConditionsCardsProps {
   homeBeach?: Beach | null;
@@ -89,7 +90,7 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
             key={beach.id}
             data-testid="best-conditions-card"
             className="flex-shrink-0 w-[280px] sm:w-[320px] cursor-pointer hover:shadow-lg transition-all duration-200 active:scale-[0.99] snap-start rounded-lg"
-            onClick={() => router.push(`/beach/${beach.id}`)}
+            onClick={() => beachNavigation.navigateToBeach(router, beach)}
           >
             {/* Beach Image */}
             <div className="relative h-48 w-full bg-gray-200">

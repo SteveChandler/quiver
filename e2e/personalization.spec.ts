@@ -14,7 +14,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { waitForPageLoad, ensureAuthenticated } from "./utils/test-helpers";
+import { waitForPageLoad, ensureAuthenticated, navigateToBeach } from "./utils/test-helpers";
 import { createTestSession } from "./utils/session-test-data";
 import {
   hasPersonalizationData,
@@ -24,6 +24,7 @@ import {
   verifySessionConditions,
   getPersonalizedRecommendations,
 } from "./utils/personalization-helpers";
+import { TEST_BEACHES } from "./fixtures/test-data";
 
 /**
  * Skip all personalization tests in dev/production environments
@@ -50,7 +51,7 @@ test.describe('Personalization Features', () => {
    */
   test.describe('Forecast Transparency', () => {
     test('should display data source badge on beach page', async ({ page }) => {
-      await page.goto('/beach/blacks');
+      await navigateToBeach(page, TEST_BEACHES.blacks);
       await waitForPageLoad(page);
 
       const sourceBadge = page.locator('[data-testid="forecast-source-badge"]');
@@ -62,7 +63,7 @@ test.describe('Personalization Features', () => {
     });
 
     test('should display confidence indicator', async ({ page }) => {
-      await page.goto('/beach/blacks');
+      await navigateToBeach(page, TEST_BEACHES.blacks);
       await waitForPageLoad(page);
 
       const confidenceIndicator = page.locator('[data-testid="confidence-indicator"]');
@@ -78,7 +79,7 @@ test.describe('Personalization Features', () => {
     });
 
     test('should display data freshness indicator', async ({ page }) => {
-      await page.goto('/beach/blacks');
+      await navigateToBeach(page, TEST_BEACHES.blacks);
       await waitForPageLoad(page);
 
       const freshness = page.locator('[data-testid="data-freshness"]');
@@ -87,7 +88,7 @@ test.describe('Personalization Features', () => {
     });
 
     test('should display BuoyStationLink when CDIP data available', async ({ page }) => {
-      await page.goto('/beach/blacks');
+      await navigateToBeach(page, TEST_BEACHES.blacks);
       await waitForPageLoad(page);
 
       // BuoyStationLink only appears when forecast source is CDIP
@@ -106,7 +107,8 @@ test.describe('Personalization Features', () => {
     });
 
     test('should show fallback data messaging when CDIP unavailable', async ({ page }) => {
-      await page.goto('/beach/swamis');
+      // TODO: Add swamis to TEST_BEACHES for hierarchical URL
+      await navigateToBeach(page, 'swamis');
       await waitForPageLoad(page);
 
       const sourceBadge = page.locator('[data-testid="forecast-source-badge"]');
@@ -287,7 +289,7 @@ test.describe('Personalization Features', () => {
       await skipIfNoPersonalizationData(page, test, { needsAffinity: true });
 
       // Navigate to Blacks (high affinity in setup script)
-      await page.goto('/beach/blacks');
+      await navigateToBeach(page, TEST_BEACHES.blacks);
       await waitForPageLoad(page);
 
       const familiarityBadge = page.locator('[data-testid="familiarity-badge"]');
@@ -302,7 +304,7 @@ test.describe('Personalization Features', () => {
     test('should display session count on familiarity badge', async ({ page }) => {
       await skipIfNoPersonalizationData(page, test, { needsAffinity: true });
 
-      await page.goto('/beach/blacks');
+      await navigateToBeach(page, TEST_BEACHES.blacks);
       await waitForPageLoad(page);
 
       const familiarityBadge = page.locator('[data-testid="familiarity-badge"]');
@@ -318,7 +320,7 @@ test.describe('Personalization Features', () => {
     test('should show last surfed date for familiar beaches', async ({ page }) => {
       await skipIfNoPersonalizationData(page, test, { needsAffinity: true });
 
-      await page.goto('/beach/blacks');
+      await navigateToBeach(page, TEST_BEACHES.blacks);
       await waitForPageLoad(page);
 
       // Look for last surfed indicator (might be in tooltip or separate element)

@@ -158,8 +158,8 @@ export function EditProfileForm({
         // Set success state to trigger useEffect callback
         setSubmitSuccess(true);
       } else {
-        // Force a page refresh to clear all caches and ensure updated data is shown
-        window.location.href = "/profile";
+        // Navigate to profile page to show updated data
+        router.push("/profile");
       }
     } catch (error) {
       console.error("Error updating profile:", error);

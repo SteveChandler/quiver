@@ -99,7 +99,7 @@ export function BasicProfileForm({
       }
 
       // Navigate to profile page with fresh data
-      window.location.href = "/profile";
+      router.push("/profile");
     } catch (error) {
       console.error("Error updating profile:", error);
       toastUtils.profile.updateFailed();

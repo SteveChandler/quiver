@@ -15,9 +15,10 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
 
     // Selective field query - only fetch fields needed by consumers and that exist in schema
+    // Includes slug, city, state for hierarchical URL generation
     const { data, error } = await supabase
       .from("beaches")
-      .select("id, name, city, lat, lon, state, created_at, is_private")
+      .select("id, name, slug, city, lat, lon, state, created_at, is_private")
       .order("name");
 
     if (error) {

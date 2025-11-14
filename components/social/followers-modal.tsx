@@ -102,7 +102,7 @@ export function FollowersModal({
               <p>{error}</p>
               <Button
                 variant="outline"
-                onClick={() => window.location.reload()}
+                onClick={() => window.location.reload()} // eslint-disable-line no-restricted-properties
                 className="mt-4"
               >
                 Try Again

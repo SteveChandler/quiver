@@ -1,78 +1,104 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { buildBeachUrl, buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
+import type { BeachLocation } from "@/types/beach-core";
 
 /**
  * Beach navigation utilities to centralize routing logic
+ * Uses hierarchical URLs: /{state}/{city}/{beach-slug}
  */
 export const beachNavigation = {
   /**
    * Generate URL for beach detail page
+   * @param beach - Beach object with slug, city, and state
    */
-  toBeachDetail: (beachId: string): string => `/beach/${beachId}`,
+  toBeachDetail: (beach: BeachLocation): string => buildBeachUrl(beach),
 
   /**
    * Generate URL for beach detail page with specific tab
+   * @param beach - Beach object with slug, city, and state
+   * @param tab - Tab name (e.g., "reviews", "info", "gallery")
    */
-  toBeachDetailWithTab: (beachId: string, tab: string): string =>
-    `/beach/${beachId}?tab=${tab}`,
+  toBeachDetailWithTab: (beach: BeachLocation, tab: string): string =>
+    buildBeachUrlWithTab(beach, tab),
 
   /**
    * Generate URL for beach reviews tab
+   * @param beach - Beach object with slug, city, and state
    */
-  toBeachReviews: (beachId: string): string => `/beach/${beachId}?tab=reviews`,
+  toBeachReviews: (beach: BeachLocation): string =>
+    buildBeachUrlWithTab(beach, "reviews"),
 
   /**
    * Generate URL for beach info tab
+   * @param beach - Beach object with slug, city, and state
    */
-  toBeachInfo: (beachId: string): string => `/beach/${beachId}?tab=info`,
+  toBeachInfo: (beach: BeachLocation): string =>
+    buildBeachUrlWithTab(beach, "info"),
 
   /**
    * Generate URL for beach gallery tab
+   * @param beach - Beach object with slug, city, and state
    */
-  toBeachGallery: (beachId: string): string => `/beach/${beachId}?tab=gallery`,
+  toBeachGallery: (beach: BeachLocation): string =>
+    buildBeachUrlWithTab(beach, "gallery"),
 
   /**
    * Navigate to beach detail page
+   * @param router - Next.js router instance
+   * @param beach - Beach object with slug, city, and state
    */
-  navigateToBeach: (router: AppRouterInstance, beachId: string): void => {
-    router.push(beachNavigation.toBeachDetail(beachId));
+  navigateToBeach: (router: AppRouterInstance, beach: BeachLocation): void => {
+    router.push(beachNavigation.toBeachDetail(beach));
   },
 
   /**
    * Navigate to beach detail page with specific tab
+   * @param router - Next.js router instance
+   * @param beach - Beach object with slug, city, and state
+   * @param tab - Tab name
    */
   navigateToBeachWithTab: (
     router: AppRouterInstance,
-    beachId: string,
+    beach: BeachLocation,
     tab: string
   ): void => {
-    router.push(beachNavigation.toBeachDetailWithTab(beachId, tab));
+    router.push(beachNavigation.toBeachDetailWithTab(beach, tab));
   },
 
   /**
    * Navigate to beach reviews tab
+   * @param router - Next.js router instance
+   * @param beach - Beach object with slug, city, and state
    */
   navigateToBeachReviews: (
     router: AppRouterInstance,
-    beachId: string
+    beach: BeachLocation
   ): void => {
-    router.push(beachNavigation.toBeachReviews(beachId));
+    router.push(beachNavigation.toBeachReviews(beach));
   },
 
   /**
    * Navigate to beach info tab
+   * @param router - Next.js router instance
+   * @param beach - Beach object with slug, city, and state
    */
-  navigateToBeachInfo: (router: AppRouterInstance, beachId: string): void => {
-    router.push(beachNavigation.toBeachInfo(beachId));
+  navigateToBeachInfo: (
+    router: AppRouterInstance,
+    beach: BeachLocation
+  ): void => {
+    router.push(beachNavigation.toBeachInfo(beach));
   },
 
   /**
    * Navigate to beach gallery tab
+   * @param router - Next.js router instance
+   * @param beach - Beach object with slug, city, and state
    */
   navigateToBeachGallery: (
     router: AppRouterInstance,
-    beachId: string
+    beach: BeachLocation
   ): void => {
-    router.push(beachNavigation.toBeachGallery(beachId));
+    router.push(beachNavigation.toBeachGallery(beach));
   },
 } as const;
 

@@ -1,11 +1,13 @@
 "use client";
 
+import { memo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Database, Activity } from "lucide-react";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
 import type { Beach } from "@/types/database";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 interface SelectedBeachCardProps {
   selectedBeach: Beach | null;
@@ -13,7 +15,7 @@ interface SelectedBeachCardProps {
   userLocation: { lat: number; lng: number } | null;
 }
 
-export function SelectedBeachCard({
+const SelectedBeachCardComponent = function SelectedBeachCard({
   selectedBeach,
   getDistanceFromUser,
   userLocation,
@@ -34,11 +36,19 @@ export function SelectedBeachCard({
     return null;
   }
 
+  // Generate hierarchical URL (with fallback to ID-based URL)
+  const beachUrl = getBeachUrlSafe({
+    id: selectedBeach.id,
+    slug: selectedBeach.slug,
+    city: selectedBeach.city,
+    state: selectedBeach.state,
+  });
+
   return (
     <div className="px-4 py-3 bg-background border-t">
       <Card
         className="cursor-pointer hover:shadow-lg transition-shadow border-primary border-2"
-        onClick={() => router.push(`/beach/${selectedBeach.id}`)}
+        onClick={() => router.push(beachUrl)}
       >
         <CardContent className="p-3">
           <div className="flex items-center gap-3">
@@ -117,4 +127,8 @@ export function SelectedBeachCard({
       </Card>
     </div>
   );
-}
+};
+
+// Export memoized component for performance optimization
+export const SelectedBeachCard = memo(SelectedBeachCardComponent);
+SelectedBeachCard.displayName = 'SelectedBeachCard';

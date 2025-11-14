@@ -94,25 +94,49 @@ export async function createTestUser(
 
   console.log(`[Profile Helper] Test user created: ${testEmail} (ID: ${data.user.id})`);
 
-  // Create profile record (Supabase doesn't do this automatically with admin.createUser)
-  console.log(`[Profile Helper] Creating profile record for user: ${data.user.id}`);
+  // NOTE: Profile is now auto-created by database trigger (handle_new_user)
+  // We just need to verify it exists and optionally update is_mock flag
+  console.log(`[Profile Helper] Waiting for profile to be created by trigger...`);
+
+  // Wait a bit for trigger to execute (usually instant, but add small delay for safety)
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  // Verify profile exists and update is_mock flag
   const { error: profileError } = await admin
     .from('profiles')
-    .insert({
-      id: data.user.id,
-      email: testEmail,
-      full_name: 'Test User',
+    .update({
       is_mock: true, // Mark as mock/test user
-    });
+      full_name: 'Test User', // Ensure consistent naming
+    })
+    .eq('id', data.user.id);
 
   if (profileError) {
-    // If profile creation fails, delete the auth user to keep things clean
-    console.error(`[Profile Helper] Failed to create profile: ${profileError.message}`);
-    await admin.auth.admin.deleteUser(data.user.id);
-    throw new Error(`Failed to create profile: ${profileError.message}`);
-  }
+    // If profile update fails, it might not have been created by trigger
+    console.error(`[Profile Helper] Failed to update profile (may not exist): ${profileError.message}`);
 
-  console.log(`[Profile Helper] Profile created for user: ${data.user.id}`);
+    // Try to insert as fallback (for cases where trigger didn't fire)
+    const { error: insertError } = await admin
+      .from('profiles')
+      .insert({
+        id: data.user.id,
+        email: testEmail,
+        full_name: 'Test User',
+        is_mock: true,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      // If both update and insert fail, clean up and throw
+      console.error(`[Profile Helper] Failed to create profile fallback: ${insertError.message}`);
+      await admin.auth.admin.deleteUser(data.user.id);
+      throw new Error(`Failed to create/update profile: ${insertError.message}`);
+    }
+
+    console.log(`[Profile Helper] Profile created via fallback for user: ${data.user.id}`);
+  } else {
+    console.log(`[Profile Helper] Profile verified and updated for user: ${data.user.id}`);
+  }
 
   return {
     id: data.user.id,

@@ -28,6 +28,7 @@ import Link from "next/link";
 import { toast } from "@/components/ui/use-toast";
 import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { beachNavigation } from "@/lib/navigation-utils";
 
 export function FavoriteBeaches() {
   const { user } = useAuth();
@@ -218,7 +219,7 @@ export function FavoriteBeaches() {
               </Button>
             </div>
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/beach/${beach.id}`}>View Details</Link>
+              <Link href={beachNavigation.toBeachDetail(beach)}>View Details</Link>
             </Button>
             <Button
               variant="ghost"

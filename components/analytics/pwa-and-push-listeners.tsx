@@ -13,8 +13,8 @@ export default function PWAAndPushListeners() {
     if (!("serviceWorker" in navigator)) return;
 
     const isSecureContext =
-      window.location.protocol === "https:" ||
-      window.location.hostname === "localhost";
+      window.location.protocol === "https:" || // eslint-disable-line no-restricted-properties
+      window.location.hostname === "localhost"; // eslint-disable-line no-restricted-properties
     if (!isSecureContext) return;
 
     const registerServiceWorker = async () => {
