@@ -29,6 +29,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate device token length (max 512 characters)
+    if (device_token.length > 512) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Device token exceeds maximum length of 512 characters",
+          timestamp: new Date().toISOString(),
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate device token is not empty string
+    if (device_token.trim().length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Device token cannot be empty",
+          timestamp: new Date().toISOString(),
+        },
+        { status: 400 }
+      );
+    }
+
     if (!["ios", "android", "web"].includes(platform)) {
       return NextResponse.json(
         {
@@ -144,6 +168,7 @@ export async function DELETE(request: NextRequest) {
     return handleApiError(error);
   }
 }
+
 
 
 

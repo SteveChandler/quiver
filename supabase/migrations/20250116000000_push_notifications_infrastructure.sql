@@ -72,7 +72,20 @@ create policy "Users can view their own notifications" on public.notifications
 create policy "Users can update their own notifications" on public.notifications
   for update using (auth.uid() = user_id);
 
+-- Note: No INSERT policy for notifications table
+-- Notifications are created server-side only via service role client (bypassing RLS)
+-- This prevents clients from creating arbitrary notifications
+
+-- Updated_at trigger for user_devices
+-- Note: Assumes update_updated_at_column() function exists from base schema
+drop trigger if exists update_user_devices_updated_at on public.user_devices;
+create trigger update_user_devices_updated_at
+  before update on public.user_devices
+  for each row
+  execute function update_updated_at_column();
+
 commit;
+
 
 
 
