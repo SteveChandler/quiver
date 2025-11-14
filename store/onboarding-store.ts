@@ -13,6 +13,9 @@ interface OnboardingData {
   // Step 4: Preferences
   experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   surfStyles?: string[];
+  preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
+  preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
+  crowdPreference?: 'social' | 'moderate' | 'solitude';
 
   // Step 5: Referral
   referralCode?: string;

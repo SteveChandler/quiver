@@ -552,12 +552,9 @@ describe('track-share analytics', () => {
 
   describe('Rate Limiting Scenarios', () => {
     it('should handle database rate limit errors gracefully', async () => {
-      mockSupabase.insert.mockReturnValue({
-        ...mockSupabase,
-        single: jest.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Rate limit exceeded', code: '429' },
-        }),
+      mockSupabase.single.mockResolvedValue({
+        data: null,
+        error: { message: 'Rate limit exceeded', code: '429' },
       });
 
       const result = await trackShare('instagram', {
@@ -616,15 +613,12 @@ describe('track-share analytics', () => {
 
   describe('Database Constraint Violations', () => {
     it('should handle duplicate share tracking attempts', async () => {
-      mockSupabase.insert.mockReturnValue({
-        ...mockSupabase,
-        single: jest.fn().mockResolvedValue({
-          data: null,
-          error: {
-            message: 'duplicate key value violates unique constraint',
-            code: '23505',
-          },
-        }),
+      mockSupabase.single.mockResolvedValue({
+        data: null,
+        error: {
+          message: 'duplicate key value violates unique constraint',
+          code: '23505',
+        },
       });
 
       const result = await trackShare('instagram', {
@@ -638,15 +632,12 @@ describe('track-share analytics', () => {
     });
 
     it('should handle foreign key constraint violations', async () => {
-      mockSupabase.insert.mockReturnValue({
-        ...mockSupabase,
-        single: jest.fn().mockResolvedValue({
-          data: null,
-          error: {
-            message: 'insert or update on table violates foreign key constraint',
-            code: '23503',
-          },
-        }),
+      mockSupabase.single.mockResolvedValue({
+        data: null,
+        error: {
+          message: 'insert or update on table violates foreign key constraint',
+          code: '23503',
+        },
       });
 
       const result = await trackShare('instagram', {
@@ -660,15 +651,12 @@ describe('track-share analytics', () => {
     });
 
     it('should handle null constraint violations', async () => {
-      mockSupabase.insert.mockReturnValue({
-        ...mockSupabase,
-        single: jest.fn().mockResolvedValue({
-          data: null,
-          error: {
-            message: 'null value in column violates not-null constraint',
-            code: '23502',
-          },
-        }),
+      mockSupabase.single.mockResolvedValue({
+        data: null,
+        error: {
+          message: 'null value in column violates not-null constraint',
+          code: '23502',
+        },
       });
 
       const result = await trackShare('instagram', {
@@ -684,14 +672,7 @@ describe('track-share analytics', () => {
 
   describe('Network and Timeout Scenarios', () => {
     it('should handle database timeout', async () => {
-      mockSupabase.insert.mockReturnValue({
-        ...mockSupabase,
-        single: jest.fn().mockImplementation(
-          () => new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Query timeout')), 100)
-          )
-        ),
-      });
+      mockSupabase.single.mockRejectedValue(new Error('Query timeout'));
 
       const result = await trackShare('instagram', {
         sessionId: 'session-123',

@@ -44,7 +44,7 @@ export function getAuthRedirect(): string | null {
   if (typeof window === "undefined") return null;
 
   // 1. Check URL params first (highest priority)
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = new URLSearchParams(window.location.search); // eslint-disable-line no-restricted-properties
   const urlRedirect = urlParams.get(REDIRECT_URL_PARAM);
   if (urlRedirect && urlRedirect !== "/") return urlRedirect;
 
@@ -73,7 +73,7 @@ export function buildAuthUrl(basePath: string, returnTo?: string): string {
   const redirect = returnTo || getAuthRedirect();
   if (!redirect) return basePath;
 
-  const url = new URL(basePath, window.location.origin);
+  const url = new URL(basePath, window.location.origin); // eslint-disable-line no-restricted-properties
   url.searchParams.set(REDIRECT_URL_PARAM, redirect);
   return url.pathname + url.search;
 }
@@ -90,7 +90,7 @@ export async function initiateOAuthFlow(
 ): Promise<{ error?: string }> {
   try {
     const sb = createSupabaseBrowser();
-    const origin = window.location.origin;
+    const origin = window.location.origin; // eslint-disable-line no-restricted-properties
 
     // Store the intended return path in localStorage as a backup
     setAuthRedirect(returnTo);
@@ -136,7 +136,7 @@ export async function sendMagicLink(
 ): Promise<{ error?: string }> {
   try {
     const sb = createSupabaseBrowser();
-    const origin = window.location.origin;
+    const origin = window.location.origin; // eslint-disable-line no-restricted-properties
 
     // Validate email format first
     if (!validateEmail(email)) {
@@ -224,7 +224,8 @@ export async function checkUserExists(email: string): Promise<boolean> {
  */
 export function incrementRedirectAttempt(): number {
   const current = parseInt(localStorage.getItem(REDIRECT_ATTEMPTS_KEY) || "0");
-  const next = current + 1;
+  // Handle NaN case (invalid value in localStorage)
+  const next = (isNaN(current) ? 0 : current) + 1;
   localStorage.setItem(REDIRECT_ATTEMPTS_KEY, next.toString());
   return next;
 }

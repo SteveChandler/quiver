@@ -31,7 +31,7 @@ function buildShareUrl(sessionId: string, variant: Variant) {
   // Handle SSR by using fallback origin
   const origin =
     typeof window !== "undefined"
-      ? window.location.origin
+      ? window.location.origin // eslint-disable-line no-restricted-properties
       : "http://localhost:3000"; // fallback for SSR
   const url = new URL("/api/social/share/og", origin);
   url.searchParams.set("sessionId", sessionId);

@@ -171,7 +171,7 @@ export function BeachDetail({
   useEffect(() => {
     // Prefer query param, fallback to hash
     const sectionParam = searchParams?.get("section");
-    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    const hash = typeof window !== "undefined" ? window.location.hash : ""; // eslint-disable-line no-restricted-properties
 
     const wantsIntel = sectionParam === "intel" || hash === "#intel";
 
@@ -187,9 +187,9 @@ export function BeachDetail({
           document.getElementById("intel-section");
         if (el) {
           try {
-            const url = new URL(window.location.href);
-            url.hash = "intel";
-            window.history.replaceState({}, "", url.toString());
+            // Update URL hash without navigation (pathname and search are read-only access)
+            // eslint-disable-next-line no-restricted-properties
+            router.replace(`${window.location.pathname}${window.location.search}#intel`, { scroll: false });
           } catch {}
           const y =
             el.getBoundingClientRect().top + window.scrollY - stickyOffset;

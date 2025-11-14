@@ -1,4 +1,7 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,16 +65,16 @@ export function ForecastDisplayWithTransparency({
   parseUrlParams = false,
   className,
 }: ForecastDisplayWithTransparencyProps) {
+  const searchParams = useSearchParams();
   const [transparencyVisible, setTransparencyVisible] =
     useState(showTransparency);
   const [dailyBreakdownExpanded, setDailyBreakdownExpanded] = useState(false);
 
   // Parse URL parameters for transparency settings
   useEffect(() => {
-    if (parseUrlParams && typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const transparencyParam = params.get("transparency");
-      const qualityParam = params.get("quality");
+    if (parseUrlParams && searchParams) {
+      const transparencyParam = searchParams.get("transparency");
+      const qualityParam = searchParams.get("quality");
 
       if (transparencyParam === "detailed") {
         setTransparencyVisible(true);
@@ -80,7 +83,7 @@ export function ForecastDisplayWithTransparency({
         setDailyBreakdownExpanded(true);
       }
     }
-  }, [parseUrlParams]);
+  }, [parseUrlParams, searchParams]);
 
   // Calculate forecast quality metrics
   const qualityMetrics = React.useMemo(() => {

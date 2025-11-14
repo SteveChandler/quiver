@@ -193,7 +193,7 @@ describe("ShareModal", () => {
       fireEvent.click(makePublicButton);
       
       await waitFor(() => {
-        expect(mockUpdateSession).toHaveBeenCalledWith("session-1", "user-1", { is_public: true });
+        expect(mockUpdateSession).toHaveBeenCalledWith("session-1", { is_public: true });
       });
     });
 

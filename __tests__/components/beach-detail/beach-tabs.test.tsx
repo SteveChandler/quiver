@@ -120,13 +120,13 @@ describe('BeachTabs Component', () => {
 
       const tabsList = screen.getByRole('tablist');
 
-      // Phase 5: Container styling
-      expect(tabsList).toHaveClass('w-full');
+      // Phase 5: Container styling - TabsList is inside a flex container
+      expect(tabsList).toHaveClass('flex');
+      expect(tabsList).toHaveClass('flex-1');
+      expect(tabsList).toHaveClass('items-center');
       expect(tabsList).toHaveClass('justify-start');
-      expect(tabsList).toHaveClass('border-b-2');
-      expect(tabsList).toHaveClass('border-gray-200');
-      expect(tabsList).toHaveClass('mb-6'); // Phase 5: 24px margin-bottom
-      expect(tabsList).toHaveClass('rounded-none');
+      expect(tabsList).toHaveClass('gap-1');
+      expect(tabsList).toHaveClass('overflow-x-auto');
       expect(tabsList).toHaveClass('bg-transparent');
       expect(tabsList).toHaveClass('p-0');
       expect(tabsList).toHaveClass('h-auto');
@@ -157,9 +157,8 @@ describe('BeachTabs Component', () => {
 
       const overviewTab = screen.getByRole('tab', { name: /overview/i });
 
-      // Phase 5: Padding specification (24px horizontal, 12px vertical)
-      expect(overviewTab).toHaveClass('px-6'); // 24px
-      expect(overviewTab).toHaveClass('py-3'); // 12px
+      // Phase 5: Responsive padding (mobile: px-2 py-2, desktop: sm:px-6 sm:py-3)
+      expect(overviewTab).toHaveClass('px-2', 'py-2', 'sm:px-6', 'sm:py-3');
     });
 
     test('TabTriggers have correct typography classes', () => {
@@ -171,8 +170,8 @@ describe('BeachTabs Component', () => {
 
       const overviewTab = screen.getByRole('tab', { name: /overview/i });
 
-      // Phase 5: Typography specification
-      expect(overviewTab).toHaveClass('text-base'); // 16px font size
+      // Phase 5: Responsive typography (mobile: text-xs, desktop: sm:text-base)
+      expect(overviewTab).toHaveClass('text-xs', 'sm:text-base'); // Responsive font size
       expect(overviewTab).toHaveClass('font-medium'); // 500 weight for inactive
       expect(overviewTab).toHaveClass('text-gray-600'); // Inactive text color
     });

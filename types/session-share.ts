@@ -22,13 +22,19 @@ export type AspectRatio = "1:1" | "4:5" | "9:16" | "16:9";
 
 /**
  * Social media platforms
+ * Includes all platforms supported by frontend, backend, and database
  */
 export type SharePlatform =
   | "instagram"
   | "x"
+  | "twitter"    // Legacy/backward compatibility for X
   | "facebook"
-  | "generic"
-  | "download";
+  | "tiktok"
+  | "copy"       // Copy link to clipboard
+  | "native"     // Native share sheet
+  | "other"      // Other/unknown platforms
+  | "generic"    // Generic share link
+  | "download";  // Download image
 
 /**
  * Variant names for reference
@@ -73,7 +79,12 @@ export const ASPECT_RATIO_DIMENSIONS: Record<
 export const PLATFORM_NAMES: Record<SharePlatform, string> = {
   instagram: "Instagram",
   x: "X (Twitter)",
+  twitter: "Twitter",
   facebook: "Facebook",
+  tiktok: "TikTok",
+  copy: "Copy Link",
+  native: "Share",
+  other: "Other",
   generic: "Share Link",
   download: "Download Image",
 };
@@ -206,8 +217,17 @@ export function isAspectRatio(value: unknown): value is AspectRatio {
 export function isSharePlatform(value: unknown): value is SharePlatform {
   return (
     typeof value === "string" &&
-    ["instagram", "x", "facebook", "generic", "download"].includes(
-      value as string
-    )
+    [
+      "instagram",
+      "x",
+      "twitter",
+      "facebook",
+      "tiktok",
+      "copy",
+      "native",
+      "other",
+      "generic",
+      "download",
+    ].includes(value as string)
   );
 }

@@ -137,13 +137,16 @@ describe('Gamification Actions', () => {
         { action: 'add_board', expectedXP: 30 },
         { action: 'post_beach_intel', expectedXP: 50 },
         { action: 'invite_friend', expectedXP: 100 },
-        { action: 'get_like_upvote', expectedXP: 10 }
+        { action: 'get_like_upvote', expectedXP: 10 },
+        { action: 'onboarding_completed', expectedXP: 100 },
+        { action: 'referral_signup', expectedXP: 50 },
+        { action: 'successful_referral', expectedXP: 100 }
       ];
 
       for (const { action, expectedXP } of testCases) {
         // Reset tracker for each test
         tracker = { selects: [], inserts: [], updates: [] };
-        
+
         const mockState = mockStates.existingUser(0, 1);
         (withAuthenticatedAction as jest.Mock).mockImplementation(
           mockWithAuthenticatedAction(mockState, tracker)
@@ -260,6 +263,9 @@ describe('XP System Logic Tests', () => {
       add_surf_tags: 20,
       record_temperature: 10,
       submit_crowd_parking: 10,
+      onboarding_completed: 100,
+      referral_signup: 50,
+      successful_referral: 100,
     };
 
     // These values should match the gamification spec
@@ -267,6 +273,9 @@ describe('XP System Logic Tests', () => {
     expect(expectedXPValues.invite_friend).toBe(100); // Highest XP for viral growth
     expect(expectedXPValues.get_like_upvote).toBe(10); // Encourages engagement
     expect(expectedXPValues.post_beach_intel).toBe(50); // Community contribution
+    expect(expectedXPValues.onboarding_completed).toBe(100); // Onboarding completion reward
+    expect(expectedXPValues.successful_referral).toBe(100); // Referrer reward
+    expect(expectedXPValues.referral_signup).toBe(50); // Referee reward
   });
 
   test('should have correct level progression thresholds', () => {

@@ -31,12 +31,7 @@ const mockBeaches: Beach[] = [
     lat: 32.7841,
     lon: -117.2527,
     description: "Popular beach for surfing and beach volleyball",
-    wave_quality_rating: 4.2,
-    crowd_density_rating: 3.8,
-    parking_rating: 3.5,
-    accessibility_rating: 4.0,
     created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
   },
   {
     id: "beach-2",
@@ -44,12 +39,7 @@ const mockBeaches: Beach[] = [
     lat: 32.7503,
     lon: -117.2534,
     description: "Dog-friendly beach with a historic pier",
-    wave_quality_rating: 3.9,
-    crowd_density_rating: 4.1,
-    parking_rating: 2.8,
-    accessibility_rating: 3.7,
     created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
   },
   {
     id: "beach-3",
@@ -57,14 +47,9 @@ const mockBeaches: Beach[] = [
     lat: 32.7738,
     lon: -117.2528,
     description: "Boardwalk beach with amusement park nearby",
-    wave_quality_rating: 3.6,
-    crowd_density_rating: 4.5,
-    parking_rating: 3.2,
-    accessibility_rating: 4.3,
     created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
   },
-];
+] as Beach[];
 
 describe("Beach Query Actions", () => {
   beforeEach(() => {
@@ -285,15 +270,10 @@ describe("Beach Query Actions", () => {
     });
 
     it("should return beach with all optional fields", async () => {
-      const beachWithAllFields: Beach = {
+      const beachWithAllFields = {
         ...mockBeaches[0],
         description: "A beautiful beach with great waves",
-        wave_quality_rating: 4.8,
-        crowd_density_rating: 2.1,
-        parking_rating: 4.2,
-        accessibility_rating: 3.9,
-        location_text: "San Diego, CA",
-      };
+      } as Beach;
 
       const mockSingle = jest.fn().mockResolvedValue({
         data: beachWithAllFields,
@@ -317,19 +297,16 @@ describe("Beach Query Actions", () => {
       expect(result.success).toBe(true);
       expect(result.data).toEqual(beachWithAllFields);
       expect(result.data?.description).toBeDefined();
-      expect(result.data?.wave_quality_rating).toBeDefined();
-      expect(result.data?.location_text).toBeDefined();
     });
 
     it("should handle beach with minimal fields", async () => {
-      const minimalBeach: Beach = {
+      const minimalBeach = {
         id: "minimal-beach",
         name: "Minimal Beach",
         lat: 32.7841,
         lon: -117.2527,
         created_at: "2024-01-01T00:00:00Z",
-        updated_at: "2024-01-01T00:00:00Z",
-      };
+      } as Beach;
 
       const mockSingle = jest.fn().mockResolvedValue({
         data: minimalBeach,
@@ -353,7 +330,6 @@ describe("Beach Query Actions", () => {
       expect(result.success).toBe(true);
       expect(result.data).toEqual(minimalBeach);
       expect(result.data?.description).toBeUndefined();
-      expect(result.data?.wave_quality_rating).toBeUndefined();
     });
 
     it("should handle network timeout", async () => {
@@ -407,16 +383,10 @@ describe("Beach Query Actions", () => {
           expect(typeof beach.lat).toBe("number");
           expect(typeof beach.lon).toBe("number");
           expect(typeof beach.created_at).toBe("string");
-          expect(typeof beach.updated_at).toBe("string");
 
           // Optional fields
           if (beach.description) {
             expect(typeof beach.description).toBe("string");
-          }
-          if (beach.wave_quality_rating) {
-            expect(typeof beach.wave_quality_rating).toBe("number");
-            expect(beach.wave_quality_rating).toBeGreaterThanOrEqual(0);
-            expect(beach.wave_quality_rating).toBeLessThanOrEqual(5);
           }
         });
       }
@@ -429,8 +399,7 @@ describe("Beach Query Actions", () => {
           name: "Pacific Beach",
           // Missing required lat/lon
           created_at: "2024-01-01T00:00:00Z",
-          updated_at: "2024-01-01T00:00:00Z",
-        },
+        } as any,
       ];
 
       const mockOrder = jest.fn().mockResolvedValue({

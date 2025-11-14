@@ -37,6 +37,21 @@ jest.mock('@/lib/map-utils', () => ({
   }),
 }));
 
+// Mock image proxy
+jest.mock('@/lib/image-proxy', () => ({
+  getOptimizedImageUrl: jest.fn((url: string) => {
+    // Proxy external URLs through image-proxy API
+    if (url.includes('openverse.org') || url.includes('wikimedia.org') || url.includes('flickr.com')) {
+      const encodedUrl = encodeURIComponent(url);
+      return `/api/image-proxy?url=${encodedUrl}`;
+    }
+    return url;
+  }),
+  shouldProxyImage: jest.fn((url: string) => {
+    return url.includes('openverse.org') || url.includes('wikimedia.org') || url.includes('flickr.com');
+  }),
+}));
+
 // Mock Next Image
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -426,8 +441,8 @@ describe('BeachPhotoGallery', () => {
       render(<BeachPhotoGallery beach={mockBeach} />);
 
       expect(getStaticMapImageUrl).toHaveBeenCalledWith(
-        mockBeach.latitude,
-        mockBeach.longitude,
+        mockBeach.lat,
+        mockBeach.lon,
         {
           width: 600,
           height: 400,
@@ -525,10 +540,10 @@ describe('BeachPhotoGallery', () => {
 
       render(<BeachPhotoGallery beach={mockBeach} />);
 
-      // Just verify the image renders with external URL
+      // External images are proxied through /api/image-proxy
       const image = screen.getByAltText(`${mockBeach.name} - main view`);
       expect(image).toBeInTheDocument();
-      expect(image).toHaveAttribute('src', 'https://openverse.org/photo.jpg');
+      expect(image).toHaveAttribute('src', '/api/image-proxy?url=https%3A%2F%2Fopenverse.org%2Fphoto.jpg');
     });
   });
 

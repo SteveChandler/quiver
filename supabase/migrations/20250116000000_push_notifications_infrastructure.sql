@@ -72,7 +72,19 @@ create policy "Users can view their own notifications" on public.notifications
 create policy "Users can update their own notifications" on public.notifications
   for update using (auth.uid() = user_id);
 
+-- Note: No INSERT policy for notifications table
+-- Notifications are created server-side only via service role client (bypassing RLS)
+-- This prevents clients from creating arbitrary notifications
+
+-- Note: updated_at trigger for user_devices is added in migration 20251114015909
+
 commit;
+
+
+
+
+
+
 
 
 

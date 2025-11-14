@@ -837,6 +837,34 @@ export async function uploadSessionMedia(
   mediaType: "image" | "video"
 ) {
   return withAuthenticatedAction(async (user, supabase) => {
+    // Server-side file validation (security - client-side can be bypassed)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_IMAGE_TYPES = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+    const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/quicktime"];
+
+    // Validate file type
+    if (mediaType === "image") {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        throw new Error(
+          "Invalid file type. Only JPEG, PNG, and WebP images are allowed."
+        );
+      }
+    } else if (mediaType === "video") {
+      if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+        throw new Error("Invalid file type. Only MP4 and MOV videos are allowed.");
+      }
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error("File size exceeds 10MB limit.");
+    }
+
     // Verify user owns this session
     const { data: session, error: sessionError } = await supabase
       .from("sessions")

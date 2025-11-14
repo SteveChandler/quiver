@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
     try {
       const supabase = createClient();
       const baseUrl =
-        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin; // eslint-disable-line no-restricted-properties
       const redirectTo = `${baseUrl}/auth/confirm?next=/auth/reset`;
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(

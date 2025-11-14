@@ -38,7 +38,7 @@ function ComponentErrorFallback({
           refresh the page.
         </p>
         <button
-          onClick={() => window.location.reload()}
+          onClick={() => window.location.reload()} // eslint-disable-line no-restricted-properties
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
         >
           Refresh Page

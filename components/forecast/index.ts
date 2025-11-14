@@ -12,5 +12,7 @@ export type { TidePoint, TideChartProps } from './tide-chart-recharts';
 export { ForecastConfidenceBadge } from './forecast-confidence-badge';
 export { ForecastVerificationWidget } from './forecast-verification-widget';
 export { ForecastAccuracyStats } from './forecast-accuracy-stats';
+export { BuoyStationLink } from './buoy-station-link';
+export type { BuoyStationLinkProps } from './buoy-station-link';
 
 // Add other forecast component exports here as needed

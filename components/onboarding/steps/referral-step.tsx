@@ -83,6 +83,7 @@ export function ReferralStep() {
         <div className="relative">
           <Input
             id="referralCode"
+            data-testid="referral-code-input"
             {...register('referralCode')}
             placeholder="SURF2024"
             className="text-center text-lg font-mono uppercase"
@@ -150,6 +151,7 @@ export function ReferralStep() {
         <Button
           type="submit"
           className="flex-1"
+          data-testid="validate-referral-button"
           disabled={referralCode ? validationStatus !== 'valid' : false}
         >
           Continue

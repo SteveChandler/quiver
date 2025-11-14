@@ -74,15 +74,12 @@ export function NearbyBeachScroll({
                   imageUrl={beach.mapImageUrl}
                   latitude={beach.lat}
                   longitude={beach.lon}
+                  slug={originalBeach?.slug}
+                  city={originalBeach?.city}
+                  state={originalBeach?.state}
                   showForecastPreview={showForecastPreviews}
                   onViewDetails={() =>
                     originalBeach && onBeachSelect(originalBeach)
-                  }
-                  onMapClick={() =>
-                    beachNavigation.navigateToBeach(router, beach.id)
-                  }
-                  onReviewsClick={() =>
-                    beachNavigation.navigateToBeachReviews(router, beach.id)
                   }
                 />
               </div>

@@ -12,92 +12,106 @@ const mockRouter: AppRouterInstance = {
 } as any;
 
 describe("Navigation Utils", () => {
+  // Mock beach data for testing
+  const mockBeach = {
+    slug: "ocean-beach",
+    city: "San Diego",
+    state: "CA",
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe("beachNavigation", () => {
     describe("URL generation", () => {
-      it("should generate beach detail URL", () => {
-        const url = beachNavigation.toBeachDetail("test-beach-123");
-        expect(url).toBe("/beach/test-beach-123");
+      it("should generate hierarchical beach detail URL", () => {
+        const url = beachNavigation.toBeachDetail(mockBeach);
+        expect(url).toBe("/ca/san-diego/ocean-beach");
       });
 
-      it("should generate beach detail URL with tab", () => {
-        const url = beachNavigation.toBeachDetailWithTab(
-          "test-beach-123",
-          "info"
-        );
-        expect(url).toBe("/beach/test-beach-123?tab=info");
+      it("should generate hierarchical beach detail URL with tab", () => {
+        const url = beachNavigation.toBeachDetailWithTab(mockBeach, "info");
+        expect(url).toBe("/ca/san-diego/ocean-beach?tab=info");
       });
 
-      it("should generate beach reviews URL", () => {
-        const url = beachNavigation.toBeachReviews("test-beach-123");
-        expect(url).toBe("/beach/test-beach-123?tab=reviews");
+      it("should generate hierarchical beach reviews URL", () => {
+        const url = beachNavigation.toBeachReviews(mockBeach);
+        expect(url).toBe("/ca/san-diego/ocean-beach?tab=reviews");
       });
 
-      it("should generate beach info URL", () => {
-        const url = beachNavigation.toBeachInfo("test-beach-123");
-        expect(url).toBe("/beach/test-beach-123?tab=info");
+      it("should generate hierarchical beach info URL", () => {
+        const url = beachNavigation.toBeachInfo(mockBeach);
+        expect(url).toBe("/ca/san-diego/ocean-beach?tab=info");
       });
 
-      it("should generate beach gallery URL", () => {
-        const url = beachNavigation.toBeachGallery("test-beach-123");
-        expect(url).toBe("/beach/test-beach-123?tab=gallery");
+      it("should generate hierarchical beach gallery URL", () => {
+        const url = beachNavigation.toBeachGallery(mockBeach);
+        expect(url).toBe("/ca/san-diego/ocean-beach?tab=gallery");
       });
     });
 
     describe("Navigation functions", () => {
-      it("should navigate to beach detail", () => {
-        beachNavigation.navigateToBeach(mockRouter, "test-beach-123");
-        expect(mockRouter.push).toHaveBeenCalledWith("/beach/test-beach-123");
+      it("should navigate to beach detail with hierarchical URL", () => {
+        beachNavigation.navigateToBeach(mockRouter, mockBeach);
+        expect(mockRouter.push).toHaveBeenCalledWith("/ca/san-diego/ocean-beach");
       });
 
-      it("should navigate to beach with tab", () => {
-        beachNavigation.navigateToBeachWithTab(
-          mockRouter,
-          "test-beach-123",
-          "gallery"
-        );
+      it("should navigate to beach with tab using hierarchical URL", () => {
+        beachNavigation.navigateToBeachWithTab(mockRouter, mockBeach, "gallery");
         expect(mockRouter.push).toHaveBeenCalledWith(
-          "/beach/test-beach-123?tab=gallery"
+          "/ca/san-diego/ocean-beach?tab=gallery"
         );
       });
 
-      it("should navigate to beach reviews", () => {
-        beachNavigation.navigateToBeachReviews(mockRouter, "test-beach-123");
+      it("should navigate to beach reviews using hierarchical URL", () => {
+        beachNavigation.navigateToBeachReviews(mockRouter, mockBeach);
         expect(mockRouter.push).toHaveBeenCalledWith(
-          "/beach/test-beach-123?tab=reviews"
+          "/ca/san-diego/ocean-beach?tab=reviews"
         );
       });
 
-      it("should navigate to beach info", () => {
-        beachNavigation.navigateToBeachInfo(mockRouter, "test-beach-123");
+      it("should navigate to beach info using hierarchical URL", () => {
+        beachNavigation.navigateToBeachInfo(mockRouter, mockBeach);
         expect(mockRouter.push).toHaveBeenCalledWith(
-          "/beach/test-beach-123?tab=info"
+          "/ca/san-diego/ocean-beach?tab=info"
         );
       });
 
-      it("should navigate to beach gallery", () => {
-        beachNavigation.navigateToBeachGallery(mockRouter, "test-beach-123");
+      it("should navigate to beach gallery using hierarchical URL", () => {
+        beachNavigation.navigateToBeachGallery(mockRouter, mockBeach);
         expect(mockRouter.push).toHaveBeenCalledWith(
-          "/beach/test-beach-123?tab=gallery"
+          "/ca/san-diego/ocean-beach?tab=gallery"
         );
       });
     });
 
     describe("Edge cases", () => {
-      it("should handle special characters in beach ID", () => {
-        const url = beachNavigation.toBeachDetail("test-beach_123-abc");
-        expect(url).toBe("/beach/test-beach_123-abc");
+      it("should handle cities with spaces", () => {
+        const beach = { slug: "pier", city: "Huntington Beach", state: "CA" };
+        const url = beachNavigation.toBeachDetail(beach);
+        expect(url).toBe("/ca/huntington-beach/pier");
       });
 
       it("should handle special characters in tab names", () => {
-        const url = beachNavigation.toBeachDetailWithTab(
-          "test-beach-123",
-          "custom-tab"
-        );
-        expect(url).toBe("/beach/test-beach-123?tab=custom-tab");
+        const url = beachNavigation.toBeachDetailWithTab(mockBeach, "custom-tab");
+        expect(url).toBe("/ca/san-diego/ocean-beach?tab=custom-tab");
+      });
+
+      it("should fallback to /beach/{slug} when city or state missing", () => {
+        const incompleteBeach = { slug: "test-beach", city: null, state: null };
+        const url = beachNavigation.toBeachDetail(incompleteBeach);
+        expect(url).toBe("/beach/test-beach");
+      });
+
+      it("should handle Baja California beaches", () => {
+        const bajaBeach = {
+          slug: "k38",
+          city: "Ensenada",
+          state: "Baja California",
+        };
+        const url = beachNavigation.toBeachDetail(bajaBeach);
+        expect(url).toBe("/mexico/baja-california/ensenada/k38");
       });
     });
   });
@@ -151,7 +165,7 @@ describe("Navigation Utils", () => {
     it("should work with typed router instance", () => {
       // This test ensures our typing is correct
       const typedRouter: AppRouterInstance = mockRouter;
-      beachNavigation.navigateToBeach(typedRouter, "test-id");
+      beachNavigation.navigateToBeach(typedRouter, mockBeach);
       appNavigation.navigateToMap(typedRouter);
 
       expect(mockRouter.push).toHaveBeenCalledTimes(2);

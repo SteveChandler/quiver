@@ -71,6 +71,7 @@ const mockForecast = {
   id: "forecast-1",
   beach_id: "beach-1",
   valid_time: "2024-01-15T10:00:00Z",
+  forecast_time: "2024-01-15T10:00:00Z", // Hook uses forecast_time
   wave_height: "4-6 ft",
   wind_speed: "8 mph",
   wind_direction: "NW",

@@ -2,16 +2,23 @@
 
 import { useId } from "react";
 import { Control, UseFormSetValue } from "react-hook-form";
+import { FormMessage } from "@/components/ui/form";
+import { BeachSelector } from "@/components/BeachSelector";
+import type { ProfileFormValues } from "@/lib/schemas/profile-schema";
+import {
+  ExperienceLevelField,
+  SurfStylesField,
+  PreferredWaveSizeField,
+  PreferredBreakTypeField,
+  CrowdPreferenceField,
+} from "@/components/profile/shared/preference-fields";
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { BeachSelector } from "@/components/BeachSelector";
-import type { ProfileFormValues } from "@/lib/schemas/profile-schema";
 
 interface SurfInfoFieldsProps {
   /** React Hook Form control object */
@@ -30,7 +37,7 @@ interface SurfInfoFieldsProps {
 
 /**
  * Reusable surf information fields for profile forms
- * Includes: experience level, home beach (optional), Instagram (optional)
+ * Includes: home beach, experience level, surf preferences, and Instagram
  * Extracted from edit-profile-form and basic-profile-form to reduce duplication
  */
 export function SurfInfoFields({
@@ -73,21 +80,34 @@ export function SurfInfoFields({
         </div>
       )}
 
-      <FormField
+      <ExperienceLevelField
         control={control}
         name="experience_level"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Experience Level</FormLabel>
-            <FormControl>
-              <Input
-                placeholder="Beginner, Intermediate, Advanced, etc."
-                {...field}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
+        error={undefined}
+      />
+
+      <SurfStylesField
+        control={control}
+        name="surf_styles"
+        error={undefined}
+      />
+
+      <PreferredWaveSizeField
+        control={control}
+        name="preferred_wave_size"
+        error={undefined}
+      />
+
+      <PreferredBreakTypeField
+        control={control}
+        name="preferred_break_type"
+        error={undefined}
+      />
+
+      <CrowdPreferenceField
+        control={control}
+        name="crowd_preference"
+        error={undefined}
       />
 
       {showInstagram && (

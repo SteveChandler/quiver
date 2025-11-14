@@ -67,7 +67,9 @@ describe("session-utils", () => {
   test("formatSessionDescription composes details", () => {
     const session = makeSession({
       notes: "Fun waves",
-      wave_height: "3-4 ft",
+      wave_height_ft: 4,
+      wind_speed_mph: 10,
+      wind_direction: "offshore",
       water_temp: "65F",
       wave_quality: 4,
       crowd_rating: 2,

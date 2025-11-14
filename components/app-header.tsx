@@ -97,12 +97,12 @@ export function AppHeader() {
     (e?: React.FormEvent) => {
       e?.preventDefault();
       if (searchQuery.trim()) {
-        const searchParams = new URLSearchParams(window.location.search);
-        searchParams.set("search", searchQuery.trim());
-        router.push(`/map?${searchParams.toString()}`);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("search", searchQuery.trim());
+        router.push(`/map?${params.toString()}`);
       }
     },
-    [searchQuery, router]
+    [searchQuery, router, searchParams]
   );
 
   // Handle mobile search icon click

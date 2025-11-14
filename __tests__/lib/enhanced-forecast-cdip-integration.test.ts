@@ -191,8 +191,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
       expect(mockCDIPService.getNearestStation).toHaveBeenCalledWith(
-        mockBeach.latitude,
-        mockBeach.longitude,
+        mockBeach.lat,
+        mockBeach.lon,
         50 // 50km radius for nearest station
       );
       expect(mockCDIPService.fetchBuoyData).toHaveBeenCalledWith("100");
@@ -356,8 +356,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       await service.generateComprehensiveForecast(montereyBeach);
 
       expect(mockCDIPService.getNearestStation).toHaveBeenCalledWith(
-        montereyBeach.latitude,
-        montereyBeach.longitude,
+        montereyBeach.lat,
+        montereyBeach.lon,
         50
       );
     });

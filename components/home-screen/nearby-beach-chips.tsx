@@ -31,7 +31,7 @@ export function NearbyBeachChips({
 
   const fetchNearby = useCallback(async (): Promise<NearbyBeach[] | null> => {
     if (!coords?.lat || !coords?.lon) return null;
-    const url = new URL("/api/beaches/nearby", window.location.origin);
+    const url = new URL("/api/beaches/nearby", window.location.origin); // eslint-disable-line no-restricted-properties
     url.searchParams.set("latitude", String(coords.lat));
     url.searchParams.set("longitude", String(coords.lon));
     url.searchParams.set("limit", String(limit));

@@ -9,8 +9,7 @@ import { getFirebaseMessaging } from "@/lib/firebase/config";
 
 // VAPID key from Firebase Console (Cloud Messaging → Web Push certificates)
 // This is a public key and safe to include in client-side code
-const VAPID_KEY =
-  "BOPUrm9VNqgRwNl4lL7z6jJ7qH6mf7wHRZPkEyl0fexR4MrBsufQg-NvveWMgle2K78Y1G5sECVi524Lq7pu-Ds";
+const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "";
 
 // Store the unsubscribe function for cleanup
 let unsubscribeFromMessages: Unsubscribe | null = null;

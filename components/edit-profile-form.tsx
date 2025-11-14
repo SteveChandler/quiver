@@ -48,6 +48,10 @@ interface EditProfileFormProps {
     instagram?: string;
     avatar_url?: string;
     home_beach_id?: string;
+    surf_styles?: string[];
+    preferred_wave_size?: string;
+    preferred_break_type?: string;
+    crowd_preference?: string;
     notif_push_enabled?: boolean;
     notif_email_enabled?: boolean;
     notif_inapp_enabled?: boolean;
@@ -90,6 +94,10 @@ export function EditProfileForm({
       experience_level: initialData?.experience_level || "",
       instagram: initialData?.instagram || "",
       home_beach_id: initialData?.home_beach_id ?? null,
+      surf_styles: initialData?.surf_styles || [],
+      preferred_wave_size: initialData?.preferred_wave_size || "",
+      preferred_break_type: initialData?.preferred_break_type || "",
+      crowd_preference: initialData?.crowd_preference || "",
       // Notification preferences - default to true if not set
       notif_push_enabled: initialData?.notif_push_enabled ?? true,
       notif_email_enabled: initialData?.notif_email_enabled ?? true,
@@ -150,8 +158,8 @@ export function EditProfileForm({
         // Set success state to trigger useEffect callback
         setSubmitSuccess(true);
       } else {
-        // Force a page refresh to clear all caches and ensure updated data is shown
-        window.location.href = "/profile";
+        // Navigate to profile page to show updated data
+        router.push("/profile");
       }
     } catch (error) {
       console.error("Error updating profile:", error);

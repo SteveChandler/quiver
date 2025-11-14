@@ -8,8 +8,8 @@ const mockSupabaseClient = {
 };
 
 // Helper to create chainable mock methods
-const createMockChain = (finalResult: any) => {
-  const chainMethods = {
+const createMockChain = (finalResult: any): any => {
+  const chainMethods: any = {
     select: jest.fn(() => chainMethods),
     eq: jest.fn(() => chainMethods),
     single: jest.fn(() => Promise.resolve(finalResult)),
@@ -102,8 +102,8 @@ describe("Social Actions", () => {
       const result = await followUser("user-2");
 
       expect(result.success).toBe(true);
-      expect(result.data.data.followId).toBe("follow-1");
-      expect(result.data.data.message).toBe("Now following Target User");
+      expect(result.data!.data.followId).toBe("follow-1");
+      expect(result.data!.data.message).toBe("Now following Target User");
       expect(revalidatePath).toHaveBeenCalledWith("/profile");
       expect(revalidatePath).toHaveBeenCalledWith("/profile/user-2");
     });
@@ -219,7 +219,7 @@ describe("Social Actions", () => {
       const result = await unfollowUser("user-2");
 
       expect(result.success).toBe(true);
-      expect(result.data.data.message).toBe("Unfollowed Target User");
+      expect(result.data!.data.message).toBe("Unfollowed Target User");
       expect(revalidatePath).toHaveBeenCalledWith("/profile");
       expect(revalidatePath).toHaveBeenCalledWith("/profile/user-2");
     });
@@ -247,7 +247,7 @@ describe("Social Actions", () => {
       );
 
       // Mock delete error (fails)
-      const deleteChain = {
+      const deleteChain: any = {
         select: jest.fn(() => deleteChain),
         eq: jest.fn(() => deleteChain),
         single: jest.fn(() => Promise.resolve({ data: null, error: { message: "Delete failed" } })),
@@ -284,7 +284,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowing();
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual([mockTargetUser]);
+      expect(result.data!.data).toEqual([mockTargetUser]);
     });
 
     it("should get users for specific user ID", async () => {
@@ -298,7 +298,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowing("user-3", 10);
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual([mockTargetUser]);
+      expect(result.data!.data).toEqual([mockTargetUser]);
     });
 
     it("should handle empty following list", async () => {
@@ -312,7 +312,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowing();
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual([]);
+      expect(result.data!.data).toEqual([]);
     });
 
     it("should handle database errors", async () => {
@@ -352,7 +352,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowing();
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual([mockTargetUser]);
+      expect(result.data!.data).toEqual([mockTargetUser]);
     });
   });
 
@@ -379,7 +379,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowers();
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual([mockFollowerData[0].follower]);
+      expect(result.data!.data).toEqual([mockFollowerData[0].follower]);
     });
 
     it("should get followers for specific user ID", async () => {
@@ -393,7 +393,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowers("user-3", 20);
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual([mockFollowerData[0].follower]);
+      expect(result.data!.data).toEqual([mockFollowerData[0].follower]);
     });
 
     it("should handle empty followers list", async () => {
@@ -407,7 +407,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowers();
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual([]);
+      expect(result.data!.data).toEqual([]);
     });
 
     it("should handle database errors", async () => {
@@ -436,7 +436,7 @@ describe("Social Actions", () => {
       const result = await isFollowing("user-2");
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toBe(true);
+      expect(result.data!.data).toBe(true);
     });
 
     it("should return false when not following user", async () => {
@@ -450,7 +450,7 @@ describe("Social Actions", () => {
       const result = await isFollowing("user-2");
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toBe(false);
+      expect(result.data!.data).toBe(false);
     });
 
     it("should handle other database errors", async () => {
@@ -500,7 +500,7 @@ describe("Social Actions", () => {
       const result = await toggleUserFollow("user-2");
 
       expect(result.success).toBe(true);
-      expect(result.data.data.data.followId).toBe("follow-1");
+      expect((result.data!.data!.data as any).followId).toBe("follow-1");
     });
 
     it("should unfollow user when already following", async () => {
@@ -535,7 +535,7 @@ describe("Social Actions", () => {
       const result = await toggleUserFollow("user-2");
 
       expect(result.success).toBe(true);
-      expect(result.data.data.data.message).toBe("Unfollowed Target User");
+      expect(result.data!.data!.data!.message).toBe("Unfollowed Target User");
     });
   });
 
@@ -573,7 +573,7 @@ describe("Social Actions", () => {
       const result = await getSuggestedUsers(5);
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual(mockSuggestedUsers);
+      expect(result.data!.data).toEqual(mockSuggestedUsers);
     });
 
     it("should handle empty suggestions", async () => {
@@ -594,7 +594,7 @@ describe("Social Actions", () => {
       const result = await getSuggestedUsers();
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual([]);
+      expect(result.data!.data).toEqual([]);
     });
 
     it("should handle database errors", async () => {
@@ -637,7 +637,7 @@ describe("Social Actions", () => {
       const result = await getSuggestedUsers();
 
       expect(result.success).toBe(true);
-      expect(result.data.data).toEqual(mockSuggestedUsers);
+      expect(result.data!.data).toEqual(mockSuggestedUsers);
     });
   });
 });

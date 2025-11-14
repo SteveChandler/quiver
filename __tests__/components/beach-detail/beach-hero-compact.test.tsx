@@ -14,8 +14,9 @@ import type { Beach } from "@/types/database";
 const mockBeach: Beach & { average_rating?: number; review_count?: number } = {
   id: "test-beach-1",
   name: "Ocean Beach",
-  location: "San Francisco, CA",
-  region: "Northern California",
+  city: "San Francisco",
+  state: "CA",
+  region_id: "Northern California",
   lat: 37.7749,
   lon: -122.4194,
   break_type: "Beach Break",
@@ -26,7 +27,7 @@ const mockBeach: Beach & { average_rating?: number; review_count?: number } = {
   created_at: "2024-01-01",
   updated_at: "2024-01-01",
   enabled: true,
-  location_name: "San Francisco",
+  country: "USA",
 };
 
 describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
@@ -150,14 +151,15 @@ describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
       expect(screen.getByText("4.5")).toBeInTheDocument();
     });
 
-    it("should fallback to wave_quality_rating if average_rating not available", () => {
+    it("should not display rating if average_rating not available", () => {
       const beach = {
         ...mockBeach,
         average_rating: undefined,
         wave_quality_rating: 3.8,
       };
       render(<BeachHeroCompact beach={beach} />);
-      expect(screen.getByText("3.8")).toBeInTheDocument();
+      // Component only uses average_rating, not wave_quality_rating as fallback
+      expect(screen.queryByText("3.8")).not.toBeInTheDocument();
     });
   });
 
@@ -264,8 +266,8 @@ describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
       expect(screen.getByText("San Francisco, CA")).toBeInTheDocument();
     });
 
-    it("should fallback to region if location not available", () => {
-      const beach = { ...mockBeach, location: undefined };
+    it("should fallback to region_id if city/state not available", () => {
+      const beach = { ...mockBeach, city: undefined, state: undefined };
       render(<BeachHeroCompact beach={beach} />);
       expect(screen.getByText("Northern California")).toBeInTheDocument();
     });

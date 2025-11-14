@@ -42,10 +42,10 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
         <FormItem className="flex items-center justify-between py-3">
           <div className="flex items-center gap-3">
             <Icon
-              className="h-5 w-5 text-gray-500 dark:text-gray-400"
+              className="h-5 w-5 text-muted-foreground"
               aria-hidden="true"
             />
-            <FormLabel className="text-sm font-normal text-gray-900 dark:text-gray-100 cursor-pointer">
+            <FormLabel className="text-sm font-normal text-foreground cursor-pointer">
               {label}
             </FormLabel>
           </div>
@@ -64,14 +64,14 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
 
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+      <h3 className="text-sm font-medium">
         Notifications
       </h3>
-      <p className="text-sm text-gray-900 dark:text-gray-100">
+      <p className="text-sm text-muted-foreground">
         Choose how you&apos;d like to get updates about your sessions and
         friends.
       </p>
-      <p className="text-xs text-gray-800 dark:text-gray-200">
+      <p className="text-sm text-muted-foreground">
         You can change these anytime — we&apos;ll only notify you about things
         you care about.
       </p>
@@ -97,7 +97,7 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
 
       {/* Advanced Settings - Collapsible */}
       <details className="mt-3 group">
-        <summary className="flex cursor-pointer items-center justify-between py-2 text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-[#0077B6] transition-colors">
+        <summary className="flex cursor-pointer items-center justify-between py-2 text-sm font-medium text-foreground hover:text-[#0077B6] transition-colors">
           Advanced Settings
           <ChevronDown
             className="h-4 w-4 transition-transform duration-200 group-open:rotate-180"

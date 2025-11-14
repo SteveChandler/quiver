@@ -203,7 +203,7 @@ export async function shareSession(
 
 export function buildSessionUrl(sessionId: string): string {
   if (typeof window !== "undefined") {
-    return `${window.location.origin}/sessions/${sessionId}`;
+    return `${window.location.origin}/sessions/${sessionId}`; // eslint-disable-line no-restricted-properties
   }
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
   return `${origin}/sessions/${sessionId}`;

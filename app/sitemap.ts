@@ -8,6 +8,7 @@ import {
 } from "@/lib/data/surf-spots";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { buildLocationUrl } from "@/lib/utils/location-slug";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
 const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -100,17 +101,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
     if (res.ok) {
       const json = await res.json();
-      const beaches: Array<{ id: string; updated_at?: string | null }> =
-        json?.beaches || json?.data || [];
-      
-      beachEntries = beaches.map((b) => ({
-        url: `${baseUrl}/beach/${b.id}`,
-        lastModified: b.updated_at || lastmod,
-        changeFrequency: "weekly",
-        priority: 0.6,
-      }));
+      const beaches: Array<{
+        id: string;
+        slug: string | null;
+        city: string | null;
+        state: string | null;
+        updated_at?: string | null
+      }> = json?.beaches || json?.data || [];
 
-      // Add forecast pages for each beach
+      // Generate hierarchical URLs for beaches
+      beachEntries = beaches
+        .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete URL data
+        .map((beach) => ({
+          url: `${baseUrl}${buildBeachUrl(beach)}`,
+          lastModified: beach.updated_at || lastmod,
+          changeFrequency: "weekly",
+          priority: 0.6,
+        }));
+
+      // Add forecast pages for each beach (still using ID for now)
       forecastEntries = beaches.map((b) => ({
         url: `${baseUrl}/forecast/${b.id}`,
         lastModified: b.updated_at || lastmod,

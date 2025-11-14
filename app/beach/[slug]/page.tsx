@@ -9,6 +9,8 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "./beach-detail-client";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
+import { redirect } from "next/navigation";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
 
@@ -48,16 +50,31 @@ export default async function BeachDetailBySlugPage({
       );
     }
 
+    // Redirect to hierarchical URL format if beach has the required data
+    // This helps with SEO and provides a better URL structure
+    if (beach.slug && beach.city && beach.state) {
+      const hierarchicalUrl = buildBeachUrl(beach);
+      const currentPath = `/beach/${params.slug}`;
+
+      // Only redirect if the hierarchical URL is different from current path
+      if (hierarchicalUrl !== currentPath) {
+        redirect(hierarchicalUrl);
+      }
+    }
+
     return (
       <>
         {/* Structured Data: Place/Beach */}
         <BeachPageStructuredData
           beachName={beach.name}
           description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
-          latitude={beach.lat}
-          longitude={beach.lon}
+          latitude={beach.lat || 0}
+          longitude={beach.lon || 0}
           rating={(beach as any).average_rating || undefined}
           reviewCount={(beach as any).review_count || undefined}
+          city={beach.city || undefined}
+          state={beach.state || undefined}
+          country={beach.country || undefined}
         />
 
         {/* Breadcrumb Structured Data for SEO */}

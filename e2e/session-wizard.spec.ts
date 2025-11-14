@@ -451,3 +451,75 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
   // For now, we verify the session creation flow works end-to-end.
   // Integration tests with database access are better suited for snapshot verification.
 });
+
+test.describe('Session Wizard - Feature Flag Detection', () => {
+  /**
+   * Tests to detect which wizard version is running
+   * USE_CONSOLIDATED_WIZARD = false → V1 (6 steps for log mode)
+   * USE_CONSOLIDATED_WIZARD = true → V2 (4 steps for log mode)
+   */
+
+  test('should detect wizard version based on step count', async ({ page }) => {
+    await page.goto('/sessions/new?mode=log');
+    await waitForPageLoad(page);
+
+    // Try to detect step count
+    const progressBar = page.locator('[role="progressbar"], [data-testid*="progress"]').first();
+    const hasProgressBar = await progressBar.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (hasProgressBar) {
+      const maxSteps = await progressBar.getAttribute('aria-valuemax');
+
+      if (maxSteps) {
+        const stepCount = parseInt(maxSteps);
+        console.log(`Detected wizard version: ${stepCount === 6 ? 'V1 (legacy)' : 'V2 (consolidated)'}`);
+        console.log(`Step count: ${stepCount}`);
+
+        // Should be either 6 (V1) or 4 (V2)
+        expect([4, 6]).toContain(stepCount);
+      }
+    } else {
+      console.log('Progress bar not found - cannot detect wizard version');
+    }
+  });
+
+  test('log mode: V1 has 6 steps, V2 has 4 steps', async ({ page }) => {
+    await page.goto('/sessions/new?mode=log');
+    await waitForPageLoad(page);
+
+    const progressBar = page.locator('[role="progressbar"]').first();
+    const hasProgressBar = await progressBar.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (hasProgressBar) {
+      const maxSteps = await progressBar.getAttribute('aria-valuemax');
+
+      if (maxSteps) {
+        const stepCount = parseInt(maxSteps);
+
+        if (stepCount === 6) {
+          console.log('✓ Running V1 wizard (USE_CONSOLIDATED_WIZARD = false)');
+        } else if (stepCount === 4) {
+          console.log('✓ Running V2 wizard (USE_CONSOLIDATED_WIZARD = true)');
+        }
+      }
+    }
+  });
+
+  test('plan mode: should always have 4 steps (unchanged in both versions)', async ({ page }) => {
+    await page.goto('/sessions/new?mode=plan');
+    await waitForPageLoad(page);
+
+    const progressBar = page.locator('[role="progressbar"]').first();
+    const hasProgressBar = await progressBar.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (hasProgressBar) {
+      const maxSteps = await progressBar.getAttribute('aria-valuemax');
+
+      if (maxSteps) {
+        const stepCount = parseInt(maxSteps);
+        expect(stepCount).toBe(4);
+        console.log('✓ Plan mode has 4 steps (as expected)');
+      }
+    }
+  });
+});

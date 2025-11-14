@@ -722,9 +722,9 @@ describe("AppHeader", () => {
 
       render(<AppHeader />);
 
-      // Guest users should see Sign In / Sign Up
-      const signInButton = screen.queryByText(/sign in/i);
-      expect(signInButton).toBeInTheDocument();
+      // Guest users should see Log In / Sign Up buttons
+      const logInButton = screen.queryByText(/log in/i);
+      expect(logInButton).toBeInTheDocument();
     });
 
     it("user dropdown still functional", async () => {
@@ -825,11 +825,11 @@ describe("AppHeader", () => {
         expect(discoverLink).toHaveAttribute("href", "/map");
       });
 
-      it("Sessions link points to /sessions route", () => {
+      it("Sessions link points to /profile?tab=sessions route", () => {
         render(<AppHeader />);
 
         const sessionsLink = screen.getByRole("link", { name: /sessions/i });
-        expect(sessionsLink).toHaveAttribute("href", "/sessions");
+        expect(sessionsLink).toHaveAttribute("href", "/profile?tab=sessions");
       });
 
       it("Community link points to /?tab=community route", () => {
@@ -1599,9 +1599,7 @@ describe("AppHeader", () => {
       it("has rounded-full pill shape class", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen
-          .getByRole("link", { name: /sign up/i })
-          .querySelector("button");
+        const signUpButton = screen.getByRole("button", { name: /sign up/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("rounded-full");
@@ -1610,9 +1608,7 @@ describe("AppHeader", () => {
       it("has shadow-sm class", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen
-          .getByRole("link", { name: /sign up/i })
-          .querySelector("button");
+        const signUpButton = screen.getByRole("button", { name: /sign up/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("shadow-sm");
@@ -1621,9 +1617,7 @@ describe("AppHeader", () => {
       it("has active:scale-98 press state class", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen
-          .getByRole("link", { name: /sign up/i })
-          .querySelector("button");
+        const signUpButton = screen.getByRole("button", { name: /sign up/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("active:scale-98");
@@ -1632,9 +1626,7 @@ describe("AppHeader", () => {
       it("has font-semibold class", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen
-          .getByRole("link", { name: /sign up/i })
-          .querySelector("button");
+        const signUpButton = screen.getByRole("button", { name: /sign up/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("font-semibold");
@@ -1643,9 +1635,7 @@ describe("AppHeader", () => {
       it("has transition-all duration-200 classes", () => {
         render(<AppHeader />);
 
-        const signUpButton = screen
-          .getByRole("link", { name: /sign up/i })
-          .querySelector("button");
+        const signUpButton = screen.getByRole("button", { name: /sign up/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("transition-all");
@@ -1778,9 +1768,7 @@ describe("AppHeader", () => {
 
         render(<AppHeader />);
 
-        const signInButton = screen
-          .getByRole("link", { name: /sign in/i })
-          .querySelector("button");
+        const signInButton = screen.getByRole("button", { name: /log in/i });
 
         expect(signInButton).toBeInTheDocument();
         expect(signInButton?.className).toContain("focus-visible:ring-2");
@@ -1800,9 +1788,7 @@ describe("AppHeader", () => {
 
         render(<AppHeader />);
 
-        const signUpButton = screen
-          .getByRole("link", { name: /sign up/i })
-          .querySelector("button");
+        const signUpButton = screen.getByRole("button", { name: /sign up/i });
 
         expect(signUpButton).toBeInTheDocument();
         expect(signUpButton?.className).toContain("focus-visible:ring-2");

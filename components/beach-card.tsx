@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Star, ChevronDown, ChevronUp } from "lucide-react";
@@ -8,6 +9,8 @@ import Link from "next/link";
 import { MapImage } from "@/components/map-image";
 import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { formatRatingSimple } from "@/lib/utils/rating-formatters";
 
 interface BeachCardProps {
   id?: string;
@@ -18,13 +21,17 @@ interface BeachCardProps {
   imageUrl: string;
   latitude?: number;
   longitude?: number;
+  // New props for hierarchical URLs
+  slug?: string | null;
+  city?: string | null;
+  state?: string | null;
   onViewDetails?: () => void;
   onMapClick?: () => void;
   onReviewsClick?: () => void;
   showForecastPreview?: boolean;
 }
 
-export function BeachCard({
+const BeachCardComponent = function BeachCard({
   id,
   name,
   distance,
@@ -33,12 +40,21 @@ export function BeachCard({
   imageUrl,
   latitude,
   longitude,
+  slug,
+  city,
+  state,
   onViewDetails,
   onMapClick,
   onReviewsClick,
   showForecastPreview = false,
 }: BeachCardProps) {
+  const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Generate beach URL (hierarchical if slug/city/state available, otherwise fallback to ID)
+  const beachUrl = getBeachUrlSafe({ id, slug, city, state });
+
+  const beachReviewsUrl = beachUrl ? `${beachUrl}?tab=reviews` : null;
 
   // Use shared forecast preview hook
   const {
@@ -53,18 +69,18 @@ export function BeachCard({
   const handleMapClick = () => {
     if (onMapClick) {
       onMapClick();
-    } else if (id) {
+    } else if (beachUrl) {
       // Default behavior - navigate to beach details
-      window.location.href = `/beach/${id}`;
+      router.push(beachUrl);
     }
   };
 
   const handleReviewsClick = () => {
     if (onReviewsClick) {
       onReviewsClick();
-    } else if (id) {
+    } else if (beachReviewsUrl) {
       // Default behavior - navigate to beach details reviews tab
-      window.location.href = `/beach/${id}?tab=reviews`;
+      router.push(beachReviewsUrl);
     }
   };
 
@@ -129,7 +145,7 @@ export function BeachCard({
             >
               <Star className="h-4 w-4 text-yellow-500 mr-1 fill-yellow-500" />
               <span className="font-medium">
-                {Number.isFinite(rating) ? (rating as number).toFixed(1) : "--"}
+                {formatRatingSimple(rating)}
               </span>
               <span className="text-muted-foreground text-sm ml-1 hidden sm:inline">
                 ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
@@ -153,9 +169,9 @@ export function BeachCard({
                 )}
               </motion.button>
 
-              {id ? (
+              {beachUrl ? (
                 <Link
-                  href={`/beach/${id}`}
+                  href={beachUrl}
                   className="text-primary text-sm font-medium"
                 >
                   <motion.span
@@ -238,4 +254,8 @@ export function BeachCard({
       </Card>
     </motion.div>
   );
-}
+};
+
+// Export memoized component for performance optimization
+export const BeachCard = memo(BeachCardComponent);
+BeachCard.displayName = 'BeachCard';

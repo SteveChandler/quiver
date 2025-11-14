@@ -146,7 +146,7 @@ export function transformSessionFormStateToDbSchema(
   // Combine date and time into arrival_time
   if (formState.selectedDate) {
     let arrivalTime = formState.selectedDate;
-    
+
     // If time is provided, combine it with date
     if (formState.selectedTime) {
       // selectedTime is in format "HH:MM"
@@ -155,7 +155,7 @@ export function transformSessionFormStateToDbSchema(
       // Default to midnight if no time specified
       arrivalTime += `T00:00:00.000Z`;
     }
-    
+
     dbData.arrival_time = arrivalTime;
   }
 
@@ -206,11 +206,31 @@ export function transformSessionFormStateToDbSchema(
 
   // Handle text fields
   if (formState.waterTemp) {
-    dbData.water_temp = formState.waterTemp;
+    const waterTemp = parseFloat(formState.waterTemp);
+    if (!isNaN(waterTemp)) {
+      dbData.water_temp = waterTemp;
+    }
   }
 
   if (formState.notes) {
     dbData.notes = formState.notes;
+  }
+
+  // NEW FIELDS: Handle wave conditions data
+  if (formState.waveHeight !== undefined) {
+    dbData.wave_height_ft = formState.waveHeight;
+  }
+
+  if (formState.windSpeed !== undefined) {
+    dbData.wind_speed_mph = formState.windSpeed;
+  }
+
+  if (formState.windDirection) {
+    dbData.wind_direction = formState.windDirection;
+  }
+
+  if (formState.forecastAccuracy) {
+    dbData.forecast_accuracy = formState.forecastAccuracy;
   }
 
   // Handle wave types as goals (session planning feature)
@@ -248,4 +268,63 @@ export function sanitizeSessionPayload<T extends Record<string, any>>(input: T):
   }
 
   return cleaned as T;
+}
+
+/**
+ * Transform database Session to SessionFormState for editing
+ * Converts snake_case database column names to camelCase form field names
+ */
+export function sessionToFormState(session: any): any {
+  // Helper to format duration minutes back to string format
+  const formatDuration = (minutes: number): string => {
+    if (!minutes) return "60m"; // Default 1 hour
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${mins}m`;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h ${mins}m`;
+  };
+
+  return {
+    // Location
+    selectedBeach: session.beach_name || "",
+    selectedBeachId: session.beach_id || undefined,
+
+    // Date & Time
+    selectedDate: session.arrival_time ? session.arrival_time.split("T")[0] : "",
+    selectedTime: session.arrival_time
+      ? session.arrival_time.split("T")[1]?.substring(0, 5) || ""
+      : "",
+
+    // Equipment
+    selectedBoard: "", // Will be populated from board data if needed
+    boardId: session.board_id || undefined,
+
+    // Duration
+    duration: formatDuration(session.duration_minutes),
+
+    // Wave conditions
+    waveHeight: session.wave_height_ft || undefined,
+    waveQuality: session.wave_quality?.toString() || "",
+    waveTypes: session.wave_types || session.goals || [],
+
+    // Environmental conditions (NEW FIELDS)
+    windSpeed: session.wind_speed_mph || undefined,
+    windDirection: session.wind_direction || undefined,
+    waterTemp: session.water_temp?.toString() || "",
+
+    // Experience ratings
+    crowdLevel: session.crowd_level?.toString() || "",
+    parkingEase: session.parking_ease?.toString() || "",
+    overallRating: session.rating?.toString() || "",
+
+    // Forecast accuracy (NEW FIELD)
+    forecastAccuracy: session.forecast_accuracy || undefined,
+
+    // Notes
+    notes: session.notes || "",
+
+    // Photos (empty array for now - photos are handled separately)
+    photos: [],
+  };
 }

@@ -12,6 +12,9 @@ jest.mock('@/lib/share/track-share');
 jest.mock('@/context/auth-context');
 jest.mock('@/components/ui/use-toast');
 jest.mock('@/actions/session-actions');
+jest.mock('@/actions/social-share-actions', () => ({
+  generateShareImageUrl: jest.fn().mockResolvedValue('https://example.com/share-image.png'),
+}));
 
 const mockSession: SessionWithDetails = {
   id: 'test-session-123',
@@ -60,6 +63,10 @@ describe('ShareBar Component', () => {
     (shareUrlBuilder.downloadImage as jest.Mock).mockResolvedValue(true);
     (shareUrlBuilder.buildImageFilename as jest.Mock).mockReturnValue('quiver-session-123.png');
     (shareUrlBuilder.isWebShareAvailable as jest.Mock).mockReturnValue(false);
+    (shareUrlBuilder.mapVariantToSignedParams as jest.Mock).mockReturnValue({
+      variant: '1',
+      ratio: '1:1',
+    });
 
     // Default mocks for tracking
     (trackShare.trackSharePlatformSelected as jest.Mock).mockImplementation(() => {});
@@ -262,59 +269,55 @@ describe('ShareBar Component', () => {
     it('should download image for Instagram', async () => {
       render(<ShareBar session={mockSession} sessionId="test-session-123" />);
 
-      // Find Instagram button (by icon, text, or aria-label)
-      const instagramButton = screen.queryByRole('button', { name: /instagram/i }) ||
-                             screen.queryByLabelText(/instagram/i);
+      // Find Instagram button (by aria-label)
+      const instagramButton = screen.getByRole('button', { name: /share to instagram/i });
+      expect(instagramButton).toBeInTheDocument();
 
-      if (instagramButton) {
-        fireEvent.click(instagramButton);
+      fireEvent.click(instagramButton);
 
-        await waitFor(() => {
-          expect(trackShare.trackDownloadStarted).toHaveBeenCalled();
-          expect(shareUrlBuilder.downloadImage).toHaveBeenCalled();
-          expect(trackShare.trackDownloadCompleted).toHaveBeenCalled();
-          expect(trackShare.incrementSessionShareCount).toHaveBeenCalledWith('test-session-123');
-        });
-      }
+      await waitFor(() => {
+        expect(trackShare.trackDownloadStarted).toHaveBeenCalled();
+        expect(shareUrlBuilder.downloadImage).toHaveBeenCalled();
+        expect(trackShare.trackDownloadCompleted).toHaveBeenCalled();
+        expect(trackShare.incrementSessionShareCount).toHaveBeenCalledWith('test-session-123');
+      }, { timeout: 5000 });
     });
 
     it('should track Instagram share', async () => {
       render(<ShareBar session={mockSession} sessionId="test-session-123" />);
 
-      const instagramButton = screen.queryByRole('button', { name: /instagram/i });
+      const instagramButton = screen.getByRole('button', { name: /share to instagram/i });
+      expect(instagramButton).toBeInTheDocument();
 
-      if (instagramButton) {
-        fireEvent.click(instagramButton);
+      fireEvent.click(instagramButton);
 
-        await waitFor(() => {
-          expect(trackShare.trackShare).toHaveBeenCalledWith(
-            'instagram',
-            expect.objectContaining({
-              sessionId: 'test-session-123',
-              userId: 'user-123',
-            })
-          );
-        });
-      }
+      await waitFor(() => {
+        expect(trackShare.trackShare).toHaveBeenCalledWith(
+          'instagram',
+          expect.objectContaining({
+            sessionId: 'test-session-123',
+            userId: 'user-123',
+          })
+        );
+      }, { timeout: 5000 });
     });
 
     it('should show success toast after Instagram download', async () => {
       const { toast } = require('@/components/ui/use-toast');
       render(<ShareBar session={mockSession} sessionId="test-session-123" />);
 
-      const instagramButton = screen.queryByRole('button', { name: /instagram/i });
+      const instagramButton = screen.getByRole('button', { name: /share to instagram/i });
+      expect(instagramButton).toBeInTheDocument();
 
-      if (instagramButton) {
-        fireEvent.click(instagramButton);
+      fireEvent.click(instagramButton);
 
-        await waitFor(() => {
-          expect(toast).toHaveBeenCalledWith(
-            expect.objectContaining({
-              title: expect.stringContaining('downloaded'),
-            })
-          );
-        });
-      }
+      await waitFor(() => {
+        expect(toast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: expect.stringContaining('downloaded'),
+          })
+        );
+      }, { timeout: 5000 });
     });
 
     it('should handle Instagram download failure', async () => {

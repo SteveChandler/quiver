@@ -25,14 +25,15 @@ jest.mock("next/link", () => {
 const mockBeach: Beach = {
   id: "test-beach-1",
   name: "Ocean Beach",
-  location: "San Francisco, CA",
-  region: "Northern California",
+  city: "San Francisco",
+  state: "CA",
+  region_id: "Northern California",
   lat: 37.7749,
   lon: -122.4194,
   created_at: "2024-01-01",
   updated_at: "2024-01-01",
   enabled: true,
-  location_name: "San Francisco",
+  country: "USA",
 };
 
 describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
@@ -159,20 +160,21 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
       expect(screen.getByText("San Francisco, CA")).toBeInTheDocument();
     });
 
-    it("should use gray-600 color for location", () => {
+    it("should use ocean-blue color for location when it's a link", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);
       const location = screen.getByText("San Francisco, CA");
-      expect(location).toHaveClass("text-gray-600");
+      // When city/state are available, location is a link with ocean-blue color
+      expect(location).toHaveClass("text-ocean-blue");
     });
 
-    it("should fallback to region if location not available", () => {
-      const beach = { ...mockBeach, location: undefined };
+    it("should fallback to region_id if city/state not available", () => {
+      const beach = { ...mockBeach, city: undefined, state: undefined };
       render(<BeachBreadcrumb beach={beach} />);
       expect(screen.getByText("Northern California")).toBeInTheDocument();
     });
 
-    it("should use default California if both location and region unavailable", () => {
-      const beach = { ...mockBeach, location: undefined, region: undefined };
+    it("should use default California if city/state/region_id unavailable", () => {
+      const beach = { ...mockBeach, city: undefined, state: undefined, region_id: undefined };
       render(<BeachBreadcrumb beach={beach} />);
       expect(screen.getByText("California")).toBeInTheDocument();
     });
@@ -432,8 +434,12 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
 
     it("should have accessible link text", () => {
       render(<BeachBreadcrumb beach={mockBeach} />);
-      const link = screen.getByRole("link");
-      expect(link).toHaveAccessibleName();
+      const links = screen.getAllByRole("link");
+      // Should have at least the "Back to Map" link, and possibly location link
+      expect(links.length).toBeGreaterThanOrEqual(1);
+      links.forEach(link => {
+        expect(link).toHaveAccessibleName();
+      });
     });
   });
 

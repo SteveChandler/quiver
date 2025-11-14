@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { CONTENT } from "@/lib/constants/features";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { HeroCarousel } from "./hero-carousel";
+import { beachNavigation } from "@/lib/navigation-utils";
 
 export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -20,9 +21,6 @@ export function HeroSection() {
       ? `/map?search=${encodeURIComponent(query)}`
       : "/map";
     router.push(url);
-    if (typeof window !== "undefined") {
-      window.location.href = url;
-    }
   };
 
   const performSearch = async (query: string) => {
@@ -44,7 +42,7 @@ export function HeroSection() {
         if (Array.isArray(beaches) && beaches.length > 0) {
           const beach = beaches[0];
           if (beach?.id) {
-            router.push(`/beach/${beach.id}`);
+            beachNavigation.navigateToBeach(router, beach);
             return;
           }
         }

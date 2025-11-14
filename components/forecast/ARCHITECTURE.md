@@ -211,6 +211,51 @@ interface ForecastDataSourceIndicatorProps {
 - **Buoy Distance**: Nearest measurement station information
 - **Real-time Status**: Live data vs. cached data indicators
 
+#### **`buoy-station-link.tsx`** - Interactive Buoy Station Links
+
+```typescript
+interface BuoyStationLinkProps {
+  stationId: string;              // Buoy station ID (e.g., "220")
+  stationName: string;            // Human-readable name (e.g., "Scripps Pier")
+  distance?: number;              // Distance in kilometers
+  beachLocation?: {               // Beach coordinates for reference
+    latitude: number;
+    longitude: number;
+  };
+  variant?: "default" | "compact" | "inline";
+  showIcon?: boolean;
+  className?: string;
+}
+```
+
+**Display Variants:**
+
+- **Default**: Full badge with station info and distance
+- **Compact**: Minimal inline display with icon
+- **Inline**: Plain text link with hover tooltip
+
+**Features:**
+
+- **Clickable Links**: Navigate to buoy station detail pages (`/buoys/[stationId]`)
+- **Distance Display**: Automatic km/m formatting (km for >1km, m for <1km)
+- **Interactive Tooltips**: Detailed station information on hover
+- **Accessibility**: Full ARIA labels and keyboard navigation
+- **Distance Conversion**: Handles miles-to-km conversion automatically
+
+**Integration:**
+
+Used in `ForecastDataSourceIndicator` to provide direct access to buoy data sources:
+
+```typescript
+<ForecastDataSourceIndicator
+  nearestBuoyStationId="220"
+  nearestBuoyName="Scripps Pier"
+  nearestBuoyDistance={2.5}  // miles
+  beachLocation={{ latitude: 32.8674, longitude: -117.2548 }}
+/>
+// Automatically renders BuoyStationLink in compact variant
+```
+
 #### **`confidence-score-explanation.tsx`** - User-Friendly Quality Explanation
 
 ```typescript

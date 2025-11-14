@@ -16,6 +16,9 @@ importScripts(
 
 // Initialize Firebase in the service worker
 // Note: These values are public and safe to include in client-side code
+// TODO: Move to build-time generation using environment variables
+// Service workers cannot access Next.js env vars at runtime, so we need to
+// generate this file during build or use a config endpoint
 firebase.initializeApp({
   apiKey: "AIzaSyDFcuLm-nSV4faCeYJhnADym_hVTEqEFVw",
   authDomain: "quiver-1f787.firebaseapp.com",

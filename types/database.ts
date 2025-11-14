@@ -78,11 +78,26 @@ export interface ProfileWithStats extends Profile {
 }
 
 export interface IntelPostWithUser extends IntelPost {
-  profiles: {
+  // Additional fields from RPC function get_nearby_intel_posts
+  beach_name?: string
+  distance_miles?: number
+  user_name?: string
+
+  // User profile information (enriched from profiles table)
+  user?: {
+    full_name: string
+    avatar_url: string | null
+  }
+
+  // Legacy field for backward compatibility
+  profiles?: {
     id: string
     full_name: string | null
     avatar_url: string | null
   } | null
+
+  // User confirmation status
+  user_has_confirmed?: boolean
 }
 
 // ===================================================

@@ -140,11 +140,19 @@ describe("ForecastDataSourceIndicator", () => {
           dataSources={["CDIP"]}
           nearestBuoyDistance={2.5}
           nearestBuoyName="La Jolla"
+          nearestBuoyStationId="220"
+          beachLocation={{
+            latitude: 32.8674,
+            longitude: -117.2548,
+          }}
         />
       );
 
-      expect(screen.getByText(/Nearest buoy: La Jolla/)).toBeInTheDocument();
-      expect(screen.getByText(/2.5 miles away/)).toBeInTheDocument();
+      // Check for BuoyStationLink component output
+      expect(screen.getByText(/CDIP 220/)).toBeInTheDocument();
+      expect(screen.getByTestId("buoy-link-220")).toBeInTheDocument();
+      // Distance should be converted from miles to km (2.5 miles ≈ 4.0 km)
+      expect(screen.getByText(/4\.0 km/)).toBeInTheDocument();
     });
   });
 

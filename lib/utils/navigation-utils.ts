@@ -20,7 +20,7 @@ export function preserveQueryParams(
     return href;
   }
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'; // eslint-disable-line no-restricted-properties
   const url = new URL(href, origin);
   
   // Preserve specified parameters

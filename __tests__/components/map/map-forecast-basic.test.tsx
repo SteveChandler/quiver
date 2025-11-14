@@ -114,6 +114,20 @@ describe("Map Forecast Basic Tests", () => {
           } as Response);
         }
         
+        if (url.includes("/api/forecasts/bulk")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+              success: true,
+              data: {
+                forecasts: {
+                  "d030911e-71ba-4678-8bbb-cd06a30f8c42": "2.6 ft",
+                },
+              },
+            }),
+          } as Response);
+        }
+        
         if (url.includes("/api/forecasts/update-enhanced")) {
           return Promise.resolve({
             ok: true,
@@ -184,8 +198,9 @@ describe("Map Forecast Basic Tests", () => {
     render(<InteractiveMap />);
     
     // Wait for beaches and then forecast calls
+    // InteractiveMap uses /api/forecasts/bulk endpoint
     await waitFor(() => {
-      expect(mockFetch.mock.calls.some(([url]) => typeof url === "string" && (url as string).includes("/api/forecasts/update-enhanced"))).toBe(true);
+      expect(mockFetch.mock.calls.some(([url]) => typeof url === "string" && (url as string).includes("/api/forecasts/bulk"))).toBe(true);
     }, { timeout: 2500 });
   });
 
