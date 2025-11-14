@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useOnboardingStore } from '@/store/onboarding-store';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Stepper } from './stepper';
@@ -25,6 +26,7 @@ const STEPS = [
 
 export function OnboardingDialog() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const { isOpen, currentStep, isCompleted, openDialog } = useOnboardingStore();
 
   useEffect(() => {
@@ -51,13 +53,10 @@ export function OnboardingDialog() {
 
   // Allow forcing the dialog with query param for testing
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('showOnboarding') === '1') {
-        openDialog();
-      }
+    if (searchParams?.get('showOnboarding') === '1') {
+      openDialog();
     }
-  }, [openDialog]);
+  }, [openDialog, searchParams]);
 
   const CurrentStepComponent = STEPS[currentStep];
 

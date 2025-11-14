@@ -17,7 +17,7 @@ function navigateToUrl(url: string) {
   // Use window.location for mobile as Capacitor handles routing
   // This is correct for mobile apps - router.push() doesn't work in Capacitor
   if (Capacitor.isNativePlatform()) {
-    window.location.href = url;
+    window.location.href = url; // eslint-disable-line no-restricted-properties
   }
 }
 

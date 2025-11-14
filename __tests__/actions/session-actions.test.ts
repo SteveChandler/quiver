@@ -34,8 +34,8 @@ const mockSupabaseClient = {
 };
 
 // Helper function to create flexible mock chains for session actions
-const createSessionMockChain = (finalResult: any) => {
-  const chainMethods = {
+const createSessionMockChain = (finalResult: any): any => {
+  const chainMethods: any = {
     select: jest.fn(() => chainMethods),
     eq: jest.fn(() => chainMethods),
     order: jest.fn(() => chainMethods),
@@ -76,7 +76,7 @@ const mockUser = {
   email: "test@example.com",
 };
 
-const mockSession: Session = {
+const mockSession: any = {
   id: "session-123",
   user_id: "user-123",
   profile_id: "user-123",
@@ -90,7 +90,7 @@ const mockSession: Session = {
   wave_quality: 8,
   wind_speed_mph: 10,
   wind_direction: "offshore",
-  water_temp: "68°F",
+  water_temp: 68,
   crowd_level: 3,
   rating: 9,
   notes: "Great session!",
@@ -104,9 +104,9 @@ const mockSession: Session = {
   forecast_accuracy: "accurate",
 };
 
-const mockSessionWithDetails: SessionWithDetails = {
+const mockSessionWithDetails: any = {
   ...mockSession,
-  beach: {
+  beaches: {
     id: "beach-123",
     name: "Test Beach",
     lat: 34.0522,
@@ -170,7 +170,7 @@ const mockSessionWithDetails: SessionWithDetails = {
   },
 };
 
-const mockBoard: Board = {
+const mockBoard: any = {
   id: "board-123",
   user_id: "user-123",
   name: "Test Board",
@@ -321,7 +321,7 @@ describe("Session Actions", () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1);
-      expect(result.data![0].beach).toEqual(mockSessionWithDetails.beach);
+      expect(result.data![0].beaches).toEqual(mockSessionWithDetails.beaches);
     });
 
   });
@@ -837,7 +837,7 @@ describe("Session Actions", () => {
         insert: mockInsert,
       });
 
-      const result = await createLoggedSession(mockSessionInput);
+      const result = await createLoggedSession(mockSessionInput as any);
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockSession);
@@ -902,7 +902,7 @@ describe("Session Actions", () => {
         throw new Error(`Unexpected table ${table}`);
       });
 
-      const result = await createLoggedSession(inputWithoutId);
+      const result = await createLoggedSession(inputWithoutId as any);
 
       expect(result.success).toBe(true);
       expect(mockBeachIlike).toHaveBeenCalledWith("name", "Test Beach");
@@ -945,7 +945,7 @@ describe("Session Actions", () => {
         select: mockBeachSelect,
       });
 
-      const result = await createLoggedSession(inputWithoutId);
+      const result = await createLoggedSession(inputWithoutId as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Beach "Nonexistent Beach" not found. Please select a beach from the dropdown menu.');
@@ -958,7 +958,7 @@ describe("Session Actions", () => {
         status: "completed" as const,
       };
 
-      const result = await createLoggedSession(inputWithoutBeach);
+      const result = await createLoggedSession(inputWithoutBeach as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Please select a beach from the dropdown menu.");
@@ -982,7 +982,7 @@ describe("Session Actions", () => {
         insert: mockInsert,
       });
 
-      const result = await createLoggedSession(mockSessionInput);
+      const result = await createLoggedSession(mockSessionInput as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Session creation failed: Creation failed");
@@ -994,7 +994,7 @@ describe("Session Actions", () => {
         error: { message: "Not authenticated" },
       });
 
-      const result = await createLoggedSession(mockSessionInput);
+      const result = await createLoggedSession(mockSessionInput as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Authentication error: Not authenticated");
@@ -1027,7 +1027,7 @@ describe("Session Actions", () => {
         insert: mockInsert,
       });
 
-      const result = await createPlannedSession(mockSessionInput);
+      const result = await createPlannedSession(mockSessionInput as any);
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual({ ...mockSession, status: "planned" });
@@ -1082,7 +1082,7 @@ describe("Session Actions", () => {
         .mockReturnValueOnce({ select: mockBeachSelect })
         .mockReturnValueOnce({ insert: mockInsert });
 
-      const result = await createPlannedSession(inputWithoutId);
+      const result = await createPlannedSession(inputWithoutId as any);
 
       expect(result.success).toBe(true);
       expect(mockBeachIlike).toHaveBeenCalledWith("name", "Test Beach");
@@ -1115,7 +1115,7 @@ describe("Session Actions", () => {
         insert: mockInsert,
       });
 
-      const result = await addBoard(mockBoardInput);
+      const result = await addBoard(mockBoardInput as any);
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockBoard);
@@ -1143,7 +1143,7 @@ describe("Session Actions", () => {
         insert: mockInsert,
       });
 
-      const result = await addBoard(mockBoardInput);
+      const result = await addBoard(mockBoardInput as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Failed to add board");
@@ -1155,7 +1155,7 @@ describe("Session Actions", () => {
         error: { message: "Not authenticated" },
       });
 
-      const result = await addBoard(mockBoardInput);
+      const result = await addBoard(mockBoardInput as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Authentication error: Not authenticated");
@@ -1431,7 +1431,7 @@ describe("Session Actions", () => {
         rating: 9,
       };
 
-      const result = await createLoggedSession(sessionData);
+      const result = await createLoggedSession(sessionData as any);
 
       expect(result.success).toBe(true);
       expect(result.data.id).toBe("session-123");
@@ -1481,7 +1481,7 @@ describe("Session Actions", () => {
         rating: 9,
       };
 
-      const result = await createLoggedSession(sessionData);
+      const result = await createLoggedSession(sessionData as any);
 
       // Session creation should succeed even if snapshot creation fails
       expect(result.success).toBe(true);
@@ -1605,7 +1605,7 @@ describe("Session Actions", () => {
         arrival_time: "2024-01-15T08:00:00.000Z",
         wave_quality: 8,
         status: "completed",
-      });
+      } as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("Authentication error");
@@ -1634,7 +1634,7 @@ describe("Session Actions", () => {
         brand: "Test",
         length: 6.2,
         board_type: "shortboard",
-      });
+      } as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("Authentication error");
@@ -1649,7 +1649,7 @@ describe("Session Actions", () => {
         beach_id: "beach-123",
         arrival_time: "2024-01-15T08:00:00.000Z",
         status: "planned",
-      });
+      } as any);
 
       // Should handle gracefully
       expect(result.success).toBe(false);
@@ -1685,7 +1685,7 @@ describe("Session Actions", () => {
           arrival_time: "2024-01-15T08:00:00.000Z",
           wave_quality: 8,
           status: "completed",
-        })
+        } as any)
       );
 
       const results = await Promise.all(promises);
@@ -1726,7 +1726,7 @@ describe("Session Actions", () => {
         arrival_time: "2024-01-15T08:00:00.000Z",
         wave_quality: 8,
         status: "completed",
-      });
+      } as any);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("Session creation failed");
@@ -1888,7 +1888,7 @@ describe("Session Actions", () => {
         notes: maliciousNotes,
         wave_quality: 8,
         status: "completed",
-      });
+      } as any);
 
       expect(result.success).toBe(true);
       // Parameterized queries should protect against SQL injection
@@ -1945,7 +1945,7 @@ describe("Session Actions", () => {
         arrival_time: "2024-01-15T08:00:00.000Z",
         wave_quality: 8,
         status: "completed",
-      });
+      } as any);
 
       // Should succeed - sanitization happens at render time, not insert
       expect(result.success).toBe(true);
@@ -1981,7 +1981,7 @@ describe("Session Actions", () => {
         notes: longNotes,
         wave_quality: 8,
         status: "completed",
-      });
+      } as any);
 
       expect(result.success).toBe(false);
     });
@@ -2042,6 +2042,9 @@ describe("Session Actions", () => {
         upload: jest.fn().mockResolvedValue({
           data: { path: "path/to/file" },
           error: null,
+        }),
+        getPublicUrl: jest.fn().mockReturnValue({
+          data: { publicUrl: "https://example.com/file" },
         }),
       });
     };
