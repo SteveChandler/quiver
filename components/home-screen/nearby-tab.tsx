@@ -104,6 +104,9 @@ export function NearbyTab({ beaches, loading, homeBeach }: NearbyTabProps) {
           imageUrl={beachData.mapImageUrl}
           latitude={beachData.latitude}
           longitude={beachData.longitude}
+          slug={beachData.slug}
+          city={beachData.city}
+          state={beachData.state}
         />
       ))}
     </div>

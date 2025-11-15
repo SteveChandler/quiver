@@ -148,12 +148,21 @@ interface BeachDetailProps {
   id: string;
   publicMode?: boolean;
   initialBeach?: Beach;
+  personalizationData?: {
+    score: import("@/lib/services/personalized-scoring-service").PersonalizedScore | null;
+    affinityData: { sessionCount: number; lastSurfed: Date } | null;
+    isLoading: boolean;
+    error: boolean;
+  };
+  onPersonalizationRequest?: (forecast: EnhancedForecastEntity, baseScore: number) => void;
 }
 
 export function BeachDetail({
   id,
   publicMode = false,
   initialBeach,
+  personalizationData,
+  onPersonalizationRequest,
 }: BeachDetailProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -277,6 +286,27 @@ export function BeachDetail({
 
     return selectedForecast;
   }, [forecasts]);
+
+  // Request personalization when forecast data is available
+  useEffect(() => {
+    if (
+      !publicMode &&
+      onPersonalizationRequest &&
+      currentForecast &&
+      beach?.base_score &&
+      !personalizationData?.score &&
+      !personalizationData?.isLoading
+    ) {
+      onPersonalizationRequest(currentForecast, beach.base_score);
+    }
+  }, [
+    publicMode,
+    onPersonalizationRequest,
+    currentForecast,
+    beach?.base_score,
+    personalizationData?.score,
+    personalizationData?.isLoading,
+  ]);
 
   // Process data for display - memoized to prevent unnecessary recalculations
   const forecastsByDate = useMemo(() => {
@@ -507,7 +537,14 @@ export function BeachDetail({
         <BeachBreadcrumb beach={beach} className="mb-4" />
 
         {/* Compact Hero - Title, Rating, Difficulty, Location */}
-        <BeachHeroCompact beach={beach as any} className="mb-6" />
+        <BeachHeroCompact
+          beach={beach as any}
+          personalizationScore={personalizationData?.score}
+          affinityData={personalizationData?.affinityData}
+          baseScore={beach.base_score}
+          isLoadingPersonalization={personalizationData?.isLoading}
+          className="mb-6"
+        />
 
         {/* Photo Gallery with Map */}
         <BeachPhotoGallery beach={beach} className="mb-6" />

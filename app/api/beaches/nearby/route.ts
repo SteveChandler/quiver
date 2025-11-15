@@ -7,9 +7,10 @@ import {
   createValidationError,
   handleApiError,
 } from "@/lib/api-utils";
+import { withRateLimit } from "@/lib/middleware/rate-limiter";
 
 // Matches Ruby LocationsController functionality
-export async function GET(request: NextRequest) {
+async function nearbyBeachesHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const latitude = parseFloat(searchParams.get("latitude") || "0");
   const longitude = parseFloat(searchParams.get("longitude") || "0");
@@ -54,3 +55,6 @@ export async function GET(request: NextRequest) {
     return handleApiError(error, "Error fetching nearby beaches");
   }
 }
+
+// Apply rate limiting
+export const GET = withRateLimit(nearbyBeachesHandler, "public-default");

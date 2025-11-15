@@ -6,8 +6,11 @@ import {
   createValidationError,
   methodNotAllowed,
   isValidUuid,
+  validateOrError,
 } from "@/lib/api-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { parseAndValidateJson } from "@/lib/validation/middleware";
+import { CommentSchema } from "@/lib/validation/schemas";
 
 export async function GET(
   _request: NextRequest,
@@ -58,11 +61,23 @@ export async function POST(
       return createAuthError();
     }
 
-    const body = await request.json().catch(() => ({}));
-    const content = (body?.content || "").toString().trim();
-    if (!content) {
-      return createValidationError("Content is required");
+    // Validate Content-Type and parse JSON
+    const parseResult = await parseAndValidateJson(request);
+    if ('error' in parseResult) {
+      return parseResult.error;
     }
+
+    // Validate against schema (including max length check)
+    const validationResult = validateOrError(CommentSchema, {
+      ...parseResult.data,
+      session_id: sessionId, // Add session_id from URL params
+    });
+
+    if ('error' in validationResult) {
+      return validationResult.error;
+    }
+
+    const { content } = validationResult.data;
 
     const { error: insertError } = await supabase.from("comments").insert({
       session_id: sessionId,

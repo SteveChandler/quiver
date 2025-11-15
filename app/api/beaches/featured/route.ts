@@ -4,16 +4,20 @@ import {
   createSuccessResponse,
   handleApiError,
 } from "@/lib/api-utils";
+import { withRateLimit } from "@/lib/middleware/rate-limiter";
 
 /**
  * GET /api/beaches/featured
- * 
+ *
  * Returns a curated list of featured beaches for the landing page.
  * Returns beaches for visual display on the landing page.
- * 
+ *
+ * Security:
+ * - Rate limited to prevent abuse
+ *
  * @returns Array of beach objects with id, name, location data
  */
-export async function GET(request: NextRequest) {
+async function featuredBeachesHandler(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
@@ -67,3 +71,6 @@ export async function GET(request: NextRequest) {
     return createSuccessResponse([]);
   }
 }
+
+// Apply rate limiting
+export const GET = withRateLimit(featuredBeachesHandler, "public-default");

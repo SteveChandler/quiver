@@ -129,6 +129,50 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
   );
 };
 
+/**
+ * Custom comparison function for SelectedBeachCard memoization
+ * Handles Beach object and location props correctly
+ *
+ * Note: getDistanceFromUser function prop is NOT compared
+ * (expected to be stable via parent's useCallback)
+ */
+const areSelectedBeachCardPropsEqual = (
+  prev: SelectedBeachCardProps,
+  next: SelectedBeachCardProps
+): boolean => {
+  // Compare selectedBeach by ID (most stable identifier)
+  if (!prev.selectedBeach && !next.selectedBeach) return true;
+  if (!prev.selectedBeach || !next.selectedBeach) return false;
+
+  // Different beach selected
+  if (prev.selectedBeach.id !== next.selectedBeach.id) return false;
+
+  // Beach properties that affect display
+  if (prev.selectedBeach.name !== next.selectedBeach.name) return false;
+  if (prev.selectedBeach.location !== next.selectedBeach.location) return false;
+  if (prev.selectedBeach.wave_quality_rating !== next.selectedBeach.wave_quality_rating) return false;
+
+  // User location changed (affects distance calculation)
+  if (prev.userLocation && next.userLocation) {
+    if (
+      prev.userLocation.lat !== next.userLocation.lat ||
+      prev.userLocation.lng !== next.userLocation.lng
+    ) {
+      return false;
+    }
+  } else if (prev.userLocation !== next.userLocation) {
+    // One is defined, the other isn't
+    return false;
+  }
+
+  // All checks passed
+  return true;
+};
+
 // Export memoized component for performance optimization
-export const SelectedBeachCard = memo(SelectedBeachCardComponent);
+// Uses custom comparison to handle Beach object and location props
+export const SelectedBeachCard = memo(
+  SelectedBeachCardComponent,
+  areSelectedBeachCardPropsEqual
+);
 SelectedBeachCard.displayName = 'SelectedBeachCard';

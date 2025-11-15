@@ -5,16 +5,21 @@ import {
 } from "@/lib/api-utils";
 import { createAPIServerClient } from "@/lib/supabase/server";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
+import { withRateLimit } from "@/lib/middleware/rate-limiter";
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/forecasts/bulk
  * Fetches current wave height forecasts for multiple beaches in a single request
- * 
+ *
+ * Security:
+ * - Rate limited to prevent abuse of bulk data fetching
+ * - Limited to 50 beaches per request
+ *
  * Query params:
  * - beachIds: comma-separated list of beach IDs (required)
- * 
+ *
  * Returns:
  * {
  *   success: true,
@@ -25,7 +30,7 @@ export const dynamic = 'force-dynamic';
  *   }
  * }
  */
-export async function GET(request: NextRequest) {
+async function bulkForecastHandler(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const beachIdsParam = searchParams.get("beachIds");
@@ -96,3 +101,5 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Apply rate limiting to prevent abuse of bulk operations
+export const GET = withRateLimit(bulkForecastHandler, "forecast-bulk");

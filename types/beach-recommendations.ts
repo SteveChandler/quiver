@@ -28,6 +28,22 @@ export interface BeachRecommendation {
   skill_level: string;
   crowd_level: "Uncrowded" | "Moderate" | "Crowded";
   is_hidden_gem: boolean;
+
+  // Personalization fields (optional - only present when user is authenticated)
+  baseScore?: number;
+  personalizedScore?: number;
+  personalized?: boolean;
+  scoreBreakdown?: {
+    base: number;
+    onboardingPrefs: number;
+    learnedPrefs: number;
+    affinity: number;
+  };
+  affinityData?: {
+    sessionCount: number;
+    lastSurfed: string;
+    score: number;
+  };
 }
 
 

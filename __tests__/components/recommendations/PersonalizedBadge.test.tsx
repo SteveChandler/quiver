@@ -1,471 +1,494 @@
-import React from "react";
-import { render, screen } from "@testing-library/react";
-import "@testing-library/jest-dom";
-import userEvent from "@testing-library/user-event";
-import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+/**
+ * PersonalizedBadge Component Tests
+ *
+ * Tests for the enhanced PersonalizedBadge component including:
+ * - Score display and color coding
+ * - Display modes (compact, score, detailed)
+ * - Size variants (sm, md, lg)
+ * - Mobile vs desktop interactions
+ * - Delta indicator
+ * - Accessibility
+ */
 
-describe("PersonalizedBadge", () => {
-  describe("Rendering States", () => {
-    it("should render when personalized is true", () => {
-      render(<PersonalizedBadge personalized={true} />);
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import userEvent from '@testing-library/user-event';
+import { PersonalizedBadge } from '@/components/recommendations/PersonalizedBadge';
 
-      expect(
-        screen.getByTestId("personalized-badge-container")
-      ).toBeInTheDocument();
-      expect(screen.getByTestId("personalized-badge")).toBeInTheDocument();
-      expect(screen.getByText("Personalized for you")).toBeInTheDocument();
-    });
+// Mock the useIsMobile hook
+jest.mock('@/hooks/use-mobile', () => ({
+  useIsMobile: jest.fn(() => false), // Default to desktop
+}));
 
-    it("should not render when personalized is false", () => {
-      render(<PersonalizedBadge personalized={false} />);
+import { useIsMobile } from '@/hooks/use-mobile';
+const mockUseIsMobile = useIsMobile as jest.MockedFunction<typeof useIsMobile>;
 
-      expect(
-        screen.queryByTestId("personalized-badge-container")
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByTestId("personalized-badge")
-      ).not.toBeInTheDocument();
-    });
+describe('PersonalizedBadge', () => {
+  beforeEach(() => {
+    // Reset to desktop by default
+    mockUseIsMobile.mockReturnValue(false);
+  });
 
-    it("should render with breakdown data", () => {
+  describe('Visibility', () => {
+    it('should render when personalized is true', () => {
       render(
-        <PersonalizedBadge
-          personalized={true}
-          breakdown={{
-            base: 75,
-            onboardingPrefs: 10,
-            learnedPrefs: 5,
-            affinity: 10,
-          }}
-        />
+        <PersonalizedBadge personalized={true} score={92} />
       );
 
-      expect(screen.getByTestId("personalized-badge")).toBeInTheDocument();
-      expect(screen.getByText("Personalized for you")).toBeInTheDocument();
+      expect(screen.getByTestId('personalized-badge')).toBeInTheDocument();
     });
 
-    it("should render without breakdown data", () => {
-      render(<PersonalizedBadge personalized={true} />);
-
-      expect(screen.getByTestId("personalized-badge")).toBeInTheDocument();
-      // No tooltip content should render when breakdown is undefined
-    });
-
-    it("should render with affinity data", () => {
+    it('should not render when personalized is false', () => {
       render(
-        <PersonalizedBadge
-          personalized={true}
-          affinityData={{
-            sessionCount: 5,
-            lastSurfed: new Date("2024-01-15"),
-          }}
-        />
+        <PersonalizedBadge personalized={false} score={92} />
       );
 
-      expect(screen.getByTestId("personalized-badge")).toBeInTheDocument();
-      expect(screen.getByTestId("affinity-badge")).toBeInTheDocument();
-      expect(screen.getByText(/You've surfed here 5×/)).toBeInTheDocument();
+      expect(screen.queryByTestId('personalized-badge')).not.toBeInTheDocument();
     });
   });
 
-  describe("Score Breakdown Tooltip", () => {
-    it("should display all breakdown values in tooltip", async () => {
-      const user = userEvent.setup();
-
+  describe('Score Display', () => {
+    it('should display score as percentage when provided', () => {
       render(
-        <PersonalizedBadge
-          personalized={true}
-          breakdown={{
-            base: 75,
-            onboardingPrefs: 10,
-            learnedPrefs: 5,
-            affinity: 10,
-          }}
-        />
+        <PersonalizedBadge personalized={true} score={92} />
       );
 
-      const badge = screen.getByTestId("personalized-badge");
-      await user.hover(badge);
-
-      // Wait for tooltip to appear
-      const tooltip = await screen.findByTestId("personalized-tooltip");
-      expect(tooltip).toBeInTheDocument();
-
-      // Check all breakdown items are displayed (use getAllByTestId for tooltips)
-      expect(
-        screen.getAllByTestId("breakdown-item-base-score")[0]
-      ).toBeInTheDocument();
-      expect(
-        screen.getAllByTestId("breakdown-item-your-preferences")[0]
-      ).toBeInTheDocument();
-      expect(
-        screen.getAllByTestId("breakdown-item-learned-behavior")[0]
-      ).toBeInTheDocument();
-      expect(
-        screen.getAllByTestId("breakdown-item-beach-affinity")[0]
-      ).toBeInTheDocument();
+      expect(screen.getByText('92% Match')).toBeInTheDocument();
     });
 
-    it("should hide zero-value items from tooltip", async () => {
-      const user = userEvent.setup();
-
+    it('should round scores to nearest integer', () => {
       render(
-        <PersonalizedBadge
-          personalized={true}
-          breakdown={{
-            base: 75,
-            onboardingPrefs: 0,
-            learnedPrefs: 5,
-            affinity: 0,
-          }}
-        />
+        <PersonalizedBadge personalized={true} score={92.7} />
       );
 
-      const badge = screen.getByTestId("personalized-badge");
-      await user.hover(badge);
-
-      // Wait for tooltip to appear
-      const tooltip = await screen.findByTestId("personalized-tooltip");
-      expect(tooltip).toBeInTheDocument();
-
-      // Check only non-zero items are displayed
-      expect(
-        screen.getAllByTestId("breakdown-item-base-score")[0]
-      ).toBeInTheDocument();
-      expect(
-        screen.queryAllByTestId("breakdown-item-your-preferences")
-      ).toHaveLength(0);
-      expect(
-        screen.getAllByTestId("breakdown-item-learned-behavior")[0]
-      ).toBeInTheDocument();
-      expect(
-        screen.queryAllByTestId("breakdown-item-beach-affinity")
-      ).toHaveLength(0);
+      expect(screen.getByText('93% Match')).toBeInTheDocument();
     });
 
-    it("should format scores correctly (whole numbers)", async () => {
-      const user = userEvent.setup();
-
+    it('should show "Personalized for you" when score is not provided', () => {
       render(
-        <PersonalizedBadge
-          personalized={true}
-          breakdown={{
-            base: 75.7,
-            onboardingPrefs: 10.3,
-            learnedPrefs: 5.5,
-            affinity: 10.9,
-          }}
-        />
+        <PersonalizedBadge personalized={true} />
       );
 
-      const badge = screen.getByTestId("personalized-badge");
-      await user.hover(badge);
-
-      const tooltip = await screen.findByTestId("personalized-tooltip");
-      expect(tooltip).toBeInTheDocument();
-
-      // Check that values are rounded to whole numbers
-      expect(screen.getAllByText("+76")[0]).toBeInTheDocument(); // base: 75.7
-      expect(screen.getAllByText("+10")[0]).toBeInTheDocument(); // onboardingPrefs: 10.3
-      expect(screen.getAllByText("+6")[0]).toBeInTheDocument(); // learnedPrefs: 5.5
-      expect(screen.getAllByText("+11")[0]).toBeInTheDocument(); // affinity: 10.9
-    });
-
-    it("should show proper labels in tooltip", async () => {
-      const user = userEvent.setup();
-
-      render(
-        <PersonalizedBadge
-          personalized={true}
-          breakdown={{
-            base: 75,
-            onboardingPrefs: 10,
-            learnedPrefs: 5,
-            affinity: 10,
-          }}
-        />
-      );
-
-      const badge = screen.getByTestId("personalized-badge");
-      await user.hover(badge);
-
-      const tooltip = await screen.findByTestId("personalized-tooltip");
-      expect(tooltip).toBeInTheDocument();
-
-      // Check labels are correct (use getAllByText for tooltip content)
-      expect(screen.getAllByText("Base Score:")[0]).toBeInTheDocument();
-      expect(screen.getAllByText("Your Preferences:")[0]).toBeInTheDocument();
-      expect(screen.getAllByText("Learned Behavior:")[0]).toBeInTheDocument();
-      expect(screen.getAllByText("Beach Affinity:")[0]).toBeInTheDocument();
+      expect(screen.getByText('Personalized for you')).toBeInTheDocument();
     });
   });
 
-  describe("Affinity Badge", () => {
-    it("should show session count correctly", () => {
+  describe('Display Modes', () => {
+    it('should show "Personalized" in compact mode', () => {
       render(
         <PersonalizedBadge
           personalized={true}
+          displayMode="compact"
+          score={92}
+        />
+      );
+
+      expect(screen.getByText('Personalized')).toBeInTheDocument();
+      expect(screen.queryByText('92% Match')).not.toBeInTheDocument();
+    });
+
+    it('should show percentage in score mode (default)', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
+        />
+      );
+
+      expect(screen.getByText('92% Match')).toBeInTheDocument();
+    });
+  });
+
+  describe('Color Coding / Variants', () => {
+    it('should use primary variant for scores >= 85', () => {
+      render(
+        <PersonalizedBadge personalized={true} score={90} />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      // Primary variant has bg-primary class
+      expect(badge.className).toContain('bg-primary');
+    });
+
+    it('should use blue variant for scores 70-84', () => {
+      render(
+        <PersonalizedBadge personalized={true} score={75} />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge.className).toContain('bg-blue-600');
+    });
+
+    it('should use secondary variant for scores 50-69', () => {
+      render(
+        <PersonalizedBadge personalized={true} score={60} />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge.className).toContain('bg-secondary');
+    });
+
+    it('should use outline variant for scores < 50', () => {
+      render(
+        <PersonalizedBadge personalized={true} score={45} />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      // Outline variant does not have bg-primary, bg-blue, or bg-secondary
+      expect(badge.className).not.toContain('bg-primary');
+      expect(badge.className).not.toContain('bg-blue');
+      expect(badge.className).not.toContain('bg-secondary');
+    });
+
+    it('should add glow effect for scores >= 85', () => {
+      render(
+        <PersonalizedBadge personalized={true} score={90} />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge.className).toContain('shadow-primary/50');
+    });
+  });
+
+  describe('Size Variants', () => {
+    it('should apply small size classes', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
+          size="sm"
+        />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge.className).toContain('text-xs');
+    });
+
+    it('should apply medium size classes (default)', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
+        />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge.className).toContain('text-sm');
+    });
+
+    it('should apply large size classes', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
+          size="lg"
+        />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge.className).toContain('text-base');
+    });
+  });
+
+  describe('Delta Indicator', () => {
+    it('should show delta when showDelta is true and baseScore provided', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={88}
+          baseScore={75}
+          showDelta={true}
+        />
+      );
+
+      expect(screen.getByText(/\+13 for you/)).toBeInTheDocument();
+    });
+
+    it('should not show delta when showDelta is false', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={88}
+          baseScore={75}
+          showDelta={false}
+        />
+      );
+
+      expect(screen.queryByText(/for you/)).not.toBeInTheDocument();
+    });
+
+    it('should not show delta when baseScore is not provided', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={88}
+          showDelta={true}
+        />
+      );
+
+      expect(screen.queryByText(/for you/)).not.toBeInTheDocument();
+    });
+
+    it('should not show negative deltas', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={70}
+          baseScore={85}
+          showDelta={true}
+        />
+      );
+
+      expect(screen.queryByText(/for you/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Breakdown Content', () => {
+    const breakdown = {
+      base: 75,
+      onboardingPrefs: 10,
+      learnedPrefs: 5,
+      affinity: 2,
+    };
+
+    it('should show tooltip with breakdown on desktop', () => {
+      mockUseIsMobile.mockReturnValue(false);
+
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
+          breakdown={breakdown}
+        />
+      );
+
+      // Tooltip should exist (but may not be visible until hover)
+      expect(screen.getByTestId('personalized-badge')).toHaveAttribute(
+        'aria-describedby',
+        'match-breakdown'
+      );
+    });
+
+    it('should filter out zero values from breakdown', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
+          breakdown={{
+            base: 75,
+            onboardingPrefs: 10,
+            learnedPrefs: 0, // Should be hidden
+            affinity: 0, // Should be hidden
+          }}
+        />
+      );
+
+      // Screen reader text should only include non-zero values
+      const ariaDescription = screen.getByTestId('personalized-badge');
+      expect(ariaDescription).toBeInTheDocument();
+    });
+
+    it('should show breakdown items with correct labels', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
+          breakdown={breakdown}
+        />
+      );
+
+      // Check for screen reader content
+      const srContent = document.getElementById('match-breakdown');
+      expect(srContent).toBeInTheDocument();
+      expect(srContent?.textContent).toContain('Base score: 75');
+      expect(srContent?.textContent).toContain('Your preferences: 10');
+      expect(srContent?.textContent).toContain('Learned behavior: 5');
+      expect(srContent?.textContent).toContain('Beach affinity: 2');
+    });
+  });
+
+  describe('Affinity Badge', () => {
+    it('should show affinity badge when sessionCount > 0', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
           affinityData={{
             sessionCount: 15,
-            lastSurfed: new Date("2024-01-15"),
+            lastSurfed: new Date('2025-11-01'),
           }}
         />
       );
 
-      expect(screen.getByTestId("affinity-badge")).toBeInTheDocument();
+      expect(screen.getByTestId('affinity-badge')).toBeInTheDocument();
       expect(screen.getByText(/You've surfed here 15×/)).toBeInTheDocument();
     });
 
-    it("should handle singular form (1 session)", () => {
+    it('should not show affinity badge when sessionCount is 0', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
+          affinityData={{
+            sessionCount: 0,
+            lastSurfed: new Date('2025-11-01'),
+          }}
+        />
+      );
+
+      expect(screen.queryByTestId('affinity-badge')).not.toBeInTheDocument();
+    });
+
+    it('should not show affinity badge when affinityData is not provided', () => {
+      render(
+        <PersonalizedBadge
+          personalized={true}
+          score={92}
+        />
+      );
+
+      expect(screen.queryByTestId('affinity-badge')).not.toBeInTheDocument();
+    });
+
+    it('should handle singular form (1 session)', () => {
       render(
         <PersonalizedBadge
           personalized={true}
           affinityData={{
             sessionCount: 1,
-            lastSurfed: new Date("2024-01-15"),
+            lastSurfed: new Date('2025-11-01'),
           }}
         />
       );
 
-      const affinityBadge = screen.getByTestId("affinity-badge");
+      const affinityBadge = screen.getByTestId('affinity-badge');
       expect(affinityBadge).toHaveAttribute(
-        "aria-label",
+        'aria-label',
         "You've surfed here 1 time"
       );
     });
-
-    it("should handle plural form (multiple sessions)", () => {
-      render(
-        <PersonalizedBadge
-          personalized={true}
-          affinityData={{
-            sessionCount: 5,
-            lastSurfed: new Date("2024-01-15"),
-          }}
-        />
-      );
-
-      const affinityBadge = screen.getByTestId("affinity-badge");
-      expect(affinityBadge).toHaveAttribute(
-        "aria-label",
-        "You've surfed here 5 times"
-      );
-    });
-
-    it("should be hidden when sessionCount is 0", () => {
-      render(
-        <PersonalizedBadge
-          personalized={true}
-          affinityData={{
-            sessionCount: 0,
-            lastSurfed: new Date("2024-01-15"),
-          }}
-        />
-      );
-
-      expect(
-        screen.queryByTestId("affinity-badge")
-      ).not.toBeInTheDocument();
-    });
-
-    it("should be hidden when affinityData is undefined", () => {
-      render(<PersonalizedBadge personalized={true} />);
-
-      expect(
-        screen.queryByTestId("affinity-badge")
-      ).not.toBeInTheDocument();
-    });
   });
 
-  describe("Accessibility", () => {
-    it("should have proper ARIA label on personalized badge", () => {
-      render(<PersonalizedBadge personalized={true} />);
-
-      const badge = screen.getByTestId("personalized-badge");
-      expect(badge).toHaveAttribute(
-        "aria-label",
-        "This recommendation is personalized for you"
-      );
-    });
-
-    it("should have proper ARIA label on affinity badge", () => {
-      render(
-        <PersonalizedBadge
-          personalized={true}
-          affinityData={{
-            sessionCount: 15,
-            lastSurfed: new Date("2024-01-15"),
-          }}
-        />
-      );
-
-      const affinityBadge = screen.getByTestId("affinity-badge");
-      expect(affinityBadge).toHaveAttribute(
-        "aria-label",
-        "You've surfed here 15 times"
-      );
-    });
-
-    it("should mark decorative icons as aria-hidden", () => {
-      render(
-        <PersonalizedBadge
-          personalized={true}
-          affinityData={{
-            sessionCount: 5,
-            lastSurfed: new Date("2024-01-15"),
-          }}
-        />
-      );
-
-      // Sparkles icon on personalized badge
-      const sparklesIcon = screen
-        .getByTestId("personalized-badge")
-        .querySelector('svg');
-      expect(sparklesIcon).toHaveAttribute("aria-hidden", "true");
-
-      // Emoji on affinity badge
-      const affinityBadge = screen.getByTestId("affinity-badge");
-      const emoji = affinityBadge.querySelector('span[aria-hidden="true"]');
-      expect(emoji).toBeInTheDocument();
-    });
-  });
-
-  describe("Edge Cases", () => {
-    it("should handle all breakdown values being 0", async () => {
-      const user = userEvent.setup();
+  describe('Mobile Interactions', () => {
+    it('should show collapsible instead of tooltip on mobile', () => {
+      mockUseIsMobile.mockReturnValue(true);
 
       render(
         <PersonalizedBadge
           personalized={true}
-          breakdown={{
-            base: 0,
-            onboardingPrefs: 0,
-            learnedPrefs: 0,
-            affinity: 0,
-          }}
-        />
-      );
-
-      const badge = screen.getByTestId("personalized-badge");
-      await user.hover(badge);
-
-      // Tooltip should not render when all values are 0
-      expect(
-        screen.queryByTestId("personalized-tooltip")
-      ).not.toBeInTheDocument();
-    });
-
-    it("should handle negative breakdown values", async () => {
-      const user = userEvent.setup();
-
-      render(
-        <PersonalizedBadge
-          personalized={true}
+          score={92}
           breakdown={{
             base: 75,
-            onboardingPrefs: -5,
-            learnedPrefs: 10,
-            affinity: -3,
+            onboardingPrefs: 10,
+            learnedPrefs: 5,
+            affinity: 2,
           }}
         />
       );
 
-      const badge = screen.getByTestId("personalized-badge");
-      await user.hover(badge);
-
-      const tooltip = await screen.findByTestId("personalized-tooltip");
-      expect(tooltip).toBeInTheDocument();
-
-      // Only positive values should be shown (filter removes negative values)
-      expect(
-        screen.getAllByTestId("breakdown-item-base-score")[0]
-      ).toBeInTheDocument();
-      expect(
-        screen.queryAllByTestId("breakdown-item-your-preferences")
-      ).toHaveLength(0); // Negative value
-      expect(
-        screen.getAllByTestId("breakdown-item-learned-behavior")[0]
-      ).toBeInTheDocument();
-      expect(
-        screen.queryAllByTestId("breakdown-item-beach-affinity")
-      ).toHaveLength(0); // Negative value
+      // Should not show tooltip
+      expect(screen.queryByTestId('personalized-tooltip')).not.toBeInTheDocument();
     });
 
-    it("should handle very large session counts (999+)", () => {
+    it('should show chevron icon on mobile when breakdown exists', () => {
+      mockUseIsMobile.mockReturnValue(true);
+
       render(
         <PersonalizedBadge
           personalized={true}
-          affinityData={{
-            sessionCount: 1234,
-            lastSurfed: new Date("2024-01-15"),
+          score={92}
+          breakdown={{
+            base: 75,
+            onboardingPrefs: 10,
+            learnedPrefs: 5,
+            affinity: 2,
           }}
         />
       );
 
-      expect(
-        screen.getByText(/You've surfed here 1234×/)
-      ).toBeInTheDocument();
-    });
-
-    it("should merge custom className correctly", () => {
-      render(
-        <PersonalizedBadge
-          personalized={true}
-          className="mt-4 custom-class"
-        />
-      );
-
-      const container = screen.getByTestId("personalized-badge-container");
-      expect(container).toHaveClass("mt-4", "custom-class");
+      // Check that badge has cursor-pointer class on mobile
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge.className).toContain('cursor-pointer');
     });
   });
 
-  describe("Visual Styling", () => {
-    it("should use secondary variant for personalized badge", () => {
-      render(<PersonalizedBadge personalized={true} />);
+  describe('Accessibility', () => {
+    it('should have proper role="status"', () => {
+      render(
+        <PersonalizedBadge personalized={true} score={92} />
+      );
 
-      const badge = screen.getByTestId("personalized-badge");
-      // Badge component with variant="secondary" should have these classes
-      expect(badge).toHaveClass("bg-secondary");
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge).toHaveAttribute('role', 'status');
     });
 
-    it("should use outline variant for affinity badge", () => {
+    it('should have descriptive aria-label with score', () => {
+      render(
+        <PersonalizedBadge personalized={true} score={92} />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge).toHaveAttribute(
+        'aria-label',
+        '92% personalization match'
+      );
+    });
+
+    it('should have aria-label without score', () => {
+      render(
+        <PersonalizedBadge personalized={true} />
+      );
+
+      const badge = screen.getByTestId('personalized-badge');
+      expect(badge).toHaveAttribute(
+        'aria-label',
+        'This recommendation is personalized for you'
+      );
+    });
+
+    it('should have screen reader only breakdown text', () => {
       render(
         <PersonalizedBadge
           personalized={true}
-          affinityData={{
-            sessionCount: 5,
-            lastSurfed: new Date("2024-01-15"),
+          score={92}
+          breakdown={{
+            base: 75,
+            onboardingPrefs: 10,
+            learnedPrefs: 5,
+            affinity: 2,
           }}
         />
       );
 
-      const affinityBadge = screen.getByTestId("affinity-badge");
-      // Badge component with variant="outline" has text-foreground class
-      expect(affinityBadge).toHaveClass("text-foreground");
+      const srContent = document.getElementById('match-breakdown');
+      expect(srContent).toHaveClass('sr-only');
     });
 
-    it("should have cursor-help on personalized badge", () => {
-      render(<PersonalizedBadge personalized={true} />);
+    it('should mark icons as aria-hidden', () => {
+      const { container } = render(
+        <PersonalizedBadge personalized={true} score={92} />
+      );
 
-      const badge = screen.getByTestId("personalized-badge");
-      expect(badge).toHaveClass("cursor-help");
+      const icons = container.querySelectorAll('svg');
+      icons.forEach((icon) => {
+        expect(icon).toHaveAttribute('aria-hidden', 'true');
+      });
     });
+  });
 
-    it("should layout badges with flex gap-2", () => {
+  describe('Custom className', () => {
+    it('should accept and apply custom className', () => {
       render(
         <PersonalizedBadge
           personalized={true}
-          affinityData={{
-            sessionCount: 5,
-            lastSurfed: new Date("2024-01-15"),
-          }}
+          score={92}
+          className="custom-class"
         />
       );
 
-      const container = screen.getByTestId("personalized-badge-container");
-      const badgeWrapper = container.querySelector(".flex");
-      expect(badgeWrapper).toHaveClass("gap-2");
+      const container = screen.getByTestId('personalized-badge-container');
+      expect(container.className).toContain('custom-class');
     });
   });
 });

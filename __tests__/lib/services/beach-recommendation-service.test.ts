@@ -132,22 +132,24 @@ describe("BeachRecommendationService", () => {
       } as Beach,
     ];
 
-    it("should skip beaches without intel or forecast data", () => {
+    it("should skip beaches without intel or forecast data", async () => {
       const intel = new Map<string, IntelSnapshot>();
       const forecasts = new Map<string, ForecastSnapshot[]>();
 
-      const result = service.scoreAndRankBeaches(
+      const result = await service.scoreAndRankBeaches(
         mockBeaches,
         intel,
         forecasts,
         mockDetails,
-        null
+        null,
+        null,
+        new Map()
       );
 
       expect(result).toHaveLength(0);
     });
 
-    it("should create recommendations with intel data", () => {
+    it("should create recommendations with intel data", async () => {
       const intel = new Map<string, IntelSnapshot>([
         [
           "beach-1",
@@ -172,12 +174,14 @@ describe("BeachRecommendationService", () => {
 
       const forecasts = new Map<string, ForecastSnapshot[]>();
 
-      const result = service.scoreAndRankBeaches(
+      const result = await service.scoreAndRankBeaches(
         mockBeaches,
         intel,
         forecasts,
         mockDetails,
-        null
+        null,
+        null,
+        new Map()
       );
 
       expect(result).toHaveLength(1);
@@ -185,7 +189,7 @@ describe("BeachRecommendationService", () => {
       expect(result[0].wave_height).toContain("ft");
     });
 
-    it("should sort recommendations by score descending", () => {
+    it("should sort recommendations by score descending", async () => {
       const beaches: NearbyBeach[] = [
         {
           id: "beach-1",
@@ -249,19 +253,21 @@ describe("BeachRecommendationService", () => {
 
       const forecasts = new Map<string, ForecastSnapshot[]>();
 
-      const result = service.scoreAndRankBeaches(
+      const result = await service.scoreAndRankBeaches(
         beaches,
         intel,
         forecasts,
         details,
-        null
+        null,
+        null,
+        new Map()
       );
 
       expect(result[0].score).toBeGreaterThan(result[1].score);
       expect(result[0].name).toBe("High Score Beach");
     });
 
-    it("should identify hidden gems", () => {
+    it("should identify hidden gems", async () => {
       const { getCrowdLevel } = require("@/lib/utils/beach-conditions-utils");
       (getCrowdLevel as jest.Mock).mockReturnValue("Uncrowded");
 
@@ -289,12 +295,14 @@ describe("BeachRecommendationService", () => {
 
       const forecasts = new Map<string, ForecastSnapshot[]>();
 
-      const result = service.scoreAndRankBeaches(
+      const result = await service.scoreAndRankBeaches(
         mockBeaches,
         intel,
         forecasts,
         mockDetails,
-        null
+        null,
+        null,
+        new Map()
       );
 
       expect(result[0].is_hidden_gem).toBe(true);

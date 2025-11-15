@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { createSuccessResponse, handleApiError, validateOrError, createAuthError } from "@/lib/api-utils";
 import { INTEL_CONFIG } from "@/lib/constants/intel";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import {
   createIntelDedupeHash,
   DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES,
 } from "@/lib/utils/intel-dedupe";
+import { parseAndValidateJson } from "@/lib/validation/middleware";
+import { IntelPostCreateSchema } from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -199,14 +201,21 @@ export async function POST(request: NextRequest) {
       error: userError,
     } = await supabase.auth.getUser();
     if (userError || !user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return createAuthError();
     }
 
-    // Parse request body
-    const body = await request.json();
+    // Validate Content-Type and parse JSON
+    const parseResult = await parseAndValidateJson(request);
+    if ('error' in parseResult) {
+      return parseResult.error;
+    }
+
+    // Validate against schema
+    const validationResult = validateOrError(IntelPostCreateSchema, parseResult.data);
+    if ('error' in validationResult) {
+      return validationResult.error;
+    }
+
     const {
       latitude,
       longitude,
@@ -222,53 +231,11 @@ export async function POST(request: NextRequest) {
       crowd_level,
       wave_types,
       forecast_accuracy,
-    }: CreateIntelPostData = body;
+    } = validationResult.data;
 
-    // Validate required fields
-    if (!latitude || !longitude || !tag || !title || !description) {
-      return NextResponse.json(
-        {
-          error:
-            "Missing required fields: latitude, longitude, tag, title, description",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate field lengths
-    if (title.length > INTEL_CONFIG.MAX_TITLE_LENGTH) {
-      return NextResponse.json(
-        {
-          error: `Title must be ${INTEL_CONFIG.MAX_TITLE_LENGTH} characters or less`,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (description.length > INTEL_CONFIG.MAX_DESCRIPTION_LENGTH) {
-      return NextResponse.json(
-        {
-          error: `Description must be ${INTEL_CONFIG.MAX_DESCRIPTION_LENGTH} characters or less`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate tag
-    const validTags: IntelPostTag[] = [
-      "parking",
-      "hazard",
-      "crowd",
-      "conditions",
-      "access",
-      "other",
-    ];
-    if (!validTags.includes(tag)) {
-      return NextResponse.json({ error: "Invalid tag" }, { status: 400 });
-    }
-
-    const sanitizedTitle = title.trim();
-    const sanitizedDescription = description.trim();
+    // Data is already trimmed and validated by schema
+    const sanitizedTitle = title;
+    const sanitizedDescription = description;
 
     // Calculate expiry date based on tag
     const expiryDate = new Date();

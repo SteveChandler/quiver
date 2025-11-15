@@ -7,15 +7,30 @@ import {
   createAuthError,
   createValidationError,
   handleApiError,
+  validateOrError,
 } from "@/lib/api-utils";
+import { parseAndValidateJson } from "@/lib/validation/middleware";
+import { SessionPlanSchema } from "@/lib/validation/schemas";
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse the JSON data from the request
-    const sessionData = await request.json();
+    // Validate Content-Type and parse JSON
+    const parseResult = await parseAndValidateJson(request);
+    if ('error' in parseResult) {
+      return parseResult.error;
+    }
 
-    // Create a session from the data (either as a single object or the first item in an array)
+    // Handle both single object and array formats
+    const sessionData = parseResult.data;
     const dataToUse = Array.isArray(sessionData) ? sessionData[0] : sessionData;
+
+    // Validate against schema
+    const validationResult = validateOrError(SessionPlanSchema, dataToUse);
+    if ('error' in validationResult) {
+      return validationResult.error;
+    }
+
+    const validatedData = validationResult.data;
 
     // Get the cookie store from Next.js
     const cookieStore = cookies();
@@ -55,26 +70,16 @@ export async function POST(request: NextRequest) {
       return createAuthError("Authentication required");
     }
 
-    // Validate required fields
-    if (!dataToUse.beach_name || !dataToUse.session_date) {
-      return createValidationError("Beach name and session date are required");
-    }
-
-    // Clean up data by removing undefined values
-    const cleanData = Object.fromEntries(
-      Object.entries(dataToUse).filter(
-        ([_, v]) => v !== undefined && v !== "$undefined"
-      )
-    );
+    // Data is already validated by schema - no manual checks needed
 
     // First, find the beach by name or create a new beach entry
     let beachId = null;
-    if (cleanData.beach_name) {
+    if (validatedData.beach_name) {
       // Look up the beach by name
       const { data: beach } = await supabase
         .from("beaches")
         .select("id")
-        .ilike("name", cleanData.beach_name)
+        .ilike("name", validatedData.beach_name)
         .maybeSingle();
 
       if (beach) {
@@ -83,7 +88,7 @@ export async function POST(request: NextRequest) {
         // Create a new beach if not found
         const { data: newBeach, error: beachError } = await supabase
           .from("beaches")
-          .insert({ name: cleanData.beach_name })
+          .insert({ name: validatedData.beach_name })
           .select()
           .single();
 
@@ -96,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a session record with the proper fields
-    const { session_date, start_time } = cleanData;
+    const { session_date, start_time } = validatedData;
 
     // Convert session_date and start_time to arrival_time timestamp
     const timeString = start_time || "00:00:00"; // Default to midnight if no time specified
@@ -107,11 +112,11 @@ export async function POST(request: NextRequest) {
       user_id: user.id,
       profile_id: user.id, // Add profile_id to satisfy the constraint
       beach_id: beachId,
-      beach_name: cleanData.beach_name,
+      beach_name: validatedData.beach_name,
       arrival_time: arrivalTime.toISOString(),
       status: "planned",
-      notes: cleanData.notes,
-      board_id: cleanData.board_id,
+      notes: validatedData.notes,
+      board_id: validatedData.board_id,
     };
 
     // Create the session
