@@ -39,10 +39,12 @@ export function useBeachSearch() {
     loading: false,
     error: null,
   });
+  const [hasLoadedAllBeaches, setHasLoadedAllBeaches] = useState(false);
 
   // Track in-flight requests to prevent duplicates
   const nearbyRequestInFlightRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const allBeachesLoadingRef = useRef(false);
 
   // Memoize fetch function to prevent infinite loops - only create once
   const fetchBeaches = useCallback(async () => {
@@ -53,21 +55,21 @@ export function useBeachSearch() {
     throw new Error(result.error || "Failed to fetch beaches");
   }, []);
 
-  const {
-    data: beachesData,
-    loading: dataFetcherLoading,
-    error: dataFetcherError,
-    refetch: refetchBeaches,
-  } = useDataFetcher(fetchBeaches, { immediate: false });
+  const { data: beachesData } = useDataFetcher(fetchBeaches, {
+    immediate: false,
+  });
 
   // Sync useDataFetcher state with our local beaches state
   useEffect(() => {
+    if (!beachesData) return;
     setBeachesState((prev) => ({
-      beaches: beachesData || prev.beaches,
-      loading: dataFetcherLoading,
-      error: dataFetcherError,
+      ...prev,
+      beaches: beachesData,
     }));
-  }, [beachesData, dataFetcherLoading, dataFetcherError]);
+    if (beachesData.length > 0) {
+      setHasLoadedAllBeaches(true);
+    }
+  }, [beachesData]);
 
   const { beaches, loading, error } = beachesState;
 
@@ -196,19 +198,20 @@ export function useBeachSearch() {
       return;
     }
 
-    // Avoid triggering search if we already have beaches loaded
-    if (!beaches?.length && !loading) {
+    if (!hasLoadedAllBeaches && !allBeachesLoadingRef.current) {
       const timeoutId = setTimeout(() => {
         loadBeaches();
       }, 300);
       return () => clearTimeout(timeoutId);
     }
-  }, [state.searchQuery, beaches?.length, loading]);
+  }, [state.searchQuery, hasLoadedAllBeaches, loadBeaches]);
 
   const loadBeaches = useCallback(async () => {
-    // Prevent multiple simultaneous loads
-    if (loading) return;
+    if (allBeachesLoadingRef.current) {
+      return;
+    }
 
+    allBeachesLoadingRef.current = true;
     setBeachesState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const result = await fetchBeaches();
@@ -217,6 +220,7 @@ export function useBeachSearch() {
         loading: false,
         error: null,
       });
+      setHasLoadedAllBeaches(true);
     } catch (err) {
       console.error("Error loading beaches:", err);
       setBeachesState({
@@ -224,8 +228,11 @@ export function useBeachSearch() {
         loading: false,
         error: err instanceof Error ? err.message : "Failed to load beaches",
       });
+      setHasLoadedAllBeaches(false);
+    } finally {
+      allBeachesLoadingRef.current = false;
     }
-  }, [fetchBeaches, loading]);
+  }, [fetchBeaches]);
 
   const loadNearbyBeaches = useCallback(
     async (latitude: number, longitude: number) => {

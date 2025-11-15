@@ -26,6 +26,7 @@ import { getBeaches } from "@/actions/beach/beach-query-actions";
 import type { Profile, Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { track, slugify } from "@/lib/analytics";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 interface ForecastTabProps {
   profile: Profile | null;
@@ -196,9 +197,23 @@ export function ForecastTab({
   const ConfidenceIcon: any = confidenceLevel?.icon as any;
 
   const handleViewBeach = () => {
-    if (effectiveBeach?.id) {
-      router.push(`/beach/${effectiveBeach.id}?from=home`);
+    if (!effectiveBeach?.id) {
+      return;
     }
+
+    const beachUrl =
+      getBeachUrlSafe({
+        id: effectiveBeach.id,
+        slug: effectiveBeach.slug,
+        city: effectiveBeach.city,
+        state: effectiveBeach.state,
+      }) || `/beach/${effectiveBeach.id}`;
+
+    const urlWithSource = beachUrl.includes("?")
+      ? `${beachUrl}&from=home`
+      : `${beachUrl}?from=home`;
+
+    router.push(urlWithSource);
   };
 
   const handleToggleForecast = () => {
