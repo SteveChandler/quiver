@@ -12,7 +12,7 @@
  * - Link-local addresses (169.254.x.x)
  */
 
-import { DNS } from 'node:dns/promises';
+import { promises as dnsPromises } from 'dns';
 
 /**
  * Private and reserved IP ranges that should be blocked
@@ -111,10 +111,8 @@ export async function validateHostname(hostname: string): Promise<{
   reason?: string;
 }> {
   try {
-    const resolver = new DNS();
-
     // Resolve hostname to IP addresses
-    const addresses = await resolver.resolve4(hostname);
+    const addresses = await dnsPromises.resolve4(hostname);
 
     if (!addresses || addresses.length === 0) {
       return {

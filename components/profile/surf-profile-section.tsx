@@ -199,7 +199,7 @@ export function SurfProfileSection() {
             <h3 className="text-lg font-semibold">Not enough data yet</h3>
             <p className="text-gray-600 max-w-md mx-auto">
               Log at least 5 surf sessions with ratings to see your learned preferences.
-              We'll analyze your sessions to understand what conditions you love!
+              We&apos;ll analyze your sessions to understand what conditions you love!
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6 max-w-md mx-auto">
               <p className="text-sm text-gray-700">

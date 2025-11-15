@@ -46,7 +46,7 @@ export function DataLoadErrorFallback({
 
         {/* Description */}
         <p className="text-gray-600 mb-4">
-          We couldn't load the latest {dataType}.
+          We couldn&apos;t load the latest {dataType}.
           {lastSuccessfulLoad && ` Last updated ${formatTimeAgo(lastSuccessfulLoad)}.`}
         </p>
 

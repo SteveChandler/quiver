@@ -133,7 +133,7 @@ export function PreferenceOverrideForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" role="form" aria-label="Edit surf preferences">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" aria-label="Edit surf preferences">
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4" role="alert">

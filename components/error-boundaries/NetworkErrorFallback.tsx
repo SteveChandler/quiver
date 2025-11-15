@@ -56,7 +56,7 @@ export function NetworkErrorFallback({
 
         {/* Description */}
         <p className="text-gray-600 mb-4">
-          We're having trouble connecting to the internet. Check your
+          We&apos;re having trouble connecting to the internet. Check your
           connection and try again.
         </p>
 
