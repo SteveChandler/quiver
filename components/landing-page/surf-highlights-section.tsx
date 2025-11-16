@@ -61,24 +61,48 @@ export function SurfHighlightsSection() {
       const result = await response.json();
       const beaches: Beach[] = result.data || result;
 
+      // Track used image URLs to prevent duplicates
+      const usedImages = new Set<string>();
+      const DEFAULT_FALLBACK = "/sunsetBeach.jpg";
+
       // Transform beaches into surf spot cards with mock conditions
-      // In production, you'd fetch real conditions from the forecast API
-      return beaches.slice(0, 8).map((beach, index) => ({
-        id: beach.id,
-        name: beach.name,
-        location: beach.city && beach.state ? `${beach.city}, ${beach.state}` : beach.city || beach.state || "California",
-        imageUrl:
-          beach.photo_url ||
-          FALLBACK_IMAGE_BY_NAME[beach.name] ||
-          "/sunsetBeach.jpg",
-        swellHeight: getMockSwellHeight(index),
-        swellDirection: getMockSwellDirection(index),
-        windSpeed: getMockWindSpeed(index),
-        tideStatus: getMockTideStatus(index),
-        difficulty: getMockDifficulty(index),
-        crowdLevel: getMockCrowdLevel(index),
-        delay: index,
-      }));
+      // Prioritize beaches with actual photos, then unique fallback images
+      const spotCards = beaches
+        .map((beach, index) => {
+          // Determine the image URL
+          let imageUrl: string;
+
+          if (beach.photo_url) {
+            // Use actual photo from database
+            imageUrl = beach.photo_url;
+          } else if (FALLBACK_IMAGE_BY_NAME[beach.name]) {
+            // Use fallback image if available and not already used
+            const fallbackUrl = FALLBACK_IMAGE_BY_NAME[beach.name];
+            imageUrl = usedImages.has(fallbackUrl) ? DEFAULT_FALLBACK : fallbackUrl;
+          } else {
+            // Use default fallback
+            imageUrl = DEFAULT_FALLBACK;
+          }
+
+          usedImages.add(imageUrl);
+
+          return {
+            id: beach.id,
+            name: beach.name,
+            location: beach.city && beach.state ? `${beach.city}, ${beach.state}` : beach.city || beach.state || "California",
+            imageUrl,
+            swellHeight: getMockSwellHeight(index),
+            swellDirection: getMockSwellDirection(index),
+            windSpeed: getMockWindSpeed(index),
+            tideStatus: getMockTideStatus(index),
+            difficulty: getMockDifficulty(index),
+            crowdLevel: getMockCrowdLevel(index),
+            delay: index,
+          };
+        })
+        .slice(0, 8); // Only take first 8 for display
+
+      return spotCards;
     } catch (error) {
       console.error("Error fetching beaches:", error);
       return [];
