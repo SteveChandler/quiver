@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+#### Hero Section Search Bar UI (November 16, 2025)
+- **Fixed**: Removed duplicate search icon that was overlapping with the `BeachSearchAutocomplete` component in the hero section
+- **UI Change**: Removed redundant `Search` icon from `HeroSection` and adjusted input padding from `pl-10` to `pl-4` for proper internal spacing
+- **Impact**: Resolves visual regression where search bar appeared to be nested within another search bar
+
 ### Added
 
 #### Landing search disambiguation for Ocean Beach (November 16, 2025)

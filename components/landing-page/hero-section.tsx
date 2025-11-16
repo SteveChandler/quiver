@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { CONTENT } from "@/lib/constants/features";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
@@ -58,10 +57,9 @@ export function HeroSection() {
           className="mb-4 sm:mb-6"
         >
           <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-200 pointer-events-none" />
             <BeachSearchAutocomplete
               placeholder="Search by beach, spot, or region"
-              className="w-full h-14 pl-10 pr-0 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
+              className="w-full h-14 pl-4 pr-0 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
               maxResults={8}
               requireExplicitSelection
               onFallback={navigateToMap}
