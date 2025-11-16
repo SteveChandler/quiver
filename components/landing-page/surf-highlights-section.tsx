@@ -9,12 +9,14 @@ import { CONTENT } from "@/lib/constants/features";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 
 interface Beach {
   id: string;
   name: string;
   city?: string | null;
   state?: string | null;
+  slug?: string | null;
   photo_url?: string | null;
 }
 
@@ -73,8 +75,8 @@ export function SurfHighlightsSection() {
           let imageUrl: string;
 
           if (beach.photo_url) {
-            // Use actual photo from database
-            imageUrl = beach.photo_url;
+            // Use actual photo from database (proxied for external URLs)
+            imageUrl = getProxiedImageUrl(beach.photo_url);
           } else if (FALLBACK_IMAGE_BY_NAME[beach.name]) {
             // Use fallback image if available and not already used
             const fallbackUrl = FALLBACK_IMAGE_BY_NAME[beach.name];
@@ -90,6 +92,9 @@ export function SurfHighlightsSection() {
             id: beach.id,
             name: beach.name,
             location: beach.city && beach.state ? `${beach.city}, ${beach.state}` : beach.city || beach.state || "California",
+            slug: beach.slug,
+            city: beach.city,
+            state: beach.state,
             imageUrl,
             swellHeight: getMockSwellHeight(index),
             swellDirection: getMockSwellDirection(index),
