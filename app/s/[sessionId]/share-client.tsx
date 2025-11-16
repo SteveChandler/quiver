@@ -20,6 +20,7 @@ import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
 import { format } from "date-fns";
 import { Calendar, MapPin, User, Star, LogIn } from "lucide-react";
 import Link from "next/link";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 interface SharePageClientProps {
   session: SessionWithDetails;
@@ -39,6 +40,7 @@ export function SharePageClient({
   const userName = session.profiles?.full_name || "QuiverSurf User";
   const date = format(new Date(session.arrival_time), "MMMM d, yyyy");
   const hasNotes = session.notes && session.notes.trim().length > 0;
+  const beachUrl = session.beaches ? getBeachUrlSafe(session.beaches) : null;
 
   // Track page view on mount
   useEffect(() => {
@@ -159,9 +161,9 @@ export function SharePageClient({
                         Location
                       </p>
                       <p className="font-medium">{beachName}</p>
-                      {session.beaches?.slug && (
+                      {beachUrl && (
                         <Link
-                          href={`/beach/${session.beaches.slug}`}
+                          href={beachUrl}
                           className="text-sm text-cyan-600 hover:underline"
                         >
                           View beach details →

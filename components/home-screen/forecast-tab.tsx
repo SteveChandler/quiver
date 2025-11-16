@@ -25,6 +25,10 @@ import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import type { Profile, Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { ForecastDataState } from "@/types/forecast-states";
+import { getForecastStateInfo } from "@/types/forecast-states";
+import { ForecastErrorStateCard, ForecastLoadingSkeleton } from "@/components/forecast/forecast-error-state";
+import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { track, slugify } from "@/lib/analytics";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
@@ -41,6 +45,8 @@ export function ForecastTab({
 }: ForecastTabProps) {
   const router = useRouter();
   const [showAdjusted, setShowAdjusted] = useState(false);
+  const [forecastState, setForecastState] = useState<ForecastDataState>("loading");
+  const [forecastError, setForecastError] = useState<Error | null>(null);
 
   // When no home beach is set, pick a popular beach to display instead
   const fetchPopularBeach = useCallback(async () => {
@@ -87,8 +93,12 @@ export function ForecastTab({
   // Get forecast for effective beach using the same API endpoint as beach detail page
   const fetchTodaysForecast = useCallback(async () => {
     if (!effectiveBeach?.id) {
+      setForecastState("unavailable");
       return null;
     }
+
+    setForecastState("loading");
+    setForecastError(null);
 
     console.log(
       `🏠 Home page fetching forecast for beach: ${effectiveBeach.name} (${effectiveBeach.id})`
@@ -103,6 +113,17 @@ export function ForecastTab({
 
       if (!response.ok) {
         console.error(`❌ Forecast API error: ${response.status}`);
+
+        const error = new Error(`HTTP ${response.status}`);
+        (error as any).status = response.status;
+
+        if (response.status === 429) {
+          setForecastState("rate_limited");
+        } else {
+          setForecastState("failed");
+        }
+
+        setForecastError(error);
         return null;
       }
 
@@ -114,6 +135,7 @@ export function ForecastTab({
       console.log(`📊 Home page received ${forecasts.length} forecasts`);
 
       if (forecasts.length === 0) {
+        setForecastState("no_coverage");
         return null;
       }
 
@@ -127,11 +149,19 @@ export function ForecastTab({
         console.log(
           `✅ Home page selected forecast: ${currentForecast.forecast_time}, wave: ${currentForecast.wave_height}, updated: ${currentForecast.updated_at}`
         );
+
+        // Check if data is stale
+        const dataSource = currentForecast.data_source;
+        const isStale = isDataStale(currentForecast.updated_at, dataSource);
+
+        setForecastState(isStale ? "stale" : "available");
       }
 
       return currentForecast;
     } catch (error) {
       console.error("❌ Error fetching forecast for home page:", error);
+      setForecastState("failed");
+      setForecastError(error as Error);
       return null;
     }
   }, [effectiveBeach?.id, effectiveBeach?.name]);
@@ -139,7 +169,7 @@ export function ForecastTab({
   const {
     data: todaysForecast,
     loading: forecastLoading,
-    error: forecastError,
+    error: fetchError,
     refetch,
   } = useDataFetcher<EnhancedForecastEntity | null>(fetchTodaysForecast, {
     // Skip until we know which beach to use
@@ -166,7 +196,7 @@ export function ForecastTab({
     if (
       effectiveBeach?.id &&
       !forecastLoading &&
-      !forecastError &&
+      !fetchError &&
       !todaysForecast &&
       !retryAttempted
     ) {
@@ -179,7 +209,7 @@ export function ForecastTab({
   }, [
     effectiveBeach?.id,
     forecastLoading,
-    forecastError,
+    fetchError,
     todaysForecast,
     retryAttempted,
     refetch,
@@ -220,47 +250,66 @@ export function ForecastTab({
     setShowAdjusted(!showAdjusted);
   };
 
+  // Get forecast state info for display
+  const forecastStateInfo = getForecastStateInfo(
+    todaysForecast,
+    forecastState === "stale",
+    forecastError,
+    forecastLoading,
+    false // not refreshing here
+  );
+
+  // Handle retry
+  const handleRetry = useCallback(() => {
+    if (forecastStateInfo.canRetry) {
+      setForecastState("loading");
+      refetch();
+    }
+  }, [forecastStateInfo.canRetry, refetch]);
+
   // Keep showing skeleton until we have a beach and either a forecast or we've attempted a retry
   if (
     popularLoading ||
-    forecastLoading ||
+    (forecastLoading && forecastState === "loading") ||
     !effectiveBeach ||
     (!todaysForecast && !retryAttempted)
   ) {
     return (
       <div data-testid="forecast-tab" className="space-y-4">
         {/* Ensure the Set Home Beach banner is available even while loading */}
+        {shouldShowHomeBeachBanner && effectiveBeach && (
+          <HomeBeachBanner
+            selectedBeachId={effectiveBeach.id}
+            selectedBeachName={effectiveBeach.name}
+          />
+        )}
+        <ForecastLoadingSkeleton />
+      </div>
+    );
+  }
+
+  // Show error states using the new error state component
+  if (!todaysForecast || fetchError || forecastError || ["failed", "rate_limited", "no_coverage"].includes(forecastState)) {
+    return (
+      <div data-testid="forecast-tab" className="space-y-4">
         {shouldShowHomeBeachBanner && (
           <HomeBeachBanner
             selectedBeachId={effectiveBeach.id}
             selectedBeachName={effectiveBeach.name}
           />
         )}
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!todaysForecast || forecastError) {
-    return (
-      <div data-testid="forecast-tab">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Info className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-2">
-              Forecast Unavailable
-            </h3>
-            <p className="text-gray-500 mb-4">
-              No forecast data available for {effectiveBeach.name} today
-            </p>
+        <ForecastErrorStateCard
+          state={forecastState}
+          stateInfo={forecastStateInfo}
+          onRetry={forecastStateInfo.canRetry ? handleRetry : undefined}
+        />
+        {effectiveBeach && (
+          <div className="flex justify-center">
             <Button onClick={handleViewBeach} variant="outline">
-              View Beach Details
+              View {effectiveBeach.name} Details
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </div>
     );
   }

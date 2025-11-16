@@ -2,7 +2,8 @@
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
-import { updateBeachForecast } from "@/lib/utils/forecast-service-utils";
+import { updateBeachForecast } from "@/lib/utils/forecast-server-utils";
+import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import type { Beach, Forecast } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -23,23 +24,22 @@ export interface ForecastMetadata {
 function extractForecastMetadata(
   forecast: EnhancedForecastEntity
 ): ForecastMetadata {
-  const now = Date.now();
-  const updatedAt = new Date(forecast.updated_at).getTime();
-  const hoursSinceUpdate = (now - updatedAt) / (1000 * 60 * 60);
+  const dataSource = forecast.data_source || "FALLBACK";
+
+  // Use source-specific staleness thresholds
+  const staleData = isDataStale(forecast.updated_at, dataSource);
 
   return {
-    primarySource: forecast.data_source || "FALLBACK",
-    allSources: forecast.raw_forecast?.data_sources || [
-      forecast.data_source || "FALLBACK",
-    ],
+    primarySource: dataSource,
+    allSources: forecast.raw_forecast?.data_sources || [dataSource],
     confidenceScore: forecast.confidence_score ?? 50,
     lastUpdated: forecast.updated_at,
     cdipStation: forecast.raw_forecast?.cdip_data?.stationId,
     cdipStationName: forecast.raw_forecast?.cdip_data?.stationName,
     // CDIP is real-time data
     isRealTimeData: forecast.data_source === "CDIP",
-    // Data is stale if updated more than 6 hours ago
-    isStaleData: hoursSinceUpdate > 6,
+    // Use source-specific staleness threshold instead of hardcoded 6 hours
+    isStaleData: staleData,
   };
 }
 

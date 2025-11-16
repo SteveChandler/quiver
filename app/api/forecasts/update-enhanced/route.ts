@@ -7,7 +7,8 @@ import {
 import {
   updateBeachForecast,
   updateAllBeachForecasts,
-} from "@/lib/utils/forecast-service-utils";
+} from "@/lib/utils/forecast-server-utils";
+import { getStalenessDetails } from "@/lib/utils/forecast-client-utils";
 
 // API endpoint to update enhanced forecasts for all beaches
 export async function POST(request: NextRequest) {
@@ -80,22 +81,35 @@ export async function GET(request: NextRequest) {
     // Never block page load on forecast generation (moved to background job)
     let data = (await fetchBeachForecasts(beachId, days)) || { forecasts: [] };
 
-    // Check if data is stale or missing
+    // Check if data is stale or missing using source-specific thresholds
     const hasData = data.forecasts && data.forecasts.length > 0;
     let isStale = false;
     let dataAge = "unknown";
+    let dataSource = "UNKNOWN";
+    let stalenessThreshold = 6;
 
     if (hasData) {
-      // Check if the most recent forecast is older than 6 hours (NOAA update cycle)
       const mostRecent = data.forecasts[0];
-      const lastUpdated = new Date(mostRecent.updated_at);
-      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
-      isStale = lastUpdated < sixHoursAgo;
+      dataSource = mostRecent.data_source || "FALLBACK";
+
+      // Use source-specific staleness check
+      const stalenessInfo = getStalenessDetails(mostRecent.updated_at, dataSource);
+      isStale = stalenessInfo.isStale;
+      stalenessThreshold = stalenessInfo.threshold;
 
       // Calculate age for logging
-      const ageMs = Date.now() - lastUpdated.getTime();
-      const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
+      const ageHours = Math.floor(stalenessInfo.hoursSinceUpdate);
       dataAge = `${ageHours}h old`;
+
+      // Enhanced logging with staleness details
+      console.log(`📊 Forecast data for beach ${beachId}:`, {
+        dataSource,
+        lastUpdated: mostRecent.updated_at,
+        hoursSinceUpdate: stalenessInfo.hoursSinceUpdate.toFixed(2),
+        threshold: stalenessThreshold,
+        isStale,
+        reason: stalenessInfo.reason
+      });
     }
 
     // Log data status but DO NOT generate forecasts on page load
@@ -105,11 +119,11 @@ export async function GET(request: NextRequest) {
       );
     } else if (isStale) {
       console.log(
-        `ℹ️ Returning cached forecasts for beach ${beachId} (${dataAge}, considered stale). Background job should refresh.`
+        `ℹ️ Returning cached forecasts for beach ${beachId} (${dataAge}, threshold: ${stalenessThreshold}h for ${dataSource}). Background job should refresh.`
       );
     } else {
       console.log(
-        `✅ Using fresh cached data for beach ${beachId} (${dataAge}, ${data.forecasts.length} forecasts)`
+        `✅ Using fresh cached data for beach ${beachId} (${dataAge}, ${data.forecasts.length} forecasts, ${dataSource})`
       );
     }
 
@@ -120,6 +134,14 @@ export async function GET(request: NextRequest) {
       beachId,
       days,
       ...data,
+      // Include metadata for debugging/transparency
+      metadata: hasData ? {
+        dataSource,
+        lastUpdated: data.forecasts[0].updated_at,
+        isStale,
+        stalenessThreshold,
+        dataAge
+      } : undefined
     });
 
     // Add caching headers

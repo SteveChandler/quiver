@@ -113,3 +113,11 @@ e2e/.auth/state.json
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Database backups (SECURITY - never commit)
+db_backups/
+*.sql.backup
+*.backup
+supabase/remote_*.sql
+supabase/backup_*.sql
+**/*.dump

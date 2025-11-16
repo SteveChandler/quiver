@@ -42,6 +42,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 import { beachFormSchema, type BeachFormData } from "@/lib/validation/admin/beach-schema";
 import type { Beach } from "@/types/database";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BeachFormDialogProps {
   open: boolean;
@@ -82,7 +83,7 @@ export function BeachFormDialog({
       if (beach) {
         form.reset({
           name: beach.name || "",
-          location: beach.location || "",
+          location: getBeachLocation(beach),
           region: beach.region || "",
           country: beach.country || "",
           latitude: beach.lat,

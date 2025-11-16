@@ -17,11 +17,17 @@ interface NearbyTabProps {
 }
 
 export function NearbyTab({ beaches, loading, homeBeach }: NearbyTabProps) {
+  // Compute a safe default location from home beach if coordinates are available
+  const homeBeachDefaultLocation: { lat: number; lng: number } | null =
+    homeBeach != null &&
+    typeof homeBeach.lat === "number" &&
+    typeof homeBeach.lon === "number"
+      ? { lat: homeBeach.lat, lng: homeBeach.lon }
+      : null;
+
   // Get user location (falls back to home beach → Ocean Beach)
   const { userLocation, loading: locationLoading } = useGeolocation({
-    defaultLocation: homeBeach
-      ? { lat: homeBeach.lat, lng: homeBeach.lon }
-      : null,
+    defaultLocation: homeBeachDefaultLocation,
   });
 
   // Fetch nearby beaches using standard data fetching pattern
@@ -35,6 +41,14 @@ export function NearbyTab({ beaches, loading, homeBeach }: NearbyTabProps) {
     );
 
     if (result.success && result.data) {
+      if (result.fallbackUsed) {
+        // Surface spatial fallback in the browser so E2E tests can detect regressions
+        console.warn(
+          "Spatial function failed, falling back to client-side filtering",
+          { source: "NearbyTab" }
+        );
+      }
+
       return result.data as Beach[];
     }
 

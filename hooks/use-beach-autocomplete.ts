@@ -135,6 +135,10 @@ export function useBeachAutocomplete(options: UseBeachAutocompleteOptions = {}) 
     setSelectedIndex(0);
     if (value.length < minQueryLength) {
       setIsOpen(false);
+    } else {
+      // Open dropdown immediately when query is valid length
+      // API calls will still be debounced via debouncedQuery
+      setIsOpen(true);
     }
   }, [minQueryLength]);
 

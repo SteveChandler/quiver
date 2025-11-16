@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Wifi, WifiOff, Info, AlertTriangle } from "lucide-react";
+import { RefreshCw, Wifi, WifiOff, Info, AlertTriangle, Clock, Loader2 } from "lucide-react";
 import { BuoyStationLink } from "./buoy-station-link";
+import type { ForecastDataState } from "@/types/forecast-states";
 
 interface DataQuality {
   cdip?: number;
@@ -41,6 +42,11 @@ interface ForecastDataSourceIndicatorProps {
   expandable?: boolean;
   onRetry?: () => void;
   className?: string;
+  // New props for enhanced error state handling
+  forecastState?: ForecastDataState;
+  error?: Error | null;
+  isLoading?: boolean;
+  isRefreshing?: boolean;
 }
 
 export function ForecastDataSourceIndicator({
@@ -61,6 +67,10 @@ export function ForecastDataSourceIndicator({
   expandable = false,
   onRetry,
   className,
+  forecastState,
+  error,
+  isLoading = false,
+  isRefreshing = false,
 }: ForecastDataSourceIndicatorProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
 
@@ -111,6 +121,81 @@ export function ForecastDataSourceIndicator({
 
   const sourceInfo = getDataSourceInfo(dataSource);
 
+  // Determine if we have valid data to display metadata
+  const hasValidData =
+    dataSource === "CDIP" ||
+    dataSource === "NOAA_NWS" ||
+    dataSource === "FALLBACK";
+
+  // Get state-specific messaging
+  const getStateMessage = (state: ForecastDataState | undefined) => {
+    if (!state) return null;
+
+    switch (state) {
+      case "loading":
+        return {
+          title: "Loading forecast",
+          description: "Fetching latest surf conditions...",
+          icon: <Loader2 className="h-4 w-4 animate-spin" />,
+          color: "blue",
+        };
+
+      case "refreshing":
+        return {
+          title: "Updating forecast",
+          description: "Refreshing with latest data...",
+          icon: <RefreshCw className="h-4 w-4 animate-spin" />,
+          color: "blue",
+        };
+
+      case "failed":
+        return {
+          title: "Unable to load forecast",
+          description: error?.message || "Network error occurred",
+          icon: <AlertTriangle className="h-4 w-4" />,
+          color: "red",
+          action: "Tap to retry",
+        };
+
+      case "rate_limited":
+        return {
+          title: "Too many requests",
+          description: "Please try again in a few minutes",
+          icon: <Clock className="h-4 w-4" />,
+          color: "yellow",
+          action: "Auto-retry in 5 minutes",
+        };
+
+      case "no_coverage":
+        return {
+          title: "No forecast available",
+          description: "This location is not currently covered",
+          icon: <AlertTriangle className="h-4 w-4" />,
+          color: "gray",
+        };
+
+      case "stale":
+        return {
+          title: "Data may be outdated",
+          description: `Last updated: ${formatLastUpdated(lastUpdated || "")}`,
+          icon: <AlertTriangle className="h-4 w-4" />,
+          color: "amber",
+          action: "Tap to refresh",
+        };
+
+      case "unavailable":
+      default:
+        return {
+          title: "Data unavailable",
+          description: "Unable to load forecast data",
+          icon: <AlertTriangle className="h-4 w-4" />,
+          color: "yellow",
+        };
+    }
+  };
+
+  const stateMessage = getStateMessage(forecastState);
+
   // Format last updated time
   const formatLastUpdated = (timestamp: string) => {
     try {
@@ -124,7 +209,44 @@ export function ForecastDataSourceIndicator({
     }
   };
 
-  // Handle connection errors
+  // Handle state-specific display (if forecastState is provided)
+  if (stateMessage && forecastState && ["loading", "refreshing", "failed", "rate_limited", "no_coverage"].includes(forecastState)) {
+    const bgColorClass =
+      stateMessage.color === "red" ? "bg-red-50 border-red-200" :
+      stateMessage.color === "yellow" ? "bg-yellow-50 border-yellow-200" :
+      stateMessage.color === "blue" ? "bg-blue-50 border-blue-200" :
+      stateMessage.color === "gray" ? "bg-gray-50 border-gray-200" :
+      "bg-amber-50 border-amber-200";
+
+    return (
+      <Alert className={bgColorClass}>
+        {stateMessage.icon}
+        <AlertDescription className="flex items-center justify-between">
+          <div>
+            <strong>{stateMessage.title}</strong>
+            <br />
+            <span className="text-sm">{stateMessage.description}</span>
+            {stateMessage.action && (
+              <div className="text-xs text-gray-500 mt-1">{stateMessage.action}</div>
+            )}
+          </div>
+          {onRetry && forecastState !== "loading" && forecastState !== "refreshing" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRetry}
+              className="ml-2"
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Retry
+            </Button>
+          )}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Handle connection errors (backward compatibility)
   if (hasConnectionError) {
     return (
       <Alert className="border-red-200 bg-red-50">
@@ -209,21 +331,24 @@ export function ForecastDataSourceIndicator({
               </p>
             )}
 
-            {/* Nearest buoy info */}
-            {nearestBuoyName && nearestBuoyDistance && nearestBuoyStationId && (
-              <div className="mt-2">
-                <BuoyStationLink
-                  stationId={nearestBuoyStationId}
-                  stationName={nearestBuoyName}
-                  distance={nearestBuoyDistance * 1.60934} // Convert miles to km
-                  beachLocation={beachLocation}
-                  variant="compact"
-                />
-              </div>
-            )}
+            {/* Nearest buoy info - only show with valid data */}
+            {hasValidData &&
+              nearestBuoyName &&
+              nearestBuoyDistance &&
+              nearestBuoyStationId && (
+                <div className="mt-2">
+                  <BuoyStationLink
+                    stationId={nearestBuoyStationId}
+                    stationName={nearestBuoyName}
+                    distance={nearestBuoyDistance * 1.60934} // Convert miles to km
+                    beachLocation={beachLocation}
+                    variant="compact"
+                  />
+                </div>
+              )}
 
-            {/* Stale data warning */}
-            {isStaleData && lastUpdated && (
+            {/* Stale data warning - only show with valid data */}
+            {hasValidData && isStaleData && lastUpdated && (
               <div
                 className="flex items-center space-x-1 mt-1"
                 data-testid="stale-data-warning"
@@ -236,8 +361,8 @@ export function ForecastDataSourceIndicator({
               </div>
             )}
 
-            {/* Real-time data info */}
-            {isRealTimeData && lastUpdated && (
+            {/* Real-time data info - only show with valid data */}
+            {hasValidData && isRealTimeData && lastUpdated && (
               <p className="text-xs text-green-600 mt-1">
                 Updated: {formatLastUpdated(lastUpdated)}
               </p>
@@ -245,36 +370,39 @@ export function ForecastDataSourceIndicator({
           </div>
         </div>
 
-        <div className="flex flex-col items-end space-y-1">
-          <Badge
-            variant={confidenceLevel === "high" ? "default" : "secondary"}
-            className={cn("text-xs", {
-              "bg-green-100 text-green-700": color === "green",
-              "bg-yellow-100 text-yellow-700": color === "yellow",
-              "bg-red-100 text-red-700": color === "red",
-            })}
-          >
-            {confidenceScore}% confidence
-          </Badge>
-
-          {/* Expandable details */}
-          {expandable && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="h-6 px-2 text-xs"
-              aria-label="Show confidence details"
+        {/* Confidence badge and details - only show with valid data */}
+        {hasValidData && (
+          <div className="flex flex-col items-end space-y-1">
+            <Badge
+              variant={confidenceLevel === "high" ? "default" : "secondary"}
+              className={cn("text-xs", {
+                "bg-green-100 text-green-700": color === "green",
+                "bg-yellow-100 text-yellow-700": color === "yellow",
+                "bg-red-100 text-red-700": color === "red",
+              })}
             >
-              <Info className="h-3 w-3 mr-1" />
-              {isExpanded ? "Hide" : "Details"}
-            </Button>
-          )}
-        </div>
+              {confidenceScore}% confidence
+            </Badge>
+
+            {/* Expandable details */}
+            {expandable && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="h-6 px-2 text-xs"
+                aria-label="Show confidence details"
+              >
+                <Info className="h-3 w-3 mr-1" />
+                {isExpanded ? "Hide" : "Details"}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Expanded details */}
-      {isExpanded && expandable && (
+      {/* Expanded details - only show with valid data */}
+      {hasValidData && isExpanded && expandable && (
         <div className="mt-3 pt-3 border-t border-gray-200">
           <h4 className="text-sm font-medium mb-2">
             Confidence Score Breakdown

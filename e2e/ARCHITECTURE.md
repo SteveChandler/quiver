@@ -270,6 +270,35 @@ test('should use GPS location when available', async ({ page, context }) => {
 });
 ```
 
+### Spatial RPC Regression Guard
+
+To ensure the `get_nearby_beaches` Postgres function stays healthy even when the UI has client-side fallbacks, E2E tests use a **console-based regression guard**:
+
+```typescript
+// Server action (simplified)
+const result = await getNearbyBeaches(lat, lon, radiusMiles);
+// When the RPC fails and we fall back to client-side filtering,
+// the server action returns { success: true, data, fallbackUsed: true }.
+
+if (result.success && result.data && result.fallbackUsed) {
+  console.warn(
+    "Spatial function failed, falling back to client-side filtering",
+    { source: "NearbyTab" } // or "useBeachSearch"
+  );
+}
+```
+
+Playwright tests (see `e2e/nearby-beaches-regression.spec.ts`) attach a `page.on("console")` listener and **fail** if any browser console message contains:
+
+```text
+Spatial function failed, falling back to client-side filtering
+```
+
+This ensures that:
+
+- The spatial RPC path is exercised in real flows (GPS-based nearby beaches).
+- Any DB-level regression (e.g., function referencing a dropped column) becomes an immediate, visible test failure even if the UI still looks “okay” due to client-side distance fallback.
+
 ### Pattern 2: Permission State Transitions
 
 Test different permission states:

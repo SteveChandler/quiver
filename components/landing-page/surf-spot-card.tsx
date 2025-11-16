@@ -6,11 +6,15 @@ import Link from "next/link";
 import { MapPin, Waves, Wind, TrendingUp, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getBlurPlaceholder } from "@/lib/constants/blur-placeholders";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 export interface SurfSpotCardProps {
   id: string;
   name: string;
   location: string;
+  slug?: string | null;
+  city?: string | null;
+  state?: string | null;
   imageUrl?: string | null;
   swellHeight?: string;
   swellDirection?: string;
@@ -52,6 +56,9 @@ export function SurfSpotCard({
   id,
   name,
   location,
+  slug,
+  city,
+  state,
   imageUrl,
   swellHeight,
   swellDirection,
@@ -61,6 +68,9 @@ export function SurfSpotCard({
   crowdLevel,
   delay = 0,
 }: SurfSpotCardProps) {
+  // Generate beach URL using hierarchical format if data available, otherwise fall back to ID
+  const beachUrl = getBeachUrlSafe({ id, slug, city, state }) || `/beach/${id}`;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -68,7 +78,7 @@ export function SurfSpotCard({
       viewport={{ once: true }}
       transition={{ duration: 0.6, delay: delay * 0.1 }}
     >
-      <Link href={`/beach/${id}`} className="block group">
+      <Link href={beachUrl} className="block group">
         <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
           {/* Image Section */}
           <div className="relative h-48 bg-gradient-to-br from-ocean-blue to-blue-400 overflow-hidden">

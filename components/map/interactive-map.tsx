@@ -15,6 +15,7 @@ import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-util
 import { CACHE_TTL } from "@/lib/constants/ui";
 import { track, slugify } from "@/lib/analytics";
 import { getFavoriteBeaches } from "@/actions/beach/beach-favorite-actions";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -275,9 +276,10 @@ export function InteractiveMap({
             onLocationClick(location);
           }
 
-          // Animate selection and navigate after slight delay
+          // Animate selection and navigate after slight delay using hierarchical URL
           setTimeout(() => {
-            router.push(`/beach/${location.id}`);
+            const beachUrl = getBeachUrlSafe(location);
+            if (beachUrl) router.push(beachUrl);
           }, 400);
         });
 

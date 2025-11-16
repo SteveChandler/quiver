@@ -6,7 +6,7 @@ import {
 import {
   updateBeachForecast,
   updateAllBeachForecasts,
-} from "@/lib/utils/forecast-service-utils";
+} from "@/lib/utils/forecast-server-utils";
 
 /**
  * Forecast Update API Endpoint

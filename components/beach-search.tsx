@@ -16,10 +16,12 @@ import {
   searchBeachWithForecast,
   searchBeachesByName,
 } from "@/lib/utils/beach-search-utils";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 import { TideDirection } from "@/components/ui/tide-direction";
 import { TideTiming } from "@/components/ui/tide-timing";
 import { WavePeriodDisplay } from "@/components/ui/wave-period-display";
-import { ForecastDataTransparency } from "@/components/ui/forecast-data-transparency";
+import ForecastDataTransparency from "@/components/ui/forecast-data-transparency";
 import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
 import type { Beach, Profile } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -452,8 +454,9 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 variant="outline"
                 className="text-sm"
                 onClick={() => {
-                  // Navigate directly to beach detail page instead of searching
-                  router.push(`/beach/${availableBeach.id}`);
+                  // Navigate directly to beach detail page using hierarchical URL
+                  const beachUrl = getBeachUrlSafe(availableBeach);
+                  if (beachUrl) router.push(beachUrl);
                 }}
               >
                 {availableBeach.name}
@@ -545,7 +548,9 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                     </div>
                   </div>
                 )}
-                {beach.location && `, ${beach.location}`}
+              </div>
+              <div className="text-sm text-gray-500 mt-1">
+                {getBeachLocation(beach)}
               </div>
             </div>
 
@@ -592,9 +597,9 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 {/* Wave Information */}
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <WavePeriodDisplay
-                    waveHeight={forecast.wave_height}
-                    wavePeriod={forecast.wave_period}
-                    waveDirection={forecast.wave_direction}
+                    waveHeight={forecast.wave_height ?? null}
+                    wavePeriod={forecast.wave_period ?? null}
+                    waveDirection={forecast.wave_direction ?? null}
                     variant="detailed"
                   />
                 </div>
@@ -602,14 +607,14 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 {/* Tide Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <TideDirection
-                    status={forecast.tide_status}
-                    currentHeight={forecast.tide_height}
+                    status={forecast.tide_status ?? ""}
+                    currentHeight={forecast.tide_height ?? undefined}
                     variant="detailed"
                   />
                   <TideTiming
-                    nextTideTime={forecast.next_tide_time}
-                    nextTideType={forecast.next_tide_type}
-                    nextTideHeight={forecast.next_tide_height}
+                    nextTideTime={forecast.next_tide_time ?? ""}
+                    nextTideType={forecast.next_tide_type ?? ""}
+                    nextTideHeight={forecast.next_tide_height ?? undefined}
                     variant="detailed"
                   />
                 </div>
@@ -646,15 +651,15 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 <div className="flex items-center justify-center gap-2 p-3 bg-white border rounded-lg">
                   <div
                     className={`w-3 h-3 rounded-full ${
-                      forecast.confidence_score >= 80
+                      (forecast.confidence_score ?? 0) >= 80
                         ? "bg-green-500"
-                        : forecast.confidence_score >= 60
+                        : (forecast.confidence_score ?? 0) >= 60
                         ? "bg-yellow-500"
                         : "bg-red-500"
                     }`}
                   />
                   <span className="text-sm font-medium">
-                    Forecast Confidence: {forecast.confidence_score}%
+                    Forecast Confidence: {forecast.confidence_score ?? 0}%
                   </span>
                 </div>
 
@@ -713,7 +718,7 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 {/* Data Source Transparency */}
                 <div className="mt-4">
                   <ForecastDataTransparency
-                    dataSource={forecast.data_source || "FALLBACK"}
+                    dataSource={(forecast.data_source as "NOAA_NWS" | "CDIP" | "FALLBACK") || "FALLBACK"}
                     className="text-xs"
                   />
                 </div>
@@ -722,8 +727,9 @@ export function BeachSearch({ profile }: BeachSearchProps) {
                 <div className="flex justify-center pt-4 border-t border-gray-200">
                   <Button
                     onClick={() => {
-                      // Navigate to full beach detail page
-                      router.push(`/beach/${beach.id}`);
+                      // Navigate to full beach detail page using hierarchical URL
+                      const beachUrl = getBeachUrlSafe(beach);
+                      if (beachUrl) router.push(beachUrl);
                     }}
                     className="w-full sm:w-auto"
                     variant="default"

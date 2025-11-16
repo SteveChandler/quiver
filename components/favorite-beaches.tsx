@@ -29,6 +29,7 @@ import { toast } from "@/components/ui/use-toast";
 import type { Beach } from "@/types/database";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { beachNavigation } from "@/lib/navigation-utils";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 export function FavoriteBeaches() {
   const { user } = useAuth();
@@ -174,7 +175,7 @@ export function FavoriteBeaches() {
             <CardTitle className="text-lg">{beach.name}</CardTitle>
             <CardDescription className="flex items-center">
               <MapPin className="h-4 w-4 mr-1" />
-              {beach.location}
+              {getBeachLocation(beach)}
             </CardDescription>
           </CardHeader>
           <CardContent className="pb-2">

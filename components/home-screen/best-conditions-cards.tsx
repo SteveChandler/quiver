@@ -18,6 +18,7 @@ import {
 import { getBestConditionsHeading } from "@/lib/utils/best-conditions-helpers";
 import { beachNavigation } from "@/lib/navigation-utils";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BestConditionsCardsProps {
   homeBeach?: Beach | null;
@@ -141,7 +142,7 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
                   {beach.name}
                 </h4>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <span>📍</span> {beach.location} · {beach.distance_miles} mi
+                  <span>📍</span> {getBeachLocation(beach)} · {beach.distance_miles} mi
                 </p>
               </div>
 

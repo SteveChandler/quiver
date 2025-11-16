@@ -8,7 +8,8 @@ import { updateAllBeachForecasts, updateBeachForecasts } from "@/actions/forecas
 import { getBeaches } from "@/actions/beach-actions"
 import { useEffect } from "react"
 import type { Beach } from "@/types/database"
-import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminPageHeader } from "@/components/admin/admin-page-header"
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 export default function ForecastsAdminPage() {
   const [beaches, setBeaches] = useState<Beach[]>([])
@@ -132,7 +133,7 @@ export default function ForecastsAdminPage() {
           <Card key={beach.id}>
             <CardHeader>
               <CardTitle>{beach.name}</CardTitle>
-              <CardDescription>{beach.location}</CardDescription>
+              <CardDescription>{getBeachLocation(beach)}</CardDescription>
             </CardHeader>
             <CardFooter>
               <Button

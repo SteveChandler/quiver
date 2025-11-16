@@ -13,8 +13,8 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 interface Beach {
   id: string;
   name: string;
-  location?: string | null;
-  region?: string | null;
+  city?: string | null;
+  state?: string | null;
   photo_url?: string | null;
 }
 
@@ -66,7 +66,7 @@ export function SurfHighlightsSection() {
       return beaches.slice(0, 8).map((beach, index) => ({
         id: beach.id,
         name: beach.name,
-        location: beach.location || beach.region || "California",
+        location: beach.city && beach.state ? `${beach.city}, ${beach.state}` : beach.city || beach.state || "California",
         imageUrl:
           beach.photo_url ||
           FALLBACK_IMAGE_BY_NAME[beach.name] ||

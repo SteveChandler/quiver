@@ -1,5 +1,5 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
-import { fetchBeachForecasts } from "@/lib/utils/forecast-service-utils";
+import { fetchBeachForecasts } from "@/lib/utils/forecast-server-utils";
 import { FORECAST_CONSTANTS, TOTAL_FORECASTS } from "@/types/forecast";
 
 // Mock the Supabase client

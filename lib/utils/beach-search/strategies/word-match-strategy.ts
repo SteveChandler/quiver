@@ -28,11 +28,11 @@ export class WordMatchStrategy implements MatchStrategy {
 
     const beachName = normalizeSearchText(beach.name);
     const beachCity = normalizeSearchText(beach.city || "");
-    const beachLocation = normalizeSearchText((beach as any).location || "");
+    const beachState = normalizeSearchText(beach.state || "");
 
     const nameWords = this.extractWords(beachName);
     const cityWords = this.extractWords(beachCity);
-    const locationWords = this.extractWords(beachLocation);
+    const stateWords = this.extractWords(beachState);
 
     // Check if all search words match in the beach name
     const allWordsInName = this.allWordsMatch(searchWords, nameWords);
@@ -44,10 +44,10 @@ export class WordMatchStrategy implements MatchStrategy {
       };
     }
 
-    // Check if all search words match in the city/location name
+    // Check if all search words match in the city or state name
     const allWordsInCity = this.allWordsMatch(searchWords, cityWords);
-    const allWordsInLocation = this.allWordsMatch(searchWords, locationWords);
-    if (allWordsInCity || allWordsInLocation) {
+    const allWordsInState = this.allWordsMatch(searchWords, stateWords);
+    if (allWordsInCity || allWordsInState) {
       return {
         matches: true,
         score: 300,
