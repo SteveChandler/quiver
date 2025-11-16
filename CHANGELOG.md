@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Landing search disambiguation for Ocean Beach (November 16, 2025)
+- **Feature**: Updated landing hero beach search to use the shared autocomplete component with explicit disambiguation for ambiguous spots like “Ocean Beach”.
+- **Behavior**:
+  - Shows a dropdown with city/state for matching beaches (e.g., San Diego vs San Francisco) instead of auto-navigating on ambiguous queries.
+  - Falls back to `/map?search={query}` when no beach matches, preserving free-typed search behavior.
+  - Hardened hierarchical CA beach route so invalid or conflicting URLs render a clean 404 instead of a 500 error.
+- **Implementation**:
+  - Reused `BeachSearchAutocomplete` in `HeroSection` with new hooks for Enter-key fallback and explicit selection.
+  - Wrapped `app/ca/[city]/[beachSlug]/page.tsx` logic and metadata generation in defensive try/catch with `notFound()` on failures.
+- **Testing**:
+  - Added unit test for landing `HeroSection` search map fallback and “Explore nearby spots” behavior.
+  - Added Playwright spec `e2e/landing-search.spec.ts` to guard against 500 errors on Ocean Beach and Tourmaline searches.
+
 ### Security
 
 #### Dependency Security Updates (November 15, 2025)

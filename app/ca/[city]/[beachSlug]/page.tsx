@@ -21,97 +21,113 @@ interface PageProps {
 export default async function BeachDetailPage({ params }: PageProps) {
   const { city, beachSlug } = params;
 
-  // Fetch beach data by slug
-  const result = await getBeachBySlug(beachSlug);
+  try {
+    // Fetch beach data by slug
+    const result = await getBeachBySlug(beachSlug);
 
-  if (!result.success || !result.data) {
+    if (!result.success || !result.data) {
+      notFound();
+    }
+
+    const beach = result.data;
+
+    // Validate that this is a California beach and city matches
+    const expectedCitySlug = cityToSlug(beach.city);
+
+    if (beach.state !== "CA" || city !== expectedCitySlug) {
+      notFound();
+    }
+
+    return (
+      <>
+        {/* Structured Data: Place/Beach */}
+        <BeachPageStructuredData
+          beachName={beach.name}
+          description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
+          latitude={beach.lat || 0}
+          longitude={beach.lon || 0}
+          rating={(beach as any).average_rating || undefined}
+          reviewCount={(beach as any).review_count || undefined}
+          city={beach.city || undefined}
+          state={beach.state || undefined}
+          country={beach.country || undefined}
+        />
+
+        {/* Breadcrumb Structured Data for SEO */}
+        <BreadcrumbStructuredData
+          items={[
+            { name: "Home", url: baseUrl },
+            {
+              name: beach.state || "State",
+              url: `${baseUrl}${buildStateUrl(beach.state)}`
+            },
+            {
+              name: beach.city || "City",
+              url: `${baseUrl}${buildCityUrl(beach.state, beach.city)}`
+            },
+            {
+              name: beach.name,
+              url: `${baseUrl}${buildBeachUrl(beach)}`
+            },
+          ]}
+        />
+
+        {/* Client detail component with auth tracking */}
+        <BeachDetailClient beach={beach} slug={beachSlug} />
+      </>
+    );
+  } catch (error) {
+    console.error("[BeachDetailPage] Error rendering CA beach page:", {
+      params,
+      // Avoid logging full error objects in case of sensitive details
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
     notFound();
   }
-
-  const beach = result.data;
-
-  // Validate that this is a California beach and city matches
-  const expectedCitySlug = cityToSlug(beach.city);
-
-  if (beach.state !== "CA" || city !== expectedCitySlug) {
-    notFound();
-  }
-
-  return (
-    <>
-      {/* Structured Data: Place/Beach */}
-      <BeachPageStructuredData
-        beachName={beach.name}
-        description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
-        latitude={beach.lat || 0}
-        longitude={beach.lon || 0}
-        rating={(beach as any).average_rating || undefined}
-        reviewCount={(beach as any).review_count || undefined}
-        city={beach.city || undefined}
-        state={beach.state || undefined}
-        country={beach.country || undefined}
-      />
-
-      {/* Breadcrumb Structured Data for SEO */}
-      <BreadcrumbStructuredData
-        items={[
-          { name: "Home", url: baseUrl },
-          {
-            name: beach.state || "State",
-            url: `${baseUrl}${buildStateUrl(beach.state)}`
-          },
-          {
-            name: beach.city || "City",
-            url: `${baseUrl}${buildCityUrl(beach.state, beach.city)}`
-          },
-          {
-            name: beach.name,
-            url: `${baseUrl}${buildBeachUrl(beach)}`
-          },
-        ]}
-      />
-
-      {/* Client detail component with auth tracking */}
-      <BeachDetailClient beach={beach} slug={beachSlug} />
-    </>
-  );
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { beachSlug } = params;
 
-  // Try to resolve beach by slug
-  const result = await getBeachBySlug(beachSlug);
+  try {
+    // Try to resolve beach by slug
+    const result = await getBeachBySlug(beachSlug);
 
-  if (result.success && result.data) {
-    const beach = result.data;
+    if (result.success && result.data) {
+      const beach = result.data;
 
-    // Format review count for title
-    const reviewCount = beach.review_count ?? 0;
-    const reviewText = reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
+      // Format review count for title
+      const reviewCount = beach.review_count ?? 0;
+      const reviewText =
+        reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
 
-    // Build location context for title
-    const locationContext = beach.city && beach.state
-      ? ` in ${beach.city}, ${beach.state}`
-      : "";
+      // Build location context for title
+      const locationContext =
+        beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
 
-    return buildPageMetadata({
-      title: `${beach.name}${locationContext} - ${reviewText}, Map & Forecast`,
-      description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}${locationContext}.`,
-      path: buildBeachUrl(beach),
-      keywords: [
-        beach.name,
-        beach.city || "",
-        beach.state || "",
-        "surf forecast",
-        "surf conditions",
-        "surf report",
-        "beach",
-        "waves",
-        "swell",
-        "tide",
-        "wind",
-      ].filter(Boolean),
+      return buildPageMetadata({
+        title: `${beach.name}${locationContext} - ${reviewText}, Map & Forecast`,
+        description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}${locationContext}.`,
+        path: buildBeachUrl(beach),
+        keywords: [
+          beach.name,
+          beach.city || "",
+          beach.state || "",
+          "surf forecast",
+          "surf conditions",
+          "surf report",
+          "beach",
+          "waves",
+          "swell",
+          "tide",
+          "wind",
+        ].filter(Boolean),
+      });
+    }
+  } catch (error) {
+    console.error("[BeachDetailPage] Error generating metadata:", {
+      params,
+      message: error instanceof Error ? error.message : "Unknown error",
     });
   }
 
