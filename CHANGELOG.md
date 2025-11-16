@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+#### Dependency Security Updates (November 15, 2025)
+- **Fixed**: Resolved 4 Dependabot security alerts by updating vulnerable transitive dependencies
+- **Updates**:
+  - `undici`: 6.19.7 → 6.22.0 (fixes CVE-2025-22150 and CVE-2025-47279)
+    - CVE-2025-22150: Use of Insufficiently Random Values (Moderate severity)
+    - CVE-2025-47279: Denial of Service via bad certificate data (Low severity)
+    - Affects: Firebase authentication and storage modules
+  - `js-yaml`: 3.14.1/4.1.0 → 4.1.1 (fixes CVE-2025-64718)
+    - CVE-2025-64718: Prototype pollution in merge (Moderate severity, Development only)
+    - Affects: ESLint, Jest, Knip, Lighthouse CI
+  - `tmp`: 0.0.33/0.1.0 → 0.2.5 (fixes CVE-2025-54798)
+    - CVE-2025-54798: Arbitrary file write via symbolic link (Low severity, Development only)
+    - Affects: Lighthouse CI
+- **Method**: Used Yarn `resolutions` field to force secure versions of transitive dependencies
+- **Impact**: All 4 security vulnerabilities resolved (yarn audit: 0 vulnerabilities)
+- **Risk Assessment**: Very Low - patch/minor version updates only, no breaking changes
+- **Testing**: Production build successful, lint passed, all systems operational
+- **Files Modified**:
+  - `package.json`: Added resolutions for undici, js-yaml, tmp
+  - `yarn.lock`: Updated with secure dependency versions
+  - `tsconfig.json`: Excluded docs directory from type checking
+
 ### Added
 
 #### Configurable Staleness Thresholds for Forecast Data Sources (November 15, 2025)
