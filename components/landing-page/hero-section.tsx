@@ -59,7 +59,7 @@ export function HeroSection() {
           <div className="relative max-w-2xl mx-auto">
             <BeachSearchAutocomplete
               placeholder="Search by beach, spot, or region"
-              className="w-full h-14 pl-4 pr-0 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
+              className="w-full h-14 pl-4 pr-0 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 [&_[cmdk-input-wrapper]]:border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
               maxResults={8}
               requireExplicitSelection
               onFallback={navigateToMap}
