@@ -32,10 +32,9 @@ interface BeachSearchAutocompleteProps {
    */
   onFallback?: (query: string) => void;
   /**
-   * When true, the component will NOT automatically select the highlighted
-   * suggestion on Enter when multiple results are present. The user must
-   * explicitly click/tap a suggestion. Single-result queries still
-   * auto-navigate by default.
+   * @deprecated This prop no longer affects Enter key behavior.
+   * The component now always navigates to the highlighted suggestion on Enter.
+   * Kept for backwards compatibility but has no effect.
    */
   requireExplicitSelection?: boolean;
   /**
@@ -128,13 +127,11 @@ export function BeachSearchAutocomplete({
         return;
       }
 
-      // Multiple results: only auto-select when explicit selection is
-      // allowed. When requireExplicitSelection is true (hero search),
-      // the user must click/tap a specific option.
-      if (!requireExplicitSelection) {
-        e.preventDefault();
-        handleBeachSelect(suggestions[selectedIndex]);
-      }
+      // Multiple results: navigate to the highlighted/first result
+      // When requireExplicitSelection is true (landing page), still allow
+      // Enter key navigation to provide better UX
+      e.preventDefault();
+      handleBeachSelect(suggestions[selectedIndex]);
     },
     [
       autoNavigateSingleResult,
