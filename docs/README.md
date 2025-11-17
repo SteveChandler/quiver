@@ -81,6 +81,34 @@ Database schema and data management:
 - **[data/data-quality-audit-results.md](data/data-quality-audit-results.md)** - Data quality audit findings
 - **[data/PHASE_5_METRO_AREAS.md](data/PHASE_5_METRO_AREAS.md)** - Metro areas implementation
 
+
+### 📍 **Coordinate Conventions**
+
+Critical coordinate naming standards to prevent mapping bugs:
+
+- **[COORDINATE_CONVENTIONS.md](COORDINATE_CONVENTIONS.md)** ⚠️ - Official coordinate naming standards (NEW)
+  - Standard naming: `lat`, `lon` (NOT `lng`)
+  - Database to component mapping patterns
+  - Type definitions and validation
+  - Common pitfalls and migration guide
+- **[COORDINATE_VALIDATION.md](COORDINATE_VALIDATION.md)** - Runtime validation system
+  - Validation utilities and type guards
+  - Development warnings and production safety
+  - Testing patterns and examples
+- **[IMPLEMENTATION_SUMMARY_COORDINATE_VALIDATION.md](IMPLEMENTATION_SUMMARY_COORDINATE_VALIDATION.md)** - Implementation summary
+
+**Quick Reference**:
+```typescript
+✅ CORRECT: lat, lon, latitude, longitude
+❌ WRONG: lng (never use in new code)
+
+// Database → Component mapping
+<Component
+  latitude={beach.center_lat}   // Explicit mapping required
+  longitude={beach.center_lng}  // NOT beach.latitude!
+/>
+```
+
 ### 📚 **Reference**
 
 Technical references and development tools:

@@ -7,6 +7,145 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Branded Coordinates: Compile-Time Safety (November 17, 2025)
+- **Feature**: TypeScript branded types for compile-time prevention of coordinate swap bugs
+- **Purpose**: Make it impossible to accidentally swap latitude and longitude values at compile time
+- **Changes**:
+  - **Branded Type Definitions** (`lib/types/branded-coordinates.ts`):
+    - `Latitude` - Branded type for latitude values (compile-time distinct from `number`)
+    - `Longitude` - Branded type for longitude values (compile-time distinct from `number`)
+    - `BrandedCoordinates` - Coordinate pair using branded types
+    - `latitude(value)` - Constructor with runtime validation, throws on invalid
+    - `longitude(value)` - Constructor with runtime validation, throws on invalid
+    - `safeLat(value)` - Safe constructor returning `null` on invalid
+    - `safeLon(value)` - Safe constructor returning `null` on invalid
+    - `toBranded()` - Convert plain coordinates to branded
+    - `fromBranded()` - Convert branded back to plain
+    - Type guards: `isBrandedCoordinates()`, `isValidLatitudeValue()`, `isValidLongitudeValue()`
+  - **Utility Functions** (`lib/utils/branded-coordinate-utils.ts`):
+    - `calculateBrandedDistance()` - Type-safe distance calculations
+    - `toBrandedMapboxArray()` - Convert to Mapbox `[lng, lat]` format
+    - `fromBrandedMapboxArray()` - Convert from Mapbox format
+    - `calculateBrandedBoundingBox()` - Type-safe bounding box calculation
+    - `validateAndBrandCoordinates()` - Validate API input and brand
+    - `batchValidateAndBrand()` - Validate multiple coordinates
+    - `sortByDistance()` - Sort coordinates by distance with type safety
+    - `filterByDistance()` - Filter coordinates within range
+  - **Type System Integration** (`lib/types/coordinates.ts`):
+    - Re-exports all branded types for convenience
+    - Added `StrictCoordinates` alias for backward compatibility
+    - Documentation links to migration guide
+- **Files Created**:
+  - `lib/types/branded-coordinates.ts` (450+ lines, comprehensive type definitions)
+  - `lib/utils/branded-coordinate-utils.ts` (600+ lines, utilities for branded types)
+  - `__tests__/lib/types/branded-coordinates.test.ts` (57 comprehensive tests)
+  - `__tests__/lib/utils/branded-coordinate-utils.test.ts` (39 comprehensive tests)
+  - `docs/BRANDED_COORDINATES.md` (Complete migration guide with examples)
+  - `docs/examples/branded-coordinates-api-example.ts` (Real-world API examples)
+- **Files Modified**:
+  - `lib/types/coordinates.ts` (added branded type re-exports and documentation)
+- **Test Coverage**:
+  - **96 total tests** (57 type tests + 39 utility tests)
+  - All tests passing
+  - Coverage includes:
+    - Type constructor validation (valid/invalid ranges, edge cases)
+    - Safe constructors (null handling, type validation)
+    - Conversion functions (round-trip conversions)
+    - Type guards (structural validation)
+    - Distance calculations (multiple units, edge cases)
+    - Mapbox transformations (array and object formats)
+    - Bounding box calculations
+    - Validation helpers (batch validation, error messages)
+    - Sorting and filtering operations
+- **Benefits**:
+  - **Zero Runtime Overhead**: Brands are erased at compile time
+  - **Compile-Time Safety**: TypeScript prevents coordinate swaps
+  - **Better Error Messages**: Detailed validation errors
+  - **Type-Safe APIs**: Prevents swaps in API endpoints and database queries
+  - **Backward Compatible**: Can be adopted gradually
+  - **Self-Documenting**: Types make coordinate usage explicit
+- **Usage Examples**:
+  ```typescript
+  // Create branded coordinates with validation
+  const coords = brandedCoordinates(32.75, -117.25);
+
+  // This won't compile - coordinate swap prevented!
+  const swapped: BrandedCoordinates = {
+    lat: longitude(-117.25),  // ❌ TypeScript error
+    lon: latitude(32.75),     // ❌ TypeScript error
+  };
+
+  // API validation
+  const result = validateAndBrandCoordinates(req.body);
+  if (!result.valid) {
+    return res.status(400).json({ error: result.error });
+  }
+  // result.coordinates is now branded and type-safe
+  ```
+- **Migration Strategy**:
+  - Phase 1 (Current): Optional, use in new code and high-risk areas
+  - Phase 2 (Recommended): Migrate API endpoints, database queries, calculations
+  - Phase 3 (Long-term): Consider making branded types the default
+- **Documentation**:
+  - Complete migration guide at `/docs/BRANDED_COORDINATES.md`
+  - Real-world API examples at `/docs/examples/branded-coordinates-api-example.ts`
+  - Integration with existing coordinate conventions
+- **Related Work**:
+  - Complements existing coordinate validation system (runtime)
+  - Works with existing coordinate transformation utilities
+  - Compatible with Mapbox integration patterns
+
+#### Coordinate Validation System (November 17, 2025)
+- **Feature**: Comprehensive runtime validation for geographic coordinates
+- **Purpose**: Catch invalid coordinate values early and provide helpful error messages during development
+- **Changes**:
+  - **Validation Utilities** (`lib/coordinate-validation.ts`):
+    - `isValidLatitude()` - Type guard for latitude values (-90 to 90)
+    - `isValidLongitude()` - Type guard for longitude values (-180 to 180)
+    - `isValidCoordinate()` - Validates both coordinates together
+    - `getCoordinateValidationError()` - Returns detailed error messages
+    - `validateCoordinates()` - Environment-aware validation with dev logging
+    - `assertValidCoordinates()` - Throws error if coordinates invalid
+    - `sanitizeCoordinates()` - Attempts to fix coordinates by clamping
+    - `hasValidCoordinates()` - Type guard for objects with coordinate properties
+  - **Hook-Level Validation**:
+    - `useIntelData` - Validates coordinates before API calls, throws detailed errors
+    - `setManualLocation` - Validates coordinates before setting location state
+  - **Component-Level Validation** (development only):
+    - `BeachIntelSection` - Warns about invalid beach coordinates
+    - `IntelTab` - Validates beach props on mount
+    - `ForecastTab` - Warns about zero/suspicious coordinates
+  - **Development vs Production Behavior**:
+    - Development: Verbose console warnings with stack traces
+    - Production: Silent validation, errors logged to Sentry
+- **Files Created**:
+  - `lib/coordinate-validation.ts` (8 validation functions)
+  - `__tests__/lib/coordinate-validation.test.ts` (33 comprehensive tests)
+  - `docs/COORDINATE_VALIDATION.md` (complete documentation)
+- **Files Modified**:
+  - `hooks/use-intel-data.ts` (validation in fetchIntelData and setManualLocation)
+  - `components/intel/beach-intel-section.tsx` (development warnings)
+  - `components/beach-detail/tabs/intel-tab.tsx` (development warnings)
+  - `components/home-screen/forecast-tab.tsx` (development warnings)
+- **Test Coverage**:
+  - 33 new unit tests for validation utilities
+  - All existing tests still passing (31 intel hook tests)
+  - Tests cover valid/invalid ranges, edge cases, environment behavior
+- **Benefits**:
+  - **Early Detection**: Catches coordinate mapping bugs before they cause issues
+  - **Better DX**: Developers get helpful warnings with context (beach name, component)
+  - **Type Safety**: Type guards narrow types when validation succeeds
+  - **Production Safety**: Graceful error handling without user-facing crashes
+  - **Debugging**: Stack traces and context help identify data source issues
+- **Real-World Scenarios Tested**:
+  - Valid San Diego beach coordinates
+  - Swapped lat/lon detection (the bug we're preventing)
+  - Database null values
+  - API undefined values
+  - Out-of-range coordinates
+
 ### Refactored
 
 #### Beach Photo Deletion Feature - Code Quality Improvements (November 16, 2025)

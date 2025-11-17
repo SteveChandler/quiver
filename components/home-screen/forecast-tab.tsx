@@ -526,14 +526,29 @@ export function ForecastTab({
 
             {/* Local Intel for this beach */}
             <div className="mt-4">
-              <BeachIntelSection
-                key={`intel-${effectiveBeach.id}`}
-                beachId={effectiveBeach.id}
-                beachName={effectiveBeach.name}
-                latitude={effectiveBeach.lat ?? 0}
-                longitude={effectiveBeach.lon ?? 0}
-                className="border-0 p-0"
-              />
+              {(() => {
+                const lat = effectiveBeach.lat ?? 0;
+                const lon = effectiveBeach.lon ?? 0;
+
+                // Warn in development if coordinates look suspicious
+                if (process.env.NODE_ENV === 'development' && (lat === 0 || lon === 0)) {
+                  console.warn(`⚠️ ForecastTab: Beach ${effectiveBeach.name} has zero coordinates`);
+                  console.warn(`  Beach ID: ${effectiveBeach.id}`);
+                  console.warn(`  Latitude: ${lat}`);
+                  console.warn(`  Longitude: ${lon}`);
+                }
+
+                return (
+                  <BeachIntelSection
+                    key={`intel-${effectiveBeach.id}`}
+                    beachId={effectiveBeach.id}
+                    beachName={effectiveBeach.name}
+                    latitude={lat}
+                    longitude={lon}
+                    className="border-0 p-0"
+                  />
+                );
+              })()}
             </div>
 
             {/* Encourage feedback if no accuracy data */}

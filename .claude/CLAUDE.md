@@ -161,6 +161,62 @@ Before implementing ANY feature, you MUST:
 - Follow Supabase integration patterns from existing code
 - Example: See `components/home-screen/index.tsx` for reference implementation
 
+### Coordinate Naming Conventions (CRITICAL)
+
+**ALWAYS follow coordinate naming standards to prevent mapping bugs:**
+
+**Standard Naming**:
+```typescript
+✅ CORRECT: lat, lon, latitude, longitude
+❌ INCORRECT: lng (do not use in new code)
+```
+
+**Layer-Specific Rules**:
+
+1. **Database Layer**:
+   - Legacy: `center_lat`, `center_lng` (PostGIS naming)
+   - New tables: `latitude`, `longitude`
+   - DO NOT change legacy columns without migration plan
+
+2. **Component Props**:
+   - Use full names: `latitude`, `longitude`
+   - NOT: `lat`, `lon`, or `lng`
+
+3. **API Parameters**:
+   - Use short names: `lat`, `lon`
+   - NOT: `lng`
+
+4. **Database Mapping** (CRITICAL):
+   ```typescript
+   // WRONG - assumes property names match
+   <Component latitude={beach.latitude} />  // beach.latitude doesn't exist!
+
+   // CORRECT - explicit mapping
+   <Component latitude={beach.center_lat} longitude={beach.center_lng} />
+   ```
+
+5. **Validation Required**:
+   ```typescript
+   import { validateCoordinates } from '@/lib/coordinate-validation';
+
+   // Before API calls
+   assertValidCoordinates(lat, lon, 'API call context');
+
+   // In components (development only)
+   if (process.env.NODE_ENV === 'development') {
+     validateCoordinates(latitude, longitude, `Component: ${name}`);
+   }
+   ```
+
+**Common Pitfalls**:
+- Using `lng` instead of `lon`
+- Assuming `beach.latitude` exists (it's `beach.center_lat`)
+- Not mapping database fields to component props
+- Swapping latitude and longitude values
+
+**See**: `/docs/COORDINATE_CONVENTIONS.md` for comprehensive guide.
+
+
 ### Database Work
 
 **For all database changes:**

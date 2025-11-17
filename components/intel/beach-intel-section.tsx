@@ -13,6 +13,7 @@ import {
   removeIntelPostConfirmation,
 } from "@/actions/intel-actions";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { validateCoordinates } from "@/lib/coordinate-validation";
 import {
   Plus,
   MessageSquare,
@@ -70,6 +71,18 @@ export function BeachIntelSection({
   >({});
   const [pendingPosts, setPendingPosts] = useState<IntelPostWithUser[]>([]);
   const { user } = useAuth();
+
+  // Validate coordinates in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      if (!validateCoordinates(latitude, longitude, `Beach: ${beachName}`)) {
+        console.warn(`⚠️ BeachIntelSection received invalid coordinates for ${beachName}`);
+        console.warn(`  Beach ID: ${beachId}`);
+        console.warn(`  Latitude: ${latitude}`);
+        console.warn(`  Longitude: ${longitude}`);
+      }
+    }
+  }, [latitude, longitude, beachName, beachId]);
 
   // Fetch intel data for this beach location
   const {

@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import type { Coordinates } from "@/lib/types/coordinates";
 
 // Default to Ocean Beach, San Diego coordinates (ultimate fallback)
-const OCEAN_BEACH_LAT = 32.7503;
-const OCEAN_BEACH_LNG = -117.2534;
+const OCEAN_BEACH_COORDS: Coordinates = {
+  lat: 32.7503,
+  lon: -117.2534,
+};
 
 // Safety timeout for iOS/mobile where geolocation can hang
 const SAFETY_TIMEOUT_MS = 10000; // 10 seconds
 
 interface GeolocationState {
-  userLocation: { lat: number; lng: number } | null;
+  userLocation: Coordinates | null;
   locationError: string | null;
   usingDefaultLocation: boolean;
   loading: boolean;
@@ -16,18 +19,17 @@ interface GeolocationState {
 }
 
 interface UseGeolocationOptions {
-  defaultLocation?: { lat: number; lng: number } | null;
+  defaultLocation?: Coordinates | null;
 }
 
 export function useGeolocation(options: UseGeolocationOptions = {}) {
   const { defaultLocation } = options;
 
   // Fallback chain: user's home beach → Ocean Beach
-  const fallbackLat = defaultLocation?.lat ?? OCEAN_BEACH_LAT;
-  const fallbackLng = defaultLocation?.lng ?? OCEAN_BEACH_LNG;
+  const fallbackCoords: Coordinates = defaultLocation ?? OCEAN_BEACH_COORDS;
 
   const [state, setState] = useState<GeolocationState>({
-    userLocation: { lat: fallbackLat, lng: fallbackLng }, // Start with fallback
+    userLocation: fallbackCoords, // Start with fallback
     locationError: null,
     usingDefaultLocation: true, // Start as default
     loading: true,
@@ -42,12 +44,12 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     setState((prev) => ({
       ...prev,
       usingDefaultLocation: true,
-      userLocation: { lat: fallbackLat, lng: fallbackLng },
+      userLocation: fallbackCoords,
       locationError: null,
       loading: false,
       hasTimedOut: false,
     }));
-  }, [fallbackLat, fallbackLng]);
+  }, [fallbackCoords]);
 
   const resetAttempt = useCallback(() => {
     hasAttemptedRef.current = false;
@@ -86,7 +88,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       setState((prev) => ({
         ...prev,
         usingDefaultLocation: true,
-        userLocation: { lat: fallbackLat, lng: fallbackLng },
+        userLocation: fallbackCoords,
         locationError: "Location request timed out - using fallback location",
         loading: false,
         hasTimedOut: true,
@@ -117,7 +119,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
 
         setState((prev) => ({
           ...prev,
-          userLocation: { lat: latitude, lng: longitude },
+          userLocation: { lat: latitude, lon: longitude },
           usingDefaultLocation: false,
           locationError: null,
           loading: false,
@@ -143,13 +145,13 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
           locationError: errorMessage,
           loading: false,
           usingDefaultLocation: true,
-          userLocation: { lat: fallbackLat, lng: fallbackLng },
+          userLocation: fallbackCoords,
           hasTimedOut: false, // Distinguish from safety timeout
         }));
       },
       options
     );
-  }, []);
+  }, [fallbackCoords]);
 
   useEffect(() => {
     getUserLocation();

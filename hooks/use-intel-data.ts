@@ -8,6 +8,10 @@ import {
   getPublicIntelPosts,
   getAllIntelPosts,
 } from "@/actions/intel-actions";
+import {
+  validateCoordinates,
+  getCoordinateValidationError,
+} from "@/lib/coordinate-validation";
 import type { GetNearbyIntelPostsParams } from "@/types/intel";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 
@@ -69,6 +73,25 @@ export function useIntelData({
   const fetchIntelData = useCallback(async (): Promise<IntelData | null> => {
     if (!enabled || !latitude || !longitude) {
       return null;
+    }
+
+    // Validate coordinates before making API call
+    const validationError = getCoordinateValidationError(
+      latitude,
+      longitude,
+      'useIntelData'
+    );
+
+    if (validationError) {
+      // In development, log detailed warning
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Invalid coordinates detected in useIntelData:', validationError);
+        console.error('  Latitude:', latitude);
+        console.error('  Longitude:', longitude);
+      }
+
+      // Throw error to propagate to error boundary
+      throw new Error(`Invalid coordinates: ${validationError}`);
     }
 
     const params: GetNearbyIntelPostsParams = {
@@ -301,6 +324,14 @@ export function useLocationIntelData({
 
   // Function to manually set location (for testing/fallback)
   const setManualLocation = useCallback((lat: number, lng: number) => {
+    // Validate coordinates before setting
+    if (!validateCoordinates(lat, lng, 'setManualLocation')) {
+      const error = getCoordinateValidationError(lat, lng, 'setManualLocation');
+      console.error('❌ Attempted to set invalid location:', error);
+      setLocationError(error || 'Invalid coordinates provided');
+      return;
+    }
+
     setLocation({ latitude: lat, longitude: lng });
     setLocationError(null);
     setGettingLocation(false);
