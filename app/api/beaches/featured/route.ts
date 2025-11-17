@@ -26,12 +26,23 @@ async function featuredBeachesHandler(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
+    // Exclude beaches with known broken photos
+    const EXCLUDED_BEACH_IDS = [
+      "9e94759c-d531-4e5c-9bc2-d022acea9dcd", // Imperial Beach - has broken Openverse photo
+    ];
+
+    // Prioritize these beaches to appear first
+    const PRIORITY_BEACH_IDS = [
+      "01330afc-00d3-461b-88f3-b173774766f4", // Blacks Beach - reliable photo
+    ];
+
     // Step 1: Get distinct beaches WITH actual photos
     // Use a raw query to get one photo per beach (similar to the view)
     const { data: photosData, error: photosError } = await supabase
       .from("beach_photos")
       .select("beach_id, thumb_url, image_url")
       .eq("approved", true)
+      .not("beach_id", "in", `(${EXCLUDED_BEACH_IDS.join(",")})`)
       .order("beach_id")
       .order("fetched_at", { ascending: false });
 
@@ -75,6 +86,22 @@ async function featuredBeachesHandler(request: NextRequest) {
       photo_url: photosMap.get(beach.id),
       has_real_photo: true,
     }));
+
+    // Sort to prioritize featured beaches first
+    enrichedWithPhotos.sort((a, b) => {
+      const aIsPriority = PRIORITY_BEACH_IDS.includes(a.id);
+      const bIsPriority = PRIORITY_BEACH_IDS.includes(b.id);
+
+      if (aIsPriority && !bIsPriority) return -1;
+      if (!aIsPriority && bIsPriority) return 1;
+
+      // If both are priority, maintain order from PRIORITY_BEACH_IDS
+      if (aIsPriority && bIsPriority) {
+        return PRIORITY_BEACH_IDS.indexOf(a.id) - PRIORITY_BEACH_IDS.indexOf(b.id);
+      }
+
+      return 0; // Keep original order for non-priority beaches
+    });
 
     // Step 2: Get additional beaches without photos to fill the grid if needed
     const needed = Math.max(0, 50 - enrichedWithPhotos.length);

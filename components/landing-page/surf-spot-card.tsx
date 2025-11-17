@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -68,8 +69,14 @@ export function SurfSpotCard({
   crowdLevel,
   delay = 0,
 }: SurfSpotCardProps) {
+  // Track image load errors to show fallback
+  const [imageError, setImageError] = useState(false);
+
   // Generate beach URL using hierarchical format if data available, otherwise fall back to ID
   const beachUrl = getBeachUrlSafe({ id, slug, city, state }) || `/beach/${id}`;
+
+  // Show fallback if no imageUrl or if image failed to load
+  const showFallback = !imageUrl || imageError;
 
   return (
     <motion.div
@@ -82,7 +89,7 @@ export function SurfSpotCard({
         <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
           {/* Image Section */}
           <div className="relative h-48 bg-gradient-to-br from-ocean-blue to-blue-400 overflow-hidden">
-            {imageUrl ? (
+            {!showFallback ? (
               <Image
                 src={imageUrl}
                 alt={name}
@@ -92,6 +99,7 @@ export function SurfSpotCard({
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 placeholder={getImagePlaceholder(imageUrl) ? "blur" : "empty"}
                 blurDataURL={getImagePlaceholder(imageUrl)}
+                onError={() => setImageError(true)}
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
