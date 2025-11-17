@@ -41,17 +41,30 @@ export async function verifySupabaseAuth(page: Page): Promise<boolean> {
   );
 
   // Check localStorage
+  // Note: This may fail due to cross-origin security restrictions on external domains.
+  // If localStorage access is blocked, we gracefully fall back to cookie-based auth only.
   const storageResult = await page.evaluate(() => {
-    const localStorageKeys = Object.keys(localStorage);
-    const hasAuthStorage = localStorageKeys.some(key =>
-      key.startsWith('sb-') && key.includes('auth-token')
-    );
-    const authStorage = localStorageKeys.filter(k => k.startsWith('sb-'));
+    try {
+      const localStorageKeys = Object.keys(localStorage);
+      const hasAuthStorage = localStorageKeys.some(key =>
+        key.startsWith('sb-') && key.includes('auth-token')
+      );
+      const authStorage = localStorageKeys.filter(k => k.startsWith('sb-'));
 
-    return {
-      hasAuthStorage,
-      storageCount: authStorage.length
-    };
+      return {
+        hasAuthStorage,
+        storageCount: authStorage.length,
+        error: null
+      };
+    } catch (error) {
+      // localStorage access denied (cross-domain security restriction)
+      // This is expected when running against external domains like dev.quiversurf.app
+      return {
+        hasAuthStorage: false,
+        storageCount: 0,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
   });
 
   const result = {
@@ -63,8 +76,14 @@ export async function verifySupabaseAuth(page: Page): Promise<boolean> {
 
   if (debugAuth) {
     console.log('[Auth Check]', result);
+    if (storageResult.error) {
+      console.log('[Auth Check] localStorage access blocked:', storageResult.error);
+      console.log('[Auth Check] Relying on cookie-based authentication only');
+    }
   }
 
+  // Return true if cookies are present (reliable cross-domain method)
+  // OR if localStorage indicates auth (works on localhost)
   return result.hasAuthCookie || result.hasAuthStorage;
 }
 
@@ -85,10 +104,17 @@ export async function getAuthTokens(page: Page): Promise<AuthTokens> {
     .map(c => `${c.name}=${c.value}`);
 
   // Get localStorage entries
+  // Note: This may fail due to cross-origin security restrictions on external domains
   const storage = await page.evaluate(() => {
-    return Object.keys(localStorage)
-      .filter(k => k.startsWith('sb-'))
-      .map(k => ({ key: k, value: localStorage.getItem(k) }));
+    try {
+      return Object.keys(localStorage)
+        .filter(k => k.startsWith('sb-'))
+        .map(k => ({ key: k, value: localStorage.getItem(k) }));
+    } catch (error) {
+      // localStorage access blocked - return empty array with warning
+      console.warn('[Auth] localStorage access blocked, using cookies only');
+      return [];
+    }
   });
 
   return { cookies, storage };
@@ -191,27 +217,43 @@ export async function waitForSupabaseSession(page: Page, timeout = 10000): Promi
   console.log('[Auth] Waiting for Supabase session to be established...');
 
   while (Date.now() - startTime < timeout) {
+    // Try localStorage first, but gracefully fall back to cookie check if blocked
     const hasSession = await page.evaluate(() => {
-      // Check for Supabase session in localStorage
-      const keys = Object.keys(localStorage);
-      const sessionKey = keys.find(k => k.startsWith('sb-') && k.includes('auth-token'));
-
-      if (!sessionKey) return false;
-
       try {
-        const sessionData = localStorage.getItem(sessionKey);
-        if (!sessionData) return false;
+        // Check for Supabase session in localStorage
+        const keys = Object.keys(localStorage);
+        const sessionKey = keys.find(k => k.startsWith('sb-') && k.includes('auth-token'));
 
-        const parsed = JSON.parse(sessionData);
-        return parsed && parsed.access_token && parsed.refresh_token;
-      } catch {
+        if (!sessionKey) return false;
+
+        try {
+          const sessionData = localStorage.getItem(sessionKey);
+          if (!sessionData) return false;
+
+          const parsed = JSON.parse(sessionData);
+          return parsed && parsed.access_token && parsed.refresh_token;
+        } catch {
+          return false;
+        }
+      } catch (error) {
+        // localStorage blocked - this is OK, cookies are sufficient
+        // Return false here to allow cookie-based verification below
         return false;
       }
     });
 
+    // If localStorage check passed, we're good
     if (hasSession) {
       const elapsed = Date.now() - startTime;
       console.log(`[Auth] ✓ Supabase session established in ${elapsed}ms`);
+      return;
+    }
+
+    // If localStorage is blocked, rely on cookie-based auth verification
+    const hasAuthCookies = await verifySupabaseAuth(page);
+    if (hasAuthCookies) {
+      const elapsed = Date.now() - startTime;
+      console.log(`[Auth] ✓ Authentication verified via cookies in ${elapsed}ms (localStorage unavailable)`);
       return;
     }
 
