@@ -157,7 +157,7 @@ interface BeachDetailProps {
   onPersonalizationRequest?: (forecast: EnhancedForecastEntity, baseScore: number) => void;
 }
 
-export function BeachDetail({
+function BeachDetailContent({
   id,
   publicMode = false,
   initialBeach,
@@ -667,5 +667,14 @@ export function BeachDetail({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Wrap BeachDetailContent in Suspense to support useSearchParams() during static generation
+export function BeachDetail(props: BeachDetailProps) {
+  return (
+    <Suspense fallback={<FullPageLoader text="Loading beach details..." />}>
+      <BeachDetailContent {...props} />
+    </Suspense>
   );
 }
