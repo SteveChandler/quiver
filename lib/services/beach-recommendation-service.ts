@@ -15,7 +15,9 @@
  */
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { withNonDeleted } from "@/lib/supabase/query-builders";
 import { scoreRecommendation } from "@/lib/utils/recommendation-scorer";
+import type { BeachPhotoFeatured } from "@/types/database";
 import {
   getCrowdLevel,
   getDirectionAbbrev,
@@ -52,6 +54,17 @@ import type {
 } from "@/types/beach-recommendation-service";
 import type { Beach } from "@/types/database";
 import type { BeachRecommendation } from "@/types/beach-recommendations";
+
+// Type for session media with nested session relation
+interface SessionMediaWithBeach {
+  session_id: string;
+  public_url: string;
+  media_type: string;
+  created_at: string;
+  session: {
+    beach_id: string;
+  };
+}
 
 /**
  * Implementation of the Beach Recommendation Service
@@ -270,11 +283,12 @@ export class BeachRecommendationService implements IBeachRecommendationService {
           .order("created_at", { ascending: false }),
 
         // PRIORITY 2: Featured photos (curated fallback)
-        supabase
-          .from("beach_photos_featured")
-          .select("beach_id, image_url")
-          .in("beach_id", beachIds)
-          .limit(beachIds.length),
+        withNonDeleted(
+          supabase
+            .from("beach_photos_featured")
+            .select("beach_id, image_url, deleted_at")
+            .in("beach_id", beachIds)
+        ).limit(beachIds.length),
       ]);
 
       // Process session photos first (higher priority)
@@ -285,8 +299,9 @@ export class BeachRecommendationService implements IBeachRecommendationService {
         );
       } else {
         for (const row of sessionPhotosResult.data ?? []) {
-          const beachId = (row as any)?.session?.beach_id as string | undefined;
-          const imageUrl = (row as any)?.public_url as string | undefined;
+          const typedRow = row as SessionMediaWithBeach;
+          const beachId = typedRow?.session?.beach_id;
+          const imageUrl = typedRow?.public_url;
           if (!beachId || !imageUrl || beachPhotoMap.has(beachId)) continue;
           beachPhotoMap.set(beachId, imageUrl);
         }
@@ -300,8 +315,9 @@ export class BeachRecommendationService implements IBeachRecommendationService {
         );
       } else {
         for (const row of featuredPhotosResult.data ?? []) {
-          const beachId = (row as any)?.beach_id as string | undefined;
-          const imageUrl = (row as any)?.image_url as string | undefined;
+          const typedRow = row as BeachPhotoFeatured;
+          const beachId = typedRow?.beach_id;
+          const imageUrl = typedRow?.image_url;
           // Only use featured photo if beach doesn't have a session photo
           if (!beachId || !imageUrl || beachPhotoMap.has(beachId)) continue;
           beachPhotoMap.set(beachId, imageUrl);

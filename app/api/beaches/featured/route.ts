@@ -5,6 +5,170 @@ import {
   handleApiError,
 } from "@/lib/api-utils";
 import { withRateLimit } from "@/lib/middleware/rate-limiter";
+import { withApprovedPhotos } from "@/lib/supabase/query-builders";
+import type { BeachPhotoSelect, Beach } from "@/types/database";
+import {
+  EXCLUDED_BEACH_IDS,
+  PRIORITY_BEACH_IDS,
+  FEATURED_BEACHES_LIMIT,
+  getPriorityIndex,
+} from "@/lib/constants/featured-beaches-config";
+
+// Type for beach data selected from database
+type BeachSelect = Pick<Beach, 'id' | 'name' | 'city' | 'state' | 'slug'>;
+
+// Type for enriched beach with photo URL
+interface EnrichedBeach extends BeachSelect {
+  photo_url: string | null | undefined;
+  has_real_photo: boolean;
+}
+
+/**
+ * Fetches beach photos and creates a map of beach ID to photo URL.
+ *
+ * @param supabase - Supabase client instance
+ * @returns Map of beach ID to photo URL
+ */
+async function fetchBeachPhotosMap(supabase: any): Promise<Map<string, string>> {
+  const { data: photosData, error: photosError } = await withApprovedPhotos(
+    supabase
+      .from("beach_photos")
+      .select("beach_id, thumb_url, image_url")
+  )
+    .not("beach_id", "in", `(${EXCLUDED_BEACH_IDS.join(",")})`)
+    .order("beach_id")
+    .order("fetched_at", { ascending: false });
+
+  if (photosError) {
+    console.error("Database error fetching beach photos:", photosError);
+    return new Map();
+  }
+
+  // Get one photo per beach (DISTINCT ON beach_id logic)
+  const photosMap = new Map<string, string>();
+  (photosData || []).forEach((photo: BeachPhotoSelect) => {
+    if (!photosMap.has(photo.beach_id)) {
+      const imageUrl = photo.thumb_url || photo.image_url;
+      if (imageUrl) {
+        photosMap.set(photo.beach_id, imageUrl);
+      }
+    }
+  });
+
+  return photosMap;
+}
+
+/**
+ * Fetches beach details and enriches them with photo URLs.
+ *
+ * @param supabase - Supabase client instance
+ * @param photosMap - Map of beach ID to photo URL
+ * @returns Array of enriched beaches with photos
+ */
+async function fetchBeachesWithPhotos(
+  supabase: any,
+  photosMap: Map<string, string>
+): Promise<EnrichedBeach[]> {
+  const beachIdsWithPhotos = Array.from(photosMap.keys());
+
+  if (beachIdsWithPhotos.length === 0) {
+    return [];
+  }
+
+  const { data: beachesWithPhotos, error: beachesError } = await supabase
+    .from("beaches")
+    .select("id, name, city, state, slug")
+    .eq("is_private", false)
+    .in("id", beachIdsWithPhotos);
+
+  if (beachesError) {
+    console.error("Database error fetching beaches:", beachesError);
+    return [];
+  }
+
+  // Enrich beaches with photo URLs
+  return (beachesWithPhotos || []).map((beach: BeachSelect) => ({
+    id: beach.id,
+    name: beach.name,
+    city: beach.city,
+    state: beach.state,
+    slug: beach.slug,
+    photo_url: photosMap.get(beach.id),
+    has_real_photo: true,
+  }));
+}
+
+/**
+ * Fetches additional beaches without photos to fill remaining slots.
+ *
+ * @param supabase - Supabase client instance
+ * @param needed - Number of additional beaches needed
+ * @param excludeIds - Beach IDs to exclude from results
+ * @returns Array of enriched beaches without photos
+ */
+async function fetchBeachesWithoutPhotos(
+  supabase: any,
+  needed: number,
+  excludeIds: string[]
+): Promise<EnrichedBeach[]> {
+  if (needed <= 0) {
+    return [];
+  }
+
+  let query = supabase
+    .from("beaches")
+    .select("id, name, city, state, slug")
+    .eq("is_private", false);
+
+  // Only exclude if there are IDs to exclude
+  if (excludeIds.length > 0) {
+    query = query.not("id", "in", `(${excludeIds.join(",")})`);
+  }
+
+  const { data: beachesWithoutPhotos } = await query.limit(needed);
+
+  if (!beachesWithoutPhotos) {
+    return [];
+  }
+
+  return beachesWithoutPhotos.map((beach) => ({
+    id: beach.id,
+    name: beach.name,
+    city: beach.city,
+    state: beach.state,
+    slug: beach.slug,
+    photo_url: null,
+    has_real_photo: false,
+  }));
+}
+
+/**
+ * Applies priority sorting to beaches based on PRIORITY_BEACH_IDS configuration.
+ *
+ * Priority beaches appear first in the order specified in the configuration.
+ * Non-priority beaches maintain their original order.
+ *
+ * @param beaches - Array of beaches to sort
+ */
+function applyPrioritySorting(beaches: EnrichedBeach[]): void {
+  beaches.sort((a, b) => {
+    const aIndex = getPriorityIndex(a.id);
+    const bIndex = getPriorityIndex(b.id);
+
+    const aIsPriority = aIndex !== -1;
+    const bIsPriority = bIndex !== -1;
+
+    if (aIsPriority && !bIsPriority) return -1;
+    if (!aIsPriority && bIsPriority) return 1;
+
+    // If both are priority, sort by priority index
+    if (aIsPriority && bIsPriority) {
+      return aIndex - bIndex;
+    }
+
+    return 0; // Keep original order for non-priority beaches
+  });
+}
 
 /**
  * GET /api/beaches/featured
@@ -26,126 +190,23 @@ async function featuredBeachesHandler(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // Exclude beaches with known broken photos
-    const EXCLUDED_BEACH_IDS = [
-      "9e94759c-d531-4e5c-9bc2-d022acea9dcd", // Imperial Beach - has broken Openverse photo
-    ];
+    // Step 1: Fetch beach photos and create ID-to-URL map
+    const photosMap = await fetchBeachPhotosMap(supabase);
 
-    // Prioritize these beaches to appear first
-    const PRIORITY_BEACH_IDS = [
-      "01330afc-00d3-461b-88f3-b173774766f4", // Blacks Beach - reliable photo
-    ];
+    // Step 2: Fetch beaches with photos and enrich with photo URLs
+    const enrichedWithPhotos = await fetchBeachesWithPhotos(supabase, photosMap);
 
-    // Step 1: Get distinct beaches WITH actual photos
-    // Use a raw query to get one photo per beach (similar to the view)
-    const { data: photosData, error: photosError } = await supabase
-      .from("beach_photos")
-      .select("beach_id, thumb_url, image_url")
-      .eq("approved", true)
-      .not("beach_id", "in", `(${EXCLUDED_BEACH_IDS.join(",")})`)
-      .order("beach_id")
-      .order("fetched_at", { ascending: false });
+    // Step 3: Apply priority sorting to beaches with photos
+    applyPrioritySorting(enrichedWithPhotos);
 
-    if (photosError) {
-      console.error("Database error fetching beach photos:", photosError);
-      return createSuccessResponse([]);
-    }
-
-    // Get one photo per beach (DISTINCT ON beach_id logic)
-    const photosMap = new Map<string, string>();
-    (photosData || []).forEach((photo: any) => {
-      if (!photosMap.has(photo.beach_id)) {
-        const imageUrl = photo.thumb_url || photo.image_url;
-        if (imageUrl) {
-          photosMap.set(photo.beach_id, imageUrl);
-        }
-      }
-    });
-
+    // Step 4: Fill remaining slots with beaches without photos
+    const needed = Math.max(0, FEATURED_BEACHES_LIMIT - enrichedWithPhotos.length);
     const beachIdsWithPhotos = Array.from(photosMap.keys());
-
-    // Fetch beach details for beaches with photos
-    const { data: beachesWithPhotos, error: beachesError } = await supabase
-      .from("beaches")
-      .select("id, name, city, state, slug")
-      .eq("is_private", false)
-      .in("id", beachIdsWithPhotos);
-
-    if (beachesError) {
-      console.error("Database error fetching beaches:", beachesError);
-      return createSuccessResponse([]);
-    }
-
-    // Enrich beaches with photo URLs
-    const enrichedWithPhotos = (beachesWithPhotos || []).map((beach: any) => ({
-      id: beach.id,
-      name: beach.name,
-      city: beach.city,
-      state: beach.state,
-      slug: beach.slug,
-      photo_url: photosMap.get(beach.id),
-      has_real_photo: true,
-    }));
-
-    // Sort to prioritize featured beaches first
-    enrichedWithPhotos.sort((a, b) => {
-      const aIsPriority = PRIORITY_BEACH_IDS.includes(a.id);
-      const bIsPriority = PRIORITY_BEACH_IDS.includes(b.id);
-
-      if (aIsPriority && !bIsPriority) return -1;
-      if (!aIsPriority && bIsPriority) return 1;
-
-      // If both are priority, maintain order from PRIORITY_BEACH_IDS
-      if (aIsPriority && bIsPriority) {
-        return PRIORITY_BEACH_IDS.indexOf(a.id) - PRIORITY_BEACH_IDS.indexOf(b.id);
-      }
-
-      return 0; // Keep original order for non-priority beaches
-    });
-
-    // Step 2: Get additional beaches without photos to fill the grid if needed
-    const needed = Math.max(0, 50 - enrichedWithPhotos.length);
-    let enrichedWithoutPhotos: any[] = [];
-
-    if (needed > 0 && beachIdsWithPhotos.length > 0) {
-      const { data: beachesWithoutPhotos } = await supabase
-        .from("beaches")
-        .select("id, name, city, state, slug")
-        .eq("is_private", false)
-        .not("id", "in", `(${beachIdsWithPhotos.join(",")})`)
-        .limit(needed);
-
-      if (beachesWithoutPhotos) {
-        enrichedWithoutPhotos = beachesWithoutPhotos.map((beach) => ({
-          id: beach.id,
-          name: beach.name,
-          city: beach.city,
-          state: beach.state,
-          slug: beach.slug,
-          photo_url: null,
-          has_real_photo: false,
-        }));
-      }
-    } else if (needed > 0) {
-      // If no beaches with photos, get all beaches
-      const { data: beachesWithoutPhotos } = await supabase
-        .from("beaches")
-        .select("id, name, city, state, slug")
-        .eq("is_private", false)
-        .limit(needed);
-
-      if (beachesWithoutPhotos) {
-        enrichedWithoutPhotos = beachesWithoutPhotos.map((beach) => ({
-          id: beach.id,
-          name: beach.name,
-          city: beach.city,
-          state: beach.state,
-          slug: beach.slug,
-          photo_url: null,
-          has_real_photo: false,
-        }));
-      }
-    }
+    const enrichedWithoutPhotos = await fetchBeachesWithoutPhotos(
+      supabase,
+      needed,
+      beachIdsWithPhotos
+    );
 
     // Combine: beaches with photos first, then beaches without photos
     const allBeaches = [...enrichedWithPhotos, ...enrichedWithoutPhotos];

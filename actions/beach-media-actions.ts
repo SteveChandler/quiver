@@ -1,20 +1,23 @@
 "use server";
 
 import { withDatabaseOperation } from "@/lib/server-action-utils";
+import { withApprovedPhotos } from "@/lib/supabase/query-builders";
+import { DEFAULT_BEACH_PHOTOS_LIMIT } from "@/lib/constants/featured-beaches-config";
 
 /**
  * Return public image URLs for beach photos.
  * Fetches from beach_photos table (third-party sources like Openverse, Flickr, etc.)
  * and falls back to session_media if no beach photos are available.
  */
-export async function getBestBeachPhotosAction(beachId: string, limit = 12) {
+export async function getBestBeachPhotosAction(beachId: string, limit = DEFAULT_BEACH_PHOTOS_LIMIT) {
   return withDatabaseOperation(async (supabase) => {
     // First, try to get photos from beach_photos table (third-party sources)
-    const { data: beachPhotos, error: beachPhotosError } = await supabase
-      .from("beach_photos")
-      .select("id, image_url, thumb_url, fetched_at")
-      .eq("beach_id", beachId)
-      .eq("approved", true)
+    const { data: beachPhotos, error: beachPhotosError } = await withApprovedPhotos(
+      supabase
+        .from("beach_photos")
+        .select("id, image_url, thumb_url, fetched_at")
+        .eq("beach_id", beachId)
+    )
       .order("fetched_at", { ascending: false })
       .limit(limit);
 
