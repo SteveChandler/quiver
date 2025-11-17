@@ -1,0 +1,182 @@
+/**
+ * Rate Limit Configuration
+ *
+ * Defines tiered rate limits for different API endpoint categories.
+ * Limits are designed to prevent abuse while allowing legitimate usage.
+ *
+ * Architecture: docs/architecture/RATE_LIMITING_ARCHITECTURE.md
+ */
+
+import { RateLimiterConfig } from "@/types/forecast";
+
+/**
+ * Rate limit presets for different endpoint types
+ *
+ * Limits are based on:
+ * - Endpoint cost (database queries, external API calls)
+ * - Security risk (SSRF, DoS potential)
+ * - Expected legitimate usage patterns
+ */
+export const RATE_LIMITS = {
+  /**
+   * Image Proxy - CRITICAL
+   *
+   * Endpoint: /api/image-proxy
+   * Risk: SSRF (Server-Side Request Forgery)
+   * Cost: External HTTP requests, bandwidth
+   *
+   * Very strict limits to prevent abuse
+   */
+  "image-proxy": {
+    requestsPerMinute: 10,
+    requestsPerHour: 100,
+    burstLimit: 5,
+  } as RateLimiterConfig,
+
+  /**
+   * Recommendations - HIGH
+   *
+   * Endpoint: /api/v1/recommendations
+   * Risk: N+1 query performance issue
+   * Cost: Multiple database queries per request
+   *
+   * Strict limits until N+1 query is optimized
+   */
+  recommendations: {
+    requestsPerMinute: 20,
+    requestsPerHour: 200,
+    burstLimit: 5,
+  } as RateLimiterConfig,
+
+  /**
+   * Beach Search - HIGH
+   *
+   * Endpoint: /api/beaches/search
+   * Risk: Expensive multi-table search operations
+   * Cost: Full-text search, complex queries
+   *
+   * Moderate limits for expensive operations
+   */
+  "beach-search": {
+    requestsPerMinute: 30,
+    requestsPerHour: 300,
+    burstLimit: 10,
+  } as RateLimiterConfig,
+
+  /**
+   * Forecast Bulk - MEDIUM
+   *
+   * Endpoint: /api/forecasts/bulk
+   * Risk: Bulk data fetching
+   * Cost: Large dataset queries
+   *
+   * Higher limits but still controlled
+   */
+  "forecast-bulk": {
+    requestsPerMinute: 60,
+    requestsPerHour: 1000,
+    burstLimit: 20,
+  } as RateLimiterConfig,
+
+  /**
+   * Coach Picks - MEDIUM
+   *
+   * Endpoint: /api/coach-picks
+   * Risk: Complex RPC calls
+   * Cost: Database RPC function execution
+   */
+  "coach-picks": {
+    requestsPerMinute: 60,
+    requestsPerHour: 1000,
+    burstLimit: 20,
+  } as RateLimiterConfig,
+
+  /**
+   * Public Default - MEDIUM
+   *
+   * Endpoints:
+   * - /api/beaches/nearby
+   * - /api/beaches/featured
+   * - /api/beaches (list)
+   * - Other public read endpoints
+   *
+   * Standard limits for public endpoints
+   */
+  "public-default": {
+    requestsPerMinute: 60,
+    requestsPerHour: 1000,
+    burstLimit: 20,
+  } as RateLimiterConfig,
+
+  /**
+   * Authenticated Default - LOW
+   *
+   * For endpoints requiring authentication
+   * Higher limits since users are identified
+   */
+  "authenticated-default": {
+    requestsPerMinute: 120,
+    requestsPerHour: 5000,
+    burstLimit: 50,
+  } as RateLimiterConfig,
+
+  /**
+   * Referral Validation - MEDIUM
+   *
+   * Endpoint: /api/referrals/validate
+   * Risk: Brute force attacks
+   * Cost: Database queries
+   *
+   * Already implemented - keeping for reference
+   */
+  "referral-validation": {
+    requestsPerMinute: 10,
+    requestsPerHour: 100,
+    burstLimit: 5,
+  } as RateLimiterConfig,
+} as const;
+
+/**
+ * Type-safe rate limit keys
+ */
+export type RateLimitKey = keyof typeof RATE_LIMITS;
+
+/**
+ * Get rate limit config for a specific key
+ *
+ * @param key - Rate limit configuration key
+ * @returns Rate limiter configuration
+ */
+export function getRateLimitConfig(key: RateLimitKey): RateLimiterConfig {
+  return RATE_LIMITS[key];
+}
+
+/**
+ * Rate limit documentation for API responses
+ *
+ * These descriptions can be included in error messages
+ * to help users understand the limits
+ */
+export const RATE_LIMIT_MESSAGES = {
+  "image-proxy": "Image proxy rate limit exceeded. Please reduce request frequency.",
+  recommendations:
+    "Recommendation API rate limit exceeded. Please wait before requesting more recommendations.",
+  "beach-search": "Search rate limit exceeded. Please wait before searching again.",
+  "forecast-bulk": "Forecast data rate limit exceeded. Please reduce request frequency.",
+  "coach-picks": "Coach picks rate limit exceeded. Please wait before retrying.",
+  "public-default": "API rate limit exceeded. Please wait before making more requests.",
+  "authenticated-default":
+    "API rate limit exceeded. Please reduce request frequency.",
+  "referral-validation":
+    "Too many validation attempts. Please try again later.",
+} as const;
+
+/**
+ * Get user-friendly rate limit message
+ *
+ * @param key - Rate limit configuration key
+ * @returns User-friendly error message
+ */
+export function getRateLimitMessage(key: RateLimitKey): string {
+  return RATE_LIMIT_MESSAGES[key] || "Rate limit exceeded. Please try again later.";
+}

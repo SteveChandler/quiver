@@ -14,6 +14,9 @@ interface BeachCardData {
   distance: string;
   latitude?: number;
   longitude?: number;
+  slug?: string | null;
+  city?: string | null;
+  state?: string | null;
 }
 
 /**
@@ -65,6 +68,9 @@ function prepareBeachCardData(
     distance,
     latitude: coords?.latitude,
     longitude: coords?.longitude,
+    slug: beach.slug ?? null,
+    city: beach.city ?? null,
+    state: beach.state ?? null,
   };
 }
 

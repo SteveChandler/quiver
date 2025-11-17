@@ -94,13 +94,13 @@ export function PreferencesAnnouncementDialog({
             </div>
           </div>
           <DialogTitle className="text-2xl text-center">
-            We've Enhanced Your Profile Preferences!
+            We&apos;ve Enhanced Your Profile Preferences!
           </DialogTitle>
           <DialogDescription
             id="preferences-announcement-description"
             className="text-center text-base pt-2"
           >
-            We've added new customization options to help you find the perfect
+            We&apos;ve added new customization options to help you find the perfect
             waves. Update your profile to get more personalized surf
             recommendations tailored to your style.
           </DialogDescription>

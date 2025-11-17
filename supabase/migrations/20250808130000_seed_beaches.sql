@@ -12,8 +12,8 @@ CREATE TEMPORARY TABLE temp_beaches (
   name text PRIMARY KEY,
   region text,
   country text,
-  latitude double precision,
-  longitude double precision
+  lat double precision,
+  lon double precision
 ) ON COMMIT DROP;
 
 -- Load inline JSON to temp_beaches
@@ -106,7 +106,7 @@ parsed AS (
       lon double precision
     )
 )
-INSERT INTO temp_beaches (name, region, country, latitude, longitude)
+INSERT INTO temp_beaches (name, region, country, lat, lon)
 SELECT name, region, country, lat, lon
 FROM parsed;
 
@@ -120,7 +120,7 @@ BEGIN
     UPDATE public.beaches b
     SET description = COALESCE(
       b.description,
-      CONCAT(b.name, ' — ', COALESCE(b.location, COALESCE(b.region,'')))
+      CONCAT(b.name, ' — ', COALESCE(b.region,''))
     )
     WHERE b.description IS NULL;
   END IF;
@@ -129,19 +129,17 @@ END $$;
 -- Update existing rows where values differ (match by case-insensitive name)
 UPDATE public.beaches b
 SET
-  location = COALESCE(tb.region, b.location),
   region = COALESCE(tb.region, b.region),
   country = COALESCE(tb.country, b.country),
-  latitude = COALESCE(tb.latitude, b.latitude),
-  longitude = COALESCE(tb.longitude, b.longitude)
+  lat = COALESCE(tb.lat, b.lat),
+  lon = COALESCE(tb.lon, b.lon)
 FROM temp_beaches tb
 WHERE lower(b.name) = lower(tb.name)
   AND (
-    COALESCE(b.location,'') IS DISTINCT FROM COALESCE(tb.region,'') OR
     COALESCE(b.region,'') IS DISTINCT FROM COALESCE(tb.region,'') OR
     COALESCE(b.country,'') IS DISTINCT FROM COALESCE(tb.country,'') OR
-    b.latitude IS DISTINCT FROM tb.latitude OR
-    b.longitude IS DISTINCT FROM tb.longitude
+    b.lat IS DISTINCT FROM tb.lat OR
+    b.lon IS DISTINCT FROM tb.lon
   );
 
 -- Insert new rows that don't exist yet (handle description column if present)
@@ -152,15 +150,14 @@ BEGIN
     WHERE table_schema='public' AND table_name='beaches' AND column_name='description'
   ) THEN
     INSERT INTO public.beaches (
-      name, location, region, country, latitude, longitude, description
+      name, region, country, lat, lon, description
     )
     SELECT
       tb.name,
       tb.region,
-      tb.region,
       tb.country,
-      tb.latitude,
-      tb.longitude,
+      tb.lat,
+      tb.lon,
       COALESCE(tb.region, tb.name)
     FROM temp_beaches tb
     WHERE NOT EXISTS (
@@ -168,15 +165,14 @@ BEGIN
     );
   ELSE
     INSERT INTO public.beaches (
-      name, location, region, country, latitude, longitude
+      name, region, country, lat, lon
     )
     SELECT
       tb.name,
       tb.region,
-      tb.region,
       tb.country,
-      tb.latitude,
-      tb.longitude
+      tb.lat,
+      tb.lon
     FROM temp_beaches tb
     WHERE NOT EXISTS (
       SELECT 1 FROM public.beaches b WHERE lower(b.name) = lower(tb.name)

@@ -5,7 +5,7 @@ import {
   createForecastUpdateResponse,
   validateCronRequest,
 } from "@/lib/api-response-utils";
-import { updateAllBeachForecasts } from "@/lib/utils/forecast-service-utils";
+import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 
 /**
  * Smart Forecast Update Cron Job

@@ -1,0 +1,103 @@
+import {
+  STALENESS_THRESHOLDS,
+  getStalenessThreshold,
+  getStalenessInfo,
+} from '@/lib/config/forecast-staleness';
+
+describe('Forecast Staleness Configuration', () => {
+  describe('STALENESS_THRESHOLDS', () => {
+    it('should have correct thresholds for each source', () => {
+      expect(STALENESS_THRESHOLDS.CDIP).toBe(1.5);
+      expect(STALENESS_THRESHOLDS.NOAA_NWS).toBe(6);
+      expect(STALENESS_THRESHOLDS.FALLBACK).toBe(12);
+      expect(STALENESS_THRESHOLDS.DEFAULT).toBe(6);
+    });
+  });
+
+  describe('getStalenessThreshold', () => {
+    it('should return correct threshold for CDIP', () => {
+      expect(getStalenessThreshold('CDIP')).toBe(1.5);
+      expect(getStalenessThreshold('cdip')).toBe(1.5);
+      expect(getStalenessThreshold('Cdip')).toBe(1.5);
+    });
+
+    it('should return correct threshold for NOAA_NWS', () => {
+      expect(getStalenessThreshold('NOAA_NWS')).toBe(6);
+      expect(getStalenessThreshold('noaa_nws')).toBe(6);
+      expect(getStalenessThreshold('Noaa_Nws')).toBe(6);
+    });
+
+    it('should return correct threshold for FALLBACK', () => {
+      expect(getStalenessThreshold('FALLBACK')).toBe(12);
+      expect(getStalenessThreshold('fallback')).toBe(12);
+      expect(getStalenessThreshold('Fallback')).toBe(12);
+    });
+
+    it('should return DEFAULT threshold for unknown sources', () => {
+      expect(getStalenessThreshold('UNKNOWN')).toBe(6);
+      expect(getStalenessThreshold('random_source')).toBe(6);
+      expect(getStalenessThreshold('')).toBe(6);
+    });
+
+    it('should return DEFAULT threshold for null/undefined', () => {
+      expect(getStalenessThreshold(null)).toBe(6);
+      expect(getStalenessThreshold(undefined)).toBe(6);
+    });
+  });
+
+  describe('getStalenessInfo', () => {
+    it('should correctly identify stale CDIP data (> 1.5 hours)', () => {
+      const result = getStalenessInfo(2, 'CDIP');
+      expect(result.isStale).toBe(true);
+      expect(result.threshold).toBe(1.5);
+      expect(result.reason).toBe('Exceeded source-specific threshold');
+    });
+
+    it('should correctly identify fresh CDIP data (< 1.5 hours)', () => {
+      const result = getStalenessInfo(1, 'CDIP');
+      expect(result.isStale).toBe(false);
+      expect(result.threshold).toBe(1.5);
+      expect(result.reason).toBe('Within freshness window');
+    });
+
+    it('should correctly identify stale NOAA data (> 6 hours)', () => {
+      const result = getStalenessInfo(7, 'NOAA_NWS');
+      expect(result.isStale).toBe(true);
+      expect(result.threshold).toBe(6);
+      expect(result.reason).toBe('Exceeded source-specific threshold');
+    });
+
+    it('should correctly identify fresh NOAA data (< 6 hours)', () => {
+      const result = getStalenessInfo(5, 'NOAA_NWS');
+      expect(result.isStale).toBe(false);
+      expect(result.threshold).toBe(6);
+      expect(result.reason).toBe('Within freshness window');
+    });
+
+    it('should correctly identify stale FALLBACK data (> 12 hours)', () => {
+      const result = getStalenessInfo(13, 'FALLBACK');
+      expect(result.isStale).toBe(true);
+      expect(result.threshold).toBe(12);
+      expect(result.reason).toBe('Exceeded source-specific threshold');
+    });
+
+    it('should correctly identify fresh FALLBACK data (< 12 hours)', () => {
+      const result = getStalenessInfo(11, 'FALLBACK');
+      expect(result.isStale).toBe(false);
+      expect(result.threshold).toBe(12);
+      expect(result.reason).toBe('Within freshness window');
+    });
+
+    it('should use DEFAULT threshold for unknown sources', () => {
+      const result = getStalenessInfo(7, 'UNKNOWN');
+      expect(result.isStale).toBe(true);
+      expect(result.threshold).toBe(6);
+    });
+
+    it('should handle edge case exactly at threshold', () => {
+      const result = getStalenessInfo(6, 'NOAA_NWS');
+      expect(result.isStale).toBe(false);
+      expect(result.threshold).toBe(6);
+    });
+  });
+});

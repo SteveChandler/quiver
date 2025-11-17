@@ -175,6 +175,92 @@ export function isValidUuid(value: string | undefined | null): boolean {
 }
 
 // ============================================================================
+// ZOD VALIDATION UTILITIES
+// ============================================================================
+
+import { z } from 'zod';
+
+/**
+ * Validate request data against a Zod schema
+ * Throws ZodError if validation fails
+ *
+ * @param schema - Zod schema to validate against
+ * @param data - Data to validate
+ * @returns Validated and typed data
+ *
+ * @example
+ * ```ts
+ * const validated = validateSchema(CommentSchema, requestBody);
+ * // validated is now typed according to the schema
+ * ```
+ */
+export function validateSchema<T>(
+  schema: z.ZodSchema<T>,
+  data: unknown
+): T {
+  return schema.parse(data);
+}
+
+/**
+ * Safe validation - returns result object instead of throwing
+ * Useful when you want to handle validation errors without try/catch
+ *
+ * @param schema - Zod schema to validate against
+ * @param data - Data to validate
+ * @returns Success object with data or failure object with error
+ *
+ * @example
+ * ```ts
+ * const result = safeValidateSchema(CommentSchema, requestBody);
+ * if (!result.success) {
+ *   return createValidationError(result.error.errors[0].message);
+ * }
+ * const validated = result.data;
+ * ```
+ */
+export function safeValidateSchema<T>(
+  schema: z.ZodSchema<T>,
+  data: unknown
+): { success: true; data: T } | { success: false; error: z.ZodError } {
+  return schema.safeParse(data);
+}
+
+/**
+ * Validate and return NextResponse for validation errors
+ * Combines Zod validation with proper error response creation
+ *
+ * @param schema - Zod schema to validate against
+ * @param data - Data to validate
+ * @returns Validated data or NextResponse with validation error
+ *
+ * @example
+ * ```ts
+ * const validationResult = validateOrError(CommentSchema, requestBody);
+ * if ('error' in validationResult) {
+ *   return validationResult.error;
+ * }
+ * const validated = validationResult.data;
+ * ```
+ */
+export function validateOrError<T>(
+  schema: z.ZodSchema<T>,
+  data: unknown
+): { data: T } | { error: NextResponse<ApiError> } {
+  const result = schema.safeParse(data);
+
+  if (!result.success) {
+    return {
+      error: createValidationError(
+        result.error.errors[0].message,
+        result.error.errors
+      )
+    };
+  }
+
+  return { data: result.data };
+}
+
+// ============================================================================
 // CACHING UTILITIES
 // ============================================================================
 

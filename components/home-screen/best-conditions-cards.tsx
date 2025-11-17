@@ -17,6 +17,8 @@ import {
 } from "@/lib/constants/beach-badge-styles";
 import { getBestConditionsHeading } from "@/lib/utils/best-conditions-helpers";
 import { beachNavigation } from "@/lib/navigation-utils";
+import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BestConditionsCardsProps {
   homeBeach?: Beach | null;
@@ -108,8 +110,26 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
                   <Waves className="h-12 w-12 text-blue-400" />
                 </div>
               )}
+
+              {/* Personalized match badge - top left */}
+              {beach.personalized && (
+                <div className="absolute top-3 left-3 z-10">
+                  <PersonalizedBadge
+                    personalized={beach.personalized}
+                    breakdown={beach.scoreBreakdown}
+                    affinityData={beach.affinityData ? {
+                      sessionCount: beach.affinityData.sessionCount,
+                      lastSurfed: new Date(beach.affinityData.lastSurfed)
+                    } : undefined}
+                    className="shadow-lg backdrop-blur-sm bg-white/95"
+                  />
+                </div>
+              )}
+
+              {/* Hidden gem badge - top right */}
               {beach.is_hidden_gem && (
-                <Badge className="absolute top-3 right-3 bg-purple-500 hover:bg-purple-600">
+                <Badge className="absolute top-3 right-3 z-10 bg-purple-500 hover:bg-purple-600 shadow-lg">
+                  <span className="mr-1">💎</span>
                   Hidden Gem
                 </Badge>
               )}
@@ -122,7 +142,7 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
                   {beach.name}
                 </h4>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <span>📍</span> {beach.location} · {beach.distance_miles} mi
+                  <span>📍</span> {getBeachLocation(beach)} · {beach.distance_miles} mi
                 </p>
               </div>
 
@@ -180,9 +200,34 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
   );
 };
 
+/**
+ * Custom comparison function for BestConditionsCards memoization
+ * Handles homeBeach object prop correctly
+ */
+const areBestConditionsCardsPropsEqual = (
+  prev: BestConditionsCardsProps,
+  next: BestConditionsCardsProps
+): boolean => {
+  // Compare homeBeach objects by ID (most stable identifier)
+  // If both null/undefined, they're equal
+  if (!prev.homeBeach && !next.homeBeach) return true;
+
+  // If one is defined and the other isn't, they're different
+  if (!prev.homeBeach || !next.homeBeach) return false;
+
+  // Compare by ID and name (key properties)
+  return (
+    prev.homeBeach.id === next.homeBeach.id &&
+    prev.homeBeach.name === next.homeBeach.name
+  );
+};
+
 // Memoized to prevent unnecessary re-renders when parent re-renders
-// Component will only re-render when homeBeach prop changes (shallow comparison)
-export const BestConditionsCards = memo(BestConditionsCardsComponent);
+// Uses custom comparison to handle homeBeach object prop correctly
+export const BestConditionsCards = memo(
+  BestConditionsCardsComponent,
+  areBestConditionsCardsPropsEqual
+);
 BestConditionsCards.displayName = 'BestConditionsCards';
 
 function BestConditionsCardsSkeleton({ "data-testid": dataTestId }: { "data-testid"?: string }) {

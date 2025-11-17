@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BeachCard } from "@/components/beach-card";
@@ -99,14 +99,18 @@ export function BeachList({
     return { startIndex: start, endIndex: end, offsetTop: offset };
   }, [scrollTop, containerHeight, displayedBeaches.length]);
 
-  const handleBeachSelect = (beach: Beach) => {
-    setSelectedBeachId(beach.id);
-    onBeachSelect(beach);
-  };
+  // Memoize handlers to prevent BeachCard re-renders
+  const handleBeachSelect = useCallback(
+    (beach: Beach) => {
+      setSelectedBeachId(beach.id);
+      onBeachSelect(beach);
+    },
+    [onBeachSelect]
+  );
 
-  const handleFilter = (value: string) => {
+  const handleFilter = useCallback((value: string) => {
     setFilterValue(value);
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -322,13 +326,11 @@ export function BeachList({
                               imageUrl={beachData.mapImageUrl}
                               latitude={beachData.latitude}
                               longitude={beachData.longitude}
-                              onViewDetails={() => {
-                                handleBeachSelect(
-                                  displayedBeaches.find(
-                                    (b) => b.id === beachData.id
-                                  )!
-                                );
-                              }}
+                              slug={beachData.slug}
+                              city={beachData.city}
+                              state={beachData.state}
+                              // Note: BeachCard will handle navigation via Link internally
+                              // No need to pass onViewDetails handler
                             />
                           </motion.div>
                         </motion.div>

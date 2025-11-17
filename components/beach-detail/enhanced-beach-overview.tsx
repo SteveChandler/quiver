@@ -52,8 +52,8 @@ export function EnhancedBeachOverview({
 
       {/* Feature Tags */}
       <FeatureGrid
-        features={beach.features}
-        warnings={beach.warnings}
+        features={beach.features || []}
+        warnings={beach.warnings || []}
         className="mb-6"
       />
 

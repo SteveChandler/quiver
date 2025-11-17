@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateAllBeachForecasts } from "@/lib/utils/forecast-service-utils";
+import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 
 /**
  * Cron job endpoint to refresh all beach forecasts in the background

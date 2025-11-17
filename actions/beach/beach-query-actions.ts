@@ -6,7 +6,7 @@ import type { Beach } from "@/types/database";
 // Selective field query for beach list - only fetch commonly needed fields
 // Note: Only includes fields that exist in the beaches table schema
 // Updated after 20251025 migrations: location→city, latitude→lat, longitude→lon, region→state
-const BEACH_LIST_FIELDS = "id, name, city, lat, lon, state, created_at, is_private";
+const BEACH_LIST_FIELDS = "id, name, slug, city, lat, lon, state, created_at, is_private";
 
 // Full beach detail fields for single beach queries
 // Includes all fields from beaches table for comprehensive beach view

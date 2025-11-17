@@ -15,7 +15,9 @@
  */
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { withNonDeleted } from "@/lib/supabase/query-builders";
 import { scoreRecommendation } from "@/lib/utils/recommendation-scorer";
+import type { BeachPhotoFeatured } from "@/types/database";
 import {
   getCrowdLevel,
   getDirectionAbbrev,
@@ -29,6 +31,7 @@ import {
 } from "@/lib/utils/forecast-data-utils";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { BEACH_SEARCH_CONFIG } from "@/lib/constants/beach-search-config";
+import { scoreBeachForUser } from "@/lib/services/personalized-scoring-service";
 import {
   generateOperationId,
   trackPerformance,
@@ -51,6 +54,17 @@ import type {
 } from "@/types/beach-recommendation-service";
 import type { Beach } from "@/types/database";
 import type { BeachRecommendation } from "@/types/beach-recommendations";
+
+// Type for session media with nested session relation
+interface SessionMediaWithBeach {
+  session_id: string;
+  public_url: string;
+  media_type: string;
+  created_at: string;
+  session: {
+    beach_id: string;
+  };
+}
 
 /**
  * Implementation of the Beach Recommendation Service
@@ -269,11 +283,12 @@ export class BeachRecommendationService implements IBeachRecommendationService {
           .order("created_at", { ascending: false }),
 
         // PRIORITY 2: Featured photos (curated fallback)
-        supabase
-          .from("beach_photos_featured")
-          .select("beach_id, image_url")
-          .in("beach_id", beachIds)
-          .limit(beachIds.length),
+        withNonDeleted(
+          supabase
+            .from("beach_photos_featured")
+            .select("beach_id, image_url, deleted_at")
+            .in("beach_id", beachIds)
+        ).limit(beachIds.length),
       ]);
 
       // Process session photos first (higher priority)
@@ -284,8 +299,9 @@ export class BeachRecommendationService implements IBeachRecommendationService {
         );
       } else {
         for (const row of sessionPhotosResult.data ?? []) {
-          const beachId = (row as any)?.session?.beach_id as string | undefined;
-          const imageUrl = (row as any)?.public_url as string | undefined;
+          const typedRow = row as SessionMediaWithBeach;
+          const beachId = typedRow?.session?.beach_id;
+          const imageUrl = typedRow?.public_url;
           if (!beachId || !imageUrl || beachPhotoMap.has(beachId)) continue;
           beachPhotoMap.set(beachId, imageUrl);
         }
@@ -299,8 +315,9 @@ export class BeachRecommendationService implements IBeachRecommendationService {
         );
       } else {
         for (const row of featuredPhotosResult.data ?? []) {
-          const beachId = (row as any)?.beach_id as string | undefined;
-          const imageUrl = (row as any)?.image_url as string | undefined;
+          const typedRow = row as BeachPhotoFeatured;
+          const beachId = typedRow?.beach_id;
+          const imageUrl = typedRow?.image_url;
           // Only use featured photo if beach doesn't have a session photo
           if (!beachId || !imageUrl || beachPhotoMap.has(beachId)) continue;
           beachPhotoMap.set(beachId, imageUrl);
@@ -458,13 +475,15 @@ export class BeachRecommendationService implements IBeachRecommendationService {
    * beach recommendation with a 0-100 score. It handles missing data gracefully
    * and prioritizes AI-generated intel scores over calculated scores when available.
    */
-  scoreAndRankBeaches(
+  async scoreAndRankBeaches(
     beaches: NearbyBeach[],
     intel: Map<string, IntelSnapshot>,
     forecasts: Map<string, ForecastSnapshot[]>,
     details: Beach[],
-    profile: UserProfile | null
-  ): BeachRecommendation[] {
+    profile: UserProfile | null,
+    userId: string | null,
+    affinityMap: Map<string, any>
+  ): Promise<BeachRecommendation[]> {
     const recommendations: BeachRecommendation[] = [];
     const now = new Date();
     // Convert current time to minutes since midnight for forecast matching
@@ -590,12 +609,55 @@ export class BeachRecommendationService implements IBeachRecommendationService {
           ? (nearby.distance_meters / BEACH_SEARCH_CONFIG.METERS_PER_MILE).toFixed(1)
           : "0.0";
 
+      // Apply personalization if user is authenticated
+      let personalizedScore = finalScore;
+      let personalized = false;
+      let scoreBreakdown: BeachRecommendation['scoreBreakdown'];
+      let affinityData: BeachRecommendation['affinityData'];
+
+      if (userId && forecast) {
+        try {
+          // Convert forecast to format expected by scoreBeachForUser
+          const forecastForScoring = {
+            wave_height: waveHeight,
+            wave_period: null, // Not available in current forecast snapshot
+            wind_speed: windSpeedMph,
+            wind_direction: windDirectionText,
+            tide_status: tideStatus,
+          };
+
+          const personalizedResult = await scoreBeachForUser(
+            userId,
+            nearby.id,
+            forecastForScoring as any,
+            finalScore
+          );
+
+          personalizedScore = personalizedResult.score;
+          personalized = personalizedResult.personalized;
+          scoreBreakdown = personalizedResult.breakdown;
+
+          // Add affinity data if available
+          const affinity = affinityMap.get(nearby.id);
+          if (affinity) {
+            affinityData = {
+              sessionCount: affinity.session_count,
+              lastSurfed: affinity.last_surfed_at,
+              score: affinity.affinity_score
+            };
+          }
+        } catch (error) {
+          console.error('[BeachRecommendationService] Personalization failed for beach:', nearby.id, error);
+          // Continue with base score on error
+        }
+      }
+
       const recommendation: BeachRecommendation = {
         id: nearby.id,
         name: beachDetails.name,
         location: beachDetails.city ?? nearby.city ?? "",
         distance_miles: distanceMiles,
-        score: Math.round(finalScore),
+        score: Math.round(personalizedScore),
         reasons: reasonsWithIntel,
         image_url: null, // Will be populated later
         // URL generation fields for hierarchical URLs
@@ -611,8 +673,16 @@ export class BeachRecommendationService implements IBeachRecommendationService {
         skill_level: beachDetails.skill_level || "Intermediate",
         crowd_level: crowdLevel,
         is_hidden_gem:
-          finalScore >= BEACH_SEARCH_CONFIG.HIDDEN_GEM_SCORE_THRESHOLD &&
+          personalizedScore >= BEACH_SEARCH_CONFIG.HIDDEN_GEM_SCORE_THRESHOLD &&
           crowdLevel === "Uncrowded",
+        // Personalization fields (only present if personalized)
+        ...(personalized && {
+          baseScore: finalScore,
+          personalizedScore: personalizedScore,
+          personalized: true,
+          scoreBreakdown,
+          affinityData,
+        }),
       };
 
       recommendations.push(recommendation);
@@ -732,6 +802,26 @@ export class BeachRecommendationService implements IBeachRecommendationService {
         operationId
       );
 
+      // Load affinity data if user is authenticated
+      let affinityMap = new Map<string, any>();
+      if (userId) {
+        try {
+          const { data: affinities } = await supabase
+            .from('user_beach_affinity')
+            .select('beach_id, affinity_score, session_count, last_surfed_at')
+            .eq('user_id', userId)
+            .in('beach_id', beachIds);
+
+          if (affinities) {
+            for (const aff of affinities) {
+              affinityMap.set(aff.beach_id, aff);
+            }
+          }
+        } catch (error) {
+          console.error('[BeachRecommendationService] Failed to load affinity data:', error);
+        }
+      }
+
       const [beachPhotos, beachDetails, intelData, forecasts] =
         await Promise.all([
           monitoredOperation(
@@ -772,12 +862,14 @@ export class BeachRecommendationService implements IBeachRecommendationService {
         operationId
       );
 
-      const recommendations = this.scoreAndRankBeaches(
+      const recommendations = await this.scoreAndRankBeaches(
         nearbyBeaches,
         intelData,
         forecasts,
         beachDetails,
-        profile
+        profile,
+        userId,
+        affinityMap
       );
 
       scoringTimer.finish(true, {

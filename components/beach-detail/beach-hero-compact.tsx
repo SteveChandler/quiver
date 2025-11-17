@@ -1,8 +1,10 @@
 "use client";
 
-import { Star } from "lucide-react";
+import { Star, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import type { Beach } from "@/types/database";
+import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BeachHeroCompactProps {
@@ -10,10 +12,21 @@ interface BeachHeroCompactProps {
     average_rating?: number;
     review_count?: number;
   };
+  personalizationScore?: PersonalizedScore | null;
+  affinityData?: { sessionCount: number; lastSurfed: Date } | null;
+  baseScore?: number;
+  isLoadingPersonalization?: boolean;
   className?: string;
 }
 
-export function BeachHeroCompact({ beach, className }: BeachHeroCompactProps) {
+export function BeachHeroCompact({
+  beach,
+  personalizationScore,
+  affinityData,
+  baseScore,
+  isLoadingPersonalization,
+  className
+}: BeachHeroCompactProps) {
   const rating = beach.average_rating || 0;
   const reviewCount = beach.review_count || 0;
   const breakType = beach.break_type || "Beach Break";
@@ -42,6 +55,28 @@ export function BeachHeroCompact({ beach, className }: BeachHeroCompactProps) {
       <h1 className="text-4xl font-roboto font-bold leading-[44px] text-gray-900 mb-2">
         {beach.name}
       </h1>
+
+      {/* Personalization Badge - Show after title for authenticated users */}
+      {isLoadingPersonalization && (
+        <div className="flex items-center gap-2 text-muted-foreground mb-3">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Calculating your match...</span>
+        </div>
+      )}
+      {personalizationScore && personalizationScore.personalized && (
+        <div className="mb-3">
+          <PersonalizedBadge
+            personalized={personalizationScore.personalized}
+            score={personalizationScore.score}
+            breakdown={personalizationScore.breakdown}
+            affinityData={affinityData || undefined}
+            displayMode="score"
+            size="lg"
+            showDelta={baseScore !== undefined}
+            baseScore={baseScore}
+          />
+        </div>
+      )}
 
       {/* Phase 4 Spec: Metadata Row - 12px margin, flex layout */}
       <div className="flex flex-wrap items-center gap-2 my-3">

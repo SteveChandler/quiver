@@ -24,6 +24,29 @@ interface BeachSearchAutocompleteProps {
   className?: string;
   showCurrentConditions?: boolean;
   maxResults?: number;
+  /**
+   * Optional callback invoked when the user presses Enter but no beach
+   * selection is made or no suggestions are available. This is primarily
+   * used by the landing hero to fall back to the map search with the
+   * free-typed query.
+   */
+  onFallback?: (query: string) => void;
+  /**
+   * @deprecated This prop no longer affects Enter key behavior.
+   * The component now always navigates to the highlighted suggestion on Enter.
+   * Kept for backwards compatibility but has no effect.
+   */
+  requireExplicitSelection?: boolean;
+  /**
+   * Controls whether a single matching result should automatically be
+   * selected on Enter. Defaults to true for backwards compatibility.
+   */
+  autoNavigateSingleResult?: boolean;
+  /**
+   * Optional listener for query changes so parents (like the landing hero)
+   * can mirror the current search string for secondary actions.
+   */
+  onQueryChange?: (query: string) => void;
 }
 
 /**
@@ -41,6 +64,10 @@ export function BeachSearchAutocomplete({
   className,
   showCurrentConditions = false,
   maxResults = 5,
+  onFallback,
+  requireExplicitSelection = false,
+  autoNavigateSingleResult = true,
+  onQueryChange,
 }: BeachSearchAutocompleteProps) {
   const router = useRouter();
   const {
@@ -53,6 +80,14 @@ export function BeachSearchAutocomplete({
     handleKeyDown,
     handleSelect,
   } = useBeachAutocomplete({ maxResults });
+
+  const handleQueryChange = useCallback(
+    (value: string) => {
+      setQuery(value);
+      onQueryChange?.(value);
+    },
+    [onQueryChange, setQuery]
+  );
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
@@ -70,12 +105,44 @@ export function BeachSearchAutocomplete({
 
   const handleEnterKey = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && isOpen && suggestions.length > 0) {
-        e.preventDefault();
-        handleBeachSelect(suggestions[selectedIndex]);
+      if (e.key !== "Enter") return;
+
+      const trimmedQuery = query.trim();
+
+      // If there are no suggestions (or dropdown is closed), allow parents
+      // to handle the query via fallback (e.g., map search) while still
+      // preserving free-typed behavior.
+      if (!isOpen || suggestions.length === 0) {
+        if (onFallback && trimmedQuery) {
+          e.preventDefault();
+          onFallback(trimmedQuery);
+        }
+        return;
       }
+
+      // Exactly one result: optionally auto-navigate for smooth flows.
+      if (suggestions.length === 1 && autoNavigateSingleResult) {
+        e.preventDefault();
+        handleBeachSelect(suggestions[0]);
+        return;
+      }
+
+      // Multiple results: navigate to the highlighted/first result
+      // When requireExplicitSelection is true (landing page), still allow
+      // Enter key navigation to provide better UX
+      e.preventDefault();
+      handleBeachSelect(suggestions[selectedIndex]);
     },
-    [isOpen, suggestions, selectedIndex, handleBeachSelect]
+    [
+      autoNavigateSingleResult,
+      handleBeachSelect,
+      isOpen,
+      onFallback,
+      query,
+      requireExplicitSelection,
+      selectedIndex,
+      suggestions,
+    ]
   );
 
   return (
@@ -93,7 +160,7 @@ export function BeachSearchAutocomplete({
         <CommandInput
           placeholder={placeholder}
           value={query}
-          onValueChange={setQuery}
+          onValueChange={handleQueryChange}
           className="border-none focus:ring-0"
         />
         {loading && (

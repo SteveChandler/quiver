@@ -6,6 +6,7 @@ import { ArrowUp, ArrowDown, Waves, Wind, Sun, Globe2, ChevronDown } from "lucid
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
+import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
 import { ForecastFreshnessBadge } from "@/components/ui/forecast-freshness-badge";
 import { BuoyStationLink } from "@/components/forecast/buoy-station-link";
@@ -177,21 +178,19 @@ export function ForecastTab({
   const forecastMetadata = useMemo(() => {
     if (!currentForecast) return null;
 
-    const now = Date.now();
-    const updatedAt = new Date(currentForecast.updated_at).getTime();
-    const hoursSinceUpdate = (now - updatedAt) / (1000 * 60 * 60);
-
     const rawForecast = currentForecast.raw_forecast as unknown as RawForecastData | null;
+    const dataSource = currentForecast.data_source || "FALLBACK";
+
+    // Use source-specific staleness thresholds
+    const isStale = isDataStale(currentForecast.updated_at, dataSource);
 
     return {
-      dataSource: currentForecast.data_source || "FALLBACK",
+      dataSource,
       confidenceScore: currentForecast.confidence_score ?? 50,
-      dataSources: rawForecast?.data_sources || [
-        currentForecast.data_source || "FALLBACK",
-      ],
+      dataSources: rawForecast?.data_sources || [dataSource],
       lastUpdated: currentForecast.updated_at,
       isRealTimeData: currentForecast.data_source === "CDIP",
-      isStaleData: hoursSinceUpdate > 6,
+      isStaleData: isStale,
       cdipStation: rawForecast?.cdip_data?.stationId,
       cdipStationName: rawForecast?.cdip_data?.stationName,
     };

@@ -21,97 +21,149 @@ interface PageProps {
 export default async function BeachDetailPage({ params }: PageProps) {
   const { city, beachSlug } = params;
 
-  // Fetch beach data by slug
-  const result = await getBeachBySlug(beachSlug);
+  try {
+    // Fetch beach data by slug
+    const result = await getBeachBySlug(beachSlug);
 
-  if (!result.success || !result.data) {
+    if (!result.success || !result.data) {
+      notFound();
+    }
+
+    const beach = result.data;
+
+    // Validate that this is a California beach and city matches
+    // Handle cases where beach data might be incomplete
+    if (beach.state !== "CA") {
+      console.warn("[BeachDetailPage] Beach is not in California:", {
+        beachSlug,
+        state: beach.state,
+      });
+      notFound();
+    }
+
+    // Check city match if beach has city data
+    if (beach.city) {
+      const expectedCitySlug = cityToSlug(beach.city);
+      if (city !== expectedCitySlug) {
+        console.warn("[BeachDetailPage] City slug mismatch:", {
+          beachSlug,
+          expectedCity: expectedCitySlug,
+          providedCity: city,
+        });
+        notFound();
+      }
+    } else {
+      // Beach has no city data - this is an incomplete record
+      console.warn("[BeachDetailPage] Beach has no city data:", {
+        beachSlug,
+        beachName: beach.name,
+      });
+      notFound();
+    }
+
+    return (
+      <>
+        {/* Structured Data: Place/Beach */}
+        <BeachPageStructuredData
+          beachName={beach.name}
+          description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
+          latitude={beach.lat || 0}
+          longitude={beach.lon || 0}
+          rating={(beach as any).average_rating || undefined}
+          reviewCount={(beach as any).review_count || undefined}
+          city={beach.city || undefined}
+          state={beach.state || undefined}
+          country={beach.country || undefined}
+        />
+
+        {/* Breadcrumb Structured Data for SEO */}
+        <BreadcrumbStructuredData
+          items={[
+            { name: "Home", url: baseUrl },
+            {
+              name: beach.state || "State",
+              url: `${baseUrl}${buildStateUrl(beach.state)}`
+            },
+            {
+              name: beach.city || "City",
+              url: `${baseUrl}${buildCityUrl(beach.state, beach.city)}`
+            },
+            {
+              name: beach.name,
+              url: `${baseUrl}${buildBeachUrl(beach)}`
+            },
+          ]}
+        />
+
+        {/* Client detail component with auth tracking */}
+        <BeachDetailClient beach={beach} slug={beachSlug} />
+      </>
+    );
+  } catch (error) {
+    console.error("[BeachDetailPage] Error rendering CA beach page:", {
+      params,
+      // Avoid logging full error objects in case of sensitive details
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
     notFound();
   }
-
-  const beach = result.data;
-
-  // Validate that this is a California beach and city matches
-  const expectedCitySlug = cityToSlug(beach.city);
-
-  if (beach.state !== "CA" || city !== expectedCitySlug) {
-    notFound();
-  }
-
-  return (
-    <>
-      {/* Structured Data: Place/Beach */}
-      <BeachPageStructuredData
-        beachName={beach.name}
-        description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
-        latitude={beach.lat || 0}
-        longitude={beach.lon || 0}
-        rating={(beach as any).average_rating || undefined}
-        reviewCount={(beach as any).review_count || undefined}
-        city={beach.city || undefined}
-        state={beach.state || undefined}
-        country={beach.country || undefined}
-      />
-
-      {/* Breadcrumb Structured Data for SEO */}
-      <BreadcrumbStructuredData
-        items={[
-          { name: "Home", url: baseUrl },
-          {
-            name: beach.state || "State",
-            url: `${baseUrl}${buildStateUrl(beach.state)}`
-          },
-          {
-            name: beach.city || "City",
-            url: `${baseUrl}${buildCityUrl(beach.state, beach.city)}`
-          },
-          {
-            name: beach.name,
-            url: `${baseUrl}${buildBeachUrl(beach)}`
-          },
-        ]}
-      />
-
-      {/* Client detail component with auth tracking */}
-      <BeachDetailClient beach={beach} slug={beachSlug} />
-    </>
-  );
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { beachSlug } = params;
 
-  // Try to resolve beach by slug
-  const result = await getBeachBySlug(beachSlug);
+  try {
+    // Try to resolve beach by slug
+    const result = await getBeachBySlug(beachSlug);
 
-  if (result.success && result.data) {
-    const beach = result.data;
+    if (result.success && result.data) {
+      const beach = result.data;
 
-    // Format review count for title
-    const reviewCount = beach.review_count ?? 0;
-    const reviewText = reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
+      // Format review count for title
+      const reviewCount = beach.review_count ?? 0;
+      const reviewText =
+        reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
 
-    // Build location context for title
-    const locationContext = beach.city && beach.state
-      ? ` in ${beach.city}, ${beach.state}`
-      : "";
+      // Build location context for title
+      const locationContext =
+        beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
 
-    return buildPageMetadata({
-      title: `${beach.name}${locationContext} - ${reviewText}, Map & Forecast`,
-      description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}${locationContext}.`,
-      path: buildBeachUrl(beach),
-      keywords: [
-        beach.name,
-        beach.city || "",
-        beach.state || "",
-        "surf forecast",
-        "surf conditions",
-        "surf report",
-        "beach",
-        "waves",
-        "swell",
-        "tide",
-        "wind",
-      ].filter(Boolean),
+      // Build path safely - use fallback if beach data is incomplete
+      let path: string;
+      try {
+        path = buildBeachUrl(beach);
+      } catch (urlError) {
+        console.warn("[BeachDetailPage] Error building beach URL for metadata:", {
+          beachSlug,
+          error: urlError instanceof Error ? urlError.message : "Unknown error",
+        });
+        path = `/beach/${beachSlug}`;
+      }
+
+      return buildPageMetadata({
+        title: `${beach.name}${locationContext} - ${reviewText}, Map & Forecast`,
+        description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}${locationContext}.`,
+        path,
+        keywords: [
+          beach.name,
+          beach.city || "",
+          beach.state || "",
+          "surf forecast",
+          "surf conditions",
+          "surf report",
+          "beach",
+          "waves",
+          "swell",
+          "tide",
+          "wind",
+        ].filter(Boolean),
+      });
+    }
+  } catch (error) {
+    console.error("[BeachDetailPage] Error generating metadata:", {
+      params,
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
     });
   }
 
@@ -138,7 +190,7 @@ export async function generateStaticParams() {
 
     const json = await response.json();
     const beaches: Array<{ slug: string | null; city: string | null; state: string | null }> =
-      json?.beaches || json?.data || [];
+      json?.data?.beaches || [];
 
     // Generate params for California beaches only
     const caBeaches = beaches

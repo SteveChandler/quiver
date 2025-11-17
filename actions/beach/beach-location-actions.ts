@@ -9,6 +9,11 @@ export async function getNearbyBeaches(
   longitude: number,
   radiusMiles = 50
 ) {
+  // Note: return shape is intentionally simple for server + client callers:
+  // - success: boolean
+  // - data?: Beach[]
+  // - error?: string
+  // - fallbackUsed?: boolean (true when RPC path fails and we fall back to client-side filtering)
   const supabase = await createSupabaseServerClient();
 
   try {
@@ -48,11 +53,15 @@ export async function getNearbyBeaches(
       // Calculate distances and filter beaches within radius
       const filteredBeaches = allBeaches
         .map((beach: Beach) => {
+          // Normalize nullable coordinates to numbers; invalid coordinates become NaN
+          const lat2 = beach.lat ?? Number.NaN;
+          const lng2 = beach.lon ?? Number.NaN;
+
           const distance = calculateDistanceInMiles(
             latitude,
             longitude,
-            beach.lat,
-            beach.lon
+            lat2,
+            lng2
           );
 
           return {
@@ -61,18 +70,27 @@ export async function getNearbyBeaches(
           };
         })
         .filter(
-          (beach: Beach & { distance: number }) => beach.distance <= radiusMiles
+          (beach: Beach & { distance: number }) =>
+            Number.isFinite(beach.distance) && beach.distance <= radiusMiles
         )
         .sort(
           (a: Beach & { distance: number }, b: Beach & { distance: number }) =>
             a.distance - b.distance
         );
 
-      return { success: true, data: filteredBeaches as Beach[] };
+      return {
+        success: true,
+        data: filteredBeaches as Beach[],
+        fallbackUsed: true,
+      };
     }
 
     // Success with spatial function
-    return { success: true, data: nearbyBeaches as Beach[] };
+    return {
+      success: true,
+      data: nearbyBeaches as Beach[],
+      fallbackUsed: false,
+    };
   } catch (error) {
     console.error("Error getting nearby beaches:", error);
     return {

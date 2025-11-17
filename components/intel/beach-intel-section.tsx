@@ -12,6 +12,7 @@ import {
   confirmIntelPost,
   removeIntelPostConfirmation,
 } from "@/actions/intel-actions";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import {
   Plus,
   MessageSquare,
@@ -41,6 +42,7 @@ interface BeachIntelSectionProps {
   beachName: string;
   latitude: number;
   longitude: number;
+  beach?: { slug?: string | null; city?: string | null; state?: string | null }; // Beach location data for hierarchical URLs
   className?: string;
   initialShowAll?: boolean;
   navigateOnViewAll?: boolean; // when true, clicking View all navigates to beach page
@@ -51,6 +53,7 @@ export function BeachIntelSection({
   beachName,
   latitude,
   longitude,
+  beach,
   className = "",
   initialShowAll = false,
   navigateOnViewAll = true,
@@ -368,7 +371,11 @@ export function BeachIntelSection({
                     size="sm"
                     onClick={() => {
                       if (!showAll && navigateOnViewAll) {
-                        router.push(`/beach/${beachId}?section=intel&show=all`);
+                        // Generate hierarchical URL if beach data available, otherwise fall back to ID
+                        const baseUrl = beach
+                          ? getBeachUrlSafe({ id: beachId, ...beach })
+                          : `/beach/${beachId}`;
+                        router.push(`${baseUrl}?section=intel&show=all`);
                         return;
                       }
                       setShowAll((v) => !v);

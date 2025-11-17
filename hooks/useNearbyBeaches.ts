@@ -15,6 +15,9 @@ type NearbyBeachRow = {
   image_url?: string | null;
   imageUrl?: string | null;
   map_image_url?: string | null;
+  slug?: string | null;
+  city?: string | null;
+  state?: string | null;
 };
 
 export type NearbyBeach = {
@@ -26,6 +29,9 @@ export type NearbyBeach = {
   rating: number | null;
   reviewCount: number | null;
   imageUrl: string | null;
+  slug: string | null;
+  city: string | null;
+  state: string | null;
 };
 
 export async function fetchNearestBeaches(lat: number, lon: number, limit = 4) {
@@ -56,6 +62,9 @@ export async function fetchNearestBeaches(lat: number, lon: number, limit = 4) {
         : null,
     imageUrl:
       b.imageUrl ?? b.image_url ?? b.map_image_url ?? "/images/beach-placeholder.jpg",
+    slug: b.slug ?? null,
+    city: b.city ?? null,
+    state: b.state ?? null,
   })) ?? [];
 }
 

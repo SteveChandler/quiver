@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import type { Beach } from "@/types/database";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface HomeBeachSelectorProps {
   value?: string; // Beach ID
@@ -105,7 +106,7 @@ export function HomeBeachSelector({
       .filter(
         (beach) =>
           beach.name.toLowerCase().includes(query) ||
-          (beach.location && beach.location.toLowerCase().includes(query))
+          getBeachLocation(beach).toLowerCase().includes(query)
       )
       .slice(0, 20);
   }, [allBeaches, searchQuery]);
@@ -198,11 +199,9 @@ export function HomeBeachSelector({
               {selectedBeach ? (
                 <div className="flex items-center gap-2">
                   <span>{selectedBeach.name}</span>
-                  {selectedBeach.location && (
-                    <Badge variant="secondary" className="text-xs">
-                      {selectedBeach.location}
-                    </Badge>
-                  )}
+                  <Badge variant="secondary" className="text-xs">
+                    {getBeachLocation(selectedBeach)}
+                  </Badge>
                 </div>
               ) : (
                 placeholder
@@ -271,11 +270,9 @@ export function HomeBeachSelector({
                       <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
                       <div>
                         <div className="font-medium">{beach.name}</div>
-                        {beach.location && (
-                          <div className="text-xs text-muted-foreground">
-                            {beach.location}
-                          </div>
-                        )}
+                        <div className="text-xs text-muted-foreground">
+                          {getBeachLocation(beach)}
+                        </div>
                       </div>
                     </div>
                     <Check

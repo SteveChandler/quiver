@@ -120,7 +120,7 @@ export function LearnedPreferencesDisplay({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Wave Height */}
         <div className="space-y-2">
-          <h4 role="heading" className="text-sm font-semibold text-gray-900">
+          <h4 className="text-sm font-semibold text-gray-900">
             Wave Height
           </h4>
           <p className="text-base text-gray-700">
@@ -132,7 +132,7 @@ export function LearnedPreferencesDisplay({
 
         {/* Wave Period */}
         <div className="space-y-2">
-          <h4 role="heading" className="text-sm font-semibold text-gray-900">
+          <h4 className="text-sm font-semibold text-gray-900">
             Wave Period
           </h4>
           <p className="text-base text-gray-700">
@@ -144,7 +144,7 @@ export function LearnedPreferencesDisplay({
 
         {/* Wind Tolerance */}
         <div className="space-y-2">
-          <h4 role="heading" className="text-sm font-semibold text-gray-900">
+          <h4 className="text-sm font-semibold text-gray-900">
             Wind Tolerance
           </h4>
           <p className="text-base text-gray-700">
@@ -156,7 +156,7 @@ export function LearnedPreferencesDisplay({
 
         {/* Preferred Wind Directions */}
         <div className="space-y-2">
-          <h4 role="heading" className="text-sm font-semibold text-gray-900">
+          <h4 className="text-sm font-semibold text-gray-900">
             Preferred Wind Directions
           </h4>
           {hasWindDirections ? (
@@ -174,7 +174,7 @@ export function LearnedPreferencesDisplay({
 
         {/* Preferred Tides */}
         <div className="space-y-2 md:col-span-2">
-          <h4 role="heading" className="text-sm font-semibold text-gray-900">
+          <h4 className="text-sm font-semibold text-gray-900">
             Preferred Tides
           </h4>
           {hasTidePreferences ? (

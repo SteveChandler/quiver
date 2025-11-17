@@ -11,6 +11,7 @@ import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { formatRatingSimple } from "@/lib/utils/rating-formatters";
+import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 
 interface BeachCardProps {
   id?: string;
@@ -29,6 +30,21 @@ interface BeachCardProps {
   onMapClick?: () => void;
   onReviewsClick?: () => void;
   showForecastPreview?: boolean;
+
+  // Personalization props
+  personalizedScore?: number;
+  baseScore?: number;
+  personalized?: boolean;
+  scoreBreakdown?: {
+    base: number;
+    onboardingPrefs: number;
+    learnedPrefs: number;
+    affinity: number;
+  };
+  affinityData?: {
+    sessionCount: number;
+    lastSurfed: Date | string;
+  };
 }
 
 const BeachCardComponent = function BeachCard({
@@ -47,6 +63,11 @@ const BeachCardComponent = function BeachCard({
   onMapClick,
   onReviewsClick,
   showForecastPreview = false,
+  personalizedScore,
+  baseScore,
+  personalized,
+  scoreBreakdown,
+  affinityData,
 }: BeachCardProps) {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -120,6 +141,32 @@ const BeachCardComponent = function BeachCard({
             beachName={name}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+
+          {/* Personalized Score Badge */}
+          {personalized && personalizedScore && (
+            <div className="absolute top-2 left-2 z-10">
+              <PersonalizedBadge
+                personalized={personalized}
+                score={personalizedScore}
+                breakdown={scoreBreakdown}
+                affinityData={
+                  affinityData
+                    ? {
+                        sessionCount: affinityData.sessionCount,
+                        lastSurfed:
+                          typeof affinityData.lastSurfed === "string"
+                            ? new Date(affinityData.lastSurfed)
+                            : affinityData.lastSurfed,
+                      }
+                    : undefined
+                }
+                displayMode="score"
+                size="sm"
+                className="shadow-md backdrop-blur-sm bg-white/95"
+              />
+            </div>
+          )}
+
           <motion.div
             className="absolute bottom-0 left-0 p-3 text-white"
             initial={{ opacity: 0, y: 20 }}
@@ -256,6 +303,73 @@ const BeachCardComponent = function BeachCard({
   );
 };
 
+/**
+ * Custom comparison function for BeachCard memoization
+ * Only re-renders when critical props change
+ *
+ * Props NOT compared (stable via parent's useCallback):
+ * - onViewDetails, onMapClick, onReviewsClick (expected to be stable)
+ */
+const areBeachCardPropsEqual = (
+  prev: BeachCardProps,
+  next: BeachCardProps
+): boolean => {
+  // Core beach identity
+  if (prev.id !== next.id) return false;
+  if (prev.name !== next.name) return false;
+  if (prev.slug !== next.slug) return false;
+
+  // Visual/display props
+  if (prev.distance !== next.distance) return false;
+  if (prev.rating !== next.rating) return false;
+  if (prev.reviewCount !== next.reviewCount) return false;
+  if (prev.imageUrl !== next.imageUrl) return false;
+
+  // Location (for map)
+  if (prev.latitude !== next.latitude) return false;
+  if (prev.longitude !== next.longitude) return false;
+
+  // Feature flags
+  if (prev.showForecastPreview !== next.showForecastPreview) return false;
+
+  // Personalization data
+  if (prev.personalized !== next.personalized) return false;
+  if (prev.personalizedScore !== next.personalizedScore) return false;
+  if (prev.baseScore !== next.baseScore) return false;
+
+  // Score breakdown - compare deeply
+  if (prev.scoreBreakdown && next.scoreBreakdown) {
+    if (
+      prev.scoreBreakdown.base !== next.scoreBreakdown.base ||
+      prev.scoreBreakdown.onboardingPrefs !== next.scoreBreakdown.onboardingPrefs ||
+      prev.scoreBreakdown.learnedPrefs !== next.scoreBreakdown.learnedPrefs ||
+      prev.scoreBreakdown.affinity !== next.scoreBreakdown.affinity
+    ) {
+      return false;
+    }
+  } else if (prev.scoreBreakdown !== next.scoreBreakdown) {
+    // One is defined, the other isn't
+    return false;
+  }
+
+  // Affinity data - compare deeply
+  if (prev.affinityData && next.affinityData) {
+    if (
+      prev.affinityData.sessionCount !== next.affinityData.sessionCount ||
+      prev.affinityData.lastSurfed !== next.affinityData.lastSurfed
+    ) {
+      return false;
+    }
+  } else if (prev.affinityData !== next.affinityData) {
+    // One is defined, the other isn't
+    return false;
+  }
+
+  // All checks passed - props are equal
+  return true;
+};
+
 // Export memoized component for performance optimization
-export const BeachCard = memo(BeachCardComponent);
+// Uses custom comparison to handle complex object props correctly
+export const BeachCard = memo(BeachCardComponent, areBeachCardPropsEqual);
 BeachCard.displayName = 'BeachCard';

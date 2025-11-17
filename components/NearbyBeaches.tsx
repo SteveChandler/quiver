@@ -101,6 +101,9 @@ export function NearbyBeaches({ limit = 4 }: NearbyBeachesProps) {
               latitude={beach.lat ?? undefined}
               longitude={beach.lon ?? undefined}
               showForecastPreview={false}
+              slug={beach.slug ?? undefined}
+              city={beach.city ?? undefined}
+              state={beach.state ?? undefined}
             />
           ))}
         </div>

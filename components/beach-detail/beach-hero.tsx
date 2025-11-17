@@ -1,6 +1,7 @@
 import { Star, MapPin } from "lucide-react";
 import Image from "next/image";
 import type { Beach } from "@/types/database";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BeachHeroProps {
   beach: Beach;
@@ -21,7 +22,7 @@ export function BeachHero({ beach, mapImageUrl }: BeachHeroProps) {
         <h2 className="text-2xl font-bold">{beach.name}</h2>
         <div className="flex items-center">
           <MapPin className="h-4 w-4 mr-1" />
-          <span>{beach.location || "San Diego"}</span>
+          <span>{getBeachLocation(beach)}</span>
         </div>
         <div className="flex items-center mt-1">
           {Array(5)
@@ -30,7 +31,7 @@ export function BeachHero({ beach, mapImageUrl }: BeachHeroProps) {
               <Star
                 key={i}
                 className={`h-4 w-4 ${
-                  i < Math.round(beach.wave_quality_rating || 0)
+                  i < Math.round(beach.average_rating || 0)
                     ? "text-yellow-500 fill-yellow-500"
                     : "text-gray-300"
                 }`}

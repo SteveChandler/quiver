@@ -39,10 +39,12 @@ export function useBeachSearch() {
     loading: false,
     error: null,
   });
+  const [hasLoadedAllBeaches, setHasLoadedAllBeaches] = useState(false);
 
   // Track in-flight requests to prevent duplicates
   const nearbyRequestInFlightRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const allBeachesLoadingRef = useRef(false);
 
   // Memoize fetch function to prevent infinite loops - only create once
   const fetchBeaches = useCallback(async () => {
@@ -53,21 +55,21 @@ export function useBeachSearch() {
     throw new Error(result.error || "Failed to fetch beaches");
   }, []);
 
-  const {
-    data: beachesData,
-    loading: dataFetcherLoading,
-    error: dataFetcherError,
-    refetch: refetchBeaches,
-  } = useDataFetcher(fetchBeaches, { immediate: false });
+  const { data: beachesData } = useDataFetcher(fetchBeaches, {
+    immediate: false,
+  });
 
   // Sync useDataFetcher state with our local beaches state
   useEffect(() => {
+    if (!beachesData) return;
     setBeachesState((prev) => ({
-      beaches: beachesData || prev.beaches,
-      loading: dataFetcherLoading,
-      error: dataFetcherError,
+      ...prev,
+      beaches: beachesData,
     }));
-  }, [beachesData, dataFetcherLoading, dataFetcherError]);
+    if (beachesData.length > 0) {
+      setHasLoadedAllBeaches(true);
+    }
+  }, [beachesData]);
 
   const { beaches, loading, error } = beachesState;
 
@@ -139,9 +141,11 @@ export function useBeachSearch() {
 
       const result = working.filter((beach) => {
         const normalizedName = normalizeSearchText(beach.name);
-        const normalizedLocation = normalizeSearchText(beach.location || "");
+        const normalizedLocation = normalizeSearchText(
+          [beach.city, beach.state].filter(Boolean).join(" ")
+        );
         const hay = `${normalizedName} ${normalizedLocation}`;
-        
+
         // Match if ANY search variant matches
         return searchVariants.some(variant => {
           const tokens = variant.split(/\s+/g).filter(Boolean);
@@ -190,25 +194,13 @@ export function useBeachSearch() {
     });
   }, [beaches, state.searchQuery, state.activeRegion, state.filters, applyFiltersAndSearch]);
 
-  // Debounced search effect - separate from the main update logic
-  useEffect(() => {
-    if (!state.searchQuery.trim()) {
+  // Load all beaches function - defined before useEffect to avoid hoisting issues
+  const loadBeaches = useCallback(async () => {
+    if (allBeachesLoadingRef.current) {
       return;
     }
 
-    // Avoid triggering search if we already have beaches loaded
-    if (!beaches?.length && !loading) {
-      const timeoutId = setTimeout(() => {
-        loadBeaches();
-      }, 300);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [state.searchQuery, beaches?.length, loading]);
-
-  const loadBeaches = useCallback(async () => {
-    // Prevent multiple simultaneous loads
-    if (loading) return;
-
+    allBeachesLoadingRef.current = true;
     setBeachesState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const result = await fetchBeaches();
@@ -217,6 +209,7 @@ export function useBeachSearch() {
         loading: false,
         error: null,
       });
+      setHasLoadedAllBeaches(true);
     } catch (err) {
       console.error("Error loading beaches:", err);
       setBeachesState({
@@ -224,8 +217,25 @@ export function useBeachSearch() {
         loading: false,
         error: err instanceof Error ? err.message : "Failed to load beaches",
       });
+      setHasLoadedAllBeaches(false);
+    } finally {
+      allBeachesLoadingRef.current = false;
     }
-  }, [fetchBeaches, loading]);
+  }, [fetchBeaches]);
+
+  // Debounced search effect - separate from the main update logic
+  useEffect(() => {
+    if (!state.searchQuery.trim()) {
+      return;
+    }
+
+    if (!hasLoadedAllBeaches && !allBeachesLoadingRef.current) {
+      const timeoutId = setTimeout(() => {
+        loadBeaches();
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [state.searchQuery, hasLoadedAllBeaches, loadBeaches]);
 
   const loadNearbyBeaches = useCallback(
     async (latitude: number, longitude: number) => {
@@ -249,7 +259,7 @@ export function useBeachSearch() {
         loading: true,
         error: null,
       }));
-
+ 
       try {
         const result = await getNearbyBeaches(
           latitude,
@@ -263,6 +273,14 @@ export function useBeachSearch() {
         }
 
         if (result.success && result.data && result.data.length > 0) {
+          if ((result as any).fallbackUsed) {
+            // Surface spatial fallback in the browser so E2E tests can catch DB regressions
+            console.warn(
+              "Spatial function failed, falling back to client-side filtering",
+              { source: "useBeachSearch" }
+            );
+          }
+
           const sortedBeaches = [...result.data];
 
           // Update both main beaches state and filtered beaches

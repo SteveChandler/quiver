@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 import type { Beach } from "@/types/database";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BeachTableProps {
   beaches: Beach[];
@@ -50,7 +51,7 @@ export function BeachTable({
       return (
         beach.name.toLowerCase().includes(search) ||
         beach.region?.toLowerCase().includes(search) ||
-        beach.location?.toLowerCase().includes(search) ||
+        getBeachLocation(beach).toLowerCase().includes(search) ||
         beach.country?.toLowerCase().includes(search)
       );
     });
@@ -165,7 +166,7 @@ export function BeachTable({
                       {beach.lat && beach.lon && (
                         <MapPin className="h-3 w-3" />
                       )}
-                      {beach.location || "-"}
+                      {getBeachLocation(beach)}
                     </div>
                   </TableCell>
                   <TableCell>

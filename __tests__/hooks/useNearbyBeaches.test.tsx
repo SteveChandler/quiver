@@ -86,6 +86,9 @@ describe("useNearbyBeaches", () => {
         rating: 4.5,
         reviewCount: 12,
         imageUrl: "https://example.com/ob.jpg",
+        slug: null,
+        city: null,
+        state: null,
       },
     ]);
   });
@@ -140,6 +143,9 @@ describe("fetchNearestBeaches", () => {
         rating: null,
         reviewCount: 5,
         imageUrl: "/images/beach-placeholder.jpg",
+        slug: null,
+        city: null,
+        state: null,
       },
     ]);
   });

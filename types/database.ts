@@ -43,9 +43,23 @@ export type Board = Database['public']['Tables']['boards']['Row']
 export type BoardInsert = Database['public']['Tables']['boards']['Insert']
 export type BoardUpdate = Database['public']['Tables']['boards']['Update']
 
+export type BeachPhoto = Database['public']['Tables']['beach_photos']['Row']
+export type BeachPhotoInsert = Database['public']['Tables']['beach_photos']['Insert']
+export type BeachPhotoUpdate = Database['public']['Tables']['beach_photos']['Update']
+
 // ===================================================
 // EXTENDED TYPES - Types with relationships/joins
 // ===================================================
+
+// Subset of beach_photos columns commonly used in queries
+export type BeachPhotoSelect = Pick<BeachPhoto, 'beach_id' | 'thumb_url' | 'image_url'>
+
+// Featured beach photo (from beach_photos_featured view)
+export interface BeachPhotoFeatured {
+  beach_id: string
+  image_url: string
+  deleted_at: string | null
+}
 
 export interface BeachReviewWithUser extends BeachReview {
   profiles: {

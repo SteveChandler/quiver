@@ -11,6 +11,7 @@
 import { Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { TEST_HOME_BEACHES, TestUserProfileUpdate, createProfileUpdate } from '../fixtures/user-profiles';
+import { waitForAuthCompletion } from './auth-helpers';
 
 // Supabase admin client for user management
 let adminClient: ReturnType<typeof createClient> | null = null;
@@ -458,7 +459,7 @@ export async function resetTestUserProfile(
 
 /**
  * Sign in a test user programmatically via the browser
- * Navigates to login page, fills credentials, and submits
+ * Uses modal-based auth flow matching the application's actual implementation
  *
  * @param page - Playwright page object
  * @param email - User email
@@ -466,24 +467,62 @@ export async function resetTestUserProfile(
  * @returns Promise<void>
  */
 export async function signInTestUser(
-  page: any,
+  page: Page,
   email: string,
   password: string
 ): Promise<void> {
   console.log(`[Profile Helper] Signing in test user: ${email}`);
 
-  // Navigate to login page
-  await page.goto('/login');
+  // Navigate to home page (not /login)
+  await page.goto('/');
+  await page.waitForLoadState('domcontentloaded');
 
-  // Fill in credentials
-  await page.fill('input[name="email"], input[type="email"]', email);
-  await page.fill('input[name="password"], input[type="password"]', password);
+  // Wait for login button to appear (React app needs time to complete auth check)
+  console.log('[Profile Helper] Waiting for login button to appear...');
+  const loginButton = page.getByRole('button', { name: /log in/i });
 
-  // Submit the form
-  await page.click('button[type="submit"]');
+  try {
+    await loginButton.waitFor({ state: 'visible', timeout: 15000 });
+    console.log('[Profile Helper] Login button found');
+  } catch (error) {
+    throw new Error('Login button not found after 15 seconds. Page may still be checking authentication.');
+  }
 
-  // Wait for navigation to complete (redirect after successful login)
-  await page.waitForURL((url: any) => !url.pathname.includes('/login'), { timeout: 10000 });
+  await loginButton.click();
+  console.log('[Profile Helper] Clicked login button');
 
-  console.log('[Profile Helper] Test user signed in successfully');
+  // Wait for auth modal to appear
+  await page.waitForSelector('[role="dialog"]', { timeout: 10000 });
+  console.log('[Profile Helper] Auth modal appeared');
+
+  // Click "Continue with Email" button to get to email/password form
+  const emailButton = page.getByRole('button', { name: /continue with email|sign in with email/i }).first();
+  const emailButtonVisible = await emailButton.isVisible().catch(() => false);
+
+  if (emailButtonVisible) {
+    await emailButton.click();
+    await page.waitForTimeout(1000);
+    console.log('[Profile Helper] Clicked "Continue with Email"');
+  }
+
+  // Fill in email and password
+  const emailInput = page.getByPlaceholder(/email/i);
+  const passwordInput = page.getByLabel(/password/i);
+
+  await emailInput.fill(email);
+  await passwordInput.fill(password);
+  console.log('[Profile Helper] Filled credentials');
+
+  // Submit login
+  const submitButton = page.getByRole('button', { name: /log in|sign in/i }).last();
+  await submitButton.click();
+  console.log('[Profile Helper] Submitted login form');
+
+  // Wait for authentication to complete and verify tokens
+  try {
+    await waitForAuthCompletion(page, 15000);
+    console.log('[Profile Helper] ✓ Test user signed in successfully!');
+  } catch (error) {
+    throw new Error(`Authentication verification failed: ${error}`);
+  }
 }

@@ -4,70 +4,30 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { CONTENT } from "@/lib/constants/features";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { HeroCarousel } from "./hero-carousel";
-import { beachNavigation } from "@/lib/navigation-utils";
+import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
 
 export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
   const navigateToMap = (query?: string) => {
-    const url = query
-      ? `/map?search=${encodeURIComponent(query)}`
-      : "/map";
+    const trimmed = query?.trim();
+    const url =
+      trimmed && trimmed.length > 0
+        ? `/map?search=${encodeURIComponent(trimmed)}`
+        : "/map";
     router.push(url);
-  };
-
-  const performSearch = async (query: string) => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      navigateToMap();
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `/api/beaches/search?query=${encodeURIComponent(trimmed)}`
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        const beaches = result.data || [];
-
-        if (Array.isArray(beaches) && beaches.length > 0) {
-          const beach = beaches[0];
-          if (beach?.id) {
-            beachNavigation.navigateToBeach(router, beach);
-            return;
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-    }
-
-    navigateToMap(trimmed);
-  };
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    await performSearch(searchQuery);
   };
 
   const handleExploreClick = async (
     event: React.MouseEvent<HTMLAnchorElement>
   ) => {
-    if (!searchQuery.trim()) {
-      return;
-    }
     event.preventDefault();
-    await performSearch(searchQuery);
+    navigateToMap(searchQuery);
   };
 
   return (
@@ -91,23 +51,22 @@ export function HeroSection() {
           {CONTENT.hero.title}
         </motion.h1>
 
-        {/* Search Bar - Hero Focus */}
-        <motion.form
+        {/* Search Bar - Hero Focus with autocomplete */}
+        <motion.div
           {...ANIMATION_VARIANTS.heroText(0.3)}
-          onSubmit={handleSearch}
           className="mb-4 sm:mb-6"
         >
           <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-              type="text"
+            <BeachSearchAutocomplete
               placeholder="Search by beach, spot, or region"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-14 pl-12 pr-4 text-lg bg-white text-dark-grey rounded-full shadow-lg border-0 focus:ring-2 focus:ring-ocean-blue placeholder:text-gray-400"
+              className="w-full h-14 pl-4 pr-0 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 [&_[cmdk-input-wrapper]]:border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
+              maxResults={8}
+              requireExplicitSelection
+              onFallback={navigateToMap}
+              onQueryChange={setSearchQuery}
             />
           </div>
-        </motion.form>
+        </motion.div>
 
         {/* Explore Nearby Link */}
         <motion.div

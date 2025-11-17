@@ -34,29 +34,32 @@ export interface AuthCheckResult {
 export async function verifySupabaseAuth(page: Page): Promise<boolean> {
   const debugAuth = process.env.DEBUG_AUTH === 'true';
 
-  const result = await page.evaluate(() => {
-    // Check cookies
-    const cookies = document.cookie.split(';').map(c => c.trim());
-    const hasAuthCookie = cookies.some(cookie =>
-      cookie.startsWith('sb-') && cookie.includes('auth-token')
-    );
+  // Check cookies using Playwright API (can see HTTP-only cookies)
+  const cookies = await page.context().cookies();
+  const hasAuthCookie = cookies.some(cookie =>
+    cookie.name.startsWith('sb-') && cookie.name.includes('auth-token')
+  );
 
-    // Check localStorage
+  // Check localStorage
+  const storageResult = await page.evaluate(() => {
     const localStorageKeys = Object.keys(localStorage);
     const hasAuthStorage = localStorageKeys.some(key =>
       key.startsWith('sb-') && key.includes('auth-token')
     );
-
-    const authCookies = cookies.filter(c => c.startsWith('sb-'));
     const authStorage = localStorageKeys.filter(k => k.startsWith('sb-'));
 
     return {
-      hasAuthCookie,
       hasAuthStorage,
-      cookieCount: authCookies.length,
       storageCount: authStorage.length
     };
   });
+
+  const result = {
+    hasAuthCookie,
+    hasAuthStorage: storageResult.hasAuthStorage,
+    cookieCount: cookies.filter(c => c.name.startsWith('sb-')).length,
+    storageCount: storageResult.storageCount
+  };
 
   if (debugAuth) {
     console.log('[Auth Check]', result);
@@ -75,17 +78,20 @@ export async function verifySupabaseAuth(page: Page): Promise<boolean> {
  * @returns Promise<AuthTokens> - Object containing cookies and storage
  */
 export async function getAuthTokens(page: Page): Promise<AuthTokens> {
-  return await page.evaluate(() => {
-    const cookies = document.cookie.split(';')
-      .map(c => c.trim())
-      .filter(c => c.startsWith('sb-'));
+  // Get cookies using Playwright API (can see HTTP-only cookies)
+  const playwrightCookies = await page.context().cookies();
+  const cookies = playwrightCookies
+    .filter(c => c.name.startsWith('sb-'))
+    .map(c => `${c.name}=${c.value}`);
 
-    const storage = Object.keys(localStorage)
+  // Get localStorage entries
+  const storage = await page.evaluate(() => {
+    return Object.keys(localStorage)
       .filter(k => k.startsWith('sb-'))
       .map(k => ({ key: k, value: localStorage.getItem(k) }));
-
-    return { cookies, storage };
   });
+
+  return { cookies, storage };
 }
 
 /**

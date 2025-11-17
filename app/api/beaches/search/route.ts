@@ -8,10 +8,11 @@ import {
   createPaginationMeta,
 } from "@/lib/api-utils";
 import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
+import { withRateLimit } from "@/lib/middleware/rate-limiter";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+async function beachSearchHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const rawQuery = searchParams.get("query") || "";
@@ -52,3 +53,6 @@ export async function GET(request: NextRequest) {
     return handleApiError(error, "Failed to search beaches");
   }
 }
+
+// Apply rate limiting to prevent abuse of expensive search operations
+export const GET = withRateLimit(beachSearchHandler, "beach-search");

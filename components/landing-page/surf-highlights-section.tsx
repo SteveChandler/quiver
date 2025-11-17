@@ -9,12 +9,14 @@ import { CONTENT } from "@/lib/constants/features";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 
 interface Beach {
   id: string;
   name: string;
-  location?: string | null;
-  region?: string | null;
+  city?: string | null;
+  state?: string | null;
+  slug?: string | null;
   photo_url?: string | null;
 }
 
@@ -31,24 +33,6 @@ const FALLBACK_IMAGE_BY_NAME: Record<string, string> = {
   Beacons: "/images/Beacons_Beach.webp",
   "Ocean Beach": "/images/OceanBeachSurfers.jpg",
   "Bandon Beach": "/images/On_the_Beach_at_Bandon.webp",
-  "La Jolla Shores": "/images/la-jolla-shores.jpg",
-  "Cardiff Reef": "/images/cardiff-reef.jpg",
-  "Cardiff State Beach": "/images/cardiff-reef.jpg",
-  "Torrey Pines": "/images/torrey-pines.jpg",
-  "Pacific Beach": "/images/pacific-beach.jpg",
-  "Sunset Cliffs": "/images/sunset-cliffs.jpg",
-  "Imperial Beach": "/images/imperial-beach.jpg",
-  "Silver Strand": "/images/silver-strand.jpg",
-  "Mission Beach": "/images/mission-beach.jpg",
-  "Lower Trestles": "/images/lowers-trestles.jpg",
-  "Upper Trestles": "/images/uppers-trestles.jpg",
-  "Huntington Pier": "/images/huntington-pier.jpg",
-  "Bolsa Chica": "/images/bolsa-chica.jpg",
-  "Newport 56th Street": "/images/newport-56th.jpg",
-  "Seal Beach": "/images/seal-beach.jpg",
-  "Doheny State Beach": "/images/doheny.jpg",
-  "Old Man's": "/images/old-mans.jpg",
-  "San Onofre": "/images/san-onofre.jpg",
 };
 
 export function SurfHighlightsSection() {
@@ -61,24 +45,51 @@ export function SurfHighlightsSection() {
       const result = await response.json();
       const beaches: Beach[] = result.data || result;
 
+      // Track used image URLs to prevent duplicates
+      const usedImages = new Set<string>();
+      const DEFAULT_FALLBACK = "/sunsetBeach.jpg";
+
       // Transform beaches into surf spot cards with mock conditions
-      // In production, you'd fetch real conditions from the forecast API
-      return beaches.slice(0, 8).map((beach, index) => ({
-        id: beach.id,
-        name: beach.name,
-        location: beach.location || beach.region || "California",
-        imageUrl:
-          beach.photo_url ||
-          FALLBACK_IMAGE_BY_NAME[beach.name] ||
-          "/sunsetBeach.jpg",
-        swellHeight: getMockSwellHeight(index),
-        swellDirection: getMockSwellDirection(index),
-        windSpeed: getMockWindSpeed(index),
-        tideStatus: getMockTideStatus(index),
-        difficulty: getMockDifficulty(index),
-        crowdLevel: getMockCrowdLevel(index),
-        delay: index,
-      }));
+      // Prioritize beaches with actual photos, then unique fallback images
+      const spotCards = beaches
+        .map((beach, index) => {
+          // Determine the image URL
+          let imageUrl: string;
+
+          if (beach.photo_url) {
+            // Use actual photo from database (proxied for external URLs)
+            imageUrl = getProxiedImageUrl(beach.photo_url);
+          } else if (FALLBACK_IMAGE_BY_NAME[beach.name]) {
+            // Use fallback image if available and not already used
+            const fallbackUrl = FALLBACK_IMAGE_BY_NAME[beach.name];
+            imageUrl = usedImages.has(fallbackUrl) ? DEFAULT_FALLBACK : fallbackUrl;
+          } else {
+            // Use default fallback
+            imageUrl = DEFAULT_FALLBACK;
+          }
+
+          usedImages.add(imageUrl);
+
+          return {
+            id: beach.id,
+            name: beach.name,
+            location: beach.city && beach.state ? `${beach.city}, ${beach.state}` : beach.city || beach.state || "California",
+            slug: beach.slug,
+            city: beach.city,
+            state: beach.state,
+            imageUrl,
+            swellHeight: getMockSwellHeight(index),
+            swellDirection: getMockSwellDirection(index),
+            windSpeed: getMockWindSpeed(index),
+            tideStatus: getMockTideStatus(index),
+            difficulty: getMockDifficulty(index),
+            crowdLevel: getMockCrowdLevel(index),
+            delay: index,
+          };
+        })
+        .slice(0, 8); // Only take first 8 for display
+
+      return spotCards;
     } catch (error) {
       console.error("Error fetching beaches:", error);
       return [];

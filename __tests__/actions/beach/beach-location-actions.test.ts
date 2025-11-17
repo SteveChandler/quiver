@@ -29,6 +29,7 @@ describe("getNearbyBeaches (RPC + fallback)", () => {
     const res = await getNearbyBeaches(lat, lng, 10);
 
     expect(res.success).toBe(true);
+    expect(res.fallbackUsed).toBe(false);
     expect(res.data).toHaveLength(2);
     expect(mockSupabase.rpc).toHaveBeenCalledWith("get_nearby_beaches", expect.objectContaining({
       input_lat: lat,
@@ -53,6 +54,7 @@ describe("getNearbyBeaches (RPC + fallback)", () => {
 
     const res = await getNearbyBeaches(lat, lng, 10); // 10 miles
     expect(res.success).toBe(true);
+    expect(res.fallbackUsed).toBe(true);
 
     // Should include only the nearby one after client-side distance filtering
     expect(res.data?.map((b: any) => b.id)).toContain("near");

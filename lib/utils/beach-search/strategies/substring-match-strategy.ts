@@ -23,7 +23,7 @@ export class SubstringMatchStrategy implements MatchStrategy {
 
     const beachName = normalizeSearchText(beach.name);
     const beachCity = normalizeSearchText(beach.city || "");
-    const beachLocation = normalizeSearchText((beach as any).location || "");
+    const beachState = normalizeSearchText(beach.state || "");
 
     // Search term is contained in beach name
     if (beachName.includes(normalizedSearch)) {
@@ -34,8 +34,8 @@ export class SubstringMatchStrategy implements MatchStrategy {
       };
     }
 
-    // Search term is contained in city/location name
-    if (beachCity.includes(normalizedSearch) || beachLocation.includes(normalizedSearch)) {
+    // Search term is contained in city or state name
+    if (beachCity.includes(normalizedSearch) || beachState.includes(normalizedSearch)) {
       return {
         matches: true,
         score: 600,
