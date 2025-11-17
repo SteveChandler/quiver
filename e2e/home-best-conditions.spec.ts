@@ -216,6 +216,48 @@ test.describe('Best Conditions Near You - Navigation and Interaction', () => {
     await expect(heading).toBeVisible();
   });
 
+  test('should generate valid hierarchical beach URLs (not /beach/null)', async ({ page }) => {
+    // Wait for cards to load
+    const firstCard = page.getByTestId('best-conditions-card').first();
+    const cardVisible = await firstCard.isVisible({ timeout: 60000 }).catch(() => false);
+
+    if (!cardVisible) {
+      test.skip(true, 'Best Conditions section not visible - acceptable if no data available');
+      return;
+    }
+
+    // Click the card to navigate
+    await firstCard.click();
+
+    // Wait for navigation
+    await page.waitForLoadState('load', { timeout: TIMEOUTS.medium });
+
+    // Verify URL follows hierarchical format: /state/city/beach-slug
+    // NOT the old broken format: /beach/null or /beach/undefined
+    const url = page.url();
+
+    // Should NOT contain invalid patterns
+    expect(url).not.toContain('/beach/null');
+    expect(url).not.toContain('/beach/undefined');
+    expect(url).not.toContain('/beach/unknown');
+
+    // Should contain valid hierarchical path (at least 3 segments)
+    const pathname = new URL(url).pathname;
+    const segments = pathname.split('/').filter(s => s.length > 0);
+    expect(segments.length).toBeGreaterThanOrEqual(3);
+
+    // Verify page loaded successfully (not 404 or error page)
+    await waitForPageLoad(page);
+
+    // Should not show "beach not found" error
+    const notFoundText = await page.locator('text=/beach not found|not found|404/i').count();
+    expect(notFoundText).toBe(0);
+
+    // Should show actual beach content
+    const heading = page.getByRole('heading').first();
+    await expect(heading).toBeVisible();
+  });
+
   test('should support horizontal scrolling on mobile', async ({ page }) => {
     // Set mobile viewport
     await page.setViewportSize(VIEWPORTS.mobile);

@@ -343,7 +343,7 @@ export class BeachRecommendationService implements IBeachRecommendationService {
     const { data: beachDetails, error: beachDetailsError } = await supabase
       .from("beaches")
       .select(
-        "id, name, city, skill_level, wind_offshore_deg, wind_offshore_tol_deg, wind_onshore_bad_kt, wind_cross_shore_ok_kt, preferred_tide_ft_min, preferred_tide_ft_max"
+        "id, name, slug, city, state, skill_level, wind_offshore_deg, wind_offshore_tol_deg, wind_onshore_bad_kt, wind_cross_shore_ok_kt, preferred_tide_ft_min, preferred_tide_ft_max"
       )
       .in("id", beachIds);
 
