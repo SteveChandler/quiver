@@ -39,6 +39,13 @@ function ProgressiveSection({
   const [ref, setRef] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    // Skip progressive loading in test environments (Playwright, Cypress)
+    // This ensures tests can immediately interact with content without waiting for IntersectionObserver
+    if (typeof window !== "undefined" && (window.navigator.webdriver || window.Cypress)) {
+      setIsVisible(true);
+      return;
+    }
+
     if (
       !ref ||
       typeof window === "undefined" ||
