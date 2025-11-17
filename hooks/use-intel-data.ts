@@ -72,8 +72,8 @@ export function useIntelData({
     }
 
     const params: GetNearbyIntelPostsParams = {
-      latitude,
-      longitude,
+      lat: latitude,
+      lon: longitude,
       radius: filters.radius,
       tag: filters.tag,
       limit: filters.limit,
