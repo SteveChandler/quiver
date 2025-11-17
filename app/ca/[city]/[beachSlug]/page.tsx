@@ -190,7 +190,7 @@ export async function generateStaticParams() {
 
     const json = await response.json();
     const beaches: Array<{ slug: string | null; city: string | null; state: string | null }> =
-      json?.beaches || json?.data || [];
+      json?.data?.beaches || [];
 
     // Generate params for California beaches only
     const caBeaches = beaches
