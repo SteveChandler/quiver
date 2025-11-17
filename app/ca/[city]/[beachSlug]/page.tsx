@@ -32,9 +32,32 @@ export default async function BeachDetailPage({ params }: PageProps) {
     const beach = result.data;
 
     // Validate that this is a California beach and city matches
-    const expectedCitySlug = cityToSlug(beach.city);
+    // Handle cases where beach data might be incomplete
+    if (beach.state !== "CA") {
+      console.warn("[BeachDetailPage] Beach is not in California:", {
+        beachSlug,
+        state: beach.state,
+      });
+      notFound();
+    }
 
-    if (beach.state !== "CA" || city !== expectedCitySlug) {
+    // Check city match if beach has city data
+    if (beach.city) {
+      const expectedCitySlug = cityToSlug(beach.city);
+      if (city !== expectedCitySlug) {
+        console.warn("[BeachDetailPage] City slug mismatch:", {
+          beachSlug,
+          expectedCity: expectedCitySlug,
+          providedCity: city,
+        });
+        notFound();
+      }
+    } else {
+      // Beach has no city data - this is an incomplete record
+      console.warn("[BeachDetailPage] Beach has no city data:", {
+        beachSlug,
+        beachName: beach.name,
+      });
       notFound();
     }
 
@@ -105,10 +128,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       const locationContext =
         beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
 
+      // Build path safely - use fallback if beach data is incomplete
+      let path: string;
+      try {
+        path = buildBeachUrl(beach);
+      } catch (urlError) {
+        console.warn("[BeachDetailPage] Error building beach URL for metadata:", {
+          beachSlug,
+          error: urlError instanceof Error ? urlError.message : "Unknown error",
+        });
+        path = `/beach/${beachSlug}`;
+      }
+
       return buildPageMetadata({
         title: `${beach.name}${locationContext} - ${reviewText}, Map & Forecast`,
         description: `Today's surf summary, tides, wind, swell, cams, and community intel for ${beach.name}${locationContext}.`,
-        path: buildBeachUrl(beach),
+        path,
         keywords: [
           beach.name,
           beach.city || "",
@@ -128,6 +163,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     console.error("[BeachDetailPage] Error generating metadata:", {
       params,
       message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
     });
   }
 
