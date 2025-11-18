@@ -40,6 +40,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cleaner file structure with consolidated documentation
 - **Maintenance Notes**: Review knip/ts-prune output for potential future cleanup of unused exports and dependencies
 
+#### Dead Code Removal (November 18, 2025)
+- **Purpose**: Remove unused scripts, files, and dependencies identified by knip/ts-prune
+- **Strategy**: Remove archived scripts, diagnostic tools, and unused dependencies
+- **Changes**:
+  - **Unused scripts removed** (24 files):
+    - Entire `scripts/archive/` directory (7 archived scripts)
+    - Diagnostic scripts: `diagnose-beach-intel-mismatches.ts`, `diagnose-photo-upload.ts`
+    - Test scripts: `test-photo-upload.ts`, `test-recommendations-perf.ts`, `test-rpc-function.ts`, `test-ssrf-prevention.ts`, `perf-test-dev.mjs`
+    - Query/find scripts: `find-hapuna-intel.ts`, `query-missing-city-beaches.ts`
+    - Validation scripts: `validate-performance-improvements.ts`, `validate-react-performance.ts`, `verify-production-data-quality.ts`
+  - **Unused library files removed** (5 files):
+    - `hooks/use-onboarding.ts`
+    - `lib/env-validation.ts`
+    - `lib/profile.ts`
+    - `lib/utils/coordinate-transforms.ts`
+    - `lib/utils/retry-with-backoff.ts`
+  - **Unused constants/shims**: Initially identified by knip but restored after build verification (still in use)
+  - **Unused devDependencies removed** (5 packages):
+    - `eslint`, `eslint-config-next`, `eslint-plugin-complexity`, `eslint-plugin-jsx-a11y` (Next.js has built-in ESLint)
+    - `sharp` (only used in non-package.json script)
+  - **Unused dependencies**: Verified `zustand` is still used in `store/onboarding-store.ts` (kept)
+- **Results**:
+  - Files removed: **29 files** (24 scripts + 5 libs)
+  - Dependencies removed: **5 devDependencies** (~50MB node_modules reduction)
+  - Unused exports: 94 exports remain (API surface, type guards, utilities) - kept for future use
+- **Total Cleanup Impact**:
+  - **83 files removed** across all cleanup tasks
+  - **Test suite**: 38 test files removed (26 unit + 11 E2E + 1 deprecated)
+  - **Documentation**: 19 E2E markdown files consolidated
+  - **Dependencies**: 5 devDependencies removed
+  - **Scripts**: 24 archived/diagnostic scripts removed
+  - **Cleaner, more maintainable codebase**
+
 #### E2E Test Suite Cleanup (November 18, 2025)
 - **Purpose**: Eliminate redundant Playwright tests to reduce maintenance burden
 - **Strategy**: Remove duplicate test coverage and environment-dependent tests
