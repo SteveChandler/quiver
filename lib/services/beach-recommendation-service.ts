@@ -66,50 +66,6 @@ interface SessionMediaWithBeach {
   };
 }
 
-// Cache for recommendation results
-interface CacheEntry {
-  data: BeachRecommendation[];
-  metadata: ServiceResult<BeachRecommendation[]>['metadata'];
-  timestamp: number;
-}
-
-// In-memory cache with 5-minute TTL
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const recommendationCache = new Map<string, CacheEntry>();
-
-/**
- * Generate cache key from user ID and coordinates
- */
-function getCacheKey(userId: string, coords: Coordinates | null | undefined): string {
-  if (coords?.lat && coords?.lon) {
-    // Round to 2 decimal places to allow cache hits for nearby locations
-    const lat = Math.round(coords.lat * 100) / 100;
-    const lon = Math.round(coords.lon * 100) / 100;
-    return `${userId}:${lat},${lon}`;
-  }
-  return `${userId}:home`;
-}
-
-/**
- * Check if cache entry is still valid
- */
-function isCacheValid(entry: CacheEntry): boolean {
-  return Date.now() - entry.timestamp < CACHE_TTL_MS;
-}
-
-/**
- * Clean up expired cache entries
- * Called periodically to prevent memory leaks
- */
-function cleanExpiredCache(): void {
-  const now = Date.now();
-  for (const [key, entry] of recommendationCache.entries()) {
-    if (now - entry.timestamp >= CACHE_TTL_MS) {
-      recommendationCache.delete(key);
-    }
-  }
-}
-
 /**
  * Implementation of the Beach Recommendation Service
  */
@@ -324,7 +280,8 @@ export class BeachRecommendationService implements IBeachRecommendationService {
           )
           .in("media_type", ["photo", "image"])
           .in("session.beach_id", beachIds)
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(beachIds.length * 5), // LIMIT: 5 most recent photos per beach
 
         // PRIORITY 2: Featured photos (curated fallback)
         withNonDeleted(
@@ -411,7 +368,8 @@ export class BeachRecommendationService implements IBeachRecommendationService {
         "beach_id, conditions_score, confidence, surf_min_ft, surf_max_ft, surf_description, tide_height_ft, tide_status, wind_speed_mph, wind_direction_deg, wind_direction_text, wind_description, primary_swell_direction_deg, primary_swell_direction_text"
       )
       .in("beach_id", beachIds)
-      .order("generated_at", { ascending: false });
+      .order("generated_at", { ascending: false })
+      .limit(beachIds.length * 3); // LIMIT: 3 most recent intel records per beach
 
     if (intelError) {
       console.warn(
@@ -887,31 +845,14 @@ export class BeachRecommendationService implements IBeachRecommendationService {
   /**
    * Main orchestration method - gets best beach recommendations
    *
-   * OPTIMIZATION: Implements 5-minute result caching to avoid redundant database queries
+   * NOTE: Caching is now handled at the server action level (best-beaches-simple.ts)
+   * using Next.js unstable_cache, which provides distributed caching across serverless instances.
+   * This service focuses purely on business logic and data aggregation.
    */
   async getBestBeaches(
     userId: string,
     coords?: Coordinates | null
   ): Promise<ServiceResult<BeachRecommendation[]>> {
-    // Check cache first
-    const cacheKey = getCacheKey(userId, coords);
-    const cachedEntry = recommendationCache.get(cacheKey);
-
-    if (cachedEntry && isCacheValid(cachedEntry)) {
-      // Return cached result
-      return {
-        success: true,
-        data: cachedEntry.data,
-        metadata: cachedEntry.metadata,
-      };
-    }
-
-    // Clean up expired cache entries every 50 requests
-    // (probabilistic cleanup to avoid checking on every request)
-    if (Math.random() < 0.02) { // 2% chance = ~1 in 50 requests
-      cleanExpiredCache();
-    }
-
     // Generate unique operation ID for tracking
     const operationId = generateOperationId();
     const operationTimer = createPerformanceTimer(
@@ -1116,8 +1057,8 @@ export class BeachRecommendationService implements IBeachRecommendationService {
       // Update health metrics
       updateHealthMetrics(operationTimer.getElapsed(), true);
 
-      // Cache the result
-      const result: ServiceResult<BeachRecommendation[]> = {
+      // Return result (caching handled at server action level)
+      return {
         success: true,
         data: topRecommendations,
         metadata: {
@@ -1125,14 +1066,6 @@ export class BeachRecommendationService implements IBeachRecommendationService {
           homeBeachName: searchLocation.homeBeachName,
         },
       };
-
-      recommendationCache.set(cacheKey, {
-        data: topRecommendations,
-        metadata: result.metadata,
-        timestamp: Date.now(),
-      });
-
-      return result;
     } catch (error) {
       const errorInstance =
         error instanceof Error ? error : new Error(String(error));
