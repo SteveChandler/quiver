@@ -189,12 +189,10 @@ export function HomeScreen() {
           </div>
         </section>
 
-        {/* Best Conditions Section - Only show if user has home beach */}
-        {homeBeach && (
-          <section className="centered-container">
-            <BestConditionsCards homeBeach={homeBeach} />
-          </section>
-        )}
+        {/* Best Conditions Section - Show if GPS available OR home beach set */}
+        <section className="centered-container">
+          <BestConditionsCards homeBeach={homeBeach} />
+        </section>
 
         {/* Tabs Section */}
         <section className="centered-container">
