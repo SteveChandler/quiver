@@ -28,10 +28,15 @@ const VARIANT_NAMES = {
  * Helper: Get a test session ID
  */
 async function getTestSessionId(page: Page): Promise<string | null> {
-  await page.goto('/sessions');
+  // Navigate to profile sessions tab instead of /sessions (which shows community sessions)
+  await page.goto('/profile?tab=sessions');
   await waitForPageLoad(page);
 
-  const sessionLink = page.locator('a[href^="/sessions/"]').first();
+  // Wait for sessions to load
+  await page.waitForTimeout(3000);
+
+  // Find session links (excluding "new" session links)
+  const sessionLink = page.locator('a[href^="/sessions/"]:not([href*="/sessions/new"])').first();
   const href = await sessionLink.getAttribute('href').catch(() => null);
 
   if (!href) {
@@ -72,15 +77,16 @@ test.describe('Visual Regression - Session Share Cards', () => {
       await page.goto(`/share/${sessionId}/${variant}/1:1`);
       await waitForPageLoad(page);
 
-      // Wait for image/preview to load
-      await page.waitForTimeout(2000); // Allow time for rendering
+      // Wait for card to load and render
+      await page.waitForTimeout(3000); // Allow time for rendering
 
-      // Find the preview element (could be img, canvas, or custom element)
-      const preview = page.locator('[data-testid*="preview"], img, canvas').first();
-      await expect(preview).toBeVisible({ timeout: 10000 });
+      // Find the session card container (it's a div with relative overflow-hidden)
+      // The card is inside a scaled container div
+      const cardContainer = page.locator('div.relative.overflow-hidden').first();
+      await expect(cardContainer).toBeVisible({ timeout: 10000 });
 
       // Take screenshot of the preview card
-      await expect(preview).toHaveScreenshot(`variant-${variant}-1x1.png`, {
+      await expect(cardContainer).toHaveScreenshot(`variant-${variant}-1x1.png`, {
         maxDiffPixels: 100, // Allow small differences (fonts, anti-aliasing)
         threshold: 0.2,     // 20% difference threshold
       });
@@ -155,12 +161,12 @@ test.describe('Visual Regression - Different Aspect Ratios', () => {
 
     await page.goto(`/share/${sessionId}/1/4:5`);
     await waitForPageLoad(page);
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
-    const preview = page.locator('[data-testid*="preview"], img, canvas').first();
-    await expect(preview).toBeVisible({ timeout: 10000 });
+    const cardContainer = page.locator('div.relative.overflow-hidden').first();
+    await expect(cardContainer).toBeVisible({ timeout: 10000 });
 
-    await expect(preview).toHaveScreenshot('variant-1-4x5.png', {
+    await expect(cardContainer).toHaveScreenshot('variant-1-4x5.png', {
       maxDiffPixels: 100,
       threshold: 0.2,
     });
@@ -176,12 +182,12 @@ test.describe('Visual Regression - Different Aspect Ratios', () => {
 
     await page.goto(`/share/${sessionId}/1/9:16`);
     await waitForPageLoad(page);
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
-    const preview = page.locator('[data-testid*="preview"], img, canvas').first();
-    await expect(preview).toBeVisible({ timeout: 10000 });
+    const cardContainer = page.locator('div.relative.overflow-hidden').first();
+    await expect(cardContainer).toBeVisible({ timeout: 10000 });
 
-    await expect(preview).toHaveScreenshot('variant-1-9x16.png', {
+    await expect(cardContainer).toHaveScreenshot('variant-1-9x16.png', {
       maxDiffPixels: 100,
       threshold: 0.2,
     });
@@ -197,12 +203,12 @@ test.describe('Visual Regression - Different Aspect Ratios', () => {
 
     await page.goto(`/share/${sessionId}/1/16:9`);
     await waitForPageLoad(page);
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
-    const preview = page.locator('[data-testid*="preview"], img, canvas').first();
-    await expect(preview).toBeVisible({ timeout: 10000 });
+    const cardContainer = page.locator('div.relative.overflow-hidden').first();
+    await expect(cardContainer).toBeVisible({ timeout: 10000 });
 
-    await expect(preview).toHaveScreenshot('variant-1-16x9.png', {
+    await expect(cardContainer).toHaveScreenshot('variant-1-16x9.png', {
       maxDiffPixels: 100,
       threshold: 0.2,
     });

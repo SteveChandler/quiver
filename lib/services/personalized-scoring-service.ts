@@ -172,6 +172,167 @@ export async function scoreBeachForUser(
   };
 }
 
+/**
+ * Batch score multiple beaches for a user
+ *
+ * OPTIMIZED VERSION: Makes 3 database queries total instead of N*3 queries
+ * - 1 query for user profile
+ * - 1 query for all beach break types
+ * - 1 query for learned preferences
+ * Affinity data is already pre-loaded by the caller
+ *
+ * @param userId - The user ID
+ * @param beaches - Array of beaches with forecasts and base scores
+ * @param affinityMap - Pre-loaded affinity data keyed by beach_id
+ * @returns Map of beach_id to PersonalizedScore
+ *
+ * @example
+ * const scores = await scoreBeachesForUser('user-123', [
+ *   { beachId: 'beach-1', forecast, baseScore: 75 },
+ *   { beachId: 'beach-2', forecast, baseScore: 82 },
+ * ], affinityMap);
+ * console.log(scores.get('beach-1')?.score); // Personalized score
+ */
+export async function scoreBeachesForUser(
+  userId: string,
+  beaches: Array<{
+    beachId: string;
+    forecast: EnhancedForecastEntity;
+    baseScore: number;
+  }>,
+  affinityMap: Map<string, { affinity_score: number; session_count: number }>
+): Promise<Map<string, PersonalizedScore>> {
+  const supabase = createSupabaseServiceRoleClient();
+  const results = new Map<string, PersonalizedScore>();
+
+  // Early return if no beaches
+  if (beaches.length === 0) {
+    return results;
+  }
+
+  try {
+    // BATCH QUERY 1: Get user profile (onboarding preferences) - single query
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('preferred_wave_size, preferred_break_type, crowd_preference')
+      .eq('id', userId)
+      .single();
+
+    // BATCH QUERY 2: Get all beach break types in one query
+    const beachIds = beaches.map((b) => b.beachId);
+    const { data: beachDetails } = await supabase
+      .from('beaches')
+      .select('id, break_type')
+      .in('id', beachIds);
+
+    // Create a map for quick lookup
+    const beachTypeMap = new Map<string, string>();
+    if (beachDetails) {
+      for (const beach of beachDetails) {
+        if (beach.break_type) {
+          beachTypeMap.set(beach.id, beach.break_type);
+        }
+      }
+    }
+
+    // BATCH QUERY 3: Get learned preferences - single query
+    const learnedPrefs = await getUserSurfPreferences(userId);
+
+    // Now process each beach in memory (no more DB queries)
+    for (const { beachId, forecast, baseScore } of beaches) {
+      let score = baseScore;
+      let personalized = false;
+      const breakdown = {
+        base: baseScore,
+        onboardingPrefs: 0,
+        learnedPrefs: 0,
+        affinity: 0,
+      };
+
+      // 1. Apply onboarding preferences (from profile)
+      if (profile) {
+        // Match wave size preference
+        if (profile.preferred_wave_size && profile.preferred_wave_size !== 'any') {
+          if (matchesWaveSize(forecast, profile.preferred_wave_size)) {
+            score += 10;
+            breakdown.onboardingPrefs += 10;
+            personalized = true;
+          }
+        }
+
+        // Match break type preference (using pre-loaded map)
+        if (profile.preferred_break_type && profile.preferred_break_type !== 'any') {
+          const beachType = beachTypeMap.get(beachId);
+          if (beachType === profile.preferred_break_type) {
+            score += 8;
+            breakdown.onboardingPrefs += 8;
+            personalized = true;
+          }
+        }
+      }
+
+      // 2. Apply learned preferences
+      if (learnedPrefs && learnedPrefs.confidence > 0.5) {
+        // Match learned wave range
+        if (matchesLearnedWaveRange(forecast, learnedPrefs)) {
+          const bonus = 15 * learnedPrefs.confidence;
+          score += bonus;
+          breakdown.learnedPrefs += bonus;
+          personalized = true;
+        }
+
+        // Match learned wind preferences
+        if (matchesLearnedWindPrefs(forecast, learnedPrefs)) {
+          const bonus = 10 * learnedPrefs.confidence;
+          score += bonus;
+          breakdown.learnedPrefs += bonus;
+          personalized = true;
+        }
+
+        // Match learned tide preferences
+        if (matchesLearnedTidePrefs(forecast, learnedPrefs)) {
+          const bonus = 8 * learnedPrefs.confidence;
+          score += bonus;
+          breakdown.learnedPrefs += bonus;
+          personalized = true;
+        }
+      }
+
+      // 3. Apply beach affinity (from pre-loaded map)
+      const affinity = affinityMap.get(beachId);
+      if (affinity && affinity.affinity_score > 10) {
+        const affinityBonus = Math.min(affinity.affinity_score * 0.15, 15);
+        score += affinityBonus;
+        breakdown.affinity = affinityBonus;
+        personalized = true;
+      }
+
+      results.set(beachId, {
+        score: Math.min(100, Math.round(score)),
+        personalized,
+        breakdown,
+      });
+    }
+  } catch (error) {
+    // Graceful degradation - return base scores on error
+    console.error(`Error batch personalizing scores for user ${userId}:`, error);
+    for (const { beachId, baseScore } of beaches) {
+      results.set(beachId, {
+        score: Math.round(baseScore),
+        personalized: false,
+        breakdown: {
+          base: baseScore,
+          onboardingPrefs: 0,
+          learnedPrefs: 0,
+          affinity: 0,
+        },
+      });
+    }
+  }
+
+  return results;
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================

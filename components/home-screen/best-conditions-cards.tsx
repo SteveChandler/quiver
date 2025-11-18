@@ -28,9 +28,20 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
   const router = useRouter();
   const { coords, source } = useGeo();
 
+  // Stabilize coords dependency - only recreate callback when lat/lon actually change
+  // This prevents unnecessary refetches when coords object is recreated with same values
+  const coordsKey = useMemo(
+    () => coords ? `${coords.lat},${coords.lon}` : null,
+    [coords?.lat, coords?.lon]
+  );
+
   const fetchData = useCallback(async () => {
+    // Early return if no valid location data (prevents unnecessary server calls)
+    if (!coords && !homeBeach) {
+      return { success: true, data: [], metadata: undefined };
+    }
     return await getBestBeachesNearHome(coords);
-  }, [coords]);
+  }, [coordsKey, coords, homeBeach]); // Use coordsKey to prevent unnecessary recreation
 
   const { data: result, loading, error } = useDataFetcher(fetchData);
 

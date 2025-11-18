@@ -31,7 +31,7 @@ import {
 } from "@/lib/utils/forecast-data-utils";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { BEACH_SEARCH_CONFIG } from "@/lib/constants/beach-search-config";
-import { scoreBeachForUser } from "@/lib/services/personalized-scoring-service";
+import { scoreBeachForUser, scoreBeachesForUser } from "@/lib/services/personalized-scoring-service";
 import {
   generateOperationId,
   trackPerformance,
@@ -64,6 +64,50 @@ interface SessionMediaWithBeach {
   session: {
     beach_id: string;
   };
+}
+
+// Cache for recommendation results
+interface CacheEntry {
+  data: BeachRecommendation[];
+  metadata: ServiceResult<BeachRecommendation[]>['metadata'];
+  timestamp: number;
+}
+
+// In-memory cache with 5-minute TTL
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const recommendationCache = new Map<string, CacheEntry>();
+
+/**
+ * Generate cache key from user ID and coordinates
+ */
+function getCacheKey(userId: string, coords: Coordinates | null | undefined): string {
+  if (coords?.lat && coords?.lon) {
+    // Round to 2 decimal places to allow cache hits for nearby locations
+    const lat = Math.round(coords.lat * 100) / 100;
+    const lon = Math.round(coords.lon * 100) / 100;
+    return `${userId}:${lat},${lon}`;
+  }
+  return `${userId}:home`;
+}
+
+/**
+ * Check if cache entry is still valid
+ */
+function isCacheValid(entry: CacheEntry): boolean {
+  return Date.now() - entry.timestamp < CACHE_TTL_MS;
+}
+
+/**
+ * Clean up expired cache entries
+ * Called periodically to prevent memory leaks
+ */
+function cleanExpiredCache(): void {
+  const now = Date.now();
+  for (const [key, entry] of recommendationCache.entries()) {
+    if (now - entry.timestamp >= CACHE_TTL_MS) {
+      recommendationCache.delete(key);
+    }
+  }
 }
 
 /**
@@ -388,6 +432,9 @@ export class BeachRecommendationService implements IBeachRecommendationService {
 
   /**
    * Loads hourly forecasts for today
+   *
+   * OPTIMIZATION: Only loads 6 hours of forecast data (current + next 5 hours)
+   * instead of all 24 hours, reducing data transfer by ~75%
    */
   async loadForecasts(
     beachIds: string[],
@@ -396,6 +443,15 @@ export class BeachRecommendationService implements IBeachRecommendationService {
     const supabase = await createSupabaseServerClient();
     const forecastsByBeach = new Map<string, ForecastSnapshot[]>();
 
+    // Calculate current hour to only fetch relevant forecasts
+    const now = new Date();
+    const currentHour = now.getHours();
+    const startTime = `${String(currentHour).padStart(2, '0')}:00:00`;
+
+    // Only fetch next 6 hours of forecasts (current + 5 more)
+    // This is enough for "best conditions right now" recommendations
+    const hoursToFetch = 6;
+
     const { data: forecastRows, error: forecastError } = await supabase
       .from("enhanced_forecasts")
       .select(
@@ -403,8 +459,9 @@ export class BeachRecommendationService implements IBeachRecommendationService {
       )
       .eq("forecast_date", date)
       .in("beach_id", beachIds)
+      .gte("forecast_time", startTime) // Only future forecasts
       .order("forecast_time", { ascending: true })
-      .limit(beachIds.length * BEACH_SEARCH_CONFIG.HOURS_PER_DAY);
+      .limit(beachIds.length * hoursToFetch); // Much smaller limit (6 hours vs 24 hours)
 
     if (forecastError) {
       console.warn(
@@ -474,6 +531,8 @@ export class BeachRecommendationService implements IBeachRecommendationService {
    * This method combines data from multiple sources to produce a comprehensive
    * beach recommendation with a 0-100 score. It handles missing data gracefully
    * and prioritizes AI-generated intel scores over calculated scores when available.
+   *
+   * OPTIMIZATION: Uses batch personalization to reduce database queries from N*3 to 3 total
    */
   async scoreAndRankBeaches(
     beaches: NearbyBeach[],
@@ -489,6 +548,29 @@ export class BeachRecommendationService implements IBeachRecommendationService {
     // Convert current time to minutes since midnight for forecast matching
     const targetMinutes = now.getHours() * 60 + now.getMinutes();
 
+    // Prepare data for batch personalization
+    const beachesForPersonalization: Array<{
+      beachId: string;
+      forecast: any;
+      baseScore: number;
+      beachData: {
+        nearby: NearbyBeach;
+        beachDetails: Beach;
+        intelData: IntelSnapshot | null;
+        forecast: ForecastSnapshot | null;
+        waveHeight: string;
+        waveDirection: string;
+        windSpeedMph: number | null;
+        windDirectionText: string | null;
+        tideHeight: number | null;
+        tideStatus: string;
+        windDescription: string;
+        finalScore: number;
+        reasonsWithIntel: string[];
+      };
+    }> = [];
+
+    // PHASE 1: Calculate base scores and prepare forecast data for all beaches
     for (const nearby of beaches) {
       // Match beach with its detailed information
       const beachDetails = details.find((beach) => beach.id === nearby.id);
@@ -601,44 +683,109 @@ export class BeachRecommendationService implements IBeachRecommendationService {
         }
       }
 
-      const crowdLevel = getCrowdLevel(beachDetails.name);
-      const roundedTide = tideHeight != null ? Math.round(tideHeight * 10) / 10 : 0;
-
-      const distanceMiles =
-        nearby.distance_meters && Number.isFinite(nearby.distance_meters)
-          ? (nearby.distance_meters / BEACH_SEARCH_CONFIG.METERS_PER_MILE).toFixed(1)
-          : "0.0";
-
-      // Apply personalization if user is authenticated
-      let personalizedScore = finalScore;
-      let personalized = false;
-      let scoreBreakdown: BeachRecommendation['scoreBreakdown'];
-      let affinityData: BeachRecommendation['affinityData'];
-
+      // Prepare for batch personalization (only if we have a forecast)
       if (userId && forecast) {
-        try {
-          // Convert forecast to format expected by scoreBeachForUser
-          const forecastForScoring = {
-            wave_height: waveHeight,
-            wave_period: null, // Not available in current forecast snapshot
-            wind_speed: windSpeedMph,
-            wind_direction: windDirectionText,
-            tide_status: tideStatus,
-          };
+        // Convert forecast to format expected by scoreBeachesForUser
+        const forecastForScoring = {
+          wave_height: waveHeight,
+          wave_period: null, // Not available in current forecast snapshot
+          wind_speed: windSpeedMph,
+          wind_direction: windDirectionText,
+          tide_status: tideStatus,
+        };
 
-          const personalizedResult = await scoreBeachForUser(
-            userId,
-            nearby.id,
-            forecastForScoring as any,
-            finalScore
-          );
+        beachesForPersonalization.push({
+          beachId: nearby.id,
+          forecast: forecastForScoring,
+          baseScore: finalScore,
+          beachData: {
+            nearby,
+            beachDetails,
+            intelData,
+            forecast,
+            waveHeight,
+            waveDirection,
+            windSpeedMph,
+            windDirectionText,
+            tideHeight,
+            tideStatus,
+            windDescription,
+            finalScore,
+            reasonsWithIntel,
+          },
+        });
+      } else {
+        // No personalization for this beach - add recommendation with base score
+        const crowdLevel = getCrowdLevel(beachDetails.name);
+        const roundedTide = tideHeight != null ? Math.round(tideHeight * 10) / 10 : 0;
+        const distanceMiles =
+          nearby.distance_meters && Number.isFinite(nearby.distance_meters)
+            ? (nearby.distance_meters / BEACH_SEARCH_CONFIG.METERS_PER_MILE).toFixed(1)
+            : "0.0";
 
-          personalizedScore = personalizedResult.score;
-          personalized = personalizedResult.personalized;
-          scoreBreakdown = personalizedResult.breakdown;
+        recommendations.push({
+          id: nearby.id,
+          name: beachDetails.name,
+          location: beachDetails.city ?? nearby.city ?? "",
+          distance_miles: distanceMiles,
+          score: Math.round(finalScore),
+          reasons: reasonsWithIntel,
+          image_url: null,
+          slug: beachDetails.slug ?? null,
+          city: beachDetails.city ?? null,
+          state: beachDetails.state ?? null,
+          wave_height: waveHeight,
+          wave_direction: waveDirection,
+          wind_speed: windSpeedMph != null ? Math.round(windSpeedMph) : 0,
+          wind_description: windDescription,
+          tide_status: tideStatus,
+          tide_height: roundedTide,
+          skill_level: beachDetails.skill_level || "Intermediate",
+          crowd_level: crowdLevel,
+          is_hidden_gem:
+            finalScore >= BEACH_SEARCH_CONFIG.HIDDEN_GEM_SCORE_THRESHOLD &&
+            crowdLevel === "Uncrowded",
+        });
+      }
+    }
+
+    // PHASE 2: Batch personalization (if user is authenticated)
+    if (userId && beachesForPersonalization.length > 0) {
+      try {
+        const personalizedScores = await scoreBeachesForUser(
+          userId,
+          beachesForPersonalization,
+          affinityMap
+        );
+
+        // Create recommendations with personalized scores
+        for (const { beachId, beachData } of beachesForPersonalization) {
+          const personalizedResult = personalizedScores.get(beachId);
+          if (!personalizedResult) continue; // Shouldn't happen, but handle gracefully
+
+          const {
+            nearby,
+            beachDetails,
+            waveHeight,
+            waveDirection,
+            windSpeedMph,
+            tideHeight,
+            tideStatus,
+            windDescription,
+            finalScore,
+            reasonsWithIntel,
+          } = beachData;
+
+          const crowdLevel = getCrowdLevel(beachDetails.name);
+          const roundedTide = tideHeight != null ? Math.round(tideHeight * 10) / 10 : 0;
+          const distanceMiles =
+            nearby.distance_meters && Number.isFinite(nearby.distance_meters)
+              ? (nearby.distance_meters / BEACH_SEARCH_CONFIG.METERS_PER_MILE).toFixed(1)
+              : "0.0";
 
           // Add affinity data if available
-          const affinity = affinityMap.get(nearby.id);
+          let affinityData: BeachRecommendation['affinityData'];
+          const affinity = affinityMap.get(beachId);
           if (affinity) {
             affinityData = {
               sessionCount: affinity.session_count,
@@ -646,46 +793,89 @@ export class BeachRecommendationService implements IBeachRecommendationService {
               score: affinity.affinity_score
             };
           }
-        } catch (error) {
-          console.error('[BeachRecommendationService] Personalization failed for beach:', nearby.id, error);
-          // Continue with base score on error
+
+          const recommendation: BeachRecommendation = {
+            id: beachId,
+            name: beachDetails.name,
+            location: beachDetails.city ?? nearby.city ?? "",
+            distance_miles: distanceMiles,
+            score: personalizedResult.score,
+            reasons: reasonsWithIntel,
+            image_url: null, // Will be populated later
+            slug: beachDetails.slug ?? null,
+            city: beachDetails.city ?? null,
+            state: beachDetails.state ?? null,
+            wave_height: waveHeight,
+            wave_direction: waveDirection,
+            wind_speed: windSpeedMph != null ? Math.round(windSpeedMph) : 0,
+            wind_description: windDescription,
+            tide_status: tideStatus,
+            tide_height: roundedTide,
+            skill_level: beachDetails.skill_level || "Intermediate",
+            crowd_level: crowdLevel,
+            is_hidden_gem:
+              personalizedResult.score >= BEACH_SEARCH_CONFIG.HIDDEN_GEM_SCORE_THRESHOLD &&
+              crowdLevel === "Uncrowded",
+            // Personalization fields (only present if personalized)
+            ...(personalizedResult.personalized && {
+              baseScore: finalScore,
+              personalizedScore: personalizedResult.score,
+              personalized: true,
+              scoreBreakdown: personalizedResult.breakdown,
+              affinityData,
+            }),
+          };
+
+          recommendations.push(recommendation);
+        }
+      } catch (error) {
+        console.error('[BeachRecommendationService] Batch personalization failed:', error);
+        // Fallback: Add recommendations with base scores
+        for (const { beachId, baseScore, beachData } of beachesForPersonalization) {
+          const {
+            nearby,
+            beachDetails,
+            waveHeight,
+            waveDirection,
+            windSpeedMph,
+            tideHeight,
+            tideStatus,
+            windDescription,
+            reasonsWithIntel,
+          } = beachData;
+
+          const crowdLevel = getCrowdLevel(beachDetails.name);
+          const roundedTide = tideHeight != null ? Math.round(tideHeight * 10) / 10 : 0;
+          const distanceMiles =
+            nearby.distance_meters && Number.isFinite(nearby.distance_meters)
+              ? (nearby.distance_meters / BEACH_SEARCH_CONFIG.METERS_PER_MILE).toFixed(1)
+              : "0.0";
+
+          recommendations.push({
+            id: beachId,
+            name: beachDetails.name,
+            location: beachDetails.city ?? nearby.city ?? "",
+            distance_miles: distanceMiles,
+            score: Math.round(baseScore),
+            reasons: reasonsWithIntel,
+            image_url: null,
+            slug: beachDetails.slug ?? null,
+            city: beachDetails.city ?? null,
+            state: beachDetails.state ?? null,
+            wave_height: waveHeight,
+            wave_direction: waveDirection,
+            wind_speed: windSpeedMph != null ? Math.round(windSpeedMph) : 0,
+            wind_description: windDescription,
+            tide_status: tideStatus,
+            tide_height: roundedTide,
+            skill_level: beachDetails.skill_level || "Intermediate",
+            crowd_level: crowdLevel,
+            is_hidden_gem:
+              baseScore >= BEACH_SEARCH_CONFIG.HIDDEN_GEM_SCORE_THRESHOLD &&
+              crowdLevel === "Uncrowded",
+          });
         }
       }
-
-      const recommendation: BeachRecommendation = {
-        id: nearby.id,
-        name: beachDetails.name,
-        location: beachDetails.city ?? nearby.city ?? "",
-        distance_miles: distanceMiles,
-        score: Math.round(personalizedScore),
-        reasons: reasonsWithIntel,
-        image_url: null, // Will be populated later
-        // URL generation fields for hierarchical URLs
-        slug: beachDetails.slug ?? null,
-        city: beachDetails.city ?? null,
-        state: beachDetails.state ?? null,
-        wave_height: waveHeight,
-        wave_direction: waveDirection,
-        wind_speed: windSpeedMph != null ? Math.round(windSpeedMph) : 0,
-        wind_description: windDescription,
-        tide_status: tideStatus,
-        tide_height: roundedTide,
-        skill_level: beachDetails.skill_level || "Intermediate",
-        crowd_level: crowdLevel,
-        is_hidden_gem:
-          personalizedScore >= BEACH_SEARCH_CONFIG.HIDDEN_GEM_SCORE_THRESHOLD &&
-          crowdLevel === "Uncrowded",
-        // Personalization fields (only present if personalized)
-        ...(personalized && {
-          baseScore: finalScore,
-          personalizedScore: personalizedScore,
-          personalized: true,
-          scoreBreakdown,
-          affinityData,
-        }),
-      };
-
-      recommendations.push(recommendation);
     }
 
     // Sort by score descending
@@ -696,11 +886,32 @@ export class BeachRecommendationService implements IBeachRecommendationService {
 
   /**
    * Main orchestration method - gets best beach recommendations
+   *
+   * OPTIMIZATION: Implements 5-minute result caching to avoid redundant database queries
    */
   async getBestBeaches(
     userId: string,
     coords?: Coordinates | null
   ): Promise<ServiceResult<BeachRecommendation[]>> {
+    // Check cache first
+    const cacheKey = getCacheKey(userId, coords);
+    const cachedEntry = recommendationCache.get(cacheKey);
+
+    if (cachedEntry && isCacheValid(cachedEntry)) {
+      // Return cached result
+      return {
+        success: true,
+        data: cachedEntry.data,
+        metadata: cachedEntry.metadata,
+      };
+    }
+
+    // Clean up expired cache entries every 50 requests
+    // (probabilistic cleanup to avoid checking on every request)
+    if (Math.random() < 0.02) { // 2% chance = ~1 in 50 requests
+      cleanExpiredCache();
+    }
+
     // Generate unique operation ID for tracking
     const operationId = generateOperationId();
     const operationTimer = createPerformanceTimer(
@@ -905,7 +1116,8 @@ export class BeachRecommendationService implements IBeachRecommendationService {
       // Update health metrics
       updateHealthMetrics(operationTimer.getElapsed(), true);
 
-      return {
+      // Cache the result
+      const result: ServiceResult<BeachRecommendation[]> = {
         success: true,
         data: topRecommendations,
         metadata: {
@@ -913,6 +1125,14 @@ export class BeachRecommendationService implements IBeachRecommendationService {
           homeBeachName: searchLocation.homeBeachName,
         },
       };
+
+      recommendationCache.set(cacheKey, {
+        data: topRecommendations,
+        metadata: result.metadata,
+        timestamp: Date.now(),
+      });
+
+      return result;
     } catch (error) {
       const errorInstance =
         error instanceof Error ? error : new Error(String(error));
