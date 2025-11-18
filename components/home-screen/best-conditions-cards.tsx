@@ -18,7 +18,6 @@ import {
 import { getBestConditionsHeading } from "@/lib/utils/best-conditions-helpers";
 import { beachNavigation } from "@/lib/navigation-utils";
 import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
-import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface BestConditionsCardsProps {
   homeBeach?: Beach | null;
@@ -26,7 +25,7 @@ interface BestConditionsCardsProps {
 
 const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) => {
   const router = useRouter();
-  const { coords, source } = useGeo();
+  const { coords, source, requestLocation } = useGeo();
 
   // Stabilize coords dependency - only recreate callback when lat/lon actually change
   // This prevents unnecessary refetches when coords object is recreated with same values
@@ -36,14 +35,43 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
   );
 
   const fetchData = useCallback(async () => {
+    // DIAGNOSTIC LOGGING
+    console.log('🔍 [BestConditionsCards] fetchData called', {
+      hasCoords: !!coords,
+      coords,
+      hasHomeBeach: !!homeBeach,
+      homeBeach: homeBeach ? { id: homeBeach.id, name: homeBeach.name } : null,
+      source,
+    });
+
     // Early return if no valid location data (prevents unnecessary server calls)
     if (!coords && !homeBeach) {
+      console.log('⚠️ [BestConditionsCards] Early return - no coords and no homeBeach');
       return { success: true, data: [], metadata: undefined };
     }
-    return await getBestBeachesNearHome(coords);
-  }, [coordsKey, coords, homeBeach]); // Use coordsKey to prevent unnecessary recreation
+
+    console.log('📡 [BestConditionsCards] Calling getBestBeachesNearHome...');
+    const result = await getBestBeachesNearHome(coords);
+    console.log('✅ [BestConditionsCards] getBestBeachesNearHome result:', {
+      success: result?.success,
+      dataLength: result?.data?.length,
+      metadata: result?.metadata,
+    });
+
+    return result;
+  }, [coordsKey, coords, homeBeach, source]); // Use coordsKey to prevent unnecessary recreation
 
   const { data: result, loading, error } = useDataFetcher(fetchData);
+
+  // DIAGNOSTIC LOGGING for render state
+  console.log('🎨 [BestConditionsCards] Render state:', {
+    loading,
+    error,
+    hasResult: !!result,
+    resultSuccess: result?.success,
+    resultDataLength: result?.data?.length,
+    homeBeach: homeBeach ? { id: homeBeach.id, name: homeBeach.name } : null,
+  });
 
   // Determine heading based on location source from metadata
   // Memoized to avoid recalculating on every render
@@ -57,10 +85,12 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
   );
 
   if (loading) {
+    console.log('⏳ [BestConditionsCards] Showing skeleton (loading state)');
     return <BestConditionsCardsSkeleton data-testid="best-conditions-skeleton" />;
   }
 
   if (error) {
+    console.log('❌ [BestConditionsCards] Showing error state:', error);
     // Show error state instead of hiding
     return (
       <div className="space-y-4" data-testid="best-conditions-error">
@@ -80,8 +110,68 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
   }
 
   if (!result?.success || !result.data || result.data.length === 0) {
-    return null; // Hide if no beaches within range
+    console.log('🚫 [BestConditionsCards] No beaches found or error', {
+      resultSuccess: result?.success,
+      hasData: !!result?.data,
+      dataLength: result?.data?.length,
+      hasCoords: !!coords,
+      hasHomeBeach: !!homeBeach,
+      result,
+    });
+
+    // Show helpful message instead of hiding section
+    return (
+      <div className="space-y-4" data-testid="best-conditions-no-data">
+        <div>
+          <h3 className="text-2xl font-roboto font-bold text-gray-900">{headingText}</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Top surf spots within 10 miles right now
+          </p>
+        </div>
+        <div className="p-8 bg-blue-50 border-2 border-blue-200 rounded-lg text-center space-y-4">
+          <div className="text-4xl">🌊</div>
+          <div>
+            <p className="text-lg font-medium text-gray-900 mb-2">
+              {!coords && !homeBeach
+                ? "Set your location to see best conditions"
+                : "No beaches found within 10 miles"}
+            </p>
+            <p className="text-sm text-gray-600">
+              {!coords && !homeBeach ? (
+                <>
+                  Enable location access or set a home beach in your profile to see
+                  personalized surf recommendations
+                </>
+              ) : (
+                <>
+                  Try expanding your search radius or check back later for updated
+                  conditions
+                </>
+              )}
+            </p>
+          </div>
+          {!coords && !homeBeach && (
+            <div className="flex gap-3 justify-center pt-2">
+              <button
+                onClick={() => requestLocation()}
+                className="px-4 py-2 bg-ocean-blue text-white rounded-md hover:bg-ocean-blue-dark transition-colors"
+              >
+                Enable Location
+              </button>
+              <button
+                onClick={() => router.push('/profile?tab=settings')}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Set Home Beach
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
+
+  console.log('🎯 [BestConditionsCards] Rendering section with', result.data.length, 'beaches');
 
   const beaches = result.data as BeachRecommendation[];
 
@@ -153,7 +243,7 @@ const BestConditionsCardsComponent = ({ homeBeach }: BestConditionsCardsProps) =
                   {beach.name}
                 </h4>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <span>📍</span> {getBeachLocation(beach)} · {beach.distance_miles} mi
+                  <span>📍</span> {beach.location} · {beach.distance_miles} mi
                 </p>
               </div>
 
