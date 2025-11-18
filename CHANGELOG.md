@@ -7,7 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **E2E Test Coverage**: Comprehensive test suite for home beach functionality in edit profile modal
+  - Tests home beach display, persistence, and changes
+  - Includes regression test for initialValue bug fix (beach name not displaying)
+  - Covers mobile and desktop viewports
+  - Tests special characters and edge cases
+  - File: `e2e/profile-edit-home-beach.spec.ts`
+
+### Fixed
+- **Home Beach Display Bug**: Fixed issue where home beach name wasn't displaying in edit profile modal
+  - Root cause: `initialHomeBeachText` wasn't initialized with `homeBeachName` from profile data
+  - Fix: Updated `edit-profile-form.tsx` to properly read `homeBeachName` from `initialData`
+  - Impact: Users can now see and change their home beach in the edit modal
+  - File: `components/edit-profile-form.tsx:86`
+- **Experience Level Validation**: Fixed ZodError caused by invalid experience_level values
+  - Converted empty strings and incorrect casing (e.g., 'Advanced') to NULL
+  - Added CHECK constraint to prevent future invalid values
+  - Migration: `20251117000000_fix_empty_experience_levels.sql`
+
+### Security
+- **Beach Photos RLS**: Fixed critical security vulnerability in beach photos access
+  - Replaced overly-permissive policy that exposed soft-deleted and unapproved photos
+  - Public users now only see approved, non-deleted photos
+  - Admins retain full access for moderation
+  - Migration: `20251117033703_fix_beach_photos_rls_security.sql`
+
 ### Performance
+
+#### ✅ COMPLETED: Best Conditions Feature - 30-900x Performance Improvement (November 17, 2025)
+
+**Status**: Successfully deployed to dev.quiversurf.app
+
+**Impact**:
+- 🚀 Uncached requests: 60s → 2s (30x faster)
+- ⚡ Cached requests: 60s → 100ms (600-1200x faster)
+- 📊 Cache hit rate: 0% → 80-90%
+- ✅ Zero timeout errors
+
+**See**: `docs/BEST_CONDITIONS_PERFORMANCE_FIX.md` for complete documentation
+
+---
 
 #### Database Optimization: Best Conditions Feature (November 17, 2025)
 - **Purpose**: Fix 60+ second timeout in best conditions API by optimizing database queries
