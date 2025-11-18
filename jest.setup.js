@@ -13,6 +13,12 @@ if (typeof TextDecoder === "undefined") {
   global.TextDecoder = require("util").TextDecoder;
 }
 
+// Polyfill crypto.randomUUID for Node.js < 19
+if (typeof crypto !== "undefined" && !crypto.randomUUID) {
+  const nodeCrypto = require("crypto");
+  crypto.randomUUID = nodeCrypto.randomUUID;
+}
+
 // Create a more robust mock for next/navigation
 jest.mock("next/navigation", () => {
   const router = {
