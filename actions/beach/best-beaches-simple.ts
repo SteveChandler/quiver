@@ -35,6 +35,8 @@ export async function getBestBeachesNearHome(
   coords?: { lat: number; lon: number } | null
 ) {
   try {
+    console.log('🚀 [getBestBeachesNearHome] Called with coords:', coords);
+
     const supabase = await createSupabaseServerClient();
 
     const {
@@ -42,7 +44,14 @@ export async function getBestBeachesNearHome(
       error: userError,
     } = await supabase.auth.getUser();
 
+    console.log('👤 [getBestBeachesNearHome] User auth:', {
+      hasUser: !!user,
+      userId: user?.id,
+      userError: userError?.message,
+    });
+
     if (userError || !user) {
+      console.log('⚠️ [getBestBeachesNearHome] No user - returning empty data');
       return { success: true, data: [] as BeachRecommendation[], metadata: undefined };
     }
 

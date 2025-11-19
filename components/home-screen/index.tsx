@@ -64,6 +64,20 @@ export function HomeScreen() {
 
   const { coords, source, requestLocation } = useGeo();
 
+  // DIAGNOSTIC LOGGING for Best Conditions section
+  console.log('🏠 [HomeScreen] Profile and location state:', {
+    hasProfile: !!profile,
+    profileId: profile?.id,
+    homeBeachId: profile?.home_beach_id,
+    hasHomeBeach: !!homeBeach,
+    homeBeach: homeBeach ? { id: homeBeach.id, name: homeBeach.name, lat: homeBeach.lat, lon: homeBeach.lon } : null,
+    hasCoords: !!coords,
+    coords,
+    source,
+    profileLoading,
+    hasCachedData,
+  });
+
   useEffect(() => {
     // On mount: get {lat, lon} and call morning recommendations
     if (!coords) return;

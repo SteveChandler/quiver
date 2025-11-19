@@ -56,11 +56,22 @@ export const getClientBrowserClient = () => {
 
 // Create a server client for server components and server actions
 export const createServerClient = () => {
-  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
-  const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
+  // Prefer NEXT_PUBLIC_ for client-side, fallback to server-only vars
+  const supabaseUrl = (
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    ""
+  ).trim();
+  const supabaseAnonKey = (
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    ""
+  ).trim();
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error("Server: Supabase URL or Anon Key is missing");
+    console.error("NEXT_PUBLIC_SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.error("SUPABASE_URL:", process.env.SUPABASE_URL);
   }
 
   // Try to get cookies from Next.js
