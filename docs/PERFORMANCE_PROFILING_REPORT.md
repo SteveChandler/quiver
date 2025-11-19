@@ -1,7 +1,12 @@
 # Performance Report - Best Conditions Section
+
+> ⚠️ **FEATURE REMOVED (Nov 2025)** 
+> 
+> This performance report describes optimization work for the "Best Conditions" home page feature. The feature was later removed from the product. This document is preserved for historical reference.
+
 **Date**: 2025-11-17  
 **Environment**: dev.quiversurf.app (Vercel Serverless)  
-**Issue**: Timeout >60s vs <2s target
+**Issue**: ~~Timeout >60s vs <2s target~~ FEATURE REMOVED
 
 ---
 

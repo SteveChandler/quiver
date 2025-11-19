@@ -107,26 +107,7 @@ The dropdown list never appears because the search input itself is not visible/a
 - May have timing issues waiting for map initialization
 - May need longer timeouts for map rendering (Mapbox can be slow)
 
-### 4. Nearby Beaches Regression Tests (`e2e/nearby-beaches-regression.spec.ts`)
-
-**Status**: Running, using createTestUser/deleteTestUser helper functions
-
-**Observations**:
-```typescript
-import {
-  TestUser,
-  createTestUser,
-  deleteTestUser,
-  clearHomeBeach,
-  getHomeBeachName,
-  logProfileState,
-  signInTestUser,
-} from "./utils/profile-helpers";
-```
-
-These functions are being imported but we need to verify they exist in `e2e/utils/profile-helpers.ts`.
-
-### 5. Build Integrity Tests (`e2e/build-integrity.spec.ts`)
+### 4. Build Integrity Tests (`e2e/build-integrity.spec.ts`)
 
 **Status**: Mostly passing
 

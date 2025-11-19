@@ -1,5 +1,9 @@
 # React Performance Fixes - Quick Reference
 
+> ⚠️ **FEATURE REMOVED (Nov 2025)**
+>
+> This performance report includes optimization work for the "Best Conditions" home page feature, which was later removed from the product. This document is preserved for historical reference.
+
 **Analysis Date:** 2025-11-14
 **Priority:** CRITICAL → HIGH → MEDIUM
 

@@ -1,8 +1,12 @@
 # Performance Profiling Summary - Best Conditions Section
 
+> ⚠️ **FEATURE REMOVED (Nov 2025)** 
+> 
+> This document describes performance profiling for the "Best Conditions" home page feature that was later removed. The performance optimizations described here were implemented but the feature itself is no longer part of the product. This document is preserved for historical reference.
+
 **Date**: November 17, 2025  
-**Status**: Analysis Complete, Ready for Implementation  
-**Severity**: CRITICAL (>60s timeout vs <2s target)
+**Status**: ~~Analysis Complete, Ready for Implementation~~ FEATURE REMOVED  
+**Severity**: ~~CRITICAL (>60s timeout vs <2s target)~~ N/A - Feature removed
 
 ---
 

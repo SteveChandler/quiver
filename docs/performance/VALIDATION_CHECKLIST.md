@@ -207,26 +207,28 @@ If you have access to Supabase dashboard:
 
 ### Home Screen Integration
 
-The recommendations API is used by the home screen "Best Conditions" cards.
+> ⚠️ **FEATURE REMOVED (Nov 2025)** - This section describes testing for the removed "Best Conditions" feature.
+
+~~The recommendations API is used by the home screen "Best Conditions" cards.~~
 
 ```bash
 yarn dev
 # Open browser to http://localhost:3000
 ```
 
-**Manual Test Steps:**
+**Manual Test Steps (OBSOLETE):**
 
 1. **Load home page** (must be logged in)
-2. **Grant location permission** when prompted
-3. **Wait for cards to load**
+2. ~~**Grant location permission** when prompted~~
+3. ~~**Wait for cards to load**~~
 
-**Verify:**
-- [ ] "Best Conditions Near You" section appears
-- [ ] Cards load within 2-3 seconds
-- [ ] At least 1 beach card is displayed (up to 3)
-- [ ] Cards show beach name, score, wave/wind/tide data
-- [ ] No console errors
-- [ ] No visual regressions
+**Verify (OBSOLETE):**
+- [ ] ~~"Best Conditions Near You" section appears~~
+- [ ] ~~Cards load within 2-3 seconds~~
+- [ ] ~~At least 1 beach card is displayed (up to 3)~~
+- [ ] ~~Cards show beach name, score, wave/wind/tide data~~
+- [ ] ~~No console errors~~
+- [ ] ~~No visual regressions~~
 
 ### Recommendation Data Accuracy
 
@@ -247,11 +249,11 @@ Compare a specific beach's data:
 
 ### Existing E2E Tests
 
-Once the dev server is running with authentication:
+Once the dev server is running with authentication, run the relevant E2E test suites to verify functionality:
 
 ```bash
-# Run home best conditions tests
-yarn test:e2e e2e/home-best-conditions.spec.ts
+# Run E2E tests
+yarn test:e2e
 ```
 
 - [ ] All tests pass

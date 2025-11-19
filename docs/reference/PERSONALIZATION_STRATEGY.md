@@ -839,11 +839,13 @@ async function getCollaborativeRecommendations(
 
 ### Phase 7: Current Location Support
 
-**Goal:** GPS-based recommendations for traveling surfers
+> ⚠️ **NOTE (Nov 2025)**: This phase describes GPS-based beach recommendations that were partially implemented via `getBestBeachesNearHome` but later removed along with the Best Conditions home page feature. This section is preserved for historical reference.
 
-#### 7.1 API Enhancement
+**Goal:** ~~GPS-based recommendations for traveling surfers~~ NOT IMPLEMENTED
 
-**New Action: `getBestBeachesNearLocation`**
+#### 7.1 API Enhancement (NOT IMPLEMENTED)
+
+**~~New Action: `getBestBeachesNearLocation`~~** (Similar functionality was in `getBestBeachesNearHome` before removal)
 ```typescript
 // actions/beach/best-beaches-near-location.ts
 export async function getBestBeachesNearLocation(
