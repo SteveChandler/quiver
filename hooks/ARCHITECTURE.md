@@ -175,7 +175,7 @@ export function createLocationCacheKey(
 - **Features**:
   - Permission-aware geolocation with graceful fallback
   - Stable object identity for `coords` to avoid unnecessary rerenders
-  - Works with background warmups (e.g., morning recommendations)
+  - Works with background data fetching and caching
 
 ```typescript
 const { coords, source, requestLocation } = useGeo();

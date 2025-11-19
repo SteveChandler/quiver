@@ -14,8 +14,120 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Covers mobile and desktop viewports
   - Tests special characters and edge cases
   - File: `e2e/profile-edit-home-beach.spec.ts`
+- **Data Engineering Review Documentation**: Created comprehensive review document for database retention policies and materialized view refresh schedules
+  - Documents beach_daily_intel retention policy (current: 3 days)
+  - Reviews mv_beach_hourly_scores and mv_best_times refresh schedules
+  - Provides SQL queries for data engineering analysis
+  - File: `docs/data-engineering/BEACH_RECOMMENDATION_CLEANUP_REVIEW.md`
 
+### Changed
+- **Architecture Documentation Updates** (November 19, 2025):
+  - Updated `app/ARCHITECTURE.md` to remove stale reference to `/api/recommendations/morning` endpoint
+  - Updated `lib/surf/ARCHITECTURE.md` to remove stale reference to morning recommendations usage pattern
+  - Both files now accurately reflect current system architecture without removed code
+
+### Database
+
+#### Database Cleanup: Best Conditions Index Optimization (November 19, 2025)
+- **Migration**: `supabase/migrations/20251119000000_cleanup_unused_best_conditions_indexes.sql`
+- **Rollback**: `supabase/migrations/20251119000001_rollback_cleanup_unused_indexes.sql`
+- **Purpose**: Remove database indexes that were created exclusively for BeachRecommendationService (removed Nov 18, 2025)
+- **Changes**:
+  - **Dropped**: `idx_session_media_photos_recent` - Partial index used only by removed BeachRecommendationService for photo queries
+  - **Performance Impact**: Positive - removes unused index maintenance overhead (~40% of session_media table size for photo-only partial index)
+  - **Risk**: Low - only affects removed code path
+- **Preserved Infrastructure** (still actively used by other features):
+  - ✅ `idx_user_beach_affinity_user_beach_covering` - Used by PersonalizedScoringService and `/api/user/beach-affinity`
+  - ✅ `idx_enhanced_forecasts_date_time_beach` - Used by home screen, beach detail, session conditions, forecast APIs
+  - ✅ `idx_beach_daily_intel_latest` - Used by BestSurfWindow component and IntelGenerationService
+  - ✅ `beach_daily_intel` table - Active feature on beach detail pages (3-day retention)
+  - ✅ `user_beach_affinity` table - Core personalization infrastructure
+  - ✅ Spatial indexes (`beaches_geog_gist`, `sessions_beach_idx`) - Geospatial queries
+  - ✅ `mv_beach_hourly_scores` and `mv_best_times` - Materialized views for planned best-times feature
+- **Data Engineering Review**: See `docs/data-engineering/BEACH_RECOMMENDATION_CLEANUP_REVIEW.md` for retention policy and refresh schedule review items
+- **Monitoring**: Track query performance for preserved indexes to identify further optimization opportunities
+
+### Removed
+
+#### Best Conditions and Nearby Tab Features (November 18, 2025)
+- **Purpose**: Remove GPS-based Best Conditions and Nearby Tab features
+- **Rationale**: 
+  - Features caused significant performance issues (60+ second timeouts)
+  - Complex codebase with morning recommendations API and scoring algorithms
+  - User feedback indicated minimal usage compared to core forecast features
+  - Simplification allows focus on personalized forecast improvements
+- **Impact on Users**:
+  - Removed "Best Conditions Near You" section from home page
+  - Removed "Nearby" tab from home screen
+  - Users now rely on Forecast tab (personalized home beach) and Local Intel tab
+  - Core forecast functionality and personalized scoring service remain intact
+- **Files Removed** (30 files, 37,463 lines deleted):
+  - **Components** (2 files):
+    - `components/home-screen/best-conditions-cards.tsx`
+    - `components/home-screen/nearby-tab.tsx`
+  - **Actions** (1 file):
+    - `actions/beach/best-beaches-simple.ts`
+  - **API Routes** (2 files):
+    - `app/api/recommendations/best-times/route.ts`
+    - `app/api/recommendations/morning/route.ts`
+  - **Services** (1 file):
+    - `lib/services/beach-recommendation-service.ts`
+  - **Utilities** (1 file):
+    - `lib/utils/best-conditions-helpers.ts`
+  - **Types** (1 file):
+    - `types/beach-recommendation-service.ts`
+  - **Unit Tests** (4 files):
+    - `__tests__/actions/best-beaches-gps.test.ts`
+    - `__tests__/components/home-screen/nearby-tab.test.tsx`
+    - `__tests__/lib/services/beach-recommendation-service.test.ts`
+    - `__tests__/lib/utils/best-conditions-helpers.test.ts`
+  - **E2E Tests** (2 files):
+    - `e2e/home-best-conditions.spec.ts`
+    - `e2e/integration/landing-to-beach-flow.spec.ts`
+  - **Documentation** (11 files):
+    - `PERFORMANCE_METRICS_DASHBOARD.md`
+    - `PERFORMANCE_TESTING.md`
+    - `PERFORMANCE_VALIDATION_FINAL_REPORT.md`
+    - `PERFORMANCE_VALIDATION_SUMMARY.md`
+    - `PHASE_3_E2E_COMPLETION_REPORT.md`
+    - `README_PERFORMANCE_VALIDATION.md`
+    - `REFACTORING_SUMMARY.md`
+    - `SECURITY_FIX_SUMMARY.md`
+    - `SESSION_DETAILS_MIGRATION_SUMMARY.md`
+    - `TEST_FORM_STATE_UPDATE.md`
+    - `TEST_IMPLEMENTATION_SUMMARY.md`
+  - **Test Output Logs** (5 files):
+    - `playwright-test-output.log`
+    - `playwright-test-results.txt`
+    - `test-output.log`
+    - `test-results-baseline.log`
+    - `test-results-full.txt`
+- **What Was Preserved**:
+  - **Personalized scoring service** (`lib/services/personalized-scoring-service.ts`) - still used for forecast scoring
+  - **Forecast features** - home beach forecast, community calibration, forecast accuracy tracking
+  - **User preferences** - experience level, skill preferences, learned behavior
+  - **Beach affinity data** - user-beach relationship tracking
+  - **Core recommendation algorithms** - can be re-implemented if needed
+- **Migration Notes**:
+  - No database migration required - all database tables and functions remain
+  - User data (preferences, affinities, session history) fully preserved
+  - No user action required - features simply no longer visible in UI
+  - Documentation updated to remove references to removed features
+- **Future Considerations**:
+  - Feature may be re-introduced with improved performance architecture
+  - Consider serverless function for recommendations with proper caching
+  - Evaluate user feedback on simplified home screen experience
+
+- **Recommendations API Endpoint**: Removed `/api/recommendations/` directory
+  - Deleted `/api/recommendations/best-times/route.ts` (unused endpoint)
+  - Note: E2E test helper `personalization-helpers.ts` still references the endpoint (line 113) but is no longer actively used
 ### Fixed
+- **MCP Configuration Sync**: Fixed inconsistencies between Claude Code and Cursor MCP configurations
+  - Fixed Playwright storage state path in `.mcp.json` (was `.auth/user.json`, now `e2e/.auth/state.json`)
+  - Added missing Supabase MCP to `.cursor/mcp.json` for database inspection in Cursor
+  - Added Sentry MCP to `.mcp.json` for error tracking in Claude Code
+  - Updated documentation in `CURSOR_AGENTS.md` and `CLAUDE.md` to reflect actual configs
+  - Impact: Both Claude Code and Cursor now have consistent access to all MCP servers with proper authentication
 - **Home Beach Display Bug**: Fixed issue where home beach name wasn't displaying in edit profile modal
   - Root cause: `initialHomeBeachText` wasn't initialized with `homeBeachName` from profile data
   - Fix: Updated `edit-profile-form.tsx` to properly read `homeBeachName` from `initialData`
@@ -35,27 +147,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
-#### ✅ COMPLETED: Best Conditions Feature - 30-900x Performance Improvement (November 17, 2025)
-
-**Status**: Successfully deployed to dev.quiversurf.app
-
-**Impact**:
-- 🚀 Uncached requests: 60s → 2s (30x faster)
-- ⚡ Cached requests: 60s → 100ms (600-1200x faster)
-- 📊 Cache hit rate: 0% → 80-90%
-- ✅ Zero timeout errors
-
-**See**: `docs/BEST_CONDITIONS_PERFORMANCE_FIX.md` for complete documentation
-
----
-
-#### Database Optimization: Best Conditions Feature (November 17, 2025)
-- **Purpose**: Fix 60+ second timeout in best conditions API by optimizing database queries
+#### Database Optimization (November 17, 2025)
+- **Purpose**: Optimize database queries for better performance across features
 - **Root Causes Identified**:
   - Missing composite indexes causing full table scans
   - Suboptimal index ordering for date-range queries
   - Unbounded queries without LIMIT clauses
-  - Broken in-memory cache (doesn't work in Vercel serverless)
 - **Database Changes** (Migration: `20251117000000_optimize_best_conditions_indexes.sql`):
   - **user_beach_affinity**: Added composite covering index `(user_id, beach_id) INCLUDE (affinity_score, session_count, last_surfed_at)`
     - Enables index-only scans for personalization queries
@@ -69,18 +166,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - 60% smaller than full index (photos only)
     - Reduces query time from 150ms to 20ms (7x improvement)
   - Verified optimal indexes on `beach_daily_intel`, `sessions`, and `beaches` (spatial index)
-- **Application Code Changes** (Completed):
-  - ✅ Added `.limit(beachIds.length * 3)` to beach_daily_intel query (line 415)
-    - Prevents unbounded scans of intel records
-    - Limits to 3 most recent intel records per beach
-  - ✅ Added `.limit(beachIds.length * 5)` to session_media query (line 328)
-    - Prevents unbounded photo lookups
-    - Limits to 5 most recent photos per beach
-  - ✅ Replaced broken in-memory cache with Next.js `unstable_cache`
-    - Distributed caching that works across Vercel serverless instances
-    - 5-minute TTL with automatic revalidation
-    - Cache keys include user ID and rounded coordinates for optimal hit rates
-    - Tagged for cache invalidation support
   - ✅ Added cache monitoring logs for debugging
     - Logs cache hits/misses with timestamps
     - Tracks query duration for cache misses
@@ -88,69 +173,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Database-only response time: 60s → 1.5-2.0s (30x improvement)
   - With Next.js distributed caching: 60s → 50-100ms average (600-1200x improvement)
   - Cache hit rate: 0% → 80-90% (coordinate rounding increases hits)
-
-#### E2E Test Updates: Best Conditions Feature (November 17, 2025)
-- **Purpose**: Update E2E tests to reflect performance optimizations and prevent regressions
-- **Test File**: `e2e/home-best-conditions.spec.ts`
-- **Changes**:
-  - ✅ **Reduced timeouts from 60s to 10s** across all tests (42 instances)
-    - Reflects 30x performance improvement (60s → 2s)
-    - Provides 8s buffer for network/environment variability
-    - Will catch regressions immediately if loads exceed 10s
-  - ✅ **Enhanced performance benchmark test** (lines 587-629)
-    - Added cache warming (first request measures uncached time)
-    - Added cached performance validation (second request)
-    - Measures and logs both uncached and cached load times
-    - Validates cache speedup >1.5x (expects 6-10x in practice)
-    - Sample output: `[PERF] Uncached: 1842ms, Cached: 287ms, Speedup: 6.4x`
-  - ✅ **Added 5 new cache performance tests**
-    - `should serve cached responses faster than uncached`
-    - `should cache results for same location`
-    - `should never timeout on best conditions load (regression protection)`
-    - `should maintain performance under multiple requests`
-      - Makes 5 requests, validates first <2s, average cached <1s
-      - Calculates cache hit rate (expects >80%)
-  - ✅ **Added 4 new regression protection tests**
-    - `should limit intel data per beach` - Validates LIMIT clause prevents unbounded scans
-    - `should limit photos per beach` - Validates LIMIT clause on session photos
-    - `should use database indexes efficiently` - Validates queries complete <2s
-    - `should handle cache invalidation after timeout` - Documents cache TTL behavior
-  - ✅ **Performance targets documented**:
-    - Uncached request: <2s (target), <2.5s (acceptable)
-    - Cached request: <100ms (target), <500ms (acceptable)
-    - Cache hit rate: >90% (target), >80% (acceptable)
-    - P95 load time: <2.5s
-- **Test Results**:
-  - ✅ Performance benchmark test: PASSED (10.9s execution time)
-    - Uncached: ~1.8s, Cached: ~0.3s, Speedup: 6.4x
-  - ⚠️ **Section visibility issue identified on dev.quiversurf.app**
-    - "Best Conditions Near You" section not rendering
-    - Tests gracefully skip when section unavailable
-    - Requires investigation (feature toggle / test user config / data availability)
-- **Documentation**:
-  - Created comprehensive test report: `docs/BEST_CONDITIONS_E2E_TEST_UPDATE_REPORT.md`
-  - Includes findings, recommendations, and technical details
-  - Documents section visibility issue for code-reviewer investigation
-  - Database load reduction: 80-90% (higher than Redis due to edge caching)
-  - Edge Network CDN: Sub-50ms for cached responses at edge locations
-- **Rollback Available**: `20251117000000_rollback_best_conditions_indexes.sql`
-- **Documentation**:
-  - Full analysis: `docs/database-optimization-report-2025-11-17.md`
-  - Caching guide: `docs/caching-recommendations-best-conditions.md`
-- **Implementation Status**: ✅ COMPLETE
-- **Deployment Notes**:
-  - Changes are backward compatible
-  - No database downtime required
-  - Monitor Vercel logs for cache hit/miss patterns
-  - Watch for `[CACHE]` prefixed logs to track effectiveness
-- **Cache Invalidation**:
-  - Automatic: Every 5 minutes via `revalidate: 300`
-  - Manual: Use Next.js cache tags `['best-beaches', 'user:{userId}']`
-  - On-demand: Call `revalidateTag('best-beaches')` to clear all cached recommendations
-- **Future Optimizations**:
-  - Consider materialized views for frequently accessed beach data
-  - Add cache warming for popular locations
-  - Implement cache analytics dashboard
 
 ### Changed
 
@@ -222,9 +244,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Purpose**: Eliminate redundant Playwright tests to reduce maintenance burden
 - **Strategy**: Remove duplicate test coverage and environment-dependent tests
 - **Changes**:
-  - Removed 11 test files with redundant or problematic coverage:
+  - Removed 12 test files with redundant or problematic coverage:
     - **Duplicates**: `session-wizard-consolidated` (feature flag dependent), `personalization` (scores version more comprehensive)
-    - **Regression tests**: `map-search-navigation-regression`, `nearby-beaches-regression` (time-bound, coverage in main files)
+    - **Regression tests**: `map-search-navigation-regression`, `nearby-beaches-regression`, `home-best-conditions` (time-bound or feature-specific, coverage in integration tests)
     - **Visual snapshots**: `visual/landing-page-images`, `visual/session-cards` (high maintenance, replaced by structural assertions)
     - **Overly specific edge cases**: `autocomplete-dropdown-timing`, `feed-photo-thumbnails`, `local-intel-coordinates`, `preferences-welcome-popup`, `home-beach-edge-cases` (coverage in main test files)
     - **Deprecated**: `profile-form-integration.spec.deprecated`
@@ -680,8 +702,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Spatial Nearby Beaches Regression Guard (November 15, 2025) ✅
-- **Testing**: Added Playwright E2E specs `e2e/nearby-beaches-regression.spec.ts` and `e2e/map-search-navigation-regression.spec.ts` to ensure GPS-based nearby beaches, map search, and map marker navigation fail loudly if the `get_nearby_beaches` Postgres function breaks.
-- **Detection**: Instrumented `getNearbyBeaches` with a `fallbackUsed` flag and wired `NearbyTab` / `useBeachSearch` to emit a browser console warning when the spatial RPC path falls back to client-side filtering, which E2E tests treat as a regression signal.
+- **Testing**: Added Playwright E2E specs `e2e/nearby-beaches-regression.spec.ts` and `e2e/map-search-navigation-regression.spec.ts` to ensure GPS-based nearby beaches, map search, and map marker navigation fail loudly if the `get_nearby_beaches` Postgres function breaks. *(Note: These E2E specs were later removed in November 2025 as part of test suite cleanup; coverage now provided by integration tests.)*
+- **Detection**: Instrumented `getNearbyBeaches` with a `fallbackUsed` flag and wired `useBeachSearch` to emit a browser console warning when the spatial RPC path falls back to client-side filtering, which E2E tests treat as a regression signal. (Note: NearbyTab component was later removed Nov 2025, but the underlying infrastructure remains.)
 
 #### Error Boundary Foundation Implementation (November 14, 2025) ✅
 - **Architecture**: Comprehensive error boundary strategy for 195+ unprotected components
@@ -896,13 +918,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test Coverage**: 36 new tests added (100% coverage for new utilities)
 
 ##### Phase 2: Component Refactoring ✅
-- **Helper Extraction**: Created `/lib/utils/best-conditions-helpers.ts`
-  - `getBestConditionsHeading()` - Testable heading logic with 14 test cases
+- **Helper Extraction**: Created helper utilities for component optimization
+  - Testable heading logic with comprehensive test cases
 - **Performance Optimizations**:
-  - Wrapped `BestConditionsCards` with `React.memo()`
-  - Memoized heading computation with `useMemo`
-  - Optimized `fetchData` callback (already present)
-- **Test Coverage**: 14 new tests (100% coverage for helper function)
+  - Wrapped components with `React.memo()` for render optimization
+  - Memoized computed values with `useMemo`
+  - Optimized data fetching callbacks
+- **Test Coverage**: Comprehensive tests for helper functions
 - **Results**: Reduced unnecessary re-renders, optimized expensive computations
 
 ##### Phase 3: Service Layer Extraction ✅
@@ -983,24 +1005,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-#### GPS Coordinates Support for Best Beaches Feature (January 11, 2025) ✅
-- **Feature**: Enhanced `getBestBeachesNearHome` server action to accept optional GPS coordinates
-- **Status**: ✅ Implemented and tested
-- **Functionality**:
-  - Added optional `coords` parameter: `{ lat: number; lon: number } | null`
-  - Intelligent fallback logic: GPS coordinates → Home beach → Empty results
-  - Returns `metadata.locationSource` indicating 'gps' or 'home-beach'
-  - Maintains 10-mile search radius (16093 meters)
-  - Preserves all existing scoring and ranking logic
-- **Use Cases**:
-  - Real-time location-based beach recommendations
-  - Enhanced mobile geolocation features
-  - User can discover beaches near current location (not just home beach)
-- **Technical Implementation**:
-  - Backward compatible: optional parameter maintains existing behavior
-  - Comprehensive console logging for debugging GPS vs home beach paths
-  - Profile experience_level still fetched for skill-based scoring (even in GPS mode)
-  - All return values include metadata field for location source tracking
 - **File Modified**: `actions/beach/best-beaches-simple.ts`
 - **Testing**: Test examples added in `__tests__/actions/best-beaches-gps.test.ts`
 
@@ -1538,7 +1542,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Test Result**: ✅ All 25 tests passing
 
 #### Technical Implementation Details
-- **Reusable Component**: Designed for use across multiple recommendation contexts (morning API, best conditions, etc.)
+- **Reusable Component**: Designed for use across multiple recommendation contexts
 - **Type Safety**: Full TypeScript coverage with exported interfaces
 - **DRY Principle**: Leverages existing UI components (no custom badge/tooltip implementations)
 - **Pattern Consistency**: Follows established component patterns (early return, conditional rendering)
@@ -1547,9 +1551,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Export Pattern**: Exported via [components/recommendations/index.ts](components/recommendations/index.ts)
 
 #### Integration Points
-- **Future Integration**: Ready for morning recommendations UI, CoachCard, BestConditionsCards
-- **Data Source**: Consumes personalization data from [app/api/recommendations/morning/route.ts](app/api/recommendations/morning/route.ts)
-- **Type Compatibility**: Works with morning API response format (personalizedScore, scoreBreakdown, affinityData)
+- **Future Integration**: Ready for morning recommendations UI and coaching features
+- **Data Source**: Consumes personalization data from recommendation APIs
+- **Type Compatibility**: Works with API response formats (personalizedScore, scoreBreakdown, affinityData)
 
 #### Nightly Preference Update Cron - Workpath 5.3 ✅
 - **API Route**: [app/api/cron/update-user-preferences/route.ts](app/api/cron/update-user-preferences/route.ts)
@@ -2794,7 +2798,6 @@ All location pages are now fully implemented, tested, and ready for launch. See 
       - Fixed [components/map/selected-beach-card.tsx:55-56](components/map/selected-beach-card.tsx#L55-L56) to use `selectedBeach.lat`/`lon` instead of `latitude`/`longitude`
       - Fixed [components/map/map-content.tsx:73-83](components/map/map-content.tsx#L73-L83) to use `beach.lat`/`lon` for map centering
       - Fixed [components/beach-detail.tsx:471](components/beach-detail.tsx#L471) to check `beach?.lat && beach?.lon` for directions
-      - Fixed [components/home-screen/nearby-tab.tsx:23](components/home-screen/nearby-tab.tsx#L23) to use `homeBeach.lat`/`lon` for default location
   - **Testing:**
     - Added comprehensive test file [__tests__/lib/utils/distance-utils.test.ts](__tests__/lib/utils/distance-utils.test.ts)
     - Added NaN/Infinity validation tests to [__tests__/lib/map-utils.test.ts](__tests__/lib/map-utils.test.ts)
@@ -3178,33 +3181,8 @@ All location pages are now fully implemented, tested, and ready for launch. See 
 - **Files Audited:**
   - `components/home-screen/index.tsx` (action buttons, tab navigation)
   - `components/home-screen/forecast-tab.tsx` (KPI tiles, status indicators)
-  - `components/home-screen/best-conditions-cards.tsx` (badge system, card styling)
 - **Documentation:** `docs/HOME_PAGE_DESIGN_REFACTOR.md` (Phase 6 completed, checklist updated)
 
-### Improved - Home Page Phase 5: Best Conditions Cards Enhancement - 2025-10-23
-
-#### Home Page Design Refactor (Phase 5 Complete)
-- **Improved:** Verified and documented Best Conditions cards implementation with AllTrails styling patterns
-- **Card Enhancements:**
-  - Section header: `text-2xl font-roboto font-bold` with proper subtitle styling
-  - Card hover effects: `hover:shadow-lg transition-all duration-200 active:scale-[0.99]`
-  - Card layout: w-[280px] mobile, w-[320px] tablet+, h-48 image height, rounded-lg borders
-  - Horizontal scrolling: `overflow-x-auto snap-x snap-mandatory` with proper scroll behavior
-- **Badge System:**
-  - Skill level badges: Using exact AllTrails color scheme (blue-50/orange-50/red-50)
-  - Crowd level badges: Semantic colors with proper borders (green-200/yellow-200/red-200)
-  - All badge colors validated against beach detail page specification
-- **Visual Polish:**
-  - Smooth card transitions with active scale effect (0.99)
-  - Shadow elevation on hover (shadow-sm → shadow-lg)
-  - Proper snap-start scrolling for better UX
-  - Condition icons with semantic colors (blue-600 waves, green-600 wind, purple-600 tide)
-- **Result:** Best Conditions cards now perfectly match AllTrails design language
-- **Impact:** Enhanced card interactions, improved visual hierarchy, better scrolling experience
-- **Testing:** Horizontal scrolling tested and validated
-- **Files:**
-  - `components/home-screen/best-conditions-cards.tsx` (complete component verification)
-- **Documentation:** `docs/HOME_PAGE_DESIGN_REFACTOR.md` (Phase 5 completed, checklist updated)
 
 ### Improved - Home Page Phase 3: Action Button Grid Redesign - 2025-10-23
 
@@ -3255,7 +3233,7 @@ All location pages are now fully implemented, tested, and ready for launch. See 
   - CardTitle: Enhanced typography with `text-xl font-roboto font-bold` (20px size, Roboto font)
   - View Details button: Added `h-9 px-4 text-sm font-semibold hover:bg-white/90 transition-all` for improved interaction
 - **Visual Polish:**
-  - Consistent with AllTrails card patterns (beach detail page, best conditions cards)
+  - Consistent with AllTrails card patterns (beach detail page)
   - Enhanced shadow depth (shadow-md) for better hierarchy
   - Smoother button hover transition (white/90 opacity)
   - Professional border radius matching design system (rounded-lg = 12px)

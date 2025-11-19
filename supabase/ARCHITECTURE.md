@@ -691,16 +691,31 @@ Before any new migration:
 
 ## 🚀 Best Times Performance
 
+⚠️ **Status: Infrastructure Present, No Active Consumers (Planned Feature)**
+
 - `public.mv_best_times` (materialized view)
 
   - Precomputes rolling 2-hour windows for next 72h per beach.
   - Refreshed hourly via `pg_cron` job `refresh_mv_best_times_hourly` calling `public.refresh_mv_best_times()`.
   - Unique index on `(beach_id, start_ts)` enables concurrent refresh and fast lookup.
   - Introduced by `20250812170000_create_mv_best_times.sql` with rollback `20250812170001_rollback_mv_best_times.sql`.
+  - **Current Usage**: None - feature not yet launched. Helper function exists in `lib/bestTimes.ts` but no API routes or components consume it.
 
-- API `GET /api/recommendations/best-times?beachId&hours&limit`
-  - Prefers MV; falls back to `get_best_times` RPC.
-  - Cache headers: `s-maxage=600, stale-while-revalidate=300`.
+- `public.mv_beach_hourly_scores` (materialized view)
+
+  - Precomputes hourly marine+tide joins with surf suitability scores.
+  - Refreshed via `refresh_mv_beach_hourly_scores()` function (pg_cron schedule TBD).
+  - Introduced by `20250820134000_create_mv_beach_hourly_scores.sql`.
+  - **Current Usage**: None - supports `mv_best_times` which is also not yet consumed.
+
+- **Data Engineering Review**: See `docs/data-engineering/BEACH_RECOMMENDATION_CLEANUP_REVIEW.md` for recommendations on:
+  - Whether to continue pg_cron refresh jobs for unused materialized views
+  - Storage and compute cost analysis
+  - Timeline for best-times feature launch
+
+- **Future API** (not yet implemented): Planned `GET /api/recommendations/best-times?beachId&hours&limit`
+  - Would prefer MV for performance; fall back to `get_best_times` RPC for live computation.
+  - Expected cache headers: `s-maxage=600, stale-while-revalidate=300`.
 
 Weights stored on `public.beaches`:
 

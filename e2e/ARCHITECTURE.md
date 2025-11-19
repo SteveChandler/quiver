@@ -131,7 +131,7 @@ import { TEST_USER_SCENARIOS } from './fixtures/user-profiles';
 
 // GPS-only mode (no home beach)
 const scenario = TEST_USER_SCENARIOS.gpsOnly;
-expect(scenario.expectedHeading).toBe('Best Conditions Near You');
+expect(scenario.expectedHeading).toBe('Forecast for Home Beach');
 
 // Home beach fallback (GPS denied)
 const fallbackScenario = TEST_USER_SCENARIOS.homeBeachFallback;
@@ -265,8 +265,8 @@ test('should use GPS location when available', async ({ page, context }) => {
   await waitForPageLoad(page);
 
   // Verify GPS-based content
-  const heading = page.getByTestId('best-conditions-heading');
-  await expect(heading).toHaveText('Best Conditions Near You');
+  const heading = page.getByTestId('forecast-heading');
+  await expect(heading).toHaveText('Forecast for Nearby Beaches');
 });
 ```
 
@@ -282,13 +282,12 @@ const result = await getNearbyBeaches(lat, lon, radiusMiles);
 
 if (result.success && result.data && result.fallbackUsed) {
   console.warn(
-    "Spatial function failed, falling back to client-side filtering",
-    { source: "NearbyTab" } // or "useBeachSearch"
+    "Spatial function failed, falling back to client-side filtering"
   );
 }
 ```
 
-Playwright tests (see `e2e/nearby-beaches-regression.spec.ts`) attach a `page.on("console")` listener and **fail** if any browser console message contains:
+Playwright tests can attach a `page.on("console")` listener and **fail** if any browser console message contains:
 
 ```text
 Spatial function failed, falling back to client-side filtering
@@ -313,8 +312,8 @@ test('should handle permission revocation', async ({ page, context }) => {
   await waitForPageLoad(page);
 
   // Verify GPS mode
-  const heading = page.getByTestId('best-conditions-heading');
-  await expect(heading).toHaveText('Best Conditions Near You');
+  const heading = page.getByTestId('forecast-heading');
+  await expect(heading).toHaveText('Forecast for Nearby Beaches');
 
   // Revoke permission mid-session
   await context.clearPermissions();
@@ -326,7 +325,7 @@ test('should handle permission revocation', async ({ page, context }) => {
 
   // Should fall back to home beach or show error
   const headingText = await heading.textContent();
-  expect(headingText).not.toBe('Best Conditions Near You');
+  expect(headingText).not.toBe('Forecast for Nearby Beaches');
 });
 ```
 
@@ -348,7 +347,7 @@ test('should fall back to home beach when GPS denied', async ({ page, context })
 
   // Verify home beach fallback
   const homeBeachName = await getHomeBeachName(page);
-  const heading = page.getByTestId('best-conditions-heading');
+  const heading = page.getByTestId('forecast-heading');
   const headingText = await heading.textContent();
 
   expect(headingText).toContain(homeBeachName);
@@ -368,8 +367,8 @@ test('should handle no location available gracefully', async ({ page, context })
   await page.goto('/');
   await waitForPageLoad(page);
 
-  const section = page.getByTestId('best-conditions-section');
-  const error = page.getByTestId('best-conditions-error');
+  const section = page.getByTestId('forecast-section');
+  const error = page.getByTestId('forecast-error');
 
   // Section should either:
   // 1. Be hidden (graceful degradation)
@@ -398,7 +397,7 @@ test('should transition from loading to content', async ({ page, context }) => {
   const navigationPromise = page.goto('/');
 
   // Check for skeleton (loading state)
-  const skeleton = page.getByTestId('best-conditions-skeleton');
+  const skeleton = page.getByTestId('forecast-skeleton');
   const skeletonAppeared = await skeleton.isVisible({ timeout: 2000 }).catch(() => false);
 
   if (skeletonAppeared) {
@@ -410,10 +409,10 @@ test('should transition from loading to content', async ({ page, context }) => {
   await waitForPageLoad(page);
 
   // Verify content is visible
-  const section = page.getByTestId('best-conditions-section');
+  const section = page.getByTestId('forecast-section');
   await expect(section).toBeVisible();
 
-  const cards = page.getByTestId('best-conditions-card');
+  const cards = page.getByTestId('forecast-card');
   expect(await cards.count()).toBeGreaterThan(0);
 });
 ```
@@ -427,7 +426,7 @@ test('should be keyboard navigable', async ({ page }) => {
   await page.goto('/');
   await waitForPageLoad(page);
 
-  const firstCard = page.getByTestId('best-conditions-card').first();
+  const firstCard = page.getByTestId('forecast-card').first();
   await firstCard.focus();
 
   // Verify focus
@@ -443,7 +442,7 @@ test('should have proper ARIA attributes', async ({ page }) => {
   await page.goto('/');
   await waitForPageLoad(page);
 
-  const error = page.getByTestId('best-conditions-error');
+  const error = page.getByTestId('forecast-error');
   const errorVisible = await error.isVisible().catch(() => false);
 
   if (errorVisible) {
@@ -573,7 +572,7 @@ test('should handle geolocation timeout', async ({ page, context }) => {
   await page.waitForTimeout(12000);
 
   // Verify timeout handling
-  const error = page.getByTestId('best-conditions-error');
+  const error = page.getByTestId('forecast-error');
   const errorVisible = await error.isVisible().catch(() => false);
 
   if (errorVisible) {
@@ -593,10 +592,10 @@ Always use `data-testid` attributes for test selectors:
 
 ```typescript
 // Good
-const section = page.getByTestId('best-conditions-section');
+const section = page.getByTestId('forecast-section');
 
 // Avoid
-const section = page.locator('.best-conditions-section');
+const section = page.locator('.forecast-section');
 ```
 
 ### 2. Handle Async Loading Gracefully
@@ -686,7 +685,7 @@ test('should handle orphaned home beach reference', async ({ page }) => {
   await setInvalidHomeBeach(page);
 
   // Verify graceful handling
-  const error = page.getByTestId('best-conditions-error');
+  const error = page.getByTestId('forecast-error');
   const errorVisible = await error.isVisible({ timeout: TIMEOUTS.medium }).catch(() => false);
 
   // Either shows error or hides section
@@ -700,11 +699,6 @@ test('should handle orphaned home beach reference', async ({ page }) => {
 
 ### Current Coverage
 
-✅ GPS Mode ("Best Conditions Near You")
-- GPS permission granted → Show GPS-based results
-- GPS heading verification
-- Beach card rendering
-- Distance calculations
 
 ✅ Home Beach Fallback Mode
 - GPS denied + home beach set → Show home beach results

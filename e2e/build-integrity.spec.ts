@@ -459,7 +459,7 @@ test.describe('Build Integrity - Code Splitting', () => {
       }
     });
 
-    // Home page with best conditions (lazy loaded)
+    // Home page (lazy loaded components)
     await page.goto('/');
     await waitForPageLoad(page);
     await page.waitForTimeout(2000);

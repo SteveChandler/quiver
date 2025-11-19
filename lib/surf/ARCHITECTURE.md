@@ -43,10 +43,8 @@ lib/surf/
 
 ## Usage Patterns
 
-- Morning Recommendations (`/api/recommendations/morning`)
-  - Determines local morning/near-term window, fetches data via `data.ts`, builds windows via `windows.ts`, outputs top picks.
 - Beach Detail and Forecast UX
-  - Uses best-times APIs (MV/RPC) first; falls back to computing from `v_beach_hourly_scores` within daylight bounds. A “why” breakdown is derived by querying the peak hour inside a selected window.
+  - Uses best-times APIs (MV/RPC) first; falls back to computing from `v_beach_hourly_scores` within daylight bounds. A "why" breakdown is derived by querying the peak hour inside a selected window.
 
 ## Transparency & Freshness
 

@@ -301,12 +301,11 @@ useEffect(() => {
 - **`index.tsx`** - Main dashboard orchestrator
 - **`forecast-tab.tsx`** - Personalized forecast view
 - **`community-tab.tsx`** - Social activity feed
-- **`nearby-tab.tsx`** - Nearby beaches and conditions
 - **`use-home-data.ts`** - Centralized data management hook
 
 #### Features
 
-- **Tabbed Interface**: Forecast, Community, Nearby sections
+- **Tabbed Interface**: Forecast, Community sections
 - **Personalization**: User preference-driven content
 - **Real-time Updates**: Live data feeds and notifications
 - **Performance**: Lazy loading and data caching

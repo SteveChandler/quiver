@@ -2,7 +2,6 @@
  * E2E tests for Personalization Match Scores Feature
  *
  * Tests the PersonalizedBadge component and personalization scoring across:
- * - BestConditionsCards (home screen top 3 recommendations)
  * - BeachCard (generic beach card component)
  * - Beach Detail Pages (individual beach views)
  *
@@ -21,7 +20,6 @@ import { VIEWPORTS, TIMEOUTS, TEST_BEACHES } from "./fixtures/test-data";
 import {
   hasPersonalizationData,
   skipIfNoPersonalizationData,
-  getPersonalizedRecommendations,
 } from "./utils/personalization-helpers";
 
 /**
@@ -48,23 +46,14 @@ test.describe('Personalization Match Scores', () => {
    * Verifies personalized badges appear for authenticated users with preferences
    */
   test.describe('Authenticated User Flow', () => {
-    test('should display personalized badges on best conditions cards for authenticated users', async ({ page }) => {
+    test('should display personalized badges on beach cards for authenticated users', async ({ page }) => {
       await skipIfNoPersonalizationData(page, test, { needsPreferences: true });
 
       // Navigate to home screen
       await page.goto('/');
       await waitForPageLoad(page);
 
-      // Wait for best conditions cards to load
-      const cardsContainer = page.getByTestId('best-conditions-cards-container');
-      const containerVisible = await cardsContainer.isVisible({ timeout: TIMEOUTS.long }).catch(() => false);
-
-      if (!containerVisible) {
-        test.skip(true, 'Best conditions cards not visible - may not have location data');
-        return;
-      }
-
-      // Look for personalized badges
+      // Look for personalized badges on any beach cards
       const badges = page.locator('[data-testid="personalized-badge"]');
       const badgeCount = await badges.count();
 
@@ -445,13 +434,10 @@ test.describe('Personalization Match Scores', () => {
 
       expect(badgeCount).toBe(0);
 
-      // Verify beach cards still display normally (no errors)
-      const cards = page.getByTestId('best-conditions-card');
-      const cardCount = await cards.count();
-
-      // Page should still work without personalization
-      // May have 0 cards if no location available, but should not error
-      expect(cardCount).toBeGreaterThanOrEqual(0);
+      // Page should still work without personalization (no errors)
+      // Verify the page loaded successfully
+      const content = page.locator('main, [role="main"]');
+      await expect(content).toBeVisible();
     });
   });
 
@@ -729,22 +715,19 @@ test.describe('Personalization Match Scores', () => {
    * Verify complete user flows
    */
   test.describe('Integration Tests', () => {
-    test('should display personalized badges across multiple components on home page', async ({ page }) => {
+    test('should display personalized badges on home page', async ({ page }) => {
       await skipIfNoPersonalizationData(page, test, { needsPreferences: true, minSessions: 5 });
 
       await page.goto('/');
       await waitForPageLoad(page);
 
-      // Look for badges in best conditions cards
-      const bestConditionsBadges = page
-        .locator('[data-testid="best-conditions-cards-container"]')
-        .locator('[data-testid="personalized-badge"]');
+      // Look for any personalized badges on the page
+      const badges = page.locator('[data-testid="personalized-badge"]');
+      const badgeCount = await badges.count();
 
-      const bcBadgeCount = await bestConditionsBadges.count();
-
-      if (bcBadgeCount > 0) {
-        // Verify at least one badge in best conditions
-        await expect(bestConditionsBadges.first()).toBeVisible();
+      if (badgeCount > 0) {
+        // Verify at least one badge is visible
+        await expect(badges.first()).toBeVisible();
       }
 
       // Test passes if personalization appears somewhere on the page
@@ -757,8 +740,8 @@ test.describe('Personalization Match Scores', () => {
       await page.goto('/');
       await waitForPageLoad(page);
 
-      // Get initial recommendations
-      const initialRecommendations = await getPersonalizedRecommendations(page);
+      // Check for personalized badges
+      const initialBadges = await page.locator('[data-testid="personalized-badge"]').count();
 
       // Navigate away and back
       await page.goto('/map');
@@ -766,17 +749,12 @@ test.describe('Personalization Match Scores', () => {
       await page.goto('/');
       await waitForPageLoad(page);
 
-      // Get recommendations again
-      const newRecommendations = await getPersonalizedRecommendations(page);
+      // Check for personalized badges again
+      const newBadges = await page.locator('[data-testid="personalized-badge"]').count();
 
-      // Should still have personalized recommendations
-      if (initialRecommendations.length > 0) {
-        const hadPersonalized = initialRecommendations.some((r) => r.personalized);
-        const stillHasPersonalized = newRecommendations.some((r) => r.personalized);
-
-        if (hadPersonalized) {
-          expect(stillHasPersonalized).toBe(true);
-        }
+      // Should still have personalized badges if had them before
+      if (initialBadges > 0) {
+        expect(newBadges).toBeGreaterThan(0);
       }
     });
   });
@@ -849,52 +827,4 @@ test.describe('Personalization Match Scores', () => {
     });
   });
 
-  /**
-   * API Integration Tests
-   * Verify personalization data from backend
-   */
-  test.describe('API Integration', () => {
-    test('should return personalized data from recommendations API', async ({ page }) => {
-      await skipIfNoPersonalizationData(page, test, { needsPreferences: true });
-
-      const recommendations = await getPersonalizedRecommendations(page);
-
-      if (recommendations.length === 0) {
-        test.skip(true, 'No recommendations returned from API');
-        return;
-      }
-
-      // At least one recommendation should be personalized
-      const hasPersonalized = recommendations.some((r) => r.personalized);
-
-      if (hasPersonalized) {
-        const personalizedRec = recommendations.find((r) => r.personalized)!;
-
-        // Should have score
-        expect(personalizedRec.score).toBeGreaterThan(0);
-        expect(personalizedRec.score).toBeLessThanOrEqual(100);
-
-        // Should have breakdown
-        if (personalizedRec.breakdown) {
-          expect(personalizedRec.breakdown.base).toBeGreaterThan(0);
-        }
-      }
-    });
-
-    test('should re-rank beaches based on personalization scores', async ({ page }) => {
-      await skipIfNoPersonalizationData(page, test, { needsPreferences: true });
-
-      const recommendations = await getPersonalizedRecommendations(page);
-
-      if (recommendations.length < 2) {
-        test.skip(true, 'Need multiple recommendations to test ranking');
-        return;
-      }
-
-      // Verify recommendations are sorted by score (descending)
-      for (let i = 0; i < recommendations.length - 1; i++) {
-        expect(recommendations[i].score).toBeGreaterThanOrEqual(recommendations[i + 1].score);
-      }
-    });
-  });
 });

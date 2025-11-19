@@ -18,10 +18,8 @@ import { PreferencesAnnouncementDialog } from "@/components/profile/preferences-
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
-import { NearbyTab } from "./nearby-tab";
 import { CommunityTab } from "./community-tab";
 import { NearbyBeachChips } from "./nearby-beach-chips";
-import { BestConditionsCards } from "./best-conditions-cards";
 
 // Loading component for tabs
 function TabSkeleton() {
@@ -38,7 +36,7 @@ export function HomeScreen() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState(
-    tabParam && ["forecast", "nearby", "community"].includes(tabParam)
+    tabParam && ["forecast", "community"].includes(tabParam)
       ? tabParam
       : "forecast"
   );
@@ -47,7 +45,7 @@ export function HomeScreen() {
   const [showPreferencesPopup, setShowPreferencesPopup] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
-  const { beaches, sessions, loading } = useHomeData();
+  const { sessions, loading } = useHomeData();
 
   // Track tab changes
   const handleTabChange = (value: string) => {
@@ -63,41 +61,6 @@ export function HomeScreen() {
     useCachedProfile();
 
   const { coords, source, requestLocation } = useGeo();
-
-  // DIAGNOSTIC LOGGING for Best Conditions section
-  console.log('🏠 [HomeScreen] Profile and location state:', {
-    hasProfile: !!profile,
-    profileId: profile?.id,
-    homeBeachId: profile?.home_beach_id,
-    hasHomeBeach: !!homeBeach,
-    homeBeach: homeBeach ? { id: homeBeach.id, name: homeBeach.name, lat: homeBeach.lat, lon: homeBeach.lon } : null,
-    hasCoords: !!coords,
-    coords,
-    source,
-    profileLoading,
-    hasCachedData,
-  });
-
-  useEffect(() => {
-    // On mount: get {lat, lon} and call morning recommendations
-    if (!coords) return;
-    const controller = new AbortController();
-    (async () => {
-      try {
-        await fetch("/api/recommendations/morning", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            lat: coords.lat,
-            lon: coords.lon,
-            radius_km: 25,
-          }),
-          signal: controller.signal,
-        });
-      } catch {}
-    })();
-    return () => controller.abort();
-  }, [coords]);
 
   // Check if we should show the preferences announcement popup
   useEffect(() => {
@@ -203,11 +166,6 @@ export function HomeScreen() {
           </div>
         </section>
 
-        {/* Best Conditions Section - Show if GPS available OR home beach set */}
-        <section className="centered-container">
-          <BestConditionsCards homeBeach={homeBeach} />
-        </section>
-
         {/* Tabs Section */}
         <section className="centered-container">
           <Tabs
@@ -222,12 +180,6 @@ export function HomeScreen() {
                 className="rounded-none border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 data-[state=active]:border-ocean-blue data-[state=active]:text-ocean-blue data-[state=active]:font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none"
               >
                 Forecast
-              </TabsTrigger>
-              <TabsTrigger
-                value="nearby"
-                className="rounded-none border-b-2 border-transparent -mb-0.5 px-2 py-2 sm:px-6 sm:py-3 text-xs sm:text-base font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 data-[state=active]:border-ocean-blue data-[state=active]:text-ocean-blue data-[state=active]:font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-              >
-                Nearby
               </TabsTrigger>
               <TabsTrigger
                 value="community"
@@ -252,14 +204,6 @@ export function HomeScreen() {
                 profile={profile}
                 homeBeach={homeBeach}
                 overrideBeach={selectedBeachOverride}
-              />
-            </TabsContent>
-
-            <TabsContent value="nearby" className="relative z-0">
-              <NearbyTab
-                beaches={beaches}
-                loading={loading}
-                homeBeach={homeBeach}
               />
             </TabsContent>
 

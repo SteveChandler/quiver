@@ -276,8 +276,7 @@ export function useBeachSearch() {
           if ((result as any).fallbackUsed) {
             // Surface spatial fallback in the browser so E2E tests can catch DB regressions
             console.warn(
-              "Spatial function failed, falling back to client-side filtering",
-              { source: "useBeachSearch" }
+              "Spatial function failed, falling back to client-side filtering"
             );
           }
 
