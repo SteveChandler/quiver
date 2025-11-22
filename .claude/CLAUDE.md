@@ -463,3 +463,4 @@ yarn typecheck              # Run TypeScript checks
 ---
 
 **Remember**: Always use the tech-lead-orchestrator for multi-step tasks, follow the agent routing map, and maintain the high quality standards that make Quiver an excellent surfing application.
+- "if the test don't run you didnt not successfully fully implement an update"

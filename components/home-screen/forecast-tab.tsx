@@ -31,6 +31,9 @@ import { ForecastErrorStateCard, ForecastLoadingSkeleton } from "@/components/fo
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { track, slugify } from "@/lib/analytics";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { usePersonalizedHomeForecast } from "@/hooks/use-personalized-home-forecast";
+import { PersonalizedForecastCard } from "@/components/home-screen/personalized-forecast-card";
+import { BeachDiscoveryList } from "@/components/discover/beach-discovery-list";
 
 interface ForecastTabProps {
   profile: Profile | null;
@@ -44,6 +47,18 @@ export function ForecastTab({
   overrideBeach,
 }: ForecastTabProps) {
   const router = useRouter();
+
+  // Fetch personalized forecast recommendation
+  const {
+    recommendation,
+    loading: personalizedLoading,
+    error: personalizedError,
+    hasRecommendation,
+  } = usePersonalizedHomeForecast({
+    enabled: !!profile, // Only fetch when user has profile
+    immediate: true,    // Fetch on mount
+  });
+
   const [showAdjusted, setShowAdjusted] = useState(false);
   const [forecastState, setForecastState] = useState<ForecastDataState>("loading");
   const [forecastError, setForecastError] = useState<Error | null>(null);
@@ -143,7 +158,7 @@ export function ForecastTab({
       const { getCurrentForecast } = await import(
         "@/lib/utils/current-forecast-utils"
       );
-      const currentForecast = getCurrentForecast(forecasts);
+      const currentForecast = getCurrentForecast<EnhancedForecastEntity>(forecasts);
 
       if (currentForecast) {
         console.log(
@@ -189,6 +204,22 @@ export function ForecastTab({
       });
     }
   }, [todaysForecast, effectiveBeach, homeBeach, overrideBeach]);
+
+  // Track personalized forecast impressions
+  useEffect(() => {
+    if (hasRecommendation && recommendation && profile) {
+      track("personalized_forecast_impression", {
+        beach_id: recommendation.beach.id,
+        beach_slug: slugify(recommendation.beach.name),
+        score: recommendation.score,
+        personalized: recommendation.personalized,
+        window_start: recommendation.window.start.toISOString(),
+        window_end: recommendation.window.end.toISOString(),
+        reasons_count: recommendation.reasons.length,
+        source: "home_forecast_tab",
+      });
+    }
+  }, [hasRecommendation, recommendation, profile]);
 
   // Avoid flashing "Unavailable" on first load; retry once if we get null
   const [retryAttempted, setRetryAttempted] = useState(false);
@@ -267,6 +298,56 @@ export function ForecastTab({
     }
   }, [forecastStateInfo.canRetry, refetch]);
 
+  // Handle plan session from personalized forecast
+  const handlePlanSession = useCallback(() => {
+    if (!recommendation?.beach?.id) return;
+
+    const url = `/sessions/new?mode=plan&beach=${recommendation.beach.id}`;
+
+    // Track the action
+    track("personalized_forecast_plan_session", {
+      beach_id: recommendation.beach.id,
+      beach_slug: slugify(recommendation.beach.name),
+      score: recommendation.score,
+      personalized: recommendation.personalized,
+      source: "home_forecast_tab",
+    });
+
+    router.push(url);
+  }, [recommendation, router]);
+
+  // Handle view beach details from personalized forecast
+  const handleViewBeachFromPersonalized = useCallback(
+    (beachId: string) => {
+      if (!recommendation?.beach) return;
+
+      // Use the same URL helper as existing handleViewBeach
+      const beachUrl =
+        getBeachUrlSafe({
+          id: recommendation.beach.id,
+          slug: recommendation.beach.slug,
+          city: recommendation.beach.city,
+          state: recommendation.beach.state,
+        }) || `/beach/${recommendation.beach.id}`;
+
+      const urlWithSource = beachUrl.includes("?")
+        ? `${beachUrl}&from=home_personalized`
+        : `${beachUrl}?from=home_personalized`;
+
+      // Track the action
+      track("personalized_forecast_view_beach", {
+        beach_id: recommendation.beach.id,
+        beach_slug: slugify(recommendation.beach.name),
+        score: recommendation.score,
+        personalized: recommendation.personalized,
+        source: "home_forecast_tab",
+      });
+
+      router.push(urlWithSource);
+    },
+    [recommendation, router]
+  );
+
   // Keep showing skeleton until we have a beach and either a forecast or we've attempted a retry
   if (
     popularLoading ||
@@ -327,6 +408,23 @@ export function ForecastTab({
           selectedBeachName={effectiveBeach.name}
         />
       )}
+
+      {/* Surf Discovery - Top Spots for You */}
+      {profile && (
+        <BeachDiscoveryList maxResults={3} />
+      )}
+
+      {/* Personalized Forecast Recommendation */}
+      {profile && (
+        <PersonalizedForecastCard
+          recommendation={recommendation}
+          loading={personalizedLoading}
+          error={personalizedError ? new Error(personalizedError) : null}
+          onPlanSession={handlePlanSession}
+          onViewBeach={handleViewBeachFromPersonalized}
+        />
+      )}
+
       {/* Beach Header */}
       <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-lg border-0 shadow-md">
         <CardHeader className="pb-3 pt-4 px-5">

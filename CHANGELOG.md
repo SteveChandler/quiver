@@ -7,7 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Surf Discovery Date/Time Display** (November 21, 2025):
+  - Fixed "Invalid Date" bug in surf discovery recommendations (`lib/services/surf-discovery-service.ts:593-594`)
+  - Issue: `selectBestWindow` was creating dates from time string only (`forecast_time`) instead of combining both `forecast_date` and `forecast_time`
+  - Result: Discovery cards displayed "Best at Invalid Date" and time ranges showed same time twice (e.g., "Wed 4:00 PM - 4:00 PM")
+  - Fix: Now properly combines date and time using ISO 8601 format: `new Date(\`${forecast_date}T${forecast_time}\`)`
+  - Matches proven pattern from `personalized-home-forecast-service.ts` and other services
+  - Impact: All surf discovery recommendation cards now display valid dates and proper 3-hour time windows
+  - Test Coverage: Created comprehensive component tests for `BeachDiscoveryCard` date/time display
+
 ### Added
+- **Personalized Home Forecast Tests** (November 21, 2025):
+  - Comprehensive unit test coverage for personalized home forecast feature - **118 tests passing**
+  - Hook tests: `__tests__/hooks/use-personalized-home-forecast.test.ts` (17 tests)
+    - Tests data fetching, authentication handling, loading states, error handling
+    - Tests skip/enable logic, callbacks, and refetch functionality
+  - Service tests: `__tests__/services/personalized-home-forecast-service.test.ts` (20 tests)
+    - Type safety tests for all personalization types
+    - Logic tests for window selection, scoring, summary/reason generation
+    - Performance characteristic validation tests
+  - Component tests: `__tests__/components/personalized-forecast-card.test.tsx` (5 tests)
+    - Tests loading skeleton, error states, no-recommendation state
+    - Validates proper state handling and user feedback
+  - Integration with existing personalized scoring tests (76 tests)
+  - **Total: 5 test suites, 118 tests, 100% passing**
+- **Personalized Home Forecast Hook** (November 21, 2025):
+  - New React hook: `usePersonalizedHomeForecast`
+  - File: `hooks/use-personalized-home-forecast.ts`
+  - Fetches personalized surf recommendations for authenticated users
+  - Integrates with `/api/home/personalized-forecast` endpoint
+  - Features: authentication gating, optional homeBeachId override, standard useDataFetcher pattern
+  - Returns: `{ recommendation, loading, error, refetch }`
+  - Documentation: Added to `hooks/ARCHITECTURE.md` under Forecast & Weather Hooks section
+  - Usage: Designed for home screen to display best surf opportunity
+- **Personalized Home Forecast API Endpoint** (November 21, 2025):
+  - New authenticated GET endpoint: `/api/home/personalized-forecast`
+  - Returns personalized surf recommendation for home screen
+  - File: `app/api/home/personalized-forecast/route.ts`
+  - Query params: optional `homeBeachId` (UUID) to override user's profile home beach
+  - Authentication: Required (user session via Supabase)
+  - Rate limiting: 10 requests/minute (configured in `lib/api/rate-limit-config.ts`)
+  - Caching: Private per-user cache (5 minutes)
+  - Response: `PersonalizedForecastRecommendation | null` with beach, window, forecast, score, reasons
+  - Integrates with `personalized-home-forecast-service` for recommendation generation
+  - Documentation: Added to `app/api/ARCHITECTURE.md` under `/home` section
+- **Personalized Home Forecast Service** (November 20, 2025):
+  - New service for generating personalized surf recommendations on home screen
+  - File: `lib/services/personalized-home-forecast-service.ts`
+  - Integrates with EnhancedForecastService (direct service calls, no HTTP overhead)
+  - Leverages personalized-scoring-service for user preference scoring
+  - Builds candidate pool from home beach + favorites (ranked)
+  - Selects best 3-hour window in next 48 hours with base scoring
+  - Generates human-readable summaries and personalization reasons
+  - Performance: 3 DB queries total, parallel forecast fetching (3 concurrent, 5s timeout)
+  - Performance targets: P50 < 2s, P95 < 4s for 3 candidate beaches
+- **Personalization Types** (November 20, 2025):
+  - New type definitions for personalized forecast recommendations
+  - File: `types/personalization.ts`
+  - Includes `PersonalizedForecastWindow`, `PersonalizedForecastRecommendation`, `PersonalizedForecastOptions`
+  - Well-documented types with JSDoc for IDE support
 - **E2E Test Coverage**: Comprehensive test suite for home beach functionality in edit profile modal
   - Tests home beach display, persistence, and changes
   - Includes regression test for initialValue bug fix (beach name not displaying)
@@ -21,6 +80,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - File: `docs/data-engineering/BEACH_RECOMMENDATION_CLEANUP_REVIEW.md`
 
 ### Changed
+- **Services Architecture Documentation** (November 20, 2025):
+  - Updated `lib/services/ARCHITECTURE.md` with personalized home forecast service
+  - Added personalization services section (home forecast, scoring, preference learning)
+  - Documented service-to-service integration patterns (no HTTP between services)
+  - Added data flow diagram for personalized home forecast
+  - Performance metrics and database access patterns documented
 - **Architecture Documentation Updates** (November 19, 2025):
   - Updated `app/ARCHITECTURE.md` to remove stale reference to `/api/recommendations/morning` endpoint
   - Updated `lib/surf/ARCHITECTURE.md` to remove stale reference to morning recommendations usage pattern

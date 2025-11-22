@@ -8,13 +8,16 @@ The `/lib/services` directory provides comprehensive integration with external A
 
 ```
 lib/services/
-├── cdip-service.ts                  # CDIP buoy data integration
-├── enhanced-forecast-service.ts     # Comprehensive forecast generation
-├── inactive-buoy-cleanup.ts         # Buoy maintenance and cleanup
-├── noaa-conditions-sync.ts          # NOAA buoy conditions synchronization
-├── noaa-coops-service.ts            # NOAA CO-OPS tide data service
-├── noaa-sync.ts                     # NOAA buoy station synchronization
-└── noaa-wavewatch-service.ts        # NOAA WaveWatch III wave data
+├── cdip-service.ts                           # CDIP buoy data integration
+├── enhanced-forecast-service.ts              # Comprehensive forecast generation
+├── inactive-buoy-cleanup.ts                  # Buoy maintenance and cleanup
+├── noaa-conditions-sync.ts                   # NOAA buoy conditions synchronization
+├── noaa-coops-service.ts                     # NOAA CO-OPS tide data service
+├── noaa-sync.ts                              # NOAA buoy station synchronization
+├── noaa-wavewatch-service.ts                 # NOAA WaveWatch III wave data
+├── personalized-home-forecast-service.ts     # Personalized home recommendations
+├── personalized-scoring-service.ts           # User preference scoring
+└── preference-learning-service.ts            # User preference learning
 ```
 
 ## 🏗️ **ARCHITECTURE PATTERNS**
@@ -32,6 +35,10 @@ ExternalServices
 │   ├── Enhanced Forecast Generation
 │   ├── Data Combination and Validation
 │   └── Quality Assessment
+├── Personalization Services
+│   ├── Personalized Home Forecast (User recommendations)
+│   ├── Personalized Scoring (Preference-based scoring)
+│   └── Preference Learning (Session history analysis)
 ├── Maintenance Services
 │   ├── Buoy Station Synchronization
 │   ├── Inactive Buoy Cleanup
@@ -369,6 +376,91 @@ export class NOAACOOPSService {
 }
 ```
 
+### **PersonalizedHomeForecastService** (User Recommendations)
+
+- **Purpose**: Generates personalized surf recommendations for home screen
+- **Features**:
+  - Candidate pool from home beach + favorites
+  - Direct EnhancedForecastService integration (no HTTP overhead)
+  - Personalized scoring via personalized-scoring-service
+  - Optimal time window selection (best 3-hour window in 48h)
+  - Human-readable summaries and reasons
+
+**Service Integration Pattern:**
+
+```typescript
+export async function getPersonalizedHomeForecast(
+  userId: string,
+  options: PersonalizedForecastOptions = {}
+): Promise<PersonalizedForecastRecommendation | null> {
+  // 1. Build candidate pool (home beach + favorites)
+  const candidates = await buildCandidatePool(userId, options);
+  
+  // 2. Fetch forecasts in parallel with timeout
+  const beachForecasts = await batchFetchForecasts(candidates, {
+    maxConcurrent: 3,
+    timeout: 5000,
+  });
+  
+  // 3. Select best window for each beach
+  const beachCandidates = beachForecasts.map(({ beach, forecasts }) => ({
+    beach,
+    forecasts,
+    bestWindow: selectBestWindow(forecasts),
+    baseScore: calculateBaseScore(bestWindow, forecasts[0]),
+  }));
+  
+  // 4. Score beaches with personalization
+  const scoredBeaches = await scoreBeachesForUser(userId, beachCandidates);
+  
+  // 5. Select best beach and build recommendation
+  const best = scoredBeaches.reduce((prev, curr) => 
+    curr.personalizedScore.score > prev.personalizedScore.score ? curr : prev
+  );
+  
+  return {
+    beach: best.beach,
+    window: best.bestWindow,
+    score: best.personalizedScore.score,
+    summary: generateSummary(best),
+    reasons: generateReasons(best),
+    generated_at: new Date().toISOString(),
+  };
+}
+```
+
+**Performance:**
+- Database: 3 queries total (candidate pool, affinity map, batch scoring)
+- Forecast fetching: Parallel with 3 concurrent + 5s timeout
+- P50: < 2s for 3 candidate beaches
+- P95: < 4s with network variability
+
+**Dependencies:**
+- `EnhancedForecastService` - Forecast generation
+- `personalized-scoring-service` - User preference scoring
+- `user_surf_preferences` table - Learned preferences
+- `user_beach_affinity` table - Beach familiarity
+- `favorite_beaches` table - User favorites
+
+### **PersonalizedScoringService** (Preference-Based Scoring)
+
+- **Purpose**: Scores beaches for users by combining base score with personalization
+- **Features**:
+  - Onboarding preferences (wave size, break type)
+  - Learned preferences (wave range, wind, tide from session history)
+  - Beach affinity (familiarity bonus from past sessions)
+  - Batch scoring optimization (3 DB queries instead of N*3)
+
+**Scoring Breakdown:**
+- Base score: From algorithmic scoring (0-100)
+- Onboarding wave size match: +10 pts
+- Onboarding break type match: +8 pts
+- Learned wave range match: +15 pts * confidence
+- Learned wind preferences: +10 pts * confidence
+- Learned tide preferences: +8 pts * confidence
+- Beach affinity: +affinity_score * 0.15 (max 15 pts)
+- Final score capped at 100
+
 ### **Maintenance Services**
 
 #### **InactiveBuoyCleanup**
@@ -537,8 +629,62 @@ async function fetchWaveDataWithFallback(location: Location) {
 4. **Freshness Tracking**: Monitor data age and relevance
 5. **Source Attribution**: Track data sources for debugging
 
+## 🎯 **PERSONALIZATION ARCHITECTURE**
+
+### **Data Flow: Personalized Home Forecast**
+
+```
+User Request (userId)
+    ↓
+Build Candidate Pool (2 DB queries)
+    ├── Home beach from profile
+    └── Favorites ordered by rank
+    ↓
+Batch Fetch Forecasts (parallel, 3 concurrent, 5s timeout)
+    ├── EnhancedForecastService.generateComprehensiveForecast()
+    ├── Direct service call (no HTTP)
+    └── Returns 96 time points (12 days * 8 per day)
+    ↓
+Select Best Window (per beach)
+    ├── Filter to next 48 hours
+    ├── Score each 3-hour window
+    └── Base score: wave + wind + tide
+    ↓
+Personalized Scoring (1 DB query)
+    ├── Pre-load affinity map
+    ├── Batch score via personalized-scoring-service
+    └── Apply: onboarding + learned + affinity bonuses
+    ↓
+Select Best Beach
+    ↓
+Generate Summary & Reasons
+    ↓
+Return Recommendation
+```
+
+### **Integration Points**
+
+**Service-to-Service Composition:**
+- `personalized-home-forecast-service` → `EnhancedForecastService`
+- `personalized-home-forecast-service` → `personalized-scoring-service`
+- `personalized-scoring-service` → `preference-learning-service`
+
+**No HTTP Between Services:**
+All services use direct TypeScript imports and function calls. This eliminates:
+- Serialization/deserialization overhead
+- Network latency
+- Duplicate authentication/authorization checks
+- Complex error handling across HTTP boundaries
+
+**Database Access:**
+All services use `createSupabaseServiceRoleClient()` for server-side access with RLS bypassed. This is appropriate because:
+- Services run in trusted server context
+- Business logic enforces access control
+- Reduces query complexity
+- Improves performance
+
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with comprehensive external service integration  
-**Next Review**: After machine learning forecast enhancements
+**Last Updated**: November 2025  
+**Status**: Production-ready with comprehensive external service integration and personalization  
+**Next Review**: After machine learning forecast enhancements and user preference algorithm tuning

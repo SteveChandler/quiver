@@ -632,3 +632,42 @@ import {
 - **Upsert Keys**: `onConflict` by `(beach_id, ts, source)` for marine/tide; `(beach_id, date, source)` for sun
 - **Returns**: `{ totals: { marine, tides, sun, beaches } }`
 - **Notes**: No Open‑Meteo dependency; prioritizes observed data and fills short-term gaps to improve Best Times coverage
+
+---
+
+### 🏠 `/home/personalized-forecast` - Personalized Home Screen Recommendations
+
+#### `/home/personalized-forecast/route.ts`
+
+- **Methods**: `GET`
+- **Authentication**: Required (user session)
+- **Function**: Returns personalized surf recommendation for home screen
+- **Features**:
+  - Builds candidate pool from user's home beach and favorites
+  - Scores beaches using personalized-scoring-service (affinity, preferences)
+  - Selects optimal time window (next 48 hours)
+  - Generates human-readable summary and reasons
+  - Returns best opportunity with forecast details
+- **Query Parameters**:
+  - `homeBeachId` (optional): UUID to override user's profile home beach
+- **Rate Limit**: 10 requests/minute
+- **Caching**: Private per-user cache (5 minutes)
+- **Response**: `PersonalizedForecastRecommendation | null`
+  - `beach`: Beach details with coordinates
+  - `window`: Optimal 3-hour time window (start, end, conditions)
+  - `forecast`: Full forecast data for the window
+  - `score`: Personalized score (0-100)
+  - `personalized`: Whether personalization was applied
+  - `breakdown`: Score breakdown (base, onboarding prefs, learned prefs, affinity)
+  - `summary`: Human-readable recommendation (e.g., "Best conditions at Ocean Beach tomorrow morning: 3-4 ft waves, 10 wind")
+  - `reasons`: 2-4 personalization factors (e.g., "You've surfed here frequently", "Matches your preferred wave size")
+  - `generated_at`: ISO timestamp
+- **Service Layer**: `lib/services/personalized-home-forecast-service.ts`
+- **Performance**: 3 DB queries total, parallel forecast fetching with timeout
+- **Usage**: Home screen "Where to Surf" card, personalized notifications
+
+**Design Notes**:
+- v1 does not support lat/lon coordinates - uses profile data only
+- Candidate pool limited to home beach + favorites for performance
+- Graceful degradation: returns null if no viable windows or forecast data unavailable
+- Future enhancement: geo-based candidate selection for current location

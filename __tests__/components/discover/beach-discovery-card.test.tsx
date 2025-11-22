@@ -1,0 +1,389 @@
+/**
+ * Tests for Beach Discovery Card Component
+ *
+ * Verifies date/time display, card rendering, and user interactions.
+ * Critical test: Ensures valid Date objects are formatted correctly.
+ */
+
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { format, addHours, isValid } from "date-fns";
+import { BeachDiscoveryCard } from "@/components/discover/beach-discovery-card";
+import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import type { Beach } from "@/types/database";
+
+describe("BeachDiscoveryCard - Date/Time Display", () => {
+  const mockBeach: Beach = {
+    id: "beach-1",
+    name: "Pipeline",
+    slug: "pipeline",
+    description: "Famous surf spot",
+    center_lat: 21.6644,
+    center_lng: -158.0531,
+    country: "USA",
+    region: "Hawaii",
+    spot_id: "spot-1",
+    primary_swell_window_min: 270,
+    primary_swell_window_max: 315,
+    photo_url: null,
+    photo_attribution: null,
+    ideal_wind_direction: "E",
+    ideal_tide: "Mid",
+    difficulty: "expert",
+    break_type: "reef",
+    best_seasons: ["winter"],
+    hazards: ["shallow reef"],
+    facilities: [],
+    camping: false,
+    parking: null,
+    crowd_level: "very-crowded",
+    timezone: "Pacific/Honolulu",
+    created_at: new Date().toISOString(),
+  };
+
+  const createMockRecommendation = (
+    startDate: Date,
+    endDate: Date,
+    overrides: Partial<SurfDiscoveryRecommendation> = {}
+  ): SurfDiscoveryRecommendation => ({
+    beach: mockBeach,
+    score: 85,
+    matchQuality: "excellent",
+    window: {
+      start: startDate,
+      end: endDate,
+      tide: "Rising",
+      wind: "10 mph E",
+      waveHeight: "4-5 ft",
+      wavePeriod: "12s",
+      confidence: 85,
+    },
+    summary: `Best at ${format(startDate, "EEE h:mm a")}. Good swell direction and light offshore wind.`,
+    reasons: ["Good swell direction", "Light offshore wind", "Rising tide"],
+    warnings: [],
+    ...overrides,
+  });
+
+  const mockOnViewBeach = jest.fn();
+  const mockOnPlanSession = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("Valid Date Rendering", () => {
+    it("should display properly formatted date range with valid Date objects", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      // Should display formatted time range
+      const timeRange = screen.getByText(/Wed 4:00 PM - 7:00 PM/);
+      expect(timeRange).toBeInTheDocument();
+    });
+
+    it("should NOT display 'Invalid Date' in time range", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      // Should NOT contain "Invalid Date" anywhere
+      expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+    });
+
+    it("should display different start and end times (not same time twice)", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      // Format as displayed in the component
+      const startFormatted = format(startDate, "EEE h:mm a");
+      const endFormatted = format(endDate, "h:mm a");
+
+      // Should show time range with different times
+      const timeRangeText = `${startFormatted} - ${endFormatted}`;
+      expect(screen.getByText(timeRangeText)).toBeInTheDocument();
+
+      // Start and end should be different
+      expect(startFormatted).not.toBe(endFormatted);
+    });
+
+    it("should format summary with valid date (not 'Invalid Date')", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const summary = `Best at ${format(startDate, "EEE h:mm a")}. Good conditions.`;
+      const recommendation = createMockRecommendation(startDate, endDate, { summary });
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      // Summary should contain properly formatted time
+      expect(screen.getByText(/Best at Wed 4:00 PM/)).toBeInTheDocument();
+      expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Edge Cases", () => {
+    it("should handle early morning times (e.g., 6:00 AM)", () => {
+      const startDate = new Date("2025-01-15T06:00:00");
+      const endDate = new Date("2025-01-15T09:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      // Should display morning time correctly
+      expect(screen.getByText(/Wed 6:00 AM - 9:00 AM/)).toBeInTheDocument();
+    });
+
+    it("should handle times crossing midnight (e.g., 11 PM - 2 AM)", () => {
+      const startDate = new Date("2025-01-15T23:00:00");
+      const endDate = new Date("2025-01-16T02:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      // Should handle midnight crossing correctly
+      const startFormatted = format(startDate, "EEE h:mm a");
+      const endFormatted = format(endDate, "h:mm a");
+      expect(screen.getByText(`${startFormatted} - ${endFormatted}`)).toBeInTheDocument();
+    });
+
+    it("should handle noon times (12:00 PM)", () => {
+      const startDate = new Date("2025-01-15T12:00:00");
+      const endDate = new Date("2025-01-15T15:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      // Should display noon correctly
+      expect(screen.getByText(/Wed 12:00 PM - 3:00 PM/)).toBeInTheDocument();
+    });
+  });
+
+  describe("Component Structure and Interactions", () => {
+    it("should render beach name", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      expect(screen.getByText("Pipeline")).toBeInTheDocument();
+    });
+
+    it("should display score and match quality", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      expect(screen.getByText("85")).toBeInTheDocument();
+      expect(screen.getByText("Excellent")).toBeInTheDocument();
+    });
+
+    it("should show 'Top Pick' badge for rank 1", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      expect(screen.getByText("Top Pick")).toBeInTheDocument();
+    });
+
+    it("should display wave height and wind conditions", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      expect(screen.getByText("4-5 ft")).toBeInTheDocument();
+      expect(screen.getByText("10 mph E")).toBeInTheDocument();
+    });
+
+    it("should display reasons when provided", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      expect(screen.getByText("Good swell direction")).toBeInTheDocument();
+      expect(screen.getByText("Light offshore wind")).toBeInTheDocument();
+    });
+
+    it("should display warnings when provided", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate, {
+        warnings: ["Strong current", "Shallow reef"],
+      });
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      expect(screen.getByText("Strong current")).toBeInTheDocument();
+      expect(screen.getByText("Shallow reef")).toBeInTheDocument();
+    });
+
+    it("should display distance when provided", () => {
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate, {
+        distanceMiles: 5.7,
+      });
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      expect(screen.getByText("6 miles away")).toBeInTheDocument();
+    });
+
+    it("should call onPlanSession when Plan Session button is clicked", async () => {
+      const user = userEvent.setup();
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      const planButton = screen.getByRole("button", { name: /Plan Session/ });
+      await user.click(planButton);
+
+      expect(mockOnPlanSession).toHaveBeenCalledWith("beach-1");
+      expect(mockOnPlanSession).toHaveBeenCalledTimes(1);
+    });
+
+    it("should call onViewBeach when View Beach button is clicked", async () => {
+      const user = userEvent.setup();
+      const startDate = new Date("2025-01-15T16:00:00");
+      const endDate = new Date("2025-01-15T19:00:00");
+      const recommendation = createMockRecommendation(startDate, endDate);
+
+      render(
+        <BeachDiscoveryCard
+          recommendation={recommendation}
+          rank={1}
+          onViewBeach={mockOnViewBeach}
+          onPlanSession={mockOnPlanSession}
+        />
+      );
+
+      const viewButton = screen.getByRole("button", { name: /View Beach/ });
+      await user.click(viewButton);
+
+      expect(mockOnViewBeach).toHaveBeenCalledWith("beach-1");
+      expect(mockOnViewBeach).toHaveBeenCalledTimes(1);
+    });
+  });
+});
