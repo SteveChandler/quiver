@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Surf Discovery Window Selection** (November 22, 2025):
+  - Fixed discovery cards all showing 12:00 AM by implementing composite scoring for window selection
+  - Issue: `selectBestWindow` only used `confidence_score`, causing all cards to default to midnight when confidence scores were equal
+  - Previous behavior: With Open-Meteo forecasts setting confidence to 95 for all time slots, the first entry (midnight) always won
+  - Fix: Implemented composite scoring algorithm combining conditions quality (70%) and confidence (30%)
+  - New helper: `scoreForecastWindow` evaluates wave height (25 pts), period (20 pts), wind (20 pts), and tide (15 pts) for each time slot
+  - Tie-breaking: Prefers higher conditions score, then later timestamp
+  - Impact: Discovery cards now show varied times based on actual surf conditions, not just midnight
+  - Files modified: `lib/services/surf-discovery-service.ts`
+  - Test Coverage: Added 6 comprehensive tests for composite scoring and edge cases
 - **Surf Discovery Date/Time Display** (November 21, 2025):
   - Fixed "Invalid Date" bug in surf discovery recommendations (`lib/services/surf-discovery-service.ts:593-594`)
   - Issue: `selectBestWindow` was creating dates from time string only (`forecast_time`) instead of combining both `forecast_date` and `forecast_time`

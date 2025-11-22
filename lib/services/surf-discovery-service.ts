@@ -11,6 +11,13 @@
  * Transforms "personalized home forecast" (single beach) into
  * "where should I surf?" (ranked discovery list).
  *
+ * WINDOW SELECTION ALGORITHM:
+ * - Evaluates each 3-hour forecast window using composite scoring
+ * - Composite = (conditionsScore * 0.7) + (confidenceScore * 0.3)
+ * - Conditions score: wave height fit + period energy + wind alignment + tide fit
+ * - Tie-breaking: Prefer better conditions, then later timestamp
+ * - This prevents defaulting to midnight when all confidence scores are equal
+ *
  * Performance: 4 DB queries total, parallel forecast fetching, 12s timeout
  *
  * @module lib/services/surf-discovery-service
@@ -127,7 +134,7 @@ export async function discoverSurfSpots(
     ]);
 
     for (const { beach, forecasts } of beachForecasts) {
-      const bestWindow = selectBestWindow(forecasts);
+      const bestWindow = selectBestWindow(forecasts, beach, userPrefs);
       if (!bestWindow) {
         console.warn(`⚠️ No viable window found for ${beach.name}`);
         continue;
@@ -571,32 +578,199 @@ async function scoreBeachForDiscovery(args: {
 // ============================================================================
 
 /**
- * Select best 3-hour window from forecast
+ * Score a single forecast window for time-slot selection
+ *
+ * Evaluates conditions quality for a specific 3-hour forecast window
+ * using the same scoring logic as `scoreBeachForDiscovery`, but focused
+ * only on time-varying factors (waves, wind, tide).
+ *
+ * Excludes:
+ * - Beach affinity (not time-specific)
+ * - Distance penalty (not time-specific)
+ *
+ * @param forecast - Single forecast entity to score
+ * @param beach - Beach metadata for context
+ * @param userPrefs - User surf preferences (optional)
+ * @returns Conditions score (0-80 points: wave height 25 + period 20 + wind 20 + tide 15)
  */
-function selectBestWindow(
-  forecasts: EnhancedForecastEntity[]
-): PersonalizedForecastWindow | null {
-  if (forecasts.length === 0) return null;
+function scoreForecastWindow(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+  userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null
+): number {
+  let score = 0;
 
-  // Find best window by confidence score
-  let best = forecasts[0];
-  for (const forecast of forecasts) {
-    if (
-      forecast.confidence_score &&
-      forecast.confidence_score > (best.confidence_score || 0)
-    ) {
-      best = forecast;
+  // Parse forecast values
+  const waveHeight = parseFloat(forecast.wave_height || '0');
+  const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
+  const windSpeed = parseFloat(forecast.wind_speed || '0');
+  const windDir = parseWaveDirection(forecast.wind_direction || '');
+  const tideHeight = parseFloat(forecast.tide_height || '0');
+
+  // 1. Wave Height Fit (0-25 points)
+  if (userPrefs) {
+    const userMin = userPrefs.wave_min_ft || 2;
+    const userMax = userPrefs.wave_max_ft || 8;
+
+    if (waveHeight >= userMin && waveHeight <= userMax) {
+      score += 25;
+    } else if (waveHeight >= userMin * 0.8 && waveHeight <= userMax * 1.2) {
+      score += 15;
+    } else {
+      score += 5;
+    }
+  } else {
+    // No user prefs - use reasonable defaults
+    if (waveHeight >= 2 && waveHeight <= 6) {
+      score += 20;
+    } else {
+      score += 10;
     }
   }
 
+  // 2. Period/Energy Score (0-20 points)
+  if (userPrefs) {
+    const userMinPeriod = userPrefs.wave_period_min_s || 8;
+    const userMaxPeriod = userPrefs.wave_period_max_s || 18;
+
+    if (wavePeriod >= userMinPeriod && wavePeriod <= userMaxPeriod) {
+      score += 20;
+    } else if (wavePeriod >= 10) {
+      score += 15;
+    } else {
+      score += 5;
+    }
+  } else {
+    // No user prefs - use quality thresholds
+    if (wavePeriod >= 12) {
+      score += 20;
+    } else if (wavePeriod >= 9) {
+      score += 15;
+    } else {
+      score += 5;
+    }
+  }
+
+  // 3. Wind Alignment (0-20 points)
+  if (beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null) {
+    const offshoreDir = beach.wind_offshore_deg;
+    const tolerance = beach.wind_offshore_tol_deg || 30;
+
+    const angleDiff = Math.min(
+      Math.abs(windDir - offshoreDir),
+      360 - Math.abs(windDir - offshoreDir)
+    );
+
+    if (angleDiff <= tolerance && windSpeed <= 15) {
+      score += 20;
+    } else if (angleDiff <= tolerance * 2) {
+      score += 10;
+    }
+    // else 0 points for onshore wind
+  } else {
+    // No beach wind data - use general assessment
+    if (windSpeed <= 10) {
+      score += 15;
+    } else if (windSpeed <= 15) {
+      score += 8;
+    }
+    // else 0 points for strong wind
+  }
+
+  // 4. Tide Fit (0-15 points)
+  if (beach.preferred_tide_ft_min !== null && beach.preferred_tide_ft_max !== null) {
+    const idealMin = beach.preferred_tide_ft_min;
+    const idealMax = beach.preferred_tide_ft_max;
+
+    if (tideHeight >= idealMin && tideHeight <= idealMax) {
+      score += 15;
+    } else if (
+      tideHeight >= idealMin * 0.8 &&
+      tideHeight <= idealMax * 1.2
+    ) {
+      score += 8;
+    } else {
+      score += 3;
+    }
+  } else {
+    // No tide data - give partial credit
+    score += 8;
+  }
+
+  return score;
+}
+
+/**
+ * Select best 3-hour window from forecast using composite scoring
+ *
+ * NEW APPROACH (Option 2):
+ * 1. For each forecast entry, calculate:
+ *    - windowScore: Evaluate actual conditions (waves, wind, tide) using scoreForecastWindow
+ *    - confidenceScore: Normalize confidence_score to 0-100 scale
+ * 2. Combine with weighted average: composite = (windowScore * 0.7) + (confidenceScore * 0.3)
+ * 3. Select highest composite score
+ * 4. Tie-breaking: If composite scores tie, prefer higher windowScore, then later timestamp
+ *
+ * This ensures we pick the time slot with best actual conditions, not just highest confidence.
+ *
+ * @param forecasts - Array of forecast entities for the beach
+ * @param beach - Beach metadata for wind/tide preferences
+ * @param userPrefs - User surf preferences (optional, for wave size/period matching)
+ * @returns Best window or null if none viable
+ */
+function selectBestWindow(
+  forecasts: EnhancedForecastEntity[],
+  beach: Beach,
+  userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null
+): PersonalizedForecastWindow | null {
+  if (forecasts.length === 0) return null;
+
+  // Track best window with detailed scoring
+  let bestComposite = -1;
+  let bestWindowScore = -1;
+  let bestForecast: EnhancedForecastEntity | null = null;
+
+  for (const forecast of forecasts) {
+    // 1. Calculate conditions score for this time slot (0-80 points)
+    const windowScore = scoreForecastWindow(forecast, beach, userPrefs);
+
+    // 2. Normalize confidence score to 0-100 scale
+    const confidenceScore = forecast.confidence_score || 50;
+
+    // 3. Composite score: 70% conditions quality + 30% confidence
+    const composite = windowScore * 0.7 + confidenceScore * 0.3;
+
+    // 4. Select best, with tie-breaking logic
+    const isBetter =
+      composite > bestComposite ||
+      (composite === bestComposite && windowScore > bestWindowScore) ||
+      (composite === bestComposite &&
+        windowScore === bestWindowScore &&
+        bestForecast &&
+        new Date(`${forecast.forecast_date}T${forecast.forecast_time}`) >
+          new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}`));
+
+    if (isBetter) {
+      bestComposite = composite;
+      bestWindowScore = windowScore;
+      bestForecast = forecast;
+    }
+  }
+
+  if (!bestForecast) return null;
+
+  // Build window from best forecast
   return {
-    start: new Date(`${best.forecast_date}T${best.forecast_time}`),
-    end: new Date(new Date(`${best.forecast_date}T${best.forecast_time}`).getTime() + WINDOW_HOURS * 60 * 60 * 1000),
-    tide: best.tide_status || 'Unknown',
-    wind: `${best.wind_speed} ${best.wind_direction}`,
-    waveHeight: best.wave_height || 'Unknown',
-    wavePeriod: best.wave_period || 'Unknown',
-    confidence: best.confidence_score || 50,
+    start: new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}`),
+    end: new Date(
+      new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}`).getTime() +
+        WINDOW_HOURS * 60 * 60 * 1000
+    ),
+    tide: bestForecast.tide_status || 'Unknown',
+    wind: `${bestForecast.wind_speed} ${bestForecast.wind_direction}`,
+    waveHeight: bestForecast.wave_height || 'Unknown',
+    wavePeriod: bestForecast.wave_period || 'Unknown',
+    confidence: bestForecast.confidence_score || 50,
   };
 }
 
