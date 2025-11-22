@@ -126,7 +126,7 @@ export function BeachDiscoveryList({ maxResults = 5 }: BeachDiscoveryListProps) 
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="p-4">
             <p className="text-sm text-yellow-800">
-              Some beaches couldn't be analyzed. Showing {discovery.metadata.successfulForecasts}{" "}
+              Some beaches couldn&apos;t be analyzed. Showing {discovery.metadata.successfulForecasts}{" "}
               of {discovery.metadata.totalBeachesConsidered} beaches.
             </p>
           </CardContent>

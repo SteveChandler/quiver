@@ -4,11 +4,13 @@ import type React from "react";
 
 import {
   createContext,
+  memo,
+  useCallback,
   useContext,
   useEffect,
-  useState,
+  useMemo,
   useRef,
-  memo,
+  useState,
 } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -51,19 +53,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Use refs to prevent race conditions
   const initializingRef = useRef(false);
   const setupCompleteRef = useRef(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Centralized function to update auth state
-  const updateAuthState = (newSession: Session | null) => {
-    setSession(newSession);
-    setUser(newSession?.user || null);
-    setIsAuthenticated(!!newSession);
+  const setupUserAccount = useCallback(async (userId: string) => {
+    if (setupCompleteRef.current) return;
 
-    // Setup user account if needed
-    if (newSession?.user && !setupCompleteRef.current) {
-      setupUserAccount(newSession.user.id);
+    try {
+      // Add any user setup logic here (create profile, etc.)
+      setupCompleteRef.current = true;
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("AuthContext: User setup failed:", error);
+      }
+      // Don't fail auth if setup fails
     }
-  };
+  }, []);
+
+  const updateAuthState = useCallback(
+    (newSession: Session | null) => {
+      setSession(newSession);
+      setUser(newSession?.user || null);
+      setIsAuthenticated(!!newSession);
+
+      // Setup user account if needed
+      if (newSession?.user && !setupCompleteRef.current) {
+        setupUserAccount(newSession.user.id);
+      }
+    },
+    [setupUserAccount]
+  );
 
   // Simplified session refresh function
   const refreshSession = async (): Promise<void> => {
@@ -103,20 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Simplified user setup function
-  const setupUserAccount = async (userId: string) => {
-    if (setupCompleteRef.current) return;
-
-    try {
-      // Add any user setup logic here (create profile, etc.)
-      setupCompleteRef.current = true;
-    } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("AuthContext: User setup failed:", error);
-      }
-      // Don't fail auth if setup fails
-    }
-  };
-
   // Initialize auth state on mount - client-side only
   useEffect(() => {
     let mounted = true;
@@ -233,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       initializingRef.current = false;
     };
-  }, []);
+  }, [supabase, updateAuthState]);
 
   const signUp = async (
     email: string,

@@ -3,23 +3,22 @@
  *
  * Generates personalized surf recommendations for the home screen by:
  * 1. Building candidate pool from user's home beach and favorites
- * 2. Fetching forecasts using CACHE-FIRST strategy:
- *    - Check enhanced_forecasts table first (~50ms)
- *    - Return cached data if fresh (within source-specific threshold)
- *    - Only generate fresh forecasts if cache is missing or stale
+ * 2. Fetching forecasts using CACHE-ONLY strategy:
+ *    - Read from enhanced_forecasts table (~50ms)
+ *    - Return cached data even if stale (with warnings in metadata)
+ *    - Never generates fresh forecasts (background jobs handle refresh)
  * 3. Scoring beaches using personalized-scoring-service
  * 4. Selecting best time window and generating human-readable summaries
  *
  * Performance:
- * - With fresh cache: ~500ms total (3 DB queries for candidates + 3 for forecasts)
- * - With stale cache: 3-8s total (generates fresh + stores in DB)
- * - Parallel forecast fetching with concurrency control and timeout
+ * - Consistent ~500ms total (3 DB queries for candidates + cache reads)
+ * - No timeouts from API regeneration attempts
+ * - Parallel forecast fetching with concurrency control
  *
  * @module lib/services/personalized-home-forecast-service
  */
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { EnhancedForecastService } from "./enhanced-forecast-service";
 import { 
   scoreBeachesForUser as scoreBeachesBatch,
   type PersonalizedScore 
@@ -297,95 +296,79 @@ interface BeachWithForecasts {
 }
 
 /**
- * Fetch forecast for a single beach with timeout
+ * Fetch forecast for a single beach from cache only
  *
- * CACHE-FIRST STRATEGY:
- * 1. Check database cache first using fetchBeachForecasts()
- * 2. Validate freshness using source-specific staleness thresholds
- * 3. Return cached data if fresh (within 6h for NOAA, 1.5h for CDIP)
- * 4. Only generate fresh forecasts if no cache or data is stale
- * 5. Store generated forecasts in database for future requests
- *
- * Performance: Database query (~50ms) vs API generation (3-8s)
+ * CACHE-ONLY: Never generates fresh forecasts via API.
+ * Returns cached data even if stale, with clear metadata.
  *
  * @param beach - Beach to fetch forecast for
- * @param timeoutMs - Timeout in milliseconds
- * @returns Forecast array or null
+ * @param timeoutMs - Ignored (kept for signature compatibility)
+ * @returns Forecast array with metadata or null
  */
 async function fetchForecastForBeach(
   beach: Beach,
-  timeoutMs: number
-): Promise<EnhancedForecastEntity[] | null> {
+  timeoutMs: number // Ignored but kept for compatibility
+): Promise<{
+  forecasts: EnhancedForecastEntity[] | null;
+  stale: boolean;
+  reason: string | null;
+}> {
   try {
-    // Import cache utilities
-    const { fetchBeachForecasts, getStalenessDetails } = await import(
+    const { getFreshForecastFromCache } = await import(
       "@/lib/utils/forecast-service-utils"
     );
 
-    // 1. Try to get cached forecasts from database (next 48 hours)
-    const cached = await fetchBeachForecasts(beach.id, 2);
+    const result = await getFreshForecastFromCache(beach.id, FORECAST_WINDOW_HOURS);
 
-    // 2. Check if cached data is fresh enough
-    if (cached.forecasts && cached.forecasts.length > 0) {
-      const mostRecent = cached.forecasts[0];
-      const dataSource = mostRecent.data_source || "FALLBACK";
-      const stalenessInfo = getStalenessDetails(mostRecent.updated_at, dataSource);
-
-      if (!stalenessInfo.isStale) {
-        console.log(
-          `✅ [fetchForecast] Using fresh cached data for ${beach.name} (${stalenessInfo.hoursSinceUpdate.toFixed(1)}h old, threshold: ${stalenessInfo.threshold}h)`
-        );
-        return cached.forecasts;
-      }
-
-      console.log(
-        `⚠️ [fetchForecast] Cached data for ${beach.name} is stale (${stalenessInfo.hoursSinceUpdate.toFixed(1)}h old, threshold: ${stalenessInfo.threshold}h) - will regenerate`
+    if (result.metadata.missing) {
+      console.warn(
+        `⚠️ [fetchForecast] No cached data for ${beach.name}: ${result.metadata.reason}`
       );
-    } else {
-      console.log(`ℹ️ [fetchForecast] No cached data found for ${beach.name} - will generate fresh`);
+      return {
+        forecasts: null,
+        stale: false,
+        reason: result.metadata.reason,
+      };
     }
 
-    // 3. No cache or stale - generate fresh forecast with timeout
-    console.log(`🔄 [fetchForecast] Generating fresh forecast for ${beach.name}`);
-    const service = new EnhancedForecastService();
+    if (result.metadata.stale) {
+      console.warn(
+        `⚠️ [fetchForecast] Using stale data for ${beach.name}: ${result.metadata.reason}`
+      );
+      return {
+        forecasts: result.forecasts,
+        stale: true,
+        reason: result.metadata.reason,
+      };
+    }
 
-    const forecastPromise = service.generateComprehensiveForecast(beach);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Forecast fetch timeout")), timeoutMs)
+    console.log(
+      `✅ [fetchForecast] Fresh cached data for ${beach.name} (${result.forecasts.length} forecasts)`
     );
 
-    const forecasts = await Promise.race([forecastPromise, timeoutPromise]);
-
-    // 4. Store generated forecasts in database for future requests
-    if (forecasts && forecasts.length > 0) {
-      try {
-        await service.storeEnhancedForecasts(beach, forecasts);
-        console.log(`💾 [fetchForecast] Stored ${forecasts.length} forecasts for ${beach.name} in cache`);
-      } catch (storeError) {
-        // Non-fatal: log but continue
-        console.warn(`⚠️ [fetchForecast] Failed to cache forecasts for ${beach.name}:`, storeError);
-      }
-    }
-
-    return forecasts;
+    return {
+      forecasts: result.forecasts,
+      stale: false,
+      reason: null,
+    };
   } catch (error) {
     console.error(`⚠️ Failed to fetch forecast for ${beach.name}:`, error);
-    return null;
+    return {
+      forecasts: null,
+      stale: false,
+      reason: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }
 
 /**
- * Batch fetch forecasts with concurrency control and overall timeout
+ * Batch fetch forecasts with concurrency control
  *
- * Fetches forecasts for multiple beaches in parallel with:
- * - Max concurrency limit (default 3)
- * - Per-beach timeout (default 5s)
- * - Overall batch timeout (default 8s)
- *
- * Failed fetches are logged but don't fail the entire batch.
+ * Now purely cache-backed - no on-demand regeneration.
+ * Returns beaches with forecasts (fresh or stale) and tracks failures.
  *
  * @param beaches - Beaches to fetch forecasts for
- * @param options - Fetch options (maxConcurrent, timeout, overallTimeout)
+ * @param options - Fetch options
  * @returns Array of beaches with forecasts
  */
 async function batchFetchForecasts(
@@ -399,16 +382,16 @@ async function batchFetchForecasts(
   const startTime = Date.now();
   const overallTimeoutMs = options.overallTimeout || DEFAULT_OVERALL_TIMEOUT_MS;
 
-  console.log(`🌊 [batchFetchForecasts] Starting batch fetch for ${beaches.length} beaches (timeout: ${overallTimeoutMs}ms, concurrency: ${options.maxConcurrent})`);
+  console.log(`🌊 [batchFetchForecasts] Starting batch fetch for ${beaches.length} beaches (cache-only mode)`);
 
   const queue = [...beaches];
   const results: BeachWithForecasts[] = [];
-  const failed: string[] = [];
+  const failed: Array<{ beach: string; reason: string; stale: boolean }> = [];
   const inFlight = new Set<Promise<void>>();
 
   try {
     while (queue.length > 0 || inFlight.size > 0) {
-      // Check if we're approaching overall timeout (90% threshold)
+      // Check overall timeout
       const elapsed = Date.now() - startTime;
       if (elapsed > overallTimeoutMs * 0.9) {
         console.warn(`⏱️ [batchFetchForecasts] Approaching overall timeout (${elapsed}ms/${overallTimeoutMs}ms), stopping new fetches`);
@@ -419,27 +402,28 @@ async function batchFetchForecasts(
       while (inFlight.size < options.maxConcurrent && queue.length > 0) {
         const beach = queue.shift()!;
 
-        console.log(`🌊 [fetchForecast] Fetching forecast for ${beach.name} (timeout: ${options.timeout}ms)`);
+        console.log(`🌊 [fetchForecast] Fetching forecast for ${beach.name} from cache`);
 
         const promise = fetchForecastForBeach(beach, options.timeout)
-          .then(forecasts => {
-            if (forecasts && forecasts.length > 0) {
-              results.push({ beach, forecasts });
-              console.log(`✅ [fetchForecast] Got ${forecasts.length} forecasts for ${beach.name}`);
+          .then(result => {
+            if (result.forecasts && result.forecasts.length > 0) {
+              results.push({ beach, forecasts: result.forecasts });
+              if (result.stale) {
+                console.warn(`⚠️ [fetchForecast] Using stale data for ${beach.name}: ${result.reason}`);
+                failed.push({ beach: beach.name, reason: result.reason || 'Stale data', stale: true });
+              } else {
+                console.log(`✅ [fetchForecast] Got ${result.forecasts.length} forecasts for ${beach.name}`);
+              }
             } else {
-              failed.push(beach.name);
-              console.warn(`⚠️ [fetchForecast] No forecast data for ${beach.name}`);
+              failed.push({ beach: beach.name, reason: result.reason || 'No data', stale: false });
+              console.warn(`⚠️ [fetchForecast] No forecast data for ${beach.name}: ${result.reason}`);
             }
           })
           .catch(error => {
-            failed.push(beach.name);
-            const isTimeout = error?.message?.includes('timeout');
+            failed.push({ beach: beach.name, reason: error?.message ?? String(error), stale: false });
             console.error(`❌ [fetchForecast] Failed to fetch forecast for ${beach.name}:`, {
               error: error?.message ?? String(error),
               beachId: beach.id,
-              lat: beach.lat,
-              lon: beach.lon,
-              isTimeout,
             });
           })
           .finally(() => inFlight.delete(promise));
@@ -471,13 +455,15 @@ async function batchFetchForecasts(
   const duration = Date.now() - startTime;
   const successful = results.length;
   const failedCount = beaches.length - successful;
+  const staleCount = failed.filter(f => f.stale).length;
 
   console.log(`📊 [batchFetchForecasts] Batch complete in ${duration}ms:`, {
     total: beaches.length,
     succeeded: successful,
     failed: failedCount,
+    staleBeaches: staleCount,
     successfulBeaches: results.map(r => r.beach.name).join(', '),
-    failedBeaches: failed.join(', '),
+    failedBeaches: failed.map(f => `${f.beach} (${f.reason})`).join(', '),
   });
 
   return results;

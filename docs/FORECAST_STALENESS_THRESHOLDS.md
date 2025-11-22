@@ -11,7 +11,7 @@ Located in: `lib/config/forecast-staleness.ts`
 | Data Source | Update Frequency | Staleness Threshold | Rationale |
 |------------|------------------|---------------------|-----------|
 | **CDIP** | Hourly | 1.5 hours | Buoy data updates hourly, so data older than 1.5h is considered stale |
-| **NOAA_NWS** | Every 6 hours | 6 hours | WaveWatch model updates every 6 hours |
+| **NOAA_NWS** | Daily (6 AM) | 12 hours | Enhanced forecasts regenerate once daily, 12h threshold provides buffer |
 | **FALLBACK** | Variable | 12 hours | Fallback data is less critical, can tolerate longer staleness |
 | **DEFAULT** | N/A | 6 hours | For unknown or unspecified sources |
 
@@ -53,7 +53,7 @@ console.log('Forecast staleness:', {
 import { getStalenessThreshold } from '@/lib/config/forecast-staleness';
 
 const threshold = getStalenessThreshold('CDIP'); // Returns 1.5
-const threshold = getStalenessThreshold('NOAA_NWS'); // Returns 6
+const threshold = getStalenessThreshold('NOAA_NWS'); // Returns 12
 const threshold = getStalenessThreshold('UNKNOWN'); // Returns 6 (DEFAULT)
 ```
 
@@ -103,11 +103,11 @@ The `/api/forecasts/update-enhanced` endpoint now includes staleness metadata:
   "data": {
     "forecasts": [...],
     "metadata": {
-      "dataSource": "CDIP",
-      "lastUpdated": "2024-01-15T10:00:00Z",
-      "isStale": true,
-      "stalenessThreshold": 1.5,
-      "dataAge": "2h old"
+      "dataSource": "NOAA_NWS",
+      "lastUpdated": "2024-01-15T06:00:00Z",
+      "isStale": false,
+      "stalenessThreshold": 12,
+      "dataAge": "8h old"
     }
   }
 }

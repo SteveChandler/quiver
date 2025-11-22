@@ -220,7 +220,7 @@ function useAllIntelData({
       console.error("Error fetching all intel data:", error);
       throw error;
     }
-  }, [enabled, filters, user]);
+  }, [enabled, filters]);
 
   // Use the data fetcher hook
   const { data, loading, error, refetch } = useDataFetcher(fetchAllIntelData);

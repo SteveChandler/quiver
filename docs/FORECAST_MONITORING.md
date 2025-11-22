@@ -131,7 +131,7 @@ React component displaying:
 | Metric | Warning | Critical |
 |--------|---------|----------|
 | Data Age (CDIP) | >1.5h | >24h |
-| Data Age (NOAA) | >6h | >24h |
+| Data Age (NOAA) | >12h | >24h |
 | Data Age (Fallback) | >12h | >24h |
 | Coverage | <95% | <90% |
 | Stale Beaches | >5 | >10 |

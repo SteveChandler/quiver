@@ -67,6 +67,10 @@ export interface PersonalizedForecastRecommendation {
   available_beaches_count: number;
   /** Whether some beaches failed to fetch (partial success) */
   partial_success: boolean;
+  /** Whether recommendation used stale forecast data (NEW) */
+  stale_data_used?: boolean;
+  /** Optional warning about data staleness (NEW) */
+  data_freshness_warning?: string;
 }
 
 /**
@@ -182,6 +186,10 @@ export interface SurfDiscoveryResponse {
     successfulForecasts: number;
     /** Whether some forecasts failed (partial success) */
     partialSuccess: boolean;
+    /** Number of beaches with failed forecast fetches (NEW) */
+    failedBeaches: number;
+    /** Number of beaches with stale forecast data (NEW) */
+    staleBeaches: number;
     /** ISO timestamp when generated */
     generated_at: string;
   };

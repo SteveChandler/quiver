@@ -7,7 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Cache-Backed Surf Discovery System** (November 22, 2025):
+  - Removed reliance on EnhancedForecastService for on-demand forecast regeneration
+  - Issue: Services could timeout when attempting to regenerate stale forecasts during user requests
+  - Previous behavior: `personalized-home-forecast-service` called `EnhancedForecastService.generateComprehensiveForecast()` when cache was stale/missing
+  - New behavior: Both services strictly cache-backed, never call external APIs
+  - New helper: `getFreshForecastFromCache()` in `lib/utils/forecast-service-utils.ts` - single source of truth for cache access
+  - Returns stale data with clear warnings instead of failing or attempting regeneration
+  - Background jobs (cron at 6 AM, manual `updateAllBeachForecasts()`) exclusively responsible for forecast generation
+  - Performance: Consistent ~50ms cache reads vs 3-8s+ API generation with frequent timeouts
+  - Impact: No more user-facing timeouts, predictable response times, reduced API load during peak hours
+  - Files modified:
+    - `lib/utils/forecast-service-utils.ts` - Added `getFreshForecastFromCache()` helper
+    - `lib/services/surf-discovery-service.ts` - Migrated to shared helper, track stale/failed beaches
+    - `lib/services/personalized-home-forecast-service.ts` - Removed `EnhancedForecastService`, use cache-only helper
+    - `types/personalization.ts` - Added staleness metadata to response types
+- **Surf Discovery Window Selection - Time Priority** (November 22, 2025):
+  - Modified `selectBestWindow` in `lib/services/surf-discovery-service.ts` to prioritize nearer-term forecasts
+  - Issue: Discovery cards could recommend surf sessions days away when slightly better conditions exist
+  - Previous behavior: Pure composite scoring (conditions 70% + confidence 30%) without time consideration
+  - New behavior: Applies linear time-decay penalty (0.5 points/hour, capped at 24 hours)
+  - Formula: `adjustedScore = compositeScore - (hoursAhead * 0.5)`
+  - Impact: Users now see recommendations for the soonest good opportunity, not just highest absolute score
+  - Example: Forecast 3 hours away (score 65) now beats forecast 21 hours away (score 70)
+  - Tie-breaking: Equal adjusted scores prefer higher composite, then conditions, then later time
+  - Test Coverage: Added 10 comprehensive tests for time-priority logic and edge cases
+  - Files modified: `lib/services/surf-discovery-service.ts`, `__tests__/lib/services/surf-discovery-service.test.ts`
+
 ### Fixed
+- **ESLint Flat Config Migration** (November 22, 2025):
+  - Replaced legacy `.eslintrc.json` with `eslint.config.mjs` using the Flat Config API and Next.js core-web-vitals baseline
+  - Added TypeScript-aware linting via `typescript-eslint`, ported jsx-a11y rules, and centralized custom router restrictions
+  - Updated `yarn lint` to call `eslint . --max-warnings=0`, restoring a working lint pipeline without the circular dependency error
+- **Forecast Staleness Threshold Alignment** (November 22, 2025):
+  - Increased NOAA_NWS staleness threshold from 6 hours to 12 hours to align with actual enhanced_forecast regeneration schedule
+  - Issue: 6-hour threshold was misaligned with daily enhanced_forecast regeneration (6 AM only), causing evening requests (~8+ hours after morning regeneration) to trigger unnecessary on-demand regeneration attempts
+  - Previous behavior: Data marked stale at 12 PM (6h after 6 AM generation), triggering regeneration attempts that frequently timed out while hammering NOAA/Open-Meteo APIs
+  - Impact: Users saw "cached data is stale" warnings despite reasonably fresh data, APIs experienced excessive load, and timeout errors increased
+  - Fix: 12-hour threshold aligns with actual background job frequency (once daily), matching FALLBACK threshold which is intentionally lenient
+  - Result: Reduces API calls during 6h-12h window after morning regeneration, prevents timeouts, improves user experience during prime surf check hours (6 AM - 6 PM)
+  - Files modified:
+- **Personalized Forecast Date Hydration** (November 22, 2025):
+  - Fixed crash in forecast tab when calling `.toISOString()` on window dates
+  - Issue: API returns JSON with ISO date strings, but TypeScript types expect Date objects
+  - Previous behavior: Hook passed string dates directly to components, causing `toISOString is not a function` error
+  - Root cause: JSON serialization converts server-side Date objects to ISO strings, client didn't hydrate them back
+  - Fix: Added date hydration logic in `usePersonalizedHomeForecast` hook to convert ISO strings to Date objects
+  - Impact: Personalized forecast tracking now works correctly, no more React component crashes
+  - Test coverage: Added 4 regression tests for date hydration, including invalid date handling
+  - Files modified:
+    - `hooks/use-personalized-home-forecast.ts` - Added `hydrateDates()` helper function
+    - `__tests__/hooks/use-personalized-home-forecast.test.ts` - Added date hydration test suite
+    - `lib/config/forecast-staleness.ts` - Updated threshold from 6 to 12
+    - `__tests__/lib/config/forecast-staleness.test.ts` - Updated 7 test cases with new expected values
+  - Documentation updated: `docs/FORECAST_STALENESS_THRESHOLDS.md`, `docs/FORECAST_MONITORING.md`, `docs/FORECAST_MONITORING_ARCHITECTURE.md`, `docs/FORECAST_MONITORING_IMPLEMENTATION.md`, `docs/reports/archive/2025-11-15/FORECAST_MONITORING_SUMMARY.md`
+  - Monitoring: Watch for decreased API timeout rate and increased cache hit rate during afternoon hours (12-6 PM)
 - **Surf Discovery Window Selection** (November 22, 2025):
   - Fixed discovery cards all showing 12:00 AM by implementing composite scoring for window selection
   - Issue: `selectBestWindow` only used `confidence_score`, causing all cards to default to midnight when confidence scores were equal

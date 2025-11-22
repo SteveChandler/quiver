@@ -1,6 +1,7 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 // Removed unused type import to satisfy TS6133
 
 /**
@@ -68,6 +69,104 @@ export function getStalenessDetails(
       ? 'Exceeded source-specific threshold'
       : 'Within freshness window'
   };
+}
+
+/**
+ * Fetch forecast from cache with staleness awareness
+ *
+ * CACHE-ONLY: Never calls external APIs or generates fresh forecasts.
+ * Returns cached data even if stale, with clear staleness metadata.
+ *
+ * This is the single source of truth for cache-backed forecast access.
+ * Background jobs (cron, manual updateAllBeachForecasts) are responsible
+ * for keeping enhanced_forecasts table fresh.
+ *
+ * @param beachId - Beach ID
+ * @param windowHours - Forecast window in hours (default 48)
+ * @returns Object with forecasts array and metadata
+ */
+export async function getFreshForecastFromCache(
+  beachId: string,
+  windowHours: number = 48
+): Promise<{
+  forecasts: EnhancedForecastEntity[];
+  metadata: {
+    cached: boolean;
+    stale: boolean;
+    missing: boolean;
+    reason: string | null;
+    stalenessDetails?: ReturnType<typeof getStalenessDetails>;
+  };
+}> {
+  const startTime = Date.now();
+
+  try {
+    // Fetch from database
+    const daysToFetch = Math.ceil(windowHours / 24);
+    const result = await fetchBeachForecasts(beachId, daysToFetch);
+
+    if (!result.forecasts || result.forecasts.length === 0) {
+      console.warn(`⚠️ [getFreshForecastFromCache] No cached data for beach ${beachId}`);
+      return {
+        forecasts: [],
+        metadata: {
+          cached: false,
+          stale: false,
+          missing: true,
+          reason: 'No forecast data in cache - waiting for background job',
+        },
+      };
+    }
+
+    // Check staleness using source-specific thresholds
+    const mostRecent = result.forecasts[0];
+    const dataSource = mostRecent.data_source || 'FALLBACK';
+    const stalenessDetails = getStalenessDetails(mostRecent.updated_at, dataSource);
+
+    const duration = Date.now() - startTime;
+
+    if (stalenessDetails.isStale) {
+      console.warn(
+        `⚠️ [getFreshForecastFromCache] Cached data for beach ${beachId} is STALE (${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old, threshold: ${stalenessDetails.threshold}h) - returning with warning (${duration}ms)`
+      );
+      return {
+        forecasts: result.forecasts,
+        metadata: {
+          cached: true,
+          stale: true,
+          missing: false,
+          reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - waiting for background refresh`,
+          stalenessDetails,
+        },
+      };
+    }
+
+    console.log(
+      `✅ [getFreshForecastFromCache] Fresh cached data for beach ${beachId} (${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old, threshold: ${stalenessDetails.threshold}h, ${result.forecasts.length} forecasts, ${duration}ms)`
+    );
+
+    return {
+      forecasts: result.forecasts,
+      metadata: {
+        cached: true,
+        stale: false,
+        missing: false,
+        reason: null,
+        stalenessDetails,
+      },
+    };
+  } catch (error) {
+    console.error(`❌ [getFreshForecastFromCache] Error fetching cache for beach ${beachId}:`, error);
+    return {
+      forecasts: [],
+      metadata: {
+        cached: false,
+        stale: false,
+        missing: true,
+        reason: `Database error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      },
+    };
+  }
 }
 
 /**

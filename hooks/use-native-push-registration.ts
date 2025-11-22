@@ -44,6 +44,9 @@ export function useNativePushRegistration() {
   const canPrompt = useMemo(() => {
     if (typeof window === "undefined") return false;
     if (!isNativeApp()) return false;
+    if (status === "pending" || status === "granted" || status === "denied") {
+      return false;
+    }
     return !hasGrantedPreviously();
   }, [status]);
 

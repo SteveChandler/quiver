@@ -47,6 +47,10 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 const WINDOW_HOURS = 3;
 const FORECAST_WINDOW_HOURS = 48;
 
+// Time-priority window selection constants
+const TIME_DECAY_PER_HOUR = 0.5; // Points deducted per hour in future
+const MAX_TIME_DECAY_HOURS = 24; // Cap decay at 24 hours (12 points max)
+
 // ============================================================================
 // Main Entry Point
 // ============================================================================
@@ -106,7 +110,7 @@ export async function discoverSurfSpots(
     const finalCandidates = candidates.slice(0, maxCandidates);
 
     // 2. Fetch forecasts for all candidates
-    const beachForecasts = await batchFetchForecasts(finalCandidates, {
+    const { successful: beachForecasts, failed: failedForecasts } = await batchFetchForecasts(finalCandidates, {
       maxConcurrent,
       timeout,
       overallTimeout,
@@ -118,6 +122,15 @@ export async function discoverSurfSpots(
     console.log(
       `📊 Retrieved forecasts: ${beachForecasts.length}/${finalCandidates.length} beaches (${successPercent}%)`
     );
+
+    // Log failures with staleness context
+    if (failedForecasts.length > 0) {
+      const staleCount = failedForecasts.filter(f => f.stale).length;
+      const missingCount = failedForecasts.length - staleCount;
+      console.warn(
+        `⚠️ [discoverSurfSpots] Failed forecasts: ${failedForecasts.length} (${staleCount} stale, ${missingCount} missing)`
+      );
+    }
 
     if (beachForecasts.length === 0) {
       console.error(`❌ No forecasts retrieved for user ${userId}`);
@@ -195,6 +208,8 @@ export async function discoverSurfSpots(
         totalBeachesConsidered: finalCandidates.length,
         successfulForecasts: beachForecasts.length,
         partialSuccess: beachForecasts.length < finalCandidates.length,
+        failedBeaches: failedForecasts.length,
+        staleBeaches: failedForecasts.filter(f => f.stale).length,
         generated_at: new Date().toISOString(),
       },
     };
@@ -301,10 +316,10 @@ async function buildCandidatePool(
 // ============================================================================
 
 /**
- * Batch fetch forecasts from database
+ * Batch fetch forecasts from cache with staleness tracking
  *
- * Uses the same proven database query pattern as the working beach detail forecast view.
- * Fast and reliable - reads pre-generated forecasts from enhanced_forecasts table.
+ * Uses shared getFreshForecastFromCache helper for all beaches.
+ * Returns both successful and stale/missing beaches with detailed metadata.
  */
 async function batchFetchForecasts(
   beaches: Beach[],
@@ -313,53 +328,90 @@ async function batchFetchForecasts(
     timeout: number;
     overallTimeout: number;
   }
-): Promise<Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }>> {
-  const supabase = createSupabaseServiceRoleClient();
+): Promise<{
+  successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }>;
+  failed: Array<{ beach: Beach; reason: string; stale: boolean }>;
+}> {
+  const startTime = Date.now();
 
-  console.log(`🌊 Fetching forecasts for ${beaches.length} beaches from database`);
+  console.log(`🌊 [batchFetchForecasts] Fetching forecasts for ${beaches.length} beaches from cache`);
 
-  // Fetch all forecasts in a single bulk query (same as working forecast view)
-  const beachIds = beaches.map(b => b.id);
-  const today = new Date().toISOString().split('T')[0];
+  const { getFreshForecastFromCache } = await import('@/lib/utils/forecast-service-utils');
 
-  const { data: forecasts, error } = await supabase
-    .from('enhanced_forecasts')
-    .select('*')
-    .in('beach_id', beachIds)
-    .gte('forecast_date', today)
-    .order('forecast_date', { ascending: true })
-    .order('forecast_time', { ascending: true });
+  const results = await Promise.all(
+    beaches.map(async (beach) => {
+      try {
+        const result = await getFreshForecastFromCache(beach.id, FORECAST_WINDOW_HOURS);
 
-  if (error) {
-    console.error('❌ Error fetching forecasts for surf discovery:', error);
-    return [];
+        if (result.metadata.missing) {
+          return {
+            beach,
+            forecasts: null,
+            failed: true,
+            reason: result.metadata.reason || 'Missing data',
+            stale: false,
+          };
+        }
+
+        if (result.metadata.stale) {
+          // Return stale data with warning
+          return {
+            beach,
+            forecasts: result.forecasts,
+            failed: false,
+            reason: result.metadata.reason || 'Stale data',
+            stale: true,
+          };
+        }
+
+        return {
+          beach,
+          forecasts: result.forecasts,
+          failed: false,
+          reason: null,
+          stale: false,
+        };
+      } catch (error) {
+        console.error(`❌ [batchFetchForecasts] Error for ${beach.name}:`, error);
+        return {
+          beach,
+          forecasts: null,
+          failed: true,
+          reason: error instanceof Error ? error.message : 'Unknown error',
+          stale: false,
+        };
+      }
+    })
+  );
+
+  const successful: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }> = [];
+  const failed: Array<{ beach: Beach; reason: string; stale: boolean }> = [];
+
+  for (const result of results) {
+    if (result.failed || !result.forecasts || result.forecasts.length === 0) {
+      failed.push({
+        beach: result.beach,
+        reason: result.reason || 'No forecasts available',
+        stale: result.stale,
+      });
+    } else {
+      successful.push({
+        beach: result.beach,
+        forecasts: result.forecasts,
+      });
+    }
   }
 
-  if (!forecasts || forecasts.length === 0) {
-    console.warn('⚠️ No forecasts found in database for any beaches');
-    return [];
-  }
-
-  // Group forecasts by beach ID
-  const forecastsByBeach = new Map<string, EnhancedForecastEntity[]>();
-  forecasts.forEach(forecast => {
-    if (!forecastsByBeach.has(forecast.beach_id)) {
-      forecastsByBeach.set(forecast.beach_id, []);
-    }
-    forecastsByBeach.get(forecast.beach_id)!.push(forecast);
+  const duration = Date.now() - startTime;
+  console.log(`📊 [batchFetchForecasts] Complete in ${duration}ms:`, {
+    total: beaches.length,
+    successful: successful.length,
+    failed: failed.length,
+    staleBeaches: results.filter(r => r.stale).map(r => r.beach.name).join(', '),
+    failedBeaches: failed.map(f => `${f.beach.name} (${f.reason})`).join(', '),
   });
 
-  // Match beaches with their forecasts
-  const results: Array<{ beach: Beach; forecasts: EnhancedForecastEntity[] }> = [];
-  beaches.forEach(beach => {
-    const beachForecasts = forecastsByBeach.get(beach.id) || [];
-    if (beachForecasts.length > 0) {
-      results.push({ beach, forecasts: beachForecasts });
-    }
-  });
-
-  console.log(`✅ Fetched forecasts for ${results.length}/${beaches.length} beaches from database`);
-  return results;
+  return { successful, failed };
 }
 
 // ============================================================================
@@ -701,17 +753,19 @@ function scoreForecastWindow(
 }
 
 /**
- * Select best 3-hour window from forecast using composite scoring
+ * Select best 3-hour window from forecast using composite scoring with time-priority
  *
- * NEW APPROACH (Option 2):
+ * ALGORITHM:
  * 1. For each forecast entry, calculate:
- *    - windowScore: Evaluate actual conditions (waves, wind, tide) using scoreForecastWindow
+ *    - windowScore: Evaluate conditions (waves, wind, tide) using scoreForecastWindow
  *    - confidenceScore: Normalize confidence_score to 0-100 scale
  * 2. Combine with weighted average: composite = (windowScore * 0.7) + (confidenceScore * 0.3)
- * 3. Select highest composite score
- * 4. Tie-breaking: If composite scores tie, prefer higher windowScore, then later timestamp
+ * 3. Apply time-decay penalty: adjustedScore = composite - (hoursAhead * TIME_DECAY_PER_HOUR)
+ * 4. Select highest adjusted score
+ * 5. Tie-breaking: If adjusted scores tie, prefer higher composite, then windowScore, then later time
  *
- * This ensures we pick the time slot with best actual conditions, not just highest confidence.
+ * This prioritizes near-term forecasts while still respecting conditions quality.
+ * Time decay: 0.5 pts/hour (capped at 24 hours = 12 points max penalty).
  *
  * @param forecasts - Array of forecast entities for the beach
  * @param beach - Beach metadata for wind/tide preferences
@@ -725,12 +779,21 @@ function selectBestWindow(
 ): PersonalizedForecastWindow | null {
   if (forecasts.length === 0) return null;
 
+  const now = new Date();
+
   // Track best window with detailed scoring
+  let bestAdjustedScore = -1;
   let bestComposite = -1;
   let bestWindowScore = -1;
   let bestForecast: EnhancedForecastEntity | null = null;
 
   for (const forecast of forecasts) {
+    // Skip past forecasts
+    const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
+    if (forecastTime < now) {
+      continue;
+    }
+
     // 1. Calculate conditions score for this time slot (0-80 points)
     const windowScore = scoreForecastWindow(forecast, beach, userPrefs);
 
@@ -740,17 +803,27 @@ function selectBestWindow(
     // 3. Composite score: 70% conditions quality + 30% confidence
     const composite = windowScore * 0.7 + confidenceScore * 0.3;
 
-    // 4. Select best, with tie-breaking logic
+    // 4. Apply time-decay penalty
+    const hoursAhead = (forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const cappedHours = Math.min(hoursAhead, MAX_TIME_DECAY_HOURS);
+    const timeDecay = cappedHours * TIME_DECAY_PER_HOUR;
+    const adjustedScore = composite - timeDecay;
+
+    // 5. Select best, with updated tie-breaking logic
     const isBetter =
-      composite > bestComposite ||
-      (composite === bestComposite && windowScore > bestWindowScore) ||
-      (composite === bestComposite &&
+      adjustedScore > bestAdjustedScore ||
+      (adjustedScore === bestAdjustedScore && composite > bestComposite) ||
+      (adjustedScore === bestAdjustedScore &&
+        composite === bestComposite &&
+        windowScore > bestWindowScore) ||
+      (adjustedScore === bestAdjustedScore &&
+        composite === bestComposite &&
         windowScore === bestWindowScore &&
         bestForecast &&
-        new Date(`${forecast.forecast_date}T${forecast.forecast_time}`) >
-          new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}`));
+        forecastTime > new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}`));
 
     if (isBetter) {
+      bestAdjustedScore = adjustedScore;
       bestComposite = composite;
       bestWindowScore = windowScore;
       bestForecast = forecast;

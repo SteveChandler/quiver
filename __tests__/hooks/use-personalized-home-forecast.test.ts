@@ -364,4 +364,214 @@ describe("usePersonalizedHomeForecast", () => {
       });
     });
   });
+
+  describe("date hydration", () => {
+    it("converts ISO string dates from API to Date objects", async () => {
+      const mockFetchResponse = {
+        beach: {
+          id: "beach-123",
+          name: "Test Beach",
+          latitude: 32.8328,
+          longitude: -117.2713,
+          center_lat: 32.8328,
+          center_lng: -117.2713,
+        },
+        window: {
+          start: "2025-01-20T08:00:00.000Z", // ISO string from API
+          end: "2025-01-20T12:00:00.000Z",   // ISO string from API
+          tide: "Mid incoming",
+          wind: "Light offshore",
+          waveHeight: "3-5 ft",
+          wavePeriod: "12-14s",
+          confidence: 0.85,
+        },
+        forecast: {},
+        score: 8.5,
+        personalized: true,
+        breakdown: {
+          base: 7.0,
+          onboardingPrefs: 1.0,
+          learnedPrefs: 0.5,
+          affinity: 0,
+        },
+        summary: "Great conditions expected",
+        reasons: ["Clean waves", "Offshore wind", "Good tide"],
+        generated_at: "2025-01-20T06:00:00Z",
+      };
+
+      (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
+
+      // Capture the fetch function passed to useDataFetcher
+      let capturedFetchFn: any;
+      (useDataFetcher as jest.Mock).mockImplementation((fn, options) => {
+        capturedFetchFn = fn;
+        return {
+          data: null,
+          loading: false,
+          error: null,
+          refetch: jest.fn(),
+        };
+      });
+
+      // Mock global fetch
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: mockFetchResponse }),
+      } as Response);
+
+      renderHook(() => usePersonalizedHomeForecast());
+
+      // Call the captured fetch function directly
+      const result = await capturedFetchFn();
+
+      // Verify dates were hydrated to Date objects
+      expect(result).not.toBeNull();
+      expect(result.window.start).toBeInstanceOf(Date);
+      expect(result.window.end).toBeInstanceOf(Date);
+
+      // Verify the Date objects have correct values
+      expect(result.window.start.toISOString()).toBe("2025-01-20T08:00:00.000Z");
+      expect(result.window.end.toISOString()).toBe("2025-01-20T12:00:00.000Z");
+
+      // Verify toISOString() can be called (this was the bug)
+      expect(() => result.window.start.toISOString()).not.toThrow();
+      expect(() => result.window.end.toISOString()).not.toThrow();
+    });
+
+    it("handles null recommendation gracefully", async () => {
+      (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
+
+      let capturedFetchFn: any;
+      (useDataFetcher as jest.Mock).mockImplementation((fn, options) => {
+        capturedFetchFn = fn;
+        return {
+          data: null,
+          loading: false,
+          error: null,
+          refetch: jest.fn(),
+        };
+      });
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: null }),
+      } as Response);
+
+      renderHook(() => usePersonalizedHomeForecast());
+
+      const result = await capturedFetchFn();
+
+      expect(result).toBeNull();
+    });
+
+    it("throws error for invalid date strings", async () => {
+      const mockFetchResponseWithInvalidDate = {
+        beach: { id: "beach-123", name: "Test Beach" },
+        window: {
+          start: "invalid-date-string",
+          end: "2025-01-20T12:00:00.000Z",
+          tide: "Mid incoming",
+          wind: "Light offshore",
+          waveHeight: "3-5 ft",
+          wavePeriod: "12-14s",
+          confidence: 0.85,
+        },
+        forecast: {},
+        score: 8.5,
+        personalized: true,
+        breakdown: { base: 7.0, onboardingPrefs: 1.0, learnedPrefs: 0.5, affinity: 0 },
+        summary: "Great conditions expected",
+        reasons: ["Clean waves"],
+        generated_at: "2025-01-20T06:00:00Z",
+      };
+
+      (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
+
+      let capturedFetchFn: any;
+      (useDataFetcher as jest.Mock).mockImplementation((fn, options) => {
+        capturedFetchFn = fn;
+        return {
+          data: null,
+          loading: false,
+          error: null,
+          refetch: jest.fn(),
+        };
+      });
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: mockFetchResponseWithInvalidDate }),
+      } as Response);
+
+      renderHook(() => usePersonalizedHomeForecast());
+
+      await expect(capturedFetchFn()).rejects.toThrow(/Invalid window start date/);
+    });
+
+    it("preserves all other recommendation fields during hydration", async () => {
+      const mockFetchResponse = {
+        beach: {
+          id: "beach-123",
+          name: "Test Beach",
+          latitude: 32.8328,
+          longitude: -117.2713,
+          center_lat: 32.8328,
+          center_lng: -117.2713,
+        },
+        window: {
+          start: "2025-01-20T08:00:00.000Z",
+          end: "2025-01-20T12:00:00.000Z",
+          tide: "Mid incoming",
+          wind: "Light offshore",
+          waveHeight: "3-5 ft",
+          wavePeriod: "12-14s",
+          confidence: 0.85,
+        },
+        forecast: { some: "data" },
+        score: 8.5,
+        personalized: true,
+        breakdown: {
+          base: 7.0,
+          onboardingPrefs: 1.0,
+          learnedPrefs: 0.5,
+          affinity: 0,
+        },
+        summary: "Great conditions expected",
+        reasons: ["Clean waves", "Offshore wind", "Good tide"],
+        generated_at: "2025-01-20T06:00:00Z",
+      };
+
+      (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
+
+      let capturedFetchFn: any;
+      (useDataFetcher as jest.Mock).mockImplementation((fn, options) => {
+        capturedFetchFn = fn;
+        return {
+          data: null,
+          loading: false,
+          error: null,
+          refetch: jest.fn(),
+        };
+      });
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: mockFetchResponse }),
+      } as Response);
+
+      renderHook(() => usePersonalizedHomeForecast());
+
+      const result = await capturedFetchFn();
+
+      // Verify all non-date fields are preserved
+      expect(result.beach.id).toBe("beach-123");
+      expect(result.score).toBe(8.5);
+      expect(result.personalized).toBe(true);
+      expect(result.summary).toBe("Great conditions expected");
+      expect(result.reasons).toEqual(["Clean waves", "Offshore wind", "Good tide"]);
+      expect(result.window.tide).toBe("Mid incoming");
+      expect(result.window.wind).toBe("Light offshore");
+      expect(result.generated_at).toBe("2025-01-20T06:00:00Z"); // Should remain string
+    });
+  });
 });

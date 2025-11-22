@@ -461,6 +461,83 @@ export async function getPersonalizedHomeForecast(
 - Beach affinity: +affinity_score * 0.15 (max 15 pts)
 - Final score capped at 100
 
+### **Cache-Backed Forecast Architecture** (November 2025)
+
+#### **Operational Model**
+
+All forecast-consuming services (`personalized-home-forecast-service`, `surf-discovery-service`) now operate in **CACHE-ONLY MODE**:
+
+- **NO on-demand forecast regeneration** via EnhancedForecastService
+- **NO external API calls** to NOAA/Open-Meteo during user requests
+- **ONLY read from** `enhanced_forecasts` table in database
+
+#### **Background Job Responsibility**
+
+Forecast generation is exclusively handled by background jobs:
+
+1. **Automated**: `.github/workflows/enhanced-forecast-sync.yml` (daily 6 AM UTC)
+2. **Manual**: `npm run update-forecasts` (for immediate refresh)
+3. **API endpoint**: `/api/cron/enhanced-forecast-sync` (Vercel Cron)
+
+These jobs call `updateAllBeachForecasts()` which uses `EnhancedForecastService` to regenerate all forecasts.
+
+#### **Shared Cache Helper**
+
+**Function**: `getFreshForecastFromCache(beachId, windowHours)`
+**Location**: `lib/utils/forecast-service-utils.ts`
+**Purpose**: Single source of truth for cache-backed forecast access
+
+**Behavior**:
+- Returns cached data even if stale (with clear metadata)
+- Never calls external APIs
+- Provides staleness details using source-specific thresholds:
+  - CDIP: 1.5 hours (buoy data updates hourly)
+  - NOAA_NWS: 12 hours (enhanced forecasts regenerate daily)
+  - FALLBACK: 12 hours (less critical data)
+
+**Return Type**:
+```typescript
+{
+  forecasts: EnhancedForecastEntity[];
+  metadata: {
+    cached: boolean;
+    stale: boolean;
+    missing: boolean;
+    reason: string | null;
+    stalenessDetails?: { hoursSinceUpdate, threshold, isStale, reason };
+  };
+}
+```
+
+#### **Service Integration**
+
+Both `personalized-home-forecast-service` and `surf-discovery-service` now:
+
+1. Call `getFreshForecastFromCache()` for all forecast access
+2. Return recommendations even with stale data (with warnings in metadata)
+3. Log stale/missing data for monitoring
+4. Track data freshness in response metadata
+
+**Performance Impact**:
+- Cache hit: ~50ms (database query)
+- Stale data: ~50ms (no API timeout waiting)
+- Missing data: ~50ms (fail fast, no regeneration attempt)
+- Old behavior (with regeneration): 3-8s per beach + frequent timeouts
+
+#### **User Impact**
+
+**Before** (with on-demand regeneration):
+- Timeouts during peak hours (6h-12h after morning sync)
+- Inconsistent response times (50ms cache vs 8s+ regeneration)
+- Hammered external APIs during user requests
+- "Stale cache" warnings triggered unnecessary regeneration
+
+**After** (cache-only):
+- Consistent ~500ms response times
+- No user-facing timeouts from API calls
+- Stale data marked clearly but still usable
+- Background jobs handle all API load
+
 ### **Maintenance Services**
 
 #### **InactiveBuoyCleanup**

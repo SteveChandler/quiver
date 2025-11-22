@@ -130,9 +130,52 @@ export function usePersonalizedHomeForecast(
     return result.data as PersonalizedForecastRecommendation | null;
   }, [user, homeBeachId, enabled, immediate]);
 
-  // Use standard data fetcher pattern
+  /**
+   * Hydrates date strings from API response back to Date objects
+   * API responses are JSON, which serializes Date objects to ISO strings
+   * This function converts them back to Date instances for proper usage
+   */
+  const hydrateDates = useCallback((recommendation: PersonalizedForecastRecommendation | null): PersonalizedForecastRecommendation | null => {
+    if (!recommendation?.window) {
+      return recommendation;
+    }
+
+    try {
+      // Hydrate window start and end dates
+      const start = new Date(recommendation.window.start);
+      const end = new Date(recommendation.window.end);
+
+      // Validate dates are valid
+      if (isNaN(start.getTime())) {
+        throw new Error(`Invalid window start date: ${recommendation.window.start}`);
+      }
+      if (isNaN(end.getTime())) {
+        throw new Error(`Invalid window end date: ${recommendation.window.end}`);
+      }
+
+      return {
+        ...recommendation,
+        window: {
+          ...recommendation.window,
+          start,
+          end,
+        },
+      };
+    } catch (error) {
+      console.error('❌ usePersonalizedHomeForecast: Date hydration error', error);
+      throw error;
+    }
+  }, []);
+
+  // Wrap fetch function to include date hydration
+  const fetchWithHydration = useCallback(async () => {
+    const data = await fetchPersonalizedForecast();
+    return hydrateDates(data);
+  }, [fetchPersonalizedForecast, hydrateDates]);
+
+  // Use standard data fetcher pattern with date hydration
   const { data, loading, error, refetch } = useDataFetcher(
-    fetchPersonalizedForecast,
+    fetchWithHydration,
     {
       immediate: immediate && enabled && !!user,
       skip: !enabled || !user,

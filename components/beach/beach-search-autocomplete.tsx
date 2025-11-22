@@ -139,7 +139,6 @@ export function BeachSearchAutocomplete({
       isOpen,
       onFallback,
       query,
-      requireExplicitSelection,
       selectedIndex,
       suggestions,
     ]
