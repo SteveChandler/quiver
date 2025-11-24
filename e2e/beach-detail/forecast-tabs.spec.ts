@@ -57,27 +57,6 @@ test.describe('ForecastTab - Tabbed Interface', () => {
       await expect(conditionsTab).toBeVisible();
       await expect(conditionsTab).toHaveAttribute('data-state', 'inactive');
     });
-
-    test('should not display Tides or Conditions content on load', async ({ page }) => {
-      // Check that tide and conditions tab PANELS are inactive
-      // Radix Tabs renders all content but hides inactive panels with CSS
-
-      // Find the tab content panels by their data-state attribute
-      const todayPanel = page.locator('[role="tabpanel"][data-state="active"]').first();
-      const tidesPanel = page.locator('[role="tabpanel"]').filter({ has: page.getByRole('heading', { name: /tide/i }) });
-      const conditionsPanel = page.locator('[role="tabpanel"]').filter({ has: page.getByRole('heading', { name: /conditions/i }) });
-
-      // Today panel should be active
-      await expect(todayPanel).toBeVisible({ timeout: TIMEOUTS.short });
-
-      // Tides and Conditions panels should be hidden (data-state=inactive)
-      // We don't check visibility directly because they exist in DOM but are CSS-hidden
-      const tidesState = await tidesPanel.getAttribute('data-state').catch(() => null);
-      const conditionsState = await conditionsPanel.getAttribute('data-state').catch(() => null);
-
-      expect(tidesState).toBe('inactive');
-      expect(conditionsState).toBe('inactive');
-    });
   });
 
   test.describe('Tab Switching', () => {

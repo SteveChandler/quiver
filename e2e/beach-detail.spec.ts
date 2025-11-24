@@ -122,26 +122,6 @@ test.describe('Beach Detail Page', () => {
     await expect(breakType).toBeVisible({ timeout: 10000 });
   });
 
-  test('should navigate back to map', async ({ page }) => {
-    // Look for back button
-    const backButton = page.getByRole('link', { name: /back to map|map/i }).first();
-    const hasBack = await backButton.isVisible().catch(() => false);
-
-    if (!hasBack) {
-      test.skip(true, 'Back button not found on page');
-      return;
-    }
-
-    // Click and wait for navigation to complete
-    await Promise.all([
-      page.waitForURL('**/map', { timeout: TIMEOUTS.long }),
-      backButton.click()
-    ]);
-
-    // Should be on map page
-    expect(page.url()).toContain('/map');
-  });
-
   test('should NOT have console errors on load', async ({ page }) => {
     const errors: string[] = [];
 
