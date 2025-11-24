@@ -9,6 +9,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
+import { FALLBACK_IMAGE_BY_NAME } from "@/lib/constants/featured-beaches-config";
 
 interface Beach {
   id: string;
@@ -18,21 +19,6 @@ interface Beach {
   slug?: string | null;
   photo_url?: string | null;
 }
-
-const FALLBACK_IMAGE_BY_NAME: Record<string, string> = {
-  "Black's Beach": "/images/blacks.webp",
-  "Blacks Beach": "/images/blacks.webp",
-  "Swami's": "/images/Winter-Swamis.webp",
-  Swamis: "/images/Winter-Swamis.webp",
-  Tourmaline: "/images/tourmaline.png",
-  "Windansea": "/images/windandsea-surf-shack-sunset.jpg",
-  "WindanSea Beach": "/images/windandsea-surf-shack-sunset.jpg",
-  "Agate Beach": "/images/Agate_Beach_Marin_County_California.webp",
-  "Beacons Beach": "/images/Beacons_Beach.webp",
-  Beacons: "/images/Beacons_Beach.webp",
-  "Ocean Beach": "/images/OceanBeachSurfers.jpg",
-  "Bandon Beach": "/images/On_the_Beach_at_Bandon.webp",
-};
 
 export function SurfHighlightsSection() {
   const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {

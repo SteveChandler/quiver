@@ -109,6 +109,23 @@ export const RATE_LIMITS = {
   } as RateLimiterConfig,
 
   /**
+   * Public Showcase - optimized for marketing endpoints that need
+   * higher burst tolerance (e.g., featured beaches) while still
+   * enforcing rate limits after an initial warmup period.
+   */
+  "public-showcase": {
+    requestsPerMinute: 120,
+    requestsPerHour: 2000,
+    burstLimit: 100,
+    burstWindowMs: 60000,
+    warmupDurationMs: 1500,
+    rapidStreakLimit: 20,
+    rapidThresholdMs: 250,
+    rapidCooldownMs: 4000,
+    softBurstRecovery: true,
+  } as RateLimiterConfig,
+
+  /**
    * Authenticated Default - LOW
    *
    * For endpoints requiring authentication
@@ -195,6 +212,8 @@ export const RATE_LIMIT_MESSAGES = {
   "forecast-bulk": "Forecast data rate limit exceeded. Please reduce request frequency.",
   "coach-picks": "Coach picks rate limit exceeded. Please wait before retrying.",
   "public-default": "API rate limit exceeded. Please wait before making more requests.",
+  "public-showcase":
+    "API rate limit exceeded. Please wait before making more requests.",
   "authenticated-default":
     "API rate limit exceeded. Please reduce request frequency.",
   "referral-validation":

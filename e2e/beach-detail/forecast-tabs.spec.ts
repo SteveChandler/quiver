@@ -59,15 +59,19 @@ test.describe('ForecastTab - Tabbed Interface', () => {
     });
 
     test('should not display Tides or Conditions content on load', async ({ page }) => {
-      // Check that tide chart SVG is not visible
-      const tideSvg = page.locator('svg').first();
-      const isCanvasVisible = await tideSvg.isVisible().catch(() => false);
+      // Check that tide-specific content is not visible initially
+      // Note: Data source indicator SVG may be visible at parent level, which is expected
 
-      // If SVG exists, it shouldn't be visible initially
-      // (It may not exist at all if not rendered, which is also correct)
-      if (await tideSvg.count() > 0) {
-        expect(isCanvasVisible).toBe(false);
-      }
+      // Check for tide-specific elements that should NOT be visible on Today tab
+      const tideHeading = page.getByRole('heading', { name: /tide/i });
+      const conditionsHeading = page.getByRole('heading', { name: /conditions/i });
+
+      // These headings should not be visible in Today tab
+      const tideVisible = await tideHeading.isVisible().catch(() => false);
+      const conditionsVisible = await conditionsHeading.isVisible().catch(() => false);
+
+      expect(tideVisible).toBe(false);
+      expect(conditionsVisible).toBe(false);
     });
   });
 
@@ -443,9 +447,9 @@ test.describe('ForecastTab - Tabbed Interface', () => {
 
       await expect(tidesTab).toHaveAttribute('data-state', 'active', { timeout: TIMEOUTS.short });
 
-      // Verify content switches
-      const tideSvg = page.locator('svg').first();
-      await expect(tideSvg).toBeVisible({ timeout: TIMEOUTS.medium });
+      // Verify tide-specific content appears
+      const tideHeading = page.getByRole('heading', { name: /tide/i });
+      await expect(tideHeading).toBeVisible({ timeout: TIMEOUTS.medium });
     });
 
     test('should maintain readable text on all viewports', async ({ page }) => {

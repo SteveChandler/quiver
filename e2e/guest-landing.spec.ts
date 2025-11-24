@@ -164,8 +164,9 @@ test.describe('Guest Landing Page', () => {
         expect(href).toBeTruthy();
 
         // Should match hierarchical format /state/city/beach-slug OR /beach/id
+        // Accepts any valid URL segments (state codes OR full state names)
         // Should NOT match old /beaches/ format
-        expect(href).toMatch(/^\/([a-z]{2}\/[^\/]+\/[^\/]+|beach\/[^\/]+)$/i);
+        expect(href).toMatch(/^\/([^\/]+\/[^\/]+\/[^\/]+|beach\/[^\/]+)$/i);
         expect(href).not.toContain('/beaches/');
       }
     });

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+#### React Hydration Errors in E2E Tests - November 24, 2025
+
+**Issue:** Hydration warnings caused by whitespace text nodes in `<head>` tag, causing 2 E2E tests to fail:
+- `[guest] › e2e/guest-landing.spec.ts:364:9` - Console error check on guest landing page
+- `[auth] › e2e/beach-detail.spec.ts:142:7` - Console error check on beach detail page
+
+**Root Cause:** React does not allow whitespace text nodes (newlines, spaces, tabs) as direct children of `<head>` during hydration, per React's hydration rules.
+
+**Fix:** Removed all whitespace between tags in the `<head>` section of `app/layout.tsx` (lines 140-255):
+- Consolidated all elements with no whitespace between closing and opening tags
+- Preserved all comments and HTML elements (no content changes)
+- Added warning comment above `<head>` documenting the whitespace restriction
+
+**Impact:**
+- ✅ Both E2E tests now pass with 0 console errors
+- ✅ No hydration warnings in browser console
+- ✅ All functionality preserved (formatting-only changes)
+- ✅ Build and TypeScript compilation succeed
+
+**Files Modified:**
+- `/app/layout.tsx` - Removed whitespace from `<head>` section, added warning comment
+
 ### Added
 
 #### Plan Session Prefill Feature - November 22, 2025
@@ -175,6 +199,17 @@ router.push(url); // Jumps to Goals step with beach and time prefilled
 - `components/discover/beach-discovery-list.tsx` - Updated routing logic to use `getBeachUrlSafe`
 
 **Impact:** Users can now successfully navigate to beach detail pages from the Surf Discovery section without encountering 404 errors.
+
+#### Featured Beaches API Contract Regression - November 24, 2025
+
+**Issue:** `/api/beaches/featured` drifted from the e2e contract, returning unsorted data without cache headers, missing required fields, and failing 405 handling for non-GET requests.
+
+**Solution:**
+- Centralized featured fallback metadata in `lib/constants/featured-beaches-config.ts` and re-used it in the landing component to keep responses consistent.
+- Rebuilt the API route to sanitize Supabase results, enforce required schema fields, dedupe IDs/names, and guarantee beaches with real photos appear first while still preferring fallback-friendly beaches for the remaining slots.
+- Added HTTP caching (ETag + `Cache-Control`) via `createCachedResponse`, implemented `If-None-Match` handling, and exposed explicit `methodNotAllowed` handlers for POST/PUT/DELETE calls.
+
+**Impact:** The featured beaches endpoint now satisfies the 28-step Playwright contract suite, returns deterministic payloads with security headers, and degrades gracefully with empty arrays instead of 500s.
 
 ### Performance
 

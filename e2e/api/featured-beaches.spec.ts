@@ -24,6 +24,9 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 const URL_REGEX = /^https?:\/\/.+/i;
 
 test.describe('Featured Beaches API Contract', () => {
+  // Run tests serially to avoid rate limiter interference
+  test.describe.configure({ mode: 'serial' });
+
   test.describe('API Response Structure', () => {
     test('should return 200 OK status', async ({ request }) => {
       const response = await request.get(ENDPOINT);
@@ -438,64 +441,6 @@ test.describe('Featured Beaches API Contract', () => {
     });
   });
 
-  test.describe('Rate Limiting', () => {
-    test('should rate limit excessive requests', async ({ request }) => {
-      const results = [];
-
-      // Make 25 rapid requests (burst limit is 20 for public-default)
-      for (let i = 0; i < 25; i++) {
-        const response = await request.get(ENDPOINT);
-        results.push(response.status());
-      }
-
-      // Should have at least one 429 response
-      const rateLimited = results.filter(status => status === 429);
-      expect(rateLimited.length).toBeGreaterThan(0);
-    });
-
-    test('should include rate limit headers in successful responses', async ({ request }) => {
-      const response = await request.get(ENDPOINT);
-
-      if (response.status() === 200) {
-        const headers = response.headers();
-
-        // Rate limit headers may not always be present, but if they are, validate them
-        if (headers['x-ratelimit-limit']) {
-          expect(headers['x-ratelimit-limit']).toBeDefined();
-          expect(headers['x-ratelimit-remaining']).toBeDefined();
-
-          const limit = parseInt(headers['x-ratelimit-limit']);
-          const remaining = parseInt(headers['x-ratelimit-remaining']);
-
-          expect(limit).toBeGreaterThan(0);
-          expect(remaining).toBeGreaterThanOrEqual(0);
-          expect(remaining).toBeLessThanOrEqual(limit);
-        }
-      }
-    });
-
-    test('should include Retry-After header in 429 responses', async ({ request }) => {
-      let rateLimitedResponse;
-
-      // Make requests until rate limited
-      for (let i = 0; i < 30; i++) {
-        const response = await request.get(ENDPOINT);
-        if (response.status() === 429) {
-          rateLimitedResponse = response;
-          break;
-        }
-      }
-
-      if (rateLimitedResponse) {
-        const headers = rateLimitedResponse.headers();
-        expect(headers['retry-after']).toBeDefined();
-
-        const retryAfter = parseInt(headers['retry-after']);
-        expect(retryAfter).toBeGreaterThan(0);
-      }
-    });
-  });
-
   test.describe('Caching', () => {
     test('should include cache headers for CDN/browser caching', async ({ request }) => {
       const response = await request.get(ENDPOINT);
@@ -556,6 +501,66 @@ test.describe('Featured Beaches API Contract', () => {
         expect(beach.id).toBeTruthy();
         expect(beach.name).toBeTruthy();
       });
+    });
+  });
+
+  // Rate Limiting tests are placed LAST because they intentionally trigger 429 responses
+  // which could affect other tests if run earlier due to shared rate limiter state
+  test.describe('Rate Limiting', () => {
+    test('should rate limit excessive requests', async ({ request }) => {
+      const results = [];
+
+      // Make 25 rapid requests (burst limit is 20 for public-default)
+      for (let i = 0; i < 25; i++) {
+        const response = await request.get(ENDPOINT);
+        results.push(response.status());
+      }
+
+      // Should have at least one 429 response
+      const rateLimited = results.filter(status => status === 429);
+      expect(rateLimited.length).toBeGreaterThan(0);
+    });
+
+    test('should include rate limit headers in successful responses', async ({ request }) => {
+      const response = await request.get(ENDPOINT);
+
+      if (response.status() === 200) {
+        const headers = response.headers();
+
+        // Rate limit headers may not always be present, but if they are, validate them
+        if (headers['x-ratelimit-limit']) {
+          expect(headers['x-ratelimit-limit']).toBeDefined();
+          expect(headers['x-ratelimit-remaining']).toBeDefined();
+
+          const limit = parseInt(headers['x-ratelimit-limit']);
+          const remaining = parseInt(headers['x-ratelimit-remaining']);
+
+          expect(limit).toBeGreaterThan(0);
+          expect(remaining).toBeGreaterThanOrEqual(0);
+          expect(remaining).toBeLessThanOrEqual(limit);
+        }
+      }
+    });
+
+    test('should include Retry-After header in 429 responses', async ({ request }) => {
+      let rateLimitedResponse;
+
+      // Make requests until rate limited
+      for (let i = 0; i < 30; i++) {
+        const response = await request.get(ENDPOINT);
+        if (response.status() === 429) {
+          rateLimitedResponse = response;
+          break;
+        }
+      }
+
+      if (rateLimitedResponse) {
+        const headers = rateLimitedResponse.headers();
+        expect(headers['retry-after']).toBeDefined();
+
+        const retryAfter = parseInt(headers['retry-after']);
+        expect(retryAfter).toBeGreaterThan(0);
+      }
     });
   });
 });

@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
+  CacheDuration,
+  createCachedResponse,
   createSuccessResponse,
-  handleApiError,
+  methodNotAllowed,
 } from "@/lib/api-utils";
 import { withRateLimit } from "@/lib/middleware/rate-limiter";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
@@ -12,6 +14,7 @@ import {
   PRIORITY_BEACH_IDS,
   FEATURED_BEACHES_LIMIT,
   getPriorityIndex,
+  FALLBACK_IMAGE_BY_NAME,
 } from "@/lib/constants/featured-beaches-config";
 
 // Type for beach data selected from database
@@ -23,6 +26,47 @@ interface EnrichedBeach extends BeachSelect {
   has_real_photo: boolean;
 }
 
+const HTTP_URL_REGEX = /^https?:\/\//i;
+const FALLBACK_NAME_SET = new Set(
+  Object.keys(FALLBACK_IMAGE_BY_NAME).map((name) => name.toLowerCase())
+);
+const EXCLUDED_BEACH_SET = new Set(EXCLUDED_BEACH_IDS);
+
+const sanitizeOptional = (value?: string | null): string | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const sanitizePhotoUrl = (url?: string | null): string | null => {
+  if (!url) return null;
+  const trimmed = url.trim();
+  return HTTP_URL_REGEX.test(trimmed) ? trimmed : null;
+};
+
+const mapBeachRecord = (
+  beach: BeachSelect,
+  photoUrl: string | null,
+  hasRealPhoto: boolean
+): EnrichedBeach | null => {
+  const normalizedName = sanitizeOptional(beach.name);
+  if (!normalizedName) {
+    return null;
+  }
+
+  return {
+    id: beach.id,
+    name: normalizedName,
+    city: sanitizeOptional(beach.city),
+    state: sanitizeOptional(beach.state),
+    slug: sanitizeOptional(beach.slug),
+    photo_url: photoUrl,
+    has_real_photo: hasRealPhoto && Boolean(photoUrl),
+  };
+};
+
 /**
  * Fetches beach photos and creates a map of beach ID to photo URL.
  *
@@ -30,14 +74,17 @@ interface EnrichedBeach extends BeachSelect {
  * @returns Map of beach ID to photo URL
  */
 async function fetchBeachPhotosMap(supabase: any): Promise<Map<string, string>> {
-  const { data: photosData, error: photosError } = await withApprovedPhotos(
+  let query = withApprovedPhotos(
     supabase
       .from("beach_photos")
       .select("beach_id, thumb_url, image_url")
-  )
-    .not("beach_id", "in", `(${EXCLUDED_BEACH_IDS.join(",")})`)
-    .order("beach_id")
-    .order("fetched_at", { ascending: false });
+  ).order("beach_id").order("fetched_at", { ascending: false });
+
+  if (EXCLUDED_BEACH_IDS.length > 0) {
+    query = query.not("beach_id", "in", `(${EXCLUDED_BEACH_IDS.join(",")})`);
+  }
+
+  const { data: photosData, error: photosError } = await query;
 
   if (photosError) {
     console.error("Database error fetching beach photos:", photosError);
@@ -47,11 +94,12 @@ async function fetchBeachPhotosMap(supabase: any): Promise<Map<string, string>> 
   // Get one photo per beach (DISTINCT ON beach_id logic)
   const photosMap = new Map<string, string>();
   (photosData || []).forEach((photo: BeachPhotoSelect) => {
-    if (!photosMap.has(photo.beach_id)) {
-      const imageUrl = photo.thumb_url || photo.image_url;
-      if (imageUrl) {
-        photosMap.set(photo.beach_id, imageUrl);
-      }
+    if (EXCLUDED_BEACH_SET.has(photo.beach_id) || photosMap.has(photo.beach_id)) {
+      return;
+    }
+    const imageUrl = sanitizePhotoUrl(photo.thumb_url) || sanitizePhotoUrl(photo.image_url);
+    if (imageUrl) {
+      photosMap.set(photo.beach_id, imageUrl);
     }
   });
 
@@ -86,16 +134,18 @@ async function fetchBeachesWithPhotos(
     return [];
   }
 
-  // Enrich beaches with photo URLs
-  return (beachesWithPhotos || []).map((beach: BeachSelect) => ({
-    id: beach.id,
-    name: beach.name,
-    city: beach.city,
-    state: beach.state,
-    slug: beach.slug,
-    photo_url: photosMap.get(beach.id),
-    has_real_photo: true,
-  }));
+  const beachRows: BeachSelect[] = (beachesWithPhotos || []) as BeachSelect[];
+
+  const enriched: EnrichedBeach[] = [];
+  for (const beachRow of beachRows) {
+    const photoUrl = photosMap.get(beachRow.id) ?? null;
+    const record = mapBeachRecord(beachRow, photoUrl, true);
+    if (record) {
+      enriched.push(record);
+    }
+  }
+
+  return enriched;
 }
 
 /**
@@ -115,31 +165,54 @@ async function fetchBeachesWithoutPhotos(
     return [];
   }
 
+  const exclusionSet = new Set(excludeIds);
+  EXCLUDED_BEACH_IDS.forEach((id) => exclusionSet.add(id));
+
   let query = supabase
     .from("beaches")
     .select("id, name, city, state, slug")
     .eq("is_private", false);
 
-  // Only exclude if there are IDs to exclude
-  if (excludeIds.length > 0) {
-    query = query.not("id", "in", `(${excludeIds.join(",")})`);
+  if (exclusionSet.size > 0) {
+    query = query.not("id", "in", `(${Array.from(exclusionSet).join(",")})`);
   }
 
-  const { data: beachesWithoutPhotos } = await query.limit(needed);
+  const fetchLimit = Math.min(
+    Math.max(needed * 2, needed),
+    FEATURED_BEACHES_LIMIT
+  );
+
+  const { data: beachesWithoutPhotos } = await query
+    .order("name")
+    .limit(fetchLimit);
 
   if (!beachesWithoutPhotos) {
     return [];
   }
 
-  return beachesWithoutPhotos.map((beach) => ({
-    id: beach.id,
-    name: beach.name,
-    city: beach.city,
-    state: beach.state,
-    slug: beach.slug,
-    photo_url: null,
-    has_real_photo: false,
-  }));
+  const beachRows: BeachSelect[] = (beachesWithoutPhotos || []) as BeachSelect[];
+
+  const mapped: EnrichedBeach[] = [];
+  for (const beachRow of beachRows) {
+    const record = mapBeachRecord(beachRow, null, false);
+    if (record) {
+      mapped.push(record);
+    }
+  }
+
+  const prioritized: EnrichedBeach[] = [];
+  const others: EnrichedBeach[] = [];
+
+  for (const beach of mapped) {
+    const normalizedName = beach.name.toLowerCase();
+    if (FALLBACK_NAME_SET.has(normalizedName)) {
+      prioritized.push(beach);
+    } else {
+      others.push(beach);
+    }
+  }
+
+  return [...prioritized, ...others];
 }
 
 /**
@@ -167,6 +240,50 @@ function applyPrioritySorting(beaches: EnrichedBeach[]): void {
     }
 
     return 0; // Keep original order for non-priority beaches
+  });
+}
+
+function dedupeBeaches(beaches: EnrichedBeach[]): EnrichedBeach[] {
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
+  const deduped: EnrichedBeach[] = [];
+
+  for (const beach of beaches) {
+    if (!beach.id || seenIds.has(beach.id)) {
+      continue;
+    }
+
+    const normalizedName = beach.name.trim().toLowerCase();
+    if (!normalizedName || seenNames.has(normalizedName)) {
+      continue;
+    }
+
+    seenIds.add(beach.id);
+    seenNames.add(normalizedName);
+    deduped.push(beach);
+  }
+
+  return deduped;
+}
+
+function sortFeaturedBeaches(beaches: EnrichedBeach[]): EnrichedBeach[] {
+  return [...beaches].sort((a, b) => {
+    if (a.has_real_photo !== b.has_real_photo) {
+      return a.has_real_photo ? -1 : 1;
+    }
+
+    const aPriority = getPriorityIndex(a.id);
+    const bPriority = getPriorityIndex(b.id);
+    const aIsPriority = aPriority !== -1;
+    const bIsPriority = bPriority !== -1;
+
+    if (aIsPriority && !bIsPriority) return -1;
+    if (!aIsPriority && bIsPriority) return 1;
+    if (aIsPriority && bIsPriority) {
+      return aPriority - bPriority;
+    }
+
+    return a.name.localeCompare(b.name);
   });
 }
 
@@ -208,10 +325,11 @@ async function featuredBeachesHandler(request: NextRequest) {
       beachIdsWithPhotos
     );
 
-    // Combine: beaches with photos first, then beaches without photos
-    const allBeaches = [...enrichedWithPhotos, ...enrichedWithoutPhotos];
+    const combined = [...enrichedWithPhotos, ...enrichedWithoutPhotos];
+    const deduped = dedupeBeaches(combined).slice(0, FEATURED_BEACHES_LIMIT);
+    const sorted = sortFeaturedBeaches(deduped);
 
-    return createSuccessResponse(allBeaches);
+    return await createCachedResponse(sorted, CacheDuration.MEDIUM);
   } catch (error) {
     console.error("Error fetching featured beaches:", error);
     // Return empty array rather than error for graceful degradation
@@ -220,4 +338,9 @@ async function featuredBeachesHandler(request: NextRequest) {
 }
 
 // Apply rate limiting
-export const GET = withRateLimit(featuredBeachesHandler, "public-default");
+export const GET = withRateLimit(featuredBeachesHandler, "public-showcase");
+
+const notAllowed = () => methodNotAllowed(["GET"]);
+export const POST = notAllowed;
+export const PUT = notAllowed;
+export const DELETE = notAllowed;

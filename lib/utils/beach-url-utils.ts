@@ -8,11 +8,40 @@ import type { Beach } from "@/types/database";
 /**
  * Map of state codes/names to URL slugs
  * Using short codes for US states for brevity
+ * Handles both 2-letter codes and full state names
  */
 const STATE_SLUG_MAP: Record<string, string> = {
+  // US States (2-letter codes)
   CA: "ca",
+  FL: "fl",
+  HI: "hi",
+  NC: "nc",
+  SC: "sc",
+  OR: "or",
+  WA: "wa",
+  TX: "tx",
+  NJ: "nj",
+  NY: "ny",
+  MA: "ma",
+  RI: "ri",
+
+  // US States (full names) - common surf states
+  California: "ca",
+  Florida: "fl",
+  Hawaii: "hi",
+  "North Carolina": "nc",
+  "South Carolina": "sc",
+  Oregon: "or",
+  Washington: "wa",
+  Texas: "tx",
+  "New Jersey": "nj",
+  "New York": "ny",
+  Massachusetts: "ma",
+  "Rhode Island": "ri",
+
+  // International locations
   "Baja California": "mexico/baja-california",
-  // Add more states as needed
+  // Add more states/regions as needed
 };
 
 /**

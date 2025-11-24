@@ -26,6 +26,7 @@ export function BeachBreadcrumb({ beach, className }: BeachBreadcrumbProps) {
       {/* Back to Map link */}
       <Link
         href="/map"
+        aria-label="Back to Map"
         className="inline-flex items-center gap-1 text-ocean-blue hover:underline transition-colors"
       >
         <ChevronLeft className="h-4 w-4" />

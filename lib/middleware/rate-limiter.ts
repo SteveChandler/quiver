@@ -95,7 +95,7 @@ export function withRateLimit(
       // Check rate limit
       if (!limiter.canMakeRequest(identifier)) {
         // Rate limit exceeded - calculate retry time
-        const retryAfterSeconds = limiter.getRetryAfter(identifier);
+        const retryAfterSeconds = Math.max(1, limiter.getRetryAfter(identifier));
 
         // Log violation for monitoring
         logRateLimitViolation(limitKey, identifier, RATE_LIMITS[limitKey]);
@@ -148,6 +148,13 @@ export function withRateLimit(
         response.headers.set(
           "X-RateLimit-Reset",
           new Date(Date.now() + status.timeUntilReset).toISOString()
+        );
+      }
+
+      if (DEFAULT_SECURITY_HEADERS["Referrer-Policy"]) {
+        response.headers.set(
+          "Referrer-Policy",
+          DEFAULT_SECURITY_HEADERS["Referrer-Policy"]
         );
       }
 
