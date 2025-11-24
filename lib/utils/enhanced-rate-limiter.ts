@@ -31,6 +31,7 @@ export class EnhancedRateLimiter {
   private requestHistory: Map<string, RequestRecord[]> = new Map();
   private burstCooldowns: Map<string, number> = new Map();
   private rapidTrackers: Map<string, { lastTs: number; streak: number }> = new Map();
+  private warmupRequestCounts: Map<string, number> = new Map();
   private readonly config: RateLimiterConfig;
   private readonly name: string;
   private cleanupInterval?: NodeJS.Timeout;

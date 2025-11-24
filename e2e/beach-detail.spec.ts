@@ -132,8 +132,11 @@ test.describe('Beach Detail Page', () => {
       return;
     }
 
-    await backButton.click();
-    await waitForPageLoad(page);
+    // Click and wait for navigation to complete
+    await Promise.all([
+      page.waitForURL('**/map', { timeout: TIMEOUTS.long }),
+      backButton.click()
+    ]);
 
     // Should be on map page
     expect(page.url()).toContain('/map');
