@@ -42,6 +42,33 @@ export const PRIORITY_BEACH_IDS: readonly string[] = [
 export const FEATURED_BEACHES_LIMIT = 50;
 
 /**
+ * Mapping of beach names to curated fallback imagery.
+ *
+ * Landing page components and the featured beaches API both rely on these
+ * curated assets to ensure we never duplicate generic placeholder photos.
+ */
+export const FALLBACK_IMAGE_BY_NAME = {
+  "Black's Beach": "/images/blacks.webp",
+  "Blacks Beach": "/images/blacks.webp",
+  "Swami's": "/images/Winter-Swamis.webp",
+  Swamis: "/images/Winter-Swamis.webp",
+  Tourmaline: "/images/tourmaline.png",
+  Windansea: "/images/windandsea-surf-shack-sunset.jpg",
+  "WindanSea Beach": "/images/windandsea-surf-shack-sunset.jpg",
+  "Agate Beach": "/images/Agate_Beach_Marin_County_California.webp",
+  "Beacons Beach": "/images/Beacons_Beach.webp",
+  Beacons: "/images/Beacons_Beach.webp",
+  "Ocean Beach": "/images/OceanBeachSurfers.jpg",
+  "Bandon Beach": "/images/On_the_Beach_at_Bandon.webp",
+} as const;
+
+export type FallbackBeachName = keyof typeof FALLBACK_IMAGE_BY_NAME;
+
+export const getFallbackImageForBeach = (name: string): string | undefined => {
+  return FALLBACK_IMAGE_BY_NAME[name as FallbackBeachName];
+};
+
+/**
  * Default limit for beach photo fetching in getBestBeachPhotosAction.
  *
  * Controls how many photos are fetched when displaying beach media galleries.

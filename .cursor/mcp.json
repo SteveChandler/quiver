@@ -10,6 +10,12 @@
         "PLAYWRIGHT_STORAGE_STATE": "e2e/.auth/state.json"
       }
     },
+    "supabase": {
+      "command": "node",
+      "args": [
+        "scripts/run-supabase-mcp.js"
+      ]
+    },
     "rapid7": {
       "command": "node",
       "args": [

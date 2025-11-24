@@ -111,7 +111,7 @@ const nextConfig = {
           // Security headers that don't impact performance
           {
             key: "Referrer-Policy",
-            value: "origin-when-cross-origin",
+            value: "strict-origin-when-cross-origin",
           },
         ],
       },

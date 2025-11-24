@@ -37,10 +37,10 @@ function shouldProxyUrl(url: string | null | undefined): boolean {
   }
 
   // Don't proxy URLs from our own domain
-  if (typeof window !== 'undefined') {
+  if (typeof globalThis !== "undefined" && globalThis.location) {
     try {
       const urlObj = new URL(url);
-      const currentHost = window.location.host;
+      const currentHost = globalThis.location.host;
       if (urlObj.host === currentHost) {
         return false;
       }

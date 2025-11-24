@@ -19,27 +19,45 @@ This repo is optimized for AI‑assisted coding. Follow this guide to produce co
 ### Tools & MCP (default: Playwright)
 
 - **Default tool:** Use **Playwright MCP** for browser automation, quick UI validation, smoke checks, and screenshots. Prefer MCP actions before shelling out to the Playwright CLI.
-- **Project MCP config:** The repository uses a project‑level MCP config at **`./.mcp.json`** so Claude Code can auto‑load Playwright MCP.
+- **Project MCP config:** The repository uses a project‑level MCP config at **`./.mcp.json`** (Claude Code) and **`./.cursor/mcp.json`** (Cursor IDE).
 
-  - If it’s missing locally, add it via CLI:
+  - Both configs provide access to four MCP servers:
+    - **Playwright**: E2E testing and browser automation
+    - **Supabase**: Read-only database inspection (requires `SUPABASE_ACCESS_TOKEN` in `.env`)
+    - **Rapid7**: Security log queries (requires `RAPID7_API_KEY` in `.env`)
+    - **Sentry**: Error tracking and performance monitoring
 
-    - `claude mcp add playwright 'npx @playwright/mcp@latest'`
-
-  - Or check in a config like:
+  - Current configuration:
 
 ```json
 {
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {
+        "PLAYWRIGHT_STORAGE_STATE": "e2e/.auth/state.json"
+      }
+    },
+    "supabase": {
+      "command": "node",
+      "args": ["scripts/run-supabase-mcp.js"]
+    },
+    "rapid7": {
+      "command": "node",
+      "args": ["scripts/run-rapid7-mcp.js"],
+      "env": {
+        "RAPID7_API_KEY": "${RAPID7_API_KEY}"
+      }
+    },
+    "Sentry": {
+      "url": "https://mcp.sentry.dev/mcp/quiver-z4/javascript-nextjs"
     }
   }
 }
 ```
-- **Security tooling:** The **Rapid7 InsightIDR MCP** server is available as `rapid7`. It loads credentials from `.env` via `RAPID7_API_KEY` (and optional `RAPID7_BASE_URL`). Keep the key up to date before asking Claude to query Rapid7 logs.
 
-- **Fallback:** When MCP isn’t available, use `Bash(npx playwright test <pattern>)`.
+- **Fallback:** When MCP isn't available, use `Bash(npx playwright test <pattern>)`.
 
 ### Common Commands
 

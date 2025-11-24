@@ -691,16 +691,31 @@ Before any new migration:
 
 ## 🚀 Best Times Performance
 
+⚠️ **Status: Infrastructure Present, No Active Consumers (Planned Feature)**
+
 - `public.mv_best_times` (materialized view)
 
   - Precomputes rolling 2-hour windows for next 72h per beach.
   - Refreshed hourly via `pg_cron` job `refresh_mv_best_times_hourly` calling `public.refresh_mv_best_times()`.
   - Unique index on `(beach_id, start_ts)` enables concurrent refresh and fast lookup.
   - Introduced by `20250812170000_create_mv_best_times.sql` with rollback `20250812170001_rollback_mv_best_times.sql`.
+  - **Current Usage**: None - feature not yet launched. Helper function exists in `lib/bestTimes.ts` but no API routes or components consume it.
 
-- API `GET /api/recommendations/best-times?beachId&hours&limit`
-  - Prefers MV; falls back to `get_best_times` RPC.
-  - Cache headers: `s-maxage=600, stale-while-revalidate=300`.
+- `public.mv_beach_hourly_scores` (materialized view)
+
+  - Precomputes hourly marine+tide joins with surf suitability scores.
+  - Refreshed via `refresh_mv_beach_hourly_scores()` function (pg_cron schedule TBD).
+  - Introduced by `20250820134000_create_mv_beach_hourly_scores.sql`.
+  - **Current Usage**: None - supports `mv_best_times` which is also not yet consumed.
+
+- **Data Engineering Review**: See `docs/data-engineering/BEACH_RECOMMENDATION_CLEANUP_REVIEW.md` for recommendations on:
+  - Whether to continue pg_cron refresh jobs for unused materialized views
+  - Storage and compute cost analysis
+  - Timeline for best-times feature launch
+
+- **Future API** (not yet implemented): Planned `GET /api/recommendations/best-times?beachId&hours&limit`
+  - Would prefer MV for performance; fall back to `get_best_times` RPC for live computation.
+  - Expected cache headers: `s-maxage=600, stale-while-revalidate=300`.
 
 Weights stored on `public.beaches`:
 
@@ -711,3 +726,71 @@ Weights stored on `public.beaches`:
 - `w_height` (default 0.100)
 
 All weights are in [0, 1]. The view `public.v_beach_hourly_scores` reads these to compute `score_0_100`. Defaults are applied via `COALESCE` and can be tuned per-spot by admins (future UI). Introduced by migration `20250812162000_add_beach_scoring_weights.sql` with rollback `20250812162001_rollback_beach_scoring_weights.sql`.
+
+---
+
+## 📍 Coordinate Naming Conventions
+
+### Database Schema Standards
+
+**Canonical Coordinate Columns**:
+```sql
+-- Legacy tables (beaches) use PostGIS naming
+center_lat DOUBLE PRECISION   -- Latitude
+center_lng DOUBLE PRECISION   -- Longitude (PostGIS legacy)
+
+-- New tables use standard naming
+latitude DOUBLE PRECISION     -- Latitude
+longitude DOUBLE PRECISION    -- Longitude
+```
+
+**Important**: The `beaches` table uses `center_lng` (not `center_lon`) due to PostGIS legacy conventions. This is intentional and should NOT be changed without a comprehensive migration.
+
+### Database Function Parameters
+
+All database functions use explicit naming:
+```sql
+CREATE OR REPLACE FUNCTION get_nearby_intel_posts(
+  center_lat DOUBLE PRECISION,    -- Explicit: latitude
+  center_lng DOUBLE PRECISION,    -- Explicit: longitude (legacy)
+  radius_miles DOUBLE PRECISION DEFAULT 5,
+  ...
+)
+```
+
+### Application Layer Mapping
+
+**Database → TypeScript Mapping**:
+```typescript
+// Database type (matches schema exactly)
+interface Beach {
+  center_lat: number;  // From beaches.center_lat
+  center_lng: number;  // From beaches.center_lng
+}
+
+// Component props (use full names)
+interface ComponentProps {
+  latitude: number;   // Full name
+  longitude: number;  // Full name (NOT lng)
+}
+
+// Explicit mapping required
+<Component
+  latitude={beach.center_lat}   // Map: center_lat → latitude
+  longitude={beach.center_lng}  // Map: center_lng → longitude
+/>
+```
+
+### Migration Considerations
+
+**DO NOT change database column names without:**
+1. Migration script to rename columns
+2. Update all database functions that reference columns
+3. Update TypeScript generated types
+4. Update all application queries
+5. Update all components
+6. Coordinate production deployment
+7. Update all documentation
+
+**See**: [/docs/COORDINATE_CONVENTIONS.md](/docs/COORDINATE_CONVENTIONS.md) for comprehensive coordinate naming standards.
+

@@ -133,7 +133,7 @@ For each beach with forecast:
     │
     ├─► Get source-specific threshold:
     │   ├─► CDIP: 1.5h
-    │   ├─► NOAA_NWS: 6h
+    │   ├─► NOAA_NWS: 12h
     │   └─► FALLBACK: 12h
     │
     ├─► Is stale? (age > threshold)

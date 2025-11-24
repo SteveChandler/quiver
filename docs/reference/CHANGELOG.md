@@ -133,7 +133,6 @@
     - `ForecastConfidenceBadge`: 21 tests covering confidence levels, styling, icons, edge cases, and accessibility
     - `ForecastVerificationWidget`: 50+ tests covering vote selection, form submission, error handling, callbacks, and loading states
     - `ForecastAccuracyStats`: 45+ tests covering data display, accuracy levels, compact/full modes, empty states, and edge cases
-    - `BestConditionsCards`: 60+ tests covering loading, error states, data display, user interactions, responsive design, and edge cases
   - **Server Action Tests**: 40+ tests for `forecast-verification-actions.ts` covering all actions, input validation, error handling, and edge cases
   - **E2E Tests**: 30+ Playwright tests for forecast verification user flows, voting, stats display, and accessibility
   - **Total**: 250+ new test cases added
@@ -184,7 +183,7 @@
   - Components exported from `components/forecast/index.ts`
 - **Photo Integration E2E Tests**: Comprehensive test suite validating photo integration features
   - 11 tests covering beach recommendations, session cards, API enrichment, and accessibility
-  - Tests verify featured_photo_url display in BestConditionsCards component
+  - Tests verify featured photo display in beach recommendation components
   - Validates SessionCard shows user photos with proper fallback to maps
   - Confirms both 'photo' and 'image' media types are handled correctly
   - Accessibility testing for alt text and ARIA labels
@@ -199,20 +198,6 @@
   - Created `normalizeQuery()` function to sanitize beach queries (strips punctuation, collapses whitespace)
   - Temporarily disabled Flickr to focus on Openverse stability
   - Added detailed verbose logging for Openverse queries and URLs
-- **Best Conditions Near You Section**: New home page feature showing top 4 beaches with optimal surf conditions
-  - Displays beaches within 10 miles of user's home beach
-  - Intelligent scoring algorithm based on swell direction, wind quality, tide, and skill level match
-  - Real-time conditions: wave height/direction, wind description, tide status
-  - Community-generated photos from session media (with fallback to beach default images)
-  - Horizontal scrollable cards optimized for mobile
-  - Skill level and crowd level badges for quick assessment
-  - "Hidden Gem" badge for high-scoring uncrowded spots (score ≥70, uncrowded)
-  - Click-through to beach detail pages
-  - Only displayed when user has set home beach preference
-  - Uses existing `get_nearby_beaches()` RPC and `scoreRecommendation()` utilities
-  - Server action: `actions/beach/nearby-best-conditions-actions.ts`
-  - Component: `components/home-screen/best-conditions-cards.tsx`
-  - Types: `types/beach-recommendations.ts`
 - **Bulk Forecast Endpoint Tests**: Created comprehensive test suite for `/api/forecasts/bulk` endpoint
   - 15 tests covering all edge cases (empty parameters, multiple beaches, error handling)
   - Verifies forward-looking forecast selection logic
@@ -238,13 +223,6 @@
   - **Testing**: Added 6 comprehensive unit tests covering edge cases for single-period windows, boundary conditions, and validation logic
   - **Migration**: `supabase/migrations/20251022100000_add_valid_surf_window_constraint.sql`
   - **Pattern**: Uses defensive multi-layer validation (data generation → storage → display) to prevent invalid data from reaching users
-- **Best Conditions Cards Not Displaying**: Fixed parameter mismatch and variable naming error in `getBestBeachesNearHome()`
-  - Changed RPC parameters from `input_lat/input_lng` to `lat/lng` to match latest database migrations
-  - Fixed `ReferenceError: wave_direction is not defined` - changed object literal shorthand to explicit property assignment for `wave_direction` and `wind_description`
-  - Added comprehensive debug logging throughout function execution
-  - Improved error handling and response structure validation
-  - Component now correctly displays top 4 beaches with best conditions near user's home beach
-  - File: `actions/beach/best-beaches-simple.ts`
 - **Bulk Forecast API Import**: Fixed incorrect import in bulk forecast endpoint
   - Changed from `createClient` to `createAPIServerClient` to match API server architecture
   - Updated test mocks to match new import
@@ -646,14 +624,14 @@
   - Previously would show yesterday's date if it existed in forecast data (e.g., Friday when today is Saturday)
   - Added date filtering using `getTodayDateString()` utility before selecting 5 days to display
   - Files: `components/beach-detail.tsx`
-- **iOS Nearby Tab Loading**: Fixed infinite loading spinner on Nearby tab in iOS simulator/devices
+- **iOS Geolocation Hook Improvements**: Fixed infinite loading states in iOS simulator/devices
   - Added 10-second safety timeout to geolocation hook to prevent hanging
   - Personalized fallback: Now defaults to user's home beach, then Ocean Beach as ultimate fallback
   - Start with fallback location immediately, then upgrade to real location if available
   - Fixed circular dependency in `useGeolocation` hook that could cause re-renders
   - iOS simulators often hang on geolocation API without properly triggering timeout callbacks
-  - Component now always shows beaches instead of spinning indefinitely
-  - Files: `hooks/use-geolocation.ts`, `components/home-screen/nearby-tab.tsx`, `components/home-screen/index.tsx`
+  - Components now always show beaches instead of spinning indefinitely
+  - Files: `hooks/use-geolocation.ts`, `components/home-screen/index.tsx`
 
 ### Added
 

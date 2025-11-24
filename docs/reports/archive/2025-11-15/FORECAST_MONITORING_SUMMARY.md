@@ -109,7 +109,7 @@ Returns:
 | Data Source | Warning Age | Critical Age | Rationale |
 |-------------|-------------|--------------|-----------|
 | CDIP        | >1.5h       | >24h         | Updates hourly |
-| NOAA_NWS    | >6h         | >24h         | Updates every 6h |
+| NOAA_NWS    | >12h        | >24h         | Updates daily at 6 AM |
 | FALLBACK    | >12h        | >24h         | Less critical |
 | Coverage    | <95%        | <90%         | Quality threshold |
 | Stale Count | >5 beaches  | >10 beaches  | Impact threshold |

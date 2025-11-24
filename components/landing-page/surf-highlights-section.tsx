@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { useCallback } from "react";
 import Link from "next/link";
 import { SectionWrapper } from "./section-wrapper";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
@@ -10,6 +9,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
+import { FALLBACK_IMAGE_BY_NAME } from "@/lib/constants/featured-beaches-config";
 
 interface Beach {
   id: string;
@@ -19,21 +19,6 @@ interface Beach {
   slug?: string | null;
   photo_url?: string | null;
 }
-
-const FALLBACK_IMAGE_BY_NAME: Record<string, string> = {
-  "Black's Beach": "/images/blacks.webp",
-  "Blacks Beach": "/images/blacks.webp",
-  "Swami's": "/images/Winter-Swamis.webp",
-  Swamis: "/images/Winter-Swamis.webp",
-  Tourmaline: "/images/tourmaline.png",
-  "Windansea": "/images/windandsea-surf-shack-sunset.jpg",
-  "WindanSea Beach": "/images/windandsea-surf-shack-sunset.jpg",
-  "Agate Beach": "/images/Agate_Beach_Marin_County_California.webp",
-  "Beacons Beach": "/images/Beacons_Beach.webp",
-  Beacons: "/images/Beacons_Beach.webp",
-  "Ocean Beach": "/images/OceanBeachSurfers.jpg",
-  "Bandon Beach": "/images/On_the_Beach_at_Bandon.webp",
-};
 
 export function SurfHighlightsSection() {
   const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {
@@ -173,12 +158,9 @@ export function SurfHighlightsSection() {
           </div>
 
           {/* CTA */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="text-center"
+          <div
+            className="text-center animate-fade-in-up"
+            style={{ animationDelay: "400ms" }}
           >
             <Button
               size="lg"
@@ -190,7 +172,7 @@ export function SurfHighlightsSection() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-          </motion.div>
+          </div>
         </>
       )}
     </SectionWrapper>

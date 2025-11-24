@@ -33,6 +33,7 @@ hooks/
 ├── use-enhanced-forecast.ts         # Advanced forecast data
 ├── use-forecast-preview.ts          # Quick forecast previews
 ├── use-forecast-calibration.ts      # Forecast accuracy tracking
+├── use-personalized-home-forecast.ts # Personalized recommendations
 │
 ├── Social Features
 ├── use-activity-feed.ts             # Social activity feeds
@@ -175,7 +176,7 @@ export function createLocationCacheKey(
 - **Features**:
   - Permission-aware geolocation with graceful fallback
   - Stable object identity for `coords` to avoid unnecessary rerenders
-  - Works with background warmups (e.g., morning recommendations)
+  - Works with background data fetching and caching
 
 ```typescript
 const { coords, source, requestLocation } = useGeo();
@@ -367,6 +368,88 @@ export function useEnhancedForecast({
     refetch,
     // Additional methods...
   };
+}
+```
+
+#### **usePersonalizedHomeForecast** (Personalized Recommendations)
+
+- **Purpose**: Fetch personalized surf forecast recommendations for authenticated users
+- **Features**:
+  - User-specific forecast scoring based on preferences and history
+  - Integrates with home beach and favorite beaches
+  - Optional beach ID override
+  - Authentication-gated with automatic skip when user is not logged in
+  - Rate-limited and cached server-side (5 minutes)
+
+```typescript
+export function usePersonalizedHomeForecast({
+  homeBeachId,
+  enabled = true,
+  immediate = true,
+}: UsePersonalizedHomeForecastOptions): UsePersonalizedHomeForecastReturn {
+  const { user } = useAuth();
+
+  const fetchPersonalizedForecast = useCallback(async () => {
+    if (!user) {
+      throw new Error("User must be authenticated");
+    }
+
+    const params = new URLSearchParams();
+    if (homeBeachId) {
+      params.set("homeBeachId", homeBeachId);
+    }
+
+    const url = `/api/home/personalized-forecast${params.toString() ? `?${params}` : ""}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to fetch forecast");
+    }
+
+    const result = await response.json();
+    return result.data;
+  }, [user, homeBeachId]);
+
+  const { data, loading, error, refetch } = useDataFetcher(
+    fetchPersonalizedForecast,
+    {
+      immediate: immediate && enabled && !!user,
+      skip: !enabled || !user,
+    }
+  );
+
+  return {
+    recommendation: data,
+    loading,
+    error,
+    refetch,
+  };
+}
+```
+
+**Usage Example**:
+
+```typescript
+function HomePage() {
+  const { recommendation, loading, error, refetch } = usePersonalizedHomeForecast({
+    immediate: true,
+    enabled: true,
+  });
+
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage message={error} />;
+  if (!recommendation) return <NoDataMessage />;
+
+  return (
+    <ForecastCard
+      beach={recommendation.beach.name}
+      summary={recommendation.summary}
+      score={recommendation.score}
+      reasons={recommendation.reasons}
+      window={recommendation.window}
+    />
+  );
 }
 ```
 

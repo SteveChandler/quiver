@@ -1,16 +1,20 @@
 # GPS Feature Refactoring Plan
 
+> ⚠️ **FEATURE REMOVED (Nov 2025)** 
+> 
+> This refactoring plan describes optimization work for the GPS Coordinates & Best Beaches Recommendation feature. The feature was later removed from the product along with the Best Conditions home page section. This document is preserved for historical reference.
+
 **Date**: 2025-11-11
-**Feature**: GPS Coordinates & Best Beaches Recommendation
+**Feature**: ~~GPS Coordinates & Best Beaches Recommendation~~ REMOVED
 **Total Estimated Time**: 15 hours
 **Actual Time**: ~10 hours
-**Status**: ALL PHASES COMPLETE ✅ (Phases 1, 2, 3, 4 Done)
+**Status**: ~~ALL PHASES COMPLETE ✅ (Phases 1, 2, 3, 4 Done)~~ FEATURE REMOVED
 
 ---
 
 ## Executive Summary
 
-This document outlines a comprehensive 4-phase refactoring plan for the recently implemented GPS coordinates feature. The refactoring addresses code smells identified in the 464-line "god function" in `best-beaches-simple.ts`, eliminates duplication, removes magic numbers, and improves overall code maintainability while ensuring no behavioral changes or regressions.
+This document outlines a comprehensive 4-phase refactoring plan for the GPS coordinates feature that was implemented and later removed. The refactoring addressed code smells identified in the 464-line "god function" in `best-beaches-simple.ts`, eliminated duplication, removed magic numbers, and improved overall code maintainability.
 
 ### Key Issues Identified
 1. **Long Method** - 464-line function violating Single Responsibility Principle

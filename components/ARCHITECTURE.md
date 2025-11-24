@@ -59,6 +59,69 @@ interface ComponentProps {
 - Zod schema integration for runtime validation
 - Variant props using `class-variance-authority`
 
+#### **Coordinate Naming Conventions** ⚠️
+
+**CRITICAL**: Coordinate naming must be consistent to prevent mapping bugs.
+
+**Standard Naming**:
+```typescript
+✅ CORRECT: lat, lon, latitude, longitude
+❌ INCORRECT: lng (do not use in new code)
+```
+
+**Database to Component Mapping**:
+```typescript
+// Database schema (beaches table)
+interface Beach {
+  center_lat: number;  // Database field
+  center_lng: number;  // Database field (PostGIS legacy)
+}
+
+// Component props (use full names)
+interface BeachIntelSectionProps {
+  latitude: number;   // Full name for clarity
+  longitude: number;  // Full name for clarity (NOT lng)
+}
+
+// CORRECT mapping pattern
+<BeachIntelSection
+  latitude={beach.center_lat}   // Explicit mapping required
+  longitude={beach.center_lng}  // Explicit mapping required
+  beachId={beach.id}
+/>
+```
+
+**API Parameters** (use short names):
+```typescript
+// API call parameters
+const params = {
+  lat: beach.center_lat,   // Short form
+  lon: beach.center_lng,   // Short form (NOT lng!)
+  radius: 5,
+};
+```
+
+**Validation Required**:
+```typescript
+import { validateCoordinates } from '@/lib/coordinate-validation';
+
+// Development warnings
+useEffect(() => {
+  if (process.env.NODE_ENV === 'development') {
+    validateCoordinates(latitude, longitude, `Component: ${name}`);
+  }
+}, [latitude, longitude, name]);
+```
+
+**Common Pitfalls**:
+1. ❌ Using `lng` instead of `lon`
+2. ❌ Assuming `beach.latitude` exists (it's `beach.center_lat`)
+3. ❌ Swapping latitude and longitude values
+4. ❌ Not validating coordinates before API calls
+
+**See**: [COORDINATE_CONVENTIONS.md](/docs/COORDINATE_CONVENTIONS.md) for comprehensive guide.
+
+
 ---
 
 ## Directory Structure & Component Domains
@@ -238,12 +301,11 @@ interface ComponentProps {
 - **`index.tsx`** - Main dashboard orchestrator
 - **`forecast-tab.tsx`** - Personalized forecast view
 - **`community-tab.tsx`** - Social activity feed
-- **`nearby-tab.tsx`** - Nearby beaches and conditions
 - **`use-home-data.ts`** - Centralized data management hook
 
 #### Features
 
-- **Tabbed Interface**: Forecast, Community, Nearby sections
+- **Tabbed Interface**: Forecast, Community sections
 - **Personalization**: User preference-driven content
 - **Real-time Updates**: Live data feeds and notifications
 - **Performance**: Lazy loading and data caching

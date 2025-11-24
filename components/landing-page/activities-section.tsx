@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import Link from "next/link";
 import { SectionWrapper } from "./section-wrapper";
 import { CONTENT, SURF_ACTIVITIES } from "@/lib/constants/features";
@@ -26,11 +25,9 @@ function ActivityCard({
   delay,
 }: ActivityCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6, delay: delay * 0.1 }}
+    <div
+      className="animate-fade-in-up"
+      style={{ animationDelay: `${delay * 100}ms` }}
     >
       <Link href={link} className="block group">
         <div className="bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 h-full border border-gray-100">
@@ -55,7 +52,7 @@ function ActivityCard({
           </div>
         </div>
       </Link>
-    </motion.div>
+    </div>
   );
 }
 
@@ -74,19 +71,16 @@ export function ActivitiesSection() {
       </div>
 
       {/* Additional info */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8, delay: 0.6 }}
-        className="mt-12 text-center max-w-2xl mx-auto"
+      <div
+        className="mt-12 text-center max-w-2xl mx-auto animate-fade-in"
+        style={{ animationDelay: "600ms" }}
       >
         <p className="text-gray-600 font-open-sans">
           Whether you&apos;re a beginner looking for mellow waves or an expert
           seeking the gnarliest breaks, Quiver helps you find the perfect spot
           for your style.
         </p>
-      </motion.div>
+      </div>
     </SectionWrapper>
   );
 }

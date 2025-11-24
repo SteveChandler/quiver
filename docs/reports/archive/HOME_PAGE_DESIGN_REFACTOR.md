@@ -1,5 +1,11 @@
 # Home Page Design Refactor Plan
 
+> ⚠️ **HISTORICAL DOCUMENT** - November 2025
+> 
+> **Note**: This document describes the original home page design that included "Best Conditions Near You" section and "Nearby" tab. These features were later removed in November 2025. References to these features are preserved for historical context but no longer reflect the shipped product.
+>
+> **Current home page** (as of Nov 2025): Welcome Section + Tabs (Forecast, Local Intel only)
+
 **Last Updated:** October 2025
 **Status:** Phases 1-6 Complete ✅ (Oct 23, 2025)
 **Pattern:** AllTrails-inspired design (matching beach detail page)
@@ -23,16 +29,16 @@ This document outlines a comprehensive design refactor for the home page to matc
 │   - User greeting (variable text sizes)                    │
 │   - Action buttons (flex layout)                           │
 ├─────────────────────────────────────────────────────────────┤
-│ Best Conditions Near You (conditional)                     │
+│ ⚠️ REMOVED: Best Conditions Near You (conditional)        │
 │   - Horizontal scrolling cards                             │
 │   - Beach recommendations                                   │
 ├─────────────────────────────────────────────────────────────┤
 │ Tabs Navigation                                             │
-│   [Forecast] [Nearby] [Local Intel]                        │
+│   [Forecast] [⚠️ REMOVED: Nearby] [Local Intel]           │
 │                                                             │
 │   Tab Content:                                              │
 │   - Forecast: Home beach conditions                        │
-│   - Nearby: Beach list with filters                        │
+│   - ⚠️ REMOVED: Nearby: Beach list with filters           │
 │   - Community: Recent sessions                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -327,6 +333,8 @@ const tabTriggerClasses =
 
 ### Phase 5: Best Conditions Cards Enhancement
 
+> ⚠️ **FEATURE REMOVED (Nov 2025)** - This section describes a feature that was later removed from the home page.
+
 **Objective:** Apply AllTrails card styling patterns
 
 #### Section Header
@@ -561,7 +569,7 @@ body: text-base           // 16px (fixed)
 - [x] Update forecast display styling
 - [x] Test data loading states
 
-### Phase 5: Best Conditions (45 minutes) ✅ **COMPLETE - 2025-10-23**
+### Phase 5: Best Conditions (45 minutes) ✅ **COMPLETE - 2025-10-23** ⚠️ **REMOVED Nov 2025**
 - [x] Update section header styling
 - [x] Refine card hover effects
 - [x] Fix badge color consistency
@@ -960,7 +968,7 @@ transition-all duration-200
 | Action buttons | High | 1h | Low |
 | ForecastTab | Medium | 1.5h | Low |
 | BestConditionsCards | Medium | 1h | Low |
-| NearbyTab | Low | 1h | Low |
+| ~~NearbyTab~~ | ~~Low~~ | ~~1h~~ | ~~Low~~ (Removed Nov 2025) |
 | CommunityTab | Low | 30m | Low |
 
 ### Components Not Requiring Changes

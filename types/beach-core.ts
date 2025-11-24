@@ -12,6 +12,8 @@
  * @module types/beach-core
  */
 
+import type { Coordinates } from '@/lib/types/coordinates';
+
 /**
  * Minimal beach location data required for hierarchical URL generation
  *
@@ -53,12 +55,12 @@ export interface BeachIdentity extends BeachLocation {
 /**
  * Coordinates for geospatial operations
  *
+ * Re-exported from centralized coordinate types for backward compatibility
+ * @see /lib/types/coordinates.ts for the canonical definition
+ *
  * Used for: Location services, distance calculations, map positioning
  */
-export interface BeachCoordinates {
-  lat: number;
-  lon: number;
-}
+export type BeachCoordinates = Coordinates;
 
 /**
  * Beach identity with optional coordinates

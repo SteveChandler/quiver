@@ -8,7 +8,7 @@ describe('Forecast Staleness Configuration', () => {
   describe('STALENESS_THRESHOLDS', () => {
     it('should have correct thresholds for each source', () => {
       expect(STALENESS_THRESHOLDS.CDIP).toBe(1.5);
-      expect(STALENESS_THRESHOLDS.NOAA_NWS).toBe(6);
+      expect(STALENESS_THRESHOLDS.NOAA_NWS).toBe(12);
       expect(STALENESS_THRESHOLDS.FALLBACK).toBe(12);
       expect(STALENESS_THRESHOLDS.DEFAULT).toBe(6);
     });
@@ -22,9 +22,9 @@ describe('Forecast Staleness Configuration', () => {
     });
 
     it('should return correct threshold for NOAA_NWS', () => {
-      expect(getStalenessThreshold('NOAA_NWS')).toBe(6);
-      expect(getStalenessThreshold('noaa_nws')).toBe(6);
-      expect(getStalenessThreshold('Noaa_Nws')).toBe(6);
+      expect(getStalenessThreshold('NOAA_NWS')).toBe(12);
+      expect(getStalenessThreshold('noaa_nws')).toBe(12);
+      expect(getStalenessThreshold('Noaa_Nws')).toBe(12);
     });
 
     it('should return correct threshold for FALLBACK', () => {
@@ -60,17 +60,17 @@ describe('Forecast Staleness Configuration', () => {
       expect(result.reason).toBe('Within freshness window');
     });
 
-    it('should correctly identify stale NOAA data (> 6 hours)', () => {
-      const result = getStalenessInfo(7, 'NOAA_NWS');
+    it('should correctly identify stale NOAA data (> 12 hours)', () => {
+      const result = getStalenessInfo(13, 'NOAA_NWS');
       expect(result.isStale).toBe(true);
-      expect(result.threshold).toBe(6);
+      expect(result.threshold).toBe(12);
       expect(result.reason).toBe('Exceeded source-specific threshold');
     });
 
-    it('should correctly identify fresh NOAA data (< 6 hours)', () => {
-      const result = getStalenessInfo(5, 'NOAA_NWS');
+    it('should correctly identify fresh NOAA data (< 12 hours)', () => {
+      const result = getStalenessInfo(11, 'NOAA_NWS');
       expect(result.isStale).toBe(false);
-      expect(result.threshold).toBe(6);
+      expect(result.threshold).toBe(12);
       expect(result.reason).toBe('Within freshness window');
     });
 
@@ -95,9 +95,9 @@ describe('Forecast Staleness Configuration', () => {
     });
 
     it('should handle edge case exactly at threshold', () => {
-      const result = getStalenessInfo(6, 'NOAA_NWS');
+      const result = getStalenessInfo(12, 'NOAA_NWS');
       expect(result.isStale).toBe(false);
-      expect(result.threshold).toBe(6);
+      expect(result.threshold).toBe(12);
     });
   });
 });

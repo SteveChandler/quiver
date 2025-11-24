@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -52,6 +52,17 @@ interface AnimatedSessionWizardProps {
   className?: string;
   onComplete?: (sessionData: any) => Promise<void>;
   onCancel?: () => void;
+  /**
+   * Optional initial form state for prefilling the wizard.
+   * Example: { selectedBeachId: 'abc-123', selectedBeach: 'Pacific Beach', selectedDate: '2025-11-22' }
+   */
+  initialFormState?: Partial<SessionFormState>;
+  /**
+   * Optional target step to jump to after initial render (1-indexed: 1-4).
+   * The wizard will validate that required fields for earlier steps are satisfied before jumping.
+   * Example: targetStep={3} will jump to the Goals step if beach and date/time are prefilled.
+   */
+  targetStep?: number;
 }
 
 // Feature flag for consolidated wizard (safe rollout)
@@ -225,6 +236,8 @@ export function AnimatedSessionWizard({
   className,
   onComplete,
   onCancel,
+  initialFormState,
+  targetStep,
 }: AnimatedSessionWizardProps) {
   const { user } = useAuth();
   const router = useRouter();
@@ -234,6 +247,9 @@ export function AnimatedSessionWizard({
   const [autoSaveStatus, setAutoSaveStatus] = useState<
     "idle" | "saving" | "saved"
   >("idle");
+
+  // Track whether we've performed the auto-jump to target step
+  const hasJumpedRef = useRef(false);
 
   const {
     mode,
@@ -245,7 +261,10 @@ export function AnimatedSessionWizard({
     updateField,
     refreshBoards,
     isPlanning,
-  } = useSessionForm(initialMode);
+  } = useSessionForm({
+    initialMode,
+    initialFormState,
+  });
 
   const sendInvitations = useCallback(
     async (
@@ -295,6 +314,81 @@ export function AnimatedSessionWizard({
   const steps = WIZARD_STEPS[mode];
   const currentWizardStep = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;
+
+  /**
+   * Validates that required fields for all steps up to (but not including) the target step are satisfied.
+   * This ensures we can safely jump to a target step without skipping required data.
+   */
+  const validateStepsUpTo = useCallback(
+    (targetStepIndex: number): boolean => {
+      // Step 1 (index 0) - Location: Requires beach
+      if (targetStepIndex > 0 && !formState.selectedBeachId) {
+        console.warn(
+          "Cannot jump to step",
+          targetStepIndex + 1,
+          "- missing beach selection"
+        );
+        return false;
+      }
+
+      // Step 2 (index 1) - DateTime: Requires date and time (for plan mode)
+      if (targetStepIndex > 1) {
+        if (!formState.selectedDate) {
+          console.warn(
+            "Cannot jump to step",
+            targetStepIndex + 1,
+            "- missing date selection"
+          );
+          return false;
+        }
+        // Time is only required for plan mode
+        if (mode === "plan" && !formState.selectedTime) {
+          console.warn(
+            "Cannot jump to step",
+            targetStepIndex + 1,
+            "- missing time selection (plan mode)"
+          );
+          return false;
+        }
+      }
+
+      // Step 3+ (index 2+) - Goals/Equipment/etc: No additional validation needed
+      // These steps are optional and don't block progression
+      return true;
+    },
+    [formState.selectedBeachId, formState.selectedDate, formState.selectedTime, mode]
+  );
+
+  /**
+   * Auto-jump to target step if provided and valid.
+   * This effect runs once after initial render and validates that required fields are present.
+   */
+  useEffect(() => {
+    if (targetStep && !hasJumpedRef.current) {
+      // Validate target step is in valid range (1-indexed to 0-indexed conversion)
+      const targetStepIndex = targetStep - 1;
+      if (targetStepIndex < 0 || targetStepIndex >= steps.length) {
+        console.warn(
+          `Invalid targetStep: ${targetStep}. Must be between 1 and ${steps.length}`
+        );
+        return;
+      }
+
+      // Validate that required fields for earlier steps are satisfied
+      const canJump = validateStepsUpTo(targetStepIndex);
+
+      if (canJump) {
+        console.log(`Auto-jumping to step ${targetStep} (index ${targetStepIndex})`);
+        setCurrentStep(targetStepIndex);
+        hasJumpedRef.current = true;
+      } else {
+        console.warn(
+          `Cannot auto-jump to step ${targetStep} - validation failed. Starting at step 1.`
+        );
+        hasJumpedRef.current = true; // Mark as attempted to prevent retry
+      }
+    }
+  }, [targetStep, steps.length, validateStepsUpTo]);
 
   // Step validation
   const isStepValid = useCallback(

@@ -1,7 +1,13 @@
 # GPS Coordinates Feature for Best Beaches
 
+> ⚠️ **FEATURE REMOVED (Nov 2025)** 
+> 
+> This document describes the GPS coordinates feature for the "Best Beaches Near Home" functionality, which was later removed from the product along with the Best Conditions home page section. The `getBestBeachesNearHome` server action and related components are no longer in use. This document is preserved for historical reference.
+
 ## Overview
-Enhanced the `getBestBeachesNearHome` server action to support optional GPS coordinates with intelligent fallback to home beach.
+~~Enhanced the `getBestBeachesNearHome` server action to support optional GPS coordinates with intelligent fallback to home beach.~~
+
+**Historical context**: This feature allowed GPS-based beach recommendations but was removed as part of home page simplification.
 
 ## Implementation Summary
 

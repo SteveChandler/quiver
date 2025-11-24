@@ -94,7 +94,7 @@
 | Metric | Warning | Critical |
 |--------|---------|----------|
 | CDIP Data Age | >1.5h | >24h |
-| NOAA Data Age | >6h | >24h |
+| NOAA Data Age | >12h | >24h |
 | Fallback Data Age | >12h | >24h |
 | Coverage | <95% | <90% |
 | Stale Beaches | >5 | >10 |

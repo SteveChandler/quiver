@@ -1,7 +1,3 @@
-"use client";
-
-import { motion } from "framer-motion";
-import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { ReactNode } from "react";
 
 interface SectionWrapperProps {
@@ -32,13 +28,10 @@ export function SectionWrapper({
     <section className={className}>
       <div className={containerClass}>
         {(title || subtitle) && (
-          <motion.div
-            {...ANIMATION_VARIANTS.fadeInView}
-            className={`${contentClass} mb-12`}
-          >
+          <div className={`${contentClass} mb-12 animate-fade-in-up`}>
             {title && <h2 className={titleClassName}>{title}</h2>}
             {subtitle && <p className={subtitleClassName}>{subtitle}</p>}
-          </motion.div>
+          </div>
         )}
 
         {children}

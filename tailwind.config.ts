@@ -97,10 +97,49 @@ const config: Config = {
             height: "0",
           },
         },
+        // Landing page animations to replace framer-motion
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        fadeInUp: {
+          "0%": { opacity: "0", transform: "translateY(30px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        fadeInDown: {
+          "0%": { opacity: "0", transform: "translateY(-20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        slideInLeft: {
+          "0%": { opacity: "0", transform: "translateX(-30px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        slideInRight: {
+          "0%": { opacity: "0", transform: "translateX(30px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        scaleIn: {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        scaleInLarge: {
+          "0%": { opacity: "0", transform: "scale(0.9)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        // Landing page animations
+        "fade-in": "fadeIn 0.8s ease-out",
+        "fade-in-fast": "fadeIn 0.4s ease-out",
+        "fade-in-up": "fadeInUp 0.8s ease-out",
+        "fade-in-up-fast": "fadeInUp 0.6s ease-out",
+        "fade-in-down": "fadeInDown 0.8s ease-out",
+        "slide-in-left": "slideInLeft 0.8s ease-out",
+        "slide-in-right": "slideInRight 0.8s ease-out",
+        "scale-in": "scaleIn 0.8s ease-out",
+        "scale-in-large": "scaleInLarge 0.9s ease-out",
       },
     },
   },

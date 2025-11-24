@@ -2,7 +2,7 @@
 
 ## 🎯 **PURPOSE**
 
-The home screen components create the main application dashboard with personalized forecasts, nearby beaches, and community intel through a tabbed interface with lazy loading and caching.
+The home screen components create the main application dashboard with personalized forecasts and community intel through a tabbed interface with lazy loading and caching.
 
 ## 📁 **COMPONENT STRUCTURE**
 
@@ -10,9 +10,8 @@ The home screen components create the main application dashboard with personaliz
 components/home-screen/
 ├── index.tsx           # Main HomeScreen container with tab management
 ├── forecast-tab.tsx    # Personalized forecast for user's home beach
-├── nearby-tab.tsx      # Nearby beaches with ratings and distance
 ├── community-tab.tsx   # Local intel dashboard (replaces community feed)
-└── use-home-data.ts    # Shared data fetching hook
+├── use-home-data.ts    # Shared data fetching hook
 └── nearby-beach-chips.tsx # Location-permissioned chip row for nearest beaches
 ```
 
@@ -24,7 +23,6 @@ components/home-screen/
 HomeScreen (Container)
 ├── TabsComponent (UI Framework)
 ├── ForecastTab (Lazy Loaded)
-├── NearbyTab (Lazy Loaded)
 └── CommunityTab (Lazy Loaded)
 ```
 
@@ -134,35 +132,6 @@ const { beachAccuracy, getConfidenceLevel, accuracyStats } =
 - **Forecast Available**: Full forecast display with adjustments
 - **Forecast Unavailable**: Error state with fallback actions
 
-### **NearbyTab** (Beach Discovery)
-
-- **Purpose**: Display nearby beaches with ratings and distances
-- **Props**: `beaches: Beach[], loading: boolean`
-- **Features**:
-  - Top 5 beaches display
-  - Beach card integration with reviews
-  - Distance calculations from Ocean Beach
-  - Loading states and empty states
-
-**Implementation:**
-
-```typescript
-// Optimized beach display
-const displayBeaches = useMemo(() => beaches.slice(0, 5), [beaches]);
-
-// Review integration
-const { reviewStats, loading: reviewsLoading } =
-  useMultipleBeachReviews(beachIds);
-
-// Prepared beach card data
-const beachCardData = prepareMultipleBeachCardData(
-  displayBeaches,
-  userLocation,
-  reviewStats,
-  "BEACH_CARD_NEARBY"
-);
-```
-
 ### **CommunityTab** (Local Intel)
 
 - **Purpose**: Local intel dashboard (replaced community feed)
@@ -228,7 +197,7 @@ const { data: sessionsData, loading: sessionsLoading } =
 
 ## 🔎 Home Search Bar
 
-- Location: Centered container directly under the `Forecast | Nearby | Local Intel` tabs on the Home screen.
+- Location: Centered container directly under the `Forecast | Local Intel` tabs on the Home screen.
 - Component: `components/home-screen/beach-search-bar.tsx`
 - Behavior:
   - Uses `useDataFetcher` with a memoized fetch function that calls `searchBeachesByName` for fuzzy/close matches (supports abbreviations like "OB", "PB").
@@ -349,34 +318,6 @@ const { profile, homeBeach } = useCachedProfile();
 }
 ```
 
-### **Morning Recommendations Warmup**
-
-- On mount, when `useGeo` returns `{ lat, lon }`, the Home screen triggers a background `POST /api/recommendations/morning` with `{ lat, lon, radius_km: 25 }` to warm recommendations and cache sun times for nearby beaches. This has no UI dependency and is safe to cancel via `AbortController` on unmount.
-- Returned windows are non-overlapping and come from top-8 nearest beaches to reduce load.
-
-```typescript
-const { coords } = useGeo();
-useEffect(() => {
-  if (!coords) return;
-  const controller = new AbortController();
-  (async () => {
-    try {
-      await fetch("/api/recommendations/morning", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat: coords.lat,
-          lon: coords.lon,
-          radius_km: 25,
-        }),
-        signal: controller.signal,
-      });
-    } catch {}
-  })();
-  return () => controller.abort();
-}, [coords]);
-```
-
 ### **Forecast Integration**
 
 ```typescript
@@ -438,6 +379,7 @@ const { beachAccuracy } = useForecastCalibration({
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with lazy loading and caching optimizations  
+**Last Updated**: November 18, 2025
+**Status**: Production-ready with lazy loading and caching optimizations
 **Next Review**: After push notifications implementation
+**Recent Changes**: Removed Best Conditions and Nearby Tab features (Nov 18, 2025)

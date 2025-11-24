@@ -9,13 +9,14 @@
  * Staleness thresholds in hours for different forecast data sources
  *
  * - CDIP: Buoy data updates hourly, so we mark as stale after 1.5 hours
- * - NOAA_NWS: WaveWatch model updates every 6 hours, so 6-hour threshold is appropriate
+ * - NOAA_NWS: Enhanced forecasts regenerate daily (6 AM), so 12-hour threshold prevents
+ *   unnecessary regeneration attempts while providing buffer until next update
  * - FALLBACK: Fallback data is less critical and can tolerate longer staleness
  * - DEFAULT: Default threshold for unknown or unspecified sources
  */
 export const STALENESS_THRESHOLDS = {
   CDIP: 1.5,        // 1.5 hours (CDIP buoy data updates hourly)
-  NOAA_NWS: 6,      // 6 hours (NOAA WaveWatch updates every 6 hours)
+  NOAA_NWS: 12,     // 12 hours (Enhanced forecasts regenerate daily, matches actual update cadence)
   FALLBACK: 12,     // 12 hours (fallback data less critical)
   DEFAULT: 6        // Default for unknown sources
 } as const;

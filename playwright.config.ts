@@ -14,7 +14,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 4 : undefined,
+  workers: process.env.CI ? 5 : 3,  // Reduced to 3 for local testing against prod to avoid rate limits
   reporter: [["list"], ["html", { open: "never" }]],
   // Grep to skip data-dependent tests in local dev (when SKIP_DATA_TESTS=true)
   grep: process.env.SKIP_DATA_TESTS === 'true' ? /^(?!.*@requires-data)/ : undefined,

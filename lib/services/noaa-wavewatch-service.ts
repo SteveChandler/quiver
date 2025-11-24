@@ -266,11 +266,10 @@ export class NOAAWaveWatchService {
         wavePeriodCount: gridData.properties.wavePeriod?.values?.length || 0,
       });
 
-      // Step 3: Check if we have actual meaningful wave height data (not zeros)
+      // Step 3: Check if we have actual meaningful wave height data (not zeros or nulls)
       const waveHeightValues = gridData.properties.waveHeight?.values || [];
-      const hasValidWaveData =
-        waveHeightValues.length > 0 &&
-        waveHeightValues.some((v) => v.value && v.value > 0);
+      const validValues = waveHeightValues.filter((v) => v.value != null && v.value > 0);
+      const hasValidWaveData = validValues.length > 0;
 
       if (
         !hasWaveHeight ||
@@ -278,14 +277,23 @@ export class NOAAWaveWatchService {
         !hasValidWaveData
       ) {
         console.log(
-          `❌ NOAA NWS has no meaningful wave height data (${
-            waveHeightValues.length
-          } values, valid: ${hasValidWaveData}, first value: ${
-            waveHeightValues[0]?.value || "none"
-          }), will try Open-Meteo fallback`
+          `❌ NOAA NWS has no usable wave height data (${waveHeightValues.length} total, ${validValues.length} valid, first: ${
+            waveHeightValues[0]?.value ?? "none"
+          }m), falling back to Open-Meteo`
         );
         return null;
       }
+
+      // Log warning if we have limited data (low confidence)
+      if (validValues.length === 1) {
+        console.warn(
+          `⚠️ NOAA NWS has limited wave data (only 1 valid value: ${validValues[0].value}m from ${waveHeightValues.length} total), proceeding but confidence may be lower`
+        );
+      }
+
+      console.log(
+        `✅ NOAA NWS wave data validated: ${validValues.length} valid forecasts from ${waveHeightValues.length} total`
+      );
 
       // Step 4: Process the grid data to extract wave information
       const waveData = this.processNOAAGridData(

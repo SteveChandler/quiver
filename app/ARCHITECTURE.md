@@ -299,7 +299,6 @@ The `/app` directory follows Next.js 13+ App Router conventions, implementing a 
 
 #### Page Behavior
 
-- On mount, when `useGeo` yields coordinates, the page warms recommendations by calling `POST /api/recommendations/morning` with `{ lat, lon, radius_km: 25 }` in the background. This improves subsequent UX for near-term best windows.
 - Renders a `CoachCard` with a default SD coordinate until the user selects a beach or location context is available.
 
 ---

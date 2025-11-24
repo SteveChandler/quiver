@@ -174,3 +174,189 @@ export async function hasConsoleErrors(page: Page): Promise<string[]> {
 
   return errors;
 }
+
+/**
+ * Wait for element with detailed debugging output
+ *
+ * This enhanced version provides comprehensive debugging when elements aren't found,
+ * making it easier to diagnose test failures on different environments.
+ *
+ * @param page - Playwright page object
+ * @param selector - CSS selector or role-based selector
+ * @param options - Configuration options
+ * @returns Promise<void>
+ *
+ * @example
+ * await waitForElementWithDebug(page, '[role="dialog"]', {
+ *   description: 'Edit Profile Modal',
+ *   timeout: 15000
+ * });
+ */
+export async function waitForElementWithDebug(
+  page: Page,
+  selector: string,
+  options: {
+    timeout?: number;
+    description?: string;
+    state?: 'visible' | 'attached' | 'hidden';
+  } = {}
+): Promise<void> {
+  const { timeout = 30000, description = selector, state = 'visible' } = options;
+  const debugMode = process.env.DEBUG_TESTS === 'true';
+
+  try {
+    if (debugMode) {
+      console.log(`[Debug] Waiting for: ${description}`);
+      console.log(`[Debug] Selector: ${selector}`);
+      console.log(`[Debug] Timeout: ${timeout}ms`);
+    }
+
+    await page.waitForSelector(selector, { state, timeout });
+
+    if (debugMode) {
+      console.log(`[Debug] ✓ Found: ${description}`);
+    }
+  } catch (error) {
+    // Element not found - gather debugging information
+    const url = page.url();
+    const title = await page.title().catch(() => 'Unknown');
+
+    // Get page HTML (first 2000 chars) for debugging
+    const html = await page.content().catch(() => 'Unable to get page content');
+    const htmlPreview = html.substring(0, 2000);
+
+    // Check for JavaScript errors
+    const jsErrors: string[] = [];
+    page.on('pageerror', err => jsErrors.push(err.message));
+
+    // Take screenshot for visual debugging
+    const timestamp = Date.now();
+    const screenshotPath = `test-results/debug-missing-element-${timestamp}.png`;
+    await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {
+      // Screenshot might fail, that's ok
+    });
+
+    // Build comprehensive error message
+    const errorDetails = [
+      `\n❌ Failed to find element: ${description}`,
+      `   Selector: ${selector}`,
+      `   State: ${state}`,
+      `   Timeout: ${timeout}ms`,
+      ``,
+      `📍 Page Context:`,
+      `   URL: ${url}`,
+      `   Title: ${title}`,
+      ``,
+      `🐛 Debugging Info:`,
+      `   Screenshot: ${screenshotPath}`,
+      `   HTML Preview (first 2000 chars): ${htmlPreview}`,
+      ``
+    ];
+
+    if (jsErrors.length > 0) {
+      errorDetails.push(`⚠️  JavaScript Errors:`);
+      jsErrors.forEach(err => errorDetails.push(`   - ${err}`));
+      errorDetails.push('');
+    }
+
+    errorDetails.push(`💡 Troubleshooting Tips:`);
+    errorDetails.push(`   1. Check if element requires user interaction first`);
+    errorDetails.push(`   2. Verify user has necessary permissions`);
+    errorDetails.push(`   3. Check if feature is enabled on this environment`);
+    errorDetails.push(`   4. Review screenshot at: ${screenshotPath}`);
+
+    const fullErrorMessage = errorDetails.join('\n');
+    console.error(fullErrorMessage);
+
+    throw new Error(fullErrorMessage);
+  }
+}
+
+/**
+ * Wait for modal/dialog to open with automatic retry logic
+ *
+ * Modals often require specific user interactions and may not appear immediately.
+ * This helper includes retry logic and comprehensive debugging.
+ *
+ * @param page - Playwright page object
+ * @param options - Configuration options
+ * @returns Promise<void>
+ *
+ * @example
+ * await clickElement(page, 'button', 'Edit Profile');
+ * await waitForModal(page, { description: 'Edit Profile Modal' });
+ */
+export async function waitForModal(
+  page: Page,
+  options: {
+    timeout?: number;
+    description?: string;
+    retries?: number;
+  } = {}
+): Promise<void> {
+  const { timeout = 30000, description = 'Modal', retries = 2 } = options;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      await waitForElementWithDebug(page, '[role="dialog"]', {
+        timeout: timeout / (retries + 1),
+        description: `${description} (attempt ${attempt + 1}/${retries + 1})`,
+        state: 'visible'
+      });
+      return; // Success!
+    } catch (error) {
+      if (attempt === retries) {
+        // Final attempt failed
+        throw error;
+      }
+
+      // Wait a bit before retrying
+      console.log(`[Retry] Modal not found on attempt ${attempt + 1}, retrying...`);
+      await page.waitForTimeout(1000);
+    }
+  }
+}
+
+/**
+ * Click an element with built-in waiting and error handling
+ *
+ * Automatically waits for element to be visible and actionable before clicking.
+ * Provides detailed error messages if click fails.
+ *
+ * @param page - Playwright page object
+ * @param selector - CSS selector or role-based selector
+ * @param description - Human-readable description for debugging
+ * @param options - Additional options
+ * @returns Promise<void>
+ *
+ * @example
+ * await clickElement(page, 'button[type="submit"]', 'Submit Button');
+ * await clickElement(page, '[data-testid="edit-profile"]', 'Edit Profile Button', { timeout: 15000 });
+ */
+export async function clickElement(
+  page: Page,
+  selector: string,
+  description: string,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const { timeout = 10000 } = options;
+
+  await waitForElementWithDebug(page, selector, {
+    description: `${description} (before click)`,
+    timeout,
+    state: 'visible'
+  });
+
+  try {
+    await page.locator(selector).click({ timeout });
+  } catch (error) {
+    throw new Error(
+      `Failed to click ${description} (${selector}).\n` +
+      `Element was visible but click failed. This might indicate:\n` +
+      `  1. Element is obscured by another element\n` +
+      `  2. Element is disabled\n` +
+      `  3. Element moved after visibility check\n` +
+      `Original error: ${error}`
+    );
+  }
+}

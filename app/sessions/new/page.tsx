@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { SessionWizard } from "@/components/session/wizard/SessionWizard";
-import { SessionFormMode } from "@/hooks/use-session-form";
+import { SessionFormMode, SessionFormState } from "@/hooks/use-session-form";
 import {
   createPlannedSession,
   createLoggedSession,
@@ -13,16 +13,24 @@ import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 import { createActivity } from "@/actions/activity-actions";
 import { useAuth } from "@/context/auth-context";
 import { track, slugify } from "@/lib/analytics";
+import { parseSessionWizardParams, extractFormState } from "@/lib/utils/session-wizard-params";
 
-function NewSessionPageContent() {
+interface NewSessionPageContentProps {
+  initialFormState?: Partial<SessionFormState>;
+  targetStep?: number;
+  mode: SessionFormMode;
+  convertSessionId?: string | null;
+}
+
+function NewSessionPageContent({
+  initialFormState,
+  targetStep,
+  mode,
+  convertSessionId
+}: NewSessionPageContentProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
   const [showCelebration, setShowCelebration] = useState(false);
-
-  // Get mode from URL params (default to 'plan')
-  const mode = (searchParams.get("mode") as SessionFormMode) || "plan";
-  const convertSessionId = searchParams.get("convert"); // For converting planned sessions
 
   // Note: Middleware now handles authentication redirect
   // Server actions also enforce auth as a safety measure
@@ -330,6 +338,8 @@ function NewSessionPageContent() {
         onComplete={handleSessionComplete}
         onCancel={handleCancel}
         className="min-h-screen"
+        initialFormState={initialFormState}
+        targetStep={targetStep}
       />
 
       {/* Celebration overlay with enhanced visibility */}
@@ -352,6 +362,59 @@ function NewSessionPageContent() {
   );
 }
 
+function NewSessionPageWrapper() {
+  const searchParams = useSearchParams();
+
+  // Parse and validate URL parameters for wizard prefill
+  const parseResult = parseSessionWizardParams(searchParams);
+
+  // Extract mode and convertSessionId from URL (backwards compatible)
+  const mode = (searchParams.get("mode") as SessionFormMode) || "plan";
+  const convertSessionId = searchParams.get("convert");
+
+  // Prepare initial form state and target step if validation succeeded
+  let initialFormState: Partial<SessionFormState> | undefined;
+  let targetStep: number | undefined;
+
+  if (parseResult.success) {
+    // Convert validated params to form state format
+    initialFormState = extractFormState(parseResult.data);
+    targetStep = parseResult.data.targetStep;
+
+    // Log successful prefill (development only)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Session wizard prefill data:', {
+        beach: parseResult.data.beachName,
+        startTime: parseResult.data.startTime,
+        targetStep,
+      });
+    }
+  } else if (parseResult.error && parseResult.error !== 'No prefill parameters provided') {
+    // Only show warning for actual validation errors, not when user accesses /sessions/new directly
+    console.warn('Session wizard parameter validation failed:', parseResult.error);
+
+    // Optionally show a subtle toast notification (non-blocking)
+    if (typeof window !== 'undefined' && parseResult.error !== 'No prefill parameters provided') {
+      // Use setTimeout to avoid SSR issues with toast
+      setTimeout(() => {
+        toast.warning('Some prefill data was invalid and was ignored');
+      }, 100);
+    }
+
+    // Use safe defaults from parse result
+    initialFormState = parseResult.defaults as Partial<SessionFormState>;
+  }
+
+  return (
+    <NewSessionPageContent
+      initialFormState={initialFormState}
+      targetStep={targetStep}
+      mode={mode}
+      convertSessionId={convertSessionId}
+    />
+  );
+}
+
 export default function NewSessionPage() {
   return (
     <Suspense
@@ -364,7 +427,7 @@ export default function NewSessionPage() {
         </div>
       }
     >
-      <NewSessionPageContent />
+      <NewSessionPageWrapper />
     </Suspense>
   );
 }

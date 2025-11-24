@@ -48,6 +48,7 @@ interface EditProfileFormProps {
     instagram?: string;
     avatar_url?: string;
     home_beach_id?: string;
+    homeBeachName?: string | null;
     surf_styles?: string[];
     preferred_wave_size?: string;
     preferred_break_type?: string;
@@ -82,7 +83,7 @@ export function EditProfileForm({
     setHomeBeachText,
   } = useProfileFormState({
     initialAvatarUrl: initialData?.avatar_url || "",
-    initialHomeBeachText: "",
+    initialHomeBeachText: initialData?.homeBeachName || "",
   });
 
   const form = useForm<ProfileFormValues>({

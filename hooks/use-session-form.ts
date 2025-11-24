@@ -59,16 +59,41 @@ export type SessionFormState = {
 
 export type SessionFormMode = "plan" | "log";
 
-export function useSessionForm(initialMode: SessionFormMode = "plan") {
-  const { user } = useAuth();
-  const [mode, setMode] = useState<SessionFormMode>(initialMode);
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [loadingData, setLoadingData] = useState(true);
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [beaches, setBeaches] = useState<Beach[]>([]);
+/**
+ * Parameters for configuring the session form hook
+ */
+export type SessionFormHookParams = {
+  /**
+   * Initial form mode (plan or log)
+   */
+  initialMode: SessionFormMode;
+  /**
+   * Optional initial form state overrides for prefilling the wizard.
+   * These values will be merged with defaults on initial mount only.
+   * The reset function will always reset to canonical defaults, not these overrides.
+   *
+   * @example
+   * ```typescript
+   * const form = useSessionForm({
+   *   initialMode: 'plan',
+   *   initialFormState: {
+   *     selectedBeachId: 'abc-123',
+   *     selectedBeach: 'Pacific Beach',
+   *     selectedDate: '2025-11-22',
+   *     selectedTime: '06:00',
+   *   }
+   * });
+   * ```
+   */
+  initialFormState?: Partial<SessionFormState>;
+};
 
-  const [formState, setFormState] = useState<SessionFormState>({
+/**
+ * Gets the canonical default state for the session form based on mode.
+ * This is the "clean slate" state used for initialization and resets.
+ */
+function getDefaultFormState(mode: SessionFormMode): SessionFormState {
+  return {
     selectedBeach: "",
     selectedBeachId: "",
     selectedDate: new Date().toISOString().split("T")[0], // Default to today
@@ -95,6 +120,59 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
     boardSuggestions: undefined,
     invitees: [],
     invitationMessage: "",
+  };
+}
+
+/**
+ * Session form hook with optional initial state overrides.
+ *
+ * Supports both legacy usage (passing mode directly) and new usage (passing params object).
+ *
+ * @param params - Either a SessionFormMode string (legacy) or a SessionFormHookParams object (new)
+ *
+ * @example
+ * // Legacy usage (backwards compatible)
+ * const form = useSessionForm('plan');
+ *
+ * @example
+ * // New usage with prefill
+ * const form = useSessionForm({
+ *   initialMode: 'plan',
+ *   initialFormState: {
+ *     selectedBeachId: 'abc-123',
+ *     selectedBeach: 'Pacific Beach',
+ *     selectedDate: '2025-11-22',
+ *     selectedTime: '06:00',
+ *   }
+ * });
+ */
+export function useSessionForm(
+  params: SessionFormMode | SessionFormHookParams = "plan"
+) {
+  // Support both legacy (mode string) and new (params object) usage
+  const { initialMode, initialFormState } =
+    typeof params === "string"
+      ? { initialMode: params, initialFormState: undefined }
+      : params;
+
+  const { user } = useAuth();
+  const [mode, setMode] = useState<SessionFormMode>(initialMode);
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [beaches, setBeaches] = useState<Beach[]>([]);
+
+  // Compute initial state once: merge defaults with any provided overrides
+  const [formState, setFormState] = useState<SessionFormState>(() => {
+    const defaultState = getDefaultFormState(initialMode);
+
+    // If overrides provided, merge them (overrides take precedence)
+    if (initialFormState) {
+      return { ...defaultState, ...initialFormState };
+    }
+
+    return defaultState;
   });
 
   useEffect(() => {
@@ -155,37 +233,14 @@ export function useSessionForm(initialMode: SessionFormMode = "plan") {
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
 
-  const resetForm = () => {
+  /**
+   * Resets the form to canonical defaults (NOT the prefilled values).
+   * This ensures a clean slate regardless of how the form was initialized.
+   */
+  const resetForm = useCallback(() => {
     setStep(1);
-    setFormState({
-      selectedBeach: "",
-      selectedBeachId: "",
-      selectedDate: "",
-      selectedTime: "",
-      selectedBoard: "",
-      boardId: undefined,
-      duration: "",
-      waveQuality: "",
-      waterTemp: "",
-      crowdLevel: "",
-      parkingEase: "",
-      overallRating: "",
-      notes: "",
-      photos: [],
-      waveTypes: [],
-      // Reset NEW FIELDS
-      waveHeight: undefined,
-      windSpeed: undefined,
-      windDirection: undefined,
-      forecastAccuracy: undefined,
-      // Reset new Session Planner Pro fields
-      optimalTimes: undefined,
-      selectedOptimalTime: undefined,
-      boardSuggestions: undefined,
-      invitees: [],
-      invitationMessage: "",
-    });
-  };
+    setFormState(getDefaultFormState(mode));
+  }, [mode]);
 
   const refreshBoards = async () => {
     if (!user) return;

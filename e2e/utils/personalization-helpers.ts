@@ -93,39 +93,6 @@ export async function verifyAffinityScore(
 }
 
 /**
- * Get personalized recommendations from the API
- * Returns array of recommendations with personalization data
- */
-export async function getPersonalizedRecommendations(page: Page): Promise<Array<{
-  beachId: string;
-  beachName: string;
-  score: number;
-  personalized: boolean;
-  breakdown?: {
-    base: number;
-    onboardingPrefs: number;
-    learnedPrefs: number;
-    affinity: number;
-  };
-}>> {
-  try {
-    // Make API request to morning recommendations
-    const response = await page.request.get('/api/recommendations/morning');
-
-    if (!response.ok()) {
-      throw new Error(`API returned ${response.status()}`);
-    }
-
-    const data = await response.json();
-
-    return data.recommendations || [];
-  } catch (error) {
-    console.warn('Could not fetch personalized recommendations:', error);
-    return [];
-  }
-}
-
-/**
  * Wait for personalization data to be computed
  * Polls for up to 30 seconds for preferences/affinity to appear
  */

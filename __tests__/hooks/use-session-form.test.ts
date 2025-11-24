@@ -427,7 +427,7 @@ describe('useSessionForm', () => {
 
       expect(result.current.step).toBe(1);
       expect(result.current.formState.selectedBeach).toBe('');
-      expect(result.current.formState.selectedDate).toBe('');
+      expect(result.current.formState.selectedDate).toBe(new Date().toISOString().split('T')[0]); // Resets to today
       expect(result.current.formState.overallRating).toBe('');
       expect(result.current.formState.notes).toBe('');
       expect(result.current.formState.photos).toEqual([]);
@@ -507,6 +507,271 @@ describe('useSessionForm', () => {
       });
 
       expect(result.current.loading).toBe(false);
+    });
+  });
+
+  describe('Prefill Functionality', () => {
+    it('should initialize with default state when no prefill provided (legacy usage)', async () => {
+      const { result } = renderHook(() => useSessionForm('plan'));
+
+      await waitFor(() => {
+        expect(result.current.loadingData).toBe(false);
+      });
+
+      // Check default values
+      expect(result.current.mode).toBe('plan');
+      expect(result.current.formState.selectedBeach).toBe('');
+      expect(result.current.formState.selectedBeachId).toBe('');
+      expect(result.current.formState.selectedDate).toBe(new Date().toISOString().split('T')[0]);
+      expect(result.current.formState.selectedTime).toBe('06:00'); // Default dawn patrol
+      expect(result.current.formState.notes).toBe('');
+      expect(result.current.formState.photos).toEqual([]);
+    });
+
+    it('should initialize with prefilled state when initialFormState provided', async () => {
+      const initialFormState = {
+        selectedBeachId: 'abc-123',
+        selectedBeach: 'Pacific Beach',
+        selectedDate: '2025-11-22',
+        selectedTime: '08:00',
+        notes: 'Testing prefill',
+      };
+
+      const { result } = renderHook(() =>
+        useSessionForm({
+          initialMode: 'plan',
+          initialFormState,
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.loadingData).toBe(false);
+      });
+
+      // Check prefilled values
+      expect(result.current.formState.selectedBeachId).toBe('abc-123');
+      expect(result.current.formState.selectedBeach).toBe('Pacific Beach');
+      expect(result.current.formState.selectedDate).toBe('2025-11-22');
+      expect(result.current.formState.selectedTime).toBe('08:00');
+      expect(result.current.formState.notes).toBe('Testing prefill');
+
+      // Non-prefilled values should use defaults
+      expect(result.current.formState.photos).toEqual([]);
+      expect(result.current.formState.duration).toBe('60m');
+    });
+
+    it('should support legacy usage with mode string parameter', async () => {
+      const { result } = renderHook(() => useSessionForm('log'));
+
+      await waitFor(() => {
+        expect(result.current.loadingData).toBe(false);
+      });
+
+      expect(result.current.mode).toBe('log');
+      expect(result.current.formState).toBeDefined();
+      expect(result.current.isPlanning).toBe(false);
+    });
+
+    it('should support new usage with params object', async () => {
+      const { result } = renderHook(() =>
+        useSessionForm({
+          initialMode: 'plan',
+          initialFormState: {
+            selectedBeach: 'Test Beach',
+          },
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.loadingData).toBe(false);
+      });
+
+      expect(result.current.mode).toBe('plan');
+      expect(result.current.formState.selectedBeach).toBe('Test Beach');
+      expect(result.current.isPlanning).toBe(true);
+    });
+
+    it('should reset to canonical defaults, not prefilled values', async () => {
+      const initialFormState = {
+        selectedBeachId: 'abc-123',
+        selectedBeach: 'Pacific Beach',
+        selectedDate: '2025-11-22',
+        selectedTime: '08:00',
+        notes: 'Original notes',
+      };
+
+      const { result } = renderHook(() =>
+        useSessionForm({
+          initialMode: 'plan',
+          initialFormState,
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.loadingData).toBe(false);
+      });
+
+      // Verify prefill worked
+      expect(result.current.formState.selectedBeach).toBe('Pacific Beach');
+      expect(result.current.formState.notes).toBe('Original notes');
+
+      // Reset the form
+      act(() => {
+        result.current.resetForm();
+      });
+
+      // Should reset to canonical defaults, NOT prefilled values
+      expect(result.current.formState.selectedBeach).toBe('');
+      expect(result.current.formState.selectedBeachId).toBe('');
+      expect(result.current.formState.notes).toBe('');
+      expect(result.current.formState.selectedTime).toBe('06:00'); // Default, not '08:00'
+      expect(result.current.step).toBe(1);
+    });
+
+    it('should only apply prefill on initial mount (not on rerenders)', async () => {
+      const initialFormState = {
+        selectedBeach: 'Initial Beach',
+      };
+
+      const { result, rerender } = renderHook(
+        ({ formState }) =>
+          useSessionForm({
+            initialMode: 'plan',
+            initialFormState: formState,
+          }),
+        {
+          initialProps: { formState: initialFormState },
+        }
+      );
+
+      await waitFor(() => {
+        expect(result.current.loadingData).toBe(false);
+      });
+
+      expect(result.current.formState.selectedBeach).toBe('Initial Beach');
+
+      // Update formState prop and rerender
+      rerender({
+        formState: {
+          selectedBeach: 'Different Beach',
+        },
+      });
+
+      // Should still have original value (prefill only applies on initial mount)
+      expect(result.current.formState.selectedBeach).toBe('Initial Beach');
+    });
+
+    it('should merge prefill with defaults correctly', async () => {
+      const initialFormState = {
+        selectedBeach: 'Custom Beach',
+        // selectedTime NOT provided
+      };
+
+      const { result } = renderHook(() =>
+        useSessionForm({
+          initialMode: 'plan',
+          initialFormState,
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.loadingData).toBe(false);
+      });
+
+      // Custom value should be used
+      expect(result.current.formState.selectedBeach).toBe('Custom Beach');
+
+      // Default value should be used for non-prefilled fields
+      expect(result.current.formState.selectedTime).toBe('06:00');
+      expect(result.current.formState.duration).toBe('60m');
+    });
+
+    it('should handle partial prefill data', async () => {
+      const initialFormState = {
+        selectedBeachId: 'test-beach-id',
+        // selectedBeach name NOT provided
+        selectedDate: '2025-11-23',
+        // selectedTime NOT provided
+      };
+
+      const { result } = renderHook(() =>
+        useSessionForm({
+          initialMode: 'plan',
+          initialFormState,
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.loadingData).toBe(false);
+      });
+
+      expect(result.current.formState.selectedBeachId).toBe('test-beach-id');
+      expect(result.current.formState.selectedDate).toBe('2025-11-23');
+
+      // Unprovided fields should use defaults
+      expect(result.current.formState.selectedBeach).toBe('');
+      expect(result.current.formState.selectedTime).toBe('06:00');
+    });
+
+    it('should handle prefill with all session planner pro fields', async () => {
+      const initialFormState = {
+        selectedBeachId: 'test-beach',
+        selectedBeach: 'Test Beach',
+        selectedDate: '2025-11-23',
+        selectedTime: '07:00',
+        optimalTimes: [
+          {
+            time: '07:00',
+            score: 90,
+            rating: 'excellent' as const,
+            conditions: {
+              waveHeight: 4,
+              waveQuality: 'clean',
+              windSpeed: 5,
+              windDirection: 'offshore',
+              confidence: 95,
+            },
+            reasons: ['Offshore winds', 'Good swell'],
+          },
+        ],
+        selectedOptimalTime: '07:00',
+        boardSuggestions: [
+          {
+            boardId: 'board-1',
+            score: 85,
+            confidence: 90,
+            reasons: ['Good for conditions'],
+          },
+        ],
+        invitees: [
+          {
+            userId: 'user-1',
+            name: 'John Doe',
+          },
+        ],
+        invitationMessage: 'Want to surf?',
+      };
+
+      const { result } = renderHook(() =>
+        useSessionForm({
+          initialMode: 'plan',
+          initialFormState,
+        })
+      );
+
+      await waitFor(() => {
+        expect(result.current.loadingData).toBe(false);
+      });
+
+      // Verify all fields prefilled correctly
+      expect(result.current.formState.selectedBeachId).toBe('test-beach');
+      expect(result.current.formState.selectedBeach).toBe('Test Beach');
+      expect(result.current.formState.optimalTimes).toHaveLength(1);
+      expect(result.current.formState.optimalTimes![0].score).toBe(90);
+      expect(result.current.formState.selectedOptimalTime).toBe('07:00');
+      expect(result.current.formState.boardSuggestions).toHaveLength(1);
+      expect(result.current.formState.invitees).toHaveLength(1);
+      expect(result.current.formState.invitationMessage).toBe('Want to surf?');
     });
   });
 

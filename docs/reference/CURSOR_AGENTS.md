@@ -42,9 +42,11 @@ This repository includes two Cursor agent personas wired for growth-focused deve
   - Visual behavior checks (navigation, responsiveness smoke)
   - Validate performance thresholds in development context
 
-## MCP Configuration (Playwright)
+## MCP Configuration
 
-Configured via `.cursor/mcp.json`:
+The project has two MCP configuration files:
+
+### `.cursor/mcp.json` (Cursor IDE)
 
 ```json
 {
@@ -57,36 +59,77 @@ Configured via `.cursor/mcp.json`:
       }
     },
     "supabase": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@supabase/mcp-server-supabase@latest",
-        "--read-only",
-        "--project-ref=vawdnbbgawichorsjiwe"
-      ],
-      "env": {
-        "SUPABASE_ACCESS_TOKEN": "<service_role_or_personal_access_token>"
-      }
+      "command": "node",
+      "args": ["scripts/run-supabase-mcp.js"]
     },
     "rapid7": {
       "command": "node",
       "args": ["scripts/run-rapid7-mcp.js"],
       "env": {
-        "RAPID7_API_KEY": "<rapid7_api_key>"
+        "RAPID7_API_KEY": "${RAPID7_API_KEY}"
       }
+    },
+    "Sentry": {
+      "url": "https://mcp.sentry.dev/mcp/quiver-z4/javascript-nextjs"
     }
   }
 }
 ```
 
-Notes:
+### `.mcp.json` (Claude Code)
 
-- Tools exposed by the Playwright MCP server support running tests, listing tests, and opening traces. Use development-friendly waits/thresholds per `e2e/ARCHITECTURE.md`.
-- Playwright runs will reuse the signed-in context located at `e2e/.auth/state.json`; refresh it via `npm run test:setup` (or rerun global setup) if auth expires.
-- Ensure the required test credentials (`E2E_USER_EMAIL`/`E2E_USER_PASSWORD` or `TEST_USER_*`) are set before starting Cursor so the global setup can generate the storage state.
-- Local run parity: `npx playwright test` from the repo root.
-- Supabase commands default to read-only; escalate to the Supabase DB Expert agent for mutations.
-- Rapid7 MCP pulls InsightIDR data and requires a valid `RAPID7_API_KEY` in your environment or `.env`.
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {
+        "PLAYWRIGHT_STORAGE_STATE": "e2e/.auth/state.json"
+      }
+    },
+    "supabase": {
+      "command": "node",
+      "args": ["scripts/run-supabase-mcp.js"]
+    },
+    "rapid7": {
+      "command": "node",
+      "args": ["scripts/run-rapid7-mcp.js"],
+      "env": {
+        "RAPID7_API_KEY": "${RAPID7_API_KEY}"
+      }
+    },
+    "Sentry": {
+      "url": "https://mcp.sentry.dev/mcp/quiver-z4/javascript-nextjs"
+    }
+  }
+}
+```
+
+### MCP Server Details
+
+**Playwright MCP**
+- Tools exposed by the Playwright MCP server support running tests, listing tests, and opening traces
+- Use development-friendly waits/thresholds per `e2e/ARCHITECTURE.md`
+- Playwright runs will reuse the signed-in context located at `e2e/.auth/state.json`
+- Refresh auth via `npm run test:setup` (or rerun global setup) if auth expires
+- Ensure the required test credentials (`E2E_USER_EMAIL`/`E2E_USER_PASSWORD` or `TEST_USER_*`) are set before starting the IDE
+- Local run parity: `npx playwright test` from the repo root
+
+**Supabase MCP**
+- Uses wrapper script `scripts/run-supabase-mcp.js` to load credentials from `.env`
+- Configured for read-only access to project `vawdnbbgawichorsjiwe`
+- Requires `SUPABASE_ACCESS_TOKEN` in `.env` or `.env.local`
+- Escalate to the Supabase DB Expert agent for mutations
+
+**Rapid7 MCP**
+- Uses wrapper script `scripts/run-rapid7-mcp.js` to load credentials
+- Pulls InsightIDR security logs
+- Requires valid `RAPID7_API_KEY` in `.env`
+
+**Sentry MCP**
+- Direct URL connection to Quiver project monitoring
+- Provides error tracking and performance monitoring access
 
 ## Recommended Workflows
 

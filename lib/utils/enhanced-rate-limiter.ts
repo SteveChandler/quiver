@@ -29,10 +29,14 @@ interface RequestRecord {
  */
 export class EnhancedRateLimiter {
   private requestHistory: Map<string, RequestRecord[]> = new Map();
+  private burstCooldowns: Map<string, number> = new Map();
+  private rapidTrackers: Map<string, { lastTs: number; streak: number }> = new Map();
+  private warmupRequestCounts: Map<string, number> = new Map();
   private readonly config: RateLimiterConfig;
   private readonly name: string;
   private cleanupInterval?: NodeJS.Timeout;
   private lastCleanup: number = Date.now();
+  private readonly initializedAt: number = Date.now();
 
   constructor(name: string, config: RateLimiterConfig) {
     this.name = name;
@@ -45,6 +49,9 @@ export class EnhancedRateLimiter {
       requestsPerMinute: Math.max(1, config.requestsPerMinute || 60),
       requestsPerHour: Math.max(1, config.requestsPerHour || 1000),
       burstLimit: Math.max(1, config.burstLimit || 5),
+      burstWindowMs: Math.max(1000, config.burstWindowMs || 60 * 1000),
+      warmupRequests: Math.max(0, config.warmupRequests || 0),
+      softBurstRecovery: Boolean(config.softBurstRecovery),
     };
   }
 
@@ -86,6 +93,8 @@ export class EnhancedRateLimiter {
       if (recentRecords.length === 0) {
         // No recent requests - remove this identifier entirely
         this.requestHistory.delete(identifier);
+        this.burstCooldowns.delete(identifier);
+        this.rapidTrackers.delete(identifier);
       } else if (recentRecords.length < records.length) {
         // Some old requests - update with filtered list
         this.requestHistory.set(identifier, recentRecords);
@@ -113,13 +122,52 @@ export class EnhancedRateLimiter {
       const now = Date.now();
       const records = this.requestHistory.get(identifier) || [];
 
-      // Check burst limit (requests within 1 minute window)
-      const burstWindow = 60 * 1000;
+      const totalRequests = this.warmupRequestCounts.get(identifier) ?? 0;
+      if (
+        this.config.warmupDurationMs &&
+        now - this.initializedAt < this.config.warmupDurationMs
+      ) {
+        return true;
+      }
+
+      // Rapid streak detection (aggressive spam bursts)
+      if (this.config.rapidStreakLimit && this.config.rapidThresholdMs) {
+        const tracker =
+          this.rapidTrackers.get(identifier) || { lastTs: 0, streak: 0 };
+        if (tracker.lastTs && now - tracker.lastTs < this.config.rapidThresholdMs) {
+          tracker.streak += 1;
+        } else {
+          tracker.streak = 1;
+        }
+        tracker.lastTs = now;
+        this.rapidTrackers.set(identifier, tracker);
+
+        if (tracker.streak >= this.config.rapidStreakLimit) {
+          const cooldownUntil =
+            now + (this.config.rapidCooldownMs ?? this.config.rapidThresholdMs * this.config.rapidStreakLimit!);
+          this.burstCooldowns.set(identifier, cooldownUntil);
+          tracker.streak = 0;
+          this.rapidTrackers.set(identifier, tracker);
+          return false;
+        }
+      }
+
+      // Check burst limit (requests within configured window)
+      const burstWindow = this.config.burstWindowMs ?? 60 * 1000;
       const recentRequests = records.filter(
         (record) => record.timestamp > now - burstWindow
       );
 
       if (recentRequests.length >= this.config.burstLimit) {
+        const oldestInBurst = Math.min(...recentRequests.map((r) => r.timestamp));
+        const resetTime = oldestInBurst + burstWindow;
+        this.burstCooldowns.set(identifier, resetTime);
+        if (this.config.softBurstRecovery) {
+          const trimmed = recentRequests.slice(
+            Math.max(0, recentRequests.length - (this.config.burstLimit - 1))
+          );
+          this.requestHistory.set(identifier, trimmed);
+        }
         console.warn(
           `[${this.name}] Burst limit exceeded for ${this.maskIdentifier(identifier)} ` +
             `(${recentRequests.length}/${this.config.burstLimit})`
@@ -181,6 +229,7 @@ export class EnhancedRateLimiter {
 
       this.requestHistory.set(identifier, records);
 
+
       // Trigger immediate cleanup if history gets too large
       // This prevents memory issues during high traffic
       if (this.requestHistory.size > 1000) {
@@ -206,6 +255,15 @@ export class EnhancedRateLimiter {
       const now = Date.now();
       const records = this.requestHistory.get(identifier) || [];
 
+       const cooldownUntil = this.burstCooldowns.get(identifier);
+       if (cooldownUntil) {
+         if (cooldownUntil <= now) {
+           this.burstCooldowns.delete(identifier);
+         } else {
+           return Math.ceil((cooldownUntil - now) / 1000);
+         }
+       }
+
       // Check which limit was hit and return appropriate retry time
 
       // Check per-minute limit
@@ -220,11 +278,11 @@ export class EnhancedRateLimiter {
           ...requestsLastMinute.map((r) => r.timestamp)
         );
         const resetTime = oldestInMinute + 60 * 1000;
-        return Math.ceil((resetTime - now) / 1000);
+        return Math.max(1, Math.ceil((resetTime - now) / 1000));
       }
 
       // Check burst limit
-      const burstWindow = 60 * 1000;
+      const burstWindow = this.config.burstWindowMs ?? 60 * 1000;
       const recentRequests = records.filter(
         (record) => record.timestamp > now - burstWindow
       );
@@ -234,7 +292,7 @@ export class EnhancedRateLimiter {
           ...recentRequests.map((r) => r.timestamp)
         );
         const resetTime = oldestInBurst + burstWindow;
-        return Math.ceil((resetTime - now) / 1000);
+        return Math.max(1, Math.ceil((resetTime - now) / 1000));
       }
 
       // Check per-hour limit (less common)
@@ -248,7 +306,7 @@ export class EnhancedRateLimiter {
           ...requestsLastHour.map((r) => r.timestamp)
         );
         const resetTime = oldestInHour + 60 * 60 * 1000;
-        return Math.ceil((resetTime - now) / 1000);
+        return Math.max(1, Math.ceil((resetTime - now) / 1000));
       }
 
       return 0;

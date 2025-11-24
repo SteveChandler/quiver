@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { CONTENT } from "@/lib/constants/features";
-import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { HeroCarousel } from "./hero-carousel";
-import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
+import HeroSearchLazy from "./hero-search-lazy";
 
 export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,39 +37,32 @@ export function HeroSection() {
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/60 z-20" />
 
       {/* Hero Content - Search-Centric */}
-      <motion.div
-        {...ANIMATION_VARIANTS.heroText(0.1)}
-        className="relative z-30 w-full max-w-[90vw] sm:max-w-screen-sm md:max-w-4xl mx-auto px-4 sm:px-6 text-center text-white py-8 sm:py-12"
-      >
+      <div className="relative z-30 w-full max-w-[90vw] sm:max-w-screen-sm md:max-w-4xl mx-auto px-4 sm:px-6 text-center text-white py-8 sm:py-12 animate-fade-in-up">
         {/* Main Headline - Bold and Simple */}
-        <motion.h1
-          {...ANIMATION_VARIANTS.heroText(0.2)}
-          className="font-bold leading-tight text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-roboto mb-6 sm:mb-8"
+        <h1
+          className="font-bold leading-tight text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-roboto mb-6 sm:mb-8 animate-fade-in-up"
+          style={{ animationDelay: "100ms" }}
         >
           {CONTENT.hero.title}
-        </motion.h1>
+        </h1>
 
-        {/* Search Bar - Hero Focus with autocomplete */}
-        <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.3)}
-          className="mb-4 sm:mb-6"
+        {/* Search Bar - Hero Focus with lazy-loaded autocomplete */}
+        <div
+          className="mb-4 sm:mb-6 animate-fade-in-up"
+          style={{ animationDelay: "200ms" }}
         >
           <div className="relative max-w-2xl mx-auto">
-            <BeachSearchAutocomplete
-              placeholder="Search by beach, spot, or region"
-              className="w-full h-14 pl-4 pr-0 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 [&_[cmdk-input-wrapper]]:border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
-              maxResults={8}
-              requireExplicitSelection
+            <HeroSearchLazy
               onFallback={navigateToMap}
               onQueryChange={setSearchQuery}
             />
           </div>
-        </motion.div>
+        </div>
 
         {/* Explore Nearby Link */}
-        <motion.div
-          {...ANIMATION_VARIANTS.heroText(0.4)}
-          className="text-center"
+        <div
+          className="text-center animate-fade-in-up"
+          style={{ animationDelay: "300ms" }}
         >
           <Button
             variant="link"
@@ -82,8 +73,8 @@ export function HeroSection() {
               Explore nearby spots
             </Link>
           </Button>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </section>
   );
 }

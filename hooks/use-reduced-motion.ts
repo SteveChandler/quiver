@@ -53,7 +53,7 @@ export function useReducedMotion(): boolean {
  * Get motion-safe animation variants for Framer Motion
  * Returns reduced variants when user prefers reduced motion
  */
-export function getMotionVariants(
+export function useMotionVariants(
   fullVariants: Record<string, any>,
   reducedVariants?: Record<string, any>
 ) {

@@ -71,6 +71,4 @@ describe("HeroSection landing search", () => {
 
     expect(push).toHaveBeenCalledWith("/map");
   });
-}
-
-
+});

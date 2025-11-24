@@ -4,8 +4,7 @@
       "command": "npx",
       "args": ["-y", "@playwright/mcp@latest"],
       "env": {
-        "PLAYWRIGHT_STORAGE_STATE": ".auth/user.json",
-        "X-Test-Mode": "true"
+        "PLAYWRIGHT_STORAGE_STATE": "e2e/.auth/state.json"
       }
     },
     "supabase": {
@@ -18,6 +17,9 @@
       "env": {
         "RAPID7_API_KEY": "${RAPID7_API_KEY}"
       }
+    },
+    "Sentry": {
+      "url": "https://mcp.sentry.dev/mcp/quiver-z4/javascript-nextjs"
     }
   }
 }

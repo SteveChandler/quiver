@@ -1,6 +1,10 @@
 # Before/After Performance Benchmarks
 
-**Date**: 2025-11-14  
+> ⚠️ **FEATURE REMOVED (Nov 2025)**
+>
+> This performance report includes optimization work for the "Best Conditions" home page feature, which was later removed from the product. This document is preserved for historical reference.
+
+**Date**: 2025-11-14
 **Scope**: Phases 3-5 Performance Optimizations
 
 ---

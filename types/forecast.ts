@@ -345,6 +345,31 @@ export interface RateLimiterConfig {
   requestsPerMinute: number;
   requestsPerHour: number;
   burstLimit: number;
+  /**
+   * Optional custom burst window in milliseconds (default: 60s)
+   */
+  burstWindowMs?: number;
+  /**
+   * Optional number of warmup requests allowed before limits apply
+   */
+  warmupRequests?: number;
+  /**
+   * Optional warmup duration after initialization where rate limiting is disabled (ms)
+   */
+  warmupDurationMs?: number;
+  /**
+   * Optional rapid-streak detection threshold. When set, requests that arrive faster
+   * than `rapidThresholdMs` and exceed `rapidStreakLimit` will trigger an immediate block.
+   */
+  rapidStreakLimit?: number;
+  rapidThresholdMs?: number;
+  rapidCooldownMs?: number;
+  /**
+    * Allow rapid recovery after a burst by trimming history when the burst
+    * limit is exceeded (useful for marketing endpoints that still need to
+    * demonstrate 429 behavior without long cooldowns).
+    */
+  softBurstRecovery?: boolean;
 }
 
 export interface RateLimitStatus {

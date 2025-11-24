@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,9 +98,11 @@ export default function SessionsPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           {session.author?.avatar && (
-                            <img
+                            <Image
                               src={session.author.avatar}
-                              alt={session.author.name}
+                              alt={session.author?.name || "Surfer avatar"}
+                              width={48}
+                              height={48}
                               className="w-12 h-12 rounded-full object-cover"
                             />
                           )}
@@ -129,9 +132,12 @@ export default function SessionsPage() {
                     </CardHeader>
                     <CardContent className="p-6">
                       {session.imageUrl && (
-                        <img
+                        <Image
                           src={session.imageUrl}
                           alt={`Session at ${session.beachName}`}
+                          width={1200}
+                          height={900}
+                          sizes="(max-width: 768px) 100vw, 768px"
                           className="w-full rounded-lg mb-4 max-h-96 object-cover"
                         />
                       )}
