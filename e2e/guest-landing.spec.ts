@@ -15,7 +15,7 @@ test.describe('Guest Landing Page', () => {
     await waitForPageLoad(page);
   });
 
-  test('should display landing page for guests', async ({ page }) => {
+  test('should display landing page for guests @smoke', async ({ page }) => {
     // Should NOT be redirected to authenticated routes
     expect(page.url()).not.toContain('/profile');
     expect(page.url()).not.toContain('/sessions');
@@ -31,7 +31,7 @@ test.describe('Guest Landing Page', () => {
     expect(hasHero || hasMain).toBe(true);
   });
 
-  test('should display navigation with login/signup buttons', async ({ page }) => {
+  test('should display navigation with login/signup buttons @smoke', async ({ page }) => {
     // Should see login button
     const loginButton = page.getByRole('button', { name: /log in/i });
     await expect(loginButton).toBeVisible();
@@ -63,7 +63,7 @@ test.describe('Guest Landing Page', () => {
     await expect(dialog).toBeVisible({ timeout: 5000 });
   });
 
-  test('should display featured beaches', async ({ page }) => {
+  test('should display featured beaches @smoke', async ({ page }) => {
     // Should show some beach cards
     const beachCards = page.locator('a[href^="/beach/"]').first();
     await expect(beachCards).toBeVisible({ timeout: 10000 });

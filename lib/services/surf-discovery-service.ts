@@ -26,6 +26,7 @@
 import { format } from 'date-fns';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from './preference-learning-service';
+import { getTimezoneFromCoords, getLocalHour, isNightHour } from '@/lib/utils/timezone-utils';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type {
@@ -781,6 +782,9 @@ function selectBestWindow(
 
   const now = new Date();
 
+  // Get beach's local timezone from coordinates for accurate night filtering
+  const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+
   // Track best window with detailed scoring
   let bestAdjustedScore = -1;
   let bestComposite = -1;
@@ -788,15 +792,16 @@ function selectBestWindow(
   let bestForecast: EnhancedForecastEntity | null = null;
 
   for (const forecast of forecasts) {
-    // Skip past forecasts
-    const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}`);
+    // Parse forecast time as UTC since that's how it's stored
+    const forecastTime = new Date(`${forecast.forecast_date}T${forecast.forecast_time}Z`);
     if (forecastTime < now) {
       continue;
     }
 
-    // Skip nighttime hours (9pm - 4am) - unrealistic for surf sessions
-    const hour = forecastTime.getHours();
-    if (hour >= 21 || hour < 4) {
+    // Skip nighttime hours (9pm - 6am) in the beach's local timezone
+    // This ensures we show realistic surf times regardless of server timezone
+    const localHour = getLocalHour(forecastTime, beachTz);
+    if (isNightHour(localHour)) {
       continue;
     }
 
@@ -839,12 +844,11 @@ function selectBestWindow(
   if (!bestForecast) return null;
 
   // Build window from best forecast
+  // Parse as UTC since forecast times are stored in UTC
+  const windowStart = new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}Z`);
   return {
-    start: new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}`),
-    end: new Date(
-      new Date(`${bestForecast.forecast_date}T${bestForecast.forecast_time}`).getTime() +
-        WINDOW_HOURS * 60 * 60 * 1000
-    ),
+    start: windowStart,
+    end: new Date(windowStart.getTime() + WINDOW_HOURS * 60 * 60 * 1000),
     tide: bestForecast.tide_status || 'Unknown',
     wind: `${bestForecast.wind_speed} ${bestForecast.wind_direction}`,
     waveHeight: bestForecast.wave_height || 'Unknown',
@@ -977,6 +981,8 @@ function emptyResponse(maxResults: number): SurfDiscoveryResponse {
       totalBeachesConsidered: 0,
       successfulForecasts: 0,
       partialSuccess: false,
+      failedBeaches: 0,
+      staleBeaches: 0,
       generated_at: new Date().toISOString(),
     },
   };

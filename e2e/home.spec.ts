@@ -15,7 +15,7 @@ test.describe('Authenticated Home Screen', () => {
     await waitForPageLoad(page);
   });
 
-  test('should display home screen for authenticated users', async ({ page }) => {
+  test('should display home screen for authenticated users @smoke', async ({ page }) => {
     // Should NOT see landing page
     const landingHero = page.getByRole('heading', { name: /find your next wave/i });
     const isLanding = await landingHero.isVisible().catch(() => false);
@@ -26,7 +26,7 @@ test.describe('Authenticated Home Screen', () => {
     // (This could be sessions, beaches, forecast, etc.)
   });
 
-  test('should display navigation header', async ({ page }) => {
+  test('should display navigation header @smoke', async ({ page }) => {
     // Should show Quiver logo
     const logo = page.getByText(/quiver/i).first();
     await expect(logo).toBeVisible();
