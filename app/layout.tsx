@@ -137,61 +137,8 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} ${roboto.variable} ${openSans.variable}`}
     >
-      <head>        {/* 
-          Analytics scripts moved to AnalyticsLoader component
-          This prevents loading GA4 and Ahrefs on the landing page
-          Performance impact: ~100KB saved, ~20ms faster TTI
-        */}
-        
-        {/* Resource hints for performance - ESSENTIAL ONLY */}
-        {/* Fonts are critical for all routes */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-
-        {/* 
-          Map-related DNS prefetch removed from root layout
-          Now loaded in route-specific layouts (map, beaches, forecast)
-          This saves 3-5 connection slots on landing page
-        */}
-
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#0f172a" />
-
-        {/* Apple Touch Icons for iOS PWA support */}
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link
-          rel="apple-touch-icon"
-          sizes="180x180"
-          href="/apple-touch-icon-180x180.png"
-        />
-        <link
-          rel="apple-touch-icon"
-          sizes="167x167"
-          href="/apple-touch-icon-167x167.png"
-        />
-        <link
-          rel="apple-touch-icon"
-          sizes="152x152"
-          href="/apple-touch-icon-152x152.png"
-        />
-        <link
-          rel="apple-touch-icon"
-          sizes="120x120"
-          href="/apple-touch-icon-120x120.png"
-        />        {/* Remove aggressive prefetching on mobile to reduce initial network load */}
-
-        {/* Note: logoQuiver.png is only used on landing page, so preload is handled there */}
-
-        {/* Remove non-existent webpack chunk preload - these are dynamic */}
-
-        {/* Structured Data for SEO */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
+      {/* WARNING: No whitespace allowed between tags in <head> to prevent React hydration errors. See: https://react.dev/link/hydration-mismatch */}
+      <head>{/* Analytics scripts moved to AnalyticsLoader component. This prevents loading GA4 and Ahrefs on the landing page. Performance impact: ~100KB saved, ~20ms faster TTI */}{/* Resource hints for performance - ESSENTIAL ONLY */}{/* Fonts are critical for all routes */}<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />{/* Map-related DNS prefetch removed from root layout. Now loaded in route-specific layouts (map, beaches, forecast). This saves 3-5 connection slots on landing page */}<link rel="manifest" href="/manifest.json" /><meta name="theme-color" content="#0f172a" />{/* Apple Touch Icons for iOS PWA support */}<link rel="apple-touch-icon" href="/apple-touch-icon.png" /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png" /><link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon-167x167.png" /><link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152x152.png" /><link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png" />{/* Remove aggressive prefetching on mobile to reduce initial network load */}{/* Note: logoQuiver.png is only used on landing page, so preload is handled there */}{/* Remove non-existent webpack chunk preload - these are dynamic */}{/* Structured Data for SEO */}<script type="application/ld+json" dangerouslySetInnerHTML={{
             __html: JSON.stringify([
               {
                 "@context": "https://schema.org",
@@ -223,36 +170,29 @@ export default function RootLayout({
                 },
               },
             ]),
-          }}
-        />
-
-        {/* Critical inline styles for faster render */}
-        <style
-          dangerouslySetInnerHTML={{
+          }} />{/* Critical inline styles for faster render */}<style dangerouslySetInnerHTML={{
             __html: `
               /* Critical loading spinner keyframes */
-              @keyframes spin { 
-                0% { transform: rotate(0deg); } 
-                100% { transform: rotate(360deg); } 
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
               }
-              
+
               /* Critical loading spinner class (not a Tailwind utility) */
-              .loading-spinner { 
-                width: 20px; 
-                height: 20px; 
-                border: 2px solid #f3f3f3; 
-                border-top: 2px solid #3498db; 
-                border-radius: 50%; 
-                animation: spin 1s linear infinite; 
+              .loading-spinner {
+                width: 20px;
+                height: 20px;
+                border: 2px solid #f3f3f3;
+                border-top: 2px solid #3498db;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
               }
-              
+
               /* Prevent layout shift for app-specific colors */
               .bg-background { background-color: hsl(var(--background)); }
               .text-muted-foreground { color: hsl(var(--muted-foreground)); }
             `,
-          }}
-        />
-      </head>
+          }} /></head>
       <body className={`${inter.className} font-sans antialiased`}>
         {/* 
           Analytics Loader - Conditionally loads analytics based on route
