@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Openverse Thumbnail URL 400 Errors - November 24, 2025
+
+**Issue:** Beach photos from Openverse API returning 400 errors when displayed through Next.js Image Optimization.
+
+**Root Cause:**
+- The Openverse API returned thumbnail URLs with `?format=json` suffix appended
+- Example: `https://api.openverse.org/v1/images/{id}/thumb/?format=json`
+- When these URLs were passed through Next.js Image Optimization → Image Proxy → Openverse, the endpoint returned JSON metadata instead of an actual image
+- This caused 400 Bad Request errors in the browser console
+
+**Fix:**
+- Added `cleanThumbnailUrl()` helper in `beach-media-actions.ts` to strip `?format=json` from URLs when reading from database
+- Updated `fetch-beach-photos.ts` script to prevent storing URLs with the suffix
+- Created database migration to clean existing affected URLs
+
+**Impact:**
+- ✅ Beach photo galleries now load correctly without 400 errors
+- ✅ Existing database URLs will be cleaned on migration
+- ✅ Future photo fetches will store correct URLs
+
+**Files Modified:**
+- `actions/beach-media-actions.ts` - Added URL cleaning on read
+- `scripts/fetch-beach-photos.ts` - Strip suffix when storing
+
+**Migration Added:**
+- `supabase/migrations/20251124000000_fix_openverse_thumbnail_urls.sql`
+
 #### Night-Hour Filter Timezone Fix - November 24, 2025
 
 **Issue:** "Your Best Spot Today" feature was showing times like "1:00 AM - 4:00 AM" as recommended surf windows.

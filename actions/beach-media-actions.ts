@@ -5,6 +5,21 @@ import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import { DEFAULT_BEACH_PHOTOS_LIMIT } from "@/lib/constants/featured-beaches-config";
 
 /**
+ * Clean Openverse thumbnail URLs by removing ?format=json suffix.
+ * 
+ * The Openverse API sometimes returns thumbnail URLs with ?format=json appended,
+ * which causes 400 errors when passed through Next.js Image Optimization because
+ * the endpoint returns JSON metadata instead of an actual image.
+ * 
+ * @param url - The URL to clean
+ * @returns The cleaned URL without ?format=json
+ */
+function cleanThumbnailUrl(url: string | null): string | null {
+  if (!url) return null;
+  return url.replace(/\?format=json$/i, '');
+}
+
+/**
  * Return public image URLs for beach photos.
  * Fetches from beach_photos table (third-party sources like Openverse, Flickr, etc.)
  * and falls back to session_media if no beach photos are available.
@@ -30,7 +45,7 @@ export async function getBestBeachPhotosAction(beachId: string, limit = DEFAULT_
       const mapped = beachPhotos.map((row) => ({
         id: row.id,
         created_at: row.fetched_at,
-        public_url: row.thumb_url || row.image_url,
+        public_url: cleanThumbnailUrl(row.thumb_url) || row.image_url,
       }));
       return { data: mapped, error: null };
     }

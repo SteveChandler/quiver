@@ -267,7 +267,9 @@ async function fetchOpenverse(beach: Beach, limit = LIMIT): Promise<PhotoRecord[
       source: "openverse",
       source_id: item.id,
       image_url: item.url,
-      thumb_url: item.thumbnail,
+      // Strip ?format=json from thumbnail URLs - Openverse sometimes returns this suffix
+      // which causes 400 errors when passed through Next.js Image Optimization
+      thumb_url: item.thumbnail?.replace(/\?format=json$/i, '') ?? null,
       title: item.title ?? null,
       creator_name: item.creator ?? null,
       creator_url: item.creator_url ?? null,
