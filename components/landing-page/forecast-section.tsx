@@ -1,12 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
 import Link from "next/link";
 import { ExternalLink, Waves, Wind, Thermometer } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SectionWrapper } from "./section-wrapper";
 import { CONTENT } from "@/lib/constants/features";
-import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 
 // Generate dynamic forecast data for landing page
 const generateForecastData = () => {
@@ -146,31 +144,22 @@ export function ForecastSection() {
       </div>
 
       <div className="relative z-10">
-        <motion.div
-          {...ANIMATION_VARIANTS.fadeUpWithDelay(0.2)}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10"
-        >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {MODERN_FORECAST_DATA.map((forecast, index) => (
-            <motion.div
+            <div
               key={index}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
-              className="transform hover:scale-105 transition-transform duration-300"
+              className="transform hover:scale-105 transition-transform duration-300 animate-fade-in-up"
+              style={{ animationDelay: `${index * 100}ms` }}
             >
               <ModernForecastCard {...forecast} />
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
 
         {/* Enhanced CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="text-center"
+        <div
+          className="text-center animate-fade-in-up"
+          style={{ animationDelay: "400ms" }}
         >
           <p className="text-gray-600 mb-4 text-lg">
             Want personalized forecasts for your favorite spots?
@@ -182,7 +171,7 @@ export function ForecastSection() {
             {CONTENT.sections.forecast.link}
             <ExternalLink className="h-5 w-5" />
           </Link>
-        </motion.div>
+        </div>
       </div>
     </SectionWrapper>
   );

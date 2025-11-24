@@ -180,3 +180,104 @@ export const DeviceRegistrationSchema = z.object({
 });
 
 export type DeviceRegistrationInput = z.infer<typeof DeviceRegistrationSchema>;
+
+// ============================================================================
+// Session Wizard URL Parameters
+// ============================================================================
+
+/**
+ * Validation schema for Session Wizard URL parameters
+ *
+ * Used to validate and parse URL parameters when prefilling the Session Wizard
+ * from "Plan Session" CTAs (Personalized Forecast, Surf Discovery, etc.)
+ *
+ * Security: All parameters are validated before use to prevent XSS and injection
+ * Compatibility: Missing/invalid params are handled gracefully with defaults
+ *
+ * @example
+ * ```typescript
+ * const result = SessionWizardPrefillSchema.safeParse({
+ *   mode: 'plan',
+ *   beach: 'abc-123-def-456',
+ *   beachName: 'Pacific Beach',
+ *   startTime: '2025-11-22T06:00:00.000Z',
+ *   endTime: '2025-11-22T10:00:00.000Z',
+ *   step: '3',
+ * });
+ *
+ * if (result.success) {
+ *   // Use validated data
+ *   const { mode, beach, startTime, endTime } = result.data;
+ * }
+ * ```
+ */
+export const SessionWizardPrefillSchema = z.object({
+  // Session mode (required, defaults to 'plan')
+  mode: z.enum(['plan', 'log'], {
+    errorMap: () => ({ message: 'Mode must be "plan" or "log"' }),
+  }).default('plan'),
+
+  // Beach UUID (optional - wizard can work without prefill)
+  beach: z.string()
+    .uuid('Invalid beach ID format')
+    .optional()
+    .describe('Beach UUID from database'),
+
+  // Beach name (optional, for display only)
+  beachName: z.string()
+    .min(1, 'Beach name cannot be empty')
+    .max(200, 'Beach name too long')
+    .trim()
+    .optional()
+    .describe('Beach display name (not trusted for DB operations)'),
+
+  // Start time (optional, ISO 8601)
+  startTime: z.string()
+    .datetime({ message: 'Invalid start time format (must be ISO 8601)' })
+    .optional()
+    .describe('Session start time in ISO 8601 format'),
+
+  // End time (optional, ISO 8601)
+  endTime: z.string()
+    .datetime({ message: 'Invalid end time format (must be ISO 8601)' })
+    .optional()
+    .describe('Session end time in ISO 8601 format'),
+
+  // Target wizard step (optional, defaults to 1)
+  step: z.string()
+    .regex(/^\d+$/, 'Step must be a number')
+    .transform((val) => parseInt(val, 10))
+    .refine(
+      (num) => num >= 1 && num <= 4,
+      'Step must be between 1 and 4'
+    )
+    .default('1')
+    .describe('Target wizard step (1-indexed)'),
+})
+  // Cross-field validation: end time must be after start time
+  .refine(
+    (data) => {
+      if (!data.startTime || !data.endTime) return true; // Skip if either is missing
+      return new Date(data.startTime) < new Date(data.endTime);
+    },
+    {
+      message: 'End time must be after start time',
+      path: ['endTime'],
+    }
+  )
+  // Validate reasonable time window (max 12 hours)
+  .refine(
+    (data) => {
+      if (!data.startTime || !data.endTime) return true; // Skip if either is missing
+      const start = new Date(data.startTime);
+      const end = new Date(data.endTime);
+      const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      return durationHours <= 12;
+    },
+    {
+      message: 'Session duration cannot exceed 12 hours',
+      path: ['endTime'],
+    }
+  );
+
+export type SessionWizardPrefillInput = z.infer<typeof SessionWizardPrefillSchema>;

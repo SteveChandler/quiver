@@ -31,7 +31,8 @@ import { ForecastErrorStateCard, ForecastLoadingSkeleton } from "@/components/fo
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { track, slugify } from "@/lib/analytics";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
-import { usePersonalizedHomeForecast } from "@/hooks/use-personalized-home-forecast";
+import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
+import { adaptDiscoveryResponse } from "@/lib/adapters/discovery-to-personalized";
 import { PersonalizedForecastCard } from "@/components/home-screen/personalized-forecast-card";
 import { BeachDiscoveryList } from "@/components/discover/beach-discovery-list";
 
@@ -48,16 +49,24 @@ export function ForecastTab({
 }: ForecastTabProps) {
   const router = useRouter();
 
-  // Fetch personalized forecast recommendation
+  // Fetch surf discovery with maxResults=1 for personalized forecast card
+  // Uses discovery service's time-decay scoring (prefers near-term quality)
   const {
-    recommendation,
-    loading: personalizedLoading,
-    error: personalizedError,
-    hasRecommendation,
-  } = usePersonalizedHomeForecast({
+    discovery,
+    loading: discoveryLoading,
+    error: discoveryError,
+    hasRecommendations,
+  } = useSurfDiscovery({
+    maxResults: 1, // Single recommendation for personalized card
     enabled: !!profile, // Only fetch when user has profile
     immediate: true,    // Fetch on mount
   });
+
+  // Adapt discovery response to personalized format for PersonalizedForecastCard
+  const recommendation = discovery ? adaptDiscoveryResponse(discovery) : null;
+  const personalizedLoading = discoveryLoading;
+  const personalizedError = discoveryError;
+  const hasRecommendation = hasRecommendations;
 
   const [showAdjusted, setShowAdjusted] = useState(false);
   const [forecastState, setForecastState] = useState<ForecastDataState>("loading");
@@ -302,7 +311,17 @@ export function ForecastTab({
   const handlePlanSession = useCallback(() => {
     if (!recommendation?.beach?.id) return;
 
-    const url = `/sessions/new?mode=plan&beach=${recommendation.beach.id}`;
+    // Build URL with prefill parameters
+    const params = new URLSearchParams({
+      mode: 'plan',
+      beach: recommendation.beach.id,
+      beachName: recommendation.beach.name,
+      startTime: recommendation.window.start.toISOString(),
+      endTime: recommendation.window.end.toISOString(),
+      step: '3', // Jump to Goals step
+    });
+
+    const url = `/sessions/new?${params.toString()}`;
 
     // Track the action
     track("personalized_forecast_plan_session", {
@@ -310,6 +329,8 @@ export function ForecastTab({
       beach_slug: slugify(recommendation.beach.name),
       score: recommendation.score,
       personalized: recommendation.personalized,
+      window_start: recommendation.window.start.toISOString(),
+      window_end: recommendation.window.end.toISOString(),
       source: "home_forecast_tab",
     });
 
@@ -408,22 +429,22 @@ export function ForecastTab({
           selectedBeachName={effectiveBeach.name}
         />
       )}
-
+      {/* Personalized Forecast Recommendation */}
+      {profile && (
+              <PersonalizedForecastCard
+                recommendation={recommendation}
+                loading={personalizedLoading}
+                error={personalizedError ? new Error(personalizedError) : null}
+                onPlanSession={handlePlanSession}
+                onViewBeach={handleViewBeachFromPersonalized}
+              />
+            )}
       {/* Surf Discovery - Top Spots for You */}
       {profile && (
         <BeachDiscoveryList maxResults={3} />
       )}
 
-      {/* Personalized Forecast Recommendation */}
-      {profile && (
-        <PersonalizedForecastCard
-          recommendation={recommendation}
-          loading={personalizedLoading}
-          error={personalizedError ? new Error(personalizedError) : null}
-          onPlanSession={handlePlanSession}
-          onViewBeach={handleViewBeachFromPersonalized}
-        />
-      )}
+      
 
       {/* Beach Header */}
       <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-lg border-0 shadow-md">

@@ -21,6 +21,7 @@ interface UseBeachAutocompleteOptions {
   debounceMs?: number;
   maxResults?: number;
   minQueryLength?: number;
+  initialQuery?: string;
 }
 
 export function useBeachAutocomplete(options: UseBeachAutocompleteOptions = {}) {
@@ -28,10 +29,11 @@ export function useBeachAutocomplete(options: UseBeachAutocompleteOptions = {}) 
     debounceMs = 300,
     maxResults = 5,
     minQueryLength = 2,
+    initialQuery = "",
   } = options;
 
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 

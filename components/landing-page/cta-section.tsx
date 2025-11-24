@@ -1,11 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { CONTENT } from "@/lib/constants/features";
-import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 
@@ -45,38 +42,23 @@ export function CTASection() {
         </div>
       </div>
 
-      <motion.div
-        {...ANIMATION_VARIANTS.fadeInView}
-        className="max-w-4xl mx-auto text-center relative z-10"
-      >
-        <motion.h2
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="text-3xl md:text-4xl lg:text-5xl font-roboto font-bold text-white mb-6 leading-tight"
-        >
+      <div className="max-w-4xl mx-auto text-center relative z-10 animate-fade-in-up">
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-roboto font-bold text-white mb-6 leading-tight animate-fade-in-up">
           Wherever the swell takes you
-        </motion.h2>
+        </h2>
 
-        <motion.p
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-lg md:text-xl font-open-sans text-white/90 mb-10 max-w-3xl mx-auto leading-relaxed"
+        <p
+          className="text-lg md:text-xl font-open-sans text-white/90 mb-10 max-w-3xl mx-auto leading-relaxed animate-fade-in-up"
+          style={{ animationDelay: "200ms" }}
         >
           Track, plan, and share your surf sessions with Quiver. Join the
           community and never miss your next perfect wave.
-        </motion.p>
+        </p>
 
         {/* Social Proof */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex items-center justify-center gap-6 mb-8 text-white/80"
+        <div
+          className="flex items-center justify-center gap-6 mb-8 text-white/80 animate-scale-in"
+          style={{ animationDelay: "300ms" }}
         >
           <div className="text-center">
             <div className="text-2xl font-bold">Active</div>
@@ -92,14 +74,11 @@ export function CTASection() {
             <div className="text-2xl font-bold">Free</div>
             <div className="text-sm">To Join</div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+        <div
+          className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in-up"
+          style={{ animationDelay: "400ms" }}
         >
           <Button
             size="lg"
@@ -115,8 +94,8 @@ export function CTASection() {
           <p className="text-white/80 text-sm mt-4">
             Free to join • No credit card required • Built for surfers
           </p>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </section>
   );
 }

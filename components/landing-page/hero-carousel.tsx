@@ -7,7 +7,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { motion } from "framer-motion";
 import Image from "next/image";
 
 const OCEAN_BLUE = "#0077B6";
@@ -125,19 +124,20 @@ export function HeroCarousel({
       {slides.map((slide, slideIndex) => {
         const objectPosition = FOCAL_TO_POSITION[slide.focal];
         const isFirstSlide = slideIndex === 0;
+        const isActive = slideIndex === displayIndex;
         return (
-          <motion.div
+          <div
             key={`${slide.src}-${slideIndex}`}
-            className="absolute inset-0 h-full w-full pointer-events-none"
-            initial={{ opacity: slideIndex === 0 ? 1 : 0 }}
-            animate={{ opacity: slideIndex === displayIndex ? 1 : 0 }}
-            transition={{ duration: 0.9, ease: "easeOut" }}
+            className={`absolute inset-0 h-full w-full pointer-events-none transition-opacity duration-[900ms] ease-out ${
+              isActive ? "opacity-100" : "opacity-0"
+            }`}
           >
             <Image
               src={slide.src}
               alt={slide.alt}
               fill
               priority={isFirstSlide}
+              loading={isFirstSlide ? undefined : "lazy"}
               quality={85}
               className={`object-cover transition-opacity duration-700 ${
                 loaded[slideIndex] ? "opacity-100" : "opacity-0"
@@ -146,7 +146,7 @@ export function HeroCarousel({
               sizes="100vw"
               onLoadingComplete={() => handleLoad(slideIndex)}
             />
-          </motion.div>
+          </div>
         );
       })}
 

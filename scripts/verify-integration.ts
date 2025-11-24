@@ -86,3 +86,4 @@ console.log('\n🎉 Integration verification PASSED!');
 
 export { mockBeach, mockWindow, mockForecast, mockRecommendation, mockOptions };
 
+

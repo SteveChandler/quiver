@@ -1,21 +1,69 @@
 import { renderHook } from "@testing-library/react";
 import { usePersonalizedHomeForecast } from "@/hooks/use-personalized-home-forecast";
-import type { PersonalizedForecastRecommendation } from "@/types/personalization";
+import type { PersonalizedForecastRecommendation, SurfDiscoveryResponse } from "@/types/personalization";
 
 // Mock dependencies
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
 }));
 
-jest.mock("@/hooks/use-data-fetcher", () => ({
-  useDataFetcher: jest.fn(),
+jest.mock("@/hooks/use-surf-discovery", () => ({
+  useSurfDiscovery: jest.fn(),
 }));
 
 import { useAuth } from "@/context/auth-context";
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 
 describe("usePersonalizedHomeForecast", () => {
   const mockUser = { id: "user-123", email: "test@example.com" };
+
+  // Mock discovery response (what useSurfDiscovery returns)
+  const mockDiscoveryResponse: SurfDiscoveryResponse = {
+    recommendations: [
+      {
+        beach: {
+          id: "beach-123",
+          name: "Test Beach",
+          latitude: 32.8328,
+          longitude: -117.2713,
+          center_lat: 32.8328,
+          center_lng: -117.2713,
+        } as any,
+        window: {
+          start: new Date("2025-01-20T08:00:00Z"),
+          end: new Date("2025-01-20T12:00:00Z"),
+          tide: "Mid incoming",
+          wind: "Light offshore",
+          waveHeight: "3-5 ft",
+          wavePeriod: "12-14s",
+          confidence: 0.85,
+        },
+        forecast: {} as any,
+        score: 85, // Discovery uses 0-100 scale
+        matchQuality: "excellent" as const,
+        subscores: {
+          waveHeightFit: 70,
+          periodEnergyScore: 10,
+          windAlignment: 3,
+          tideFit: 2,
+          affinityBonus: 0,
+          timeDecay: 0,
+        },
+        summary: "Great conditions expected",
+        reasons: ["Clean waves", "Offshore wind", "Good tide", "Perfect timing"],
+        warnings: [],
+        generated_at: "2025-01-20T06:00:00Z",
+      },
+    ],
+    metadata: {
+      totalBeachesConsidered: 10,
+      successfulForecasts: 8,
+      partialSuccess: false,
+      generatedAt: "2025-01-20T06:00:00Z",
+    },
+  };
+
+  // Expected personalized recommendation (after adaptation)
   const mockRecommendation: PersonalizedForecastRecommendation = {
     beach: {
       id: "beach-123",
@@ -35,17 +83,20 @@ describe("usePersonalizedHomeForecast", () => {
       confidence: 0.85,
     },
     forecast: {} as any,
-    score: 8.5,
+    score: 85,
     personalized: true,
     breakdown: {
-      base: 7.0,
-      onboardingPrefs: 1.0,
-      learnedPrefs: 0.5,
+      base: 70,
+      onboardingPrefs: 10,
+      learnedPrefs: 5,
       affinity: 0,
     },
     summary: "Great conditions expected",
-    reasons: ["Clean waves", "Offshore wind", "Good tide"],
+    reasons: ["Clean waves", "Offshore wind", "Good tide", "Perfect timing"],
     generated_at: "2025-01-20T06:00:00Z",
+    total_beaches_count: 10,
+    available_beaches_count: 8,
+    partial_success: false,
   };
 
   beforeEach(() => {
@@ -61,11 +112,12 @@ describe("usePersonalizedHomeForecast", () => {
       const mockRefetch = jest.fn();
 
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockRecommendation,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: mockDiscoveryResponse,
         loading: false,
         error: null,
         refetch: mockRefetch,
+        hasRecommendations: true,
       });
 
       const { result } = renderHook(() => usePersonalizedHomeForecast());
@@ -79,11 +131,12 @@ describe("usePersonalizedHomeForecast", () => {
 
     it("handles null recommendation when no good windows found", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       const { result } = renderHook(() => usePersonalizedHomeForecast());
@@ -96,11 +149,12 @@ describe("usePersonalizedHomeForecast", () => {
   describe("loading states", () => {
     it("shows loading state while fetching", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: true,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       const { result } = renderHook(() => usePersonalizedHomeForecast());
@@ -114,11 +168,12 @@ describe("usePersonalizedHomeForecast", () => {
     it("captures and exposes errors", () => {
       const errorMessage = "Failed to fetch personalized forecast";
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: false,
         error: errorMessage,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       const { result } = renderHook(() => usePersonalizedHomeForecast());
@@ -132,11 +187,12 @@ describe("usePersonalizedHomeForecast", () => {
     it("provides refetch function", () => {
       const mockRefetch = jest.fn();
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockRecommendation,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: mockDiscoveryResponse,
         loading: false,
         error: null,
         refetch: mockRefetch,
+        hasRecommendations: true,
       });
 
       const { result } = renderHook(() => usePersonalizedHomeForecast());
@@ -147,11 +203,12 @@ describe("usePersonalizedHomeForecast", () => {
     it("exposes refetch function for manual refresh", () => {
       const mockRefetch = jest.fn();
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockRecommendation,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: mockDiscoveryResponse,
         loading: false,
         error: null,
         refetch: mockRefetch,
+        hasRecommendations: true,
       });
 
       const { result } = renderHook(() => usePersonalizedHomeForecast());
@@ -165,11 +222,12 @@ describe("usePersonalizedHomeForecast", () => {
   describe("authentication handling", () => {
     it("skips fetch when user is not authenticated", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: null });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       const { result } = renderHook(() => usePersonalizedHomeForecast());
@@ -178,124 +236,159 @@ describe("usePersonalizedHomeForecast", () => {
       expect(result.current.hasRecommendation).toBe(false);
     });
 
-    it("passes skip: true to useDataFetcher when user is null", () => {
+    it("passes enabled: false to useSurfDiscovery when user is null (via useAuth)", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: null });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       renderHook(() => usePersonalizedHomeForecast());
 
-      expect(useDataFetcher).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.objectContaining({ skip: true })
-      );
+      // useSurfDiscovery internally handles user auth via useDataFetcher
+      // This test verifies the hook doesn't break when user is null
+      expect(useSurfDiscovery).toHaveBeenCalled();
     });
   });
 
   describe("enabled parameter", () => {
-    it("skips fetch when enabled is false", () => {
+    it("passes enabled: false to useSurfDiscovery when disabled", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       renderHook(() => usePersonalizedHomeForecast({ enabled: false }));
 
-      expect(useDataFetcher).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.objectContaining({ skip: true })
+      expect(useSurfDiscovery).toHaveBeenCalledWith(
+        expect.objectContaining({ enabled: false })
       );
     });
 
-    it("fetches when enabled is true", () => {
+    it("passes enabled: true to useSurfDiscovery when enabled", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockRecommendation,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: mockDiscoveryResponse,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: true,
       });
 
       renderHook(() => usePersonalizedHomeForecast({ enabled: true }));
 
-      expect(useDataFetcher).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.objectContaining({ skip: false })
+      expect(useSurfDiscovery).toHaveBeenCalledWith(
+        expect.objectContaining({ enabled: true })
       );
     });
   });
 
   describe("homeBeachId parameter", () => {
-    it("accepts homeBeachId parameter", () => {
+    it("accepts homeBeachId parameter (ignored, documented as such)", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockRecommendation,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: mockDiscoveryResponse,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: true,
       });
 
       const { result } = renderHook(() =>
         usePersonalizedHomeForecast({ homeBeachId: "beach-456" })
       );
 
+      // homeBeachId is accepted for backward compatibility but not used
+      // Discovery service always includes home beach
       expect(result.current.recommendation).toEqual(mockRecommendation);
     });
   });
 
   describe("callback handling", () => {
-    it("passes onSuccess callback to useDataFetcher", () => {
+    it("forwards onSuccess callback to useSurfDiscovery (wrapped)", () => {
       const onSuccess = jest.fn();
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockRecommendation,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: mockDiscoveryResponse,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: true,
       });
 
       renderHook(() => usePersonalizedHomeForecast({ onSuccess }));
 
-      expect(useDataFetcher).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.objectContaining({ onSuccess })
+      // Verify onSuccess callback is passed (wrapped to adapt data)
+      expect(useSurfDiscovery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          onSuccess: expect.any(Function),
+        })
       );
     });
 
-    it("passes onError callback to useDataFetcher", () => {
+    it("forwards onError callback to useSurfDiscovery", () => {
       const onError = jest.fn();
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       renderHook(() => usePersonalizedHomeForecast({ onError }));
 
-      expect(useDataFetcher).toHaveBeenCalledWith(
-        expect.any(Function),
+      // Verify onError callback is passed directly
+      expect(useSurfDiscovery).toHaveBeenCalledWith(
         expect.objectContaining({ onError })
       );
+    });
+
+    it("adapts discovery data before calling onSuccess", () => {
+      const onSuccess = jest.fn();
+      let capturedOnSuccess: any;
+
+      (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
+      (useSurfDiscovery as jest.Mock).mockImplementation((options) => {
+        capturedOnSuccess = options.onSuccess;
+        return {
+          discovery: mockDiscoveryResponse,
+          loading: false,
+          error: null,
+          refetch: jest.fn(),
+          hasRecommendations: true,
+        };
+      });
+
+      renderHook(() => usePersonalizedHomeForecast({ onSuccess }));
+
+      // Simulate useSurfDiscovery calling the wrapped onSuccess
+      if (capturedOnSuccess) {
+        capturedOnSuccess(mockDiscoveryResponse);
+      }
+
+      // Verify the user's callback received adapted personalized data
+      expect(onSuccess).toHaveBeenCalledWith(mockRecommendation);
     });
   });
 
   describe("hasRecommendation helper", () => {
     it("returns true when recommendation exists", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: mockRecommendation,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: mockDiscoveryResponse,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: true,
       });
 
       const { result } = renderHook(() => usePersonalizedHomeForecast());
@@ -305,11 +398,12 @@ describe("usePersonalizedHomeForecast", () => {
 
     it("returns false when recommendation is null", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       const { result } = renderHook(() => usePersonalizedHomeForecast());
@@ -318,260 +412,122 @@ describe("usePersonalizedHomeForecast", () => {
     });
   });
 
-  describe("useDataFetcher integration", () => {
-    it("calls useDataFetcher with a fetch function", () => {
+  describe("useSurfDiscovery integration", () => {
+    it("calls useSurfDiscovery with maxResults=1", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       renderHook(() => usePersonalizedHomeForecast());
 
-      expect(useDataFetcher).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.any(Object)
+      expect(useSurfDiscovery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxResults: 1,
+        })
       );
     });
 
-    it("passes correct options to useDataFetcher", () => {
+    it("passes correct options to useSurfDiscovery", () => {
       const onSuccess = jest.fn();
       const onError = jest.fn();
 
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-      (useDataFetcher as jest.Mock).mockReturnValue({
-        data: null,
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
         loading: false,
         error: null,
         refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
       renderHook(() =>
         usePersonalizedHomeForecast({
           enabled: true,
+          immediate: true,
           onSuccess,
           onError,
         })
       );
 
-      expect(useDataFetcher).toHaveBeenCalledWith(expect.any(Function), {
+      expect(useSurfDiscovery).toHaveBeenCalledWith({
+        maxResults: 1,
+        enabled: true,
         immediate: true,
-        skip: false,
-        onSuccess,
-        onError,
+        onSuccess: expect.any(Function), // Wrapped callback
+        onError, // Passed directly
       });
     });
   });
 
   describe("date hydration", () => {
-    it("converts ISO string dates from API to Date objects", async () => {
-      const mockFetchResponse = {
-        beach: {
-          id: "beach-123",
-          name: "Test Beach",
-          latitude: 32.8328,
-          longitude: -117.2713,
-          center_lat: 32.8328,
-          center_lng: -117.2713,
-        },
-        window: {
-          start: "2025-01-20T08:00:00.000Z", // ISO string from API
-          end: "2025-01-20T12:00:00.000Z",   // ISO string from API
-          tide: "Mid incoming",
-          wind: "Light offshore",
-          waveHeight: "3-5 ft",
-          wavePeriod: "12-14s",
-          confidence: 0.85,
-        },
-        forecast: {},
-        score: 8.5,
-        personalized: true,
-        breakdown: {
-          base: 7.0,
-          onboardingPrefs: 1.0,
-          learnedPrefs: 0.5,
-          affinity: 0,
-        },
-        summary: "Great conditions expected",
-        reasons: ["Clean waves", "Offshore wind", "Good tide"],
-        generated_at: "2025-01-20T06:00:00Z",
-      };
-
+    it("returns recommendation with Date objects (hydrated by useSurfDiscovery)", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-
-      // Capture the fetch function passed to useDataFetcher
-      let capturedFetchFn: any;
-      (useDataFetcher as jest.Mock).mockImplementation((fn, options) => {
-        capturedFetchFn = fn;
-        return {
-          data: null,
-          loading: false,
-          error: null,
-          refetch: jest.fn(),
-        };
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: mockDiscoveryResponse,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+        hasRecommendations: true,
       });
 
-      // Mock global fetch
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ data: mockFetchResponse }),
-      } as Response);
+      const { result } = renderHook(() => usePersonalizedHomeForecast());
 
-      renderHook(() => usePersonalizedHomeForecast());
+      // Verify dates in returned recommendation are Date objects
+      expect(result.current.recommendation).not.toBeNull();
+      expect(result.current.recommendation!.window.start).toBeInstanceOf(Date);
+      expect(result.current.recommendation!.window.end).toBeInstanceOf(Date);
 
-      // Call the captured fetch function directly
-      const result = await capturedFetchFn();
-
-      // Verify dates were hydrated to Date objects
-      expect(result).not.toBeNull();
-      expect(result.window.start).toBeInstanceOf(Date);
-      expect(result.window.end).toBeInstanceOf(Date);
-
-      // Verify the Date objects have correct values
-      expect(result.window.start.toISOString()).toBe("2025-01-20T08:00:00.000Z");
-      expect(result.window.end.toISOString()).toBe("2025-01-20T12:00:00.000Z");
-
-      // Verify toISOString() can be called (this was the bug)
-      expect(() => result.window.start.toISOString()).not.toThrow();
-      expect(() => result.window.end.toISOString()).not.toThrow();
+      // Verify toISOString() can be called
+      expect(() => result.current.recommendation!.window.start.toISOString()).not.toThrow();
+      expect(() => result.current.recommendation!.window.end.toISOString()).not.toThrow();
     });
 
-    it("handles null recommendation gracefully", async () => {
+    it("handles null recommendation gracefully", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-
-      let capturedFetchFn: any;
-      (useDataFetcher as jest.Mock).mockImplementation((fn, options) => {
-        capturedFetchFn = fn;
-        return {
-          data: null,
-          loading: false,
-          error: null,
-          refetch: jest.fn(),
-        };
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+        hasRecommendations: false,
       });
 
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ data: null }),
-      } as Response);
+      const { result } = renderHook(() => usePersonalizedHomeForecast());
 
-      renderHook(() => usePersonalizedHomeForecast());
-
-      const result = await capturedFetchFn();
-
-      expect(result).toBeNull();
+      expect(result.current.recommendation).toBeNull();
     });
 
-    it("throws error for invalid date strings", async () => {
-      const mockFetchResponseWithInvalidDate = {
-        beach: { id: "beach-123", name: "Test Beach" },
-        window: {
-          start: "invalid-date-string",
-          end: "2025-01-20T12:00:00.000Z",
-          tide: "Mid incoming",
-          wind: "Light offshore",
-          waveHeight: "3-5 ft",
-          wavePeriod: "12-14s",
-          confidence: 0.85,
-        },
-        forecast: {},
-        score: 8.5,
-        personalized: true,
-        breakdown: { base: 7.0, onboardingPrefs: 1.0, learnedPrefs: 0.5, affinity: 0 },
-        summary: "Great conditions expected",
-        reasons: ["Clean waves"],
-        generated_at: "2025-01-20T06:00:00Z",
-      };
-
+    it("preserves all recommendation fields during adaptation", () => {
       (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-
-      let capturedFetchFn: any;
-      (useDataFetcher as jest.Mock).mockImplementation((fn, options) => {
-        capturedFetchFn = fn;
-        return {
-          data: null,
-          loading: false,
-          error: null,
-          refetch: jest.fn(),
-        };
+      (useSurfDiscovery as jest.Mock).mockReturnValue({
+        discovery: mockDiscoveryResponse,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+        hasRecommendations: true,
       });
 
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ data: mockFetchResponseWithInvalidDate }),
-      } as Response);
+      const { result } = renderHook(() => usePersonalizedHomeForecast());
 
-      renderHook(() => usePersonalizedHomeForecast());
+      const rec = result.current.recommendation!;
 
-      await expect(capturedFetchFn()).rejects.toThrow(/Invalid window start date/);
-    });
-
-    it("preserves all other recommendation fields during hydration", async () => {
-      const mockFetchResponse = {
-        beach: {
-          id: "beach-123",
-          name: "Test Beach",
-          latitude: 32.8328,
-          longitude: -117.2713,
-          center_lat: 32.8328,
-          center_lng: -117.2713,
-        },
-        window: {
-          start: "2025-01-20T08:00:00.000Z",
-          end: "2025-01-20T12:00:00.000Z",
-          tide: "Mid incoming",
-          wind: "Light offshore",
-          waveHeight: "3-5 ft",
-          wavePeriod: "12-14s",
-          confidence: 0.85,
-        },
-        forecast: { some: "data" },
-        score: 8.5,
-        personalized: true,
-        breakdown: {
-          base: 7.0,
-          onboardingPrefs: 1.0,
-          learnedPrefs: 0.5,
-          affinity: 0,
-        },
-        summary: "Great conditions expected",
-        reasons: ["Clean waves", "Offshore wind", "Good tide"],
-        generated_at: "2025-01-20T06:00:00Z",
-      };
-
-      (useAuth as jest.Mock).mockReturnValue({ user: mockUser });
-
-      let capturedFetchFn: any;
-      (useDataFetcher as jest.Mock).mockImplementation((fn, options) => {
-        capturedFetchFn = fn;
-        return {
-          data: null,
-          loading: false,
-          error: null,
-          refetch: jest.fn(),
-        };
-      });
-
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ data: mockFetchResponse }),
-      } as Response);
-
-      renderHook(() => usePersonalizedHomeForecast());
-
-      const result = await capturedFetchFn();
-
-      // Verify all non-date fields are preserved
-      expect(result.beach.id).toBe("beach-123");
-      expect(result.score).toBe(8.5);
-      expect(result.personalized).toBe(true);
-      expect(result.summary).toBe("Great conditions expected");
-      expect(result.reasons).toEqual(["Clean waves", "Offshore wind", "Good tide"]);
-      expect(result.window.tide).toBe("Mid incoming");
-      expect(result.window.wind).toBe("Light offshore");
-      expect(result.generated_at).toBe("2025-01-20T06:00:00Z"); // Should remain string
+      // Verify all fields are preserved during adaptation
+      expect(rec.beach.id).toBe("beach-123");
+      expect(rec.score).toBe(85);
+      expect(rec.personalized).toBe(true);
+      expect(rec.summary).toBe("Great conditions expected");
+      expect(rec.reasons).toHaveLength(4); // Adapter limits to 4 reasons
+      expect(rec.window.tide).toBe("Mid incoming");
+      expect(rec.window.wind).toBe("Light offshore");
+      expect(rec.generated_at).toBe("2025-01-20T06:00:00Z");
+      expect(rec.total_beaches_count).toBe(10);
+      expect(rec.available_beaches_count).toBe(8);
+      expect(rec.partial_success).toBe(false);
     });
   });
 });

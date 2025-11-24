@@ -8,11 +8,12 @@ import {
   validateOrError,
 } from "@/lib/api-utils";
 import { withRateLimit } from "@/lib/middleware/rate-limiter";
-import { getPersonalizedHomeForecast } from "@/lib/services/personalized-home-forecast-service";
+import { discoverSurfSpots } from "@/lib/services/surf-discovery-service";
+import { adaptDiscoveryResponse } from "@/lib/adapters/discovery-to-personalized";
 
 /**
  * Query Parameter Schema
- * 
+ *
  * Validates optional homeBeachId UUID override
  */
 const QuerySchema = z.object({
@@ -21,21 +22,37 @@ const QuerySchema = z.object({
 
 /**
  * GET /api/home/personalized-forecast
- * 
+ *
+ * @deprecated This endpoint is deprecated. Use `/api/surf/discover?maxResults=1` instead.
+ * This endpoint now wraps the discovery service for backward compatibility.
+ *
  * Returns personalized surf recommendation for authenticated user.
- * Builds candidate pool from user's home beach and favorites,
- * scores them with personalized preferences, and returns best opportunity.
- * 
+ * Now powered by the surf discovery service with time-decay scoring.
+ *
+ * **Migration:**
+ * ```ts
+ * // Old (deprecated):
+ * GET /api/home/personalized-forecast
+ *
+ * // New (recommended):
+ * GET /api/surf/discover?maxResults=1
+ * ```
+ *
+ * **Why migrate:**
+ * - Discovery service uses superior time-decay scoring
+ * - Consistent window selection across all recommendations
+ * - Single codebase to maintain
+ *
  * @param request - Next.js request with optional query params
  * @returns PersonalizedForecastRecommendation or null
- * 
+ *
  * Query Parameters:
- * - homeBeachId (optional): UUID to override user's profile home beach
- * 
+ * - homeBeachId (optional): IGNORED - discovery service always includes home beach
+ *
  * Authentication: Required (user session)
  * Rate Limit: 10 requests/minute
  * Cache: Private, 5 minutes
- * 
+ *
  * @example
  * GET /api/home/personalized-forecast
  * GET /api/home/personalized-forecast?homeBeachId=123e4567-e89b-12d3-a456-426614174000
@@ -66,16 +83,21 @@ async function personalizedForecastHandler(
       return validationResult.error;
     }
 
-    const { homeBeachId } = validationResult.data;
+    // Note: homeBeachId is ignored - discovery service always includes home beach
+    // This is acceptable as it's the expected behavior
 
-    // 3. Call service to get personalized recommendation
-    const recommendation = await getPersonalizedHomeForecast(user.id, {
-      homeBeachId,
+    // 3. Call discovery service with maxResults=1 (wrapper implementation)
+    const discovery = await discoverSurfSpots(user.id, {
+      maxResults: 1, // Single recommendation for backward compatibility
+      includeHome: true,
     });
 
-    // 4. Return success response with private caching
+    // 4. Adapt discovery response to personalized format
+    const recommendation = adaptDiscoveryResponse(discovery);
+
+    // 5. Return success response with private caching
     const response = createSuccessResponse(recommendation);
-    
+
     // Add private cache header (5 minutes)
     response.headers.set("Cache-Control", "private, max-age=300");
 

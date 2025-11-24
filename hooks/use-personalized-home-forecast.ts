@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback } from "react";
-import { useAuth } from "@/context/auth-context";
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
+import { adaptDiscoveryResponse } from "@/lib/adapters/discovery-to-personalized";
 import type { PersonalizedForecastRecommendation } from "@/types/personalization";
 
 /**
@@ -39,14 +39,32 @@ interface UsePersonalizedHomeForecastReturn {
 
 /**
  * Hook for fetching personalized home forecast recommendations
- * 
- * Fetches a personalized surf forecast recommendation based on user preferences,
- * home beach, and favorite beaches. Uses the personalization service to score
- * and rank forecast opportunities.
- * 
+ *
+ * @deprecated This hook is deprecated. Use `useSurfDiscovery` with `maxResults=1`
+ * and `adaptDiscoveryResponse` instead. This hook now wraps the discovery service
+ * for backward compatibility.
+ *
+ * **Migration:**
+ * ```tsx
+ * // Old (deprecated):
+ * const { recommendation } = usePersonalizedHomeForecast({ enabled: true });
+ *
+ * // New (recommended):
+ * import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
+ * import { adaptDiscoveryResponse } from "@/lib/adapters/discovery-to-personalized";
+ *
+ * const { discovery } = useSurfDiscovery({ maxResults: 1, enabled: true });
+ * const recommendation = discovery ? adaptDiscoveryResponse(discovery) : null;
+ * ```
+ *
+ * **Why migrate:**
+ * - Discovery service uses superior time-decay scoring (prioritizes near-term quality)
+ * - Single codebase to maintain and test
+ * - Consistent window selection across all recommendations
+ *
  * @param options - Configuration options for the hook
  * @returns Recommendation data with loading and error states
- * 
+ *
  * @example
  * ```tsx
  * function HomePage() {
@@ -54,11 +72,11 @@ interface UsePersonalizedHomeForecastReturn {
  *     immediate: true,
  *     enabled: true,
  *   });
- * 
+ *
  *   if (loading) return <div>Loading...</div>;
  *   if (error) return <div>Error: {error}</div>;
  *   if (!recommendation) return <div>No recommendations available</div>;
- * 
+ *
  *   return (
  *     <div>
  *       <h2>{recommendation.summary}</h2>
@@ -73,130 +91,52 @@ export function usePersonalizedHomeForecast(
   options: UsePersonalizedHomeForecastOptions = {}
 ): UsePersonalizedHomeForecastReturn {
   const { homeBeachId, enabled = true, immediate = true, onSuccess, onError } = options;
-  const { user } = useAuth();
 
-  // Memoized fetch function to get personalized forecast
-  const fetchPersonalizedForecast = useCallback(async () => {
-    console.log('🔍 usePersonalizedHomeForecast: Starting fetch', {
-      hasUser: !!user,
-      homeBeachId,
-      enabled,
-      immediate
-    });
+  // Log deprecation warning in development
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(
+      '[DEPRECATED] usePersonalizedHomeForecast is deprecated. ' +
+      'Use useSurfDiscovery with maxResults=1 and adaptDiscoveryResponse instead. ' +
+      'This wrapper will be removed in a future version.'
+    );
+  }
 
-    if (!user) {
-      console.log('❌ usePersonalizedHomeForecast: No user, skipping fetch');
-      throw new Error("User must be authenticated to fetch personalized forecast");
-    }
-
-    // Build query parameters
-    const params = new URLSearchParams();
-    if (homeBeachId) {
-      params.set("homeBeachId", homeBeachId);
-    }
-
-    const queryString = params.toString();
-    const url = `/api/home/personalized-forecast${queryString ? `?${queryString}` : ""}`;
-
-    console.log('📡 usePersonalizedHomeForecast: Fetching from API', { url });
-
-    // Fetch from API
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error || `Failed to fetch personalized forecast: ${response.status}`;
-      console.log('❌ usePersonalizedHomeForecast: API error', {
-        status: response.status,
-        errorMessage
-      });
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-
-    console.log('📊 usePersonalizedHomeForecast: API response received', {
-      hasData: !!result.data,
-      data: result.data
-    });
-
-    // API returns { data: recommendation } or { data: null }
-    return result.data as PersonalizedForecastRecommendation | null;
-  }, [user, homeBeachId, enabled, immediate]);
-
-  /**
-   * Hydrates date strings from API response back to Date objects
-   * API responses are JSON, which serializes Date objects to ISO strings
-   * This function converts them back to Date instances for proper usage
-   */
-  const hydrateDates = useCallback((recommendation: PersonalizedForecastRecommendation | null): PersonalizedForecastRecommendation | null => {
-    if (!recommendation?.window) {
-      return recommendation;
-    }
-
-    try {
-      // Hydrate window start and end dates
-      const start = new Date(recommendation.window.start);
-      const end = new Date(recommendation.window.end);
-
-      // Validate dates are valid
-      if (isNaN(start.getTime())) {
-        throw new Error(`Invalid window start date: ${recommendation.window.start}`);
+  // Wrap onSuccess callback to adapt SurfDiscoveryResponse to PersonalizedForecastRecommendation
+  const wrappedOnSuccess = useCallback(
+    (discoveryData: any) => {
+      if (onSuccess) {
+        const adapted = discoveryData ? adaptDiscoveryResponse(discoveryData) : null;
+        onSuccess(adapted);
       }
-      if (isNaN(end.getTime())) {
-        throw new Error(`Invalid window end date: ${recommendation.window.end}`);
-      }
-
-      return {
-        ...recommendation,
-        window: {
-          ...recommendation.window,
-          start,
-          end,
-        },
-      };
-    } catch (error) {
-      console.error('❌ usePersonalizedHomeForecast: Date hydration error', error);
-      throw error;
-    }
-  }, []);
-
-  // Wrap fetch function to include date hydration
-  const fetchWithHydration = useCallback(async () => {
-    const data = await fetchPersonalizedForecast();
-    return hydrateDates(data);
-  }, [fetchPersonalizedForecast, hydrateDates]);
-
-  // Use standard data fetcher pattern with date hydration
-  const { data, loading, error, refetch } = useDataFetcher(
-    fetchWithHydration,
-    {
-      immediate: immediate && enabled && !!user,
-      skip: !enabled || !user,
-      onSuccess,
-      onError,
-    }
+    },
+    [onSuccess]
   );
 
-  // Log final state for debugging
-  console.log('✅ usePersonalizedHomeForecast: Hook state', {
-    hasRecommendation: data !== null,
-    loading,
-    hasError: !!error,
-    error
-  });
-
-  return {
-    recommendation: data,
+  // Use discovery service with maxResults=1 (wrapper implementation)
+  const {
+    discovery,
     loading,
     error,
     refetch,
-    hasRecommendation: data !== null,
+    hasRecommendations,
+  } = useSurfDiscovery({
+    maxResults: 1, // Single recommendation for backward compatibility
+    enabled,
+    immediate,
+    onSuccess: wrappedOnSuccess, // Forward adapted callback
+    onError, // Forward error callback as-is
+    // Note: homeBeachId option is ignored - discovery service always includes home beach
+    // This is acceptable as it's the expected behavior for personalized forecast
+  });
+
+  // Adapt discovery response to personalized format
+  const recommendation = discovery ? adaptDiscoveryResponse(discovery) : null;
+
+  return {
+    recommendation,
+    loading,
+    error,
+    refetch,
+    hasRecommendation: hasRecommendations,
   };
 }

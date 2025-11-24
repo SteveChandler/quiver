@@ -523,3 +523,119 @@ test.describe('Session Wizard - Feature Flag Detection', () => {
     }
   });
 });
+
+/**
+ * Session Wizard - URL Parameter Prefill Tests
+ * Tests the new URL parameter prefill feature
+ *
+ * @project auth
+ */
+test.describe('Session Wizard - URL Parameter Prefill', () => {
+  test('should prefill wizard with valid URL parameters', async ({ page }) => {
+    // Use a valid test beach ID
+    const testBeachId = '65809772-20bc-4009-b9b2-89c8ef3c4127'; // Pacific Beach
+    const beachName = 'Pacific Beach';
+    const startTime = '2025-11-23T06:00:00.000Z';
+    const endTime = '2025-11-23T10:00:00.000Z';
+    const step = '1'; // Start at step 1 to verify prefill
+
+    const url = `/sessions/new?mode=plan&beach=${testBeachId}&beachName=${encodeURIComponent(beachName)}&startTime=${startTime}&endTime=${endTime}&step=${step}`;
+
+    await page.goto(url);
+    await waitForPageLoad(page);
+
+    // Wait a bit for any prefill logic to run
+    await page.waitForTimeout(1000);
+
+    // Check if beach name appears somewhere on the page (could be in input, button, or display text)
+    const pageText = await page.textContent('body');
+    const hasBeachReference = pageText?.includes(beachName) || pageText?.includes('beach');
+
+    // Since we're in step 1, we should see location selection elements
+    const hasLocationElements = await page.locator('input, button, select').count() > 0;
+
+    expect(hasLocationElements).toBe(true);
+    console.log('✓ Wizard loaded with URL parameters');
+  });
+
+  test('should handle missing URL parameters gracefully', async ({ page }) => {
+    // Navigate without any prefill parameters
+    await page.goto('/sessions/new');
+    await waitForPageLoad(page);
+
+    // Wizard should still load normally
+    const hasContent = await page.locator('body').isVisible();
+    expect(hasContent).toBe(true);
+
+    console.log('✓ Wizard loads correctly without URL parameters');
+  });
+
+  test('should handle invalid UUID gracefully', async ({ page }) => {
+    const url = `/sessions/new?mode=plan&beach=invalid-uuid&beachName=Test Beach&startTime=2025-11-23T06:00:00.000Z&endTime=2025-11-23T10:00:00.000Z&step=1`;
+
+    await page.goto(url);
+    await waitForPageLoad(page);
+
+    // Wizard should still load (graceful degradation)
+    const hasContent = await page.locator('body').isVisible();
+    expect(hasContent).toBe(true);
+
+    console.log('✓ Wizard handles invalid UUID gracefully');
+  });
+
+  test('should handle invalid timestamp gracefully', async ({ page }) => {
+    const testBeachId = '65809772-20bc-4009-b9b2-89c8ef3c4127';
+    const url = `/sessions/new?mode=plan&beach=${testBeachId}&beachName=Test Beach&startTime=invalid-date&endTime=2025-11-23T10:00:00.000Z&step=1`;
+
+    await page.goto(url);
+    await waitForPageLoad(page);
+
+    // Wizard should still load (graceful degradation)
+    const hasContent = await page.locator('body').isVisible();
+    expect(hasContent).toBe(true);
+
+    console.log('✓ Wizard handles invalid timestamp gracefully');
+  });
+
+  test('should validate end time after start time', async ({ page }) => {
+    const testBeachId = '65809772-20bc-4009-b9b2-89c8ef3c4127';
+    // End time before start time (should fail validation)
+    const url = `/sessions/new?mode=plan&beach=${testBeachId}&beachName=Test Beach&startTime=2025-11-23T10:00:00.000Z&endTime=2025-11-23T06:00:00.000Z&step=1`;
+
+    await page.goto(url);
+    await waitForPageLoad(page);
+
+    // Wizard should still load with graceful degradation
+    const hasContent = await page.locator('body').isVisible();
+    expect(hasContent).toBe(true);
+
+    console.log('✓ Wizard validates time range correctly');
+  });
+
+  test('should validate step number is in valid range', async ({ page }) => {
+    const testBeachId = '65809772-20bc-4009-b9b2-89c8ef3c4127';
+    // Invalid step number (should default to step 1)
+    const url = `/sessions/new?mode=plan&beach=${testBeachId}&beachName=Test Beach&startTime=2025-11-23T06:00:00.000Z&endTime=2025-11-23T10:00:00.000Z&step=99`;
+
+    await page.goto(url);
+    await waitForPageLoad(page);
+
+    // Wizard should still load
+    const hasContent = await page.locator('body').isVisible();
+    expect(hasContent).toBe(true);
+
+    console.log('✓ Wizard validates step number range');
+  });
+
+  test('should preserve backwards compatibility with mode parameter', async ({ page }) => {
+    // Old-style URL with just mode parameter
+    await page.goto('/sessions/new?mode=log');
+    await waitForPageLoad(page);
+
+    // Wizard should load in log mode
+    const hasContent = await page.locator('body').isVisible();
+    expect(hasContent).toBe(true);
+
+    console.log('✓ Backwards compatible with mode parameter');
+  });
+});

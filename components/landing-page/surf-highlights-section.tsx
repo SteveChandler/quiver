@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { useCallback } from "react";
 import Link from "next/link";
 import { SectionWrapper } from "./section-wrapper";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
@@ -173,12 +172,9 @@ export function SurfHighlightsSection() {
           </div>
 
           {/* CTA */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="text-center"
+          <div
+            className="text-center animate-fade-in-up"
+            style={{ animationDelay: "400ms" }}
           >
             <Button
               size="lg"
@@ -190,7 +186,7 @@ export function SurfHighlightsSection() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-          </motion.div>
+          </div>
         </>
       )}
     </SectionWrapper>

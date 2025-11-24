@@ -794,6 +794,12 @@ function selectBestWindow(
       continue;
     }
 
+    // Skip nighttime hours (9pm - 4am) - unrealistic for surf sessions
+    const hour = forecastTime.getHours();
+    if (hour >= 21 || hour < 4) {
+      continue;
+    }
+
     // 1. Calculate conditions score for this time slot (0-80 points)
     const windowScore = scoreForecastWindow(forecast, beach, userPrefs);
 

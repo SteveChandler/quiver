@@ -25,11 +25,16 @@ test.describe('Personalized Home Forecast', () => {
     // The skeleton should appear briefly before data loads
     const loadingSkeleton = page.getByTestId('personalized-forecast-card-loading');
 
+    // Give more time for slow API responses (discovery can take 10-15 seconds)
+    await page.waitForTimeout(1000);
+
     // We might catch it loading, or it might already be loaded
     // So we check if it was visible at some point or if we see the card now
     const hasLoadingSkeleton = await loadingSkeleton.isVisible().catch(() => false);
-    const hasCard = await page.getByRole('heading', { name: /recommended for you|your next session/i })
-      .isVisible()
+
+    // Wait up to 20 seconds for either loading skeleton or final card
+    const hasCard = await page.getByRole('heading', { name: /recommended for you|your next session|best spot/i })
+      .isVisible({ timeout: 20000 })
       .catch(() => false);
 
     // Either we saw the loading state OR we see the final card
@@ -38,8 +43,8 @@ test.describe('Personalized Home Forecast', () => {
   });
 
   test('should display personalized forecast card when data is available', async ({ page }) => {
-    // Wait for any loading states to complete
-    await page.waitForTimeout(2000);
+    // Wait longer for slow API responses (discovery can take 10-15 seconds)
+    await page.waitForTimeout(15000);
 
     // Look for the personalized forecast card
     // Check for common headings that might appear
@@ -204,13 +209,14 @@ test.describe('Personalized Home Forecast', () => {
     }
   });
 
-  test('should call personalized forecast API endpoint', async ({ page }) => {
+  test('should call surf discovery API endpoint', async ({ page }) => {
     // Listen for API calls
     const apiCalls: string[] = [];
 
     page.on('request', request => {
       const url = request.url();
-      if (url.includes('/api/home/personalized-forecast')) {
+      // New implementation uses surf discovery endpoint
+      if (url.includes('/api/surf/discover')) {
         apiCalls.push(url);
       }
     });
@@ -218,9 +224,15 @@ test.describe('Personalized Home Forecast', () => {
     // Navigate and wait
     await page.goto('/');
     await waitForPageLoad(page);
-    await page.waitForTimeout(3000);
 
-    // Should have called the API
+    // Wait up to 20 seconds for API call (discovery can be slow)
+    let attempts = 0;
+    while (apiCalls.length === 0 && attempts < 40) {
+      await page.waitForTimeout(500);
+      attempts++;
+    }
+
+    // Should have called the surf discovery API
     expect(apiCalls.length).toBeGreaterThan(0);
   });
 
@@ -229,9 +241,10 @@ test.describe('Personalized Home Forecast', () => {
 
     page.on('console', msg => {
       const text = msg.text();
-      // Capture our specific log messages
-      if (text.includes('usePersonalizedHomeForecast') ||
-          text.includes('PersonalizedForecastCard')) {
+      // Capture diagnostic log messages from surf discovery hook
+      if (text.includes('useSurfDiscovery') ||
+          text.includes('PersonalizedForecastCard') ||
+          text.includes('usePersonalizedHomeForecast')) {
         consoleLogs.push(text);
       }
     });
@@ -243,9 +256,11 @@ test.describe('Personalized Home Forecast', () => {
     // Should have logged diagnostic info
     expect(consoleLogs.length).toBeGreaterThan(0);
 
-    // Should see hook logs
-    const hasHookLogs = consoleLogs.some(log => log.includes('usePersonalizedHomeForecast'));
-    expect(hasHookLogs).toBeTruthy();
+    // Should see discovery hook logs (new implementation)
+    const hasDiscoveryLogs = consoleLogs.some(log =>
+      log.includes('useSurfDiscovery') || log.includes('usePersonalizedHomeForecast')
+    );
+    expect(hasDiscoveryLogs).toBeTruthy();
   });
 
   test('should be responsive on mobile viewports', async ({ page }) => {
@@ -273,7 +288,8 @@ test.describe('Personalized Home Forecast', () => {
     // This test verifies the card only shows when user has profile
     await page.goto('/');
     await waitForPageLoad(page);
-    await page.waitForTimeout(2000);
+    // Wait longer for profile and discovery to load
+    await page.waitForTimeout(15000);
 
     // Since we're authenticated (from beforeEach), we should see SOMETHING
     // Either the card, loading state, empty state, or error

@@ -6,6 +6,7 @@ import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Search, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 interface BeachDiscoveryListProps {
   maxResults?: number;
@@ -26,11 +27,61 @@ export function BeachDiscoveryList({ maxResults = 5 }: BeachDiscoveryListProps) 
   });
 
   const handleViewBeach = (beachId: string) => {
-    router.push(`/beaches/${beachId}`);
+    // Find the recommendation for this beach to get complete data for URL generation
+    const recommendation = discovery?.recommendations.find(r => r.beach.id === beachId);
+
+    if (!recommendation) {
+      console.warn(`Beach ${beachId} not found in recommendations`);
+      // Fallback to UUID-based route
+      router.push(`/beach/${beachId}`);
+      return;
+    }
+
+    // Generate proper hierarchical URL (e.g., /ca/pacific-beach-san-diego/pacific-beach)
+    const beachUrl = getBeachUrlSafe({
+      id: recommendation.beach.id,
+      slug: recommendation.beach.slug,
+      city: recommendation.beach.city,
+      state: recommendation.beach.state,
+    });
+
+    if (!beachUrl) {
+      console.warn(`Could not generate URL for beach ${beachId}`);
+      // Fallback to UUID-based route
+      router.push(`/beach/${beachId}`);
+      return;
+    }
+
+    // Navigate to the beach page with source tracking
+    const urlWithSource = beachUrl.includes("?")
+      ? `${beachUrl}&from=surf_discovery`
+      : `${beachUrl}?from=surf_discovery`;
+
+    router.push(urlWithSource);
   };
 
   const handlePlanSession = (beachId: string) => {
-    router.push(`/sessions/wizard?beachId=${beachId}`);
+    // Find the recommendation to get complete data including time window
+    const recommendation = discovery?.recommendations.find(r => r.beach.id === beachId);
+
+    if (!recommendation) {
+      console.warn(`Beach ${beachId} not found in recommendations`);
+      // Fallback to basic route
+      router.push(`/sessions/new?mode=plan&beach=${beachId}`);
+      return;
+    }
+
+    // Build URL with prefill parameters
+    const params = new URLSearchParams({
+      mode: 'plan',
+      beach: recommendation.beach.id,
+      beachName: recommendation.beach.name,
+      startTime: recommendation.window.start.toISOString(),
+      endTime: recommendation.window.end.toISOString(),
+      step: '3', // Jump to Goals step (0-indexed would be 2, but using 1-indexed for clarity)
+    });
+
+    router.push(`/sessions/new?${params.toString()}`);
   };
 
   // Loading state

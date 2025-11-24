@@ -272,3 +272,4 @@ The Personalized Home Forecast Service has been:
 **Last verified:** November 21, 2025  
 **Verification command:** `node scripts/verify-personalized-forecast.js`
 
+

@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * Client-side app wrapper that handles authentication routing.
+ * Restored to fix personalized forecast feature issue.
+ *
+ * Routes between:
+ * - HomeScreen for authenticated users
+ * - LandingPageServer for unauthenticated users
+ */
+
 import { useAuth } from "@/context/auth-context";
 import { useEffect } from "react";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";

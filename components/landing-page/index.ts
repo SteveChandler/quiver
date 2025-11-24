@@ -18,3 +18,4 @@ export { FeatureCard } from "./feature-card";
 export { SectionWrapper } from "./section-wrapper";
 export { SurfSpotCard } from "./surf-spot-card";
 export type { SurfSpotCardProps } from "./surf-spot-card";
+export { default as ProgressiveSection } from "./progressive-section";

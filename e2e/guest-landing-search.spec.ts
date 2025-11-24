@@ -14,10 +14,8 @@ test.describe("Landing search hero", () => {
     await page.goto("/");
     await waitForPageLoad(page);
 
-    const searchInput = page
-      .getByRole("textbox")
-      .filter({ hasText: "" })
-      .first();
+    // Use placeholder text to find the search input (works with both simple and cmdk inputs)
+    const searchInput = page.getByPlaceholder("Search by beach, spot, or region");
 
     await searchInput.fill("ocean beach");
     await searchInput.press("Enter");
@@ -30,10 +28,8 @@ test.describe("Landing search hero", () => {
     await page.goto("/");
     await waitForPageLoad(page);
 
-    const searchInput = page
-      .getByRole("textbox")
-      .filter({ hasText: "" })
-      .first();
+    // Use placeholder text to find the search input (works with both simple and cmdk inputs)
+    const searchInput = page.getByPlaceholder("Search by beach, spot, or region");
 
     await searchInput.fill("tourmaline");
     await searchInput.press("Enter");

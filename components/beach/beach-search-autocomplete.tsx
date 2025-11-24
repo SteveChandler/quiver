@@ -25,6 +25,11 @@ interface BeachSearchAutocompleteProps {
   showCurrentConditions?: boolean;
   maxResults?: number;
   /**
+   * Initial value for the search input.
+   * Used by lazy-loading wrapper to preserve user input across component load.
+   */
+  initialValue?: string;
+  /**
    * Optional callback invoked when the user presses Enter but no beach
    * selection is made or no suggestions are available. This is primarily
    * used by the landing hero to fall back to the map search with the
@@ -64,6 +69,7 @@ export function BeachSearchAutocomplete({
   className,
   showCurrentConditions = false,
   maxResults = 5,
+  initialValue = "",
   onFallback,
   requireExplicitSelection = false,
   autoNavigateSingleResult = true,
@@ -79,7 +85,7 @@ export function BeachSearchAutocomplete({
     setQuery,
     handleKeyDown,
     handleSelect,
-  } = useBeachAutocomplete({ maxResults });
+  } = useBeachAutocomplete({ maxResults, initialQuery: initialValue });
 
   const handleQueryChange = useCallback(
     (value: string) => {
