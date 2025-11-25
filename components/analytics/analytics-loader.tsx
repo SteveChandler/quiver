@@ -1,58 +1,111 @@
 "use client"
 
 import Script from 'next/script'
-import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
+import { hasUTMParams, getAttributionForAnalytics } from '@/lib/attribution'
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "G-JZNX7C7XKL"
 
 /**
  * Analytics Loader Component
  * 
- * Conditionally loads analytics scripts based on the current route.
- * Landing page (/) does not load analytics to optimize performance.
- * All other routes load GA4 and Ahrefs analytics.
+ * Loads GA4 analytics on all pages, including the landing page.
  * 
- * Performance Impact:
- * - Saves ~100KB on landing page
- * - Reduces TBT by ~20ms
- * - Improves TTI for unauthenticated visitors
+ * IMPORTANT: Analytics MUST load on landing page to capture UTM attribution.
+ * Without this, first-touch attribution will show as "(not set)" in GA4.
+ * 
+ * Features:
+ * - Loads GA4 with attribution data from URL and cookies
+ * - Sends page_view with UTM parameters for proper attribution
+ * - Includes referrer tracking for organic traffic
+ * - Ahrefs analytics on non-landing pages only (SEO tool, not needed on landing)
+ * 
+ * Performance Note:
+ * While loading GA4 on landing adds ~50KB, the attribution data is critical
+ * for understanding user acquisition and campaign effectiveness.
  */
 export function AnalyticsLoader() {
   const pathname = usePathname()
-  const [shouldLoad, setShouldLoad] = useState(false)
+  const searchParams = useSearchParams()
+  const [gaLoaded, setGaLoaded] = useState(false)
   
-  useEffect(() => {
-    // Don't load analytics on the landing page
-    // Landing page is public and used for marketing - analytics not needed
-    if (pathname !== '/') {
-      setShouldLoad(true)
-    } else {
-      setShouldLoad(false)
+  // Check if current URL has UTM params (force immediate load)
+  const urlHasUtm = searchParams ? hasUTMParams(searchParams) : false
+  
+  // Determine if we should load Ahrefs (not needed on landing page)
+  const shouldLoadAhrefs = pathname !== '/'
+  
+  // Send page view with attribution data after GA loads
+  const sendPageViewWithAttribution = useCallback(() => {
+    if (typeof window === 'undefined' || !window.gtag) return
+    
+    try {
+      // Get attribution data from cookies
+      const attribution = getAttributionForAnalytics({ includeTimestamp: false })
+      
+      // Build page view parameters
+      const pageViewParams: Record<string, string> = {
+        page_path: pathname + (searchParams?.toString() ? `?${searchParams}` : ''),
+        page_title: document.title,
+        ...attribution,
+      }
+      
+      // Also include UTM from URL directly (in case cookies haven't been set yet)
+      if (searchParams) {
+        const utmSource = searchParams.get('utm_source')
+        const utmMedium = searchParams.get('utm_medium')
+        const utmCampaign = searchParams.get('utm_campaign')
+        const utmContent = searchParams.get('utm_content')
+        const utmTerm = searchParams.get('utm_term')
+        
+        if (utmSource) pageViewParams.utm_source = utmSource
+        if (utmMedium) pageViewParams.utm_medium = utmMedium
+        if (utmCampaign) pageViewParams.utm_campaign = utmCampaign
+        if (utmContent) pageViewParams.utm_content = utmContent
+        if (utmTerm) pageViewParams.utm_term = utmTerm
+      }
+      
+      // Send the page view
+      window.gtag('event', 'page_view', pageViewParams)
+    } catch (e) {
+      // Swallow errors to not break UX
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[Analytics] Failed to send page view with attribution:', e)
+      }
     }
-  }, [pathname])
+  }, [pathname, searchParams])
   
-  if (!shouldLoad) {
-    return null
-  }
+  // Send page view when GA loads or route changes
+  useEffect(() => {
+    if (gaLoaded) {
+      sendPageViewWithAttribution()
+    }
+  }, [gaLoaded, pathname, searchParams, sendPageViewWithAttribution])
   
   return (
     <>
-      {/* Google Analytics (GA4) */}
+      {/* Google Analytics (GA4) - Load on ALL pages for attribution */}
       <Script
         id="ga-script"
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-        strategy="lazyOnload"
+        strategy={urlHasUtm ? "afterInteractive" : "lazyOnload"}
+        onLoad={() => setGaLoaded(true)}
       />
       <Script
         id="ga-init"
-        strategy="lazyOnload"
+        strategy={urlHasUtm ? "afterInteractive" : "lazyOnload"}
         dangerouslySetInnerHTML={{
           __html: `
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', '${GA_ID}', { anonymize_ip: true, send_page_view: false });
+            gtag('config', '${GA_ID}', { 
+              anonymize_ip: true, 
+              send_page_view: false,
+              // Allow manual page view with attribution
+              page_path: window.location.pathname + window.location.search
+            });
             ${
               process.env.NODE_ENV !== "production"
                 ? "try{gtag('set','debug_mode',true);}catch(_){}"
@@ -61,13 +114,15 @@ export function AnalyticsLoader() {
           `,
         }}
       />
-      {/* Ahrefs Analytics */}
-      <Script
-        id="ahrefs-analytics"
-        src="https://analytics.ahrefs.com/analytics.js"
-        data-key="+c2QcnYiWgfdkO0bAlkv1A"
-        strategy="afterInteractive"
-      />
+      {/* Ahrefs Analytics - Only on non-landing pages (SEO tool) */}
+      {shouldLoadAhrefs && (
+        <Script
+          id="ahrefs-analytics"
+          src="https://analytics.ahrefs.com/analytics.js"
+          data-key="+c2QcnYiWgfdkO0bAlkv1A"
+          strategy="afterInteractive"
+        />
+      )}
     </>
   )
 }

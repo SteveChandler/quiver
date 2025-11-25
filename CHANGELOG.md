@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Attribution Capture System - November 25, 2025
+
+**Issue:** Google Analytics attribution data showing "(not set)" values because UTM parameters were not being captured and persisted.
+
+**Root Causes:**
+1. Analytics not loaded on landing page (`/`) - first-touch UTM params never captured
+2. No mechanism to persist UTM parameters to cookies for cross-session tracking
+3. No attribution data included in analytics events
+
+**Solution:**
+Implemented comprehensive attribution capture system per `docs/planning/archive/GTM_GA4_IMPLEMENTATION_PLAN.md`:
+
+1. **UTM Capture Utility** (`lib/attribution.ts`)
+   - Parses UTM parameters from URLs
+   - Persists to first-party cookies (`qvr_utm_*`, 90-day expiry)
+   - First-touch attribution model (preserves original acquisition source)
+   - Server-side cookie generation for middleware
+
+2. **useAttribution Hook** (`hooks/use-attribution.ts`)
+   - React hook for accessing attribution data
+   - Captures attribution on component mount
+   - Provides `getAnalyticsParams()` for event tracking
+   - Helper methods: `isFromSource()`, `isFromCampaign()`
+
+3. **Middleware Enhancement** (`middleware.ts`)
+   - Captures UTM params on every page request
+   - Sets attribution cookies server-side (faster than client-side)
+   - Records external referrer, first touch timestamp, landing page
+
+4. **Analytics Loader Fix** (`components/analytics/analytics-loader.tsx`)
+   - Now loads GA4 on ALL pages including landing page
+   - Sends `page_view` events with full attribution data
+   - Prioritizes loading when URL has UTM params (`afterInteractive` strategy)
+
+5. **Enhanced track() Function** (`lib/analytics.ts`)
+   - Automatically includes attribution data in all events
+   - Option to disable attribution per-event if needed
+
+**Cookie Schema:**
+- `qvr_utm_source` - Traffic source (e.g., instagram, google)
+- `qvr_utm_medium` - Marketing medium (e.g., social, cpc)
+- `qvr_utm_campaign` - Campaign name
+- `qvr_utm_content` - Ad content identifier
+- `qvr_utm_term` - Search keywords
+- `qvr_referrer` - Original referrer URL
+- `qvr_first_touch_ts` - Timestamp of first visit
+- `qvr_landing_page` - Original landing page URL
+
+**Impact:**
+- ✅ UTM parameters now captured on landing page visits
+- ✅ Attribution persists across sessions (90-day cookies)
+- ✅ All analytics events include attribution data
+- ✅ GA4 reports will show proper source/medium/campaign
+
+**Files Added:**
+- `lib/attribution.ts` - Core attribution utilities
+- `hooks/use-attribution.ts` - React hook for attribution
+
+**Files Modified:**
+- `middleware.ts` - Server-side UTM capture
+- `components/analytics/analytics-loader.tsx` - Load GA4 on landing page
+- `lib/analytics.ts` - Auto-include attribution in track()
+
+**Note:** Changes affect future data only. Historical "(not set)" data cannot be retroactively fixed.
+
 ### Fixed
 
 #### Openverse Thumbnail URL 400 Errors - November 24, 2025
