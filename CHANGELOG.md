@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+#### Sentry SDK Header Leak Vulnerability Fix - November 24, 2025
+
+**Issue:** Sentry SDK versions 10.11.0-10.26.0 had a vulnerability where Authorization and Cookie HTTP headers could be unintentionally sent to Sentry in traces when `sendDefaultPii: true` was enabled.
+
+**Impact:**
+- Quiver was running Sentry v10.22.0 (vulnerable version)
+- `sendDefaultPii: true` was enabled in both `sentry.server.config.ts` and `sentry.edge.config.ts`
+- Authorization and Cookie headers from server-side and edge requests could have been leaked to Sentry
+
+**Resolution:**
+- Upgraded `@sentry/nextjs` from `10.22.0` to `10.27.0`
+- Version 10.27.0 includes the fix for this vulnerability
+- No configuration changes required - the fix is automatic
+
+**References:**
+- Sentry Security Advisory: CVE-2025-XXXXX (header leak in traces)
+- Fixed in: @sentry/nextjs@10.27.0
+
 ### Added
 
 #### Attribution Capture System - November 25, 2025
