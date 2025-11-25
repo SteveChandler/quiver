@@ -65,12 +65,22 @@ END $$;
 
 -- Optional: Add a constraint to prevent empty strings in the future
 -- This ensures that experience_level can only be one of the valid enum values or NULL
-ALTER TABLE public.profiles
-ADD CONSTRAINT experience_level_check
-CHECK (
-  experience_level IS NULL OR
-  experience_level IN ('beginner', 'intermediate', 'advanced', 'expert')
-);
+-- Only add if constraint doesn't already exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'experience_level_check'
+    AND conrelid = 'public.profiles'::regclass
+  ) THEN
+    ALTER TABLE public.profiles
+    ADD CONSTRAINT experience_level_check
+    CHECK (
+      experience_level IS NULL OR
+      experience_level IN ('beginner', 'intermediate', 'advanced', 'expert')
+    );
 
-COMMENT ON CONSTRAINT experience_level_check ON public.profiles IS
-  'Ensures experience_level is either NULL or one of the valid enum values: beginner, intermediate, advanced, expert. Empty strings are not allowed.';
+    COMMENT ON CONSTRAINT experience_level_check ON public.profiles IS
+      'Ensures experience_level is either NULL or one of the valid enum values: beginner, intermediate, advanced, expert. Empty strings are not allowed.';
+  END IF;
+END $$;

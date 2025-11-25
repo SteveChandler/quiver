@@ -96,7 +96,7 @@ for (let i = 2; i < process.argv.length; i++) {
   }
 }
 
-const LIMIT = Number(args.get("limit") ?? "6");
+const LIMIT = Number(args.get("limit") ?? "5");
 const ONLY = args.get("only");
 const BEACH_ID = args.get("beachId");
 const RADIUS_KM = Number(args.get("radiusKm") ?? "2");

@@ -32,6 +32,8 @@ import {
   getPhotoStats,
   bulkSoftDeleteSessionMedia,
   bulkSoftDeleteBeachPhotos,
+  hardDeleteBeachPhoto,
+  bulkHardDeleteBeachPhotos,
   type PhotoModerationItem,
 } from "@/actions/admin/photos";
 
@@ -250,6 +252,47 @@ export default function AdminPhotosPage() {
     });
   };
 
+  // Handle hard delete beach photo (permanent)
+  const handleHardDeleteBeachPhoto = async (photo: PhotoModerationItem) => {
+    const result = await hardDeleteBeachPhoto(photo.id);
+    if (!result.success) {
+      toast.error(result.error || "Failed to permanently delete photo");
+      return;
+    }
+    toast.success("Photo permanently deleted");
+    refetchBeach();
+  };
+
+  // Handle bulk hard delete
+  const handleBulkHardDelete = async (photoIds: string[], photoType: "session_media" | "beach_photo") => {
+    if (photoType === "session_media") {
+      // Session media doesn't have hard delete yet, use soft delete
+      toast.error("Permanent delete is only available for beach photos");
+      return;
+    }
+
+    const result = await bulkHardDeleteBeachPhotos(photoIds);
+
+    if (!result.success) {
+      toast.error(result.error || "Failed to permanently delete photos");
+      return;
+    }
+
+    const { success, failed, errors } = result.data || { success: 0, failed: 0, errors: [] };
+
+    if (failed > 0) {
+      toast.error(
+        `Permanently deleted ${success} of ${photoIds.length} photos. ${failed} failed.${
+          errors.length > 0 ? ` First error: ${errors[0].error}` : ""
+        }`
+      );
+    } else {
+      toast.success(`Permanently deleted ${success} photo${success !== 1 ? "s" : ""}`);
+    }
+
+    refetchBeach();
+  };
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -380,6 +423,8 @@ export default function AdminPhotosPage() {
             onRestore={handleRestoreBeachPhoto}
             onApprove={handleApproveBeachPhoto}
             onBulkDelete={handleBulkDelete}
+            onHardDelete={handleHardDeleteBeachPhoto}
+            onBulkHardDelete={handleBulkHardDelete}
           />
         </TabsContent>
       </Tabs>

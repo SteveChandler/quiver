@@ -500,6 +500,109 @@ export const bulkSoftDeleteBeachPhotos = withAdminActionAndUser(
 );
 
 /**
+ * Permanently delete a beach photo (hard delete)
+ */
+export const hardDeleteBeachPhoto = withAdminActionAndUser(
+  async (photoId: string, { user, supabaseAdmin }) => {
+    // Get photo details for audit log before deletion
+    const { data: photo } = await supabaseAdmin
+      .from("beach_photos")
+      .select("title, source, beach_id, beaches(name)")
+      .eq("id", photoId)
+      .single();
+
+    // Hard delete the photo
+    const { error } = await supabaseAdmin
+      .from("beach_photos")
+      .delete()
+      .eq("id", photoId);
+
+    if (error) {
+      throw new Error(`Failed to permanently delete photo: ${error.message}`);
+    }
+
+    // Log the action
+    await recordAdminEvent(user.id, "photo", "hard_delete", {
+      entityId: photoId,
+      description: "Permanently deleted beach photo",
+      payloadSummary: {
+        title: photo?.title,
+        source: photo?.source,
+        beach_id: photo?.beach_id,
+        beach_name: (photo as any)?.beaches?.name,
+      },
+    });
+
+    return { success: true };
+  }
+);
+
+/**
+ * Bulk permanently delete multiple beach photos (hard delete)
+ */
+export const bulkHardDeleteBeachPhotos = withAdminActionAndUser(
+  async (photoIds: string[], { user, supabaseAdmin }) => {
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as Array<{ id: string; error: string }>,
+    };
+
+    for (const photoId of photoIds) {
+      try {
+        // Get photo details for audit log before deletion
+        const { data: photo } = await supabaseAdmin
+          .from("beach_photos")
+          .select("title, source, beach_id, beaches(name)")
+          .eq("id", photoId)
+          .single();
+
+        if (!photo) {
+          results.failed++;
+          results.errors.push({ id: photoId, error: "Photo not found" });
+          continue;
+        }
+
+        // Hard delete the photo
+        const { error: dbError } = await supabaseAdmin
+          .from("beach_photos")
+          .delete()
+          .eq("id", photoId);
+
+        if (dbError) {
+          results.failed++;
+          results.errors.push({ id: photoId, error: dbError.message });
+          continue;
+        }
+
+        // Log the action
+        await recordAdminEvent(user.id, "photo", "hard_delete", {
+          entityId: photoId,
+          description: "Bulk permanently deleted beach photo",
+          payloadSummary: {
+            title: photo.title,
+            source: photo.source,
+            beach_id: photo.beach_id,
+            beach_name: (photo as any)?.beaches?.name,
+            bulk_operation: true,
+          },
+        });
+
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push({
+          id: photoId,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+    }
+
+    return results;
+  }
+);
+
+/**
  * Toggle approval status for a beach photo
  */
 export const toggleBeachPhotoApproval = withAdminActionAndUser(

@@ -1,9 +1,10 @@
 name: Fetch Beach Photos
 
 on:
-  schedule:
-    - cron: '30 9 * * *'
-  workflow_dispatch: {}
+  # Disabled: Too many photos per beach causing rate limit issues
+  # schedule:
+  #   - cron: '30 9 * * *'
+  workflow_dispatch: {}  # Keep manual trigger for occasional use
 
 jobs:
   run:

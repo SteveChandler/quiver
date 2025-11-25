@@ -74,7 +74,7 @@ export const getFallbackImageForBeach = (name: string): string | undefined => {
  * Controls how many photos are fetched when displaying beach media galleries.
  * Higher values provide more variety but increase payload size and query time.
  */
-export const DEFAULT_BEACH_PHOTOS_LIMIT = 12;
+export const DEFAULT_BEACH_PHOTOS_LIMIT = 5;
 
 /**
  * Type guards for beach ID validation
