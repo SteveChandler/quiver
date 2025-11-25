@@ -1,5 +1,7 @@
 # Personalized Home Forecast Plan
 
+> **Status:** Implementation completed. Original `personalized-home-forecast-service.ts` was deprecated and removed in November 2025. Functionality now handled by `surf-discovery-service.ts` with cache-backed architecture. See `lib/services/ARCHITECTURE.md` for current implementation details.
+
 ## Goals & Outcomes
 - **Best spot for you today**: Surface one beach recommendation that aligns with the rider’s preferences, recent behavior, and today’s conditions. Should feel like a coach pick, not a static home beach card.
 - **Best time for you today**: Highlight a concrete 2–3 hour window that balances wave quality, tide stage, and daylight for the chosen beach.

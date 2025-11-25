@@ -9,10 +9,28 @@ import {
   updateAllBeachForecasts,
 } from "@/lib/utils/forecast-server-utils";
 import { getStalenessDetails } from "@/lib/utils/forecast-client-utils";
+import { authenticateAdmin } from "@/lib/auth/admin";
 
-// API endpoint to update enhanced forecasts for all beaches
+/**
+ * Enhanced Forecast Update API Endpoint
+ *
+ * SECURITY: POST requires admin authentication
+ * GET is public (read-only forecast data)
+ */
+
+// API endpoint to update enhanced forecasts for all beaches (admin only)
 export async function POST(request: NextRequest) {
   try {
+    // Admin authentication check - only admins can trigger forecast updates
+    const authResult = await authenticateAdmin();
+    if (!authResult.success) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status }
+      );
+    }
+    console.log(`🔐 Enhanced forecast update initiated by admin: ${authResult.user.email}`);
+
     console.log("Starting enhanced forecast update process");
 
     // Check if we should update a specific beach or all beaches

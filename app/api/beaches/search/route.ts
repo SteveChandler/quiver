@@ -8,7 +8,7 @@ import {
   createPaginationMeta,
 } from "@/lib/api-utils";
 import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
-import { withRateLimit } from "@/lib/middleware/rate-limiter";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
 export const dynamic = 'force-dynamic';
 
@@ -54,5 +54,5 @@ async function beachSearchHandler(request: NextRequest) {
   }
 }
 
-// Apply rate limiting to prevent abuse of expensive search operations
-export const GET = withRateLimit(beachSearchHandler, "beach-search");
+// Apply bot blocking and rate limiting to prevent abuse of expensive search operations
+export const GET = withBotBlockingAndRateLimit(beachSearchHandler, "beach-search");

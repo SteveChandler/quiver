@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   handleApiError,
   createPaginatedResponse,
@@ -7,6 +7,7 @@ import {
   parsePaginationParams,
   createPaginationMeta,
 } from "@/lib/api-utils";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";
@@ -25,7 +26,7 @@ export const dynamic = "force-dynamic";
  * Returns:
  * - Paginated list of public sessions with beach info, ratings, and author details
  */
-export async function GET(request: NextRequest) {
+async function publicSessionsHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const supabase = createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
@@ -125,3 +126,6 @@ export async function GET(request: NextRequest) {
     return handleApiError(error, "Failed to fetch public sessions");
   }
 }
+
+// Apply bot blocking and rate limiting to prevent abuse
+export const GET = withBotBlockingAndRateLimit(publicSessionsHandler, "public-default");

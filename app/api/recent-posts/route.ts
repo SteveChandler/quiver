@@ -7,12 +7,13 @@ import {
   parsePaginationParams,
   createPaginationMeta,
 } from "@/lib/api-utils";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
+async function recentPostsHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const supabase = createSupabaseServerClient();
 
@@ -112,3 +113,6 @@ export async function GET(request: NextRequest) {
     return handleApiError(error, "Failed to fetch recent posts");
   }
 }
+
+// Apply bot blocking and rate limiting to prevent abuse
+export const GET = withBotBlockingAndRateLimit(recentPostsHandler, "public-default");

@@ -32,6 +32,7 @@ import {
 } from "@/lib/api/rate-limit-config";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { logRateLimitViolation } from "@/lib/monitoring/rate-limit-telemetry";
+import { withBotBlocking } from "@/lib/middleware/bot-blocker";
 
 /**
  * Extract client identifier from request
@@ -210,4 +211,39 @@ export function withAuthAwareRateLimit(
 export function getRateLimiterDiagnostics(limitKey: RateLimitKey) {
   const limiter = getCachedRateLimiter(limitKey, RATE_LIMITS[limitKey]);
   return limiter.getDiagnostics();
+}
+
+/**
+ * Combined bot blocking and rate limiting wrapper
+ *
+ * Applies bot detection first (fast, string matching), then rate limiting.
+ * Use this for public API endpoints that are vulnerable to bot traffic.
+ *
+ * Bot blocking happens before rate limiting because:
+ * 1. It's faster (no state lookup required)
+ * 2. Blocks bots before they consume rate limit quota
+ * 3. Reduces load on rate limiter
+ *
+ * @param handler - The API route handler
+ * @param limitKey - Rate limit configuration key
+ * @returns Wrapped handler with bot blocking and rate limiting
+ *
+ * @example
+ * ```typescript
+ * import { withBotBlockingAndRateLimit } from '@/lib/middleware/rate-limiter';
+ *
+ * async function handler(request: NextRequest) {
+ *   // Your endpoint logic
+ * }
+ *
+ * export const GET = withBotBlockingAndRateLimit(handler, 'public-default');
+ * ```
+ */
+export function withBotBlockingAndRateLimit(
+  handler: (req: NextRequest) => Promise<NextResponse>,
+  limitKey: RateLimitKey
+): (req: NextRequest) => Promise<NextResponse> {
+  // Apply bot blocking first (blocks immediately, no state lookup)
+  // Then apply rate limiting (checks/records request counts)
+  return withBotBlocking(withRateLimit(handler, limitKey));
 }

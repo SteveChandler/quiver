@@ -62,12 +62,6 @@ export const FALLBACK_IMAGE_BY_NAME = {
   "Bandon Beach": "/images/On_the_Beach_at_Bandon.webp",
 } as const;
 
-export type FallbackBeachName = keyof typeof FALLBACK_IMAGE_BY_NAME;
-
-export const getFallbackImageForBeach = (name: string): string | undefined => {
-  return FALLBACK_IMAGE_BY_NAME[name as FallbackBeachName];
-};
-
 /**
  * Default limit for beach photo fetching in getBestBeachPhotosAction.
  *
@@ -75,17 +69,6 @@ export const getFallbackImageForBeach = (name: string): string | undefined => {
  * Higher values provide more variety but increase payload size and query time.
  */
 export const DEFAULT_BEACH_PHOTOS_LIMIT = 5;
-
-/**
- * Type guards for beach ID validation
- */
-export const isExcludedBeach = (beachId: string): boolean => {
-  return EXCLUDED_BEACH_IDS.includes(beachId);
-};
-
-export const isPriorityBeach = (beachId: string): boolean => {
-  return PRIORITY_BEACH_IDS.includes(beachId);
-};
 
 /**
  * Get priority index for sorting (lower index = higher priority)

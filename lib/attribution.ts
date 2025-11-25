@@ -155,60 +155,6 @@ export function saveAttributionToCookies(
 }
 
 /**
- * Capture attribution from current URL and referrer (client-side)
- * Call this on page load to capture UTM parameters
- */
-export function captureAttribution(options: { overwrite?: boolean } = {}): AttributionData {
-  if (typeof window === "undefined") {
-    return {
-      utm_source: null,
-      utm_medium: null,
-      utm_campaign: null,
-      utm_content: null,
-      utm_term: null,
-      referrer: null,
-      first_touch_ts: null,
-      landing_page: null,
-    };
-  }
-
-  const existingAttribution = getAttributionFromCookies();
-  const isFirstTouch = !existingAttribution.first_touch_ts;
-
-  // Parse UTM from current URL
-  const utmParams = parseUTMParams(window.location.search);
-
-  // Build attribution data
-  const newAttribution: Partial<AttributionData> = {
-    ...utmParams,
-  };
-
-  // Capture referrer (external referrers only)
-  const referrer = document.referrer;
-  if (referrer && !referrer.includes(window.location.hostname)) {
-    newAttribution.referrer = referrer;
-  }
-
-  // First touch tracking
-  if (isFirstTouch) {
-    newAttribution.first_touch_ts = new Date().toISOString();
-    newAttribution.landing_page = window.location.pathname + window.location.search;
-  }
-
-  // Save to cookies
-  saveAttributionToCookies(newAttribution, options);
-
-  // Return merged attribution (existing + new)
-  return {
-    ...existingAttribution,
-    ...newAttribution,
-    // Preserve first touch values
-    first_touch_ts: existingAttribution.first_touch_ts || newAttribution.first_touch_ts || null,
-    landing_page: existingAttribution.landing_page || newAttribution.landing_page || null,
-  };
-}
-
-/**
  * Get attribution data formatted for analytics events
  * Filters out null values and adds prefix if needed
  */
@@ -238,28 +184,6 @@ export function getAttributionForAnalytics(
   }
 
   return result;
-}
-
-/**
- * Clear all attribution cookies (for testing or logout)
- */
-export function clearAttributionCookies(): void {
-  if (typeof document === "undefined") return;
-
-  const cookiesToClear = [
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-    "utm_content",
-    "utm_term",
-    "referrer",
-    "first_touch_ts",
-    "landing_page",
-  ];
-
-  for (const name of cookiesToClear) {
-    document.cookie = `${COOKIE_PREFIX}${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-  }
 }
 
 /**

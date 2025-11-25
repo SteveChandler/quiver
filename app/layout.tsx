@@ -194,12 +194,14 @@ export default function RootLayout({
             `,
           }} /></head>
       <body className={`${inter.className} font-sans antialiased`}>
-        {/* 
+        {/*
           Analytics Loader - Conditionally loads analytics based on route
           Landing page (/) does NOT load analytics
           All other routes load GA4 and Ahrefs
         */}
-        <AnalyticsLoader />
+        <Suspense fallback={null}>
+          <AnalyticsLoader />
+        </Suspense>
         
         <AuthProvider>
           <ReactQueryProvider>

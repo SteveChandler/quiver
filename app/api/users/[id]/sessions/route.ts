@@ -1,7 +1,8 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSuccessResponse, createValidationError, handleApiError, methodNotAllowed } from "@/lib/api-utils";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
 function parseLimit(url: URL, defaultValue = 5, max = 20) {
   const raw = url.searchParams.get("limit");
@@ -16,9 +17,11 @@ function isUuidLike(id: string) {
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+/**
+ * Core handler for fetching user sessions
+ */
+async function fetchUserSessions(request: NextRequest, targetUserId: string): Promise<NextResponse> {
   try {
-    const { id: targetUserId } = context.params;
     if (!targetUserId || !isUuidLike(targetUserId)) {
       return createValidationError("Invalid or missing user ID");
     }
@@ -134,6 +137,24 @@ export async function GET(request: NextRequest, context: { params: { id: string 
     console.error("Critical error in sessions API:", error);
     return handleApiError(error, "Failed to load user sessions");
   }
+}
+
+/**
+ * GET /api/users/[id]/sessions
+ * Bot blocking and rate limiting applied to prevent abuse
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params;
+
+  const wrappedHandler = withBotBlockingAndRateLimit(
+    async (req: NextRequest) => fetchUserSessions(req, id),
+    "public-default"
+  );
+
+  return wrappedHandler(request);
 }
 
 export function POST() {

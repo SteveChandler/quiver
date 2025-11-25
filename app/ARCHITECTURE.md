@@ -139,8 +139,7 @@ The `/app` directory follows Next.js 13+ App Router conventions, implementing a 
 - **Function**: Scheduled job endpoints
 - **Security**: Cron authentication required
 - **Jobs**:
-  - `enhanced-forecast-sync/` - Comprehensive NOAA data sync
-  - `smart-forecast-update/` - Intelligent forecast updates
+  - `enhanced-forecast-sync/` - Comprehensive NOAA + CDIP data sync
 
 #### `/api/forecasts/`
 

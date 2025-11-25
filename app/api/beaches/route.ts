@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   createCachedResponse,
+  createSuccessResponse,
   createValidationError,
   handleApiError,
   CacheDuration,
   checkNotModified,
 } from "@/lib/api-utils";
 import { isAdmin } from "@/lib/auth/admin";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
 // GET method to retrieve all beaches with optimized caching
-export async function GET(request: NextRequest) {
+async function beachesHandler(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
@@ -44,7 +46,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Apply bot blocking and rate limiting to public GET endpoint
+export const GET = withBotBlockingAndRateLimit(beachesHandler, "public-default");
+
 // Matches Ruby LocationsController#create functionality
+// POST is admin-protected, so no bot blocking needed
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();

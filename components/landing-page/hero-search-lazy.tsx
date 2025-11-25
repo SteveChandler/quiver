@@ -91,7 +91,7 @@ export default function HeroSearchLazy({
 
       return () => clearTimeout(timeout);
     }
-  }, []);
+  }, [isTest]);
 
   // Handle placeholder input changes
   const handlePlaceholderChange = (

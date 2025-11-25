@@ -15,10 +15,12 @@ lib/services/
 ├── noaa-coops-service.ts                     # NOAA CO-OPS tide data service
 ├── noaa-sync.ts                              # NOAA buoy station synchronization
 ├── noaa-wavewatch-service.ts                 # NOAA WaveWatch III wave data
-├── personalized-home-forecast-service.ts     # Personalized home recommendations
 ├── personalized-scoring-service.ts           # User preference scoring
-└── preference-learning-service.ts            # User preference learning
+├── preference-learning-service.ts            # User preference learning
+└── surf-discovery-service.ts                 # Beach discovery and recommendations
 ```
+
+**Note:** `personalized-home-forecast-service.ts` was deprecated in November 2025 and replaced by `surf-discovery-service.ts`. See `CHANGELOG.md` for details.
 
 ## 🏗️ **ARCHITECTURE PATTERNS**
 
@@ -36,7 +38,7 @@ ExternalServices
 │   ├── Data Combination and Validation
 │   └── Quality Assessment
 ├── Personalization Services
-│   ├── Personalized Home Forecast (User recommendations)
+│   ├── Surf Discovery Service (Beach recommendations)
 │   ├── Personalized Scoring (Preference-based scoring)
 │   └── Preference Learning (Session history analysis)
 ├── Maintenance Services
@@ -376,67 +378,27 @@ export class NOAACOOPSService {
 }
 ```
 
-### **PersonalizedHomeForecastService** (User Recommendations)
+### **SurfDiscoveryService** (Beach Recommendations)
 
-- **Purpose**: Generates personalized surf recommendations for home screen
+- **Purpose**: Generates personalized surf recommendations for home screen and discovery
+- **Status**: Active (replaced deprecated PersonalizedHomeForecastService in November 2025)
 - **Features**:
+  - Cache-backed forecast retrieval (no on-demand API calls)
   - Candidate pool from home beach + favorites
-  - Direct EnhancedForecastService integration (no HTTP overhead)
   - Personalized scoring via personalized-scoring-service
-  - Optimal time window selection (best 3-hour window in 48h)
+  - Optimal time window selection
   - Human-readable summaries and reasons
 
-**Service Integration Pattern:**
+**Service Location:** `lib/services/surf-discovery-service.ts`
 
-```typescript
-export async function getPersonalizedHomeForecast(
-  userId: string,
-  options: PersonalizedForecastOptions = {}
-): Promise<PersonalizedForecastRecommendation | null> {
-  // 1. Build candidate pool (home beach + favorites)
-  const candidates = await buildCandidatePool(userId, options);
-  
-  // 2. Fetch forecasts in parallel with timeout
-  const beachForecasts = await batchFetchForecasts(candidates, {
-    maxConcurrent: 3,
-    timeout: 5000,
-  });
-  
-  // 3. Select best window for each beach
-  const beachCandidates = beachForecasts.map(({ beach, forecasts }) => ({
-    beach,
-    forecasts,
-    bestWindow: selectBestWindow(forecasts),
-    baseScore: calculateBaseScore(bestWindow, forecasts[0]),
-  }));
-  
-  // 4. Score beaches with personalization
-  const scoredBeaches = await scoreBeachesForUser(userId, beachCandidates);
-  
-  // 5. Select best beach and build recommendation
-  const best = scoredBeaches.reduce((prev, curr) => 
-    curr.personalizedScore.score > prev.personalizedScore.score ? curr : prev
-  );
-  
-  return {
-    beach: best.beach,
-    window: best.bestWindow,
-    score: best.personalizedScore.score,
-    summary: generateSummary(best),
-    reasons: generateReasons(best),
-    generated_at: new Date().toISOString(),
-  };
-}
-```
-
-**Performance:**
-- Database: 3 queries total (candidate pool, affinity map, batch scoring)
-- Forecast fetching: Parallel with 3 concurrent + 5s timeout
-- P50: < 2s for 3 candidate beaches
-- P95: < 4s with network variability
+**Key Improvements over Deprecated Service:**
+- Uses `getFreshForecastFromCache()` instead of direct EnhancedForecastService calls
+- No external API calls during user requests
+- Consistent ~500ms response times
+- Stale data marked clearly but still usable
 
 **Dependencies:**
-- `EnhancedForecastService` - Forecast generation
+- `getFreshForecastFromCache()` - Cache-backed forecast access
 - `personalized-scoring-service` - User preference scoring
 - `user_surf_preferences` table - Learned preferences
 - `user_beach_affinity` table - Beach familiarity
@@ -465,7 +427,7 @@ export async function getPersonalizedHomeForecast(
 
 #### **Operational Model**
 
-All forecast-consuming services (`personalized-home-forecast-service`, `surf-discovery-service`) now operate in **CACHE-ONLY MODE**:
+All forecast-consuming services (e.g., `surf-discovery-service`) now operate in **CACHE-ONLY MODE**:
 
 - **NO on-demand forecast regeneration** via EnhancedForecastService
 - **NO external API calls** to NOAA/Open-Meteo during user requests
@@ -511,7 +473,7 @@ These jobs call `updateAllBeachForecasts()` which uses `EnhancedForecastService`
 
 #### **Service Integration**
 
-Both `personalized-home-forecast-service` and `surf-discovery-service` now:
+`surf-discovery-service` and other forecast-consuming services now:
 
 1. Call `getFreshForecastFromCache()` for all forecast access
 2. Return recommendations even with stale data (with warnings in metadata)
@@ -708,7 +670,7 @@ async function fetchWaveDataWithFallback(location: Location) {
 
 ## 🎯 **PERSONALIZATION ARCHITECTURE**
 
-### **Data Flow: Personalized Home Forecast**
+### **Data Flow: Surf Discovery Service**
 
 ```
 User Request (userId)
@@ -717,10 +679,10 @@ Build Candidate Pool (2 DB queries)
     ├── Home beach from profile
     └── Favorites ordered by rank
     ↓
-Batch Fetch Forecasts (parallel, 3 concurrent, 5s timeout)
-    ├── EnhancedForecastService.generateComprehensiveForecast()
-    ├── Direct service call (no HTTP)
-    └── Returns 96 time points (12 days * 8 per day)
+Fetch Forecasts from Cache (parallel)
+    ├── getFreshForecastFromCache() per beach
+    ├── No external API calls
+    └── Returns cached forecast data with staleness metadata
     ↓
 Select Best Window (per beach)
     ├── Filter to next 48 hours
@@ -742,8 +704,8 @@ Return Recommendation
 ### **Integration Points**
 
 **Service-to-Service Composition:**
-- `personalized-home-forecast-service` → `EnhancedForecastService`
-- `personalized-home-forecast-service` → `personalized-scoring-service`
+- `surf-discovery-service` → `getFreshForecastFromCache()`
+- `surf-discovery-service` → `personalized-scoring-service`
 - `personalized-scoring-service` → `preference-learning-service`
 
 **No HTTP Between Services:**
