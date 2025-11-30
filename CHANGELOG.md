@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Beach Search Navigation Fix** (November 2025)
+  - Updated `BeachSearch` component to navigate to the beach detail page immediately upon selection from the dropdown.
+  - This aligns the behavior of the dashboard search bar with other search inputs in the application.
+  - Refactored `components/beach-search.tsx` to use a custom hook `useBeachForecast` and split UI into sub-components.
+  - Verified with E2E tests ensuring navigation occurs correctly.
+
 - Fixed `calculateDistanceInMiles` function call sites to use new Coordinates object signature instead of deprecated 4-parameter signature
   - Updated `actions/beach/beach-location-actions.ts`
   - Updated `app/api/beaches/nearby/route.ts`

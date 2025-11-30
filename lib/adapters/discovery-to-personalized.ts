@@ -104,26 +104,3 @@ export function adaptDiscoveryResponse(
   };
 }
 
-/**
- * Adapt multiple discovery recommendations to personalized format
- *
- * Useful for batch processing or comparison scenarios.
- *
- * @param recommendations - Array of discovery recommendations
- * @param metadata - Discovery metadata (for counts)
- * @returns Array of personalized recommendations
- */
-export function adaptDiscoveryRecommendations(
-  recommendations: SurfDiscoveryRecommendation[],
-  metadata: SurfDiscoveryResponse['metadata']
-): PersonalizedForecastRecommendation[] {
-  return recommendations.map((rec) => {
-    const adapted = adaptDiscoveryRecommendation(rec);
-    return {
-      ...adapted,
-      total_beaches_count: metadata.totalBeachesConsidered,
-      available_beaches_count: metadata.successfulForecasts,
-      partial_success: metadata.partialSuccess,
-    };
-  });
-}

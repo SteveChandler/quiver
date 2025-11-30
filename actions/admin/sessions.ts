@@ -10,6 +10,15 @@
 import { withAdminActionAndUser } from "@/lib/server-action-utils/admin";
 import { recordAdminEvent } from "@/lib/logging/admin-audit";
 import type { SessionFilterOptions, SessionStats } from "@/lib/validation/admin/session-schema";
+import type { AdminUser } from "@/lib/auth/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+
+/** Context provided to admin actions */
+type AdminContext = {
+  user: AdminUser;
+  supabaseAdmin: SupabaseClient<Database>;
+};
 
 /**
  * Enhanced session type with user/beach details for admin display
@@ -41,10 +50,57 @@ export interface AdminSessionListItem {
 }
 
 /**
+ * Detailed session type for investigation view (includes all joins)
+ */
+export interface AdminSessionDetails {
+  id: string;
+  user_id: string;
+  beach_id: string;
+  beach_name: string | null;
+  status: string | null;
+  arrival_time: string;
+  duration_minutes: number;
+  rating: number | null;
+  wave_quality: number | null;
+  crowd_level: number | null;
+  parking_ease: number | null;
+  is_public: boolean | null;
+  likes_count: number;
+  comments_count: number;
+  created_at: string;
+  deleted_at: string | null;
+  description: string | null;
+  notes: string | null;
+  goals: string[] | null;
+  // Joined profile data
+  profiles: {
+    id: string;
+    email: string | null;
+    name: string | null;
+    avatar_url: string | null;
+  } | null;
+  // Joined beach data
+  beaches: {
+    id: string;
+    name: string;
+    region: string | null;
+    country: string | null;
+  } | null;
+  // Joined session media
+  session_media: Array<{
+    id: string;
+    image_url: string;
+    thumb_url: string | null;
+    caption: string | null;
+    created_at: string;
+  }>;
+}
+
+/**
  * List all sessions with optional filters and joins
  */
 export const listSessions = withAdminActionAndUser(
-  async (options: SessionFilterOptions = {}, { supabaseAdmin, user }) => {
+  async (options: Partial<SessionFilterOptions>, { supabaseAdmin }: AdminContext) => {
     const {
       includeDeleted = false,
       search = "",
@@ -56,7 +112,7 @@ export const listSessions = withAdminActionAndUser(
       dateTo,
       minRating,
       maxRating,
-    } = options;
+    } = options || {};
 
     let query = supabaseAdmin
       .from("sessions")
@@ -146,7 +202,7 @@ export const listSessions = withAdminActionAndUser(
  * Get session statistics for admin dashboard
  */
 export const getSessionStats = withAdminActionAndUser(
-  async (_, { supabaseAdmin }) => {
+  async (_: Record<string, never>, { supabaseAdmin }: AdminContext) => {
     // Get total count and aggregates
     const { data, error } = await supabaseAdmin
       .from("sessions")
@@ -156,23 +212,33 @@ export const getSessionStats = withAdminActionAndUser(
       throw new Error(`Failed to fetch session stats: ${error.message}`);
     }
 
-    const sessions = data || [];
+    // Type for session stat calculation
+    type SessionStatRow = {
+      is_public: boolean | null;
+      status: string | null;
+      rating: number | null;
+      likes_count: number;
+      comments_count: number;
+      deleted_at: string | null;
+    };
+
+    const sessions: SessionStatRow[] = data || [];
 
     // Calculate statistics
     const stats: SessionStats = {
-      total: sessions.filter((s) => !s.deleted_at).length,
-      public: sessions.filter((s) => !s.deleted_at && s.is_public).length,
-      private: sessions.filter((s) => !s.deleted_at && !s.is_public).length,
-      planned: sessions.filter((s) => !s.deleted_at && s.status === "planned").length,
-      logged: sessions.filter((s) => !s.deleted_at && s.status === "logged").length,
-      cancelled: sessions.filter((s) => !s.deleted_at && s.status === "cancelled").length,
-      deleted: sessions.filter((s) => s.deleted_at).length,
+      total: sessions.filter((s: SessionStatRow) => !s.deleted_at).length,
+      public: sessions.filter((s: SessionStatRow) => !s.deleted_at && s.is_public).length,
+      private: sessions.filter((s: SessionStatRow) => !s.deleted_at && !s.is_public).length,
+      planned: sessions.filter((s: SessionStatRow) => !s.deleted_at && s.status === "planned").length,
+      logged: sessions.filter((s: SessionStatRow) => !s.deleted_at && s.status === "logged").length,
+      cancelled: sessions.filter((s: SessionStatRow) => !s.deleted_at && s.status === "cancelled").length,
+      deleted: sessions.filter((s: SessionStatRow) => s.deleted_at).length,
       avgRating:
         sessions
-          .filter((s) => !s.deleted_at && s.rating)
-          .reduce((sum, s, _, arr) => sum + (s.rating || 0) / arr.length, 0) || null,
-      totalLikes: sessions.filter((s) => !s.deleted_at).reduce((sum, s) => sum + s.likes_count, 0),
-      totalComments: sessions.filter((s) => !s.deleted_at).reduce((sum, s) => sum + s.comments_count, 0),
+          .filter((s: SessionStatRow) => !s.deleted_at && s.rating)
+          .reduce((sum: number, s: SessionStatRow, _: number, arr: SessionStatRow[]) => sum + (s.rating || 0) / arr.length, 0) || null,
+      totalLikes: sessions.filter((s: SessionStatRow) => !s.deleted_at).reduce((sum: number, s: SessionStatRow) => sum + s.likes_count, 0),
+      totalComments: sessions.filter((s: SessionStatRow) => !s.deleted_at).reduce((sum: number, s: SessionStatRow) => sum + s.comments_count, 0),
     };
 
     return stats;
@@ -183,7 +249,7 @@ export const getSessionStats = withAdminActionAndUser(
  * Get single session for detailed investigation view
  */
 export const getSession = withAdminActionAndUser(
-  async (sessionId: string, { supabaseAdmin }) => {
+  async (sessionId: string, { supabaseAdmin }: AdminContext) => {
     const { data, error } = await supabaseAdmin
       .from("sessions")
       .select(
@@ -225,7 +291,7 @@ export const getSession = withAdminActionAndUser(
  * Soft delete a session (admin moderation)
  */
 export const softDeleteSession = withAdminActionAndUser(
-  async (sessionId: string, { supabaseAdmin, user }) => {
+  async (sessionId: string, { supabaseAdmin, user }: AdminContext) => {
     // Fetch session details for audit logging
     const { data: session, error: fetchError } = await supabaseAdmin
       .from("sessions")
@@ -267,7 +333,7 @@ export const softDeleteSession = withAdminActionAndUser(
  * Restore a soft-deleted session
  */
 export const restoreSession = withAdminActionAndUser(
-  async (sessionId: string, { supabaseAdmin, user }) => {
+  async (sessionId: string, { supabaseAdmin, user }: AdminContext) => {
     // Fetch session details for audit logging
     const { data: session, error: fetchError } = await supabaseAdmin
       .from("sessions")

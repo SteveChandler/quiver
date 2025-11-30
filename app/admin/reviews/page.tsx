@@ -36,7 +36,9 @@ import {
   restoreReview,
   getReview,
   type AdminReviewListItem,
+  type AdminReviewDetails,
 } from "@/actions/admin/reviews";
+import type { ReviewStats } from "@/lib/validation/admin/review-schema";
 import { format } from "date-fns";
 
 export default function ReviewsAdminPage() {
@@ -50,23 +52,29 @@ export default function ReviewsAdminPage() {
   const [selectedReview, setSelectedReview] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  // Data fetching
-  const fetchReviews = useCallback(async () => {
-    return await listReviews({ includeDeleted: showDeleted });
+  // Data fetching - unwrap server action responses
+  const fetchReviews = useCallback(async (): Promise<AdminReviewListItem[]> => {
+    const response = await listReviews({ includeDeleted: showDeleted });
+    if (!response.success) throw new Error(response.error || 'Failed to fetch reviews');
+    return (response.data as AdminReviewListItem[]) ?? [];
   }, [showDeleted]);
 
-  const fetchStats = useCallback(async () => {
-    return await getReviewStats({});
+  const fetchStats = useCallback(async (): Promise<ReviewStats | null> => {
+    const response = await getReviewStats({});
+    if (!response.success) throw new Error(response.error || 'Failed to fetch stats');
+    return (response.data as ReviewStats) ?? null;
   }, []);
 
-  const fetchReviewDetails = useCallback(async () => {
+  const fetchReviewDetails = useCallback(async (): Promise<AdminReviewDetails | null> => {
     if (!selectedReview) return null;
-    return await getReview(selectedReview);
+    const response = await getReview(selectedReview);
+    if (!response.success) throw new Error(response.error || 'Failed to fetch review details');
+    return (response.data as AdminReviewDetails) ?? null;
   }, [selectedReview]);
 
-  const { data: reviews, loading: loadingReviews, refetch: refetchReviews } = useDataFetcher(fetchReviews);
-  const { data: stats, loading: loadingStats, refetch: refetchStats } = useDataFetcher(fetchStats);
-  const { data: reviewDetails, loading: loadingDetails } = useDataFetcher(fetchReviewDetails);
+  const { data: reviews, loading: loadingReviews, refetch: refetchReviews } = useDataFetcher<AdminReviewListItem[]>(fetchReviews);
+  const { data: stats, loading: loadingStats, refetch: refetchStats } = useDataFetcher<ReviewStats | null>(fetchStats);
+  const { data: reviewDetails, loading: loadingDetails } = useDataFetcher<AdminReviewDetails | null>(fetchReviewDetails);
 
   // Handlers
   const handleViewDetails = (review: AdminReviewListItem) => {
@@ -216,8 +224,8 @@ export default function ReviewsAdminPage() {
 
       {/* Delete Confirmation Dialog */}
       <ConfirmActionDialog
-        isOpen={!!reviewToDelete}
-        onClose={() => setReviewToDelete(null)}
+        open={!!reviewToDelete}
+        onOpenChange={(open) => !open && setReviewToDelete(null)}
         onConfirm={handleDelete}
         title="Delete Review"
         description={
@@ -225,14 +233,14 @@ export default function ReviewsAdminPage() {
             ? `Are you sure you want to soft delete this review for ${reviewToDelete.beach_name}? The review will be hidden but can be restored later.`
             : ""
         }
-        confirmText="Delete Review"
-        variant="destructive"
+        actionLabel="Delete Review"
+        actionVariant="destructive"
       />
 
       {/* Restore Confirmation Dialog */}
       <ConfirmActionDialog
-        isOpen={!!reviewToRestore}
-        onClose={() => setReviewToRestore(null)}
+        open={!!reviewToRestore}
+        onOpenChange={(open) => !open && setReviewToRestore(null)}
         onConfirm={handleRestore}
         title="Restore Review"
         description={
@@ -240,7 +248,7 @@ export default function ReviewsAdminPage() {
             ? `Are you sure you want to restore this review for ${reviewToRestore.beach_name}?`
             : ""
         }
-        confirmText="Restore Review"
+        actionLabel="Restore Review"
       />
 
       {/* Review Details Sheet */}

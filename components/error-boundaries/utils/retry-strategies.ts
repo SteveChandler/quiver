@@ -21,20 +21,3 @@ export function retryWithBackoff(
   }
 }
 
-/**
- * Check if error is retryable
- */
-export function isRetryableError(error: Error): boolean {
-  const retryableMessages = [
-    'network',
-    'timeout',
-    'fetch',
-    'connection',
-    'ECONNREFUSED',
-    'ETIMEDOUT',
-  ];
-
-  const errorMessage = error.message.toLowerCase();
-
-  return retryableMessages.some((msg) => errorMessage.includes(msg));
-}

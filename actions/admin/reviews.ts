@@ -10,6 +10,15 @@
 import { withAdminActionAndUser } from "@/lib/server-action-utils/admin";
 import { recordAdminEvent } from "@/lib/logging/admin-audit";
 import type { ReviewFilterOptions, ReviewStats } from "@/lib/validation/admin/review-schema";
+import type { AdminUser } from "@/lib/auth/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+
+/** Context provided to admin actions */
+type AdminContext = {
+  user: AdminUser;
+  supabaseAdmin: SupabaseClient<Database>;
+};
 
 /**
  * Enhanced review type with user/beach details for admin display
@@ -36,10 +45,45 @@ export interface AdminReviewListItem {
 }
 
 /**
+ * Detailed review type for investigation view (includes all joins)
+ */
+export interface AdminReviewDetails {
+  id: string;
+  beach_id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  overall_rating: number;
+  wave_quality_rating: number;
+  crowd_density_rating: number;
+  parking_rating: number;
+  accessibility_rating: number;
+  helpful_count: number;
+  visit_date: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+  // Joined profile data
+  profiles: {
+    id: string;
+    email: string | null;
+    name: string | null;
+    avatar_url: string | null;
+  } | null;
+  // Joined beach data
+  beaches: {
+    id: string;
+    name: string;
+    region: string | null;
+    country: string | null;
+  } | null;
+}
+
+/**
  * List all reviews with optional filters and joins
  */
 export const listReviews = withAdminActionAndUser(
-  async (options: ReviewFilterOptions = {}, { supabaseAdmin }) => {
+  async (options: Partial<ReviewFilterOptions>, { supabaseAdmin }: AdminContext) => {
     const {
       includeDeleted = false,
       search = "",
@@ -49,7 +93,7 @@ export const listReviews = withAdminActionAndUser(
       maxRating,
       minWaveQuality,
       maxWaveQuality,
-    } = options;
+    } = options || {};
 
     let query = supabaseAdmin
       .from("beach_reviews")
@@ -136,7 +180,7 @@ export const listReviews = withAdminActionAndUser(
  * Get review statistics for admin dashboard
  */
 export const getReviewStats = withAdminActionAndUser(
-  async (_, { supabaseAdmin }) => {
+  async (_: Record<string, never>, { supabaseAdmin }: AdminContext) => {
     // Get all reviews for aggregation
     const { data, error } = await supabaseAdmin
       .from("beach_reviews")
@@ -148,34 +192,45 @@ export const getReviewStats = withAdminActionAndUser(
       throw new Error(`Failed to fetch review stats: ${error.message}`);
     }
 
-    const reviews = data || [];
-    const activeReviews = reviews.filter((r) => !r.deleted_at);
+    // Type for review stat calculation
+    type ReviewStatRow = {
+      overall_rating: number;
+      wave_quality_rating: number;
+      crowd_density_rating: number;
+      parking_rating: number;
+      accessibility_rating: number;
+      helpful_count: number;
+      deleted_at: string | null;
+    };
+
+    const reviews: ReviewStatRow[] = data || [];
+    const activeReviews = reviews.filter((r: ReviewStatRow) => !r.deleted_at);
 
     // Calculate statistics
     const stats: ReviewStats = {
       total: activeReviews.length,
-      deleted: reviews.filter((r) => r.deleted_at).length,
+      deleted: reviews.filter((r: ReviewStatRow) => r.deleted_at).length,
       avgOverallRating:
         activeReviews.length > 0
-          ? activeReviews.reduce((sum, r) => sum + r.overall_rating, 0) / activeReviews.length
+          ? activeReviews.reduce((sum: number, r: ReviewStatRow) => sum + r.overall_rating, 0) / activeReviews.length
           : null,
       avgWaveQuality:
         activeReviews.length > 0
-          ? activeReviews.reduce((sum, r) => sum + r.wave_quality_rating, 0) / activeReviews.length
+          ? activeReviews.reduce((sum: number, r: ReviewStatRow) => sum + r.wave_quality_rating, 0) / activeReviews.length
           : null,
       avgCrowdDensity:
         activeReviews.length > 0
-          ? activeReviews.reduce((sum, r) => sum + r.crowd_density_rating, 0) / activeReviews.length
+          ? activeReviews.reduce((sum: number, r: ReviewStatRow) => sum + r.crowd_density_rating, 0) / activeReviews.length
           : null,
       avgParking:
         activeReviews.length > 0
-          ? activeReviews.reduce((sum, r) => sum + r.parking_rating, 0) / activeReviews.length
+          ? activeReviews.reduce((sum: number, r: ReviewStatRow) => sum + r.parking_rating, 0) / activeReviews.length
           : null,
       avgAccessibility:
         activeReviews.length > 0
-          ? activeReviews.reduce((sum, r) => sum + r.accessibility_rating, 0) / activeReviews.length
+          ? activeReviews.reduce((sum: number, r: ReviewStatRow) => sum + r.accessibility_rating, 0) / activeReviews.length
           : null,
-      totalHelpfulVotes: activeReviews.reduce((sum, r) => sum + r.helpful_count, 0),
+      totalHelpfulVotes: activeReviews.reduce((sum: number, r: ReviewStatRow) => sum + r.helpful_count, 0),
     };
 
     return stats;
@@ -186,7 +241,7 @@ export const getReviewStats = withAdminActionAndUser(
  * Get single review for detailed view
  */
 export const getReview = withAdminActionAndUser(
-  async (reviewId: string, { supabaseAdmin }) => {
+  async (reviewId: string, { supabaseAdmin }: AdminContext) => {
     const { data, error } = await supabaseAdmin
       .from("beach_reviews")
       .select(
@@ -221,7 +276,7 @@ export const getReview = withAdminActionAndUser(
  * Soft delete a review (admin moderation)
  */
 export const softDeleteReview = withAdminActionAndUser(
-  async (reviewId: string, { supabaseAdmin, user }) => {
+  async (reviewId: string, { supabaseAdmin, user }: AdminContext) => {
     // Fetch review details for audit logging
     const { data: review, error: fetchError } = await supabaseAdmin
       .from("beach_reviews")
@@ -263,7 +318,7 @@ export const softDeleteReview = withAdminActionAndUser(
  * Restore a soft-deleted review
  */
 export const restoreReview = withAdminActionAndUser(
-  async (reviewId: string, { supabaseAdmin, user }) => {
+  async (reviewId: string, { supabaseAdmin, user }: AdminContext) => {
     // Fetch review details for audit logging
     const { data: review, error: fetchError } = await supabaseAdmin
       .from("beach_reviews")

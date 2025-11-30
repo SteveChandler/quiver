@@ -33,6 +33,7 @@ import {
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { logRateLimitViolation } from "@/lib/monitoring/rate-limit-telemetry";
 import { withBotBlocking } from "@/lib/middleware/bot-blocker";
+import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 
 /**
  * Extract client identifier from request
@@ -188,12 +189,24 @@ export function withAuthAwareRateLimit(
   authenticatedLimitKey: RateLimitKey
 ): (req: NextRequest) => Promise<NextResponse> {
   return async (req: NextRequest): Promise<NextResponse> => {
-    // TODO: Check if user is authenticated
-    // For now, always use public limits
-    // In the future, we can extract user ID from auth headers
-    // and apply authenticated limits
+    let isAuthenticated = false;
 
-    const isAuthenticated = false; // TODO: Implement auth check
+    try {
+      const supabase = createAPIServerClient();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (user && !error) {
+        isAuthenticated = true;
+      }
+    } catch (err) {
+      // If auth check fails, default to unauthenticated (safe default)
+      console.error("Auth check failed in rate limiter:", err);
+      isAuthenticated = false;
+    }
+
     const limitKey = isAuthenticated ? authenticatedLimitKey : publicLimitKey;
 
     return withRateLimit(handler, limitKey)(req);

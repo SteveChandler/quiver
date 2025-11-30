@@ -33,6 +33,14 @@ interface TrendPoint {
   avgWaveHeight: number;
 }
 
+/** Shape of forecast/actual conditions stored as JSON */
+interface ConditionsSnapshot {
+  wave_height?: string | number;
+  wind_speed?: string | number;
+  water_temp?: string | number;
+  [key: string]: unknown;
+}
+
 /**
  * Extract numerical value from forecast/actual condition strings
  */
@@ -77,8 +85,8 @@ export function calculateAccuracyScore(
 export function analyzeSessionAccuracy(
   snapshot: SessionForecastSnapshot
 ): AccuracyAnalysis {
-  const forecast = snapshot.forecast_snapshot;
-  const actual = snapshot.actual_conditions;
+  const forecast = snapshot.forecast_snapshot as ConditionsSnapshot | null;
+  const actual = snapshot.actual_conditions as ConditionsSnapshot | null;
   const metrics: AccuracyMetric[] = [];
 
   // Wave Height Analysis
@@ -275,22 +283,22 @@ export function calculateAccuracyTrends(
 
   // Calculate daily metrics
   return Object.entries(dailyData)
-    .map(([date, daySnapshots]) => {
+    .map(([date, daySnapshots]: [string, SessionForecastSnapshot[]]) => {
       const analyses = daySnapshots.map(analyzeSessionAccuracy);
       const avgAccuracy =
-        analyses.reduce((sum, analysis) => sum + analysis.overallAccuracy, 0) /
+        analyses.reduce((sum: number, analysis: AccuracyAnalysis) => sum + analysis.overallAccuracy, 0) /
         analyses.length;
       const avgConfidence =
         daySnapshots.reduce(
-          (sum, s) => sum + (s.forecast_confidence_score || 50),
+          (sum: number, s: SessionForecastSnapshot) => sum + (s.forecast_confidence_score || 50),
           0
         ) / daySnapshots.length;
 
       // Calculate average wave height for the day
       const avgWaveHeight =
-        daySnapshots.reduce((sum, s) => {
+        daySnapshots.reduce((sum: number, s: SessionForecastSnapshot) => {
           const height = extractNumericValue(
-            s.actual_conditions?.wave_height || 0
+            (s.actual_conditions as Record<string, unknown>)?.wave_height || 0
           );
           return sum + height;
         }, 0) / daySnapshots.length;
@@ -425,7 +433,8 @@ export function compareDataSources(snapshots: SessionForecastSnapshot[]) {
     return acc;
   }, {} as Record<string, { count: number; totalAccuracy: number; avgConfidence: number }>);
 
-  return Object.entries(sourceStats).map(([source, stats]) => ({
+  type SourceStats = { count: number; totalAccuracy: number; avgConfidence: number };
+  return Object.entries(sourceStats).map(([source, stats]: [string, SourceStats]) => ({
     source,
     sessionCount: stats.count,
     avgAccuracy: Math.round(stats.totalAccuracy / stats.count),

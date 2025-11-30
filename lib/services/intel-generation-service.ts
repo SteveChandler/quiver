@@ -34,15 +34,15 @@ export class IntelGenerationService {
   async canGenerateIntel(beachId: string): Promise<boolean> {
     const { data: beach, error } = await this.supabase
       .from("beaches")
-      .select("tide_min_ft, tide_max_ft")
+      .select("preferred_tide_ft_min, preferred_tide_ft_max")
       .eq("id", beachId)
       .single();
 
     if (error || !beach) return false;
 
     return !!(
-      beach.tide_min_ft !== null &&
-      beach.tide_max_ft !== null
+      beach.preferred_tide_ft_min !== null &&
+      beach.preferred_tide_ft_max !== null
     );
   }
 
@@ -69,7 +69,7 @@ export class IntelGenerationService {
     const { data: beach, error } = await this.supabase
       .from("beaches")
       .select(
-        "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, tide_min_ft, tide_max_ft, hazards, skill_level, break_type"
+        "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type"
       )
       .eq("id", beachId)
       .single();
@@ -82,8 +82,8 @@ export class IntelGenerationService {
       swellWindowMax: beach.swell_window_max_deg,
       windOffshoreDeg: beach.wind_offshore_deg,
       windOffshoreTol: beach.wind_offshore_tol_deg,
-      tideMinFt: beach.tide_min_ft,
-      tideMaxFt: beach.tide_max_ft,
+      tideMinFt: beach.preferred_tide_ft_min,
+      tideMaxFt: beach.preferred_tide_ft_max,
       hazards: beach.hazards,
       skillLevel: beach.skill_level,
       breakType: beach.break_type,
@@ -143,25 +143,26 @@ export class IntelGenerationService {
       throw new Error(`Failed to fetch forecasts: ${error.message}`);
     }
 
-    // Parse text values to numbers
+    // Parse text values to numbers and map to ForecastSlice property names
     const parsedForecasts = (forecasts || []).map((f: any) => ({
-      ...f,
+      forecast_date: f.forecast_date,
+      forecast_time: f.forecast_time,
       wave_height: this.parseNumericValue(f.wave_height),
       wave_period: this.parseNumericValue(f.wave_period),
       wave_direction: this.parseDirection(f.wave_direction),
-      swell_1_height: this.parseNumericValue(f.swell_1_height),
-      swell_1_period: this.parseNumericValue(f.swell_1_period),
-      swell_1_direction: this.parseDirection(f.swell_1_direction),
-      swell_2_height: this.parseNumericValue(f.swell_2_height),
-      swell_2_period: this.parseNumericValue(f.swell_2_period),
-      swell_2_direction: this.parseDirection(f.swell_2_direction),
+      // Map swell_1_* to swell_* (ForecastSlice naming)
+      swell_height: this.parseNumericValue(f.swell_1_height),
+      swell_period: this.parseNumericValue(f.swell_1_period),
+      swell_direction: this.parseDirection(f.swell_1_direction),
+      // Map swell_2_* to secondary_swell_* (ForecastSlice naming)
+      secondary_swell_height: this.parseNumericValue(f.swell_2_height),
+      secondary_swell_period: this.parseNumericValue(f.swell_2_period),
+      secondary_swell_direction: this.parseDirection(f.swell_2_direction),
       wind_speed: this.parseNumericValue(f.wind_speed),
       wind_direction: this.parseDirection(f.wind_direction),
       tide_height: this.parseNumericValue(f.tide_height),
       tide_status: f.tide_status,
-      next_tide_time: f.next_tide_time,
-      next_tide_type: f.next_tide_type,
-      next_tide_height: f.next_tide_height,
+      confidence_score: f.confidence_score,
     }));
 
     return {
@@ -194,27 +195,32 @@ export class IntelGenerationService {
     if (beachPrefs) {
       conditions = analyzeConditions(
         {
-          surf,
-          tide,
-          swells,
+          swellDirection: swells.primary?.direction ?? null,
           wind,
-          bestWindow,
-          confidence,
+          tide,
         },
         beachPrefs
       );
     }
 
+    // Derive wind quality from offshore boolean and description
+    const windQuality = wind.offshore
+      ? "offshore"
+      : wind.description.toLowerCase().includes("onshore")
+      ? "onshore"
+      : "cross-shore";
+
     // Generate notes
     let notes = "";
-    if (wind.quality === "offshore") {
-      notes = `${wind.quality.charAt(0).toUpperCase() + wind.quality.slice(1)} winds create clean, organized waves.`;
-    } else if (wind.quality === "onshore") {
-      notes = `${wind.quality.charAt(0).toUpperCase() + wind.quality.slice(1)} winds may create choppy conditions.`;
+    if (windQuality === "offshore") {
+      notes = "Offshore winds create clean, organized waves.";
+    } else if (windQuality === "onshore") {
+      notes = "Onshore winds may create choppy conditions.";
     }
 
-    if (bestWindow.start && bestWindow.end) {
-      notes += ` Best window: ${bestWindow.start}-${bestWindow.end}.`;
+    // bestWindow is a string like "06:00–08:30 on the drop" or "N/A"
+    if (bestWindow && bestWindow !== "N/A") {
+      notes += ` Best window: ${bestWindow}.`;
     }
 
     return {
@@ -237,7 +243,7 @@ export class IntelGenerationService {
           wave: slice.forecasts.some((f) => f.wave_height !== null),
           tide: slice.forecasts.some((f) => f.tide_height !== null),
           wind: slice.forecasts.some((f) => f.wind_speed !== null),
-          swell: slice.forecasts.some((f) => f.swell_1_height !== null),
+          swell: slice.forecasts.some((f) => f.swell_height !== null),
         },
       },
     };

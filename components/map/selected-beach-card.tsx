@@ -8,6 +8,7 @@ import { useForecastPreview } from "@/hooks/use-forecast-preview";
 import { ForecastPreview } from "@/components/ui/forecast-preview";
 import type { Beach } from "@/types/database";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
 interface SelectedBeachCardProps {
   selectedBeach: Beach | null;
@@ -48,7 +49,7 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
     <div className="px-4 py-3 bg-background border-t">
       <Card
         className="cursor-pointer hover:shadow-lg transition-shadow border-primary border-2"
-        onClick={() => router.push(beachUrl)}
+        onClick={() => beachUrl && router.push(beachUrl)}
       >
         <CardContent className="p-3">
           <div className="flex items-center gap-3">
@@ -60,12 +61,12 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
               <div className="flex items-center text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 mr-1" />
                 <span>
-                  {userLocation
+                  {userLocation && selectedBeach.lat != null && selectedBeach.lon != null
                     ? getDistanceFromUser(
                         selectedBeach.lat,
                         selectedBeach.lon
                       )
-                    : selectedBeach.location || "San Diego"}
+                    : getBeachLocation(selectedBeach) || "San Diego"}
                 </span>
               </div>
               <div className="flex items-center mt-1">
@@ -75,7 +76,7 @@ const SelectedBeachCardComponent = function SelectedBeachCard({
                     <MapPin
                       key={i}
                       className={`h-4 w-4 ${
-                        i < (selectedBeach.wave_quality_rating || 4)
+                        i < (selectedBeach.average_rating || 4)
                           ? "text-yellow-500 fill-yellow-500"
                           : "text-gray-300"
                       }`}
@@ -149,8 +150,8 @@ const areSelectedBeachCardPropsEqual = (
 
   // Beach properties that affect display
   if (prev.selectedBeach.name !== next.selectedBeach.name) return false;
-  if (prev.selectedBeach.location !== next.selectedBeach.location) return false;
-  if (prev.selectedBeach.wave_quality_rating !== next.selectedBeach.wave_quality_rating) return false;
+  if (prev.selectedBeach.city !== next.selectedBeach.city) return false;
+  if (prev.selectedBeach.average_rating !== next.selectedBeach.average_rating) return false;
 
   // User location changed (affects distance calculation)
   if (prev.userLocation && next.userLocation) {

@@ -32,7 +32,7 @@ export function normalizeAngle(angle: number): number {
 /**
  * Convert degrees to cardinal direction
  */
-export function degreesToCardinal(degrees: number): string {
+function degreesToCardinal(degrees: number): string {
   const normalized = normalizeAngle(degrees);
   const directions = [
     "N", "NNE", "NE", "ENE",

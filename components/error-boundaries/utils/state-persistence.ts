@@ -63,27 +63,3 @@ export function clearFormState(formId: string): void {
   }
 }
 
-/**
- * Clear all expired form states
- */
-export function clearExpiredFormStates(): void {
-  try {
-    const keys = Object.keys(localStorage);
-
-    keys.forEach((key) => {
-      if (key.startsWith(STORAGE_PREFIX)) {
-        const stored = localStorage.getItem(key);
-        if (stored) {
-          const state: StoredFormState = JSON.parse(stored);
-          const age = Date.now() - state.timestamp;
-
-          if (age > STORAGE_EXPIRY_MS) {
-            localStorage.removeItem(key);
-          }
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Failed to clear expired form states:', error);
-  }
-}

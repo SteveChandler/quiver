@@ -1,36 +1,9 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
-import dynamic from "next/dynamic";
 import { Inter, Roboto, Open_Sans } from "next/font/google";
 import "./globals.css";
-
-import { AuthProvider } from "@/context/auth-context";
-import { AppHeader } from "@/components/app-header";
-import { ReactQueryProvider } from "@/components/providers/react-query-provider";
-import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { SEO_CONFIG } from "@/lib/constants/seo";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
-const GoogleAnalytics = dynamic(
-  () => import("@/components/analytics/google-analytics"),
-  { ssr: false }
-);
-const PWAAndPushListeners = dynamic(
-  () => import("@/components/analytics/pwa-and-push-listeners"),
-  { ssr: false }
-);
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as SonnerToaster } from "@/components/ui/sonner";
-const OnboardingDialog = dynamic(
-  () => import("@/components/onboarding/onboarding-dialog").then(mod => ({ default: mod.OnboardingDialog })),
-  { ssr: false }
-);
-const ProductTour = dynamic(
-  () => import("@/components/onboarding/product-tour").then(mod => ({ default: mod.ProductTour })),
-  { ssr: false }
-);
+import { Providers } from "@/components/providers";
 
 // Optimize font loading with display swap for better performance
 const inter = Inter({
@@ -55,7 +28,6 @@ const openSans = Open_Sans({
   preload: false, // Not critical for LCP
   variable: "--font-open-sans",
 });
-
 
 // Optimize viewport for mobile performance
 // Note: maximumScale removed for WCAG 1.4.4 compliance (allow user zoom)
@@ -83,17 +55,27 @@ export const metadata: Metadata = {
   // Favicon configuration
   icons: {
     icon: [
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
-      { url: '/favicon.ico', sizes: 'any' },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
     ],
     apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
     other: [
-      { rel: 'icon', url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
-      { rel: 'icon', url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+      {
+        rel: "icon",
+        url: "/android-chrome-192x192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        rel: "icon",
+        url: "/android-chrome-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
     ],
   },
 
@@ -138,7 +120,48 @@ export default function RootLayout({
       className={`${inter.variable} ${roboto.variable} ${openSans.variable}`}
     >
       {/* WARNING: No whitespace allowed between tags in <head> to prevent React hydration errors. See: https://react.dev/link/hydration-mismatch */}
-      <head>{/* Analytics scripts moved to AnalyticsLoader component. This prevents loading GA4 and Ahrefs on the landing page. Performance impact: ~100KB saved, ~20ms faster TTI */}{/* Resource hints for performance - ESSENTIAL ONLY */}{/* Fonts are critical for all routes */}<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />{/* Map-related DNS prefetch removed from root layout. Now loaded in route-specific layouts (map, beaches, forecast). This saves 3-5 connection slots on landing page */}<link rel="manifest" href="/manifest.json" /><meta name="theme-color" content="#0f172a" />{/* Apple Touch Icons for iOS PWA support */}<link rel="apple-touch-icon" href="/apple-touch-icon.png" /><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png" /><link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon-167x167.png" /><link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152x152.png" /><link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png" />{/* Remove aggressive prefetching on mobile to reduce initial network load */}{/* Note: logoQuiver.png is only used on landing page, so preload is handled there */}{/* Remove non-existent webpack chunk preload - these are dynamic */}{/* Structured Data for SEO */}<script type="application/ld+json" dangerouslySetInnerHTML={{
+      <head>
+        {/* Analytics scripts moved to AnalyticsLoader component. This prevents loading GA4 and Ahrefs on the landing page. Performance impact: ~100KB saved, ~20ms faster TTI */}
+        {/* Resource hints for performance - ESSENTIAL ONLY */}
+        {/* Fonts are critical for all routes */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        {/* Map-related DNS prefetch removed from root layout. Now loaded in route-specific layouts (map, beaches, forecast). This saves 3-5 connection slots on landing page */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0f172a" />
+        {/* Apple Touch Icons for iOS PWA support */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link
+          rel="apple-touch-icon"
+          sizes="180x180"
+          href="/apple-touch-icon-180x180.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="167x167"
+          href="/apple-touch-icon-167x167.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="152x152"
+          href="/apple-touch-icon-152x152.png"
+        />
+        <link
+          rel="apple-touch-icon"
+          sizes="120x120"
+          href="/apple-touch-icon-120x120.png"
+        />
+        {/* Remove aggressive prefetching on mobile to reduce initial network load */}
+        {/* Note: logoQuiver.png is only used on landing page, so preload is handled there */}
+        {/* Remove non-existent webpack chunk preload - these are dynamic */}
+        {/* Structured Data for SEO */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
             __html: JSON.stringify([
               {
                 "@context": "https://schema.org",
@@ -170,7 +193,11 @@ export default function RootLayout({
                 },
               },
             ]),
-          }} />{/* Critical inline styles for faster render */}<style dangerouslySetInnerHTML={{
+          }}
+        />
+        {/* Critical inline styles for faster render */}
+        <style
+          dangerouslySetInnerHTML={{
             __html: `
               /* Critical loading spinner keyframes */
               @keyframes spin {
@@ -192,58 +219,11 @@ export default function RootLayout({
               .bg-background { background-color: hsl(var(--background)); }
               .text-muted-foreground { color: hsl(var(--muted-foreground)); }
             `,
-          }} /></head>
+          }}
+        />
+      </head>
       <body className={`${inter.className} font-sans antialiased`}>
-        {/*
-          Analytics Loader - Conditionally loads analytics based on route
-          Landing page (/) does NOT load analytics
-          All other routes load GA4 and Ahrefs
-        */}
-        <Suspense fallback={null}>
-          <AnalyticsLoader />
-        </Suspense>
-        
-        <AuthProvider>
-          <ReactQueryProvider>
-            <SelectedBeachProvider>
-              {/* Track page views on client-side route changes */}
-              <Suspense fallback={null}>
-                <GoogleAnalytics />
-              </Suspense>
-              <Suspense fallback={null}>
-                <PWAAndPushListeners />
-              </Suspense>
-              <Suspense fallback={null}>
-                <AppHeader />
-              </Suspense>
-              <main id="main-content" role="main">
-                {children}
-              </main>
-              {/* Toast systems: shadcn UI (in-app) and Sonner (global) */}
-              <Toaster />
-              <SonnerToaster />
-              {/* Onboarding flow and product tour */}
-              <Suspense fallback={null}>
-                <OnboardingDialog />
-              </Suspense>
-              <Suspense fallback={null}>
-                <ProductTour />
-              </Suspense>
-              {/* Expose a lightweight confetti availability flag for E2E */}
-              <script
-                dangerouslySetInnerHTML={{
-                  __html: `
-                    (function(){
-                      try {
-                        window.confetti = window.confetti || function(){};
-                      } catch(_) {}
-                    })();
-                  `,
-                }}
-              />
-            </SelectedBeachProvider>
-          </ReactQueryProvider>
-        </AuthProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

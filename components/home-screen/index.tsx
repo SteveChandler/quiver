@@ -15,6 +15,7 @@ import { useNativePushRegistration } from "@/hooks/use-native-push-registration"
 import { track } from "@/lib/analytics";
 import { BookOpen, Plus } from "lucide-react";
 import { PreferencesAnnouncementDialog } from "@/components/profile/preferences-announcement-dialog";
+import { beachNavigation } from "@/lib/navigation-utils";
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
@@ -40,8 +41,6 @@ export function HomeScreen() {
       ? tabParam
       : "forecast"
   );
-  const [selectedBeachOverride, setSelectedBeachOverride] =
-    useState<Beach | null>(null);
   const [showPreferencesPopup, setShowPreferencesPopup] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
@@ -192,15 +191,15 @@ export function HomeScreen() {
             <TabsContent value="forecast" className="relative z-0">
               {/* Nearby chip row - navigates to beach detail page */}
               <NearbyBeachChips className="mb-3" />
-              {/* Centered Search Bar under the tabs */}
+              {/* Centered Search Bar under the tabs - now navigates on select */}
               <BeachSearchBar
-                onSelect={(b) => setSelectedBeachOverride(b)}
+                onSelect={(b) => beachNavigation.navigateToBeach(router, b)}
                 className="mb-4"
               />
               <ForecastTab
                 profile={profile}
                 homeBeach={homeBeach}
-                overrideBeach={selectedBeachOverride}
+                // No override beach needed as selection navigates away
               />
             </TabsContent>
 

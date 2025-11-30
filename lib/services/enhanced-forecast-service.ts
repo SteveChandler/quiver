@@ -299,8 +299,8 @@ export class EnhancedForecastService {
   private async fetchWaveDataWithRetry(beach: Beach) {
     return withRetry(async () => {
       const result = await this.waveWatchService.fetchWaveWatchForecast(
-        beach.lat,
-        beach.lon,
+        beach.lat ?? 0,
+        beach.lon ?? 0,
         FORECAST_CONSTANTS.DAYS
       );
       if (!result) {
@@ -321,8 +321,8 @@ export class EnhancedForecastService {
       try {
         const stationId = this.coopsService.getStationForLocation(
           beach.name,
-          beach.lat,
-          beach.lon
+          beach.lat ?? 0,
+          beach.lon ?? 0
         );
         const result = await this.coopsService.fetchCOOPSData(
           stationId,
@@ -332,7 +332,7 @@ export class EnhancedForecastService {
       } catch (error) {
         throw new DataSourceError("CO-OPS", error as Error, {
           beachId: beach.id,
-          location: { lat: beach.lat, lng: beach.lon },
+          location: { lat: beach.lat ?? 0, lng: beach.lon ?? 0 },
         });
       }
     });
@@ -376,16 +376,17 @@ export class EnhancedForecastService {
       try {
         // Prefer explicit override when present
         let selectedStation: string | null = null;
-        if (beach.cdip_station) {
-          selectedStation = beach.cdip_station;
+        const beachAny = beach as any;
+        if (beachAny.cdip_station) {
+          selectedStation = beachAny.cdip_station;
           console.log(
             `✅ Using CDIP override station ${selectedStation} for ${beach.name}`
           );
         } else {
           console.log(`🔍 Looking for nearest CDIP station for ${beach.name}`);
           selectedStation = await this.cdipService.getNearestStation(
-            beach.lat,
-            beach.lon,
+            beach.lat ?? 0,
+            beach.lon ?? 0,
             50 // 50km radius
           );
         }
@@ -422,7 +423,7 @@ export class EnhancedForecastService {
         console.error(`💥 Error fetching CDIP data for ${beach.name}:`, error);
         throw new DataSourceError("CDIP", error as Error, {
           beachId: beach.id,
-          location: { lat: beach.lat, lng: beach.lon },
+          location: { lat: beach.lat ?? 0, lng: beach.lon ?? 0 },
         });
       }
     });
@@ -474,11 +475,12 @@ export class EnhancedForecastService {
       const supabase = await createSupabaseServiceRoleClient();
 
       // If an override NDBC station is set, return it directly (if present in table)
-      if (beach.ndbc_station) {
+      const beachAny = beach as any;
+      if (beachAny.ndbc_station) {
         const { data: overrideBuoy } = await supabase
           .from("buoys")
           .select("*")
-          .eq("buoy_uuid", beach.ndbc_station)
+          .eq("buoy_uuid", beachAny.ndbc_station)
           .eq("active", true)
           .limit(1)
           .maybeSingle();
@@ -748,7 +750,7 @@ export class EnhancedForecastService {
         water_temp:
           useBuoyData && buoyData.water_temperature
             ? `${Math.round((buoyData.water_temperature * 9) / 5 + 32)}°F`
-            : this.estimateWaterTemperature(beach.lat, forecastTime),
+            : this.estimateWaterTemperature(beach.lat ?? 32.7, forecastTime),
 
         // Wind data
         wind_speed: weatherPoint
@@ -767,7 +769,7 @@ export class EnhancedForecastService {
         weather_condition: weatherPoint?.shortForecast || "Partly Cloudy",
         air_temperature: weatherPoint
           ? `${weatherPoint.temperature}°F`
-          : this.estimateAirTemperature(beach.lat, forecastTime),
+          : this.estimateAirTemperature(beach.lat ?? 32.7, forecastTime),
 
         beach_id: beach.id,
         confidence_score: confidenceScore,
@@ -1135,11 +1137,11 @@ export class EnhancedForecastService {
 
       // Create automated forecast data object
       const automatedForecast = {
-        wave_height_ft: parseHeight(forecast.wave_height),
-        wave_period_s: parsePeriod(forecast.wave_period),
-        wave_direction_deg: parseDirection(forecast.wave_direction),
+        wave_height_ft: parseHeight(forecast.wave_height ?? null),
+        wave_period_s: parsePeriod(forecast.wave_period ?? null),
+        wave_direction_deg: parseDirection(forecast.wave_direction ?? null),
         wind_speed_mph: forecast.wind_speed ? parseFloat(forecast.wind_speed) : undefined,
-        wind_direction_deg: parseDirection(forecast.wind_direction),
+        wind_direction_deg: parseDirection(forecast.wind_direction ?? null),
         confidence: forecast.confidence_score || 0.7,
       };
 

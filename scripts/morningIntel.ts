@@ -5,7 +5,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { formatInTimeZone, utcToZonedTime } from "date-fns-tz";
+import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { format, parseISO, addDays } from "date-fns";
 import type { Database } from "@/types/database";
 import type {
@@ -155,7 +155,7 @@ async function fetchBeachData(
   const { data: beach, error } = await supabase
     .from("beaches")
     .select(
-      "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, tide_min_ft, tide_max_ft, hazards, skill_level, break_type"
+      "name, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, hazards, skill_level, break_type"
     )
     .eq("id", beachId)
     .single();
@@ -173,8 +173,8 @@ async function fetchBeachData(
     swellWindowMax: beach.swell_window_max_deg,
     windOffshoreDeg: beach.wind_offshore_deg,
     windOffshoreTol: beach.wind_offshore_tol_deg,
-    tideMinFt: beach.tide_min_ft,
-    tideMaxFt: beach.tide_max_ft,
+    tideMinFt: beach.preferred_tide_ft_min,
+    tideMaxFt: beach.preferred_tide_ft_max,
     hazards: beach.hazards,
     skillLevel: beach.skill_level,
     breakType: beach.break_type,
@@ -250,25 +250,25 @@ async function fetchForecastData(
   );
 
   // Parse text values to numbers (tide data is embedded in forecasts)
+  // Map database column names to ForecastSlice type property names
   const parsedForecasts = (forecasts || []).map((f: any) => ({
-    ...f,
+    forecast_date: f.forecast_date,
+    forecast_time: f.forecast_time,
     wave_height: parseNumericValue(f.wave_height),
     wave_period: parseNumericValue(f.wave_period),
     wave_direction: parseDirection(f.wave_direction),
-    swell_1_height: parseNumericValue(f.swell_1_height),
-    swell_1_period: parseNumericValue(f.swell_1_period),
-    swell_1_direction: parseDirection(f.swell_1_direction),
-    swell_2_height: parseNumericValue(f.swell_2_height),
-    swell_2_period: parseNumericValue(f.swell_2_period),
-    swell_2_direction: parseDirection(f.swell_2_direction),
+    // Map swell_1_* to swell_* and swell_2_* to secondary_swell_*
+    swell_height: parseNumericValue(f.swell_1_height),
+    swell_period: parseNumericValue(f.swell_1_period),
+    swell_direction: parseDirection(f.swell_1_direction),
+    secondary_swell_height: parseNumericValue(f.swell_2_height),
+    secondary_swell_period: parseNumericValue(f.swell_2_period),
+    secondary_swell_direction: parseDirection(f.swell_2_direction),
     wind_speed: parseNumericValue(f.wind_speed),
     wind_direction: parseDirection(f.wind_direction),
     tide_height: parseNumericValue(f.tide_height),
-    // Keep tide text fields as-is for status and type
     tide_status: f.tide_status,
-    next_tide_time: f.next_tide_time,
-    next_tide_type: f.next_tide_type,
-    next_tide_height: f.next_tide_height,
+    confidence_score: f.confidence_score,
   }));
 
   return {
@@ -357,9 +357,9 @@ function generateIntelData(
     if (f.wave_period) presentFields++;
     if (f.wind_speed) presentFields++;
     if (f.wind_direction) presentFields++;
-    if (f.swell_1_height) presentFields++;
-    if (f.swell_1_period) presentFields++;
-    if (f.swell_1_direction) presentFields++;
+    if (f.swell_height) presentFields++;
+    if (f.swell_period) presentFields++;
+    if (f.swell_direction) presentFields++;
   });
 
   const dataCompleteness =
@@ -385,7 +385,7 @@ function generateIntelData(
         wave: slice.forecasts.some((f) => f.wave_height !== null),
         tide: slice.tides.length > 0,
         wind: slice.forecasts.some((f) => f.wind_speed !== null),
-        swell: slice.forecasts.some((f) => f.swell_1_height !== null),
+        swell: slice.forecasts.some((f) => f.swell_height !== null),
       },
     },
   };
@@ -427,7 +427,7 @@ async function upsertIntelPost(
     .eq("id", beachId)
     .single();
 
-  if (!beach) {
+  if (!beach || beach.lat === null || beach.lon === null) {
     throw new Error("Failed to fetch beach coordinates");
   }
 

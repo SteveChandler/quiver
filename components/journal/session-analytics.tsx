@@ -23,10 +23,46 @@ import {
   Target,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type {
-  SessionAnalytics as SessionAnalyticsType,
-  SessionWithDetails,
-} from "@/types/database";
+import type { SessionWithDetails } from "@/types/database";
+
+/** Wave height trend data point */
+interface WaveHeightTrendPoint {
+  averageWaveHeight: number;
+  date: string;
+}
+
+/** Monthly session statistics */
+interface MonthlyStats {
+  month: string;
+  sessionCount: number;
+  averageRating?: number;
+}
+
+/** Board usage statistics */
+interface BoardUsage {
+  boardId?: string;
+  boardName: string;
+  usageCount: number;
+}
+
+/** Session analytics data structure */
+interface SessionAnalyticsType {
+  totalSessions: number;
+  totalHours: number;
+  averageRating: number;
+  averageWaveHeight: number;
+  waveHeightTrend: WaveHeightTrendPoint[];
+  conditionRatings: {
+    waveQuality: number;
+    waterTemp: number;
+    crowdLevel: number;
+    windConditions: number;
+    parkingEase: number;
+  };
+  monthlyStats: MonthlyStats[];
+  favoriteBeach: string | null;
+  frequentBoards: BoardUsage[];
+}
 
 interface SessionAnalyticsProps {
   analytics: SessionAnalyticsType | null;
@@ -479,7 +515,7 @@ export function SessionAnalytics({
                           title={`${month.month}: ${
                             month.sessionCount
                           } sessions${
-                            month.sessionCount > 0
+                            month.sessionCount > 0 && month.averageRating
                               ? `, ${month.averageRating.toFixed(1)}/5 rating`
                               : ""
                           }`}

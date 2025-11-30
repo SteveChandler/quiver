@@ -107,19 +107,3 @@ export async function saveOnboardingData(data: OnboardingData) {
   });
 }
 
-export async function getOnboardingStatus() {
-  return withAuthenticatedAction(async (user, supabase) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('onboarding_completed_at')
-      .eq('id', user.id)
-      .single();
-
-    if (error) {
-      console.error('Failed to get onboarding status:', error);
-      return { completed: false };
-    }
-
-    return { completed: !!data.onboarding_completed_at };
-  });
-}

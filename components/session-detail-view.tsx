@@ -175,8 +175,6 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
   // Use arrival_time for both planned and completed sessions
   const arrivalTime = session.arrival_time
     ? new Date(session.arrival_time)
-    : session.session_date
-    ? new Date(session.session_date)
     : null;
   const formattedDate = arrivalTime?.toLocaleDateString("en-US", {
     weekday: "long",
@@ -296,8 +294,8 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           <MapImage
             src={getSessionMapImageUrl(session)}
             alt={`Map of ${session.beach?.name || "session location"}`}
-            latitude={session.beach?.latitude || session.beach?.location?.y}
-            longitude={session.beach?.longitude || session.beach?.location?.x}
+            latitude={session.beach?.lat ?? undefined}
+            longitude={session.beach?.lon ?? undefined}
             fill={true}
             className="object-cover"
             beachName={
@@ -319,7 +317,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
                   <Star
                     key={i}
                     className={`h-5 w-5 ${
-                      i < session.rating
+                      i < (session.rating ?? 0)
                         ? "text-yellow-500 fill-yellow-500"
                         : "text-gray-300"
                     }`}
@@ -388,13 +386,13 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             )}
 
             {/* Conditions only for completed sessions */}
-            {!isPlannedSession && session.wave_height && (
+            {!isPlannedSession && session.wave_height_ft && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <Waves className="h-6 w-6 text-primary" />
                   <div>
                     <p className="text-sm text-muted-foreground">Wave Height</p>
-                    <p className="font-medium">{session.wave_height}</p>
+                    <p className="font-medium">{session.wave_height_ft}ft</p>
                   </div>
                 </CardContent>
               </Card>
@@ -412,7 +410,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
               </Card>
             )}
 
-            {!isPlannedSession && session.crowd_rating && (
+            {!isPlannedSession && session.crowd_level && (
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <Users className="h-6 w-6 text-primary" />
@@ -425,7 +423,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
                           <Star
                             key={i}
                             className={`h-4 w-4 ${
-                              i < session.crowd_rating
+                              i < (session.crowd_level ?? 0)
                                 ? "text-yellow-500 fill-yellow-500"
                                 : "text-gray-300"
                             }`}

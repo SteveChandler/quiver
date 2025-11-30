@@ -118,8 +118,8 @@ function validatePreferenceOverrides(
 ): ValidationResult {
   // Validate wave height range
   if (
-    overrides.wave_min_ft !== undefined &&
-    overrides.wave_max_ft !== undefined
+    overrides.wave_min_ft != null &&
+    overrides.wave_max_ft != null
   ) {
     if (overrides.wave_min_ft < 0 || overrides.wave_max_ft < 0) {
       return {
@@ -137,8 +137,8 @@ function validatePreferenceOverrides(
 
   // Validate wave period range
   if (
-    overrides.wave_period_min_s !== undefined &&
-    overrides.wave_period_max_s !== undefined
+    overrides.wave_period_min_s != null &&
+    overrides.wave_period_max_s != null
   ) {
     if (overrides.wave_period_min_s < 0 || overrides.wave_period_max_s < 0) {
       return {
@@ -155,7 +155,7 @@ function validatePreferenceOverrides(
   }
 
   // Validate wind speed
-  if (overrides.max_wind_mph !== undefined) {
+  if (overrides.max_wind_mph != null) {
     if (overrides.max_wind_mph < 0) {
       return {
         isValid: false,
