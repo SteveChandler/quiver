@@ -13,7 +13,7 @@ interface NearbyBeachScrollProps {
   onBeachSelect: (beach: Beach) => void;
   onViewModeChange: (mode: "map" | "list") => void;
   getDistanceFromUser: (beachLat: number, beachLng: number) => string;
-  userLocation: { lat: number; lng: number } | null;
+  userLocation: { lat: number; lon: number } | null;
   showForecastPreviews?: boolean;
 }
 

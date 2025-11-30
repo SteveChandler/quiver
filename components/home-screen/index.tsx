@@ -190,11 +190,8 @@ export function HomeScreen() {
             </TabsList>
 
             <TabsContent value="forecast" className="relative z-0">
-              {/* Nearby chip row for quick first-time selection */}
-              <NearbyBeachChips
-                className="mb-3"
-                onSelect={(b) => setSelectedBeachOverride(b as any)}
-              />
+              {/* Nearby chip row - navigates to beach detail page */}
+              <NearbyBeachChips className="mb-3" />
               {/* Centered Search Bar under the tabs */}
               <BeachSearchBar
                 onSelect={(b) => setSelectedBeachOverride(b)}

@@ -11,7 +11,7 @@ interface MapDisplayProps {
   locationError: string | null;
   usingDefaultLocation: boolean;
   selectedBeach: Beach | null;
-  userLocation: { lat: number; lng: number } | null;
+  userLocation: { lat: number; lon: number } | null;
   filteredBeaches: Beach[];
   searchQuery: string;
   onRetryLocation: () => void;
@@ -53,12 +53,12 @@ export function MapDisplay({
           : null) ||
         userLocation?.lat ||
         OCEAN_BEACH_LAT,
-      lng:
+      lon:
         selectedBeach?.longitude ||
         (searchQuery && filteredBeaches.length > 0
           ? filteredBeaches[0].longitude
           : null) ||
-        userLocation?.lng ||
+        userLocation?.lon ||
         OCEAN_BEACH_LNG,
     }),
     [
@@ -67,17 +67,17 @@ export function MapDisplay({
       searchQuery,
       filteredBeaches,
       userLocation?.lat,
-      userLocation?.lng,
+      userLocation?.lon,
     ]
   );
 
   // Fetch wave height data for the current location
   const fetchWaveHeight = useCallback(async () => {
-    const { lat, lng } = mapCoordinates;
+    const { lat, lon } = mapCoordinates;
 
     try {
       const response = await fetch(
-        `/api/buoys/conditions?latitude=${lat}&longitude=${lng}`
+        `/api/buoys/conditions?latitude=${lat}&longitude=${lon}`
       );
 
       if (response.ok) {
@@ -107,7 +107,7 @@ export function MapDisplay({
   // Generate map image URL with wave height data
   const mapImageUrl = getStaticMapImageUrlWithWaveHeight(
     mapCoordinates.lat,
-    mapCoordinates.lng,
+    mapCoordinates.lon,
     waveHeight,
     { width: 800, height: 400, zoom: 12 }
   );
@@ -143,7 +143,7 @@ export function MapDisplay({
           src={mapImageUrl}
           alt="Beach locations map with wave heights"
           latitude={mapCoordinates.lat}
-          longitude={mapCoordinates.lng}
+          longitude={mapCoordinates.lon}
           fill
           className="object-cover"
         />

@@ -36,13 +36,11 @@
    - Per-beach success/failure logging
    - Success rate calculation
 
-6. **components/admin/forecast-health-dashboard.tsx** (244 lines)
-   - Admin dashboard component
-   - Real-time health status display
-   - Coverage and staleness metrics
-   - Data source breakdown
-   - List of stale beaches
-   - Auto-refresh every 5 minutes
+6. ~~**components/admin/forecast-health-dashboard.tsx**~~ (Removed November 2025)
+   - Dashboard component was removed during dead code cleanup
+   - The component was never integrated into application routing
+   - **Alternative**: Use the API endpoint directly at `/api/monitoring/forecast-health`
+   - See `docs/FORECAST_MONITORING.md` for monitoring approaches
 
 7. **vercel.json** (Updated)
    - Added health check cron job running every 30 minutes

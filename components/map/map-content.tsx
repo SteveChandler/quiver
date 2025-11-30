@@ -17,7 +17,7 @@ interface MapContentProps {
   locationError: string | null;
   usingDefaultLocation: boolean;
   hasTimedOut: boolean;
-  userLocation: { lat: number; lng: number } | null;
+  userLocation: { lat: number; lon: number } | null;
   selectedBeach: Beach | null;
   filteredBeaches: Beach[];
   searchQuery: string;
@@ -62,17 +62,17 @@ export function MapContent({
   // Memoize the map display coordinates
   const mapCenter = useMemo(() => {
     // Helper to check if coordinates are valid
-    const hasValidCoordinates = (lat: any, lng: any) =>
+    const hasValidCoordinates = (lat: any, lon: any) =>
       typeof lat === "number" &&
-      typeof lng === "number" &&
+      typeof lon === "number" &&
       !isNaN(lat) &&
-      !isNaN(lng);
+      !isNaN(lon);
 
     if (
       selectedBeach &&
       hasValidCoordinates(selectedBeach.lat, selectedBeach.lon)
     ) {
-      return { lat: selectedBeach.lat, lng: selectedBeach.lon };
+      return { lat: selectedBeach.lat, lon: selectedBeach.lon };
     }
     // If searching and have results, center on first result
     if (searchQuery && filteredBeaches.length > 0) {
@@ -80,14 +80,14 @@ export function MapContent({
       if (hasValidCoordinates(firstBeach.lat, firstBeach.lon)) {
         return {
           lat: firstBeach.lat,
-          lng: firstBeach.lon,
+          lon: firstBeach.lon,
         };
       }
     }
-    if (userLocation && hasValidCoordinates(userLocation.lat, userLocation.lng)) {
+    if (userLocation && hasValidCoordinates(userLocation.lat, userLocation.lon)) {
       return userLocation;
     }
-    return { lat: 32.7503, lng: -117.2534 }; // Ocean Beach default
+    return { lat: 32.7503, lon: -117.2534 }; // Ocean Beach default
   }, [selectedBeach, searchQuery, filteredBeaches, userLocation]);
 
   // Temporarily bypass loading state to debug rendering issues
@@ -146,8 +146,8 @@ export function MapContent({
         data-testid="map-container"
       >
         <InteractiveMap
-          key={`${mapCenter.lat.toFixed(4)}-${mapCenter.lng.toFixed(4)}`}
-          initialCenter={[mapCenter.lat, mapCenter.lng]}
+          key={`${mapCenter.lat.toFixed(4)}-${mapCenter.lon.toFixed(4)}`}
+          initialCenter={[mapCenter.lat, mapCenter.lon]}
           initialZoom={12}
           onLocationClick={onBeachSelect}
           regionViewport={regionViewport}

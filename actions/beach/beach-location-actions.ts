@@ -55,13 +55,11 @@ export async function getNearbyBeaches(
         .map((beach: Beach) => {
           // Normalize nullable coordinates to numbers; invalid coordinates become NaN
           const lat2 = beach.lat ?? Number.NaN;
-          const lng2 = beach.lon ?? Number.NaN;
+          const lon2 = beach.lon ?? Number.NaN;
 
           const distance = calculateDistanceInMiles(
-            latitude,
-            longitude,
-            lat2,
-            lng2
+            { lat: latitude, lon: longitude },
+            { lat: lat2, lon: lon2 }
           );
 
           return {

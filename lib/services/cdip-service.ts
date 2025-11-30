@@ -173,10 +173,8 @@ export class CDIPService {
           continue; // skip bad stations
         }
         const distance = calculateDistance(
-          latitude,
-          longitude,
-          station.latitude,
-          station.longitude,
+          { lat: latitude, lon: longitude },
+          { lat: station.latitude, lon: station.longitude },
           "km"
         );
 

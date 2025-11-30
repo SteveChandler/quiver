@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { CONTENT } from "@/lib/constants/features";
 import { HeroCarousel } from "./hero-carousel";
 import HeroSearchLazy from "./hero-search-lazy";
+import type { Beach } from "@/types/database";
 
 export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,6 +20,11 @@ export function HeroSection() {
         ? `/map?search=${encodeURIComponent(trimmed)}`
         : "/map";
     router.push(url);
+  };
+
+  const handleBeachSelect = (beach: Beach) => {
+    // Navigate to map with the selected beach name as search query
+    navigateToMap(beach.name);
   };
 
   const handleExploreClick = async (
@@ -55,6 +61,7 @@ export function HeroSection() {
             <HeroSearchLazy
               onFallback={navigateToMap}
               onQueryChange={setSearchQuery}
+              onSelect={handleBeachSelect}
             />
           </div>
         </div>

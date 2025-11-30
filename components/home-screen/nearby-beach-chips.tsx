@@ -1,19 +1,28 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useGeo } from "@/hooks/useGeo";
-import type { Beach } from "@/types/database";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
-type NearbyBeach = Pick<Beach, "id" | "name" | "latitude" | "longitude">;
+// NearbyBeach uses lat/lon from the API response, mapped from Beach table fields
+interface NearbyBeach {
+  id: string;
+  name: string;
+  latitude: number;  // Mapped from lat in API response
+  longitude: number; // Mapped from lon in API response
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+}
 
 interface NearbyBeachChipsProps {
   className?: string;
   limit?: number;
-  onSelect: (beach: NearbyBeach) => void;
+  onSelect?: (beach: NearbyBeach) => void; // Optional - component handles navigation by default
 }
 
 export function NearbyBeachChips({
@@ -21,6 +30,7 @@ export function NearbyBeachChips({
   limit = 5,
   onSelect,
 }: NearbyBeachChipsProps) {
+  const router = useRouter();
   const {
     coords,
     loading: geoLoading,
@@ -48,6 +58,9 @@ export function NearbyBeachChips({
       name: b.name,
       latitude: b.lat,
       longitude: b.lon,
+      slug: b.slug,
+      city: b.city,
+      state: b.state,
     }));
   }, [coords?.lat, coords?.lon, limit]);
 
@@ -70,19 +83,36 @@ export function NearbyBeachChips({
 
   const handleSelect = useCallback(
     (b: NearbyBeach) => {
+      // Save to last beach for geolocation context
       try {
         if (b?.latitude && b?.longitude) {
           setLastBeach({
             id: b.id,
             name: b.name,
-            lat: b.lat,
-            lon: b.lon,
+            lat: b.latitude,
+            lon: b.longitude,
           });
         }
       } catch {}
-      onSelect(b);
+
+      // Call optional onSelect callback if provided
+      if (onSelect) {
+        onSelect(b);
+      }
+
+      // Navigate to beach detail page
+      const beachUrl = getBeachUrlSafe({
+        id: b.id,
+        slug: b.slug,
+        city: b.city,
+        state: b.state,
+      });
+
+      if (beachUrl) {
+        router.push(beachUrl);
+      }
     },
-    [onSelect, setLastBeach]
+    [onSelect, setLastBeach, router]
   );
 
   if (showCTA) {

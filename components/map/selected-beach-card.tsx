@@ -12,7 +12,7 @@ import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 interface SelectedBeachCardProps {
   selectedBeach: Beach | null;
   getDistanceFromUser: (beachLat: number, beachLng: number) => string;
-  userLocation: { lat: number; lng: number } | null;
+  userLocation: { lat: number; lon: number } | null;
 }
 
 const SelectedBeachCardComponent = function SelectedBeachCard({
@@ -156,7 +156,7 @@ const areSelectedBeachCardPropsEqual = (
   if (prev.userLocation && next.userLocation) {
     if (
       prev.userLocation.lat !== next.userLocation.lat ||
-      prev.userLocation.lng !== next.userLocation.lng
+      prev.userLocation.lon !== next.userLocation.lon
     ) {
       return false;
     }

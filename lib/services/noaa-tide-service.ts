@@ -49,7 +49,11 @@ export async function getNearestTideStation(
   let best: StationMeta | null = null;
   let bestKm = Infinity;
   for (const s of stations) {
-    const d = calculateDistance(lat, lon, s.lat, s.lon, "km");
+    const d = calculateDistance(
+      { lat, lon },
+      { lat: s.lat, lon: s.lon },
+      "km"
+    );
     if (d < bestKm && d <= maxKm) {
       best = s;
       bestKm = d;

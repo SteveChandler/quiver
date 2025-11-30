@@ -6,7 +6,6 @@ import {
   Command,
   CommandInput,
   CommandList,
-  CommandEmpty,
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
@@ -152,10 +151,8 @@ export function BeachSearchAutocomplete({
 
   return (
     <Command
-      className={cn(
-        "rounded-lg border shadow-md bg-background",
-        className
-      )}
+      shouldFilter={false}
+      className={cn("rounded-lg border shadow-md bg-background", className)}
       onKeyDown={(e) => {
         handleKeyDown(e);
         handleEnterKey(e);
@@ -176,16 +173,18 @@ export function BeachSearchAutocomplete({
       <CommandList>
         {isOpen && query.length >= 2 && (
           <>
-            <CommandEmpty>
+            {/* Custom empty state - don't use CommandEmpty as it conflicts with shouldFilter={false} */}
+            {!loading && suggestions.length === 0 && (
               <div className="py-6 text-center">
                 <p className="text-sm text-muted-foreground">
                   No beaches found matching &quot;{query}&quot;
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Try searching for a specific beach name like &quot;Swami&apos;s&quot; or &quot;Ocean Beach&quot;
+                  Try searching for a specific beach name like
+                  &quot;Swami&apos;s&quot; or &quot;Ocean Beach&quot;
                 </p>
               </div>
-            </CommandEmpty>
+            )}
 
             {suggestions.length > 0 && (
               <CommandGroup heading="Surf Spots">
@@ -259,8 +258,8 @@ function BeachSuggestionCard({
         </div>
         <p className="text-sm text-muted-foreground truncate">
           {getBeachLocation(beach)} ·
-          {beach.break_type && `${beach.break_type} · `}
-          ⭐ {beach.average_rating?.toFixed(1) || "N/A"}
+          {beach.break_type && `${beach.break_type} · `}⭐{" "}
+          {beach.average_rating?.toFixed(1) || "N/A"}
         </p>
       </div>
       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />

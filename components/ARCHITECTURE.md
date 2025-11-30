@@ -229,7 +229,6 @@ useEffect(() => {
 
 - **`beach-header.tsx`** - Beach name and basic info display
 - **`beach-hero.tsx`** - Hero section with map integration
-- **`beach-community.tsx`** - Social features and recent sessions
 - **`beach-quick-actions.tsx`** - Fast action buttons (plan, log, favorite)
 - **`detailed-swell-modal.tsx`** - Advanced swell analysis modal
 - **`todays-forecast.tsx`** - Current day forecast display

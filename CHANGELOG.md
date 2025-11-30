@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `calculateDistanceInMiles` function call sites to use new Coordinates object signature instead of deprecated 4-parameter signature
+  - Updated `actions/beach/beach-location-actions.ts`
+  - Updated `app/api/beaches/nearby/route.ts`
+  - Updated `components/map/interactive-map.tsx`
+  - Fixed coordinate variable naming from `lng` to `lon` for consistency
+
 ### Added
 
 #### Dead Code Audit Report - November 25, 2025
@@ -84,6 +92,26 @@ Removed ~2,500+ lines of dead code based on the dead code audit:
 - `lib/constants/featured-beaches-config.ts`: Removed `getFallbackImageForBeach`, `isExcludedBeach`, `isPriorityBeach`, `FallbackBeachName`
 - `lib/constants/metro-areas.ts`: Made `METRO_AREAS` private, removed `getAllMetroConfigs`
 - `components/error-boundaries/types.ts`: Removed duplicate `ErrorCategory` and `RetryStrategy` types (already defined in util files)
+
+**Phase 3: Unused Component Cleanup (November 25, 2025):**
+
+- `components/home-conditions-widget.tsx` (114 lines) - Never imported anywhere
+- `components/session-planning-map.tsx` (152 lines) - Never imported anywhere
+- `components/admin/forecast-health-dashboard.tsx` (245 lines) - Only referenced in docs, never wired up
+- `components/beach-detail/beach-community.tsx` (99 lines) - Documented in ARCHITECTURE.md but never imported
+
+**Updated ARCHITECTURE.md files:**
+
+- `components/ARCHITECTURE.md` - Removed beach-community.tsx reference
+- `components/beach-detail/ARCHITECTURE.md` - Removed BeachCommunity documentation
+
+**Phase 4: Dependency & Configuration Verification (November 25, 2025):**
+
+- Verified ALL flagged npm dependencies are actually NEEDED (PostCSS for Tailwind, Capacitor for mobile, Jest for unit tests)
+- Verified duplicate exports in `forecast-calibration-actions.ts` are intentional backward-compatibility aliases
+- Cleaned up `knip.json` - removed redundant entry patterns (`next.config.mjs`, `jest.config.js`)
+
+**Total cleanup across all phases: ~3,100+ lines of dead code removed**
 
 ### Security
 

@@ -20,7 +20,7 @@ export function MapView() {
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
-  const lastLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
 
   type RegionViewport = {
     region: string;
@@ -78,14 +78,14 @@ export function MapView() {
     if (
       lastLocation &&
       Math.abs(lastLocation.lat - userLocation.lat) < 0.001 &&
-      Math.abs(lastLocation.lng - userLocation.lng) < 0.001
+      Math.abs(lastLocation.lon - userLocation.lon) < 0.001
     ) {
       return; // Same location, don't reload
     }
 
     // Update the last location and load nearby beaches
     lastLocationRef.current = userLocation;
-    loadNearbyBeaches(userLocation.lat, userLocation.lng);
+    loadNearbyBeaches(userLocation.lat, userLocation.lon);
   }, [userLocation, loadNearbyBeaches]);
 
   // Read search query from URL params (from global header search)
@@ -109,7 +109,7 @@ export function MapView() {
     clearSearch();
     // Reset to nearby beaches when clearing search
     if (userLocation) {
-      loadNearbyBeaches(userLocation.lat, userLocation.lng);
+      loadNearbyBeaches(userLocation.lat, userLocation.lon);
     } else {
       getUserLocation();
     }
@@ -121,10 +121,8 @@ export function MapView() {
       if (!userLocation) return "Unknown distance";
       return (
         calculateDistanceFormatted(
-          userLocation.lat,
-          userLocation.lng,
-          beachLat,
-          beachLng,
+          { lat: userLocation.lat, lon: userLocation.lon },
+          { lat: beachLat, lon: beachLng },
           "miles"
         ) + " away"
       );
@@ -151,11 +149,11 @@ export function MapView() {
           typeof beach.lat === "number" &&
           typeof beach.lon === "number"
         ) {
-          return { lat: beach.lat, lng: beach.lon };
+          return { lat: beach.lat, lon: beach.lon };
         }
         return null;
       })
-      .filter(Boolean) as Array<{ lat: number; lng: number }>;
+      .filter(Boolean) as Array<{ lat: number; lon: number }>;
 
     if (coordinates.length === 0) {
       setRegionViewport(null);
@@ -163,27 +161,27 @@ export function MapView() {
     }
 
     const lats = coordinates.map((coord) => coord.lat);
-    const lngs = coordinates.map((coord) => coord.lng);
+    const lons = coordinates.map((coord) => coord.lon);
 
     const minLat = Math.min(...lats);
     const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
 
     const centerLat = (minLat + maxLat) / 2;
-    const centerLng = (minLng + maxLng) / 2;
+    const centerLon = (minLon + maxLon) / 2;
 
     const latSpan = Math.abs(maxLat - minLat);
-    const lngSpan = Math.abs(maxLng - minLng);
-    const keyBase = `${minLat.toFixed(5)}-${minLng.toFixed(5)}-${maxLat.toFixed(
+    const lonSpan = Math.abs(maxLon - minLon);
+    const keyBase = `${minLat.toFixed(5)}-${minLon.toFixed(5)}-${maxLat.toFixed(
       5
-    )}-${maxLng.toFixed(5)}`;
+    )}-${maxLon.toFixed(5)}`;
 
-    if (latSpan < 0.002 && lngSpan < 0.002) {
+    if (latSpan < 0.002 && lonSpan < 0.002) {
       setRegionViewport({
         region: activeRegion,
         key: `${activeRegion}-center-${keyBase}`,
-        center: [centerLat, centerLng],
+        center: [centerLat, centerLon],
         zoom: 13,
       });
       return;
@@ -192,10 +190,10 @@ export function MapView() {
     setRegionViewport({
       region: activeRegion,
       key: `${activeRegion}-bounds-${keyBase}`,
-      center: [centerLat, centerLng],
+      center: [centerLat, centerLon],
       bounds: [
-        [minLng, minLat],
-        [maxLng, maxLat],
+        [minLon, minLat],
+        [maxLon, maxLat],
       ],
     });
   }, [activeRegion, beaches]);
@@ -213,7 +211,7 @@ export function MapView() {
         onViewModeChange={setViewMode}
         onNearMe={() => {
           if (userLocation) {
-            loadNearbyBeaches(userLocation.lat, userLocation.lng);
+            loadNearbyBeaches(userLocation.lat, userLocation.lon);
           } else {
             getUserLocation();
           }

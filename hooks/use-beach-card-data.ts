@@ -22,13 +22,13 @@ interface UseBeachCardDataOptions {
   /** Limit the number of beaches to process */
   limit?: number;
   /** User location for distance calculations */
-  userLocation?: { lat: number; lng: number };
+  userLocation?: { lat: number; lon: number };
   /** Function to calculate distance from user location */
   calculateDistance?: (
     userLat: number,
-    userLng: number,
+    userLon: number,
     beachLat: number,
-    beachLng: number
+    beachLon: number
   ) => string;
   /** Default location text when no user location is available */
   defaultLocationText?: string;
@@ -54,7 +54,11 @@ function defaultCalculateDistance(
   lat2: number,
   lng2: number
 ): string {
-  const formatted = calculateDistanceFormatted(lat1, lng1, lat2, lng2, "miles");
+  const formatted = calculateDistanceFormatted(
+    { lat: lat1, lon: lng1 },
+    { lat: lat2, lon: lng2 },
+    "miles"
+  );
   // If validation failed, return the fallback character
   if (formatted === "—") {
     return "—";
@@ -119,7 +123,7 @@ export function useBeachCardData(
       if (userLocation && coords) {
         distance = calculateDistance(
           userLocation.lat,
-          userLocation.lng,
+          userLocation.lon,
           coords.latitude,
           coords.longitude
         );

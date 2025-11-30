@@ -40,9 +40,11 @@ const BeachSearchAutocomplete = lazy(() =>
 export default function HeroSearchLazy({
   onQueryChange,
   onFallback,
+  onSelect,
 }: {
   onQueryChange?: (query: string) => void;
   onFallback?: (query: string) => void;
+  onSelect?: (beach: import("@/types/database").Beach) => void;
 }) {
   const [showFullSearch, setShowFullSearch] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -196,6 +198,7 @@ export default function HeroSearchLazy({
         requireExplicitSelection
         onFallback={onFallback}
         onQueryChange={onQueryChange}
+        onSelect={onSelect}
       />
     </Suspense>
   );

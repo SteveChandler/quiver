@@ -1,14 +1,14 @@
 # Dead Code Audit Report
 
 **Generated:** November 25, 2025  
-**Updated:** November 25, 2025 (Phase 1 & 2 cleanup completed)  
+**Updated:** November 24, 2025 (Phase 1, 2, 3 & 4 cleanup completed)  
 **Tools Used:** Knip, ts-prune, depcheck, manual grep analysis
 
 ---
 
 ## Executive Summary
 
-This audit identified significant dead code across the codebase. **Phase 1 and Phase 2 cleanup have been completed.**
+This audit identified significant dead code across the codebase. **Phase 1, Phase 2, Phase 3, and Phase 4 cleanup have been completed.**
 
 ### Original Findings:
 
@@ -31,6 +31,23 @@ This audit identified significant dead code across the codebase. **Phase 1 and P
 - **6 unused exports removed** from lib/constants/ files
 - **2 duplicate type definitions removed** from error-boundaries/types.ts
 - **3 exports made private** (BLUR_PLACEHOLDERS, METRO_AREAS, internal functions)
+
+### Cleanup Completed (Phase 3):
+
+- **4 unused components deleted** (~600 lines removed):
+  - `components/home-conditions-widget.tsx` (114 lines)
+  - `components/session-planning-map.tsx` (152 lines)
+  - `components/admin/forecast-health-dashboard.tsx` (245 lines)
+  - `components/beach-detail/beach-community.tsx` (99 lines)
+- **ARCHITECTURE.md files updated** to remove references to deleted components
+- **Buoy components verified as USED** (via buoy-conditions.tsx → map-display.tsx)
+- **BeachSearch verified as USED** (in multiple components)
+
+### Cleanup Completed (Phase 4 - Verification & Configuration):
+
+- **Dependencies verified as NEEDED** - Original report findings corrected
+- **Duplicate exports verified as INTENTIONAL** - Backward compatibility aliases confirmed
+- **knip.json updated** - Removed `@next/bundle-analyzer` from ignoreDependencies
 
 ### Corrections to Original Report:
 
@@ -103,27 +120,36 @@ These were **incorrectly flagged** as unused. Manual verification found they ARE
 
 ---
 
-## 2. REMAINING - Needs Human Verification
+## 2. COMPLETED - Component Verification (Phase 3)
 
-### 2.1 Potentially Unused Components (from ts-prune)
+### 2.1 Verified & Deleted Components ✅
 
-| Component                 | File                                                |
-| ------------------------- | --------------------------------------------------- |
-| `BeachSearch`             | `components/beach-search.tsx:98`                    |
-| `HomeConditionsWidget`    | `components/home-conditions-widget.tsx:27`          |
-| `SessionPlanningMap`      | `components/session-planning-map.tsx:16`            |
-| `ForecastHealthDashboard` | `components/admin/forecast-health-dashboard.tsx:46` |
-| `BeachCommunity`          | `components/beach-detail/beach-community.tsx:15`    |
+| Component                 | File                                             | Verification Result | Status  |
+| ------------------------- | ------------------------------------------------ | ------------------- | ------- |
+| `HomeConditionsWidget`    | `components/home-conditions-widget.tsx`          | Only self-reference | DELETED |
+| `SessionPlanningMap`      | `components/session-planning-map.tsx`            | Only self-reference | DELETED |
+| `ForecastHealthDashboard` | `components/admin/forecast-health-dashboard.tsx` | Only in docs        | DELETED |
+| `BeachCommunity`          | `components/beach-detail/beach-community.tsx`    | Only in ARCH.md     | DELETED |
 
-### 2.2 Buoy Components (Potentially Unused)
+### 2.2 Verified & Kept Components ✅
 
-From `components/buoy/index.ts` exports:
+| Component     | File                          | Verification Result                             | Status |
+| ------------- | ----------------------------- | ----------------------------------------------- | ------ |
+| `BeachSearch` | `components/beach-search.tsx` | Used in map-view, beach-search-bar, hero-search | KEPT   |
 
-- `BuoyCard`
-- `Measurement`, `TemperatureMeasurement`, `WindMeasurement`, `WaveMeasurement`, `PressureMeasurement`
-- `BuoyStatusIndicator`, `ConditionBadge`, `WaveQualityBadge`
+### 2.3 Buoy Components - Verified as USED ✅
 
-### 2.3 API Endpoints to Keep
+From `components/buoy/index.ts` exports - **ALL USED** via dependency chain:
+
+```
+buoy/* → buoy-conditions.tsx → map/map-display.tsx
+```
+
+- `BuoyCard` - Used in buoy-conditions.tsx
+- `Measurement`, `TemperatureMeasurement`, `WindMeasurement`, `WaveMeasurement`, `PressureMeasurement` - Used in buoy-card.tsx
+- `BuoyStatusIndicator`, `ConditionBadge`, `WaveQualityBadge` - Used in buoy-card.tsx
+
+### 2.4 API Endpoints to Keep
 
 | Endpoint         | Reason                 |
 | ---------------- | ---------------------- |
@@ -131,9 +157,9 @@ From `components/buoy/index.ts` exports:
 
 ---
 
-## 3. REMAINING - Unused Exports (109 Functions/Constants)
+## 3. REMAINING - Unused Exports (~95 Functions/Constants after Phase 2)
 
-### High-Impact Unused Functions (Top 30)
+### High-Impact Unused Functions (Remaining)
 
 | Function                        | File                                                        |
 | ------------------------------- | ----------------------------------------------------------- |
@@ -147,20 +173,20 @@ From `components/buoy/index.ts` exports:
 | `adaptDiscoveryRecommendation`  | `lib/adapters/discovery-to-personalized.ts:38`              |
 | `adaptDiscoveryRecommendations` | `lib/adapters/discovery-to-personalized.ts:116`             |
 | `degreesToCardinal`             | `lib/analyzers/wind-analyzer.ts:35`                         |
-| `validateSchema`                | `lib/api-utils.ts:197`                                      |
-| `safeValidateSchema`            | `lib/api-utils.ts:221`                                      |
-| `generateETag`                  | `lib/api-utils.ts:360`                                      |
-| `isETagMatch`                   | `lib/api-utils.ts:361`                                      |
+| ~~`validateSchema`~~            | ~~`lib/api-utils.ts`~~ ✅ REMOVED                           |
+| ~~`safeValidateSchema`~~        | ~~`lib/api-utils.ts`~~ ✅ REMOVED                           |
+| ~~`generateETag`~~              | ~~`lib/api-utils.ts`~~ ✅ REMOVED (re-export)               |
+| ~~`isETagMatch`~~               | ~~`lib/api-utils.ts`~~ ✅ REMOVED (re-export)               |
 | `getRateLimitConfig`            | `lib/api/rate-limit-config.ts:197`                          |
 | `RATE_LIMIT_MESSAGES`           | `lib/api/rate-limit-config.ts:207`                          |
-| `captureAttribution`            | `lib/attribution.ts:161`                                    |
-| `clearAttributionCookies`       | `lib/attribution.ts:246`                                    |
-| `BLUR_PLACEHOLDERS`             | `lib/constants/blur-placeholders.ts:7`                      |
-| `getFallbackImageForBeach`      | `lib/constants/featured-beaches-config.ts:67`               |
-| `isExcludedBeach`               | `lib/constants/featured-beaches-config.ts:82`               |
-| `isPriorityBeach`               | `lib/constants/featured-beaches-config.ts:86`               |
-| `METRO_AREAS`                   | `lib/constants/metro-areas.ts:51`                           |
-| `getAllMetroConfigs`            | `lib/constants/metro-areas.ts:142`                          |
+| ~~`captureAttribution`~~        | ~~`lib/attribution.ts`~~ ✅ REMOVED                         |
+| ~~`clearAttributionCookies`~~   | ~~`lib/attribution.ts`~~ ✅ REMOVED                         |
+| ~~`BLUR_PLACEHOLDERS`~~         | ~~`lib/constants/blur-placeholders.ts`~~ ✅ MADE PRIVATE    |
+| ~~`getFallbackImageForBeach`~~  | ~~`lib/constants/featured-beaches-config.ts`~~ ✅ REMOVED   |
+| ~~`isExcludedBeach`~~           | ~~`lib/constants/featured-beaches-config.ts`~~ ✅ REMOVED   |
+| ~~`isPriorityBeach`~~           | ~~`lib/constants/featured-beaches-config.ts`~~ ✅ REMOVED   |
+| ~~`METRO_AREAS`~~               | ~~`lib/constants/metro-areas.ts`~~ ✅ MADE PRIVATE          |
+| ~~`getAllMetroConfigs`~~        | ~~`lib/constants/metro-areas.ts`~~ ✅ REMOVED               |
 | `SURF_SPOTS`                    | `lib/data/surf-spots.ts:238`                                |
 | `getTopSpotsForIntent`          | `lib/data/surf-spots.ts:1680`                               |
 | `withAdminAction`               | `lib/server-action-utils/admin.ts:25`                       |
@@ -174,91 +200,119 @@ Run `yarn dead:knip` for complete list of 109 unused exports.
 
 ---
 
-## 4. REMAINING - Unused Types (77 Type Exports)
+## 4. REMAINING - Unused Types (~73 Type Exports after Phase 2)
 
 ### Top Unused Types
 
-| Type                    | File                                          |
-| ----------------------- | --------------------------------------------- |
-| `ForecastVote`          | `actions/forecast-verification-actions.ts:21` |
-| `LegacyShareVariant`    | `actions/social-share-actions.ts:10`          |
-| `ErrorBoundaryTier`     | `components/error-boundaries/types.ts:6`      |
-| `ErrorBoundaryType`     | `components/error-boundaries/types.ts:11`     |
-| `ErrorCategory`         | `components/error-boundaries/types.ts:16`     |
-| `RetryStrategy`         | `components/error-boundaries/types.ts:27`     |
-| `PushOptInState`        | `hooks/use-native-push-registration.ts:16`    |
-| `SessionFormHookParams` | `hooks/use-session-form.ts:65`                |
-| `NearbyBeach`           | `hooks/useNearbyBeaches.ts:23`                |
-| `UTMParam`              | `lib/attribution.ts:32`                       |
+| Type                    | File                                                              |
+| ----------------------- | ----------------------------------------------------------------- |
+| `ForecastVote`          | `actions/forecast-verification-actions.ts:21`                     |
+| `LegacyShareVariant`    | `actions/social-share-actions.ts:10`                              |
+| `ErrorBoundaryTier`     | `components/error-boundaries/types.ts:6`                          |
+| `ErrorBoundaryType`     | `components/error-boundaries/types.ts:11`                         |
+| ~~`ErrorCategory`~~     | ~~`components/error-boundaries/types.ts`~~ ✅ REMOVED (duplicate) |
+| ~~`RetryStrategy`~~     | ~~`components/error-boundaries/types.ts`~~ ✅ REMOVED (duplicate) |
+| `PushOptInState`        | `hooks/use-native-push-registration.ts:16`                        |
+| `SessionFormHookParams` | `hooks/use-session-form.ts:65`                                    |
+| `NearbyBeach`           | `hooks/useNearbyBeaches.ts:23`                                    |
+| `UTMParam`              | `lib/attribution.ts:32`                                           |
+| ~~`FallbackBeachName`~~ | ~~`lib/constants/featured-beaches-config.ts`~~ ✅ REMOVED         |
 
 Run `yarn dead:knip` for complete list.
 
 ---
 
-## 5. REMAINING - Unused Dependencies
+## 5. VERIFIED - Dependencies (Phase 4 - All NEEDED) ✅
 
-### NPM Dependencies (Safe to Remove)
+### NPM Dependencies Verification Results
 
-**Dependencies:**
+**All flagged dependencies were verified as ACTUALLY NEEDED:**
 
-- `@capacitor/android` - Not used in web app (mobile-only)
-- `@capacitor/ios` - Not used in web app (mobile-only)
+| Dependency               | Original Claim               | Verification Result                                                      |
+| ------------------------ | ---------------------------- | ------------------------------------------------------------------------ |
+| `@capacitor/android`     | "Not used in web app"        | ✅ **NEEDED** - Used by mobile build scripts (yarn mobile:build:android) |
+| `@capacitor/ios`         | "Not used in web app"        | ✅ **NEEDED** - Used by mobile build scripts (yarn mobile:build:ios)     |
+| `@types/jest`            | "Using Playwright, not Jest" | ✅ **NEEDED** - Jest IS used (yarn test:unit, yarn test:coverage)        |
+| `jest-environment-jsdom` | "Using Playwright"           | ✅ **NEEDED** - Required for Jest DOM tests (**tests**/)                 |
+| `eslint-plugin-jsx-a11y` | "Not configured in eslint"   | ✅ **NEEDED** - Active rules in eslint.config.mjs (lines 63-76)          |
+| `postcss`                | "Verify usage"               | ✅ **NEEDED** - Required by Tailwind CSS (postcss.config.mjs)            |
+| `postcss-load-config`    | "Verify usage"               | ✅ **NEEDED** - Required by Tailwind CSS (postcss.config.mjs)            |
+| `ansi-regex`             | "Unused utility"             | ✅ **NEEDED** - In resolutions to fix transitive dependency conflicts    |
+| `string-width`           | "Unused utility"             | ✅ **NEEDED** - In resolutions to fix transitive dependency conflicts    |
+| `strip-ansi`             | "Unused utility"             | ✅ **NEEDED** - In resolutions to fix transitive dependency conflicts    |
 
-**Dev Dependencies:**
-
-- `@types/jest` - Using Playwright, not Jest for tests
-- `ansi-regex` - Unused utility
-- `eslint-plugin-jsx-a11y` - Not configured in eslint
-- `jest-environment-jsdom` - Using Playwright
-- `postcss` - May be used by Tailwind (verify)
-- `postcss-load-config` - May be used by Tailwind (verify)
-- `string-width` - Unused utility
-- `strip-ansi` - Unused utility
-
-**Note:** `zustand` is actually used in `store/onboarding-store.ts` (depcheck false positive)
-
----
-
-## 6. DUPLICATE EXPORTS
-
-| Duplicates                                                 | File                                      |
-| ---------------------------------------------------------- | ----------------------------------------- |
-| `getBeachForecastAccuracy` / `getBeachAccuracy`            | `actions/forecast-calibration-actions.ts` |
-| `getBeachSessionSnapshots` / `getSessionForecastSnapshots` | `actions/forecast-calibration-actions.ts` |
+**Note:** `zustand` is used in `store/onboarding-store.ts` (depcheck false positive - confirmed)
 
 ---
 
-## 7. CONFIGURATION HINTS
+## 6. VERIFIED - Duplicate Exports (Phase 4 - Intentional Aliases) ✅
 
-From Knip analysis - redundant `knip.json` entries:
+### Export Alias Verification
 
-- Remove `@next/bundle-analyzer` from `ignoreDependencies`
-- Remove `webpack-bundle-analyzer` from `ignoreDependencies`
-- Remove `@lhci/cli` from `ignoreDependencies`
-- Remove redundant `next.config.mjs` entry pattern
-- Remove redundant `jest.config.js` entry pattern
+**These are INTENTIONAL backward compatibility aliases - NOT duplicates to remove:**
+
+| Export Alias                  | Primary Function           | Verified Usage                                           |
+| ----------------------------- | -------------------------- | -------------------------------------------------------- |
+| `getBeachAccuracy`            | `getBeachForecastAccuracy` | ✅ **USED** in `hooks/use-forecast-calibration.ts:9,34`  |
+| `getSessionForecastSnapshots` | `getBeachSessionSnapshots` | ✅ **USED** in `hooks/use-forecast-calibration.ts:10,48` |
+
+**Context:** Lines 361-362 in `actions/forecast-calibration-actions.ts`:
+
+```typescript
+// Function aliases for backward compatibility with hooks
+export const getBeachAccuracy = getBeachForecastAccuracy;
+export const getSessionForecastSnapshots = getBeachSessionSnapshots;
+```
+
+These aliases are documented as backward compatibility exports and ARE actively used. **No cleanup needed.**
 
 ---
 
-## 8. REMAINING CLEANUP ORDER
+## 7. COMPLETED - Configuration Cleanup (Phase 4) ✅
 
-### Phase 2: Code Cleanup (Not Started)
+### knip.json Updates Applied
 
-1. Remove unused exports from `lib/api-utils.ts`
-2. Remove unused exports from `lib/attribution.ts`
-3. Clean up `lib/constants/` unused exports
-4. Clean up `components/error-boundaries/` unused types
+| Original Recommendation                                  | Verification                                         | Action         |
+| -------------------------------------------------------- | ---------------------------------------------------- | -------------- |
+| Remove `@next/bundle-analyzer` from ignoreDependencies   | Not in package.json                                  | ✅ **REMOVED** |
+| Remove `webpack-bundle-analyzer` from ignoreDependencies | **NEEDED** - Used in next.config.mjs (lines 301-309) | ❌ KEPT        |
+| Remove `@lhci/cli` from ignoreDependencies               | **NEEDED** - Used by yarn lighthouse:ci script       | ❌ KEPT        |
 
-### Phase 3: Structural Cleanup (Not Started)
+### Other Configuration Hints (Not Applicable)
 
-1. Verify and remove unused components
-2. Clean up unused buoy components
+- `next.config.mjs` entry pattern - Already correctly configured
+- `jest.config.js` entry pattern - Already correctly configured
 
-### Phase 4: Dependency Cleanup (Not Started)
+---
 
-1. Verify postcss dependencies usage
-2. Remove Capacitor dependencies if not building mobile
-3. Clean up knip.json configuration
+## 8. CLEANUP ORDER - ALL PHASES COMPLETED
+
+### Phase 2: Code Cleanup ✅ COMPLETED (November 25, 2025)
+
+1. ✅ Removed `validateSchema`, `safeValidateSchema`, `generateETag`, `isETagMatch` from `lib/api-utils.ts`
+2. ✅ Removed `captureAttribution`, `clearAttributionCookies` from `lib/attribution.ts`
+3. ✅ Cleaned up `lib/constants/` - made `BLUR_PLACEHOLDERS` and `METRO_AREAS` private, removed unused helper functions
+4. ✅ Removed duplicate `ErrorCategory` and `RetryStrategy` types from `components/error-boundaries/types.ts`
+
+### Phase 3: Structural Cleanup ✅ COMPLETED (November 25, 2025)
+
+1. ✅ Verified and deleted unused components:
+   - `components/home-conditions-widget.tsx` - Never imported
+   - `components/session-planning-map.tsx` - Never imported
+   - `components/admin/forecast-health-dashboard.tsx` - Only referenced in docs
+   - `components/beach-detail/beach-community.tsx` - Documented but never imported
+2. ✅ Verified buoy components are USED (via buoy-conditions.tsx → map-display.tsx)
+3. ✅ Updated ARCHITECTURE.md files to remove references to deleted components
+
+### Phase 4: Dependency & Configuration Cleanup ✅ COMPLETED (November 24, 2025)
+
+1. ✅ **Verified ALL dependencies are NEEDED** - Original report had false positives:
+   - Capacitor packages needed for mobile builds
+   - Jest packages needed for unit tests
+   - PostCSS packages needed for Tailwind CSS
+   - eslint-plugin-jsx-a11y actively configured in eslint.config.mjs
+2. ✅ **Verified duplicate exports are INTENTIONAL** - Backward compatibility aliases actively used
+3. ✅ **Updated knip.json** - Removed `@next/bundle-analyzer` (not in package.json), kept needed entries
 
 ---
 
@@ -287,4 +341,9 @@ yarn dead:deps      # Unused npm dependencies
 ---
 
 _Report generated by dead code audit automation_  
-_Phase 1 cleanup completed: November 25, 2025_
+_Phase 1 cleanup completed: November 25, 2025_  
+_Phase 2 cleanup completed: November 25, 2025_  
+_Phase 3 cleanup completed: November 25, 2025_  
+_Phase 4 cleanup completed: November 25, 2025_  
+**🎉 ALL PHASES COMPLETE**
+_Phase 4 cleanup completed: November 24, 2025_
