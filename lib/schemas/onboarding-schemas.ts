@@ -8,7 +8,7 @@ export const profileSchema = z.object({
   displayName: z.string()
     .min(2, 'Display name must be at least 2 characters')
     .max(30, 'Display name must be less than 30 characters')
-    .regex(/^[a-zA-Z0-9_]+$/, 'Only letters, numbers, and underscores'),
+    .refine((val) => /^[a-zA-Z0-9_]+$/.test(val), 'Only letters, numbers, and underscores'),
 });
 
 export type ProfileFormData = z.infer<typeof profileSchema>;

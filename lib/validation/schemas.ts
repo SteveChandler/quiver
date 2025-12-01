@@ -31,9 +31,9 @@ export const SessionPlanSchema = z.object({
     .min(1, 'Beach name is required')
     .max(100, 'Beach name too long'),
   session_date: z.string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
+    .refine((val) => /^\d{4}-\d{2}-\d{2}$/.test(val), 'Invalid date format (YYYY-MM-DD)'),
   start_time: z.string()
-    .regex(/^\d{2}:\d{2}:\d{2}$/, 'Invalid time format (HH:MM:SS)')
+    .refine((val) => /^\d{2}:\d{2}:\d{2}$/.test(val), 'Invalid time format (HH:MM:SS)')
     .optional(),
   notes: z.string()
     .max(1000, 'Notes cannot exceed 1000 characters')
@@ -232,7 +232,7 @@ export const SessionWizardPrefillSchema = z.object({
   // Target wizard step (optional, defaults to 1)
   step: z.string()
     .default('1')
-    .regex(/^\d+$/, 'Step must be a number')
+    .refine((val) => /^\d+$/.test(val), 'Step must be a number')
     .transform((val) => parseInt(val, 10))
     .refine(
       (num) => num >= 1 && num <= 4,
