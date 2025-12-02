@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Updated Sentry SDK to 10.28.0** (December 2025)
+  - Pinned `@sentry/nextjs` to version `10.28.0` to fix instrumentation hook crash (`_INTERNAL_clearAiProviderSkips is not a function`) that caused all server-side routes to fail with 500 errors on dev deployments.
+
+### Fixed
+
+- **Onboarding Showing for Existing Users on API Errors** (December 2025)
+  - Fixed a bug where existing users who had completed onboarding would see the onboarding flow again when the profile API failed to load.
+  - Added defensive check in `OnboardingDialog` to skip showing onboarding when `profileError` is present.
+  - This prevents the symptom where API failures (like the Sentry 10.27.0 bug) would incorrectly trigger onboarding for all users.
+
 ### Added
 
 - **Rincon and Pipeline Beaches** (December 2025)

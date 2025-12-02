@@ -30,7 +30,7 @@ const STEPS = [
 
 export function OnboardingDialog() {
   const { user } = useAuth();
-  const { profile, isLoading: profileLoading } = useProfileContext();
+  const { profile, isLoading: profileLoading, error: profileError } = useProfileContext();
   const searchParams = useSearchParams();
   const { isOpen, currentStep, openDialog, reset, checkUserId } =
     useOnboardingStore();
@@ -48,6 +48,10 @@ export function OnboardingDialog() {
     // Wait for profile fetch to complete
     if (!user || profileLoading) return;
 
+    // Don't show onboarding if profile failed to load - user may have already completed it
+    // This prevents existing users from seeing onboarding when API errors occur
+    if (profileError) return;
+
     const dismissedKey = `onboarding_dismissed_${user.id}`;
     const isDismissed = localStorage.getItem(dismissedKey);
     if (isDismissed) return;
@@ -61,7 +65,7 @@ export function OnboardingDialog() {
       // Small delay to let page settle
       setTimeout(() => openDialog(), 500);
     }
-  }, [user, profile, profileLoading, openDialog]);
+  }, [user, profile, profileLoading, profileError, openDialog]);
 
   // Allow forcing the dialog with query param for testing
   useEffect(() => {
