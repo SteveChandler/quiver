@@ -14,7 +14,11 @@ import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 // GET method to retrieve all beaches with optimized caching
 async function beachesHandler(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseServerClient();
+
+    if (!supabase) {
+      return handleApiError(new Error("Supabase client not initialized"), "Failed to fetch beaches");
+    }
 
     // Selective field query - only fetch fields needed by consumers and that exist in schema
     // Includes slug, city, state for hierarchical URL generation
@@ -53,11 +57,11 @@ export const GET = withBotBlockingAndRateLimit(beachesHandler, "public-default")
 // POST is admin-protected, so no bot blocking needed
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseServerClient();
 
     // Admin authentication check - only admins can create/update beaches
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !isAdmin(session.user)) {
+    if (!session || !isAdmin(session.user as any)) {
       return NextResponse.json({ 
         error: "Unauthorized - Admin access required" 
       }, { status: 401 });

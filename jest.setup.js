@@ -204,11 +204,9 @@ global.console = {
   warn: jest.fn(),
 };
 
-// Mock date-fns distance function to avoid Intl/timezone differences in tests
-jest.mock("date-fns/formatDistanceToNow", () => ({
-  __esModule: true,
-  default: (date, opts) => "1h ago",
-}));
+// Note: date-fns mocking is now done per-test-file as needed
+// Global mocking of date-fns causes issues with named exports like 'format'
+// Tests that need formatDistanceToNow mocked should do it in their own file
 
 // Mock canvas module that jsdom tries to require but isn't installed
 jest.mock("canvas", () => ({

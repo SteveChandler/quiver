@@ -3,12 +3,16 @@ import { z } from 'zod';
 // Step 2: Profile
 export const profileSchema = z.object({
   fullName: z.string()
-    .min(2, 'Name must be at least 2 characters')
-    .max(50, 'Name must be less than 50 characters'),
+    .min(2, 'Full name must be at least 2 characters')
+    .max(50, 'Full name must be less than 50 characters')
+    .optional()
+    .or(z.literal('')),
   displayName: z.string()
     .min(2, 'Display name must be at least 2 characters')
     .max(30, 'Display name must be less than 30 characters')
-    .refine((val) => /^[a-zA-Z0-9_]+$/.test(val), 'Only letters, numbers, and underscores'),
+    .regex(/^[a-zA-Z0-9_]+$/, 'Only letters, numbers, and underscores')
+    .optional()
+    .or(z.literal('')),
 });
 
 export type ProfileFormData = z.infer<typeof profileSchema>;
@@ -16,7 +20,7 @@ export type ProfileFormData = z.infer<typeof profileSchema>;
 // Step 3: Home Beach
 export const homeBeachSchema = z.object({
   homeBeachId: z.string().min(1, 'Please select a beach'),
-  homeBeachName: z.string().min(1),
+  homeBeachName: z.string().min(1, 'Please select a beach'),
 });
 
 export type HomeBeachFormData = z.infer<typeof homeBeachSchema>;
@@ -24,7 +28,7 @@ export type HomeBeachFormData = z.infer<typeof homeBeachSchema>;
 // Step 4: Preferences
 export const preferencesSchema = z.object({
   experienceLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert'], {
-    required_error: 'Please select your experience level',
+    message: 'Please select your experience level',
   }),
   surfStyles: z.array(z.string()).min(1, 'Select at least one style'),
   preferredWaveSize: z.enum(['small', 'medium', 'large', 'any']).optional(),

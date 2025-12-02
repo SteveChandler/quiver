@@ -7,6 +7,7 @@
 ## Prerequisites
 
 1. Start development server:
+
    ```bash
    yarn dev
    ```
@@ -26,6 +27,7 @@
 ```
 
 This will run:
+
 - API performance tests
 - React performance tests
 - E2E performance tests
@@ -49,11 +51,13 @@ npx tsx scripts/test-recommendations-perf.ts
 ```
 
 **Tests**:
+
 - Response time (target: <1s)
 - Scalability (50 beaches)
 - Error handling
 
 **Expected output**:
+
 ```
 ✅ Average response time: 450ms (target: <1000ms)
 ✅ P95 response time: 520ms (target: <1500ms)
@@ -68,11 +72,13 @@ npx tsx scripts/validate-react-performance.ts
 ```
 
 **Tests**:
+
 - Home page TTI (target: <3.5s)
 - Map page load (target: <5s)
 - Component re-renders
 
 **Expected output**:
+
 ```
 ✅ Home Page - Time to Interactive: 2.8s (target: <3.5s)
 ✅ Map Page - Load Time: 3.2s (target: <5s)
@@ -131,27 +137,30 @@ curl "http://localhost:3000/api/v1/recommendations?lat=32.7157&lon=-117.1611"
 
 ### Success Criteria
 
-| Test | Target | Status |
-|------|--------|--------|
+| Test               | Target  | Status  |
+| ------------------ | ------- | ------- |
 | API Response (Avg) | <1000ms | ✅ / ❌ |
 | API Response (P95) | <1500ms | ✅ / ❌ |
-| Home Page TTI | <3500ms | ✅ / ❌ |
-| Map Page Load | <5000ms | ✅ / ❌ |
-| Lighthouse Score | >90 | ✅ / ❌ |
+| Home Page TTI      | <3500ms | ✅ / ❌ |
+| Map Page Load      | <5000ms | ✅ / ❌ |
+| Lighthouse Score   | >90     | ✅ / ❌ |
 
 ### Common Issues
 
 **API Test Fails**:
+
 - Check Supabase connection
 - Verify database has forecast data
 - Check rate limiting (wait between requests)
 
 **React Test Fails**:
+
 - Clear browser cache
 - Check for console errors
 - Verify Playwright installed: `yarn install`
 
 **E2E Test Fails**:
+
 - Ensure dev server running
 - Check test authentication
 - Review test logs: `--debug` flag
@@ -164,7 +173,7 @@ After running tests, reports are saved to:
 
 ```
 docs/performance/
-  ├── PERFORMANCE_VALIDATION_REPORT.md (baseline)
+  ├── ../archive/performance/PERFORMANCE_VALIDATION_REPORT.md (baseline)
   ├── BEFORE_AFTER_BENCHMARKS.md (comparisons)
   ├── validation-results-YYYYMMDD-HHMMSS.txt (test run)
   ├── REACT_PERFORMANCE_VALIDATION.md (react tests)
@@ -176,6 +185,7 @@ docs/performance/
 ## Troubleshooting
 
 ### Dev server not running
+
 ```bash
 # Terminal 1
 yarn dev
@@ -185,6 +195,7 @@ npx tsx scripts/validate-performance-improvements.ts
 ```
 
 ### Rate limited
+
 ```
 Error: 429 Too Many Requests
 ```
@@ -192,6 +203,7 @@ Error: 429 Too Many Requests
 **Solution**: Wait 60 seconds between test runs
 
 ### Playwright errors
+
 ```bash
 # Install/update Playwright
 yarn playwright install
@@ -201,6 +213,7 @@ yarn test:e2e --debug e2e/recommendations-performance.spec.ts
 ```
 
 ### Slow performance
+
 - Check network connection
 - Verify database has data
 - Review Supabase dashboard for slow queries
@@ -212,7 +225,7 @@ yarn test:e2e --debug e2e/recommendations-performance.spec.ts
 
 1. ✅ Review generated reports
 2. ✅ Document actual vs. expected results
-3. ✅ Update `PERFORMANCE_VALIDATION_REPORT.md` with actuals
+3. ✅ Update `../archive/performance/PERFORMANCE_VALIDATION_REPORT.md` with actuals
 4. ✅ Deploy to staging if tests pass
 5. ✅ Monitor production metrics
 
@@ -243,4 +256,4 @@ lighthouse http://localhost:3000 --only-categories=performance --view
 
 ---
 
-**Questions?** See `/docs/performance/PERFORMANCE_VALIDATION_REPORT.md` for full details.
+**Questions?** See `/docs/archive/performance/PERFORMANCE_VALIDATION_REPORT.md` for full details.

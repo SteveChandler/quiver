@@ -8,13 +8,14 @@ jest.mock("@/context/auth-context", () => ({
   useAuth: () => ({ user: { id: "test-user-ctx" } }),
 }));
 
-jest.mock("@/lib/hooks/useProfile", () => ({
-  useProfile: () => ({
+jest.mock("@/context/profile-context", () => ({
+  useProfileContext: () => ({
     profile: null,
-    loading: false,
+    homeBeach: null,
+    isLoading: false,
     error: null,
-    refetch: jest.fn(),
-    mutate: jest.fn(),
+    updateProfile: jest.fn(),
+    refreshProfile: jest.fn(),
   }),
 }));
 

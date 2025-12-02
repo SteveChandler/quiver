@@ -19,6 +19,68 @@ import {
  */
 
 test.describe('Onboarding Flow', () => {
+  test.describe('Welcome Step Design', () => {
+    test('should display welcome step with correct design elements', async ({ page }) => {
+      // Force onboarding to appear by mocking the status response
+      await page.route('**/api/user/onboarding-status', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ completed: false }),
+        });
+      });
+
+      await page.goto('/');
+      await waitForPageLoad(page);
+
+      // Force open via query param if needed, or rely on auto-open
+      const onboardingModal = page.getByRole('dialog', { name: /onboarding|welcome|get started/i });
+      const hasOnboarding = await onboardingModal.isVisible({ timeout: 5000 }).catch(() => false);
+
+      if (!hasOnboarding) {
+        await page.goto('/?showOnboarding=1');
+        await waitForPageLoad(page);
+      }
+
+      // Verify welcome step container
+      const welcomeStep = page.locator('[data-testid="welcome-step"]');
+      await expect(welcomeStep).toBeVisible();
+      
+      // Verify image is present inside the button
+      const imageButton = page.locator('[data-testid="welcome-get-started"]');
+      await expect(imageButton).toBeVisible();
+      
+      const image = imageButton.locator('img[alt="Welcome to Quiver"]');
+      await expect(image).toBeVisible();
+      await expect(image).toHaveAttribute('src', /Gemini_Generated_Image_gls67qgls67qgls6/);
+    });
+
+    test('should proceed to next step when Get Started is clicked', async ({ page }) => {
+      await page.goto('/');
+      await waitForPageLoad(page);
+
+      const onboardingModal = page.getByRole('dialog', { name: /onboarding|welcome|get started/i });
+      const hasOnboarding = await onboardingModal.isVisible({ timeout: 3000 }).catch(() => false);
+
+      if (!hasOnboarding) {
+        test.skip(true, 'Onboarding modal not visible');
+        return;
+      }
+
+      // Click Get Started
+      const getStartedButton = page.locator('[data-testid="welcome-get-started"]');
+      await getStartedButton.click();
+
+      // Welcome step should no longer be visible
+      const welcomeStep = page.locator('[data-testid="welcome-step"]');
+      await expect(welcomeStep).not.toBeVisible();
+
+      // Should be on profile step (has name input)
+      const nameInput = page.getByLabel(/full name|name/i);
+      await expect(nameInput).toBeVisible();
+    });
+  });
+
   test.describe('Complete Onboarding with All Preferences', () => {
     test('should complete onboarding with all preferences and persist data', async ({ page }) => {
       // Navigate to home page

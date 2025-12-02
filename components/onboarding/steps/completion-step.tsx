@@ -1,14 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useOnboardingStore } from '@/store/onboarding-store';
+import { useProfileContext } from '@/context/profile-context';
 import { Button } from '@/components/ui/button';
 import { Waves, Share2, Loader2 } from 'lucide-react';
 import { saveOnboardingData } from '@/actions/onboarding-actions';
 import { toast } from 'sonner';
 
 export function CompletionStep() {
+  const router = useRouter();
   const { data, completeOnboarding } = useOnboardingStore();
+  const { updateProfile } = useProfileContext();
   const [isSaving, setIsSaving] = useState(false);
   const [showSharePrompt, setShowSharePrompt] = useState(false);
 
@@ -17,6 +21,11 @@ export function CompletionStep() {
     try {
       const result = await saveOnboardingData(data);
       if (result.success) {
+        // Update profile context immediately for instant UI update
+        if (result.profile) {
+          updateProfile(result.profile);
+        }
+
         completeOnboarding();
         toast.success('Welcome to Quiver! 🎉');
 
@@ -24,12 +33,16 @@ export function CompletionStep() {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('onboarding_completed'));
         }, 500);
+
+        // Refresh the page to load personalized home page data with new home beach
+        router.refresh();
       } else {
-        toast.error('Failed to save your preferences. Please try again.');
+        console.error('Onboarding save failed:', result.error);
+        toast.error(result.error || 'Failed to save your preferences. Please try again.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to complete onboarding:', error);
-      toast.error('Something went wrong. Please try again.');
+      toast.error(error.message || 'Something went wrong. Please try again.');
     } finally {
       setIsSaving(false);
     }

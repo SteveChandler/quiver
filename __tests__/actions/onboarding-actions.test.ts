@@ -24,24 +24,55 @@ jest.mock("@/lib/server-action-utils", () => {
           update: (data: any) => {
             lastProfileUpdate = data;
             return {
-              eq: (column: string, value: any) => {
-                // Simulate constraint violations
-                if (data.display_name === 'duplicate') {
-                  return Promise.resolve({
-                    error: { message: 'duplicate key value violates unique constraint "profiles_display_name_key"', code: '23505' }
-                  });
-                }
-                if (data.preferred_wave_size === 'invalid') {
-                  return Promise.resolve({
-                    error: { message: 'new row for relation "profiles" violates check constraint "profiles_preferred_wave_size_check"', code: '23514' }
-                  });
-                }
-                return Promise.resolve({ data: {}, error: null });
-              }
+              eq: (column: string, value: any) => ({
+                select: () => ({
+                  single: () => {
+                    // Simulate constraint violations
+                    if (data.display_name === 'duplicate') {
+                      return Promise.resolve({
+                        data: null,
+                        error: { message: 'duplicate key value violates unique constraint "profiles_display_name_key"', code: '23505' }
+                      });
+                    }
+                    if (data.preferred_wave_size === 'invalid') {
+                      return Promise.resolve({
+                        data: null,
+                        error: { message: 'new row for relation "profiles" violates check constraint "profiles_preferred_wave_size_check"', code: '23514' }
+                      });
+                    }
+                    // Return updated profile data
+                    return Promise.resolve({
+                      data: {
+                        id: 'user-123',
+                        ...data,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      },
+                      error: null
+                    });
+                  }
+                })
+              })
             };
           },
-          select: () => ({
-            eq: () => ({
+          select: (columns?: string) => ({
+            eq: (column: string, value: any) => ({
+              neq: (column2: string, value2: any) => ({
+                maybeSingle: () => {
+                  // Check for duplicate display name (used in pre-save validation)
+                  if (value === 'duplicate') {
+                    return Promise.resolve({
+                      data: { id: 'other-user-456', display_name: 'duplicate' },
+                      error: null
+                    });
+                  }
+                  // No duplicate found
+                  return Promise.resolve({
+                    data: null,
+                    error: null
+                  });
+                }
+              }),
               maybeSingle: () => Promise.resolve({
                 data: { id: 'referrer-123', referral_code: 'SURF2024' },
                 error: null
@@ -69,10 +100,7 @@ jest.mock("@/lib/server-action-utils", () => {
 
   return {
     withAuthenticatedAction: (fn: any) => {
-      return fn({ id: "user-123" }, mockSupabase).then(
-        (data: any) => ({ success: true, ...data }),
-        (error: any) => ({ success: false, error: error.message })
-      );
+      return fn({ id: "user-123" }, mockSupabase);
     },
   };
 });
@@ -188,13 +216,13 @@ describe("saveOnboardingData", () => {
     it("should reject duplicate display_name", async () => {
       const onboardingData = {
         fullName: "Test User",
-        displayName: "duplicate", // This triggers the constraint violation
+        displayName: "duplicate", // This triggers the pre-save uniqueness check
       };
 
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('duplicate key value');
+      expect(result.error).toContain('Display name is already taken');
     });
 
     it("should reject invalid enum values", async () => {
@@ -399,6 +427,23 @@ describe("saveOnboardingData", () => {
       expect(result.success).toBe(true);
       // homeBeachName should not be saved (display only)
       expect(lastProfileUpdate.home_beach_name).toBe(undefined);
+    });
+
+    it("should return updated profile in success response", async () => {
+      const onboardingData = {
+        fullName: "Test User",
+        displayName: "test_user",
+        homeBeachId: "beach-123",
+      };
+
+      const result = await saveOnboardingData(onboardingData);
+
+      expect(result.success).toBe(true);
+      expect(result.profile).toBeDefined();
+      expect(result.profile.id).toBe("user-123");
+      expect(result.profile.full_name).toBe("Test User");
+      expect(result.profile.display_name).toBe("test_user");
+      expect(result.profile.home_beach_id).toBe("beach-123");
     });
   });
 });

@@ -1,20 +1,23 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { homeBeachSchema, HomeBeachFormData } from '@/lib/schemas/onboarding-schemas';
-import { useOnboardingStore } from '@/store/onboarding-store';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { MapPin } from 'lucide-react';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  homeBeachSchema,
+  HomeBeachFormData,
+} from "@/lib/schemas/onboarding-schemas";
+import { useOnboardingStore } from "@/store/onboarding-store";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MapPin } from "lucide-react";
 
 interface Beach {
   id: string;
   name: string;
-  region: string;
-  country: string;
+  region?: string | null;
+  country?: string | null;
 }
 
 export function HomeBeachStep() {
@@ -30,8 +33,8 @@ export function HomeBeachStep() {
   } = useForm<HomeBeachFormData>({
     resolver: zodResolver(homeBeachSchema),
     defaultValues: {
-      homeBeachId: data.homeBeachId || '',
-      homeBeachName: data.homeBeachName || '',
+      homeBeachId: data.homeBeachId || "",
+      homeBeachName: data.homeBeachName || "",
     },
   });
 
@@ -43,13 +46,15 @@ export function HomeBeachStep() {
 
     setIsSearching(true);
     try {
-      const res = await fetch(`/api/beaches/search?query=${encodeURIComponent(query)}`);
+      const res = await fetch(
+        `/api/beaches/search?query=${encodeURIComponent(query)}`
+      );
       if (res.ok) {
         const result = await res.json();
         setSearchResults(result.data || []);
       }
     } catch (error) {
-      console.error('Failed to search beaches:', error);
+      console.error("Failed to search beaches:", error);
     } finally {
       setIsSearching(false);
     }
@@ -57,8 +62,8 @@ export function HomeBeachStep() {
 
   const selectBeach = (beach: Beach) => {
     setSelectedBeach(beach);
-    setValue('homeBeachId', beach.id, { shouldValidate: true });
-    setValue('homeBeachName', beach.name, { shouldValidate: true });
+    setValue("homeBeachId", beach.id, { shouldValidate: true });
+    setValue("homeBeachName", beach.name, { shouldValidate: true });
     setSearchResults([]);
   };
 
@@ -102,9 +107,11 @@ export function HomeBeachStep() {
                   <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
                   <div>
                     <div className="font-medium">{beach.name}</div>
-                    <div className="text-sm text-gray-500">
-                      {beach.region}, {beach.country}
-                    </div>
+                    {(beach.region || beach.country) && (
+                      <div className="text-sm text-gray-500">
+                        {[beach.region, beach.country].filter(Boolean).join(", ")}
+                      </div>
+                    )}
                   </div>
                 </button>
               ))}
@@ -126,15 +133,21 @@ export function HomeBeachStep() {
 
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
         <p className="text-sm text-amber-900">
-          <strong>Tip:</strong> You can change your home beach anytime from your profile settings
+          <strong>Tip:</strong> You can change your home beach anytime from your
+          profile settings
         </p>
       </div>
 
       <div className="flex gap-3">
-        <Button type="button" variant="outline" onClick={prevStep} className="flex-1">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={prevStep}
+          className="flex-1"
+        >
           Back
         </Button>
-        <Button type="submit" className="flex-1" disabled={!isValid}>
+        <Button type="submit" className="flex-1">
           Continue
         </Button>
       </div>

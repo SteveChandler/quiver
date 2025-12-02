@@ -4,10 +4,10 @@ import { Stepper } from '@/components/onboarding/stepper';
 describe('Stepper', () => {
   describe('Rendering', () => {
     it('renders correct number of step indicators', () => {
-      const { container } = render(<Stepper currentStep={0} totalSteps={7} />);
+      const { container } = render(<Stepper currentStep={0} totalSteps={6} />);
 
       const stepIndicators = container.querySelectorAll('div.flex-1');
-      expect(stepIndicators).toHaveLength(7);
+      expect(stepIndicators).toHaveLength(6);
     });
 
     it('renders with minimum steps (1)', () => {
@@ -27,7 +27,7 @@ describe('Stepper', () => {
 
   describe('Step Highlighting', () => {
     it('highlights all steps up to and including current step', () => {
-      const { container } = render(<Stepper currentStep={3} totalSteps={7} />);
+      const { container } = render(<Stepper currentStep={3} totalSteps={6} />);
 
       const stepIndicators = container.querySelectorAll('div.flex-1');
 
@@ -36,8 +36,8 @@ describe('Stepper', () => {
         expect(stepIndicators[i].className).toContain('bg-ocean-blue');
       }
 
-      // Steps 4-6 should have gray-200 class
-      for (let i = 4; i < 7; i++) {
+      // Steps 4-5 should have gray-200 class
+      for (let i = 4; i < 6; i++) {
         expect(stepIndicators[i].className).toContain('bg-gray-200');
       }
     });
@@ -55,7 +55,7 @@ describe('Stepper', () => {
     });
 
     it('highlights all steps when currentStep is last step', () => {
-      const { container } = render(<Stepper currentStep={6} totalSteps={7} />);
+      const { container } = render(<Stepper currentStep={5} totalSteps={6} />);
 
       const stepIndicators = container.querySelectorAll('div.flex-1');
 
@@ -137,7 +137,7 @@ describe('Stepper', () => {
     });
 
     it('can go backwards (unhighlight steps)', () => {
-      const { container, rerender } = render(<Stepper currentStep={4} totalSteps={7} />);
+      const { container, rerender } = render(<Stepper currentStep={4} totalSteps={6} />);
 
       let stepIndicators = container.querySelectorAll('div.flex-1');
 
@@ -147,7 +147,7 @@ describe('Stepper', () => {
       }
 
       // Go back to step 2
-      rerender(<Stepper currentStep={2} totalSteps={7} />);
+      rerender(<Stepper currentStep={2} totalSteps={6} />);
 
       stepIndicators = container.querySelectorAll('div.flex-1');
 
@@ -156,7 +156,7 @@ describe('Stepper', () => {
         expect(stepIndicators[i].className).toContain('bg-ocean-blue');
       }
 
-      for (let i = 3; i < 7; i++) {
+      for (let i = 3; i < 6; i++) {
         expect(stepIndicators[i].className).toContain('bg-gray-200');
       }
     });
@@ -195,7 +195,7 @@ describe('Stepper', () => {
 
   describe('Accessibility', () => {
     it('renders a visually meaningful progress indicator', () => {
-      const { container } = render(<Stepper currentStep={3} totalSteps={7} />);
+      const { container } = render(<Stepper currentStep={3} totalSteps={6} />);
 
       // Verify the container has items-center for vertical alignment
       const stepperContainer = container.querySelector('div.flex');

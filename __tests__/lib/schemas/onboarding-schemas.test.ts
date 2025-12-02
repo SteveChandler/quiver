@@ -85,14 +85,14 @@ describe('Onboarding Schemas', () => {
         }
       });
 
-      it('rejects empty fullName', () => {
-        const invalidData = {
+      it('accepts empty fullName (optional field)', () => {
+        const validData = {
           fullName: '',
           displayName: 'JohnD',
         };
 
-        const result = profileSchema.safeParse(invalidData);
-        expect(result.success).toBe(false);
+        const result = profileSchema.safeParse(validData);
+        expect(result.success).toBe(true);
       });
     });
 
@@ -161,22 +161,29 @@ describe('Onboarding Schemas', () => {
     });
 
     describe('Edge Cases', () => {
-      it('rejects missing fullName', () => {
-        const invalidData = {
+      it('accepts missing fullName (optional field)', () => {
+        const validData = {
           displayName: 'JohnD',
         };
 
-        const result = profileSchema.safeParse(invalidData);
-        expect(result.success).toBe(false);
+        const result = profileSchema.safeParse(validData);
+        expect(result.success).toBe(true);
       });
 
-      it('rejects missing displayName', () => {
-        const invalidData = {
+      it('accepts missing displayName (optional field)', () => {
+        const validData = {
           fullName: 'John Doe',
         };
 
-        const result = profileSchema.safeParse(invalidData);
-        expect(result.success).toBe(false);
+        const result = profileSchema.safeParse(validData);
+        expect(result.success).toBe(true);
+      });
+
+      it('accepts empty object (all fields optional)', () => {
+        const validData = {};
+
+        const result = profileSchema.safeParse(validData);
+        expect(result.success).toBe(true);
       });
     });
   });

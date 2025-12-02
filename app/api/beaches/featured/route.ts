@@ -305,7 +305,14 @@ function sortFeaturedBeaches(beaches: EnrichedBeach[]): EnrichedBeach[] {
  */
 async function featuredBeachesHandler(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
+    // Note: createSupabaseServerClient is synchronous in this codebase but often awaited
+    // We remove await to match definition, though awaiting non-promise is harmless
+    const supabase = createSupabaseServerClient();
+
+    if (!supabase) {
+      console.error("Failed to initialize Supabase client");
+      return createSuccessResponse([]);
+    }
 
     // Step 1: Fetch beach photos and create ID-to-URL map
     const photosMap = await fetchBeachPhotosMap(supabase);

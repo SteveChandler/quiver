@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { AuthProvider } from "@/context/auth-context";
+import { ProfileProvider } from "@/context/profile-context";
 import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { Suspense } from "react";
@@ -46,9 +47,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // - ReactQuery (mostly used for app data)
   // - SelectedBeachProvider (used for map/forecasts)
   // - Heavy analytics (handled by AnalyticsLoader)
-  
+
   // However, we DO need AuthProvider to check session status
-  
+
   return (
     <>
       {/* Analytics Loader - Conditional based on route (handled internally) */}
@@ -57,35 +58,41 @@ export function Providers({ children }: { children: React.ReactNode }) {
       </Suspense>
 
       <AuthProvider>
-        {/* 
-          Conditional rendering of heavy providers 
-          Only load ReactQuery and SelectedBeachProvider if NOT on landing page
-          OR if we are authenticated (AuthProvider handles auth state internally, 
-          but we can't easily read it here at the top level without context)
-          
-          Strategy: Always load AuthProvider. 
-          Inside AuthProvider, we have the auth state.
-          But here we are at the root.
-          
-          Compromise: Only skip these on the exact landing page route "/"
-          This assumes most traffic to "/" is unauthenticated marketing traffic.
-          Logged-in users will quickly navigate to /home or be redirected.
-        */}
-        
-        {!isLandingPage ? (
-          <ReactQueryProvider>
-            <SelectedBeachProvider>
-              <AuthenticatedAppContent>
-                {children}
-              </AuthenticatedAppContent>
-            </SelectedBeachProvider>
-          </ReactQueryProvider>
-        ) : (
-          /* Landing Page Optimized Path */
-          <LandingPageContent>
-            {children}
-          </LandingPageContent>
-        )}
+        <ProfileProvider>
+          {/* Global components that require auth context but should be present on all routes */}
+          <Suspense fallback={null}>
+            <OnboardingDialog />
+          </Suspense>
+          <Suspense fallback={null}>
+            <ProductTour />
+          </Suspense>
+
+          {/*
+            Conditional rendering of heavy providers
+            Only load ReactQuery and SelectedBeachProvider if NOT on landing page
+            OR if we are authenticated (AuthProvider handles auth state internally,
+            but we can't easily read it here at the top level without context)
+
+            Strategy: Always load AuthProvider.
+            Inside AuthProvider, we have the auth state.
+            But here we are at the root.
+
+            Compromise: Only skip these on the exact landing page route "/"
+            This assumes most traffic to "/" is unauthenticated marketing traffic.
+            Logged-in users will quickly navigate to /home or be redirected.
+          */}
+
+          {!isLandingPage ? (
+            <ReactQueryProvider>
+              <SelectedBeachProvider>
+                <AuthenticatedAppContent>{children}</AuthenticatedAppContent>
+              </SelectedBeachProvider>
+            </ReactQueryProvider>
+          ) : (
+            /* Landing Page Optimized Path */
+            <LandingPageContent>{children}</LandingPageContent>
+          )}
+        </ProfileProvider>
       </AuthProvider>
     </>
   );
@@ -108,12 +115,6 @@ function AuthenticatedAppContent({ children }: { children: React.ReactNode }) {
       </main>
       <Toaster />
       <SonnerToaster />
-      <Suspense fallback={null}>
-        <OnboardingDialog />
-      </Suspense>
-      <Suspense fallback={null}>
-        <ProductTour />
-      </Suspense>
       {/* Confetti script for E2E */}
       <script
         dangerouslySetInnerHTML={{
@@ -148,5 +149,3 @@ function LandingPageContent({ children }: { children: React.ReactNode }) {
     </>
   );
 }
-
-

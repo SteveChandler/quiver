@@ -20,7 +20,7 @@ import { Loader2 } from "lucide-react";
 import { updateProfile } from "@/actions/profile-actions";
 import { useAuth } from "@/context/auth-context";
 import { toastUtils } from "@/lib/utils/toast-utils";
-import { useProfile } from "@/lib/hooks/useProfile";
+import { useProfileContext } from "@/context/profile-context";
 import { track, slugify } from "@/lib/analytics";
 import { NotificationsSection } from "@/components/profile/notifications-section";
 import {
@@ -71,7 +71,7 @@ export function EditProfileForm({
 }: EditProfileFormProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const { profile, mutate } = useProfile();
+  const { profile, refreshProfile } = useProfileContext();
   const {
     avatarUrl,
     setAvatarUrl,
@@ -151,7 +151,7 @@ export function EditProfileForm({
       } catch {}
 
       // Refresh profile data
-      startTransition(() => mutate());
+      startTransition(() => refreshProfile());
 
       toastUtils.profile.updated();
 

@@ -74,7 +74,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
 **Quick Answers:**
 - **Supabase Connection**: Use `lib/supabase/client` for browser, `lib/supabase/server` for server components, `lib/supabase/api-server-client` for API routes. See [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)
-- **Running Tests**: `yarn test` (unit tests), `npx playwright test` (E2E tests). See [TEST_ARCHITECTURE.md](TEST_ARCHITECTURE.md)
+- **Running Tests**: `yarn test` (unit tests), `npx playwright test` (E2E tests). See [TEST_ARCHITECTURE.md](docs/TEST_ARCHITECTURE.md)
 - **Local Supabase**: Run `supabase start`, copy keys from `supabase status` to `.env.local`
 
 ---
@@ -87,7 +87,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 |----------|-------------|
 | **[System Architecture Guide](docs/architecture/SYSTEM_ARCHITECTURE.md)** | Complete system overview, design decisions, and architecture principles |
 | **[API Documentation](docs/architecture/API_DOCUMENTATION.md)** | Complete REST API reference with examples |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Top-level index to all architecture documentation |
+| **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Top-level index to all architecture documentation |
 
 ### Architecture Diagrams
 

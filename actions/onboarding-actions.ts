@@ -21,8 +21,27 @@ interface OnboardingData {
 export async function saveOnboardingData(data: OnboardingData) {
   return withAuthenticatedAction(async (user, supabase) => {
     try {
+      console.log('Saving onboarding data for user:', user.id);
+      
+      // Check if display name is taken by another user
+      if (data.displayName) {
+        const { data: existingUser } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('display_name', data.displayName)
+          .neq('id', user.id)
+          .maybeSingle();
+
+        if (existingUser) {
+          return {
+            success: false,
+            error: 'Display name is already taken. Please choose another.',
+          };
+        }
+      }
+
       // Update profile with all collected data
-      const { error: profileError } = await supabase
+      const { data: updatedProfile, error: profileError } = await supabase
         .from('profiles')
         .update({
           full_name: data.fullName,
@@ -37,12 +56,19 @@ export async function saveOnboardingData(data: OnboardingData) {
           notif_email_enabled: data.emailEnabled ?? true,
           onboarding_completed_at: new Date().toISOString(),
         })
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select()
+        .single();
 
       if (profileError) {
         console.error('Profile update error:', profileError);
         throw new Error(profileError.message);
       }
+
+      if (!updatedProfile) {
+        throw new Error('Profile not found. Please ensure your account is fully set up.');
+      }
+
 
       // Process referral code if provided
       if (data.referralCode) {
@@ -96,9 +122,18 @@ export async function saveOnboardingData(data: OnboardingData) {
         email_enabled: data.emailEnabled !== false,
       });
 
-      return { success: true };
+      return { success: true, profile: updatedProfile };
     } catch (error: any) {
       console.error('Failed to save onboarding data:', error);
+      
+      // Handle unique constraint violation specifically
+      if (error.message?.includes('idx_profiles_display_name') || error.code === '23505') {
+        return {
+          success: false,
+          error: 'Display name is already taken. Please choose another.',
+        };
+      }
+
       return {
         success: false,
         error: error.message || 'Failed to save your preferences',
@@ -106,4 +141,3 @@ export async function saveOnboardingData(data: OnboardingData) {
     }
   });
 }
-

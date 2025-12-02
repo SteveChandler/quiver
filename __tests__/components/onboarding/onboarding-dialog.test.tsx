@@ -1,0 +1,128 @@
+import React from "react";
+import { render, screen, act } from "@testing-library/react";
+import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog";
+import { useAuth } from "@/context/auth-context";
+import { useProfileContext } from "@/context/profile-context";
+import { useOnboardingStore } from "@/store/onboarding-store";
+import { useSearchParams } from "next/navigation";
+
+// Mocks
+jest.mock("@/context/auth-context");
+jest.mock("@/context/profile-context");
+jest.mock("@/store/onboarding-store");
+jest.mock("next/navigation", () => ({
+  useSearchParams: jest.fn(),
+}));
+jest.mock("@/components/onboarding/stepper", () => ({
+  Stepper: () => <div data-testid="stepper" />,
+}));
+jest.mock("@/components/onboarding/steps/welcome-step", () => ({
+  WelcomeStep: () => <div data-testid="welcome-step" />,
+}));
+
+describe("OnboardingDialog Logic", () => {
+  const mockOpenDialog = jest.fn();
+  const mockReset = jest.fn();
+  const mockCheckUserId = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.clear();
+
+    // Default mocks
+    (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+    (useProfileContext as jest.Mock).mockReturnValue({
+      profile: null,
+      isLoading: false,
+    });
+    (useOnboardingStore as jest.Mock).mockReturnValue({
+      isOpen: false,
+      currentStep: 0,
+      openDialog: mockOpenDialog,
+      reset: mockReset,
+      checkUserId: mockCheckUserId,
+    });
+    (useSearchParams as jest.Mock).mockReturnValue({ get: jest.fn() });
+  });
+
+  it("opens dialog for new user (no profile)", () => {
+    jest.useFakeTimers();
+    render(<OnboardingDialog />);
+    
+    // Fast-forward timers for setTimeout
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockOpenDialog).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it("opens dialog for user with incomplete profile", () => {
+    (useProfileContext as jest.Mock).mockReturnValue({
+      profile: { onboarding_completed_at: null },
+      isLoading: false,
+    });
+
+    jest.useFakeTimers();
+    render(<OnboardingDialog />);
+    
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockOpenDialog).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it("does not open dialog if profile is loaded and onboarding completed", () => {
+    (useProfileContext as jest.Mock).mockReturnValue({
+      profile: { onboarding_completed_at: "2023-01-01" },
+      isLoading: false,
+    });
+
+    jest.useFakeTimers();
+    render(<OnboardingDialog />);
+    
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockOpenDialog).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it("does not open dialog if dismissed for current user", () => {
+    localStorage.setItem("onboarding_dismissed_user-123", "true");
+
+    jest.useFakeTimers();
+    render(<OnboardingDialog />);
+    
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockOpenDialog).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it("opens dialog if dismissed for different user", () => {
+    localStorage.setItem("onboarding_dismissed_other-user", "true");
+
+    jest.useFakeTimers();
+    render(<OnboardingDialog />);
+    
+    act(() => {
+      jest.runAllTimers();
+    });
+
+    expect(mockOpenDialog).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it("calls checkUserId on mount", () => {
+    render(<OnboardingDialog />);
+    expect(mockCheckUserId).toHaveBeenCalledWith("user-123");
+  });
+});
+

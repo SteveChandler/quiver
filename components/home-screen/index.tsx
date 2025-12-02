@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useHomeData } from "./use-home-data";
 
-import { useCachedProfile } from "@/hooks/use-cached-profile";
+import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
 import { BeachSearchBar } from "./beach-search-bar";
 import { useGeo } from "@/hooks/useGeo";
@@ -55,9 +55,9 @@ export function HomeScreen() {
     });
   };
 
-  // Use cached profile hook to prevent flickering on navigation
-  const { profile, homeBeach, profileLoading, hasCachedData } =
-    useCachedProfile();
+  // Use profile context to prevent flickering on navigation
+  const { profile, homeBeach, isLoading: profileLoading } =
+    useProfileContext();
 
   const { coords, source, requestLocation } = useGeo();
 

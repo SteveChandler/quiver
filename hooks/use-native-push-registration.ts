@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { registerPushDevice } from "@/actions/mobile-actions";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,8 @@ export function useNativePushRegistration() {
   const { toast } = useToast();
   const [status, setStatus] = useState<PushOptInState>("idle");
   const [error, setError] = useState<string | null>(null);
+  // Guard against StrictMode double-mount causing duplicate API calls
+  const isRequestingRef = useRef(false);
 
   const canPrompt = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -64,6 +66,12 @@ export function useNativePushRegistration() {
       setStatus("granted");
       return { status: "granted" };
     }
+
+    // Prevent duplicate requests (StrictMode double-mount)
+    if (isRequestingRef.current) {
+      return { status: "pending" };
+    }
+    isRequestingRef.current = true;
 
     setStatus("pending");
     setError(null);
@@ -104,6 +112,7 @@ export function useNativePushRegistration() {
       track("push_opt_in_success", {
         platform: getNativePlatform(),
       });
+      isRequestingRef.current = false;
       return { status: "granted" };
     }
 
@@ -117,6 +126,7 @@ export function useNativePushRegistration() {
         platform: getNativePlatform(),
         reason: result.reason,
       });
+      isRequestingRef.current = false;
       return { status: "denied", detail: result.reason };
     }
 
@@ -125,6 +135,7 @@ export function useNativePushRegistration() {
       track("push_opt_in_unsupported", {
         platform: getNativePlatform(),
       });
+      isRequestingRef.current = false;
       return { status: "unsupported" };
     }
 
@@ -140,6 +151,7 @@ export function useNativePushRegistration() {
       platform: getNativePlatform(),
       error: message,
     });
+    isRequestingRef.current = false;
     return { status: "error", detail: message };
   }, [toast]);
 

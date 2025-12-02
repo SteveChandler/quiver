@@ -7,9 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Rincon and Pipeline Beaches** (December 2025)
+  - Added two iconic surf breaks to the beaches database:
+    - **Rincon** (Carpinteria, CA) - "Queen of the Coast" right point break, intermediate-advanced skill level
+    - **Pipeline** (North Shore, Oahu, HI) - World-famous reef break, expert-only skill level
+  - Includes full metadata: coordinates, break type, skill level, swell window, offshore wind direction, best months
+
+### Changed
+
+- **Removed Referral Step from Onboarding** (December 2025)
+  - Removed the "Were you invited by a friend?" referral code step from the onboarding flow since the app is currently free.
+  - Onboarding flow reduced from 7 steps to 6 steps: Welcome → Profile → Home Beach → Preferences → Notifications → Completion.
+  - Updated stepper tests to reflect the new step count.
+
+### Fixed
+- **Refresh Page After Onboarding Completion** (December 2025)
+  - Added `router.refresh()` call after completing onboarding wizard so the home page refreshes with the user's personalized data (home beach forecast, etc.) instead of showing "No Surf Spots Found".
+
+- **Profile Preferences Not Saving in Edit Modal** (December 2025)
+  - Fixed profile API route (`/api/profile/[id]`) to include surf preference fields (`surf_styles`, `preferred_wave_size`, `preferred_break_type`, `crowd_preference`) and notification settings in the response.
+  - Without these fields, the Edit Profile modal would show empty values and not save user preferences correctly.
+
+- **Fixed Onboarding Step Tests** (December 2025)
+  - Updated HomeBeachStep test to use correct placeholder text ("e.g., Malibu, Pipeline, Rincon..." instead of "Search beaches").
+  - Removed test for non-existent Skip button in HomeBeachStep.
+  - Fixed PreferencesStep tests to use `getAllByText` for elements that appear multiple times (label + option placeholder).
+
+- **Onboarding Zod Validation Error** (December 2025)
+  - Fixed uncaught ZodError during onboarding by upgrading `@hookform/resolvers` to v5.2.2 and `react-hook-form` to v7.67.0 (required for Zod v4 compatibility).
+  - Updated `profileSchema` in `lib/schemas/onboarding-schemas.ts` to allow optional empty strings for `fullName` and `displayName` fields.
+  - Added pre-save uniqueness check for `displayName` in `actions/onboarding-actions.ts` to prevent duplicate key constraint errors with a user-friendly error message.
+  - Updated unit test mocks in `__tests__/actions/onboarding-actions.test.ts` to support the new validation flow.
+
+- **Onboarding Logic for New Users** (December 2025)
+  - Fixed a critical bug in `ProfileContext` where cached profile data was not validated against the current user ID, causing new users to inherit existing users' profile state and skip onboarding.
+  - Scoped `onboarding_dismissed` local storage key to the user ID in `OnboardingDialog` to prevent cross-user state pollution.
+  - Verified with new unit tests in `__tests__/components/onboarding/onboarding-dialog.test.tsx`.
+
+### Fixed
+
+- **Reduced Duplicate API Calls** (December 2025)
+  - Added StrictMode guard to `use-native-push-registration.ts` to prevent double `POST /api/devices/upsert` calls
+  - Added debouncing (500ms) to `use-session-invitations-subscription.ts` to batch rapid subscription callbacks
+  - Consolidated surf discovery calls in `forecast-tab.tsx` - now fetches once with `maxResults=3` and passes data to `BeachDiscoveryList` instead of both components fetching independently
+  - Added request deduplication cache (30s TTL) to `lib/hooks/useProfile.ts` to prevent duplicate `/api/me/profile` calls
+  - Updated `beach-discovery-list.tsx` to accept optional `discoveryData` prop to avoid redundant API calls
+
+### Changed
+
+- **Onboarding Wizard Visual Update** (December 2025)
+  - Updated the Welcome Step to use the new Gemini-generated illustration (`Gemini_Generated_Image_gls67qgls67qgls6.png`) instead of the previous CSS wave animation.
+  - This aligns the onboarding experience with the latest design requirements.
+
+### Chore
+
+- **Project Root Cleanup** (December 2025)
+  - Organized root directory by archiving documentation and reports into `docs/archive/`.
+  - Moved SQL scripts and utilities to `scripts/`.
+  - Updated `README.md` to reference the canonical `docs/TEST_ARCHITECTURE.md` and `docs/ARCHITECTURE.md`.
+
 ### Fixed
 
 - **Beach Search Navigation Fix** (November 2025)
+
   - Updated `BeachSearch` component to navigate to the beach detail page immediately upon selection from the dropdown.
   - This aligns the behavior of the dashboard search bar with other search inputs in the application.
   - Refactored `components/beach-search.tsx` to use a custom hook `useBeachForecast` and split UI into sub-components.
