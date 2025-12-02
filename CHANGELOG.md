@@ -7,10 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+### Fixed
 
-- **Updated Sentry SDK to 10.28.0** (December 2025)
-  - Pinned `@sentry/nextjs` to version `10.28.0` to fix instrumentation hook crash (`_INTERNAL_clearAiProviderSkips is not a function`) that caused all server-side routes to fail with 500 errors on dev deployments.
+- **Reverted Sentry SDK to 10.27.0** (December 2025)
+  - Downgraded `@sentry/nextjs` from `10.28.0` back to `10.27.0` to fix instrumentation hook crash (`E._INTERNAL_clearAiProviderSkips is not a function`) that caused all server-side routes to fail with 500 errors on Vercel deployments.
+  - The bug was introduced in Sentry 10.28.0 and affects the `_setupIntegrations` function during server initialization.
+
+- **Sessions API Column Name Mismatch** (December 2025)
+  - Fixed `app/api/users/[id]/sessions/route.ts` to use correct beach column names (`lat`, `lon` instead of `latitude`, `longitude`).
+  - This was causing "column beaches_1.latitude does not exist" errors and triggering fallback queries.
+
+- **geo-tz Timezone Data Files Missing** (December 2025)
+  - Configured webpack to copy geo-tz data files to `.next/server/data/` during build.
+  - Added `copy-webpack-plugin` as a dev dependency.
+  - Fixes "ENOENT: no such file or directory, open '.next/server/data/timezones-1970.geojson.geo.dat'" error that occurred during timezone lookups.
+
+- **Forecast Refresh Cron Job Silently Failing** (December 2025)
+  - Created migration `20251202100000_fix_forecast_refresh_column_names.sql` to fix the `refresh_enhanced_forecasts_for_active_beaches` Supabase function.
+  - The function was referencing `b.latitude` and `b.longitude` which don't exist (columns are `lat` and `lon`).
+  - This was causing the forecast refresh cron job to return 0 beaches, resulting in stale forecast data (42+ hours old).
+
+### Changed
 
 ### Fixed
 

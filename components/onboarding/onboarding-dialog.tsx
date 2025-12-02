@@ -30,7 +30,11 @@ const STEPS = [
 
 export function OnboardingDialog() {
   const { user } = useAuth();
-  const { profile, isLoading: profileLoading, error: profileError } = useProfileContext();
+  const {
+    profile,
+    isLoading: profileLoading,
+    error: profileError,
+  } = useProfileContext();
   const searchParams = useSearchParams();
   const { isOpen, currentStep, openDialog, reset, checkUserId } =
     useOnboardingStore();
