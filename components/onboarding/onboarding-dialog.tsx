@@ -60,14 +60,22 @@ export function OnboardingDialog() {
     const isDismissed = localStorage.getItem(dismissedKey);
     if (isDismissed) return;
 
+    // Check if profile is already "substantially complete" (filled out via Edit Profile)
+    // This prevents pestering users who set up their profile manually
+    const hasCompleteProfile = profile && 
+      (profile.full_name || profile.display_name) && 
+      profile.home_beach_id;
+
     // Show onboarding if:
     // 1. No profile exists yet (brand new user)
-    // 2. Profile exists but onboarding not completed
-    const needsOnboarding = !profile || !profile.onboarding_completed_at;
+    // 2. Profile exists but onboarding not completed AND profile is not already complete
+    const needsOnboarding = !profile || (!profile.onboarding_completed_at && !hasCompleteProfile);
 
     if (needsOnboarding) {
       // Small delay to let page settle
-      setTimeout(() => openDialog(), 500);
+      const timeoutId = setTimeout(() => openDialog(), 500);
+      // Cleanup: cancel timeout if effect re-runs (e.g., profile loads with onboarding_completed_at)
+      return () => clearTimeout(timeoutId);
     }
   }, [user, profile, profileLoading, profileError, openDialog]);
 
@@ -90,7 +98,11 @@ export function OnboardingDialog() {
   // Determine if we should render based on profile completion status
   const isTesting = searchParams?.get("showOnboarding") === "1";
   const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
-  const shouldRender = isOpen && (!hasCompletedOnboarding || isTesting);
+  // Also check if profile is substantially complete (filled out via Edit Profile)
+  const hasCompleteProfile = profile && 
+    (profile.full_name || profile.display_name) && 
+    profile.home_beach_id;
+  const shouldRender = isOpen && (!hasCompletedOnboarding && !hasCompleteProfile || isTesting);
 
   return (
     <Dialog open={shouldRender}>
