@@ -68,14 +68,17 @@ export const createServerClient = () => {
     ""
   ).trim();
 
+  // CRITICAL: Fail fast if config is missing to prevent cryptic errors later
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Server: Supabase URL or Anon Key is missing");
-    console.error("NEXT_PUBLIC_SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.error("SUPABASE_URL:", process.env.SUPABASE_URL);
+    const error = new Error(
+      "Supabase configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables."
+    );
+    console.error("[createServerClient]", error.message);
+    throw error;
   }
 
   // Try to get cookies from Next.js
-  let cookieStore = null;
+  let cookieStore: any = null;
   try {
     // Dynamic import to avoid client-side errors
     if (typeof window === "undefined") {
@@ -85,38 +88,42 @@ export const createServerClient = () => {
     }
   } catch (error) {
     // Running outside of Next.js middleware/route handler context
-    // Only log in development to avoid cluttering build logs
-    if (process.env.NODE_ENV === "development") {
-      console.warn("Could not access cookies, running outside Next.js context");
+    // This is expected during build time or in certain edge cases
+    // Fall through to create a basic client without cookies
+  }
+
+  // Validate cookieStore has the expected interface before using it
+  if (cookieStore && typeof cookieStore.get === "function") {
+    try {
+      return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          get(name) {
+            try {
+              return cookieStore.get(name)?.value;
+            } catch {
+              // Cookie access failed - return undefined to use anon auth
+              return undefined;
+            }
+          },
+          set(_name, _value, _options) {
+            // No-op in Server Components and server actions to avoid
+            // Next.js "mutable cookies" errors during RSC refresh.
+            // API routes should use createAPIServerClient* which supports writes.
+            return;
+          },
+          remove(_name, _options) {
+            // No-op in Server Components and server actions; see comment above.
+            return;
+          },
+        },
+      });
+    } catch (error) {
+      // If server client creation fails, fall through to basic client
+      console.warn("[createServerClient] Failed to create SSR client, using basic client:", error);
     }
   }
 
-  if (cookieStore) {
-    return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        get(name) {
-          try {
-            return cookieStore.get(name)?.value;
-          } catch (error) {
-            console.error("Error getting cookie:", error);
-            return undefined;
-          }
-        },
-        set(_name, _value, _options) {
-          // No-op in Server Components and server actions to avoid
-          // Next.js "mutable cookies" errors during RSC refresh.
-          // API routes should use createAPIServerClient* which supports writes.
-          return;
-        },
-        remove(_name, _options) {
-          // No-op in Server Components and server actions; see comment above.
-          return;
-        },
-      },
-    });
-  }
-
-  // Fallback if cookies are not available
+  // Fallback if cookies are not available or SSR client creation failed
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
@@ -130,8 +137,13 @@ export const createServiceRoleClient = () => {
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
   const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
+  // CRITICAL: Fail fast if config is missing
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error("Server: Supabase URL or Service Key is missing");
+    const error = new Error(
+      "Supabase service role configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables."
+    );
+    console.error("[createServiceRoleClient]", error.message);
+    throw error;
   }
 
   return createClient(supabaseUrl, supabaseServiceKey, {
