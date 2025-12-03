@@ -9,6 +9,9 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl, buildCityUrl, buildStateUrl, stateToSlug, cityToSlug } from "@/lib/utils/beach-url-utils";
 import { notFound } from "next/navigation";
 
+// Force dynamic rendering - this page accesses cookies via Supabase client
+export const dynamic = 'force-dynamic';
+
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
 
 interface PageProps {
