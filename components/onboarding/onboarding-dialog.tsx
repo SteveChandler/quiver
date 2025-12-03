@@ -1,72 +1,140 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useOnboardingStore } from '@/store/onboarding-store';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Stepper } from './stepper';
-import { WelcomeStep } from './steps/welcome-step';
-import { ProfileStep } from './steps/profile-step';
-import { HomeBeachStep } from './steps/home-beach-step';
-import { PreferencesStep } from './steps/preferences-step';
-import { ReferralStep } from './steps/referral-step';
-import { NotificationsStep } from './steps/notifications-step';
-import { CompletionStep } from './steps/completion-step';
-import { useAuth } from '@/context/auth-context';
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { useOnboardingStore } from "@/store/onboarding-store";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Stepper } from "./stepper";
+import { WelcomeStep } from "./steps/welcome-step";
+import { ProfileStep } from "./steps/profile-step";
+import { HomeBeachStep } from "./steps/home-beach-step";
+import { PreferencesStep } from "./steps/preferences-step";
+import { NotificationsStep } from "./steps/notifications-step";
+import { CompletionStep } from "./steps/completion-step";
+import { useAuth } from "@/context/auth-context";
+import { useProfileContext } from "@/context/profile-context";
+import type { Profile } from "@/types/database";
 
 const STEPS = [
   WelcomeStep,
   ProfileStep,
   HomeBeachStep,
   PreferencesStep,
-  ReferralStep,
   NotificationsStep,
   CompletionStep,
 ];
 
+// Delays for dialog opening (ms)
+const DIALOG_OPEN_DELAY = 500; // Let page settle before showing onboarding
+const TESTING_OPEN_DELAY = 100; // Shorter delay for test mode
+
+/** Check if profile has enough data to skip onboarding (e.g., filled via Edit Profile) */
+function isProfileSubstantiallyComplete(
+  profile: Profile | null
+): profile is Profile {
+  return Boolean(
+    profile &&
+      (profile.full_name || profile.display_name) &&
+      profile.home_beach_id
+  );
+}
+
+/** Safe localStorage access - returns null on error (private browsing, quota exceeded) */
+function safeGetLocalStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 export function OnboardingDialog() {
   const { user } = useAuth();
+  const {
+    profile,
+    isLoading: profileLoading,
+    error: profileError,
+  } = useProfileContext();
   const searchParams = useSearchParams();
-  const { isOpen, currentStep, isCompleted, openDialog } = useOnboardingStore();
+  const { isOpen, currentStep, openDialog, reset, checkUserId } =
+    useOnboardingStore();
 
+  // Scope onboarding store to current user - prevents stale data from previous users
   useEffect(() => {
-    // Auto-open for new users who haven't completed onboarding
-    if (user && !isCompleted) {
-      // Check if user has completed onboarding in database
-      const checkOnboardingStatus = async () => {
-        try {
-          const res = await fetch('/api/user/onboarding-status');
-          const data = await res.json();
-
-          if (!data.completed && !localStorage.getItem('onboarding_dismissed')) {
-            // Small delay to let page settle
-            setTimeout(() => openDialog(), 500);
-          }
-        } catch (error) {
-          console.error('Failed to check onboarding status:', error);
-        }
-      };
-
-      checkOnboardingStatus();
+    if (user?.id) {
+      checkUserId(user.id);
     }
-  }, [user, isCompleted, openDialog]);
+  }, [user?.id, checkUserId]);
+
+  // Auto-open for new users who haven't completed onboarding
+  // Uses profile from context instead of API call
+  useEffect(() => {
+    // Wait for profile fetch to complete
+    if (!user || profileLoading) return;
+
+    // Don't show onboarding if profile failed to load - user may have already completed it
+    // This prevents existing users from seeing onboarding when API errors occur
+    if (profileError) return;
+
+    const dismissedKey = `onboarding_dismissed_${user.id}`;
+    const isDismissed = safeGetLocalStorage(dismissedKey);
+    if (isDismissed) return;
+
+    // Show onboarding if:
+    // 1. No profile exists yet (brand new user)
+    // 2. Profile exists but onboarding not completed AND profile is not already complete
+    const needsOnboarding =
+      !profile ||
+      (!profile.onboarding_completed_at &&
+        !isProfileSubstantiallyComplete(profile));
+
+    if (needsOnboarding) {
+      const timeoutId = setTimeout(() => openDialog(), DIALOG_OPEN_DELAY);
+      // Cleanup: cancel timeout if effect re-runs (e.g., profile loads with onboarding_completed_at)
+      return () => clearTimeout(timeoutId);
+    }
+  }, [user, profile, profileLoading, profileError, openDialog]);
 
   // Allow forcing the dialog with query param for testing
   useEffect(() => {
-    if (searchParams?.get('showOnboarding') === '1') {
-      openDialog();
+    if (searchParams?.get("showOnboarding") === "1") {
+      // Reset store to clear state for testing
+      reset();
+      const timeoutId = setTimeout(() => openDialog(), TESTING_OPEN_DELAY);
+      return () => clearTimeout(timeoutId);
     }
-  }, [openDialog, searchParams]);
+  }, [openDialog, reset, searchParams]);
 
   const CurrentStepComponent = STEPS[currentStep];
 
+  if (!CurrentStepComponent) {
+    return null;
+  }
+
+  // Determine if we should render based on profile completion status
+  const isTesting = searchParams?.get("showOnboarding") === "1";
+  const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
+  const shouldRender =
+    isOpen &&
+    ((!hasCompletedOnboarding && !isProfileSubstantiallyComplete(profile)) ||
+      isTesting);
+
   return (
-    <Dialog open={isOpen && !isCompleted}>
+    <Dialog open={shouldRender}>
       <DialogContent
         className="max-w-lg max-h-[90vh] overflow-y-auto"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
+        <DialogTitle className="sr-only">Onboarding Wizard</DialogTitle>
+        <DialogDescription className="sr-only">
+          Complete the onboarding steps to set up your profile.
+        </DialogDescription>
         <div className="p-6">
           <Stepper currentStep={currentStep} totalSteps={STEPS.length} />
           <CurrentStepComponent />

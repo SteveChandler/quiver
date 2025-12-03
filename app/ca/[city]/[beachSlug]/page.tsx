@@ -33,7 +33,9 @@ export default async function BeachDetailPage({ params }: PageProps) {
 
     // Validate that this is a California beach and city matches
     // Handle cases where beach data might be incomplete
-    if (beach.state !== "CA") {
+    // Note: State can be stored as "CA" or "California" in the database
+    const isCaliforniaBeach = beach.state === "CA" || beach.state === "California";
+    if (!isCaliforniaBeach) {
       console.warn("[BeachDetailPage] Beach is not in California:", {
         beachSlug,
         state: beach.state,
@@ -189,12 +191,13 @@ export async function generateStaticParams() {
     }
 
     const json = await response.json();
+    // Handle both wrapped response format (json.data.beaches) and direct format (json.beaches)
     const beaches: Array<{ slug: string | null; city: string | null; state: string | null }> =
-      json?.data?.beaches || [];
+      json?.data?.beaches || json?.beaches || [];
 
-    // Generate params for California beaches only
+    // Generate params for California beaches only (accept both "CA" and "California")
     const caBeaches = beaches
-      .filter((b) => b.slug && b.city && b.state === "CA")
+      .filter((b) => b.slug && b.city && (b.state === "CA" || b.state === "California"))
       .map((beach) => ({
         city: cityToSlug(beach.city),
         beachSlug: beach.slug!,

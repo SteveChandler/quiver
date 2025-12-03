@@ -22,7 +22,7 @@
 ### Strategic Positioning
 
 **AllTrails**: Trail discovery platform for hikers with 50M+ users
-**Quiver**: Social surf platform with production-ready features and 0 users
+**Quiver**: Social surf platform with production-ready features and 7 users
 
 ### Critical Insight
 
@@ -1290,8 +1290,8 @@ export function InstallPrompt() {
 
 | Metric | Current | Target (3 months) | AllTrails Benchmark |
 |--------|---------|-------------------|---------------------|
-| **DAU** | ~0 | 250 | N/A (50M total users) |
-| **MAU** | ~0 | 1,000 | N/A |
+| **DAU** | 7 | 250 | N/A (50M total users) |
+| **MAU** | 7 | 1,000 | N/A |
 | **Retention (Day 7)** | N/A | 40% | ~60% (estimate) |
 | **Retention (Day 30)** | N/A | 25% | ~40% (estimate) |
 | **Session Logs/User/Month** | N/A | 4 | ~6 (AllTrails hikes) |

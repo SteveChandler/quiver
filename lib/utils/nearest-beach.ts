@@ -23,7 +23,11 @@ function getNearestBeach(
 
   for (const key of Object.keys(beachCoordinates)) {
     const coords = beachCoordinates[key];
-    const d = calculateDistance(lat, lng, coords.lat, coords.lng, "km");
+    const d = calculateDistance(
+      { lat, lon: lng },
+      { lat: coords.lat, lon: coords.lng },
+      "km"
+    );
     if (d < minDistanceKm) {
       minDistanceKm = d;
       nearestKey = key;

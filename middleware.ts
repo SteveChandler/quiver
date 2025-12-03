@@ -3,6 +3,12 @@ import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { AuthValidator } from "@/lib/middleware/auth-validator";
 import { RouteGuard } from "@/lib/middleware/route-guard";
 import { AdminChecker } from "@/lib/middleware/admin-checker";
+import {
+  parseUTMParams,
+  parseAttributionFromRequestCookies,
+  generateAttributionCookieHeaders,
+  type AttributionData,
+} from "@/lib/attribution";
 
 // Only enable verbose logging in development
 const isDev = process.env.NODE_ENV === "development";
@@ -78,7 +84,7 @@ export async function middleware(request: NextRequest) {
 }
 
 /**
- * Create a NextResponse with security headers
+ * Create a NextResponse with security headers and attribution cookies
  */
 function createSecureResponse(request: NextRequest): NextResponse {
   const response = NextResponse.next({
@@ -92,7 +98,79 @@ function createSecureResponse(request: NextRequest): NextResponse {
     response.headers.set(key, value as string);
   });
 
+  // Capture UTM attribution parameters
+  captureAttributionParams(request, response);
+
   return response;
+}
+
+/**
+ * Capture UTM parameters and referrer for attribution tracking
+ * Uses first-touch model - only sets cookies if not already present
+ */
+function captureAttributionParams(
+  request: NextRequest,
+  response: NextResponse
+): void {
+  try {
+    const { searchParams } = request.nextUrl;
+
+    // Parse UTM params from URL
+    const utmParams = parseUTMParams(searchParams);
+
+    // Check if we have any UTM params to capture
+    const hasUtmParams = Object.values(utmParams).some((v) => v != null);
+
+    // Get referrer from headers (external referrers only)
+    const referrer = request.headers.get("referer") || null;
+    const host = request.headers.get("host") || "";
+    const isExternalReferrer = referrer && !referrer.includes(host);
+
+    // If no attribution data to capture, skip
+    if (!hasUtmParams && !isExternalReferrer) {
+      return;
+    }
+
+    // Get existing attribution from cookies
+    const cookieHeader = request.headers.get("cookie");
+    const existingAttribution = parseAttributionFromRequestCookies(cookieHeader);
+
+    // Build new attribution data
+    const newAttribution: Partial<AttributionData> = {
+      ...utmParams,
+    };
+
+    // Add referrer if external
+    if (isExternalReferrer) {
+      newAttribution.referrer = referrer;
+    }
+
+    // First touch tracking
+    if (!existingAttribution.first_touch_ts) {
+      newAttribution.first_touch_ts = new Date().toISOString();
+      newAttribution.landing_page =
+        request.nextUrl.pathname + request.nextUrl.search;
+    }
+
+    // Generate and set cookie headers (first-touch model)
+    const cookieHeaders = generateAttributionCookieHeaders(
+      newAttribution,
+      existingAttribution
+    );
+
+    for (const cookieHeader of cookieHeaders) {
+      response.headers.append("Set-Cookie", cookieHeader);
+    }
+
+    if (isDev && isVerbose && cookieHeaders.length > 0) {
+      log(`[Middleware] Attribution captured: ${cookieHeaders.length} cookies set`);
+    }
+  } catch (error) {
+    // Don't let attribution errors break the middleware
+    if (isDev) {
+      console.warn("[Middleware] Attribution capture error:", error);
+    }
+  }
 }
 
 /**

@@ -145,14 +145,13 @@ export function SessionCard({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onUserClick(session.user.id);
+              onUserClick(session.user!.id);
             }}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity"
           >
             <UserAvatar
               src={session?.user?.avatar_url}
               name={session?.user?.full_name || username}
-              email={session?.user?.email}
               size="md"
             />
             <div>
@@ -171,7 +170,6 @@ export function SessionCard({
             <UserAvatar
               src={session?.user?.avatar_url}
               name={session?.user?.full_name || username}
-              email={session?.user?.email}
               size="md"
             />
             <div>
@@ -205,7 +203,7 @@ export function SessionCard({
         <div className="grid grid-cols-3 gap-2 py-2 border-y bg-muted/30 rounded-md px-3">
           {/* Wave Conditions */}
           {(session.wave_quality ||
-            session.wave_height ||
+            session.wave_height_ft ||
             session.water_temp) && (
             <div className="text-center">
               <div className="flex items-center justify-center mb-1">
@@ -219,9 +217,9 @@ export function SessionCard({
                     color="text-blue-500"
                   />
                 )}
-                {session.wave_height && (
+                {session.wave_height_ft && (
                   <div className="text-xs text-muted-foreground">
-                    {session.wave_height}
+                    {session.wave_height_ft} ft
                   </div>
                 )}
                 {session.water_temp && (
@@ -235,7 +233,7 @@ export function SessionCard({
           )}
 
           {/* Crowd Level */}
-          {(session.crowd_level || session.crowd_rating) &&
+          {session.crowd_level &&
             session?.status !== "planned" && (
               <div className="text-center">
                 <div className="flex items-center justify-center mb-1">
@@ -243,7 +241,7 @@ export function SessionCard({
                 </div>
                 <div className="space-y-1">
                   <StarRating
-                    rating={session.crowd_level || session.crowd_rating || 0}
+                    rating={session.crowd_level}
                     size="sm"
                     color="text-orange-500"
                   />
@@ -317,8 +315,8 @@ export function SessionCard({
           loading="lazy"
           className="object-cover"
           beachName={beachName}
-          latitude={session?.beach?.latitude || session?.beach?.location?.y}
-          longitude={session?.beach?.longitude || session?.beach?.location?.x}
+          latitude={session?.beach?.lat ?? undefined}
+          longitude={session?.beach?.lon ?? undefined}
         />
       </div>
       )}

@@ -7,10 +7,12 @@
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { format, addHours, isValid } from "date-fns";
+import * as dateFns from "date-fns";
 import { BeachDiscoveryCard } from "@/components/discover/beach-discovery-card";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { Beach } from "@/types/database";
+
+const { format, addHours, isValid } = dateFns;
 
 describe("BeachDiscoveryCard - Date/Time Display", () => {
   const mockBeach: Beach = {

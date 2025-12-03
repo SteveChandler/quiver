@@ -1,38 +1,33 @@
 ## Quiver Architecture (Top-Level)
 
-This document is the canonical, high-level overview of Quiver’s architecture and an index to detailed docs. It summarizes core patterns and policies and points to directory-specific `ARCHITECTURE.md` files and primary references in `docs/`.
+This document is the canonical, high-level overview of Quiver’s architecture and an index to detailed docs. It summarizes core patterns, policies, and the current product strategy.
 
-Keep this doc concise. Put details in the linked documents.
+**Last Updated:** December 2025
 
 ---
 
 ### Stack & System Overview
 
-- Next.js 14 App Router (React, Server Actions)
-- Supabase (PostgreSQL, Auth, RLS, Realtime)
-- Tailwind CSS + shadcn/ui
-- TypeScript across frontend and backend
+- **Next.js 14 App Router** (React, Server Actions)
+- **Supabase** (PostgreSQL, Auth, RLS, Realtime)
+- **Tailwind CSS + shadcn/ui**
+- **TypeScript** across frontend and backend
 
-App status: Production-ready foundation with comprehensive tests; current focus is growth (0 → 1,000 users).
+**App Status**: Production-ready foundation with comprehensive tests.
+**Current Focus**: User acquisition and viral growth (7 → 1,000 users).
 
 ---
 
-### Mobile Architecture
+### Product Vision & Growth Strategy
 
-**Status**: Phase 1 Complete - Ready for Native Build Generation
+**Mission**: A community-driven, trail-style surf app where surfers can plan sessions, share experiences, and build meaningful connections.
 
-**Approach**: Capacitor shell wrapping the Next.js web app for iOS/Android distribution
+**Critical Challenge**: Technical excellence achieved (performance, features, testing), but 7 active users.
+**Strategic Pivot**: Shift from feature perfection to **Growth Engineering**.
 
-**Key Components**:
-- **PWA Foundation**: `public/manifest.json` with shortcuts, icons, protocol handlers
-- **Service Worker**: `public/sw.js` with forecast caching, 6-hour TTL, anti-stale-data policy
-- **Capacitor Config**: `capacitor.config.ts` with production URL, push config, splash settings
-- **Native Bridge**: `lib/mobile/` adapters for share, push notifications, platform detection
-- **Push Infrastructure**: Device token management, `hooks/use-native-push-registration.ts`
-- **Deep Links**: `app/.well-known/` routes for Android `assetlinks.json` and iOS `apple-app-site-association`
-- **Build Scripts**: `mobile:sync`, `mobile:build:ios`, `mobile:build:android`, `mobile:assets`
-
-**Next Steps**: Run `npm run mobile:sync` to generate iOS/Android projects, configure domain verification
+- **Phase 3A (Weeks 1-8)**: Viral Foundation (Social sharing, summary generation).
+- **Phase 3B (Weeks 9-16)**: Network Effects (Community features, buddy finder).
+- **Phase 3C (Weeks 17-24)**: Viral Acceleration (Referrals, challenges).
 
 ---
 
@@ -47,174 +42,115 @@ App status: Production-ready foundation with comprehensive tests; current focus 
 - `test-utils/` — Testing helpers (see `test-utils/ARCHITECTURE.md`)
 - `e2e/` — Playwright tests (see `e2e/ARCHITECTURE.md`)
 
-Primary references:
+**Primary Reference**: `docs/STYLE_GUIDE.md` (Brand, patterns, accessibility).
 
-- `docs/ARCHITECTURE_REVIEW.md` — PRIMARY reference for system architecture and current status
-- `docs/STYLE_GUIDE.md` — Brand, typography, color, iconography, motion, accessibility, DRY component patterns
+---
 
 ### Design Principles
 
-See `docs/DESIGN_PRINCIPLES.md` for the canonical principles that govern implementation across the codebase. Highlights:
+See `docs/DESIGN_PRINCIPLES.md`. Highlights:
 
-- Simplicity & Consistency: standard React data fetching, centralized API utils, no business logic in render paths
-- DRY & Modularity: reusable form/layout components, small focused modules, shared utilities
-- Performance by Design: efficient fetching/rendering, indexed queries, fail-fast on stale data
-- Security & Privacy by Default: RLS on all tables, authenticated actions, least-privilege access
-- Transparency & Trust: forecast source indicators and confidence, contextual snapshots for sessions
-- Comprehensive Testing & QA: unit/integration/component/E2E with realistic thresholds
-- AI-Augmented Automation (aspirational): Playwright MCP and agent loops governed by human review
-- Growth-Driven Product Focus: social sharing, viral mechanics, community features
+- **Simplicity & Consistency**: Standard React data fetching, centralized API utils.
+- **DRY & Modularity**: Reusable components, shared utilities.
+- **Performance by Design**: Fail-fast on stale data, efficient fetching.
+- **Security by Default**: RLS on all tables, authenticated actions.
+- **Growth-Driven**: All features must drive sharing/referrals.
 
 ---
 
 ### Core Architecture Patterns
 
-- Data fetching in React
+**1. Data Fetching (React)**
+Always memoize fetchers and use `useDataFetcher`:
 
-  - Always memoize the fetcher and use the standard hook:
+```ts
+const fetchData = useCallback(async () => {
+  return await someAction();
+}, [dependencies]);
 
-    ```ts
-    const fetchData = useCallback(async () => {
-      return await someAction();
-    }, [dependencies]);
+const { data, loading, error } = useDataFetcher(fetchData);
+```
 
-    const { data, loading, error, refetch } = useDataFetcher(fetchData);
-    ```
+**2. API Routes**
+Use centralized utilities:
 
-  - Never inline async functions inside hooks; avoid manual loading flags.
+```ts
+import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 
-- API routes
+export async function POST(request: Request) {
+  try {
+    const result = await processRequest();
+    return createSuccessResponse(result);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+```
 
-  - Use centralized utilities for consistent responses and error handling.
-  - Pattern:
+**3. Server Actions**
+Wrap with authentication helpers (`lib/server-action-utils.ts`):
 
-    ```ts
-    import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+```ts
+export const myAction = withAuthenticatedAction(async (userId, ...args) => { ... });
+```
 
-    export async function POST(request: Request) {
-      try {
-        const result = await processRequest();
-        return createSuccessResponse(result);
-      } catch (error) {
-        return handleApiError(error);
-      }
-    }
-    ```
-
-- Server actions
-
-  - Wrap with authenticated action helpers to enforce auth consistently.
-  - See `lib/server-action-utils.ts` (documented via `lib/ARCHITECTURE.md`).
-
-- DRY form components
-
-  - Use `components/ui/form-layout` and `components/ui/form-fields` for forms.
-  - Keep business logic out of UI; follow DRY component patterns in `docs/STYLE_GUIDE.md`.
-
-- Realtime subscriptions (Supabase)
-
-  - Subscribe with cleanup in `useEffect`; remove channel on unmount.
-
-- Centralized error handling
-  - Use `lib/api-utils.ts` and error helpers; prefer typed errors over ad-hoc handling.
+**4. Realtime**
+Subscribe with cleanup in `useEffect`.
 
 ---
 
-### Data Layer, Security, and Performance
+### Feature Status Highlights
 
-- PostgreSQL schema managed via `supabase/migrations/` with RLS on all tables.
-- Follow established patterns for RLS performance (wrap `auth.*` calls in `SELECT` to avoid InitPlan overhead).
-- Use proper indexes for foreign keys and frequent predicates; see performance migrations.
-- Anti-stale-data policy: never return stale forecast or domain data; fail fast instead.
-- See: `supabase/ARCHITECTURE.md`, `lib/services/*`, and `docs/ARCHITECTURE_REVIEW.md` for details.
-
----
-
-### Forecasting & Transparency (Domain Highlights)
-
-- Enhanced forecast system with data source transparency (NOAA vs fallback, nearest buoy indicators).
-- Confidence scoring and visual indicators; prefer clear user-facing transparency.
-- Session snapshots should capture forecast context for logged/planned sessions.
-- See: `components/forecast/ARCHITECTURE.md`, `lib/services/enhanced-forecast-service.ts`, and docs.
+- **Personalization**: "Single User Experience" engine with affinity/history learning.
+- **Social Platform**: Follows, feeds, likes, comments, real-time updates.
+- **Forecasting**: 10-day NOAA integration with confidence scoring.
+- **Media**: Photo upload, galleries, optimized storage.
+- **Session Management**: Logging, planning, rich metadata.
 
 ---
 
-### Personalization & Recommendation Engine
+### Mobile Architecture
 
-**Status**: Planning Phase - See [docs/PERSONALIZATION_STRATEGY.md](./PERSONALIZATION_STRATEGY.md) for comprehensive implementation plan
+**Status**: Phase 1 Complete - Ready for Native Build Generation
 
-**Vision**: Learn from user behavior to deliver truly personal surf recommendations within a 10-mile radius
-
-**Key Features** (Planned):
-- **Session Condition Capture**: Record actual conditions when users surf (wave height, wind, tide)
-- **Preference Learning**: Analyze session history to discover each user's preferred conditions
-- **Beach Affinity Tracking**: Boost beaches users have surfed before
-- **Collaborative Filtering**: "Surfers like you also surf at..." discovery
-- **Advanced Filters**: Beach type, amenities, crowd avoidance
-- **Current Location Support**: GPS-based recommendations for traveling surfers
-
-**Architecture Highlights**:
-- New tables: `session_conditions`, `user_surf_preferences`, `user_beach_affinity`
-- Enhanced scoring algorithm with learned preferences (0-120 pts normalized to 0-100)
-- Nightly preference recomputation for active users
-- Privacy-first collaborative filtering (anonymized, opt-out available)
-
-**Current State**:
-- Basic scoring with skill level only (1 of 4 criteria personalized)
-- 10-mile radius filtering via PostGIS spatial queries
-- Generic beach metadata-based recommendations
-
-**See**: [docs/PERSONALIZATION_STRATEGY.md](./PERSONALIZATION_STRATEGY.md) for phased implementation roadmap
+- **Approach**: Capacitor shell wrapping Next.js web app.
+- **Key Components**: PWA manifest, Service Worker (forecast caching), Capacitor bridge.
+- **Next Steps**: Run `npm run mobile:sync` to generate iOS/Android projects.
 
 ---
 
 ### Testing Strategy
 
-- Test types: unit (utils), integration (actions/API), component (UI), e2e (critical flows).
-- Playwright guidance: prefer `waitForLoadState("load")` over `networkidle`.
-- Performance thresholds tuned for dev environments (e.g., loadTime 15000ms).
-- API tests validate flexible status ranges (200/400/401/403/404/405/500) where appropriate.
-- See: `test-utils/ARCHITECTURE.md` and `e2e/ARCHITECTURE.md`.
+- **Test Types**: Unit (utils), Integration (actions), Component (UI), E2E (critical flows).
+- **Playwright**: Prefer `waitForLoadState("load")`.
+- **Performance**: Thresholds tuned for dev environments (e.g., loadTime 15000ms).
+- **API**: Validate flexible status ranges (200/400/401/etc).
 
 ---
 
-### Growth-First Focus (Non-Functional Priorities)
+### Supabase Access (Remote → Local)
 
-- Social sharing (session summaries for Instagram/TikTok)
-- Session photo integration
-- Viral mechanics (referrals, challenges, leaderboards)
-- Community features (surf buddies, crews)
+Project ref: `vawdnbbgawichorsjiwe` (quiverDB).
 
-All feature decisions should ask: does this help users invite friends and share content?
+```bash
+# Auth & link
+export SUPABASE_ACCESS_TOKEN="<YOUR_PAT>"
+supabase login --token "$SUPABASE_ACCESS_TOKEN"
+supabase link --project-ref vawdnbbgawichorsjiwe
 
----
+# Pull schema
+supabase db pull --schema public
 
-### Contribution Workflow & Quality Gates
-
-1. Start with analysis and planning; check relevant directory `ARCHITECTURE.md` and `docs/ARCHITECTURE_REVIEW.md`.
-2. Propose an implementation plan; get approval before coding.
-3. Implement following core patterns (no new ad-hoc patterns).
-4. Write/adjust tests (unit/integration/component/e2e) and ensure they pass.
-5. Update `CHANGELOG.md` (Added/Changed/Fixed/Performance) for all changes.
-6. Update directory architecture docs if introducing new patterns.
+# Reset local
+supabase db reset --local
+supabase start
+```
 
 ---
 
-### AI Agents & MCP Integration
+### Contribution Workflow
 
-- Agents: Fullstack Engineer and Design Review personas for Cursor
-- Docs: `docs/CURSOR_AGENTS.md`
-- MCP: Playwright server configured in `.cursor/mcp.json`
-
----
-
-### Quick Links
-
-- App router & API routes: `app/ARCHITECTURE.md`
-- Components & DRY forms: `components/ARCHITECTURE.md`, `docs/STYLE_GUIDE.md` (DRY patterns section)
-- Hooks & data fetching: `hooks/ARCHITECTURE.md`
-- Utilities, services, auth: `lib/ARCHITECTURE.md`
-- Database & RLS: `supabase/ARCHITECTURE.md`
-- Domain types: `types/ARCHITECTURE.md`
-- Testing utilities: `test-utils/ARCHITECTURE.md`, `e2e/ARCHITECTURE.md`
-- System overview: `docs/ARCHITECTURE_REVIEW.md`
+1. **Plan**: Check `ARCHITECTURE.md`, propose plan, get approval.
+2. **Implement**: Follow core patterns (DRY, `useDataFetcher`).
+3. **Verify**: Run tests (Unit/Integration/E2E).
+4. **Document**: Update `CHANGELOG.md` under `[Unreleased]`.

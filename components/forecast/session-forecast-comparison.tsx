@@ -30,6 +30,14 @@ import {
 import { cn } from "@/lib/utils";
 import type { SessionForecastSnapshot } from "@/types/database";
 
+/** Shape of forecast/actual conditions stored as JSON */
+interface ConditionsSnapshot {
+  wave_height?: string | number;
+  wind_speed?: string | number;
+  water_temp?: string | number;
+  [key: string]: unknown;
+}
+
 interface SessionForecastComparisonProps {
   snapshots: SessionForecastSnapshot[];
   className?: string;
@@ -74,8 +82,8 @@ export function SessionForecastComparison({
   const getMetrics = (
     snapshot: SessionForecastSnapshot
   ): ComparisonMetric[] => {
-    const forecast = snapshot.forecast_snapshot;
-    const actual = snapshot.actual_conditions;
+    const forecast = snapshot.forecast_snapshot as ConditionsSnapshot | null;
+    const actual = snapshot.actual_conditions as ConditionsSnapshot | null;
 
     const metrics: ComparisonMetric[] = [];
 

@@ -188,23 +188,12 @@ export const RATE_LIMITS = {
  */
 export type RateLimitKey = keyof typeof RATE_LIMITS;
 
-/**
- * Get rate limit config for a specific key
- *
- * @param key - Rate limit configuration key
- * @returns Rate limiter configuration
- */
-export function getRateLimitConfig(key: RateLimitKey): RateLimiterConfig {
-  return RATE_LIMITS[key];
-}
+
 
 /**
  * Rate limit documentation for API responses
- *
- * These descriptions can be included in error messages
- * to help users understand the limits
  */
-export const RATE_LIMIT_MESSAGES = {
+const RATE_LIMIT_MESSAGES = {
   "image-proxy": "Image proxy rate limit exceeded. Please reduce request frequency.",
   recommendations:
     "Recommendation API rate limit exceeded. Please wait before requesting more recommendations.",

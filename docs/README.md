@@ -6,12 +6,12 @@ This directory contains the essential documentation for the Quiver surf app, now
 
 **First time here? Start with these guides:**
 
-| Guide | Time | Purpose |
-|-------|------|---------|
-| **[quick-start/NEW_DEVELOPER.md](quick-start/NEW_DEVELOPER.md)** ⭐ | 15 min | Complete setup from zero to running |
-| **[setup/SUPABASE_SETUP.md](setup/SUPABASE_SETUP.md)** ⭐ | 10 min | How to connect to Supabase correctly |
-| **[guides/TESTING_GUIDE.md](guides/TESTING_GUIDE.md)** | 15 min | Running and writing tests |
-| **[quick-start/COMMON_TASKS.md](quick-start/COMMON_TASKS.md)** | 5 min | Daily development tasks |
+| Guide                                                               | Time   | Purpose                              |
+| ------------------------------------------------------------------- | ------ | ------------------------------------ |
+| **[quick-start/NEW_DEVELOPER.md](quick-start/NEW_DEVELOPER.md)** ⭐ | 15 min | Complete setup from zero to running  |
+| **[setup/SUPABASE_SETUP.md](setup/SUPABASE_SETUP.md)** ⭐           | 10 min | How to connect to Supabase correctly |
+| **[guides/TESTING_GUIDE.md](guides/TESTING_GUIDE.md)**              | 15 min | Running and writing tests            |
+| **[quick-start/COMMON_TASKS.md](quick-start/COMMON_TASKS.md)**      | 5 min  | Daily development tasks              |
 
 ## 📚 **Documentation by Category**
 
@@ -34,7 +34,7 @@ Day-to-day development references:
 - **[guides/DEV_TESTING.md](guides/DEV_TESTING.md)** - Testing against dev.quiversurf.app
 - **[guides/DEPLOYMENT_CHECKLIST.md](guides/DEPLOYMENT_CHECKLIST.md)** - Production deployment checklist
 - **[guides/IOS_RELEASE_GUIDE.md](guides/IOS_RELEASE_GUIDE.md)** - Complete iOS App Store submission guide
-- **[guides/TUNNEL_AUTOMATION_SUMMARY.md](guides/TUNNEL_AUTOMATION_SUMMARY.md)** - Mobile development tunnel automation
+- **[archive/reports/TUNNEL_AUTOMATION_SUMMARY.md](archive/reports/TUNNEL_AUTOMATION_SUMMARY.md)** - Mobile development tunnel automation
 - **[guides/E2E_TEST_PLAN.md](guides/E2E_TEST_PLAN.md)** - End-to-end testing strategy
 
 ### 🏗️ **Architecture & Strategy**
@@ -78,9 +78,8 @@ Database schema and data management:
 
 - **[data/database-coordinate-conventions.md](data/database-coordinate-conventions.md)** - Coordinate system conventions
 - **[data/coordinate-naming-audit.md](data/coordinate-naming-audit.md)** - Coordinate naming audit results
-- **[data/data-quality-audit-results.md](data/data-quality-audit-results.md)** - Data quality audit findings
-- **[data/PHASE_5_METRO_AREAS.md](data/PHASE_5_METRO_AREAS.md)** - Metro areas implementation
-
+- **[archive/reports/data-quality-audit-results.md](archive/reports/data-quality-audit-results.md)** - Data quality audit findings
+- **[archive/reports/PHASE_5_METRO_AREAS.md](archive/reports/PHASE_5_METRO_AREAS.md)** - Metro areas implementation
 
 ### 📍 **Coordinate Conventions**
 
@@ -98,6 +97,7 @@ Critical coordinate naming standards to prevent mapping bugs:
 - **[IMPLEMENTATION_SUMMARY_COORDINATE_VALIDATION.md](IMPLEMENTATION_SUMMARY_COORDINATE_VALIDATION.md)** - Implementation summary
 
 **Quick Reference**:
+
 ```typescript
 ✅ CORRECT: lat, lon, latitude, longitude
 ❌ WRONG: lng (never use in new code)
@@ -158,6 +158,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 **November 2025 (Latest)**: Phase 2 Documentation Consolidation - reduced redundancy
 
 **Phase 2 Changes:**
+
 - 📝 **Consolidated 13 → 4 feature docs**: Merged overlapping documentation
   - Photo Upload: 2 files → 1 comprehensive guide
   - Middleware: 4 files → 1 architecture doc
@@ -168,6 +169,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 - 🗂️ Enhanced docs/README.md with consolidated file references
 
 **Phase 1 Changes (Earlier November 2025)**:
+
 - ✨ **NEW:** Organized by purpose (setup/, guides/, features/, research/, reference/, data/)
 - 📁 Moved 25+ completed reports to reports/archive/
 - 📁 Moved 4 implementation plans to planning/archive/

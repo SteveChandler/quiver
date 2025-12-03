@@ -26,6 +26,7 @@ Replace the incomplete comparison function with a complete one that includes all
 **Impact:** 40-60% reduction in re-renders
 
 **Changes:**
+
 1. Add `memo` to imports (line 3)
 2. Rename `export function ForecastTable` to `function ForecastTableComponent` (line 379)
 3. Add memoized exports after line 451
@@ -43,6 +44,7 @@ Replace the incomplete comparison function with a complete one that includes all
 **Impact:** 60-80% reduction in re-renders
 
 **Changes:**
+
 1. Add `{ memo }` to imports (line 3)
 2. Rename `export function TideChart` to `function TideChartComponent` (line 363)
 3. Add memoized export with custom comparison after line 697
@@ -61,6 +63,7 @@ Replace the incomplete comparison function with a complete one that includes all
 **Impact:** 50-70% reduction in re-renders
 
 **Changes:**
+
 1. Add `memo` to imports
 2. Rename function to Component variant
 3. Add memoized export with custom comparison
@@ -91,6 +94,7 @@ Wrap function declaration with memo
 **Impact:** 20-30% reduction in child re-renders
 
 **Changes:**
+
 1. Add `useCallback` to imports
 2. Wrap handleMapClick (lines 90-97)
 3. Wrap handleReviewsClick (lines 99-106)
@@ -108,6 +112,7 @@ Wrap function declaration with memo
 **Impact:** 10-20% reduction
 
 **Changes:**
+
 1. Add `{ memo, useMemo }` to imports
 2. Rename function
 3. Replace getDataSourceInfo with useMemo
@@ -125,6 +130,7 @@ Wrap function declaration with memo
 **Impact:** Prevents child re-renders
 
 **Changes:**
+
 1. Add `useCallback` to imports
 2. Wrap handleToggle function
 
@@ -159,14 +165,14 @@ yarn test:e2e
 
 ## Files Summary
 
-| File | Fixes | Priority | Time | Impact |
-|------|-------|----------|------|--------|
-| `components/recommendations/PersonalizedBadge.tsx` | 1 (Bug) | P0 | 15m | Bug fix |
-| `components/forecast/forecast-table.tsx` | 2, 5, 8 | P0+P1 | 45m | 50-80% |
-| `components/forecast/tide-chart-recharts.tsx` | 3 | P0 | 25m | 60-80% |
-| `components/forecast/forecast-display-with-transparency.tsx` | 4 | P1 | 25m | 50-70% |
-| `components/beach-card.tsx` | 6 | P1 | 20m | 20-30% |
-| `components/ui/wave-height-display.tsx` | 7 | P1 | 25m | 10-20% |
+| File                                                         | Fixes   | Priority | Time | Impact  |
+| ------------------------------------------------------------ | ------- | -------- | ---- | ------- |
+| `components/recommendations/PersonalizedBadge.tsx`           | 1 (Bug) | P0       | 15m  | Bug fix |
+| `components/forecast/forecast-table.tsx`                     | 2, 5, 8 | P0+P1    | 45m  | 50-80%  |
+| `components/forecast/tide-chart-recharts.tsx`                | 3       | P0       | 25m  | 60-80%  |
+| `components/forecast/forecast-display-with-transparency.tsx` | 4       | P1       | 25m  | 50-70%  |
+| `components/beach-card.tsx`                                  | 6       | P1       | 20m  | 20-30%  |
+| `components/ui/wave-height-display.tsx`                      | 7       | P1       | 25m  | 10-20%  |
 
 **Total Time:** ~2.5 hours for all P0+P1 fixes
 
@@ -176,25 +182,25 @@ yarn test:e2e
 
 ### High-Frequency Components (Re-render Often)
 
-| Component | Current | After Fix | Improvement |
-|-----------|---------|-----------|-------------|
-| ForecastTable | Every parent update | Only data change | 40-60% |
-| TideChart | Every parent update | Only data change | 60-80% |
-| ForecastDayTable (×10) | Every parent update | Only data change | 80-90% |
-| ForecastDisplayWithTransparency | Every parent update | Only data change | 50-70% |
+| Component                       | Current             | After Fix        | Improvement |
+| ------------------------------- | ------------------- | ---------------- | ----------- |
+| ForecastTable                   | Every parent update | Only data change | 40-60%      |
+| TideChart                       | Every parent update | Only data change | 60-80%      |
+| ForecastDayTable (×10)          | Every parent update | Only data change | 80-90%      |
+| ForecastDisplayWithTransparency | Every parent update | Only data change | 50-70%      |
 
 ### Event Handler Components (Cause Child Re-renders)
 
-| Component | Issue | Fix | Improvement |
-|-----------|-------|-----|-------------|
-| BeachCard | Recreate handlers | useCallback | 20-30% |
-| ForecastTable | Recreate toggle | useCallback | 20-30% |
+| Component     | Issue             | Fix         | Improvement |
+| ------------- | ----------------- | ----------- | ----------- |
+| BeachCard     | Recreate handlers | useCallback | 20-30%      |
+| ForecastTable | Recreate toggle   | useCallback | 20-30%      |
 
 ### Calculation-Heavy Components
 
-| Component | Issue | Fix | Improvement |
-|-----------|-------|-----|-------------|
-| WaveHeightDisplay | Recreate sourceInfo | useMemo | 10-20% |
+| Component         | Issue                 | Fix            | Improvement   |
+| ----------------- | --------------------- | -------------- | ------------- |
+| WaveHeightDisplay | Recreate sourceInfo   | useMemo        | 10-20%        |
 | PersonalizedBadge | Incomplete comparison | Fix comparison | Bug fix + 30% |
 
 ---
@@ -202,16 +208,19 @@ yarn test:e2e
 ## Detailed Documentation
 
 **Full Analysis:** `REACT_RENDERING_ANALYSIS.md`
+
 - 18 critical issues with detailed explanations
 - 45+ optimization opportunities
 - Performance patterns and anti-patterns
 
-**Quick Reference:** `PERFORMANCE_FIXES_SUMMARY.md`
+**Quick Reference:** `../archive/performance/PERFORMANCE_FIXES_SUMMARY.md`
+
 - Priority classification
 - Impact summary
 - Timeline
 
 **Implementation:** `IMPLEMENTATION_GUIDE.md`
+
 - Step-by-step instructions
 - Complete code diffs
 - Testing protocols

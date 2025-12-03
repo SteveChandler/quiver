@@ -5,9 +5,10 @@ import {
   createSuccessResponse,
   createValidationError,
 } from "@/lib/api-utils";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
 // Matches Ruby BuoysController functionality
-export async function GET(request: NextRequest) {
+async function nearbyBuoysHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const latitude = parseFloat(searchParams.get("latitude") || "0");
   const longitude = parseFloat(searchParams.get("longitude") || "0");
@@ -67,3 +68,6 @@ export async function GET(request: NextRequest) {
     return handleApiError(error, "Error fetching nearby buoys");
   }
 }
+
+// Apply bot blocking and rate limiting protection
+export const GET = withBotBlockingAndRateLimit(nearbyBuoysHandler, "public-default");

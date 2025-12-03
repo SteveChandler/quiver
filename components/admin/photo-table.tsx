@@ -9,7 +9,7 @@
  */
 
 import { useState, useMemo } from "react";
-import { Eye, Trash2, RotateCcw, CheckCircle, XCircle, X } from "lucide-react";
+import { Eye, Trash2, RotateCcw, CheckCircle, XCircle, X, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 
 import {
@@ -33,7 +33,9 @@ interface PhotoTableProps {
   onDelete: (photo: PhotoModerationItem) => void;
   onRestore: (photo: PhotoModerationItem) => void;
   onApprove?: (photo: PhotoModerationItem, approved: boolean) => void; // Beach photos only
-  onBulkDelete?: (photoIds: string[], photoType: "session_media" | "beach_photo") => void; // Bulk delete
+  onBulkDelete?: (photoIds: string[], photoType: "session_media" | "beach_photo") => void; // Bulk soft delete
+  onHardDelete?: (photo: PhotoModerationItem) => void; // Permanent delete
+  onBulkHardDelete?: (photoIds: string[], photoType: "session_media" | "beach_photo") => void; // Bulk permanent delete
   loading?: boolean;
 }
 
@@ -44,6 +46,8 @@ export function PhotoTable({
   onRestore,
   onApprove,
   onBulkDelete,
+  onHardDelete,
+  onBulkHardDelete,
   loading = false,
 }: PhotoTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -106,6 +110,26 @@ export function PhotoTable({
     setSelectedIds(new Set());
   };
 
+  const handleBulkHardDelete = () => {
+    if (!onBulkHardDelete || selectedIds.size === 0) return;
+
+    // Get the selected photos to determine their type
+    const selectedPhotos = filteredPhotos.filter((p) => selectedIds.has(p.id));
+    if (selectedPhotos.length === 0) return;
+
+    // Confirm permanent deletion
+    if (!confirm(`Are you sure you want to PERMANENTLY delete ${selectedIds.size} photo(s)? This cannot be undone!`)) {
+      return;
+    }
+
+    // All selected photos should be the same type (enforced by UI - different tabs)
+    const photoType = selectedPhotos[0].type;
+    const selectedIdsArray = Array.from(selectedIds);
+
+    onBulkHardDelete(selectedIdsArray, photoType);
+    setSelectedIds(new Set());
+  };
+
   const isDeleted = (photo: PhotoModerationItem) => photo.status === "deleted";
   const isBeachPhoto = (photo: PhotoModerationItem) => photo.type === "beach_photo";
 
@@ -141,7 +165,7 @@ export function PhotoTable({
       </div>
 
       {/* Bulk Action Toolbar */}
-      {selectedIds.size > 0 && onBulkDelete && (
+      {selectedIds.size > 0 && (onBulkDelete || onBulkHardDelete) && (
         <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
           <div className="flex items-center gap-4">
             <span className="text-sm font-medium">
@@ -152,10 +176,20 @@ export function PhotoTable({
               Clear Selection
             </Button>
           </div>
-          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete Selected ({selectedIds.size})
-          </Button>
+          <div className="flex items-center gap-2">
+            {onBulkDelete && (
+              <Button variant="outline" size="sm" onClick={handleBulkDelete}>
+                <Trash2 className="h-4 w-4 mr-1" />
+                Soft Delete ({selectedIds.size})
+              </Button>
+            )}
+            {onBulkHardDelete && (
+              <Button variant="destructive" size="sm" onClick={handleBulkHardDelete}>
+                <AlertTriangle className="h-4 w-4 mr-1" />
+                Permanently Delete ({selectedIds.size})
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -342,16 +376,35 @@ export function PhotoTable({
                             </Button>
                           )}
 
-                          {/* Delete Button */}
+                          {/* Soft Delete Button */}
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => onDelete(photo)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700"
+                            title="Soft delete (can be restored)"
                           >
                             <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete photo</span>
+                            <span className="sr-only">Soft delete photo</span>
                           </Button>
+
+                          {/* Hard Delete Button */}
+                          {onHardDelete && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm("Permanently delete this photo? This cannot be undone!")) {
+                                  onHardDelete(photo);
+                                }
+                              }}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              title="Permanently delete (cannot be undone)"
+                            >
+                              <AlertTriangle className="h-4 w-4" />
+                              <span className="sr-only">Permanently delete photo</span>
+                            </Button>
+                          )}
                         </>
                       ) : (
                         /* Restore Button */

@@ -1,4 +1,3 @@
-import type { SessionAnalytics, CalendarHeatmapData } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   format,
@@ -7,6 +6,68 @@ import {
   eachDayOfInterval,
   subMonths,
 } from "date-fns";
+
+/** Wave height trend data point */
+interface WaveHeightTrendPoint {
+  date: string;
+  averageWaveHeight: number;
+  sessionCount: number;
+}
+
+/** Monthly session statistics */
+interface MonthlyStats {
+  month: string;
+  sessionCount: number;
+  averageRating: number;
+  totalHours: number;
+}
+
+/** Board usage statistics */
+interface BoardUsage {
+  boardId: string;
+  boardName: string;
+  usageCount: number;
+}
+
+/** Session analytics data structure */
+interface SessionAnalytics {
+  type: "analytics";
+  userId: string;
+  totalSessions: number;
+  completedSessions: number;
+  totalHours: number;
+  averageRating: number;
+  averageWaveHeight: number;
+  favoriteBeach: string | null;
+  frequentBoards: BoardUsage[];
+  monthlyStats: MonthlyStats[];
+  waveHeightTrend: WaveHeightTrendPoint[];
+  conditionRatings: {
+    waterTemp: number;
+    crowdLevel: number;
+    windConditions: number;
+    waveQuality: number;
+    parkingEase: number;
+  };
+  generatedAt: string;
+}
+
+/** Calendar day session summary */
+interface CalendarDaySession {
+  id: string;
+  beachName: string;
+  rating: number;
+  waveHeight: number;
+}
+
+/** Calendar heatmap data point */
+interface CalendarHeatmapData {
+  date: string;
+  sessionCount: number;
+  averageWaveHeight: number;
+  averageRating: number;
+  sessions: CalendarDaySession[];
+}
 
 /**
  * Get comprehensive session analytics for a user
@@ -71,7 +132,7 @@ export async function getSessionAnalytics(
 
     const favoriteBeach =
       Object.keys(beachCounts).length > 0
-        ? Object.entries(beachCounts).reduce((a, b) => (a[1] > b[1] ? a : b))[0]
+        ? (Object.entries(beachCounts) as [string, number][]).reduce((a, b) => (a[1] > b[1] ? a : b))[0]
         : null;
 
     // Calculate frequent boards
@@ -87,7 +148,7 @@ export async function getSessionAnalytics(
       return acc;
     }, {} as Record<string, { boardId: string; boardName: string; usageCount: number }>);
 
-    const frequentBoards = Object.values(boardCounts)
+    const frequentBoards: BoardUsage[] = (Object.values(boardCounts) as BoardUsage[])
       .sort((a, b) => b.usageCount - a.usageCount)
       .slice(0, 5);
 
@@ -249,7 +310,7 @@ export async function getCalendarHeatmapData(
       const averageWaveHeight =
         daySessions.length > 0
           ? daySessions.reduce(
-              (sum, session) => sum + (session.wave_quality || 0),
+              (sum: number, session: { wave_quality?: number | null }) => sum + (session.wave_quality || 0),
               0
             ) / daySessions.length
           : 0;
@@ -257,7 +318,7 @@ export async function getCalendarHeatmapData(
       const averageRating =
         daySessions.length > 0
           ? daySessions.reduce(
-              (sum, session) => sum + (session.rating || 0),
+              (sum: number, session: { rating?: number | null }) => sum + (session.rating || 0),
               0
             ) / daySessions.length
           : 0;
@@ -267,7 +328,7 @@ export async function getCalendarHeatmapData(
         sessionCount: daySessions.length,
         averageWaveHeight: Math.round(averageWaveHeight * 10) / 10,
         averageRating: Math.round(averageRating * 10) / 10,
-        sessions: daySessions.map((session) => ({
+        sessions: daySessions.map((session: { id: string; beach?: { name?: string } | null; beach_name?: string | null; rating?: number | null; wave_quality?: number | null }) => ({
           id: session.id,
           beachName:
             session.beach?.name || session.beach_name || "Unknown Beach",

@@ -49,20 +49,20 @@ export function ForecastTab({
 }: ForecastTabProps) {
   const router = useRouter();
 
-  // Fetch surf discovery with maxResults=1 for personalized forecast card
-  // Uses discovery service's time-decay scoring (prefers near-term quality)
+  // Fetch surf discovery with maxResults=3 to serve both PersonalizedForecastCard
+  // and BeachDiscoveryList from a single API call (avoids duplicate requests)
   const {
     discovery,
     loading: discoveryLoading,
     error: discoveryError,
     hasRecommendations,
   } = useSurfDiscovery({
-    maxResults: 1, // Single recommendation for personalized card
+    maxResults: 3, // Fetch 3 recommendations - first goes to personalized card, all to list
     enabled: !!profile, // Only fetch when user has profile
     immediate: true,    // Fetch on mount
   });
 
-  // Adapt discovery response to personalized format for PersonalizedForecastCard
+  // Adapt first discovery result to personalized format for PersonalizedForecastCard
   const recommendation = discovery ? adaptDiscoveryResponse(discovery) : null;
   const personalizedLoading = discoveryLoading;
   const personalizedError = discoveryError;
@@ -439,9 +439,13 @@ export function ForecastTab({
                 onViewBeach={handleViewBeachFromPersonalized}
               />
             )}
-      {/* Surf Discovery - Top Spots for You */}
+      {/* Surf Discovery - Top Spots for You (uses same data as personalized card) */}
       {profile && (
-        <BeachDiscoveryList maxResults={3} />
+        <BeachDiscoveryList
+          discoveryData={discovery}
+          isLoading={discoveryLoading}
+          errorMessage={discoveryError}
+        />
       )}
 
       

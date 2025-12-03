@@ -9,7 +9,6 @@
 
 "use server";
 
-import { createServerClient } from "@/lib/supabase/server";
 import { withDatabaseOperation } from "@/lib/server-action-utils";
 import type {
   LocationPageData,
@@ -68,7 +67,7 @@ export async function getLocationPageData(
 
       if (!beaches || beaches.length === 0) {
         console.error(`[getLocationPageData] No beaches found for metro area:`, {
-          city,
+          city: metroConfig.cities,
           state,
           country,
           metroConfig,
@@ -93,7 +92,7 @@ export async function getLocationPageData(
       }
 
       // Add rank to each beach (global ranking across all neighborhoods)
-      const rankedBeaches: BeachWithMetrics[] = beaches.map((beach, index) => ({
+      const rankedBeaches: BeachWithMetrics[] = beaches.map((beach: any, index: number) => ({
         ...beach,
         rank: index + 1,
       }));
@@ -170,7 +169,7 @@ export async function getLocationPageData(
       }
 
       // Add rank to each beach
-      const rankedBeaches: BeachWithMetrics[] = beaches.map((beach, index) => ({
+      const rankedBeaches: BeachWithMetrics[] = beaches.map((beach: any, index: number) => ({
         ...beach,
         rank: index + 1,
       }));
@@ -224,7 +223,7 @@ export async function getAllBeachLocations() {
     }
 
     // Map to consistent format
-    const locations = data.map((loc) => ({
+    const locations = data.map((loc: any) => ({
       country: loc.country,
       state: loc.state,
       city: loc.city,
@@ -256,45 +255,3 @@ export async function getAllBeachLocations() {
   });
 }
 
-/**
- * Get statistics for a specific location
- *
- * @param city - City name
- * @param state - State abbreviation or name
- * @param country - Country name (defaults to "USA")
- * @returns Location statistics
- */
-export async function getLocationStats(
-  city: string,
-  state: string,
-  country: string = "USA"
-) {
-  return withDatabaseOperation(async (supabase) => {
-    const { data, error } = await supabase.rpc("get_location_stats", {
-      p_city: city,
-      p_state: normalizeState(state),
-      p_country: country,
-    });
-
-    if (error) {
-      console.error("Error fetching location stats:", error);
-      throw new Error(`Failed to fetch stats: ${error.message}`);
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error("No statistics available for this location");
-    }
-
-    const stats: LocationStats = {
-      locationName: city,
-      stateName: state,
-      countryName: country,
-      totalBeaches: data[0].total_beaches,
-      averageRating: parseFloat(data[0].average_rating || "0"),
-      totalReviews: data[0].total_reviews,
-      topBeaches: data[0].top_beaches,
-    };
-
-    return { data: stats, error: null };
-  });
-}

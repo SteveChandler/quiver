@@ -2,7 +2,7 @@
 
 **Version**: 1.0
 **Base URL**: `https://quiversurf.app/api`
-**Last Updated**: October 28, 2025
+**Last Updated**: November 25, 2025
 
 ---
 
@@ -1062,25 +1062,6 @@ Health check endpoint.
   "status": "healthy",
   "timestamp": "2025-10-28T12:00:00Z",
   "version": "1.0.0"
-}
-```
-
----
-
-#### GET /api/cache/status
-
-Cache status (Admin only).
-
-**Authentication**: Required (Admin)
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "cache_stats": {
-    "hit_rate": 0.85,
-    "total_requests": 10000
-  }
 }
 ```
 

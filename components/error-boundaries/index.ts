@@ -19,7 +19,7 @@ export { DataLoadErrorFallback } from './DataLoadErrorFallback';
 export type { DataLoadErrorFallbackProps } from './DataLoadErrorFallback';
 
 // Utilities
-export { retryWithBackoff, isRetryableError } from './utils/retry-strategies';
+export { retryWithBackoff } from './utils/retry-strategies';
 export type { RetryStrategy } from './utils/retry-strategies';
 
 export { categorizeError } from './utils/error-categorizer';
@@ -29,7 +29,6 @@ export {
   saveFormState,
   loadFormState,
   clearFormState,
-  clearExpiredFormStates,
 } from './utils/state-persistence';
 
 export { logErrorBoundary } from './utils/error-logger';

@@ -14,7 +14,6 @@ We've broken down large components into smaller, focused pieces and created comp
 - `beach-hero.test.tsx` - Tests the hero section with beach image and info
 - `beach-quick-actions.test.tsx` - Tests the action buttons (Plan/Log Session)
 - `todays-forecast.test.tsx` - Tests the forecast display component
-- `beach-community.test.tsx` - Tests the community sessions section
 
 #### Map Components
 

@@ -1,0 +1,320 @@
+import { Page, expect, BrowserContext } from '@playwright/test';
+
+/**
+ * Error Detection Utilities for E2E Tests
+ *
+ * These utilities ensure tests FAIL when errors are visible on screen,
+ * rather than passing silently while users see broken pages.
+ */
+
+export interface ErrorCapture {
+  consoleErrors: string[];
+  networkErrors: { url: string; status: number; statusText: string }[];
+  visibleErrors: string[];
+}
+
+/**
+ * Error selectors that indicate something went wrong on the page
+ * Add more selectors as you discover new error patterns
+ */
+const ERROR_SELECTORS = [
+  // Generic error indicators
+  '[data-testid="error"]',
+  '[data-testid="error-message"]',
+  '[data-testid="error-boundary"]',
+  '[role="alert"]',
+
+  // Toast/notification errors
+  '[data-sonner-toast][data-type="error"]',
+  '.toast-error',
+  '.Toastify__toast--error',
+
+  // Error text patterns (use carefully - these can match false positives)
+  // Note: Avoid overly broad patterns like "Unable to load" - they catch graceful degradation
+  'text=/Something went wrong/i',
+  'text=/Error:/i',
+  'text=/An error occurred/i',
+  'text=/500 Internal Server Error/i',
+  'text=/404 Not Found/i',
+  'text=/503 Service Unavailable/i',
+
+  // Next.js error overlay
+  '#nextjs__container_errors_label',
+  '[data-nextjs-dialog]',
+];
+
+/**
+ * Set up error detection for a page
+ * Call this in beforeEach to automatically capture errors throughout the test
+ */
+export function setupErrorDetection(page: Page): ErrorCapture {
+  const capture: ErrorCapture = {
+    consoleErrors: [],
+    networkErrors: [],
+    visibleErrors: [],
+  };
+
+  // Capture console errors
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      const text = msg.text();
+      // Filter out noisy errors that aren't real problems
+      if (!isIgnorableConsoleError(text)) {
+        capture.consoleErrors.push(text);
+      }
+    }
+  });
+
+  // Capture unhandled page errors
+  page.on('pageerror', (error) => {
+    capture.consoleErrors.push(`Uncaught: ${error.message}`);
+  });
+
+  // Capture network errors (4xx, 5xx responses)
+  page.on('response', (response) => {
+    const status = response.status();
+    const url = response.url();
+
+    // Skip assets and expected 404s for optional resources
+    if (status >= 400 && !isIgnorableNetworkError(url, status)) {
+      capture.networkErrors.push({
+        url,
+        status,
+        statusText: response.statusText(),
+      });
+    }
+  });
+
+  return capture;
+}
+
+/**
+ * Check for visible errors on the page
+ * Returns array of visible error messages
+ */
+export async function getVisibleErrors(page: Page): Promise<string[]> {
+  const errors: string[] = [];
+
+  for (const selector of ERROR_SELECTORS) {
+    try {
+      const elements = page.locator(selector);
+      const count = await elements.count();
+
+      for (let i = 0; i < count; i++) {
+        const element = elements.nth(i);
+        const isVisible = await element.isVisible().catch(() => false);
+
+        if (isVisible) {
+          const text = await element.textContent().catch(() => null);
+          if (text?.trim()) {
+            errors.push(`[${selector}]: ${text.trim().substring(0, 200)}`);
+          }
+        }
+      }
+    } catch {
+      // Selector might not be valid for this page, skip
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Assert no errors are present
+ * Call this after actions to ensure no errors appeared
+ */
+export async function assertNoErrors(
+  page: Page,
+  capture: ErrorCapture,
+  options: {
+    checkConsole?: boolean;
+    checkNetwork?: boolean;
+    checkVisible?: boolean;
+    context?: string;
+  } = {}
+): Promise<void> {
+  const {
+    checkConsole = true,
+    checkNetwork = true,
+    checkVisible = true,
+    context = 'Page',
+  } = options;
+
+  const problems: string[] = [];
+
+  // Check visible errors
+  if (checkVisible) {
+    const visibleErrors = await getVisibleErrors(page);
+    if (visibleErrors.length > 0) {
+      problems.push(`\n📍 Visible Errors on Page:`);
+      visibleErrors.forEach((err) => problems.push(`   - ${err}`));
+    }
+  }
+
+  // Check console errors
+  if (checkConsole && capture.consoleErrors.length > 0) {
+    problems.push(`\n🔴 Console Errors:`);
+    capture.consoleErrors.forEach((err) => problems.push(`   - ${err.substring(0, 300)}`));
+  }
+
+  // Check network errors
+  if (checkNetwork && capture.networkErrors.length > 0) {
+    problems.push(`\n🌐 Network Errors:`);
+    capture.networkErrors.forEach((err) =>
+      problems.push(`   - ${err.status} ${err.statusText}: ${err.url.substring(0, 100)}`)
+    );
+  }
+
+  if (problems.length > 0) {
+    // Take screenshot for debugging
+    const timestamp = Date.now();
+    const screenshotPath = `test-results/error-detected-${timestamp}.png`;
+    await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
+
+    const errorMessage = [
+      `\n❌ ${context} has errors!\n`,
+      `📸 Screenshot: ${screenshotPath}`,
+      `🔗 URL: ${page.url()}`,
+      ...problems,
+    ].join('\n');
+
+    throw new Error(errorMessage);
+  }
+}
+
+/**
+ * Wait for page to load and assert no errors
+ * Combines waitForPageLoad with error checking
+ */
+export async function waitForPageLoadWithErrorCheck(
+  page: Page,
+  capture: ErrorCapture,
+  options: { timeout?: number; context?: string } = {}
+): Promise<void> {
+  const { timeout = 30000, context = 'Page load' } = options;
+
+  await page.waitForLoadState('domcontentloaded', { timeout });
+  await page.waitForLoadState('networkidle', { timeout }).catch(() => {
+    // Ignore timeout - some pages have long-polling
+  });
+
+  // Small delay to let error UI render
+  await page.waitForTimeout(500);
+
+  await assertNoErrors(page, capture, { context });
+}
+
+/**
+ * Navigate to URL and assert no errors
+ */
+export async function gotoWithErrorCheck(
+  page: Page,
+  capture: ErrorCapture,
+  url: string,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const { timeout = 30000 } = options;
+
+  // Clear previous errors before navigating
+  capture.consoleErrors = [];
+  capture.networkErrors = [];
+
+  await page.goto(url, { timeout, waitUntil: 'domcontentloaded' });
+  await waitForPageLoadWithErrorCheck(page, capture, { context: `Navigate to ${url}` });
+}
+
+/**
+ * Click element and assert no errors appear after
+ */
+export async function clickWithErrorCheck(
+  page: Page,
+  capture: ErrorCapture,
+  selector: string,
+  description: string,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const { timeout = 10000 } = options;
+
+  await page.locator(selector).click({ timeout });
+
+  // Wait for any error UI to appear
+  await page.waitForTimeout(500);
+
+  await assertNoErrors(page, capture, { context: `After clicking ${description}` });
+}
+
+// Helper: Ignorable console errors (noisy but not real problems)
+function isIgnorableConsoleError(text: string): boolean {
+  const ignorable = [
+    // React development warnings
+    'Warning: ReactDOM.render is no longer supported',
+    'Warning: Each child in a list',
+    'Warning: validateDOMNesting',
+
+    // Browser extensions
+    'chrome-extension://',
+    'moz-extension://',
+
+    // Third-party scripts
+    'Failed to load resource: net::ERR_BLOCKED_BY_CLIENT', // Ad blockers
+    'googletagmanager',
+    'analytics',
+    'facebook',
+
+    // Hot reload in dev
+    'Fast Refresh',
+    '[HMR]',
+
+    // Sentry noise
+    'Sentry',
+
+    // Image loading (handled gracefully)
+    'Image optimization',
+
+    // Rate limiting (429) - infrastructure protection, not bugs
+    'status of 429',
+  ];
+
+  return ignorable.some((pattern) => text.includes(pattern));
+}
+
+// Helper: Ignorable network errors
+function isIgnorableNetworkError(url: string, status: number): boolean {
+  // 429 (Rate Limit) errors are infrastructure protection, not application bugs
+  // These occur when running multiple tests against rate-limited APIs
+  if (status === 429) {
+    return true;
+  }
+
+  // 404s for optional resources
+  if (status === 404) {
+    const optional = [
+      '/favicon.ico',
+      '/manifest.json',
+      '/robots.txt',
+      '.map', // Source maps
+      'analytics',
+      'gtm',
+      'facebook',
+    ];
+    return optional.some((pattern) => url.includes(pattern));
+  }
+
+  return false;
+}
+
+/**
+ * Enhanced test setup hook
+ * Use this to wrap your test.beforeEach
+ *
+ * @example
+ * let errorCapture: ErrorCapture;
+ *
+ * test.beforeEach(async ({ page }) => {
+ *   errorCapture = setupErrorDetection(page);
+ * });
+ *
+ * test.afterEach(async ({ page }) => {
+ *   await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
+ * });
+ */

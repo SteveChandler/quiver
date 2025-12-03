@@ -11,13 +11,23 @@ import { withAdminActionAndUser } from "@/lib/server-action-utils/admin";
 import { recordAdminEvent } from "@/lib/logging/admin-audit";
 import { beachFormSchema, beachUpdateSchema } from "@/lib/validation/admin/beach-schema";
 import type { Beach } from "@/types/database";
+import type { AdminUser } from "@/lib/auth/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+
+/** Context provided to admin actions */
+type AdminContext = {
+  user: AdminUser;
+  supabaseAdmin: SupabaseClient<Database>;
+};
 
 /**
  * List all beaches with optional soft delete filter
  */
 export const listBeaches = withAdminActionAndUser(
-  async (options: { includeDeleted?: boolean } = {}, { supabaseAdmin }) => {
-    const { includeDeleted = false } = options;
+  async (options: { includeDeleted?: boolean }, { supabaseAdmin }: AdminContext) => {
+    const opts = options || {};
+    const { includeDeleted = false } = opts;
 
     let query = supabaseAdmin
       .from("beaches")
@@ -43,7 +53,7 @@ export const listBeaches = withAdminActionAndUser(
  * Get a single beach by ID for editing
  */
 export const getBeachForEdit = withAdminActionAndUser(
-  async (beachId: string, { supabaseAdmin }) => {
+  async (beachId: string, { supabaseAdmin }: AdminContext) => {
     const { data, error } = await supabaseAdmin
       .from("beaches")
       .select("*")
@@ -66,7 +76,7 @@ export const getBeachForEdit = withAdminActionAndUser(
  * Create a new beach
  */
 export const createBeach = withAdminActionAndUser(
-  async (formData: unknown, { user, supabaseAdmin }) => {
+  async (formData: unknown, { user, supabaseAdmin }: AdminContext) => {
     // Validate input
     const validated = beachFormSchema.parse(formData);
 
@@ -75,11 +85,11 @@ export const createBeach = withAdminActionAndUser(
       .from("beaches")
       .insert({
         name: validated.name,
-        city: validated.city,
-        state: validated.state,
+        location: validated.location,
+        region: validated.region,
         country: validated.country,
-        lat: validated.lat,
-        lon: validated.lon,
+        center_lat: validated.latitude,
+        center_lng: validated.longitude,
         break_type: validated.break_type,
         skill_level: validated.skill_level,
         is_private: validated.is_private,
@@ -93,14 +103,12 @@ export const createBeach = withAdminActionAndUser(
     }
 
     // Log the action
-    await recordAdminEvent({
-      userId: user.id,
-      action: "create",
-      resourceType: "beach",
-      resourceId: data.id,
-      details: {
+    await recordAdminEvent(user.id, "beach", "create", {
+      entityId: data.id,
+      description: `Created beach: ${validated.name}`,
+      payloadSummary: {
         beach_name: validated.name,
-        state: validated.state,
+        region: validated.region,
       },
     });
 
@@ -112,14 +120,14 @@ export const createBeach = withAdminActionAndUser(
  * Update an existing beach
  */
 export const updateBeach = withAdminActionAndUser(
-  async (beachId: string, formData: unknown, { user, supabaseAdmin }) => {
+  async (beachId: string, formData: unknown, { user, supabaseAdmin }: AdminContext) => {
     // Validate input
     const validated = beachUpdateSchema.parse(formData);
 
     // Get the existing beach for audit logging
     const { data: existingBeach } = await supabaseAdmin
       .from("beaches")
-      .select("name, state")
+      .select("name, region")
       .eq("id", beachId)
       .single();
 
@@ -128,11 +136,11 @@ export const updateBeach = withAdminActionAndUser(
       .from("beaches")
       .update({
         name: validated.name,
-        city: validated.city,
-        state: validated.state,
+        location: validated.location,
+        region: validated.region,
         country: validated.country,
-        lat: validated.lat,
-        lon: validated.lon,
+        center_lat: validated.latitude,
+        center_lng: validated.longitude,
         break_type: validated.break_type,
         skill_level: validated.skill_level,
         is_private: validated.is_private,
@@ -147,16 +155,14 @@ export const updateBeach = withAdminActionAndUser(
     }
 
     // Log the action
-    await recordAdminEvent({
-      userId: user.id,
-      action: "update",
-      resourceType: "beach",
-      resourceId: beachId,
-      details: {
+    await recordAdminEvent(user.id, "beach", "update", {
+      entityId: beachId,
+      description: `Updated beach: ${validated.name}`,
+      payloadSummary: {
         beach_name: validated.name,
-        state: validated.state,
+        region: validated.region,
         previous_name: existingBeach?.name,
-        previous_state: existingBeach?.state,
+        previous_region: existingBeach?.region,
       },
     });
 
@@ -168,11 +174,11 @@ export const updateBeach = withAdminActionAndUser(
  * Soft delete a beach
  */
 export const softDeleteBeach = withAdminActionAndUser(
-  async (beachId: string, { user, supabaseAdmin }) => {
+  async (beachId: string, { user, supabaseAdmin }: AdminContext) => {
     // Get beach details for audit log
     const { data: beach } = await supabaseAdmin
       .from("beaches")
-      .select("name, state")
+      .select("name, region")
       .eq("id", beachId)
       .single();
 
@@ -187,14 +193,12 @@ export const softDeleteBeach = withAdminActionAndUser(
     }
 
     // Log the action
-    await recordAdminEvent({
-      userId: user.id,
-      action: "soft_delete",
-      resourceType: "beach",
-      resourceId: beachId,
-      details: {
+    await recordAdminEvent(user.id, "beach", "delete", {
+      entityId: beachId,
+      description: `Soft deleted beach: ${beach?.name || "unknown"}`,
+      payloadSummary: {
         beach_name: beach?.name,
-        state: beach?.state,
+        region: beach?.region,
       },
     });
 
@@ -206,11 +210,11 @@ export const softDeleteBeach = withAdminActionAndUser(
  * Restore a soft-deleted beach
  */
 export const restoreBeach = withAdminActionAndUser(
-  async (beachId: string, { user, supabaseAdmin }) => {
+  async (beachId: string, { user, supabaseAdmin }: AdminContext) => {
     // Get beach details for audit log
     const { data: beach } = await supabaseAdmin
       .from("beaches")
-      .select("name, state")
+      .select("name, region")
       .eq("id", beachId)
       .single();
 
@@ -225,14 +229,12 @@ export const restoreBeach = withAdminActionAndUser(
     }
 
     // Log the action
-    await recordAdminEvent({
-      userId: user.id,
-      action: "restore",
-      resourceType: "beach",
-      resourceId: beachId,
-      details: {
+    await recordAdminEvent(user.id, "beach", "restore", {
+      entityId: beachId,
+      description: `Restored beach: ${beach?.name || "unknown"}`,
+      payloadSummary: {
         beach_name: beach?.name,
-        state: beach?.state,
+        region: beach?.region,
       },
     });
 

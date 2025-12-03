@@ -41,6 +41,83 @@ describe('useOnboardingStore', () => {
       expect(result.current.isOpen).toBe(false);
       expect(result.current.data).toEqual({});
       expect(result.current.isCompleted).toBe(false);
+      expect(result.current.userId).toBe(null);
+    });
+  });
+
+  describe('User ID Scoping', () => {
+    it('checkUserId sets userId when none exists', () => {
+      const { result } = renderHook(() => useOnboardingStore());
+
+      act(() => {
+        result.current.checkUserId('user-123');
+      });
+
+      expect(result.current.userId).toBe('user-123');
+    });
+
+    it('checkUserId does nothing when same user', () => {
+      const { result } = renderHook(() => useOnboardingStore());
+
+      act(() => {
+        result.current.checkUserId('user-123');
+        result.current.updateData({ fullName: 'John Doe' });
+        result.current.setCurrentStep(3);
+      });
+
+      // Call checkUserId again with same user
+      act(() => {
+        result.current.checkUserId('user-123');
+      });
+
+      // Data should be preserved
+      expect(result.current.userId).toBe('user-123');
+      expect(result.current.data.fullName).toBe('John Doe');
+      expect(result.current.currentStep).toBe(3);
+    });
+
+    it('checkUserId resets store when different user', () => {
+      const { result } = renderHook(() => useOnboardingStore());
+
+      act(() => {
+        result.current.checkUserId('user-123');
+        result.current.updateData({ fullName: 'John Doe' });
+        result.current.setCurrentStep(3);
+        result.current.openDialog();
+      });
+
+      // Verify state is set
+      expect(result.current.userId).toBe('user-123');
+      expect(result.current.data.fullName).toBe('John Doe');
+      expect(result.current.currentStep).toBe(3);
+
+      // Call checkUserId with different user
+      act(() => {
+        result.current.checkUserId('user-456');
+      });
+
+      // Store should be reset with new userId
+      expect(result.current.userId).toBe('user-456');
+      expect(result.current.data).toEqual({});
+      expect(result.current.currentStep).toBe(0);
+      expect(result.current.isOpen).toBe(false);
+      expect(result.current.isCompleted).toBe(false);
+    });
+
+    it('reset clears userId', () => {
+      const { result } = renderHook(() => useOnboardingStore());
+
+      act(() => {
+        result.current.checkUserId('user-123');
+      });
+
+      expect(result.current.userId).toBe('user-123');
+
+      act(() => {
+        result.current.reset();
+      });
+
+      expect(result.current.userId).toBe(null);
     });
   });
 

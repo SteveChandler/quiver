@@ -1,6 +1,7 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
 export const dynamic = 'force-dynamic';
 
@@ -8,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * Search for users by name or email
  * GET /api/users/search?q=search_term&limit=20
  */
-export async function GET(request: NextRequest) {
+async function userSearchHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q");
@@ -102,3 +103,6 @@ export async function GET(request: NextRequest) {
     return handleApiError(error);
   }
 }
+
+// Apply bot blocking and rate limiting to prevent abuse
+export const GET = withBotBlockingAndRateLimit(userSearchHandler, "public-default");

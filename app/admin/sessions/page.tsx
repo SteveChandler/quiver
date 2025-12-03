@@ -36,7 +36,9 @@ import {
   restoreSession,
   getSession,
   type AdminSessionListItem,
+  type AdminSessionDetails,
 } from "@/actions/admin/sessions";
+import type { SessionStats } from "@/lib/validation/admin/session-schema";
 
 export default function SessionsAdminPage() {
   const router = useRouter();
@@ -49,23 +51,29 @@ export default function SessionsAdminPage() {
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  // Data fetching
-  const fetchSessions = useCallback(async () => {
-    return await listSessions({ includeDeleted: showDeleted });
+  // Data fetching - unwrap server action responses
+  const fetchSessions = useCallback(async (): Promise<AdminSessionListItem[]> => {
+    const response = await listSessions({ includeDeleted: showDeleted });
+    if (!response.success) throw new Error(response.error || 'Failed to fetch sessions');
+    return (response.data as AdminSessionListItem[]) ?? [];
   }, [showDeleted]);
 
-  const fetchStats = useCallback(async () => {
-    return await getSessionStats({});
+  const fetchStats = useCallback(async (): Promise<SessionStats | null> => {
+    const response = await getSessionStats({});
+    if (!response.success) throw new Error(response.error || 'Failed to fetch stats');
+    return (response.data as SessionStats) ?? null;
   }, []);
 
-  const fetchSessionDetails = useCallback(async () => {
+  const fetchSessionDetails = useCallback(async (): Promise<AdminSessionDetails | null> => {
     if (!selectedSession) return null;
-    return await getSession(selectedSession);
+    const response = await getSession(selectedSession);
+    if (!response.success) throw new Error(response.error || 'Failed to fetch session details');
+    return (response.data as AdminSessionDetails) ?? null;
   }, [selectedSession]);
 
-  const { data: sessions, loading: loadingSessions, refetch: refetchSessions } = useDataFetcher(fetchSessions);
-  const { data: stats, loading: loadingStats, refetch: refetchStats } = useDataFetcher(fetchStats);
-  const { data: sessionDetails, loading: loadingDetails } = useDataFetcher(fetchSessionDetails);
+  const { data: sessions, loading: loadingSessions, refetch: refetchSessions } = useDataFetcher<AdminSessionListItem[]>(fetchSessions);
+  const { data: stats, loading: loadingStats, refetch: refetchStats } = useDataFetcher<SessionStats | null>(fetchStats);
+  const { data: sessionDetails, loading: loadingDetails } = useDataFetcher<AdminSessionDetails | null>(fetchSessionDetails);
 
   // Handlers
   const handleViewDetails = (session: AdminSessionListItem) => {
@@ -213,8 +221,8 @@ export default function SessionsAdminPage() {
 
       {/* Delete Confirmation Dialog */}
       <ConfirmActionDialog
-        isOpen={!!sessionToDelete}
-        onClose={() => setSessionToDelete(null)}
+        open={!!sessionToDelete}
+        onOpenChange={(open) => !open && setSessionToDelete(null)}
         onConfirm={handleDelete}
         title="Delete Session"
         description={
@@ -222,14 +230,14 @@ export default function SessionsAdminPage() {
             ? `Are you sure you want to soft delete this session at ${sessionToDelete.beach_name}? The session will be hidden but can be restored later.`
             : ""
         }
-        confirmText="Delete Session"
-        variant="destructive"
+        actionLabel="Delete Session"
+        actionVariant="destructive"
       />
 
       {/* Restore Confirmation Dialog */}
       <ConfirmActionDialog
-        isOpen={!!sessionToRestore}
-        onClose={() => setSessionToRestore(null)}
+        open={!!sessionToRestore}
+        onOpenChange={(open) => !open && setSessionToRestore(null)}
         onConfirm={handleRestore}
         title="Restore Session"
         description={
@@ -237,7 +245,7 @@ export default function SessionsAdminPage() {
             ? `Are you sure you want to restore this session at ${sessionToRestore.beach_name}?`
             : ""
         }
-        confirmText="Restore Session"
+        actionLabel="Restore Session"
       />
 
       {/* Session Details Sheet (Investigation Mode) */}

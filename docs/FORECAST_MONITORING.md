@@ -103,16 +103,14 @@ The `enhanced-forecast-sync` cron job now includes:
 }
 ```
 
-### 6. Admin Dashboard (`components/admin/forecast-health-dashboard.tsx`)
+### 6. Admin Dashboard (Deprecated)
 
-React component displaying:
-- Overall health status badge
-- Coverage statistics
-- Active issues/alerts
-- Data source breakdown
-- List of stale beaches
-- Age statistics
-- Auto-refresh every 5 minutes
+The React dashboard component (`components/admin/forecast-health-dashboard.tsx`) was removed in November 2025 as it was never integrated into the application routing.
+
+**Current Monitoring Approaches**:
+- Use the API endpoint directly: `GET /api/monitoring/forecast-health`
+- Monitor via Vercel logs: `vercel logs | grep "Forecast Health Check"`
+- View metrics in Vercel Analytics dashboard
 
 ## Cron Jobs
 

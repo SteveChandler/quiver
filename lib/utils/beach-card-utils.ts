@@ -24,7 +24,7 @@ interface BeachCardData {
  */
 function prepareBeachCardData(
   beach: Beach,
-  userLocation?: { lat: number; lng: number } | null,
+  userLocation?: { lat: number; lon: number } | null,
   reviewStats?: Record<string, ReviewStats>,
   mapPreset: keyof typeof MAP_PRESET_USAGE = "BEACH_CARD_LIST"
 ): BeachCardData {
@@ -38,10 +38,8 @@ function prepareBeachCardData(
   let distance = "Unknown distance";
   if (userLocation && coords) {
     distance = calculateDistanceFormatted(
-      userLocation.lat,
-      userLocation.lng,
-      coords.latitude,
-      coords.longitude,
+      { lat: userLocation.lat, lon: userLocation.lon },
+      { lat: coords.latitude, lon: coords.longitude },
       "miles"
     );
   } else if (beach.location_text) {
@@ -99,7 +97,7 @@ export function getBeachLocation(beach: Beach): string {
  */
 export function prepareMultipleBeachCardData(
   beaches: Beach[],
-  userLocation?: { lat: number; lng: number } | null,
+  userLocation?: { lat: number; lon: number } | null,
   reviewStats?: Record<string, ReviewStats>,
   mapPreset: keyof typeof MAP_PRESET_USAGE = "BEACH_CARD_LIST"
 ): BeachCardData[] {

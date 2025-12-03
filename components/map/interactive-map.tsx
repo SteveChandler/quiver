@@ -366,10 +366,8 @@ export function InteractiveMap({
                   .map((b) => ({
                     ...b,
                     _d: calculateDistanceInMiles(
-                      latitude,
-                      longitude,
-                      b.lat,
-                      b.lon
+                      { lat: latitude, lon: longitude },
+                      { lat: b.lat, lon: b.lon }
                     ),
                   }))
                   .filter((b: any) => isFinite(b._d) && b._d <= 30)

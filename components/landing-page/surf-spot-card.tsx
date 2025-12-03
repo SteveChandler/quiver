@@ -85,7 +85,7 @@ export function SurfSpotCard({
       viewport={{ once: true }}
       transition={{ duration: 0.6, delay: delay * 0.1 }}
     >
-      <Link href={beachUrl} className="block group">
+      <Link href={beachUrl} prefetch={false} className="block group">
         <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
           {/* Image Section */}
           <div className="relative h-48 bg-gradient-to-br from-ocean-blue to-blue-400 overflow-hidden">

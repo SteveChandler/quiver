@@ -5,7 +5,7 @@
 ## Prerequisites
 
 1. Read `REACT_RENDERING_ANALYSIS.md` for full context
-2. Review `PERFORMANCE_FIXES_SUMMARY.md` for quick reference
+2. Review `../archive/performance/PERFORMANCE_FIXES_SUMMARY.md` for quick reference
 3. Install React DevTools browser extension
 4. Baseline performance measurements taken
 
@@ -19,6 +19,7 @@
 **Risk:** Low (fixing a bug)
 
 #### Current Code (Lines 382-393)
+
 ```typescript
 export const PersonalizedBadge = memo(
   PersonalizedBadgeComponent,
@@ -37,6 +38,7 @@ PersonalizedBadge.displayName = "PersonalizedBadge";
 ```
 
 #### Replace With
+
 ```typescript
 export const PersonalizedBadge = memo(
   PersonalizedBadgeComponent,
@@ -72,7 +74,8 @@ export const PersonalizedBadge = memo(
       if (!prev.affinityData || !next.affinityData) return false;
       if (
         prev.affinityData.sessionCount !== next.affinityData.sessionCount ||
-        prev.affinityData.lastSurfed.getTime() !== next.affinityData.lastSurfed.getTime()
+        prev.affinityData.lastSurfed.getTime() !==
+          next.affinityData.lastSurfed.getTime()
       ) {
         return false;
       }
@@ -86,6 +89,7 @@ PersonalizedBadge.displayName = "PersonalizedBadge";
 ```
 
 #### Testing
+
 ```typescript
 // Test in browser console after fix
 // 1. Navigate to beach with personalization
@@ -104,6 +108,7 @@ PersonalizedBadge.displayName = "PersonalizedBadge";
 **Risk:** Low
 
 #### Step 1: Update Imports (Line 3)
+
 ```diff
 -import React from "react";
 +import React, { memo } from "react";
@@ -111,6 +116,7 @@ PersonalizedBadge.displayName = "PersonalizedBadge";
 ```
 
 #### Step 2: Rename Export (Line 379)
+
 ```diff
 -export function ForecastTable({
 +function ForecastTableComponent({
@@ -121,26 +127,30 @@ PersonalizedBadge.displayName = "PersonalizedBadge";
 ```
 
 #### Step 3: Add Memoized Exports (After Line 451)
+
 ```typescript
 // Memoized main export
 export const ForecastTable = memo(ForecastTableComponent);
-ForecastTable.displayName = 'ForecastTable';
+ForecastTable.displayName = "ForecastTable";
 
 // Export with backward compatible names
 export const MultiDayForecastTable = memo(
-  (props: Omit<ForecastTableProps, "variant">) =>
+  (props: Omit<ForecastTableProps, "variant">) => (
     <ForecastTable {...props} variant="standard" />
+  )
 );
-MultiDayForecastTable.displayName = 'MultiDayForecastTable';
+MultiDayForecastTable.displayName = "MultiDayForecastTable";
 
 export const SimplifiedForecastTable = memo(
-  (props: Omit<ForecastTableProps, "variant">) =>
+  (props: Omit<ForecastTableProps, "variant">) => (
     <ForecastTable {...props} variant="simplified" />
+  )
 );
-SimplifiedForecastTable.displayName = 'SimplifiedForecastTable';
+SimplifiedForecastTable.displayName = "SimplifiedForecastTable";
 ```
 
 #### Step 4: Remove Old Exports (Lines 454-460)
+
 ```diff
 -// Export with backward compatible names
 -export const MultiDayForecastTable = (
@@ -153,6 +163,7 @@ SimplifiedForecastTable.displayName = 'SimplifiedForecastTable';
 ```
 
 #### Testing
+
 ```bash
 # 1. Check TypeScript compilation
 yarn typecheck
@@ -174,6 +185,7 @@ yarn typecheck
 **Risk:** Low-Medium
 
 #### Step 1: Update Imports (Line 3)
+
 ```diff
 -import * as React from "react";
 +import * as React from "react";
@@ -183,6 +195,7 @@ yarn typecheck
 ```
 
 #### Step 2: Rename Export (Line 363)
+
 ```diff
 -export function TideChart({
 +function TideChartComponent({
@@ -192,45 +205,44 @@ yarn typecheck
 ```
 
 #### Step 3: Add Memoized Export (After Line 697)
+
 ```typescript
 // Memoized export with custom comparison
-export const TideChart = memo(
-  TideChartComponent,
-  (prev, next) => {
-    // Compare array props by reference (should be stable from parent)
-    if (prev.data !== next.data) return false;
-    if (prev.forecasts !== next.forecasts) return false;
-    if (prev.hourly !== next.hourly) return false;
-    if (prev.events !== next.events) return false;
+export const TideChart = memo(TideChartComponent, (prev, next) => {
+  // Compare array props by reference (should be stable from parent)
+  if (prev.data !== next.data) return false;
+  if (prev.forecasts !== next.forecasts) return false;
+  if (prev.hourly !== next.hourly) return false;
+  if (prev.events !== next.events) return false;
 
-    // Compare now timestamp
-    if (prev.now?.getTime() !== next.now?.getTime()) return false;
+  // Compare now timestamp
+  if (prev.now?.getTime() !== next.now?.getTime()) return false;
 
-    // Compare other props
-    if (
-      prev.windowHours !== next.windowHours ||
-      prev.nowBias !== next.nowBias ||
-      prev.bufferHours !== next.bufferHours ||
-      prev.yDomain !== next.yDomain ||
-      prev.unit !== next.unit ||
-      prev.compact !== next.compact ||
-      prev.className !== next.className ||
-      prev.showNowLine !== next.showNowLine ||
-      prev.isAnimationActive !== next.isAnimationActive
-    ) {
-      return false;
-    }
-
-    // Compare function props
-    if (prev.dayFormatter !== next.dayFormatter) return false;
-
-    return true; // No changes, skip re-render
+  // Compare other props
+  if (
+    prev.windowHours !== next.windowHours ||
+    prev.nowBias !== next.nowBias ||
+    prev.bufferHours !== next.bufferHours ||
+    prev.yDomain !== next.yDomain ||
+    prev.unit !== next.unit ||
+    prev.compact !== next.compact ||
+    prev.className !== next.className ||
+    prev.showNowLine !== next.showNowLine ||
+    prev.isAnimationActive !== next.isAnimationActive
+  ) {
+    return false;
   }
-);
-TideChart.displayName = 'TideChart';
+
+  // Compare function props
+  if (prev.dayFormatter !== next.dayFormatter) return false;
+
+  return true; // No changes, skip re-render
+});
+TideChart.displayName = "TideChart";
 ```
 
 #### Testing
+
 ```bash
 # 1. TypeScript check
 yarn typecheck
@@ -259,12 +271,14 @@ yarn typecheck
 **Risk:** Low
 
 #### Step 1: Update Imports (Line 3)
+
 ```diff
 -import React, { useState, useEffect } from "react";
 +import React, { useState, useEffect, memo } from "react";
 ```
 
 #### Step 2: Rename Export (Line 52)
+
 ```diff
 -export function ForecastDisplayWithTransparency({
 +function ForecastDisplayWithTransparencyComponent({
@@ -273,6 +287,7 @@ yarn typecheck
 ```
 
 #### Step 3: Add Memoized Export (After Line 464)
+
 ```typescript
 // Memoized export with custom comparison
 export const ForecastDisplayWithTransparency = memo(
@@ -307,7 +322,7 @@ export const ForecastDisplayWithTransparency = memo(
     return true; // No changes, skip re-render
   }
 );
-ForecastDisplayWithTransparency.displayName = 'ForecastDisplayWithTransparency';
+ForecastDisplayWithTransparency.displayName = "ForecastDisplayWithTransparency";
 ```
 
 ---
@@ -320,6 +335,7 @@ ForecastDisplayWithTransparency.displayName = 'ForecastDisplayWithTransparency';
 **Risk:** Low
 
 #### Step 1: Update ForecastDayTable (Line 78)
+
 ```diff
 -function ForecastDayTable({
 +const ForecastDayTable = memo(function ForecastDayTable({
@@ -346,12 +362,14 @@ ForecastDisplayWithTransparency.displayName = 'ForecastDisplayWithTransparency';
 **Risk:** Low
 
 #### Step 1: Update Imports (Line 3)
+
 ```diff
 -import { useState, memo } from "react";
 +import { useState, memo, useCallback } from "react";
 ```
 
 #### Step 2: Update handleMapClick (Lines 90-97)
+
 ```diff
 -  const handleMapClick = () => {
 +  const handleMapClick = useCallback(() => {
@@ -365,6 +383,7 @@ ForecastDisplayWithTransparency.displayName = 'ForecastDisplayWithTransparency';
 ```
 
 #### Step 3: Update handleReviewsClick (Lines 99-106)
+
 ```diff
 -  const handleReviewsClick = () => {
 +  const handleReviewsClick = useCallback(() => {
@@ -378,6 +397,7 @@ ForecastDisplayWithTransparency.displayName = 'ForecastDisplayWithTransparency';
 ```
 
 #### Step 4: Update toggleExpanded (Lines 108-110)
+
 ```diff
 -  const toggleExpanded = () => {
 -    setIsExpanded(!isExpanded);
@@ -397,6 +417,7 @@ ForecastDisplayWithTransparency.displayName = 'ForecastDisplayWithTransparency';
 **Risk:** Low
 
 #### Step 1: Update Imports (Line 3)
+
 ```diff
 -import { InfoIcon } from "lucide-react";
 +import { memo, useMemo } from "react";
@@ -404,6 +425,7 @@ ForecastDisplayWithTransparency.displayName = 'ForecastDisplayWithTransparency';
 ```
 
 #### Step 2: Rename Function (Line 19)
+
 ```diff
 -export function WaveHeightDisplay({
 +function WaveHeightDisplayComponent({
@@ -412,6 +434,7 @@ ForecastDisplayWithTransparency.displayName = 'ForecastDisplayWithTransparency';
 ```
 
 #### Step 3: Replace getDataSourceInfo with useMemo (Lines 37-73)
+
 ```diff
 -  const getDataSourceInfo = () => {
 +  const sourceInfo = useMemo(() => {
@@ -457,9 +480,10 @@ ForecastDisplayWithTransparency.displayName = 'ForecastDisplayWithTransparency';
 ```
 
 #### Step 4: Add Memoized Export (After Line 134)
+
 ```typescript
 export const WaveHeightDisplay = memo(WaveHeightDisplayComponent);
-WaveHeightDisplay.displayName = 'WaveHeightDisplay';
+WaveHeightDisplay.displayName = "WaveHeightDisplay";
 ```
 
 ---
@@ -472,12 +496,14 @@ WaveHeightDisplay.displayName = 'WaveHeightDisplay';
 **Risk:** Low
 
 #### Step 1: Update Imports (Add useCallback)
+
 ```diff
 -import React from "react";
 +import React, { useCallback } from "react";
 ```
 
 #### Step 2: Update handleToggle (Lines 414-424)
+
 ```diff
 -  const handleToggle = (date: string) => {
 +  const handleToggle = useCallback((date: string) => {
@@ -537,19 +563,20 @@ yarn start
 
 ### Expected Results
 
-| Fix | Render Reduction | CPU Reduction |
-|-----|------------------|---------------|
-| PersonalizedBadge | 30% | 5% |
-| ForecastTable | 50% | 15% |
-| TideChart | 70% | 25% |
-| ForecastDisplayWithTransparency | 60% | 20% |
-| **Total (P0+P1)** | **50-70%** | **40-60%** |
+| Fix                             | Render Reduction | CPU Reduction |
+| ------------------------------- | ---------------- | ------------- |
+| PersonalizedBadge               | 30%              | 5%            |
+| ForecastTable                   | 50%              | 15%           |
+| TideChart                       | 70%              | 25%           |
+| ForecastDisplayWithTransparency | 60%              | 20%           |
+| **Total (P0+P1)**               | **50-70%**       | **40-60%**    |
 
 ---
 
 ## Common Issues & Solutions
 
 ### Issue: "Cannot read property of undefined"
+
 **Cause:** Props comparison accessing nested properties
 **Solution:** Add null checks in comparison function
 
@@ -562,20 +589,19 @@ if (prev.beach?.id !== next.beach?.id) return false;
 ```
 
 ### Issue: Component not updating when it should
+
 **Cause:** Comparison function too strict or incorrect
 **Solution:** Debug with console.log
 
 ```typescript
-export const MyComponent = memo(
-  MyComponentInner,
-  (prev, next) => {
-    console.log('Comparison:', { prev, next });
-    // ... comparison logic
-  }
-);
+export const MyComponent = memo(MyComponentInner, (prev, next) => {
+  console.log("Comparison:", { prev, next });
+  // ... comparison logic
+});
 ```
 
 ### Issue: TypeScript errors after memoization
+
 **Cause:** Display names or type definitions
 **Solution:** Ensure proper typing
 
@@ -584,7 +610,7 @@ export const MyComponent = memo(
 const MyComponent = memo(function MyComponent(props: Props) {
   // component logic
 });
-MyComponent.displayName = 'MyComponent';
+MyComponent.displayName = "MyComponent";
 export { MyComponent };
 ```
 
@@ -609,11 +635,13 @@ After implementing each fix:
 If a fix causes issues:
 
 1. **Immediate:** Revert the specific commit
+
    ```bash
    git revert <commit-hash>
    ```
 
 2. **Test:** Verify issue is resolved
+
    ```bash
    yarn build
    yarn test:unit
@@ -631,16 +659,19 @@ If a fix causes issues:
 ## Next Steps After P0+P1
 
 1. **Measure overall improvement**
+
    - Compare baseline vs. optimized traces
    - Calculate percentage improvements
    - Document in CHANGELOG.md
 
 2. **Update architecture documentation**
+
    - Add memoization patterns to ARCHITECTURE.md
    - Create examples of proper usage
    - Document when NOT to memoize
 
 3. **Create ESLint rules**
+
    - Detect missing memo in expensive components
    - Detect missing useCallback for event handlers
    - Detect incomplete memo comparison functions

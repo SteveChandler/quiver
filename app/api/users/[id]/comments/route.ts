@@ -1,19 +1,19 @@
-import { NextRequest } from "next/server";
-import { 
-  createSuccessResponse, 
-  handleApiError, 
+import { NextRequest, NextResponse } from "next/server";
+import {
+  createSuccessResponse,
+  handleApiError,
   createValidationError,
   methodNotAllowed,
   isValidUuid,
 } from "@/lib/api-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: { id: string } }
-) {
+/**
+ * Core handler for fetching user comments
+ */
+async function fetchUserComments(userId: string): Promise<NextResponse> {
   try {
-    const { id: userId } = context.params;
     if (!userId || !isValidUuid(userId)) {
       return createValidationError("Invalid user id format");
     }
@@ -38,8 +38,24 @@ export async function GET(
   }
 }
 
+/**
+ * GET /api/users/[id]/comments
+ * Bot blocking and rate limiting applied to prevent abuse
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params;
+
+  const wrappedHandler = withBotBlockingAndRateLimit(
+    async () => fetchUserComments(id),
+    "public-default"
+  );
+
+  return wrappedHandler(request);
+}
+
 export function POST() {
   return methodNotAllowed(["GET"]);
 }
-
-

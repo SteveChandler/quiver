@@ -57,12 +57,14 @@ interface ProfilePreferencesProps {
   userId: string;
   profile: Profile | null;
   beaches: Beach[];
+  onSaveComplete?: () => void;
 }
 
 export function ProfilePreferences({
   userId,
   profile,
   beaches,
+  onSaveComplete,
 }: ProfilePreferencesProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -114,9 +116,14 @@ export function ProfilePreferences({
         description: "Your profile preferences have been updated.",
       });
 
-      // Navigate to profile page with fresh data
-      router.push("/profile");
-      router.refresh();
+      // Call onSaveComplete callback if provided, otherwise navigate
+      if (onSaveComplete) {
+        onSaveComplete();
+      } else {
+        // Navigate to profile page with fresh data
+        router.push("/profile");
+        router.refresh();
+      }
     } catch (error) {
       console.error("Error updating preferences:", error);
       toast({

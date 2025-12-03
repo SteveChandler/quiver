@@ -9,24 +9,30 @@ Use this checklist to verify the N+1 query fix is working correctly before deplo
 ## 1. Code Quality Checks
 
 ### TypeScript Validation
+
 ```bash
 yarn typecheck
 ```
+
 - [ ] No TypeScript errors
 - [ ] No new warnings introduced
 
 ### Build Validation
+
 ```bash
 yarn build
 ```
+
 - [ ] Build completes successfully
 - [ ] No build errors or warnings
 - [ ] Output size is reasonable
 
 ### Linting
+
 ```bash
 yarn lint
 ```
+
 - [ ] No ESLint errors
 - [ ] No new ESLint warnings
 - [ ] Code follows project style guide
@@ -48,6 +54,7 @@ curl "http://localhost:3000/api/v1/recommendations?lat=32.7157&lon=-117.1611" | 
 ```
 
 **Expected Response Structure:**
+
 ```json
 {
   "data": {
@@ -170,6 +177,7 @@ npx tsx scripts/test-recommendations-perf.ts
 ```
 
 **Expected Output:**
+
 ```
 🏄 Recommendations API Performance Test
 
@@ -223,6 +231,7 @@ yarn dev
 3. ~~**Wait for cards to load**~~
 
 **Verify (OBSOLETE):**
+
 - [ ] ~~"Best Conditions Near You" section appears~~
 - [ ] ~~Cards load within 2-3 seconds~~
 - [ ] ~~At least 1 beach card is displayed (up to 3)~~
@@ -281,6 +290,7 @@ yarn test:unit
 Simulate database errors by temporarily breaking the connection:
 
 **Verify:**
+
 - [ ] API returns proper error response
 - [ ] Error is logged correctly
 - [ ] No unhandled exceptions
@@ -318,7 +328,7 @@ Review the modified file:
 Review documentation files:
 
 - [ ] `docs/performance/N+1_QUERY_FIX.md` is accurate
-- [ ] `docs/performance/N+1_QUERY_FIX_SUMMARY.md` is accurate
+- [ ] `docs/archive/performance/N+1_QUERY_FIX_SUMMARY.md` is accurate
 - [ ] `docs/performance/QUERY_COMPARISON.md` is accurate
 - [ ] All code examples are correct
 - [ ] All metrics are accurate
@@ -395,13 +405,13 @@ Configure dashboard to track:
 
 After deployment, verify these metrics in production:
 
-| Metric | Before | Target | Measured |
-|--------|--------|--------|----------|
-| Response Time (P95) | 5-10s | <500ms | ______ |
-| Database Queries | 50 | 2 | ______ |
-| Error Rate | N/A | <0.1% | ______ |
-| Query Execution Time | ~300ms | <100ms | ______ |
-| User Satisfaction | Low | High | ______ |
+| Metric               | Before | Target | Measured |
+| -------------------- | ------ | ------ | -------- |
+| Response Time (P95)  | 5-10s  | <500ms | **\_\_** |
+| Database Queries     | 50     | 2      | **\_\_** |
+| Error Rate           | N/A    | <0.1%  | **\_\_** |
+| Query Execution Time | ~300ms | <100ms | **\_\_** |
+| User Satisfaction    | Low    | High   | **\_\_** |
 
 ### KPIs to Track
 
@@ -431,10 +441,10 @@ npx tsx scripts/test-recommendations-perf.ts
 
 Once all checks are complete:
 
-- **Developer:** ______________________ Date: ______
-- **Reviewer:** ______________________ Date: ______
-- **QA:** ______________________ Date: ______
-- **Deployment Lead:** ______________________ Date: ______
+- **Developer:** ****\*\*****\_\_****\*\***** Date: **\_\_**
+- **Reviewer:** ****\*\*****\_\_****\*\***** Date: **\_\_**
+- **QA:** ****\*\*****\_\_****\*\***** Date: **\_\_**
+- **Deployment Lead:** ****\*\*****\_\_****\*\***** Date: **\_\_**
 
 ---
 

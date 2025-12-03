@@ -1,0 +1,94 @@
+{
+  "config": {
+    "configFile": "/Users/stevenchandler/Desktop/quiver/quiver/playwright.config.ts",
+    "rootDir": "/Users/stevenchandler/Desktop/quiver/quiver/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": "/Users/stevenchandler/Desktop/quiver/quiver/e2e/global-setup.ts",
+    "globalTeardown": "/Users/stevenchandler/Desktop/quiver/quiver/e2e/global-teardown.ts",
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/stevenchandler/Desktop/quiver/quiver/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "guest",
+        "name": "guest",
+        "testDir": "/Users/stevenchandler/Desktop/quiver/quiver/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "e2e/guest-*.spec.ts"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/stevenchandler/Desktop/quiver/quiver/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "auth",
+        "name": "auth",
+        "testDir": "/Users/stevenchandler/Desktop/quiver/quiver/e2e",
+        "testIgnore": [
+          "e2e/guest-*.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 3,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [],
+  "errors": [
+    {
+      "message": "Error: browserType.launch: Executable doesn't exist at /Users/stevenchandler/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝",
+      "stack": "Error: browserType.launch: Executable doesn't exist at /Users/stevenchandler/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-arm64/chrome-headless-shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝\n    at globalSetup (/Users/stevenchandler/Desktop/quiver/quiver/e2e/global-setup.ts:26:34)",
+      "location": {
+        "file": "/Users/stevenchandler/Desktop/quiver/quiver/e2e/global-setup.ts",
+        "column": 34,
+        "line": 26
+      },
+      "snippet": "\u001b[90m   at \u001b[39mglobal-setup.ts:26\n\n  24 |   const storageStatePath = 'e2e/.auth/state.json';\n  25 |\n> 26 |   const browser = await chromium.launch();\n     |                                  ^\n  27 |   const context = await browser.newContext();\n  28 |   const page = await context.newPage();\n  29 |"
+    }
+  ],
+  "stats": {
+    "startTime": "2025-12-03T03:28:03.615Z",
+    "duration": 20181.049,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

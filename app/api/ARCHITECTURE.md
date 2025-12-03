@@ -246,22 +246,6 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
   - Accepts `x-vercel-cron` header (added by Vercel) OR `Authorization: Bearer <CRON_SECRET>`
   - Keep `CRON_SECRET`/`CRON_SECRET_TOKEN` in Vercel env if you need to trigger manually
 
-#### `/cron/smart-forecast-update/route.ts`
-
-- **Methods**: `POST`, `GET`
-- **Function**: Intelligent forecast updates
-- **Features**:
-  - Enhanced forecast system integration
-  - Success/failure tracking
-  - Duration monitoring
-- **Scheduling**: Designed for 6-hour update cycles
-
-**Security**:
-
-- Uses `validateCronRequest(request)` to allow Vercel Cron header or token
-
----
-
 ### 🔮 `/forecasts` - Surf Forecast System
 
 **Data Sources**: NOAA WaveWatch III, CO-OPS, Weather Service, NDBC

@@ -281,7 +281,7 @@ const nextConfig = {
   },
 
   // Webpack configuration for externals and bundle analyzer
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     // CRITICAL FIX: Configure externals for @resvg/resvg-js
     config.externals = config.externals || [];
     if (Array.isArray(config.externals)) {
@@ -296,6 +296,22 @@ const nextConfig = {
       // Optimize bundle size
       "react/jsx-runtime.js": "react/jsx-runtime",
     };
+
+    // Copy geo-tz data files to server build directory
+    // Required for timezone lookups in API routes
+    if (isServer) {
+      const CopyPlugin = require("copy-webpack-plugin");
+      config.plugins.push(
+        new CopyPlugin({
+          patterns: [
+            {
+              from: "node_modules/geo-tz/data",
+              to: "data",
+            },
+          ],
+        })
+      );
+    }
 
     // Add bundle analyzer in development
     if (process.env.ANALYZE === "true") {

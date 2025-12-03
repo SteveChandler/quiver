@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Waves, MapPin, Star, Calendar } from "lucide-react";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-states";
 import { getUserStats } from "@/actions/profile-actions";
-import { useProfile } from "@/lib/hooks/useProfile";
+import { useProfileContext } from "@/context/profile-context";
 import { useAuth } from "@/context/auth-context";
 import { GamificationSection } from "@/components/profile/gamification-section";
 
@@ -31,7 +31,7 @@ export function UserStats({
   getUserStatsFn,
 }: UserStatsProps) {
   const { user } = useAuth();
-  const { profile } = useProfile();
+  const { profile, homeBeach } = useProfileContext();
   const [stats, setStats] = useState<UserStatsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -130,10 +130,7 @@ export function UserStats({
               className="text-2xl font-bold truncate"
               data-testid="home-break-value"
             >
-              {stats?.homeBeachName ??
-                profile?.homeBeachName ??
-                profile?.home_beach?.name ??
-                "—"}
+              {stats?.homeBeachName ?? homeBeach?.name ?? "—"}
             </div>
             <p className="text-xs text-muted-foreground">
               {stats?.homeBeachId ? "From profile" : "Not set"}

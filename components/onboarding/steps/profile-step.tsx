@@ -1,12 +1,15 @@
-'use client';
+"use client";
 
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { profileSchema, ProfileFormData } from '@/lib/schemas/onboarding-schemas';
-import { useOnboardingStore } from '@/store/onboarding-store';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  profileSchema,
+  ProfileFormData,
+} from "@/lib/schemas/onboarding-schemas";
+import { useOnboardingStore } from "@/store/onboarding-store";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function ProfileStep() {
   const { data, updateData, nextStep } = useOnboardingStore();
@@ -18,10 +21,10 @@ export function ProfileStep() {
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      fullName: data.fullName || '',
-      displayName: data.displayName || '',
+      fullName: data.fullName || "",
+      displayName: data.displayName || "",
     },
-    mode: 'onChange',
+    mode: "onChange",
   });
 
   const onSubmit = (formData: ProfileFormData) => {
@@ -44,7 +47,7 @@ export function ProfileStep() {
           <Input
             id="fullName"
             placeholder="e.g., Sarah Johnson"
-            {...register('fullName')}
+            {...register("fullName")}
             aria-invalid={!!errors.fullName}
           />
           {errors.fullName && (
@@ -59,7 +62,7 @@ export function ProfileStep() {
           <Input
             id="displayName"
             placeholder="e.g., WaveRider"
-            {...register('displayName')}
+            {...register("displayName")}
             aria-invalid={!!errors.displayName}
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -73,7 +76,7 @@ export function ProfileStep() {
         </div>
       </div>
 
-      <Button type="submit" className="w-full" disabled={!isValid}>
+      <Button type="submit" className="w-full">
         Continue
       </Button>
     </form>

@@ -25,6 +25,10 @@ export function calculateDistance(
   to: Coordinates,
   unit: "miles" | "km" | "meters" = "miles"
 ): number {
+  // Defensive null/undefined check to prevent TypeError
+  if (!from || !to) {
+    return NaN;
+  }
   return calculateDistanceRaw(from.lat, from.lon, to.lat, to.lon, unit);
 }
 

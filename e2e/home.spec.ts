@@ -1,103 +1,224 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
 import { VIEWPORTS } from './fixtures/test-data';
+import {
+  setupErrorDetection,
+  assertNoErrors,
+  gotoWithErrorCheck,
+  ErrorCapture,
+} from './utils/error-detection';
 
 /**
  * Authenticated Home Screen Tests
  * Tests the home screen/dashboard for logged-in users
  *
+ * HomeScreen components tested:
+ * - Welcome section with greeting and action buttons
+ * - Forecast and Local Intel tabs
+ * - NearbyBeachChips
+ * - BeachSearchBar
+ * - ForecastTab content
+ *
  * @project auth
  */
 
 test.describe('Authenticated Home Screen', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await waitForPageLoad(page);
+    errorCapture = setupErrorDetection(page);
+    await gotoWithErrorCheck(page, errorCapture, '/');
   });
 
-  test('should display home screen for authenticated users @smoke', async ({ page }) => {
-    // Should NOT see landing page
-    const landingHero = page.getByRole('heading', { name: /find your next wave/i });
-    const isLanding = await landingHero.isVisible().catch(() => false);
-
-    expect(isLanding).toBe(false);
-
-    // Should see authenticated content
-    // (This could be sessions, beaches, forecast, etc.)
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
   });
 
-  test('should display navigation header @smoke', async ({ page }) => {
-    // Should show Quiver logo
-    const logo = page.getByText(/quiver/i).first();
-    await expect(logo).toBeVisible();
+  test.describe('Welcome Section', () => {
+    test('should display personalized greeting @smoke', async ({ page }) => {
+      // HomeScreen shows "Hey, {name}!" greeting
+      const greeting = page.getByRole('heading', { name: /hey,/i });
+      await expect(greeting).toBeVisible({ timeout: 10000 });
 
-    // Should show navigation links or menu
-    const nav = page.locator('nav, header').first();
-    await expect(nav).toBeVisible();
+      // Greeting should contain "Hey," followed by user name or "Surfer" fallback
+      const greetingText = await greeting.textContent();
+      expect(greetingText).toMatch(/Hey,\s*.+!/);
+    });
+
+    test('should display Plan Session button @smoke', async ({ page }) => {
+      // Use first() since there may be multiple Plan Session buttons (welcome section + forecast cards)
+      const planButton = page.getByRole('button', { name: /plan session/i }).first();
+      await expect(planButton).toBeVisible({ timeout: 10000 });
+    });
+
+    test('should display Log Session button @smoke', async ({ page }) => {
+      const logButton = page.getByRole('button', { name: /log session/i }).first();
+      await expect(logButton).toBeVisible({ timeout: 10000 });
+    });
+
+    test('should navigate to plan session wizard when clicking Plan Session', async ({ page }) => {
+      // Use first() to get the main action button in welcome section
+      const planButton = page.getByRole('button', { name: /plan session/i }).first();
+      await expect(planButton).toBeVisible({ timeout: 10000 });
+
+      await planButton.click();
+
+      // Should navigate to session wizard in plan mode
+      await page.waitForURL('**/sessions/new?mode=plan', { timeout: 10000 });
+      expect(page.url()).toContain('/sessions/new?mode=plan');
+    });
+
+    test('should navigate to log session wizard when clicking Log Session', async ({ page }) => {
+      const logButton = page.getByRole('button', { name: /log session/i }).first();
+      await expect(logButton).toBeVisible({ timeout: 10000 });
+
+      await logButton.click();
+
+      // Should navigate to session wizard in log mode
+      await page.waitForURL('**/sessions/new?mode=log', { timeout: 10000 });
+      expect(page.url()).toContain('/sessions/new?mode=log');
+    });
   });
 
-  test('should have user menu or avatar', async ({ page }) => {
-    // Should show user avatar or menu button
-    const userMenu = page.getByRole('button', { name: /menu|account|user/i });
-    const avatar = page.locator('[class*="avatar"], [data-testid="avatar"]').first();
+  test.describe('Tabs Navigation', () => {
+    test('should display Forecast tab as active by default @smoke', async ({ page }) => {
+      // Wait for tabs to load
+      const forecastTab = page.getByRole('tab', { name: /forecast/i });
+      await expect(forecastTab).toBeVisible({ timeout: 10000 });
 
-    const hasMenu = await userMenu.isVisible().catch(() => false);
-    const hasAvatar = await avatar.isVisible().catch(() => false);
+      // Forecast tab should be selected/active by default
+      await expect(forecastTab).toHaveAttribute('data-state', 'active');
+    });
 
-    expect(hasMenu || hasAvatar).toBe(true);
+    test('should display Local Intel tab', async ({ page }) => {
+      const localIntelTab = page.getByRole('tab', { name: /local intel/i });
+      await expect(localIntelTab).toBeVisible({ timeout: 10000 });
+    });
+
+    test('should switch to Local Intel tab when clicked', async ({ page }) => {
+      const localIntelTab = page.getByRole('tab', { name: /local intel/i });
+      await expect(localIntelTab).toBeVisible({ timeout: 10000 });
+
+      await localIntelTab.click();
+
+      // Local Intel tab should now be active
+      await expect(localIntelTab).toHaveAttribute('data-state', 'active');
+
+      // Forecast tab should no longer be active
+      const forecastTab = page.getByRole('tab', { name: /forecast/i });
+      await expect(forecastTab).toHaveAttribute('data-state', 'inactive');
+    });
+
+    test('should display tab content when switching tabs', async ({ page }) => {
+      // Start on Forecast tab - should see forecast content
+      const forecastTab = page.getByRole('tab', { name: /forecast/i });
+      await expect(forecastTab).toHaveAttribute('data-state', 'active');
+
+      // Switch to Local Intel
+      const localIntelTab = page.getByRole('tab', { name: /local intel/i });
+      await localIntelTab.click();
+
+      // Wait for tab switch animation
+      await page.waitForTimeout(500);
+
+      // Local Intel tab should now be active
+      await expect(localIntelTab).toHaveAttribute('data-state', 'active');
+    });
   });
 
-  test('should display recent or featured content', async ({ page }) => {
-    // Should show some content (beaches, sessions, forecasts)
-    const content = page.locator('a[href^="/beach/"], a[href^="/sessions/"]');
-    const count = await content.count();
+  test.describe('Beach Search Bar', () => {
+    test('should display beach search bar on Forecast tab @smoke', async ({ page }) => {
+      // Beach search should be visible on the Forecast tab
+      // Placeholder is "Search by beach, spot, or region"
+      const searchInput = page.getByPlaceholder(/search by beach/i);
+      await expect(searchInput).toBeVisible({ timeout: 10000 });
+    });
 
-    // If no content yet, check for empty state or welcome message
-    if (count === 0) {
-      const emptyState = page.getByText(/welcome|get started|no sessions|explore/i).first();
-      const hasEmptyState = await emptyState.isVisible().catch(() => false);
+    test('should allow typing in search bar', async ({ page }) => {
+      const searchInput = page.getByPlaceholder(/search by beach/i);
+      await expect(searchInput).toBeVisible({ timeout: 10000 });
 
-      if (!hasEmptyState) {
-        test.skip(true, 'No content and no empty state - home page may have different structure');
+      await searchInput.fill('Ocean');
+
+      // Should accept input
+      await expect(searchInput).toHaveValue('Ocean');
+    });
+
+    test('should show search suggestions when typing', async ({ page }) => {
+      const searchInput = page.getByPlaceholder(/search by beach/i);
+      await expect(searchInput).toBeVisible({ timeout: 10000 });
+
+      await searchInput.fill('Black');
+      await page.waitForTimeout(1000);
+
+      // Should show dropdown with suggestions
+      const suggestions = page.locator('[role="option"], [role="listbox"] li, [data-testid="search-result"]');
+      const suggestionCount = await suggestions.count();
+
+      // If suggestions appear, verify they're visible
+      if (suggestionCount > 0) {
+        await expect(suggestions.first()).toBeVisible();
       }
-    } else {
-      expect(count).toBeGreaterThan(0);
-    }
+    });
   });
 
-  test('should have quick navigation to main sections', async ({ page }) => {
-    // Should have links to Map, Sessions, Profile, etc.
-    const mapLink = page.getByRole('link', { name: /map|discover/i });
-    const sessionsLink = page.getByRole('link', { name: /sessions/i });
+  test.describe('Nearby Beach Chips', () => {
+    test('should display nearby beach chips', async ({ page }) => {
+      // Wait for chips to load - they may take time to fetch nearby beaches
+      await page.waitForTimeout(2000);
 
-    const hasMap = await mapLink.isVisible().catch(() => false);
-    const hasSessions = await sessionsLink.isVisible().catch(() => false);
+      // Look for the nearby chips container or individual chips
+      const chips = page.locator('button, a').filter({ hasText: /beach/i });
+      const chipCount = await chips.count();
 
-    // At least one navigation link should be visible
-    expect(hasMap || hasSessions).toBe(true);
+      // If user has location access, chips should appear
+      // This is optional - some users may not have granted location
+      if (chipCount > 0) {
+        await expect(chips.first()).toBeVisible();
+      }
+    });
   });
 
-  test('should be responsive on mobile', async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
+  test.describe('Forecast Tab Content', () => {
+    test('should display forecast content when user has home beach', async ({ page }) => {
+      // Ensure we're on Forecast tab
+      const forecastTab = page.getByRole('tab', { name: /forecast/i });
+      await expect(forecastTab).toHaveAttribute('data-state', 'active');
 
-    // Navigation should still be accessible
-    const nav = page.locator('nav, header').first();
-    await expect(nav).toBeVisible();
+      // Look for forecast-related content
+      const forecastContent = page.locator('text=/forecast|conditions|swell|wind|waves/i').first();
+      const hasContent = await forecastContent.isVisible({ timeout: 10000 }).catch(() => false);
 
-    // Logo should be visible
-    const logo = page.getByText(/quiver/i).first();
-    await expect(logo).toBeVisible();
+      // Also check for "No Surf Spots Found" message (user without home beach)
+      const noSpotsMessage = page.locator('text=/no surf spots|set.*home beach/i').first();
+      const hasNoSpots = await noSpotsMessage.isVisible({ timeout: 2000 }).catch(() => false);
+
+      // Either forecast content OR no spots message should be visible
+      expect(hasContent || hasNoSpots).toBe(true);
+    });
   });
 
-  test('should have search functionality', async ({ page }) => {
-    // Look for search input
-    const searchInput = page.getByPlaceholder(/search/i).first();
-    const searchButton = page.getByRole('button', { name: /search/i }).first();
+  test.describe('Mobile Responsiveness', () => {
+    test('should be responsive on mobile viewport', async ({ page }) => {
+      await page.setViewportSize(VIEWPORTS.mobile);
 
-    const hasSearchInput = await searchInput.isVisible().catch(() => false);
-    const hasSearchButton = await searchButton.isVisible().catch(() => false);
+      // Check for errors after viewport change
+      await assertNoErrors(page, errorCapture, { context: 'After mobile viewport' });
 
-    // At least one search element should be present
-    expect(hasSearchInput || hasSearchButton).toBe(true);
+      // Greeting should still be visible
+      const greeting = page.getByRole('heading', { name: /hey,/i });
+      await expect(greeting).toBeVisible({ timeout: 10000 });
+
+      // Action buttons should be visible (use first() since multiple Plan Session buttons exist)
+      const planButton = page.getByRole('button', { name: /plan session/i }).first();
+      const logButton = page.getByRole('button', { name: /log session/i }).first();
+
+      await expect(planButton).toBeVisible();
+      await expect(logButton).toBeVisible();
+
+      // Tabs should be visible
+      const forecastTab = page.getByRole('tab', { name: /forecast/i });
+      await expect(forecastTab).toBeVisible();
+    });
   });
 });

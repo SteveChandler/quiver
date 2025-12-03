@@ -9,6 +9,15 @@
 
 import { withAdminActionAndUser } from "@/lib/server-action-utils/admin";
 import { recordAdminEvent } from "@/lib/logging/admin-audit";
+import type { AdminUser } from "@/lib/auth/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+
+/** Context provided to admin actions */
+type AdminContext = {
+  user: AdminUser;
+  supabaseAdmin: SupabaseClient<Database>;
+};
 
 // ================================================
 // Session Media Actions
@@ -42,8 +51,9 @@ export interface PhotoModerationItem {
  * List all session media with optional filters
  */
 export const listSessionMedia = withAdminActionAndUser(
-  async (options: { includeDeleted?: boolean; search?: string } = {}, { supabaseAdmin }) => {
-    const { includeDeleted = false, search = "" } = options;
+  async (options: { includeDeleted?: boolean; search?: string }, { supabaseAdmin }: AdminContext) => {
+    const opts = options || {};
+    const { includeDeleted = false, search = "" } = opts;
 
     let query = supabaseAdmin
       .from("session_media")
@@ -113,7 +123,7 @@ export const listSessionMedia = withAdminActionAndUser(
  * Soft delete session media and remove from storage
  */
 export const softDeleteSessionMedia = withAdminActionAndUser(
-  async (mediaId: string, { user, supabaseAdmin }) => {
+  async (mediaId: string, { user, supabaseAdmin }: AdminContext) => {
     // Get media details for storage cleanup and audit log
     const { data: media } = await supabaseAdmin
       .from("session_media")
@@ -170,7 +180,7 @@ export const softDeleteSessionMedia = withAdminActionAndUser(
  * Restore a soft-deleted session media
  */
 export const restoreSessionMedia = withAdminActionAndUser(
-  async (mediaId: string, { user, supabaseAdmin }) => {
+  async (mediaId: string, { user, supabaseAdmin }: AdminContext) => {
     // Get media details for audit log
     const { data: media } = await supabaseAdmin
       .from("session_media")
@@ -206,7 +216,7 @@ export const restoreSessionMedia = withAdminActionAndUser(
  * Bulk soft delete multiple session media items
  */
 export const bulkSoftDeleteSessionMedia = withAdminActionAndUser(
-  async (mediaIds: string[], { user, supabaseAdmin }) => {
+  async (mediaIds: string[], { user, supabaseAdmin }: AdminContext) => {
     const results = {
       success: 0,
       failed: 0,
@@ -291,10 +301,11 @@ export const bulkSoftDeleteSessionMedia = withAdminActionAndUser(
  */
 export const listBeachPhotos = withAdminActionAndUser(
   async (
-    options: { includeDeleted?: boolean; approvedOnly?: boolean; search?: string } = {},
-    { supabaseAdmin }
+    options: { includeDeleted?: boolean; approvedOnly?: boolean; search?: string },
+    { supabaseAdmin }: AdminContext
   ) => {
-    const { includeDeleted = false, approvedOnly = false, search = "" } = options;
+    const opts = options || {};
+    const { includeDeleted = false, approvedOnly = false, search = "" } = opts;
 
     let query = supabaseAdmin
       .from("beach_photos")
@@ -363,7 +374,7 @@ export const listBeachPhotos = withAdminActionAndUser(
  * Soft delete a beach photo
  */
 export const softDeleteBeachPhoto = withAdminActionAndUser(
-  async (photoId: string, { user, supabaseAdmin }) => {
+  async (photoId: string, { user, supabaseAdmin }: AdminContext) => {
     // Get photo details for audit log
     const { data: photo } = await supabaseAdmin
       .from("beach_photos")
@@ -401,7 +412,7 @@ export const softDeleteBeachPhoto = withAdminActionAndUser(
  * Restore a soft-deleted beach photo
  */
 export const restoreBeachPhoto = withAdminActionAndUser(
-  async (photoId: string, { user, supabaseAdmin }) => {
+  async (photoId: string, { user, supabaseAdmin }: AdminContext) => {
     // Get photo details for audit log
     const { data: photo } = await supabaseAdmin
       .from("beach_photos")
@@ -438,7 +449,7 @@ export const restoreBeachPhoto = withAdminActionAndUser(
  * Bulk soft delete multiple beach photos
  */
 export const bulkSoftDeleteBeachPhotos = withAdminActionAndUser(
-  async (photoIds: string[], { user, supabaseAdmin }) => {
+  async (photoIds: string[], { user, supabaseAdmin }: AdminContext) => {
     const results = {
       success: 0,
       failed: 0,
@@ -500,10 +511,113 @@ export const bulkSoftDeleteBeachPhotos = withAdminActionAndUser(
 );
 
 /**
+ * Permanently delete a beach photo (hard delete)
+ */
+export const hardDeleteBeachPhoto = withAdminActionAndUser(
+  async (photoId: string, { user, supabaseAdmin }: AdminContext) => {
+    // Get photo details for audit log before deletion
+    const { data: photo } = await supabaseAdmin
+      .from("beach_photos")
+      .select("title, source, beach_id, beaches(name)")
+      .eq("id", photoId)
+      .single();
+
+    // Hard delete the photo
+    const { error } = await supabaseAdmin
+      .from("beach_photos")
+      .delete()
+      .eq("id", photoId);
+
+    if (error) {
+      throw new Error(`Failed to permanently delete photo: ${error.message}`);
+    }
+
+    // Log the action
+    await recordAdminEvent(user.id, "photo", "delete", {
+      entityId: photoId,
+      description: "Permanently deleted beach photo (hard delete)",
+      payloadSummary: {
+        title: photo?.title,
+        source: photo?.source,
+        beach_id: photo?.beach_id,
+        beach_name: (photo as any)?.beaches?.name,
+      },
+    });
+
+    return { success: true };
+  }
+);
+
+/**
+ * Bulk permanently delete multiple beach photos (hard delete)
+ */
+export const bulkHardDeleteBeachPhotos = withAdminActionAndUser(
+  async (photoIds: string[], { user, supabaseAdmin }: AdminContext) => {
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as Array<{ id: string; error: string }>,
+    };
+
+    for (const photoId of photoIds) {
+      try {
+        // Get photo details for audit log before deletion
+        const { data: photo } = await supabaseAdmin
+          .from("beach_photos")
+          .select("title, source, beach_id, beaches(name)")
+          .eq("id", photoId)
+          .single();
+
+        if (!photo) {
+          results.failed++;
+          results.errors.push({ id: photoId, error: "Photo not found" });
+          continue;
+        }
+
+        // Hard delete the photo
+        const { error: dbError } = await supabaseAdmin
+          .from("beach_photos")
+          .delete()
+          .eq("id", photoId);
+
+        if (dbError) {
+          results.failed++;
+          results.errors.push({ id: photoId, error: dbError.message });
+          continue;
+        }
+
+        // Log the action
+        await recordAdminEvent(user.id, "photo", "delete", {
+          entityId: photoId,
+          description: "Bulk permanently deleted beach photo (hard delete)",
+          payloadSummary: {
+            title: photo.title,
+            source: photo.source,
+            beach_id: photo.beach_id,
+            beach_name: (photo as any)?.beaches?.name,
+            bulk_operation: true,
+          },
+        });
+
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push({
+          id: photoId,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+    }
+
+    return results;
+  }
+);
+
+/**
  * Toggle approval status for a beach photo
  */
 export const toggleBeachPhotoApproval = withAdminActionAndUser(
-  async (photoId: string, approved: boolean, { user, supabaseAdmin }) => {
+  async (photoId: string, approved: boolean, { user, supabaseAdmin }: AdminContext) => {
     // Get photo details for audit log
     const { data: photo } = await supabaseAdmin
       .from("beach_photos")
@@ -541,7 +655,7 @@ export const toggleBeachPhotoApproval = withAdminActionAndUser(
 /**
  * Get photo statistics for dashboard
  */
-export const getPhotoStats = withAdminActionAndUser(async ({ supabaseAdmin }) => {
+export const getPhotoStats = withAdminActionAndUser(async (_: Record<string, never>, { supabaseAdmin }: AdminContext) => {
     // Session media stats
     const { count: sessionMediaTotal } = await supabaseAdmin
       .from("session_media")

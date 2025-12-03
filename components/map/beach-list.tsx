@@ -17,7 +17,7 @@ import type { Beach } from "@/types/database";
 interface BeachListProps {
   filteredBeaches: Beach[];
   searchQuery: string;
-  userLocation: { lat: number; lng: number } | null;
+  userLocation: { lat: number; lon: number } | null;
   usingDefaultLocation: boolean;
   loading?: boolean;
   onBeachSelect: (beach: Beach) => void;

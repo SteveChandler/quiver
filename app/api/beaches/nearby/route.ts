@@ -25,7 +25,7 @@ async function nearbyBeachesHandler(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const { data: allBeaches, error: fallbackError } = await supabase
       .from("beaches")
-      .select("id, name, lat, lon");
+      .select("id, name, lat, lon, slug, city, state");
 
     if (fallbackError) throw fallbackError;
 
@@ -33,10 +33,8 @@ async function nearbyBeachesHandler(request: NextRequest) {
       .map((b: any) => ({
         ...b,
         distance: calculateDistanceInMiles(
-          latitude,
-          longitude,
-          b.lat,
-          b.lon
+          { lat: latitude, lon: longitude },
+          { lat: b.lat, lon: b.lon }
         ),
       }))
       .filter((b: any) => isFinite(b.distance) && b.distance <= maxDistance)
@@ -47,6 +45,9 @@ async function nearbyBeachesHandler(request: NextRequest) {
         lat: b.lat,
         lon: b.lon,
         name: b.name,
+        slug: b.slug,
+        city: b.city,
+        state: b.state,
       }));
 
     return createSuccessResponse(filtered);

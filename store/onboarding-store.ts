@@ -31,6 +31,7 @@ interface OnboardingStore {
   isOpen: boolean;
   data: OnboardingData;
   isCompleted: boolean;
+  userId: string | null;
 
   // Actions
   setCurrentStep: (step: number) => void;
@@ -41,6 +42,7 @@ interface OnboardingStore {
   closeDialog: () => void;
   completeOnboarding: () => void;
   reset: () => void;
+  checkUserId: (currentUserId: string) => void;
 }
 
 export const useOnboardingStore = create<OnboardingStore>()(
@@ -51,6 +53,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
       isOpen: false,
       data: {},
       isCompleted: false,
+      userId: null,
 
       // Actions
       setCurrentStep: (step) => set({ currentStep: step }),
@@ -80,15 +83,30 @@ export const useOnboardingStore = create<OnboardingStore>()(
         currentStep: 0,
         isOpen: false,
         data: {},
-        isCompleted: false
+        isCompleted: false,
+        userId: null
       }),
+
+      checkUserId: (currentUserId) => {
+        const state = get();
+        if (state.userId !== currentUserId) {
+          // Reset store if user has changed
+          set({
+            currentStep: 0,
+            isOpen: false,
+            data: {},
+            isCompleted: false,
+            userId: currentUserId
+          });
+        }
+      },
     }),
     {
       name: 'quiver-onboarding',
       partialize: (state) => ({
         currentStep: state.currentStep,
         data: state.data,
-        isCompleted: state.isCompleted,
+        userId: state.userId,
       }),
     }
   )

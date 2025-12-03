@@ -47,6 +47,13 @@ export type BeachPhoto = Database['public']['Tables']['beach_photos']['Row']
 export type BeachPhotoInsert = Database['public']['Tables']['beach_photos']['Insert']
 export type BeachPhotoUpdate = Database['public']['Tables']['beach_photos']['Update']
 
+export type SessionForecastSnapshot = Database['public']['Tables']['session_forecast_snapshots']['Row']
+export type SessionForecastSnapshotInsert = Database['public']['Tables']['session_forecast_snapshots']['Insert']
+
+export type BeachForecastAccuracy = Database['public']['Tables']['beach_forecast_accuracy']['Row']
+export type BeachForecastAccuracyInsert = Database['public']['Tables']['beach_forecast_accuracy']['Insert']
+export type BeachForecastAccuracyUpdate = Database['public']['Tables']['beach_forecast_accuracy']['Update']
+
 // ===================================================
 // EXTENDED TYPES - Types with relationships/joins
 // ===================================================
@@ -69,26 +76,34 @@ export interface BeachReviewWithUser extends BeachReview {
   } | null
 }
 
+// User profile subset for session relationships
+export interface SessionUserProfile {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+}
+
 export interface SessionWithDetails extends Session {
+  // Canonical names (match Supabase relation naming)
   beaches: Beach | null
   boards: Board | null
-  profiles: {
-    id: string
-    full_name: string | null
-    avatar_url: string | null
-  } | null
+  profiles: SessionUserProfile | null
+
+  // Aliases for backward compatibility with existing code
+  // These are optional since queries may return either naming convention
+  beach?: Beach | null
+  board?: Board | null
+  user?: SessionUserProfile | null
 }
 
 export interface BeachWithReviews extends Beach {
   reviews: BeachReview[]
   review_count?: number
-  average_rating?: number | null
+  // Note: average_rating already exists in Beach type
 }
 
 export interface ProfileWithStats extends Profile {
-  session_count?: number | null
-  follower_count?: number | null
-  following_count?: number | null
+  // Note: session_count, follower_count, following_count already exist in Profile type
 }
 
 export interface IntelPostWithUser extends IntelPost {

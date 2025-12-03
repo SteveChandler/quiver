@@ -6,9 +6,10 @@ import {
   createValidationError,
 } from "@/lib/api-utils";
 import { getWindDirectionName } from "@/lib/utils/wind-direction";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
 // Matches Ruby BuoysController#conditions functionality
-export async function GET(request: NextRequest) {
+async function conditionsHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const latitude = parseFloat(searchParams.get("latitude") || "0");
   const longitude = parseFloat(searchParams.get("longitude") || "0");
@@ -88,5 +89,8 @@ export async function GET(request: NextRequest) {
     return handleApiError(error, "Error fetching buoy conditions");
   }
 }
+
+// Apply bot blocking and rate limiting protection
+export const GET = withBotBlockingAndRateLimit(conditionsHandler, "public-default");
 
 // Wind direction helper moved to utility function

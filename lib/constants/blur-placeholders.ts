@@ -4,7 +4,7 @@
  * Generated with: node scripts/generate-blur-placeholders.mjs
  * DO NOT EDIT MANUALLY - regenerate using the script
  */
-export const BLUR_PLACEHOLDERS = {
+const BLUR_PLACEHOLDERS = {
   "On_the_Beach_at_Bandon": "data:image/webp;base64,UklGRjQAAABXRUJQVlA4ICgAAAAQAgCdASoKAAcABUB8JYwCdIExE6WHqZwAAM2R7s+lCAuan+nImAAA",
   "Agate_Beach_Marin_County_California": "data:image/webp;base64,UklGRjAAAABXRUJQVlA4ICQAAACQAQCdASoKAAYABUB8JYwCdADzAgAAzZKo34lsAzxqW3WAAAA=",
   "Beacons_Beach": "data:image/webp;base64,UklGRjAAAABXRUJQVlA4ICQAAABwAQCdASoKAAcABUB8JQBOgBPYAADmK3qAUWYiy3ge4AgAAAA=",

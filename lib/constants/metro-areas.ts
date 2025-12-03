@@ -48,7 +48,7 @@ export interface MetroAreaConfig {
  * - Aggregate stats (total beaches, avg rating, etc.)
  * - Global beach ranking across all neighborhoods
  */
-export const METRO_AREAS: Record<string, MetroAreaConfig> = {
+const METRO_AREAS: Record<string, MetroAreaConfig> = {
   'san-diego': {
     slug: 'san-diego',
     displayName: 'San Diego',
@@ -132,13 +132,4 @@ export function getMetroConfig(citySlug: string): MetroAreaConfig | null {
  */
 export function getAllMetroSlugs(): string[] {
   return Object.keys(METRO_AREAS);
-}
-
-/**
- * Get all metro configs (for batch operations)
- *
- * @returns Array of all metro configurations
- */
-export function getAllMetroConfigs(): MetroAreaConfig[] {
-  return Object.values(METRO_AREAS);
 }

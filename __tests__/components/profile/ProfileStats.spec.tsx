@@ -1,12 +1,12 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { HomeBeachTile } from "@/components/profile/HomeBeachTile";
-import { useProfile } from "@/lib/hooks/useProfile";
+import { useProfileContext } from "@/context/profile-context";
 
-// Mock the useProfile hook
-jest.mock("@/lib/hooks/useProfile");
+// Mock the useProfileContext hook
+jest.mock("@/context/profile-context");
 
-const mockUseProfile = useProfile as jest.MockedFunction<typeof useProfile>;
+const mockUseProfileContext = useProfileContext as jest.MockedFunction<typeof useProfileContext>;
 
 describe("ProfileStats - HomeBeachTile", () => {
   const mockBeachLookup = {
@@ -20,12 +20,13 @@ describe("ProfileStats - HomeBeachTile", () => {
   });
 
   it("renders loading state", () => {
-    mockUseProfile.mockReturnValue({
+    mockUseProfileContext.mockReturnValue({
       profile: null,
-      loading: true,
+      homeBeach: null,
+      isLoading: true,
       error: null,
-      refetch: jest.fn(),
-      mutate: jest.fn()
+      updateProfile: jest.fn(),
+      refreshProfile: jest.fn()
     });
 
     render(<HomeBeachTile beachLookup={mockBeachLookup} />);
@@ -35,16 +36,17 @@ describe("ProfileStats - HomeBeachTile", () => {
   });
 
   it("renders home beach name when set", () => {
-    mockUseProfile.mockReturnValue({
+    mockUseProfileContext.mockReturnValue({
       profile: {
         id: "test-user-id",
         home_beach_id: "beach-123",
         full_name: "Test User"
-      },
-      loading: false,
+      } as any,
+      homeBeach: { id: "beach-123", name: "Ocean Beach" } as any,
+      isLoading: false,
       error: null,
-      refetch: jest.fn(),
-      mutate: jest.fn()
+      updateProfile: jest.fn(),
+      refreshProfile: jest.fn()
     });
 
     render(<HomeBeachTile beachLookup={mockBeachLookup} />);
@@ -54,16 +56,17 @@ describe("ProfileStats - HomeBeachTile", () => {
   });
 
   it("renders dash when home beach is not set", () => {
-    mockUseProfile.mockReturnValue({
+    mockUseProfileContext.mockReturnValue({
       profile: {
         id: "test-user-id",
         home_beach_id: null,
         full_name: "Test User"
-      },
-      loading: false,
+      } as any,
+      homeBeach: null,
+      isLoading: false,
       error: null,
-      refetch: jest.fn(),
-      mutate: jest.fn()
+      updateProfile: jest.fn(),
+      refreshProfile: jest.fn()
     });
 
     render(<HomeBeachTile beachLookup={mockBeachLookup} />);
@@ -73,16 +76,17 @@ describe("ProfileStats - HomeBeachTile", () => {
   });
 
   it("renders dash when beach lookup fails", () => {
-    mockUseProfile.mockReturnValue({
+    mockUseProfileContext.mockReturnValue({
       profile: {
         id: "test-user-id",
         home_beach_id: "unknown-beach-id",
         full_name: "Test User"
-      },
-      loading: false,
+      } as any,
+      homeBeach: null,
+      isLoading: false,
       error: null,
-      refetch: jest.fn(),
-      mutate: jest.fn()
+      updateProfile: jest.fn(),
+      refreshProfile: jest.fn()
     });
 
     render(<HomeBeachTile beachLookup={mockBeachLookup} />);
@@ -92,16 +96,17 @@ describe("ProfileStats - HomeBeachTile", () => {
   });
 
   it("works without beach lookup provided", () => {
-    mockUseProfile.mockReturnValue({
+    mockUseProfileContext.mockReturnValue({
       profile: {
         id: "test-user-id",
         home_beach_id: "beach-123",
         full_name: "Test User"
-      },
-      loading: false,
+      } as any,
+      homeBeach: null,
+      isLoading: false,
       error: null,
-      refetch: jest.fn(),
-      mutate: jest.fn()
+      updateProfile: jest.fn(),
+      refreshProfile: jest.fn()
     });
 
     render(<HomeBeachTile />);
@@ -111,12 +116,13 @@ describe("ProfileStats - HomeBeachTile", () => {
   });
 
   it("displays the home break section title and icon", () => {
-    mockUseProfile.mockReturnValue({
+    mockUseProfileContext.mockReturnValue({
       profile: null,
-      loading: false,
+      homeBeach: null,
+      isLoading: false,
       error: null,
-      refetch: jest.fn(),
-      mutate: jest.fn()
+      updateProfile: jest.fn(),
+      refreshProfile: jest.fn()
     });
 
     render(<HomeBeachTile />);

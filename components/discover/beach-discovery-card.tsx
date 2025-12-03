@@ -1,13 +1,15 @@
 "use client";
 
 import React from "react";
-import { format } from "date-fns";
+import * as dateFns from "date-fns";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Waves, Wind, Clock, TrendingUp, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+
+const { format } = dateFns;
 
 interface BeachDiscoveryCardProps {
   recommendation: SurfDiscoveryRecommendation;

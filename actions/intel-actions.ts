@@ -18,6 +18,25 @@ import type {
   IntelPost,
 } from "@/types/database";
 
+// Result types for intel actions
+interface IntelPostsData {
+  posts: IntelPostWithUser[];
+  total: number;
+  filters: {
+    lat?: number;
+    lon?: number;
+    radius?: number;
+    tag: string;
+    limit: number;
+  };
+}
+
+interface ConfirmationData {
+  confirmed: boolean;
+  confirmations_count: number;
+  confirmation_id: string;
+}
+
 /**
  * Create a new intel post
  */
@@ -114,7 +133,7 @@ const shouldFallbackToConditionReports = (error: any) => {
 export async function createIntelPost(
   data: CreateIntelPostData,
   deps?: IntelDeps
-): Promise<ActionResult> {
+): Promise<ActionResult<IntelPostWithUser>> {
   try {
     const authWrapper = deps?.authWrapper ?? withAuthenticatedAction;
 
@@ -273,8 +292,8 @@ export async function createIntelPost(
         .insert({
           user_id: user.id,
           beach_id: normalizedBeachId,
-          lat,
-          lon,
+          latitude: lat,
+          longitude: lon,
           tag,
           title: sanitizedTitle,
           description: sanitizedDescription,
@@ -304,8 +323,8 @@ export async function createIntelPost(
           reporter_id: user.id,
           reported_at: new Date().toISOString(),
           kind: "intel" as const,
-          latitude,
-          longitude,
+          latitude: lat,
+          longitude: lon,
           tag,
           title: sanitizedTitle,
           description: sanitizedDescription,
@@ -335,9 +354,7 @@ export async function createIntelPost(
 
         const { data: fetchedIntel, error: fetchFallbackError } = await supabase
           .from("intel_posts")
-          .select(
-            `id, user_id, beach_id, lat, lon, tag, title, description, photo_url, photo_storage_path, confirmations_count, is_active, surf_conditions, expires_at, created_at, updated_at`
-          )
+          .select("*")
           .eq("id", fallbackReport.id)
           .single();
 
@@ -359,11 +376,9 @@ export async function createIntelPost(
             error: updateFallbackHashError,
             intelId: fallbackReport.id,
           });
-        } else {
-          fetchedIntel.dedupe_hash = dedupeHash;
         }
 
-        createdIntelPost = fetchedIntel as IntelPost;
+        createdIntelPost = fetchedIntel;
         intelError = null;
       }
 
@@ -412,7 +427,7 @@ export async function createIntelPost(
       return {
         success: true,
         data: enrichedPost,
-      } as ActionResult;
+      } as ActionResult<IntelPostWithUser>;
     });
 
     if (!response) {
@@ -436,13 +451,13 @@ export async function createIntelPost(
       };
     }
 
-    const serverResult = response as ActionResult | (ServerActionResponse<ActionResult>);
+    const serverResult = response as ActionResult<IntelPostWithUser> | (ServerActionResponse<ActionResult<IntelPostWithUser>>);
 
     if ("data" in serverResult && serverResult?.data && typeof serverResult.data === "object" && "success" in serverResult.data) {
-      return serverResult.data as ActionResult;
+      return serverResult.data as ActionResult<IntelPostWithUser>;
     }
 
-    return serverResult as ActionResult;
+    return serverResult as ActionResult<IntelPostWithUser>;
   } catch (error) {
     console.error("Error in createIntelPost:", error);
     return {
@@ -460,7 +475,7 @@ export async function createIntelPost(
  */
 export async function getNearbyIntelPosts(
   params: GetNearbyIntelPostsParams
-): Promise<ActionResult> {
+): Promise<ActionResult<IntelPostsData>> {
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
@@ -586,7 +601,7 @@ export async function getNearbyIntelPosts(
  */
 export async function confirmIntelPost(
   intelPostId: string
-): Promise<ActionResult> {
+): Promise<ActionResult<ConfirmationData>> {
   try {
     const supabase = await createSupabaseServerClient();
 
@@ -727,7 +742,7 @@ export async function confirmIntelPost(
  */
 export async function removeIntelPostConfirmation(
   intelPostId: string
-): Promise<ActionResult> {
+): Promise<ActionResult<ConfirmationData>> {
   try {
     const supabase = await createSupabaseServerClient();
 
@@ -824,7 +839,7 @@ export async function removeIntelPostConfirmation(
  */
 export async function getPublicIntelPosts(
   params: GetNearbyIntelPostsParams
-): Promise<ActionResult> {
+): Promise<ActionResult<IntelPostsData>> {
   try {
     const supabase = await createSupabaseServerClient();
 
@@ -932,7 +947,7 @@ export async function getAllIntelPosts(
     tag?: IntelPostTag | "all";
     limit?: number;
   } = {}
-): Promise<ActionResult> {
+): Promise<ActionResult<IntelPostsData>> {
   try {
     const [serviceClient, supabase] = await Promise.all([
       createSupabaseServiceRoleClient(),
@@ -948,26 +963,7 @@ export async function getAllIntelPosts(
 
     let postsQuery = serviceClient
       .from("intel_posts")
-      .select(
-        `
-        id,
-        user_id,
-        beach_id,
-        latitude,
-        longitude,
-        tag,
-        title,
-        description,
-        photo_url,
-        photo_storage_path,
-        surf_conditions,
-        confirmations_count,
-        is_active,
-        expires_at,
-        created_at,
-        updated_at
-      `
-      )
+      .select("*")
       .eq("is_active", true)
       .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order("created_at", { ascending: false })

@@ -7,11 +7,14 @@ import {
   updateBeachForecast,
   updateAllBeachForecasts,
 } from "@/lib/utils/forecast-server-utils";
+import { authenticateAdmin } from "@/lib/auth/admin";
 
 /**
  * Forecast Update API Endpoint
  *
  * Updates forecasts using the enhanced forecast system with NOAA data sources
+ *
+ * SECURITY: Requires admin authentication
  *
  * Usage:
  * - POST /api/forecasts/update (updates all beaches)
@@ -20,6 +23,16 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
+    // Admin authentication check - only admins can trigger forecast updates
+    const authResult = await authenticateAdmin();
+    if (!authResult.success) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status }
+      );
+    }
+    console.log(`🔐 Forecast update initiated by admin: ${authResult.user.email}`);
+
     const { searchParams } = new URL(request.url);
     const beachId = searchParams.get("beachId");
 
@@ -64,8 +77,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Support GET for endpoint information
+// Support GET for endpoint information (admin only)
 export async function GET() {
+  // Admin authentication check
+  const authResult = await authenticateAdmin();
+  if (!authResult.success) {
+    return NextResponse.json(
+      { error: authResult.error },
+      { status: authResult.status }
+    );
+  }
+
   return NextResponse.json({
     message: "Enhanced Forecast Update API",
     usage: {

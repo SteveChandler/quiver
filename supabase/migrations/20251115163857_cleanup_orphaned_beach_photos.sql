@@ -31,8 +31,22 @@ BEGIN;
 
 CREATE TEMP TABLE orphaned_beach_photos_backup AS
 SELECT
-    bp.*,
-    NOW() AS deleted_at,
+    bp.id,
+    bp.beach_id,
+    bp.source,
+    bp.source_id,
+    bp.image_url,
+    bp.title,
+    bp.approved,
+    bp.attribution_html,
+    bp.creator_name,
+    bp.creator_url,
+    bp.license_code,
+    bp.license_url,
+    bp.thumb_url,
+    bp.fetched_at,
+    bp.deleted_at,
+    NOW() AS cleanup_deleted_at,
     'orphaned_cleanup_20251115' AS deletion_reason
 FROM public.beach_photos bp
 WHERE NOT EXISTS (
@@ -184,8 +198,16 @@ SELECT
             'source_id', source_id,
             'image_url', image_url,
             'title', title,
+            'approved', approved,
+            'attribution_html', attribution_html,
+            'creator_name', creator_name,
+            'creator_url', creator_url,
+            'license_code', license_code,
+            'license_url', license_url,
+            'thumb_url', thumb_url,
             'fetched_at', fetched_at,
-            'deleted_at', deleted_at
+            'deleted_at', deleted_at,
+            'cleanup_deleted_at', cleanup_deleted_at
         )
     ) AS backup_data
 FROM orphaned_beach_photos_backup;

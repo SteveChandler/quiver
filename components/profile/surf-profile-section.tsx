@@ -57,7 +57,7 @@ export function SurfProfileSection() {
     const profileData = await gateway.users.profile.get(user.id);
     setProfile(profileData as Profile);
 
-    const beachesData = await gateway.beaches.list();
+    const beachesData = await gateway.beaches.getAll();
     setBeaches(beachesData as Beach[]);
 
     return { profile: profileData, beaches: beachesData };
@@ -148,8 +148,11 @@ export function SurfProfileSection() {
     );
   }
 
+  // Extract preferences data from server action response
+  const preferencesData = data?.data;
+
   // No data state (< 5 rated sessions) - Still show explicit preferences
-  if (!data?.learned) {
+  if (!preferencesData?.learned) {
     return (
       <div className="space-y-8">
         {/* Explicit Preferences - Toggle between display and edit */}
@@ -217,7 +220,7 @@ export function SurfProfileSection() {
   if (mode === 'edit') {
     return (
       <PreferenceOverrideForm
-        currentPreferences={data.learned}
+        currentPreferences={preferencesData.learned}
         onSave={handleSave}
         onCancel={handleCancel}
       />
@@ -225,7 +228,7 @@ export function SurfProfileSection() {
   }
 
   // View mode
-  const isValidated = !!data.learned.validated_at;
+  const isValidated = !!preferencesData.learned.validated_at;
 
   return (
     <div className="space-y-8">
@@ -280,12 +283,12 @@ export function SurfProfileSection() {
           <ValidationPrompt
             onValidate={handleValidate}
             onEdit={handleEdit}
-            sampleSize={data.learned.sample_size}
+            sampleSize={preferencesData.learned.sample_size}
           />
         )}
 
         {/* Learned Preferences Display */}
-        <LearnedPreferencesDisplay preferences={data.learned} />
+        <LearnedPreferencesDisplay preferences={preferencesData.learned} />
 
         {/* Edit Button */}
         <div className="flex justify-center pt-4">
@@ -299,7 +302,7 @@ export function SurfProfileSection() {
           <p>
             <strong>How it works:</strong> We analyze your highly-rated sessions (3+ stars)
             to learn your ideal wave height, period, wind, and tide conditions.
-            {data.learned.sample_size && ` Based on ${data.learned.sample_size} sessions.`}
+            {preferencesData.learned.sample_size && ` Based on ${preferencesData.learned.sample_size} sessions.`}
           </p>
         </div>
       </div>

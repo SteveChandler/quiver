@@ -2,7 +2,7 @@
 
 import { useState, startTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { useProfile } from "@/lib/hooks/useProfile";
+import { useProfileContext } from "@/context/profile-context";
 // Import via namespace to ensure jest.mock binding works consistently
 import * as ProfileActions from "@/actions/profile-actions";
 
@@ -17,7 +17,7 @@ export function HomeBeachBanner({
   selectedBeachId,
   selectedBeachName,
 }: HomeBeachBannerProps) {
-  const { profile, mutate } = useProfile();
+  const { profile, refreshProfile } = useProfileContext();
   const [saving, setSaving] = useState(false);
 
   async function onSet() {
@@ -36,7 +36,7 @@ export function HomeBeachBanner({
         track("set_home_beach", { beach_slug: slug });
       } catch {}
       // optimistic refetch
-      startTransition(() => mutate());
+      startTransition(() => refreshProfile());
     } finally {
       setSaving(false);
     }

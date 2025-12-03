@@ -9,6 +9,7 @@ import {
 } from "@/lib/utils/intel-dedupe";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { IntelPostCreateSchema } from "@/lib/validation/schemas";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ interface CreateIntelPostData {
  * Returns nearby intel posts with user data and confirmation status
  * Query params: lat, lng, radius (miles), tag, limit
  */
-export async function GET(request: NextRequest) {
+async function intelGetHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
 
@@ -187,9 +188,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Apply bot blocking and rate limiting to public GET endpoint
+export const GET = withBotBlockingAndRateLimit(intelGetHandler, "public-default");
+
 /**
  * POST /api/intel
- * Creates a new intel post
+ * Creates a new intel post (requires authentication)
  */
 export async function POST(request: NextRequest) {
   try {

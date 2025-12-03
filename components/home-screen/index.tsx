@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useHomeData } from "./use-home-data";
 
-import { useCachedProfile } from "@/hooks/use-cached-profile";
+import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
 import { BeachSearchBar } from "./beach-search-bar";
 import { useGeo } from "@/hooks/useGeo";
@@ -15,6 +15,7 @@ import { useNativePushRegistration } from "@/hooks/use-native-push-registration"
 import { track } from "@/lib/analytics";
 import { BookOpen, Plus } from "lucide-react";
 import { PreferencesAnnouncementDialog } from "@/components/profile/preferences-announcement-dialog";
+import { beachNavigation } from "@/lib/navigation-utils";
 
 // Import tab components directly to debug lazy loading issue
 import { ForecastTab } from "./forecast-tab";
@@ -40,8 +41,6 @@ export function HomeScreen() {
       ? tabParam
       : "forecast"
   );
-  const [selectedBeachOverride, setSelectedBeachOverride] =
-    useState<Beach | null>(null);
   const [showPreferencesPopup, setShowPreferencesPopup] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
@@ -56,9 +55,9 @@ export function HomeScreen() {
     });
   };
 
-  // Use cached profile hook to prevent flickering on navigation
-  const { profile, homeBeach, profileLoading, hasCachedData } =
-    useCachedProfile();
+  // Use profile context to prevent flickering on navigation
+  const { profile, homeBeach, isLoading: profileLoading } =
+    useProfileContext();
 
   const { coords, source, requestLocation } = useGeo();
 
@@ -190,20 +189,17 @@ export function HomeScreen() {
             </TabsList>
 
             <TabsContent value="forecast" className="relative z-0">
-              {/* Nearby chip row for quick first-time selection */}
-              <NearbyBeachChips
-                className="mb-3"
-                onSelect={(b) => setSelectedBeachOverride(b as any)}
-              />
-              {/* Centered Search Bar under the tabs */}
+              {/* Nearby chip row - navigates to beach detail page */}
+              <NearbyBeachChips className="mb-3" />
+              {/* Centered Search Bar under the tabs - now navigates on select */}
               <BeachSearchBar
-                onSelect={(b) => setSelectedBeachOverride(b)}
+                onSelect={(b) => beachNavigation.navigateToBeach(router, b)}
                 className="mb-4"
               />
               <ForecastTab
                 profile={profile}
                 homeBeach={homeBeach}
-                overrideBeach={selectedBeachOverride}
+                // No override beach needed as selection navigates away
               />
             </TabsContent>
 

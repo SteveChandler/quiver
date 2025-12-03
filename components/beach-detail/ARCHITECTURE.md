@@ -12,8 +12,9 @@ components/beach-detail/
 ├── beach-hero.tsx            # Hero section with map image and beach info
 ├── beach-quick-actions.tsx   # Plan/Log session buttons + favorite
 ├── todays-forecast.tsx       # Today's forecast with calibration
-├── beach-community.tsx       # Community sessions and empty states
-└── detailed-swell-modal.tsx  # Detailed swell/forecast modal dialog
+├── detailed-swell-modal.tsx  # Detailed swell/forecast modal dialog
+├── recent-sessions-section.tsx # Community sessions display
+└── ...                       # Additional components for tabs and features
 ```
 
 ## 🏗️ **ARCHITECTURE PATTERNS**
@@ -34,7 +35,7 @@ BeachDetailPage
 ├── BeachHero (visual header)
 ├── BeachQuickActions (CTAs)
 ├── TodaysForecast (forecast data)
-├── BeachCommunity (social content)
+├── RecentSessionsSection (social content)
 └── DetailedSwellModal (detailed view)
 ```
 
@@ -79,16 +80,6 @@ BeachDetailPage
   - Forecast calibration integration
   - Wave height, wind, water temp display
   - Fallback for missing data
-
-### **BeachCommunity**
-
-- **Purpose**: Display community sessions and empty states
-- **Props**: `beach, sessions, isLoading, isAuthenticated`
-- **Features**:
-  - Session list with `SessionCardWrapper`
-  - Empty state with call-to-action
-  - Loading states with spinner
-  - Responsive action buttons
 
 ### **DetailedSwellModal**
 

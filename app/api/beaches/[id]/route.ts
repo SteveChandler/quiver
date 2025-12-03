@@ -1,18 +1,16 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
-// GET /api/beaches/[id] - fetch a single beach by ID
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// Core handler logic for fetching a single beach
+async function fetchBeachById(beachId: string): Promise<NextResponse> {
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("beaches")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", beachId)
       .single();
 
     if (error) {
@@ -37,3 +35,19 @@ export async function GET(
   }
 }
 
+// GET /api/beaches/[id] - fetch a single beach by ID
+// Bot blocking and rate limiting applied to prevent abuse
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params;
+
+  // Wrap the handler with bot blocking and rate limiting
+  const wrappedHandler = withBotBlockingAndRateLimit(
+    async () => fetchBeachById(id),
+    "public-default"
+  );
+
+  return wrappedHandler(request);
+}

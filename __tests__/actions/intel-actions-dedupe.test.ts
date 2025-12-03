@@ -10,10 +10,10 @@ const createSupabaseMock = () => {
     eq: jest.fn().mockReturnThis(),
     gte: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
-    limit: jest.fn(),
+    limit: jest.fn<() => Promise<{ data: unknown[] | null; error: unknown }>>(),
     update: jest.fn().mockReturnThis(),
-    single: jest.fn(),
-    rpc: jest.fn(),
+    single: jest.fn<() => Promise<{ data: unknown; error: unknown }>>(),
+    rpc: jest.fn<() => Promise<{ data: unknown; error: unknown }>>(),
   };
   return supabase;
 };

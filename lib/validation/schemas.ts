@@ -31,9 +31,9 @@ export const SessionPlanSchema = z.object({
     .min(1, 'Beach name is required')
     .max(100, 'Beach name too long'),
   session_date: z.string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
+    .refine((val) => /^\d{4}-\d{2}-\d{2}$/.test(val), 'Invalid date format (YYYY-MM-DD)'),
   start_time: z.string()
-    .regex(/^\d{2}:\d{2}:\d{2}$/, 'Invalid time format (HH:MM:SS)')
+    .refine((val) => /^\d{2}:\d{2}:\d{2}$/.test(val), 'Invalid time format (HH:MM:SS)')
     .optional(),
   notes: z.string()
     .max(1000, 'Notes cannot exceed 1000 characters')
@@ -54,9 +54,7 @@ export const IntelPostCreateSchema = z.object({
   longitude: z.number()
     .min(-180, 'Longitude must be between -180 and 180')
     .max(180, 'Longitude must be between -180 and 180'),
-  tag: z.enum(['parking', 'hazard', 'crowd', 'conditions', 'access', 'other'], {
-    errorMap: () => ({ message: 'Invalid tag. Must be one of: parking, hazard, crowd, conditions, access, other' }),
-  }),
+  tag: z.enum(['parking', 'hazard', 'crowd', 'conditions', 'access', 'other']),
   title: z.string()
     .min(1, 'Title is required')
     .max(100, 'Title cannot exceed 100 characters')
@@ -88,9 +86,7 @@ export const IntelPostCreateSchema = z.object({
   wave_types: z.array(z.string())
     .max(10, 'Maximum 10 wave types')
     .optional(),
-  forecast_accuracy: z.enum(['accurate', 'somewhat', 'inaccurate'], {
-    errorMap: () => ({ message: 'Invalid accuracy. Must be: accurate, somewhat, or inaccurate' }),
-  }).optional(),
+  forecast_accuracy: z.enum(['accurate', 'somewhat', 'inaccurate']).optional(),
 });
 
 export type IntelPostCreateInput = z.infer<typeof IntelPostCreateSchema>;
@@ -128,15 +124,9 @@ export const ProfileUpdateSchema = z.object({
   bio: z.string()
     .max(500, 'Bio cannot exceed 500 characters')
     .optional(),
-  preferred_wave_size: z.enum(['small', 'medium', 'large', 'any'], {
-    errorMap: () => ({ message: 'Invalid wave size. Must be: small, medium, large, or any' }),
-  }).optional(),
-  preferred_break_type: z.enum(['beach', 'point', 'reef', 'any'], {
-    errorMap: () => ({ message: 'Invalid break type. Must be: beach, point, reef, or any' }),
-  }).optional(),
-  crowd_preference: z.enum(['quiet', 'moderate', 'social', 'any'], {
-    errorMap: () => ({ message: 'Invalid crowd preference. Must be: quiet, moderate, social, or any' }),
-  }).optional(),
+  preferred_wave_size: z.enum(['small', 'medium', 'large', 'any']).optional(),
+  preferred_break_type: z.enum(['beach', 'point', 'reef', 'any']).optional(),
+  crowd_preference: z.enum(['quiet', 'moderate', 'social', 'any']).optional(),
 });
 
 export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
@@ -167,9 +157,7 @@ export const DeviceRegistrationSchema = z.object({
   fcm_token: z.string()
     .min(1, 'FCM token is required')
     .max(500, 'FCM token too long'),
-  platform: z.enum(['ios', 'android', 'web'], {
-    errorMap: () => ({ message: 'Invalid platform. Must be: ios, android, or web' }),
-  }),
+  platform: z.enum(['ios', 'android', 'web']),
   device_id: z.string()
     .min(1, 'Device ID is required')
     .max(200, 'Device ID too long')
@@ -213,9 +201,7 @@ export type DeviceRegistrationInput = z.infer<typeof DeviceRegistrationSchema>;
  */
 export const SessionWizardPrefillSchema = z.object({
   // Session mode (required, defaults to 'plan')
-  mode: z.enum(['plan', 'log'], {
-    errorMap: () => ({ message: 'Mode must be "plan" or "log"' }),
-  }).default('plan'),
+  mode: z.enum(['plan', 'log']).default('plan'),
 
   // Beach UUID (optional - wizard can work without prefill)
   beach: z.string()
@@ -245,13 +231,13 @@ export const SessionWizardPrefillSchema = z.object({
 
   // Target wizard step (optional, defaults to 1)
   step: z.string()
-    .regex(/^\d+$/, 'Step must be a number')
+    .default('1')
+    .refine((val) => /^\d+$/.test(val), 'Step must be a number')
     .transform((val) => parseInt(val, 10))
     .refine(
       (num) => num >= 1 && num <= 4,
       'Step must be between 1 and 4'
     )
-    .default('1')
     .describe('Target wizard step (1-indexed)'),
 })
   // Cross-field validation: end time must be after start time

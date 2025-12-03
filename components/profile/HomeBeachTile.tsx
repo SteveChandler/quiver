@@ -2,16 +2,16 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
-import { useProfile } from "@/lib/hooks/useProfile";
+import { useProfileContext } from "@/context/profile-context";
 
 interface HomeBeachTileProps {
   beachLookup?: Record<string, string>;
 }
 
 export function HomeBeachTile({ beachLookup = {} }: HomeBeachTileProps) {
-  const { profile, loading } = useProfile();
-  
-  if (loading) {
+  const { profile, isLoading } = useProfileContext();
+
+  if (isLoading) {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

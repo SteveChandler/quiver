@@ -7,24 +7,52 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Search, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import type { SurfDiscoveryResponse } from "@/types/personalization";
 
 interface BeachDiscoveryListProps {
+  /** Maximum results to fetch (only used when discoveryData is not provided) */
   maxResults?: number;
+  /** Pre-fetched discovery data - if provided, skip fetching */
+  discoveryData?: SurfDiscoveryResponse | null;
+  /** Loading state from parent (only used when discoveryData is provided) */
+  isLoading?: boolean;
+  /** Error message from parent (only used when discoveryData is provided) */
+  errorMessage?: string | null;
 }
 
 /**
  * MVP Beach Discovery List
  *
- * Fetches and displays ranked surf spot recommendations using the
- * useSurfDiscovery hook. Shows loading, error, and empty states.
+ * Displays ranked surf spot recommendations. Can either fetch its own data
+ * via useSurfDiscovery hook, or accept pre-fetched data from parent to
+ * avoid duplicate API calls.
  */
-export function BeachDiscoveryList({ maxResults = 5 }: BeachDiscoveryListProps) {
+export function BeachDiscoveryList({
+  maxResults = 5,
+  discoveryData,
+  isLoading: externalLoading,
+  errorMessage: externalError,
+}: BeachDiscoveryListProps) {
   const router = useRouter();
-  const { discovery, loading, error, hasRecommendations } = useSurfDiscovery({
+
+  // Only fetch if no discoveryData was provided from parent
+  const shouldFetch = discoveryData === undefined;
+  const {
+    discovery: fetchedDiscovery,
+    loading: fetchLoading,
+    error: fetchError,
+    hasRecommendations: fetchHasRecommendations,
+  } = useSurfDiscovery({
     maxResults,
-    immediate: true,
-    enabled: true,
+    immediate: shouldFetch,
+    enabled: shouldFetch,
   });
+
+  // Use provided data or fetched data
+  const discovery = discoveryData ?? fetchedDiscovery;
+  const loading = discoveryData !== undefined ? (externalLoading ?? false) : fetchLoading;
+  const error = discoveryData !== undefined ? externalError : fetchError;
+  const hasRecommendations = discovery ? discovery.recommendations.length > 0 : fetchHasRecommendations;
 
   const handleViewBeach = (beachId: string) => {
     // Find the recommendation for this beach to get complete data for URL generation

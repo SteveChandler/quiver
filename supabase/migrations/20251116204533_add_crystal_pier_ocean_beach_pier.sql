@@ -6,6 +6,7 @@ BEGIN;
 
 -- Add Crystal Pier (Pacific Beach area in San Diego)
 -- Crystal Pier is a famous pier in Pacific Beach, San Diego
+-- Using WHERE NOT EXISTS to handle unique index on lower(name)
 INSERT INTO public.beaches (
   id,
   name,
@@ -26,7 +27,8 @@ INSERT INTO public.beaches (
   preferred_tide_ft_min,
   preferred_tide_ft_max,
   best_months
-) VALUES (
+)
+SELECT
   gen_random_uuid(),
   'Crystal Pier',
   'crystal-pier',
@@ -45,12 +47,14 @@ INSERT INTO public.beaches (
   60,   -- Swell window halfwidth
   1.5,  -- Preferred tide min
   4.5,  -- Preferred tide max
-  '{9, 10, 11, 3, 4, 5}'  -- Best months: Fall and Spring
-)
-ON CONFLICT (id) DO NOTHING;
+  '{9, 10, 11, 3, 4, 5}'::integer[]  -- Best months: Fall and Spring
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.beaches WHERE lower(name) = lower('Crystal Pier')
+);
 
 -- Add Ocean Beach Pier (Ocean Beach area in San Diego)
 -- Ocean Beach Pier is one of the longest piers on the West Coast
+-- Using WHERE NOT EXISTS to handle unique index on lower(name)
 INSERT INTO public.beaches (
   id,
   name,
@@ -72,7 +76,8 @@ INSERT INTO public.beaches (
   preferred_tide_ft_max,
   best_months,
   features
-) VALUES (
+)
+SELECT
   gen_random_uuid(),
   'Ocean Beach Pier',
   'ocean-beach-pier',
@@ -91,9 +96,10 @@ INSERT INTO public.beaches (
   60,   -- Swell window halfwidth
   2.0,  -- Preferred tide min
   5.0,  -- Preferred tide max
-  '{9, 10, 11, 12, 1, 2, 3, 4}',  -- Best months: Fall through Spring
-  '{"pier"}'  -- Has a pier feature
-)
-ON CONFLICT (id) DO NOTHING;
+  '{9, 10, 11, 12, 1, 2, 3, 4}'::integer[],  -- Best months: Fall through Spring
+  '{"pier"}'::text[]  -- Has a pier feature
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.beaches WHERE lower(name) = lower('Ocean Beach Pier')
+);
 
 COMMIT;

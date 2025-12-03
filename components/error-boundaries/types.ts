@@ -11,22 +11,6 @@ export type ErrorBoundaryTier = 'tier_1' | 'tier_2' | 'tier_3' | 'tier_4';
 export type ErrorBoundaryType = 'global' | 'route' | 'feature' | 'component';
 
 /**
- * Error categories
- */
-export type ErrorCategory =
-  | 'network'
-  | 'data_parsing'
-  | 'rendering'
-  | 'user_input'
-  | 'system'
-  | 'unknown';
-
-/**
- * Retry strategies
- */
-export type RetryStrategy = 'exponential' | 'linear' | 'fixed';
-
-/**
  * Base error boundary props
  */
 export interface BaseErrorBoundaryProps {

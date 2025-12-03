@@ -40,18 +40,18 @@ export class EnhancedRateLimiter {
 
   constructor(name: string, config: RateLimiterConfig) {
     this.name = name;
-    this.config = this.validateConfig(config);
+    this.config = this.validateConfig(config || {});
     this.startCleanupInterval();
   }
 
   private validateConfig(config: RateLimiterConfig): RateLimiterConfig {
     return {
-      requestsPerMinute: Math.max(1, config.requestsPerMinute || 60),
-      requestsPerHour: Math.max(1, config.requestsPerHour || 1000),
-      burstLimit: Math.max(1, config.burstLimit || 5),
-      burstWindowMs: Math.max(1000, config.burstWindowMs || 60 * 1000),
-      warmupRequests: Math.max(0, config.warmupRequests || 0),
-      softBurstRecovery: Boolean(config.softBurstRecovery),
+      requestsPerMinute: Math.max(1, config?.requestsPerMinute || 60),
+      requestsPerHour: Math.max(1, config?.requestsPerHour || 1000),
+      burstLimit: Math.max(1, config?.burstLimit || 5),
+      burstWindowMs: Math.max(1000, config?.burstWindowMs || 60 * 1000),
+      warmupRequests: Math.max(0, config?.warmupRequests || 0),
+      softBurstRecovery: Boolean(config?.softBurstRecovery),
     };
   }
 
