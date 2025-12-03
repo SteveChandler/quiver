@@ -253,3 +253,29 @@ export function getBeachUrlSafe(beach: {
   // No valid URL can be generated
   return null;
 }
+
+/**
+ * Get all valid state slugs from the STATE_SLUG_MAP
+ * Useful for route validation to ensure dynamic [state] param is a real state
+ *
+ * @returns Array of unique state slug strings (e.g., ["ca", "or", "wa", "hi", ...])
+ */
+export function getValidStateSlugs(): string[] {
+  return [...new Set(Object.values(STATE_SLUG_MAP))];
+}
+
+/**
+ * Check if a given slug is a valid state slug
+ * Used to validate dynamic route parameters and distinguish from intent slugs
+ *
+ * @param slug - The slug to validate (e.g., "ca", "or", "surf-forecast")
+ * @returns true if the slug represents a valid state
+ *
+ * @example
+ * isValidStateSlug("ca") // true
+ * isValidStateSlug("or") // true
+ * isValidStateSlug("surf-forecast") // false
+ */
+export function isValidStateSlug(slug: string): boolean {
+  return getValidStateSlugs().includes(slug.toLowerCase());
+}

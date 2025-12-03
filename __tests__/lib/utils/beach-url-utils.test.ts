@@ -6,12 +6,38 @@ import {
   parseBeachUrl,
   buildStateUrl,
   buildCityUrl,
+  getValidStateSlugs,
+  isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
 
 describe("Beach URL Utils", () => {
   describe("stateToSlug", () => {
     it("should convert CA to ca", () => {
       expect(stateToSlug("CA")).toBe("ca");
+    });
+
+    it("should convert OR to or", () => {
+      expect(stateToSlug("OR")).toBe("or");
+    });
+
+    it("should convert Oregon to or", () => {
+      expect(stateToSlug("Oregon")).toBe("or");
+    });
+
+    it("should convert WA to wa", () => {
+      expect(stateToSlug("WA")).toBe("wa");
+    });
+
+    it("should convert Washington to wa", () => {
+      expect(stateToSlug("Washington")).toBe("wa");
+    });
+
+    it("should convert HI to hi", () => {
+      expect(stateToSlug("HI")).toBe("hi");
+    });
+
+    it("should convert Hawaii to hi", () => {
+      expect(stateToSlug("Hawaii")).toBe("hi");
     });
 
     it("should convert Baja California to mexico/baja-california", () => {
@@ -26,9 +52,13 @@ describe("Beach URL Utils", () => {
       expect(stateToSlug(undefined)).toBe("");
     });
 
-    it("should slugify unknown state names", () => {
-      expect(stateToSlug("New York")).toBe("new-york");
-      expect(stateToSlug("North Carolina")).toBe("north-carolina");
+    it("should map known state names to 2-letter codes", () => {
+      expect(stateToSlug("New York")).toBe("ny");
+      expect(stateToSlug("North Carolina")).toBe("nc");
+    });
+
+    it("should slugify truly unknown state names", () => {
+      expect(stateToSlug("Unknown State")).toBe("unknown-state");
     });
 
     it("should lowercase all slugs", () => {
@@ -76,6 +106,33 @@ describe("Beach URL Utils", () => {
         state: "CA",
       };
       expect(buildBeachUrl(beach)).toBe("/ca/san-diego/ocean-beach");
+    });
+
+    it("should build hierarchical URL for Oregon beaches", () => {
+      const beach = {
+        slug: "agate-beach",
+        city: "Newport",
+        state: "OR",
+      };
+      expect(buildBeachUrl(beach)).toBe("/or/newport/agate-beach");
+    });
+
+    it("should build hierarchical URL for Washington beaches", () => {
+      const beach = {
+        slug: "westport-jetty",
+        city: "Westport",
+        state: "WA",
+      };
+      expect(buildBeachUrl(beach)).toBe("/wa/westport/westport-jetty");
+    });
+
+    it("should build hierarchical URL for Hawaii beaches", () => {
+      const beach = {
+        slug: "pipeline",
+        city: "Haleiwa",
+        state: "HI",
+      };
+      expect(buildBeachUrl(beach)).toBe("/hi/haleiwa/pipeline");
     });
 
     it("should build hierarchical URL for Baja California beaches", () => {
@@ -262,8 +319,14 @@ describe("Beach URL Utils", () => {
       expect(buildStateUrl("Baja California")).toBe("/mexico/baja-california");
     });
 
-    it("should slugify unknown states", () => {
-      expect(buildStateUrl("New York")).toBe("/new-york");
+    it("should use 2-letter codes for known states", () => {
+      expect(buildStateUrl("New York")).toBe("/ny");
+      expect(buildStateUrl("Oregon")).toBe("/or");
+      expect(buildStateUrl("Hawaii")).toBe("/hi");
+    });
+
+    it("should slugify truly unknown states", () => {
+      expect(buildStateUrl("Unknown State")).toBe("/unknown-state");
     });
 
     it("should return / for null state", () => {
@@ -316,10 +379,77 @@ describe("Beach URL Utils", () => {
       expect(buildCityUrl("CA", undefined)).toBe("/");
     });
 
-    it("should slugify unknown state and city", () => {
+    it("should use 2-letter codes for known states with city", () => {
       expect(buildCityUrl("New York", "New York City")).toBe(
-        "/new-york/new-york-city"
+        "/ny/new-york-city"
       );
+      expect(buildCityUrl("Oregon", "Portland")).toBe("/or/portland");
+    });
+
+    it("should slugify truly unknown state and city", () => {
+      expect(buildCityUrl("Unknown State", "Some City")).toBe(
+        "/unknown-state/some-city"
+      );
+    });
+  });
+
+  describe("getValidStateSlugs", () => {
+    it("should return an array of state slugs", () => {
+      const slugs = getValidStateSlugs();
+      expect(Array.isArray(slugs)).toBe(true);
+      expect(slugs.length).toBeGreaterThan(0);
+    });
+
+    it("should include common US state slugs", () => {
+      const slugs = getValidStateSlugs();
+      expect(slugs).toContain("ca");
+      expect(slugs).toContain("or");
+      expect(slugs).toContain("wa");
+      expect(slugs).toContain("hi");
+      expect(slugs).toContain("fl");
+    });
+
+    it("should include international location slugs", () => {
+      const slugs = getValidStateSlugs();
+      expect(slugs).toContain("mexico/baja-california");
+    });
+
+    it("should not contain duplicates", () => {
+      const slugs = getValidStateSlugs();
+      const uniqueSlugs = [...new Set(slugs)];
+      expect(slugs.length).toBe(uniqueSlugs.length);
+    });
+  });
+
+  describe("isValidStateSlug", () => {
+    it("should return true for valid state slugs", () => {
+      expect(isValidStateSlug("ca")).toBe(true);
+      expect(isValidStateSlug("or")).toBe(true);
+      expect(isValidStateSlug("wa")).toBe(true);
+      expect(isValidStateSlug("hi")).toBe(true);
+    });
+
+    it("should return true regardless of case", () => {
+      expect(isValidStateSlug("CA")).toBe(true);
+      expect(isValidStateSlug("Or")).toBe(true);
+      expect(isValidStateSlug("WA")).toBe(true);
+    });
+
+    it("should return false for intent slugs", () => {
+      expect(isValidStateSlug("surf-forecast")).toBe(false);
+      expect(isValidStateSlug("surf-report")).toBe(false);
+      expect(isValidStateSlug("beginner")).toBe(false);
+      expect(isValidStateSlug("least-crowded")).toBe(false);
+    });
+
+    it("should return false for invalid slugs", () => {
+      expect(isValidStateSlug("xx")).toBe(false);
+      expect(isValidStateSlug("invalid")).toBe(false);
+      expect(isValidStateSlug("")).toBe(false);
+    });
+
+    it("should return true for international location slugs", () => {
+      expect(isValidStateSlug("mexico/baja-california")).toBe(true);
     });
   });
 
@@ -339,6 +469,42 @@ describe("Beach URL Utils", () => {
         stateSlug: "ca",
         citySlug: "san-diego",
         beachSlug: "blacks-beach",
+      });
+    });
+
+    it("should handle complete workflow for Oregon beach", () => {
+      const beach = {
+        slug: "agate-beach",
+        city: "Newport",
+        state: "OR",
+      };
+
+      const url = buildBeachUrl(beach);
+      expect(url).toBe("/or/newport/agate-beach");
+
+      const parsed = parseBeachUrl(url);
+      expect(parsed).toEqual({
+        stateSlug: "or",
+        citySlug: "newport",
+        beachSlug: "agate-beach",
+      });
+    });
+
+    it("should handle complete workflow for Hawaii beach", () => {
+      const beach = {
+        slug: "pipeline",
+        city: "Haleiwa",
+        state: "HI",
+      };
+
+      const url = buildBeachUrl(beach);
+      expect(url).toBe("/hi/haleiwa/pipeline");
+
+      const parsed = parseBeachUrl(url);
+      expect(parsed).toEqual({
+        stateSlug: "hi",
+        citySlug: "haleiwa",
+        beachSlug: "pipeline",
       });
     });
 
@@ -366,6 +532,14 @@ describe("Beach URL Utils", () => {
 
       const cityUrl = buildCityUrl("CA", "San Diego");
       expect(cityUrl).toBe("/ca/san-diego");
+    });
+
+    it("should handle Oregon city and state URLs", () => {
+      const stateUrl = buildStateUrl("OR");
+      expect(stateUrl).toBe("/or");
+
+      const cityUrl = buildCityUrl("OR", "Newport");
+      expect(cityUrl).toBe("/or/newport");
     });
   });
 });
