@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Generic State Beach Route** (December 2025)
+  - Created `app/[intent]/[city]/[beachSlug]/page.tsx` to support hierarchical URLs for all US states (OR, WA, HI, etc.), not just California.
+  - Added `getValidStateSlugs()` and `isValidStateSlug()` helper functions to `lib/utils/beach-url-utils.ts` for route validation.
+  - Route validates first parameter against known state slugs to distinguish from intent routes (`/surf-forecast/city`).
+  - Fixes 404 errors for non-California beaches like `/or/newport/agate-beach`.
+  - California beaches continue to use the more specific `/ca/[city]/[beachSlug]` route.
+  - Intent-based routes (`/surf-forecast/newport`, `/beginner/san-diego`) continue to work at the 2-segment level.
+
 ### Changed
+
+- **Database State Code Normalization** (December 2025)
+  - Normalized all state values in the `beaches` table to 2-letter codes (e.g., "Hawaii" → "HI", "Oregon" → "OR").
+  - Migration: `20251203183500_normalize_state_codes.sql`
+  - Ensures consistency with URL routing which expects 2-letter state codes.
+
+- **Beach URL Utils Test Updates** (December 2025)
+  - Added comprehensive test cases for Oregon, Washington, and Hawaii beach URLs.
+  - Added tests for `getValidStateSlugs()` and `isValidStateSlug()` functions.
+  - Updated existing tests to reflect that known state names now map to 2-letter codes.
+
+
 
 - **E2E Test Suite Cleanup** (December 2025)
   - Deleted `e2e/onboarding.spec.ts` - tests were unreliable and tested removed features (referral step).
@@ -30,6 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed overly broad "Unable to load" and "Failed to" text patterns that caught graceful degradation messages.
   - Added error detection utilities to `e2e/session-wizard.spec.ts` for all test describe blocks.
   - Tests now properly catch visible errors while ignoring infrastructure rate limiting.
+
+- **Session Wizard E2E Test Improvements** (December 2025)
+  - Fixed all skipped tests by using correct `data-testid` selectors instead of unreliable placeholder patterns.
+  - Updated tests to properly navigate through wizard steps before asserting element visibility.
+  - Improved beach selection tests to use dropdown list selectors (`ul li button`).
+  - Tests now pass 26/26 (previously 17 passed, 8 skipped).
 
 - **Onboarding Dialog Code Quality Improvements** (December 2025)
   - Extracted duplicate `hasCompleteProfile` logic into reusable `isProfileSubstantiallyComplete()` helper function (DRY principle).
