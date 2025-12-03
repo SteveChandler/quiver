@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Beach Detail Pages Returning 500 for California Beaches** (December 2025)
+  - Fixed `/ca/[city]/[beachSlug]` routes returning 500 errors on dev.quiversurf.app.
+  - The page was checking `beach.state !== "CA"` but some beaches have `state: "California"` (full name) in the database.
+  - Updated state validation to accept both "CA" and "California" as valid California beaches.
+
 - **Fixed Sentry Version Conflict with Lighthouse** (December 2025)
   - Added yarn resolutions to force `@sentry/node` and `@sentry/core` to version 10.27.0.
   - The `lighthouse@12.6.1` package requires `@sentry/node@^7.0.0`, which conflicted with `@sentry/nextjs@10.27.0` requiring `@sentry/node@10.27.0`.

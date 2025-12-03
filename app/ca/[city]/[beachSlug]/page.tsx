@@ -33,7 +33,9 @@ export default async function BeachDetailPage({ params }: PageProps) {
 
     // Validate that this is a California beach and city matches
     // Handle cases where beach data might be incomplete
-    if (beach.state !== "CA") {
+    // Note: State can be stored as "CA" or "California" in the database
+    const isCaliforniaBeach = beach.state === "CA" || beach.state === "California";
+    if (!isCaliforniaBeach) {
       console.warn("[BeachDetailPage] Beach is not in California:", {
         beachSlug,
         state: beach.state,
