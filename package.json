@@ -229,6 +229,8 @@
     "glob": "^11.1.0",
     "string-width": "^4.2.3",
     "strip-ansi": "^6.0.1",
-    "ansi-regex": "^5.0.1"
+    "ansi-regex": "^5.0.1",
+    "@sentry/node": "10.27.0",
+    "@sentry/core": "10.27.0"
   }
 }
