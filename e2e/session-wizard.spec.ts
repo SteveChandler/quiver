@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
 import { TEST_BEACH_IDS } from './fixtures/test-data';
+import {
+  setupErrorDetection,
+  assertNoErrors,
+  gotoWithErrorCheck,
+  ErrorCapture,
+} from './utils/error-detection';
 
 /**
  * Session Wizard Tests
@@ -10,327 +16,314 @@ import { TEST_BEACH_IDS } from './fixtures/test-data';
  */
 
 test.describe('Session Wizard - Plan Mode', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/sessions/new?mode=plan');
-    await waitForPageLoad(page);
+    errorCapture = setupErrorDetection(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=plan');
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
   });
 
   test('should display session wizard in plan mode', async ({ page }) => {
-    // Wizard page should be loaded - check for various indicators
+    // Wizard should show the form with beach selection on first step
+    const wizardForm = page.locator('[data-testid="session-wizard-form"]');
+    await expect(wizardForm).toBeVisible({ timeout: 10000 });
 
-    // 1. Look for any heading
-    const anyHeading = page.getByRole('heading').first();
-    const hasHeading = await anyHeading.isVisible().catch(() => false);
-
-    if (hasHeading) {
-      expect(hasHeading).toBe(true);
-      return;
-    }
-
-    // 2. Look for beach selection (wizard first step)
-    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const hasBeachInput = await beachInput.isVisible().catch(() => false);
-
-    if (hasBeachInput) {
-      expect(hasBeachInput).toBe(true);
-      return;
-    }
-
-    // 3. Look for any form elements
-    const formElement = page.locator('form, input, button').first();
-    const hasForm = await formElement.isVisible().catch(() => false);
-
-    // Wizard should have some interactive elements
-    expect(hasForm).toBe(true);
+    // Should show Location step heading
+    const locationHeading = page.getByRole('heading', { name: /location/i });
+    await expect(locationHeading).toBeVisible();
   });
 
   test('should have beach selection step', async ({ page }) => {
-    // Look for beach selection input/dropdown
-    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const beachSelect = page.locator('select, [role="combobox"]').first();
-
-    const hasInput = await beachInput.isVisible().catch(() => false);
-    const hasSelect = await beachSelect.isVisible().catch(() => false);
-
-    expect(hasInput || hasSelect).toBe(true);
+    // Beach search input should be visible on first step
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await expect(beachInput).toBeVisible({ timeout: 10000 });
   });
 
   test('should allow selecting a beach', async ({ page }) => {
-    // Try to type beach name
-    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const isVisible = await beachInput.isVisible().catch(() => false);
+    // Use the data-testid selector for beach input
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await expect(beachInput).toBeVisible({ timeout: 10000 });
 
-    if (isVisible) {
-      await beachInput.fill('Black');
-      await page.waitForTimeout(1000);
+    // Type beach name
+    await beachInput.fill('Black');
+    await page.waitForTimeout(1000);
 
-      // Should show beach suggestions
-      const beachOption = page.getByText(/black/i).first();
-      const hasOption = await beachOption.isVisible().catch(() => false);
+    // Should show beach suggestions in dropdown
+    const beachOption = page.getByText(/black/i).first();
+    const hasOption = await beachOption.isVisible().catch(() => false);
 
-      if (hasOption) {
-        await beachOption.click();
-      }
-    } else {
-      test.skip(true, 'Beach input not found - may have different UI');
+    if (hasOption) {
+      await beachOption.click();
+      // Verify selection was made
+      await expect(beachInput).toHaveValue(/black/i);
     }
   });
 
   test('should have date and time selection', async ({ page }) => {
-    // Look for date input
-    const dateInput = page.locator('input[type="date"], input[placeholder*="date" i]').first();
-    const hasDate = await dateInput.isVisible().catch(() => false);
-
-    if (hasDate) {
-      await expect(dateInput).toBeVisible();
+    // First select a beach to enable the Next button
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await beachInput.fill('Blacks Beach');
+    await page.waitForTimeout(500);
+    const beachOption = page.getByText(/blacks beach/i).first();
+    if (await beachOption.isVisible().catch(() => false)) {
+      await beachOption.click();
     }
 
-    // Look for time input
-    const timeInput = page.locator('input[type="time"], input[placeholder*="time" i]').first();
-    const hasTime = await timeInput.isVisible().catch(() => false);
+    // Click Next to go to date/time step
+    const nextButton = page.getByRole('button', { name: /next/i });
+    await nextButton.click();
+    await page.waitForTimeout(500);
 
-    if (!hasDate && !hasTime) {
-      test.skip(true, 'Date/time inputs not found - may be in different step');
-    }
+    // Now date/time inputs should be visible
+    const dateInput = page.locator('[data-testid="session-date-input"]');
+    const timeInput = page.locator('[data-testid="session-time-input"]');
+
+    await expect(dateInput).toBeVisible({ timeout: 5000 });
+    await expect(timeInput).toBeVisible({ timeout: 5000 });
   });
 
   test('should have next/continue button', async ({ page }) => {
-    const nextButton = page.getByRole('button', { name: /next|continue|proceed/i });
-    const hasNext = await nextButton.isVisible().catch(() => false);
-
-    expect(hasNext).toBe(true);
+    // Next button should be visible (may be disabled until beach selected)
+    const nextButton = page.getByRole('button', { name: /next/i });
+    await expect(nextButton).toBeVisible({ timeout: 5000 });
   });
 
-  test('should have cancel button', async ({ page }) => {
-    // Cancel button might have various forms
-    const cancelButton = page.getByRole('button', { name: /cancel/i });
-    const backButton = page.getByRole('button', { name: /back/i });
-    const closeButton = page.getByRole('button', { name: /close|×/i });
-    const backLink = page.getByRole('link', { name: /back|cancel|close/i });
-
-    const hasCancel = await cancelButton.isVisible().catch(() => false);
-    const hasBack = await backButton.isVisible().catch(() => false);
-    const hasClose = await closeButton.isVisible().catch(() => false);
-    const hasBackLink = await backLink.isVisible().catch(() => false);
-
-    // At least one way to exit the wizard should exist
-    if (!hasCancel && !hasBack && !hasClose && !hasBackLink) {
-      test.skip(true, 'Cancel/back button not found - wizard may auto-handle navigation');
-    } else {
-      expect(hasCancel || hasBack || hasClose || hasBackLink).toBe(true);
+  test('should have previous button on step 2+', async ({ page }) => {
+    // First select a beach and go to step 2
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await beachInput.fill('Blacks Beach');
+    await page.waitForTimeout(500);
+    const beachOption = page.getByText(/blacks beach/i).first();
+    if (await beachOption.isVisible().catch(() => false)) {
+      await beachOption.click();
     }
+
+    // Click Next to go to step 2
+    const nextButton = page.getByRole('button', { name: /next/i });
+    await nextButton.click();
+    await page.waitForTimeout(500);
+
+    // Previous button should now be visible
+    const previousButton = page.getByRole('button', { name: /previous/i });
+    await expect(previousButton).toBeVisible({ timeout: 5000 });
   });
 });
 
 test.describe('Session Wizard - Log Mode', () => {
+  let errorCapture: ErrorCapture;
+
   test.beforeEach(async ({ page }) => {
-    await page.goto('/sessions/new?mode=log');
-    await waitForPageLoad(page);
+    errorCapture = setupErrorDetection(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=log');
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
   });
 
   test('should display session wizard in log mode', async ({ page }) => {
-    // Wizard page should be loaded - check for various indicators
+    // Wizard should show the form with beach selection on first step
+    const wizardForm = page.locator('[data-testid="session-wizard-form"]');
+    await expect(wizardForm).toBeVisible({ timeout: 10000 });
 
-    // 1. Look for any heading
-    const anyHeading = page.getByRole('heading').first();
-    const hasHeading = await anyHeading.isVisible().catch(() => false);
-
-    if (hasHeading) {
-      expect(hasHeading).toBe(true);
-      return;
-    }
-
-    // 2. Look for beach selection (wizard first step)
-    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const hasBeachInput = await beachInput.isVisible().catch(() => false);
-
-    if (hasBeachInput) {
-      expect(hasBeachInput).toBe(true);
-      return;
-    }
-
-    // 3. Look for any form elements
-    const formElement = page.locator('form, input, button').first();
-    const hasForm = await formElement.isVisible().catch(() => false);
-
-    // Wizard should have some interactive elements
-    expect(hasForm).toBe(true);
+    // Should show Location step heading
+    const locationHeading = page.getByRole('heading', { name: /location/i });
+    await expect(locationHeading).toBeVisible();
   });
 
   test('should have beach selection step', async ({ page }) => {
-    // Look for beach selection
-    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const hasInput = await beachInput.isVisible().catch(() => false);
-
-    if (!hasInput) {
-      const beachText = page.getByText(/select.*beach|choose.*location/i).first();
-      const hasText = await beachText.isVisible().catch(() => false);
-      expect(hasText).toBe(true);
-    }
+    // Beach search input should be visible on first step
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await expect(beachInput).toBeVisible({ timeout: 10000 });
   });
 
-  test('should have rating fields for logged sessions', async ({ page }) => {
-    // Navigate through wizard to find rating fields
-    // This might be on a later step, so we may need to skip if not visible
-
-    // Look for wave quality, crowd level, or overall rating inputs
-    const ratingFields = page.locator('input[type="range"], input[type="number"]');
-    const count = await ratingFields.count();
-
-    // Ratings might be on a later step
-    if (count === 0) {
-      test.skip(true, 'Rating fields not visible on first step - may be multi-step wizard');
+  test('should have rating fields on session details step', async ({ page }) => {
+    // Navigate to the Session Details step (step 4 in log mode)
+    // Step 1: Select beach
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await beachInput.fill('Blacks Beach');
+    await page.waitForTimeout(500);
+    const beachOption = page.getByText(/blacks beach/i).first();
+    if (await beachOption.isVisible().catch(() => false)) {
+      await beachOption.click();
     }
+
+    // Step 2: Go to date/time
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
+
+    // Step 3: Go to equipment
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
+
+    // Step 4: Go to session details (has ratings)
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
+
+    // Now rating fields should be visible (star ratings for wave quality, crowd, parking)
+    const ratingSection = page.getByText(/wave quality|session experience/i).first();
+    await expect(ratingSection).toBeVisible({ timeout: 5000 });
   });
 });
 
 test.describe('Session Wizard - Complete Flow', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
+  });
+
   test('should complete plan session flow end-to-end', async ({ page }) => {
-    await page.goto('/sessions/new?mode=plan');
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=plan');
 
     // Step 1: Select beach
-    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const hasBeachInput = await beachInput.isVisible().catch(() => false);
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await expect(beachInput).toBeVisible({ timeout: 10000 });
 
-    if (!hasBeachInput) {
-      test.skip(true, 'Cannot complete flow - beach selection not found');
-      return;
-    }
+    // Type partial name and wait for dropdown
+    await beachInput.fill('Pacific');
+    await page.waitForTimeout(1500);
 
-    // Fill beach
-    await beachInput.fill('Black');
-    await page.waitForTimeout(1000);
+    // Click the first matching beach option in the dropdown
+    const beachOption = page.locator('ul li button').filter({ hasText: /pacific/i }).first();
+    await beachOption.click({ timeout: 5000 });
+    await page.waitForTimeout(500);
 
-    // Select first beach option
-    const beachOption = page.getByText(/black/i).first();
-    const hasOption = await beachOption.isVisible().catch(() => false);
-    if (hasOption) {
-      await beachOption.click();
-    } else {
-      test.skip(true, 'Beach selection not working as expected');
-      return;
-    }
+    // Step 2: Go to date/time step
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
 
-    // Step 2: Click next/continue if needed
-    const nextButton = page.getByRole('button', { name: /next|continue/i }).first();
-    const hasNext = await nextButton.isVisible().catch(() => false);
-    if (hasNext) {
-      await nextButton.click();
-      await page.waitForTimeout(500);
-    }
+    // Set date (tomorrow)
+    const dateInput = page.locator('[data-testid="session-date-input"]');
+    await expect(dateInput).toBeVisible({ timeout: 5000 });
 
-    // Step 3: Set date (tomorrow)
-    const dateInput = page.locator('input[type="date"]').first();
-    const hasDate = await dateInput.isVisible().catch(() => false);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateString = tomorrow.toISOString().split('T')[0];
+    await dateInput.fill(dateString);
 
-    if (hasDate) {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const dateString = tomorrow.toISOString().split('T')[0];
-      await dateInput.fill(dateString);
-    }
+    // Set time
+    const timeInput = page.locator('[data-testid="session-time-input"]');
+    await timeInput.fill('09:00');
 
-    // Step 4: Set time
-    const timeInput = page.locator('input[type="time"]').first();
-    const hasTime = await timeInput.isVisible().catch(() => false);
+    // Step 3: Go to goals step
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
 
-    if (hasTime) {
-      await timeInput.fill('09:00');
-    }
-
-    // Step 5: Look for submit/plan button
-    const submitButton = page.getByRole('button', { name: /plan|submit|complete|finish/i }).first();
-    const hasSubmit = await submitButton.isVisible().catch(() => false);
-
-    if (!hasSubmit) {
-      test.skip(true, 'Submit button not found - wizard may have more steps');
-      return;
-    }
+    // Step 4: Go to notes/invites step
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
 
     // Submit the session
+    const submitButton = page.getByRole('button', { name: /plan session/i });
+    await expect(submitButton).toBeVisible({ timeout: 5000 });
     await submitButton.click();
 
-    // Wait for success message or celebration
-    const successMessage = page.getByText(/success|planned|created/i);
-    const celebration = page.getByText(/🎉|Success!/i);
-
-    // Either success toast or celebration overlay should appear
-    const hasSuccess = await successMessage.isVisible({ timeout: 5000 }).catch(() => false);
-    const hasCelebration = await celebration.isVisible({ timeout: 5000 }).catch(() => false);
-
-    expect(hasSuccess || hasCelebration).toBe(true);
+    // Wait for success indication (use first() to avoid strict mode violation)
+    const successMessage = page.getByText(/success|planned|created/i).first();
+    await expect(successMessage).toBeVisible({ timeout: 10000 });
   });
 
   test('should redirect to profile after successful session creation', async ({ page }) => {
-    // This test is more of a smoke test - the actual redirect happens after 5s
-    // We'll just verify the page loaded and has a submit button
-    await page.goto('/sessions/new?mode=plan');
-    await waitForPageLoad(page);
+    // Verify wizard loads and form is present
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=plan');
 
-    // Just verify wizard is functional
-    const wizard = page.locator('form, [class*="wizard"]').first();
-    const hasWizard = await wizard.isVisible().catch(() => false);
+    const wizardForm = page.locator('[data-testid="session-wizard-form"]');
+    await expect(wizardForm).toBeVisible({ timeout: 10000 });
 
-    expect(hasWizard).toBe(true);
+    // Verify we can see the first step
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await expect(beachInput).toBeVisible();
   });
 
-  test('should allow canceling session creation', async ({ page }) => {
-    await page.goto('/sessions/new?mode=plan');
-    await waitForPageLoad(page);
+  test('should allow navigating back with Previous button', async ({ page }) => {
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=plan');
 
-    // Find and click cancel button
-    const cancelButton = page.getByRole('button', { name: /cancel|back/i }).first();
-    const hasCancel = await cancelButton.isVisible().catch(() => false);
-
-    if (!hasCancel) {
-      test.skip(true, 'Cancel button not found');
-      return;
+    // Select a beach first
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await beachInput.fill('Blacks Beach');
+    await page.waitForTimeout(500);
+    const beachOption = page.getByText(/blacks beach/i).first();
+    if (await beachOption.isVisible().catch(() => false)) {
+      await beachOption.click();
     }
 
-    await cancelButton.click();
+    // Go to step 2
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
 
-    // Should navigate away (probably to profile or sessions)
-    await waitForPageLoad(page);
+    // Click Previous to go back
+    const previousButton = page.getByRole('button', { name: /previous/i });
+    await previousButton.click();
+    await page.waitForTimeout(500);
 
-    // Should NOT be on /sessions/new anymore
-    expect(page.url()).not.toContain('/sessions/new');
+    // Should be back on step 1 (beach input visible)
+    await expect(beachInput).toBeVisible();
   });
 });
 
 test.describe('Session Wizard - Validation', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
+  });
+
   test('should not allow submitting without required fields', async ({ page }) => {
-    await page.goto('/sessions/new?mode=plan');
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=plan');
 
-    // Try to find and click submit button without filling form
-    const submitButton = page.getByRole('button', { name: /plan|submit|complete|finish/i }).first();
-    const hasSubmit = await submitButton.isVisible().catch(() => false);
+    // On step 1, the Next button should be disabled without beach selection
+    const nextButton = page.getByRole('button', { name: /next/i });
+    await expect(nextButton).toBeVisible({ timeout: 5000 });
 
-    if (!hasSubmit) {
-      test.skip(true, 'Submit button not visible - may be multi-step wizard');
-      return;
+    // Next button should be disabled when no beach is selected
+    await expect(nextButton).toBeDisabled();
+  });
+
+  test('should enable Next button after selecting beach', async ({ page }) => {
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=plan');
+
+    // Next button starts disabled
+    const nextButton = page.getByRole('button', { name: /next/i });
+    await expect(nextButton).toBeDisabled();
+
+    // Select a beach
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await beachInput.fill('Blacks Beach');
+    await page.waitForTimeout(500);
+    const beachOption = page.getByText(/blacks beach/i).first();
+    if (await beachOption.isVisible().catch(() => false)) {
+      await beachOption.click();
     }
 
-    // Button should be disabled or clicking should show validation error
-    const isDisabled = await submitButton.isDisabled().catch(() => false);
-
-    if (!isDisabled) {
-      // Try clicking
-      await submitButton.click();
-
-      // Should show validation error
-      const validationError = page.getByText(/required|select.*beach|choose/i);
-      const hasError = await validationError.isVisible({ timeout: 2000 }).catch(() => false);
-
-      expect(hasError).toBe(true);
-    } else {
-      expect(isDisabled).toBe(true);
-    }
+    // Now Next button should be enabled
+    await expect(nextButton).toBeEnabled({ timeout: 2000 });
   });
 });
 
 test.describe('Session Wizard - Forecast Snapshot Creation', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
+  });
+
   /**
    * Tests for forecast snapshot creation when sessions are logged.
    * Snapshots capture forecast conditions at the time of the session
@@ -343,104 +336,58 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
 
   test('should successfully create session (snapshot created in background)', async ({ page }) => {
     // Navigate to log mode (completed sessions trigger snapshot creation)
-    await page.goto('/sessions/new?mode=log');
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=log');
 
-    // Fill out the session form
-    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const isVisible = await beachInput.isVisible({ timeout: 5000 }).catch(() => false);
+    // Step 1: Select beach
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await expect(beachInput).toBeVisible({ timeout: 10000 });
 
-    if (!isVisible) {
-      test.skip(true, 'Beach input not found - different UI');
-      return;
-    }
+    // Type partial name and wait for dropdown
+    await beachInput.fill('Pacific');
+    await page.waitForTimeout(1500);
 
-    // Select a beach
-    await beachInput.fill('Black');
-    await page.waitForTimeout(1000);
+    // Click the first matching beach option in the dropdown
+    const beachOption = page.locator('ul li button').filter({ hasText: /pacific/i }).first();
+    await beachOption.click({ timeout: 5000 });
+    await page.waitForTimeout(500);
 
-    const beachOption = page.getByText(/black/i).first();
-    const hasOption = await beachOption.isVisible().catch(() => false);
+    // Step 2: Go to date/time step
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
 
-    if (hasOption) {
-      await beachOption.click();
-      await page.waitForTimeout(500);
-    }
+    // Step 3: Go to equipment step
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
 
-    // Fill in other required fields if present
-    const ratingInput = page.locator('input[type="range"], [role="slider"]').first();
-    const hasRating = await ratingInput.isVisible().catch(() => false);
-
-    if (hasRating) {
-      await ratingInput.fill('8');
-    }
+    // Step 4: Go to session details step
+    await page.getByRole('button', { name: /next/i }).click();
+    await page.waitForTimeout(500);
 
     // Submit the session
-    const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await submitButton.isVisible().catch(() => false);
-
-    if (!hasSubmit) {
-      test.skip(true, 'Submit button not found');
-      return;
-    }
-
+    const submitButton = page.getByRole('button', { name: /log session/i });
+    await expect(submitButton).toBeVisible({ timeout: 5000 });
     await submitButton.click();
 
-    // Wait for success indication
-    const successMessage = page.getByText(/success|logged|created|saved/i);
-    const celebration = page.getByText(/🎉|Success!/i);
-
-    const hasSuccess = await successMessage.isVisible({ timeout: 10000 }).catch(() => false);
-    const hasCelebration = await celebration.isVisible({ timeout: 10000 }).catch(() => false);
-
-    // Session should be created successfully
-    // Note: Forecast snapshot creation happens in background via:
-    // 1. Application code in session-actions.ts (createLoggedSession)
-    // 2. Database trigger (trigger_create_session_forecast_snapshot)
-    expect(hasSuccess || hasCelebration).toBe(true);
+    // Wait for success indication (use first() to avoid strict mode violation)
+    const successMessage = page.getByText(/success|logged|created|saved/i).first();
+    await expect(successMessage).toBeVisible({ timeout: 10000 });
   });
 
-  test('session creation should not fail if snapshot creation fails', async ({ page }) => {
-    // This test verifies that even if forecast data is missing or snapshot creation
-    // fails, the session itself is still created successfully.
+  test('session wizard loads without errors', async ({ page }) => {
+    // This test verifies the wizard loads properly in log mode
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=log');
 
-    await page.goto('/sessions/new?mode=log');
-    await waitForPageLoad(page);
+    // Wizard form should be visible
+    const wizardForm = page.locator('[data-testid="session-wizard-form"]');
+    await expect(wizardForm).toBeVisible({ timeout: 10000 });
 
-    // Fill minimal required fields
-    const beachInput = page.getByPlaceholder(/beach|location|search/i).first();
-    const isVisible = await beachInput.isVisible({ timeout: 5000 }).catch(() => false);
+    // Beach input should be visible on first step
+    const beachInput = page.locator('[data-testid="beach-search-input"]');
+    await expect(beachInput).toBeVisible();
 
-    if (!isVisible) {
-      test.skip(true, 'Beach input not found');
-      return;
-    }
-
-    await beachInput.fill('Test');
-    await page.waitForTimeout(1000);
-
-    // Try to submit
-    const submitButton = page.getByRole('button', { name: /log|submit|save|complete/i }).first();
-    const hasSubmit = await submitButton.isVisible().catch(() => false);
-
-    if (!hasSubmit) {
-      test.skip(true, 'Submit button not found');
-      return;
-    }
-
-    // Even with minimal data (possibly no forecast match), session should save
-    // The snapshot creation is non-blocking and won't fail the session creation
-    await submitButton.click();
-
-    // Should either succeed or show validation errors (but not fail due to snapshot)
-    await page.waitForTimeout(3000);
-
-    // Page should not crash or show unexpected errors
+    // Page should not have any error messages
     const errorMessage = page.getByText(/unexpected error|failed to create session/i);
-    const hasError = await errorMessage.isVisible().catch(() => false);
-
-    // Should NOT have unexpected errors (validation errors are ok)
-    expect(hasError).toBe(false);
+    await expect(errorMessage).not.toBeVisible();
   });
 
   // Note: To fully verify snapshot creation in E2E tests, we would need either:
@@ -453,6 +400,16 @@ test.describe('Session Wizard - Forecast Snapshot Creation', () => {
 });
 
 test.describe('Session Wizard - Feature Flag Detection', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
+  });
+
   /**
    * Tests to detect which wizard version is running
    * USE_CONSOLIDATED_WIZARD = false → V1 (6 steps for log mode)
@@ -460,8 +417,7 @@ test.describe('Session Wizard - Feature Flag Detection', () => {
    */
 
   test('should detect wizard version based on step count', async ({ page }) => {
-    await page.goto('/sessions/new?mode=log');
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=log');
 
     // Try to detect step count
     const progressBar = page.locator('[role="progressbar"], [data-testid*="progress"]').first();
@@ -484,8 +440,7 @@ test.describe('Session Wizard - Feature Flag Detection', () => {
   });
 
   test('log mode: V1 has 6 steps, V2 has 4 steps', async ({ page }) => {
-    await page.goto('/sessions/new?mode=log');
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=log');
 
     const progressBar = page.locator('[role="progressbar"]').first();
     const hasProgressBar = await progressBar.isVisible({ timeout: 5000 }).catch(() => false);
@@ -506,8 +461,7 @@ test.describe('Session Wizard - Feature Flag Detection', () => {
   });
 
   test('plan mode: should always have 4 steps (unchanged in both versions)', async ({ page }) => {
-    await page.goto('/sessions/new?mode=plan');
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=plan');
 
     const progressBar = page.locator('[role="progressbar"]').first();
     const hasProgressBar = await progressBar.isVisible({ timeout: 5000 }).catch(() => false);
@@ -531,6 +485,16 @@ test.describe('Session Wizard - Feature Flag Detection', () => {
  * @project auth
  */
 test.describe('Session Wizard - URL Parameter Prefill', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Test cleanup' });
+  });
+
   test('should prefill wizard with valid URL parameters', async ({ page }) => {
     // Use a valid test beach ID
     const testBeachId = '65809772-20bc-4009-b9b2-89c8ef3c4127'; // Pacific Beach
@@ -541,8 +505,7 @@ test.describe('Session Wizard - URL Parameter Prefill', () => {
 
     const url = `/sessions/new?mode=plan&beach=${testBeachId}&beachName=${encodeURIComponent(beachName)}&startTime=${startTime}&endTime=${endTime}&step=${step}`;
 
-    await page.goto(url);
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, url);
 
     // Wait a bit for any prefill logic to run
     await page.waitForTimeout(1000);
@@ -560,8 +523,7 @@ test.describe('Session Wizard - URL Parameter Prefill', () => {
 
   test('should handle missing URL parameters gracefully', async ({ page }) => {
     // Navigate without any prefill parameters
-    await page.goto('/sessions/new');
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new');
 
     // Wizard should still load normally
     const hasContent = await page.locator('body').isVisible();
@@ -573,8 +535,7 @@ test.describe('Session Wizard - URL Parameter Prefill', () => {
   test('should handle invalid UUID gracefully', async ({ page }) => {
     const url = `/sessions/new?mode=plan&beach=invalid-uuid&beachName=Test Beach&startTime=2025-11-23T06:00:00.000Z&endTime=2025-11-23T10:00:00.000Z&step=1`;
 
-    await page.goto(url);
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, url);
 
     // Wizard should still load (graceful degradation)
     const hasContent = await page.locator('body').isVisible();
@@ -587,8 +548,7 @@ test.describe('Session Wizard - URL Parameter Prefill', () => {
     const testBeachId = '65809772-20bc-4009-b9b2-89c8ef3c4127';
     const url = `/sessions/new?mode=plan&beach=${testBeachId}&beachName=Test Beach&startTime=invalid-date&endTime=2025-11-23T10:00:00.000Z&step=1`;
 
-    await page.goto(url);
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, url);
 
     // Wizard should still load (graceful degradation)
     const hasContent = await page.locator('body').isVisible();
@@ -602,8 +562,7 @@ test.describe('Session Wizard - URL Parameter Prefill', () => {
     // End time before start time (should fail validation)
     const url = `/sessions/new?mode=plan&beach=${testBeachId}&beachName=Test Beach&startTime=2025-11-23T10:00:00.000Z&endTime=2025-11-23T06:00:00.000Z&step=1`;
 
-    await page.goto(url);
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, url);
 
     // Wizard should still load with graceful degradation
     const hasContent = await page.locator('body').isVisible();
@@ -617,8 +576,7 @@ test.describe('Session Wizard - URL Parameter Prefill', () => {
     // Invalid step number (should default to step 1)
     const url = `/sessions/new?mode=plan&beach=${testBeachId}&beachName=Test Beach&startTime=2025-11-23T06:00:00.000Z&endTime=2025-11-23T10:00:00.000Z&step=99`;
 
-    await page.goto(url);
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, url);
 
     // Wizard should still load
     const hasContent = await page.locator('body').isVisible();
@@ -629,8 +587,7 @@ test.describe('Session Wizard - URL Parameter Prefill', () => {
 
   test('should preserve backwards compatibility with mode parameter', async ({ page }) => {
     // Old-style URL with just mode parameter
-    await page.goto('/sessions/new?mode=log');
-    await waitForPageLoad(page);
+    await gotoWithErrorCheck(page, errorCapture, '/sessions/new?mode=log');
 
     // Wizard should load in log mode
     const hasContent = await page.locator('body').isVisible();

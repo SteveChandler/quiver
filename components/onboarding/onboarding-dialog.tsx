@@ -18,6 +18,7 @@ import { NotificationsStep } from "./steps/notifications-step";
 import { CompletionStep } from "./steps/completion-step";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
+import type { Profile } from "@/types/database";
 
 const STEPS = [
   WelcomeStep,
@@ -27,6 +28,30 @@ const STEPS = [
   NotificationsStep,
   CompletionStep,
 ];
+
+// Delays for dialog opening (ms)
+const DIALOG_OPEN_DELAY = 500; // Let page settle before showing onboarding
+const TESTING_OPEN_DELAY = 100; // Shorter delay for test mode
+
+/** Check if profile has enough data to skip onboarding (e.g., filled via Edit Profile) */
+function isProfileSubstantiallyComplete(
+  profile: Profile | null
+): profile is Profile {
+  return Boolean(
+    profile &&
+      (profile.full_name || profile.display_name) &&
+      profile.home_beach_id
+  );
+}
+
+/** Safe localStorage access - returns null on error (private browsing, quota exceeded) */
+function safeGetLocalStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
 
 export function OnboardingDialog() {
   const { user } = useAuth();
@@ -57,23 +82,19 @@ export function OnboardingDialog() {
     if (profileError) return;
 
     const dismissedKey = `onboarding_dismissed_${user.id}`;
-    const isDismissed = localStorage.getItem(dismissedKey);
+    const isDismissed = safeGetLocalStorage(dismissedKey);
     if (isDismissed) return;
-
-    // Check if profile is already "substantially complete" (filled out via Edit Profile)
-    // This prevents pestering users who set up their profile manually
-    const hasCompleteProfile = profile && 
-      (profile.full_name || profile.display_name) && 
-      profile.home_beach_id;
 
     // Show onboarding if:
     // 1. No profile exists yet (brand new user)
     // 2. Profile exists but onboarding not completed AND profile is not already complete
-    const needsOnboarding = !profile || (!profile.onboarding_completed_at && !hasCompleteProfile);
+    const needsOnboarding =
+      !profile ||
+      (!profile.onboarding_completed_at &&
+        !isProfileSubstantiallyComplete(profile));
 
     if (needsOnboarding) {
-      // Small delay to let page settle
-      const timeoutId = setTimeout(() => openDialog(), 500);
+      const timeoutId = setTimeout(() => openDialog(), DIALOG_OPEN_DELAY);
       // Cleanup: cancel timeout if effect re-runs (e.g., profile loads with onboarding_completed_at)
       return () => clearTimeout(timeoutId);
     }
@@ -84,8 +105,8 @@ export function OnboardingDialog() {
     if (searchParams?.get("showOnboarding") === "1") {
       // Reset store to clear state for testing
       reset();
-      // Small delay to ensure state update propagates
-      setTimeout(() => openDialog(), 100);
+      const timeoutId = setTimeout(() => openDialog(), TESTING_OPEN_DELAY);
+      return () => clearTimeout(timeoutId);
     }
   }, [openDialog, reset, searchParams]);
 
@@ -98,11 +119,10 @@ export function OnboardingDialog() {
   // Determine if we should render based on profile completion status
   const isTesting = searchParams?.get("showOnboarding") === "1";
   const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
-  // Also check if profile is substantially complete (filled out via Edit Profile)
-  const hasCompleteProfile = profile && 
-    (profile.full_name || profile.display_name) && 
-    profile.home_beach_id;
-  const shouldRender = isOpen && (!hasCompletedOnboarding && !hasCompleteProfile || isTesting);
+  const shouldRender =
+    isOpen &&
+    ((!hasCompletedOnboarding && !isProfileSubstantiallyComplete(profile)) ||
+      isTesting);
 
   return (
     <Dialog open={shouldRender}>

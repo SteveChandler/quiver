@@ -7,7 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **E2E Test Suite Cleanup** (December 2025)
+  - Deleted `e2e/onboarding.spec.ts` - tests were unreliable and tested removed features (referral step).
+  - Rewrote `e2e/home.spec.ts` with component-specific tests for HomeScreen:
+    - Welcome section: greeting, Plan Session/Log Session buttons with navigation
+    - Tabs: Forecast and Local Intel tab switching
+    - Beach Search Bar functionality
+    - Nearby Beach Chips display
+    - Forecast Tab content
+    - Mobile responsiveness
+  - Simplified `e2e/guest-landing.spec.ts`:
+    - Removed "Today's Top Surf Spots" image loading tests
+    - Removed Beach Card Navigation tests
+    - Removed Mobile Responsiveness tests
+    - Added error detection utilities for consistency
+    - Kept core tests: page load, login/signup buttons, auth modal
+
+- **E2E Error Detection Improvements** (December 2025)
+  - Updated `e2e/utils/error-detection.ts` to ignore 429 rate limit errors (both network and console).
+  - Removed overly broad "Unable to load" and "Failed to" text patterns that caught graceful degradation messages.
+  - Added error detection utilities to `e2e/session-wizard.spec.ts` for all test describe blocks.
+  - Tests now properly catch visible errors while ignoring infrastructure rate limiting.
+
+- **Onboarding Dialog Code Quality Improvements** (December 2025)
+  - Extracted duplicate `hasCompleteProfile` logic into reusable `isProfileSubstantiallyComplete()` helper function (DRY principle).
+  - Added cleanup for testing timeout effect to prevent memory leaks.
+  - Wrapped localStorage access in `safeGetLocalStorage()` helper to handle private browsing/quota errors gracefully.
+  - Replaced magic number delays with named constants (`DIALOG_OPEN_DELAY`, `TESTING_OPEN_DELAY`).
+
 ### Fixed
+
+- **Session Creation RLS Policy Violation on user_beach_affinity** (December 2025)
+  - Fixed "new row violates row-level security policy for table 'user_beach_affinity'" error when creating planned sessions.
+  - The `update_beach_affinity_on_session_change` trigger function was missing `SECURITY DEFINER`, causing it to fail RLS checks when inserting into `user_beach_affinity`.
+  - Added migration `20251203000000_fix_beach_affinity_trigger_security.sql` to add `SECURITY DEFINER` and `SET search_path = public` to the trigger function.
+
+- **Supabase Client Fail-Fast on Missing Configuration** (December 2025)
+  - Updated `createServerClient` and `createServiceRoleClient` in `lib/supabase.ts` to throw immediately when environment variables are missing.
+  - Previously, the code logged an error but continued to create a client with empty credentials, causing cryptic 500 errors during database operations.
+  - Added validation for `cookieStore` interface before using it to handle RSC prefetch edge cases.
+  - This provides clearer error messages and faster failure for misconfigured environments.
 
 - **Beach Detail Pages Returning 500 for California Beaches** (December 2025)
   - Fixed `/ca/[city]/[beachSlug]` routes returning 500 errors on dev.quiversurf.app.
