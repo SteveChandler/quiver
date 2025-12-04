@@ -171,23 +171,6 @@ export default function IntentPage({ params }: IntentPageParams) {
         </header>
 
         <div className="space-y-12">
-          {/* Editorial Focus Section */}
-          <section>
-            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
-              What to focus on today
-            </h2>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {definition.focusPoints.map((point) => (
-                <li
-                  key={point}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-inner"
-                >
-                  {point}
-                </li>
-              ))}
-            </ul>
-          </section>
-
           {/* Map & List Section */}
           <section>
             <h2 className="text-2xl font-semibold text-slate-900 mb-4">
@@ -205,6 +188,23 @@ export default function IntentPage({ params }: IntentPageParams) {
               stateSlug="ca"
               countrySlug="usa"
             />
+          </section>
+
+          {/* Editorial Focus Section */}
+          <section>
+            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+              What to focus on today
+            </h2>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {definition.focusPoints.map((point) => (
+                <li
+                  key={point}
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-inner"
+                >
+                  {point}
+                </li>
+              ))}
+            </ul>
           </section>
 
           <div className="grid gap-8 lg:grid-cols-2">
