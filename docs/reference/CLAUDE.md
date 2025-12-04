@@ -2,6 +2,8 @@
 
 This repo is optimized for AI‑assisted coding. Follow this guide to produce compliant, high‑quality edits that align with Quiver’s **growth‑first** strategy.
 
+**Authoritative docs**: Start with `docs/ARCHITECTURE_REVIEW.md`, relevant directory `ARCHITECTURE.md`, `docs/features/CITY_EDITORIAL_CONTENT.md` (city editorial system + `getCityEditorialContent()`), and this guide.
+
 ### Mission
 
 - Prioritize user growth and viral mechanics over monetization. Focus on: social sharing, session photos, referrals/challenges/leaderboards, and community features.
@@ -172,6 +174,11 @@ useEffect(() => {
 
 - Start with `docs/ARCHITECTURE_REVIEW.md` for system‑wide context.
 - Agents & MCP: see `docs/CURSOR_AGENTS.md`; **MCP configuration** lives in **`.mcp.json` (Claude Code)** and **`.cursor/mcp.json` (Cursor)**.
+- Routing & layout updates:
+  - Generic state beach routes now live at `app/[intent]/[city]/[beachSlug]/page.tsx` and accept 2-letter state slugs for all states; California still uses `/ca/[city]/[beachSlug]`. Validate with `getValidStateSlugs()` / `isValidStateSlug()` from `lib/utils/beach-url-utils.ts`.
+  - Intent pages (`app/[intent]/[city]/page.tsx`) should match the `LocationPage` layout (Breadcrumbs, Header, Container) and the updated intent heading copy.
+  - "Session log templates" links now point to `/features` (not `/app`).
+  - Coverage-area logic now treats CA/OR/WA/HI/Baja as in-coverage—avoid reintroducing "out of area" messaging there.
 
 ### Critical Don'ts
 
@@ -273,3 +280,5 @@ useEffect(() => {
 * "Always validate with playwright mcp"
 - When running playwright test always run a subset
 - update how to run playwright
+
+**Last reviewed:** 2025-12-05

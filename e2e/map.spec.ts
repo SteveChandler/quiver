@@ -26,7 +26,8 @@ test.describe('Map Page', () => {
     await page.waitForTimeout(3000);
 
     // Should have clickable beach markers or cards
-    const beachMarkers = page.locator('a[href^="/beach/"]');
+    // Matches either /beach/slug or /state/city/slug
+    const beachMarkers = page.locator('a[href^="/beach/"], a[href*="/ca/"]');
     const count = await beachMarkers.count();
 
     expect(count).toBeGreaterThan(0);
@@ -37,7 +38,7 @@ test.describe('Map Page', () => {
     await page.waitForTimeout(3000);
 
     // Click first beach link
-    const firstBeach = page.locator('a[href^="/beach/"]').first();
+    const firstBeach = page.locator('a[href^="/beach/"], a[href*="/ca/"]').first();
     const isVisible = await firstBeach.isVisible().catch(() => false);
 
     if (isVisible) {
@@ -45,7 +46,12 @@ test.describe('Map Page', () => {
       await waitForPageLoad(page);
 
       // Should navigate to beach detail page
-      expect(page.url()).toContain('/beach/');
+      // URL could be /beach/slug or /state/city/slug
+      const url = page.url();
+      const validUrl = url.includes('/beach/') || 
+                      (url.split('/').length >= 5 && !url.includes('/map')); // crude check for hierarchical
+      
+      expect(validUrl).toBeTruthy();
     } else {
       test.skip(true, 'No beach markers found');
     }
@@ -61,7 +67,7 @@ test.describe('Map Page', () => {
       await page.waitForTimeout(1000);
 
       // Should filter or show results
-      const results = page.locator('a[href^="/beach/"]');
+      const results = page.locator('a[href^="/beach/"], a[href*="/ca/"]');
       const count = await results.count();
 
       expect(count).toBeGreaterThan(0);

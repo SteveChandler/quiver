@@ -1,3 +1,17 @@
+/**
+ * Surf Spots Data
+ *
+ * @deprecated SURF_CITIES and SURF_SPOTS are deprecated.
+ * City and spot data now comes from Supabase via the city_editorial_content table.
+ *
+ * KEEP:
+ * - SURF_INTENTS - Used by intent pages (/beginner/[city], /least-crowded/[city], etc.)
+ * - Type definitions (SurfCitySlug, SurfIntentSlug, SurfCity, SurfSpot)
+ *
+ * See: actions/city/city-editorial-actions.ts for database-driven approach
+ * See: lib/utils/beach-to-surfspot-transformer.ts for converting database beaches to SurfSpot format
+ */
+
 export type SurfCitySlug = "san-diego" | "orange-county";
 
 export type SurfIntentSlug =
@@ -23,7 +37,7 @@ export const SURF_INTENTS: Record<SurfIntentSlug, SurfIntentDefinition> = {
     titleTemplate: ({ cityName }) =>
       `${cityName} Beginner Surf Spots, Lessons & Safety Tips`,
     heading: ({ cityName }) =>
-      `${cityName} beginner surf guide and mellow waves`,
+      `Beginner-friendly breaks in ${cityName}`,
     metaDescription: ({ cityName, topSpots }) =>
       `Find the safest beginner surf spots in ${cityName}, including ${topSpots
         .slice(0, 3)
@@ -118,6 +132,10 @@ export interface SurfCity {
   quickLinks: { label: string; href: string }[];
 }
 
+/**
+ * @deprecated Use city_editorial_content table instead.
+ * This data remains for backwards compatibility with intent pages.
+ */
 export const SURF_CITIES: Record<SurfCitySlug, SurfCity> = {
   "san-diego": {
     slug: "san-diego",
@@ -160,7 +178,7 @@ export const SURF_CITIES: Record<SurfCitySlug, SurfCity> = {
       { label: "San Diego surf map", href: "/map?city=san-diego" },
       { label: "Today’s tide chart", href: "/tide/san-diego" },
       { label: "Beginner-friendly breaks", href: "/beginner/san-diego" },
-      { label: "Session log templates", href: "/app" },
+      { label: "Session log templates", href: "/features" },
     ],
   },
   "orange-county": {
@@ -205,6 +223,7 @@ export const SURF_CITIES: Record<SurfCitySlug, SurfCity> = {
 };
 
 export interface SurfSpot {
+  id?: string; // Database UUID for forecast lookups
   slug: string;
   name: string;
   citySlug: SurfCitySlug;
@@ -235,6 +254,10 @@ export interface SurfSpot {
   intentTags: SurfIntentSlug[];
 }
 
+/**
+ * @deprecated Use beaches table with transformBeachesToSurfSpots() instead.
+ * This data remains for backwards compatibility with intent pages.
+ */
 export const SURF_SPOTS: Record<string, SurfSpot> = {
   "blacks-beach": {
     slug: "blacks-beach",
@@ -1650,24 +1673,30 @@ export const SURF_SPOTS: Record<string, SurfSpot> = {
   },
 };
 
+/** @deprecated Use city_editorial_content table */
 export const SURF_CITY_SLUGS = Object.keys(SURF_CITIES) as SurfCitySlug[];
 export type SurfSpotSlug = keyof typeof SURF_SPOTS;
+/** @deprecated Use beaches table */
 export const SURF_SPOT_SLUGS = Object.keys(SURF_SPOTS) as SurfSpotSlug[];
 
+/** @deprecated Use getCityEditorialContent() from actions/city/city-editorial-actions.ts */
 export function getCityBySlug(slug: string): SurfCity | undefined {
   return SURF_CITIES[slug as SurfCitySlug];
 }
 
+/** @deprecated Use beach lookup from Supabase */
 export function getSpotBySlug(slug: string): SurfSpot | undefined {
   return SURF_SPOTS[slug];
 }
 
+/** @deprecated Use beaches query with city filter from Supabase */
 export function getSpotsForCity(citySlug: SurfCitySlug): SurfSpot[] {
   return Object.values(SURF_SPOTS).filter(
     (spot) => spot.citySlug === citySlug
   );
 }
 
+/** @deprecated Use beaches query with intent filter from Supabase */
 export function getSpotsForIntent(
   citySlug: SurfCitySlug,
   intent: SurfIntentSlug
@@ -1677,6 +1706,7 @@ export function getSpotsForIntent(
   );
 }
 
+/** @deprecated Use beaches query with intent filter from Supabase */
 export function getTopSpotsForIntent(intent: SurfIntentSlug): SurfSpot[] {
   return Object.values(SURF_SPOTS).filter((spot) =>
     spot.intentTags.includes(intent)

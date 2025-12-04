@@ -7,6 +7,8 @@ import {
 } from '@/lib/api-utils';
 import { createRateLimiter } from '@/lib/utils/rate-limiter';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Rate limiter for referral code validation
  * Prevents brute force attacks by limiting validation attempts

@@ -73,7 +73,5 @@ export function buildPageMetadata({
 }
 
 function shouldIndex(): boolean {
-  if (process.env.DISALLOW_ROBOTS === "true") return false;
-  const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
-  return env === "production";
+  return process.env.DISALLOW_ROBOTS !== "true";
 }

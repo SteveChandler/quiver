@@ -48,3 +48,4 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION update_beach_affinity_on_session_change IS 'Trigger function that automatically updates beach affinity when sessions are added, modified, or deleted. Uses SECURITY DEFINER to bypass RLS.';
 
+

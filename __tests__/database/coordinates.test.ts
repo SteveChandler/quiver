@@ -164,9 +164,9 @@ describe("Database Coordinate Naming", () => {
         expect(typeof beach.lon === "number" || beach.lon === null).toBe(true);
 
         // BeachWithMetrics additional properties
-        expect(typeof beach.compositeScore).toBe("number");
-        expect(typeof beach.recentIntelCount).toBe("number");
-        expect(typeof beach.avgConfirmations).toBe("number");
+        expect(typeof beach.composite_score).toBe("number");
+        expect(typeof beach.recent_intel_count).toBe("number");
+        expect(typeof beach.avg_confirmations).toBe("number");
       }
     });
   });

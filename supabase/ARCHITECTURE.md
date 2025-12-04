@@ -20,7 +20,11 @@ supabase/
 │   ├── 20250805030000_add_cdip_data_source.sql
 │   ├── 20250828000000_create_gamification_system.sql
 │   ├── 20250829030000_add_missing_profile_columns.sql
-│   └── 20250830120000_rename_default_beach_id_to_home_beach_id.sql
+│   ├── 20250830120000_rename_default_beach_id_to_home_beach_id.sql
+│   ├── 20251203000001_normalize_state_codes.sql
+│   ├── 20251204030000_create_city_editorial_content.sql
+│   ├── 20251204120000_case_insensitive_location_search.sql
+│   └── 20251204120001_update_session_log_template_link.sql
 └── ARCHITECTURE.md                       # This documentation file
 ```
 
@@ -76,6 +80,30 @@ idx_profiles_home_beach_id_fkey ON profiles (home_beach_id)
 - **Query Speed**: 50-80% faster foreign key joins
 - **Storage**: ~15% reduction in index storage overhead
 - **Write Performance**: Fewer indexes to maintain on INSERTs/UPDATEs
+
+#### **Case-Insensitive Location Search (20251204120000)**
+
+**Purpose**: Make location search functions case-insensitive to prevent URL slug mismatch issues.
+
+**Functions Updated**:
+
+```sql
+-- Updated to use LOWER() comparisons
+get_beaches_by_location_with_scores(p_city, p_state, p_country)
+get_location_stats(p_city, p_state, p_country)
+```
+
+**Key Changes**:
+
+- All city/state/country comparisons now use `LOWER()` for case-insensitive matching
+- Prevents issues where URL slug decoding doesn't match database casing exactly
+- Maintains performance with existing indexes
+
+**User Impact**:
+
+- Reliable location searches regardless of URL casing
+- Improved robustness for city and state landing pages
+- Prevents 404s caused by case mismatches
 
 ### **2. Feature Additions**
 
@@ -178,6 +206,58 @@ idx_enhanced_forecasts_beach_data_source
 - Specialized indexes for JSONB queries
 - Quality score indexing for filtering
 - Data source specific indexes
+
+#### **City Editorial Content (20251204030000)**
+
+**Purpose**: Curated editorial content system for city landing pages with session timing, guides, and checklists.
+
+**New Table**:
+
+```sql
+city_editorial_content (
+  id UUID PRIMARY KEY,
+  city_slug TEXT NOT NULL,
+  state_slug TEXT NOT NULL DEFAULT 'ca',
+  country_slug TEXT NOT NULL DEFAULT 'usa',
+  city_name TEXT NOT NULL,
+  region_label TEXT NOT NULL,
+  description TEXT[] DEFAULT '{}',           -- About section paragraphs
+  session_timing JSONB DEFAULT '[]'::jsonb, -- Today/Now/Weekend tactical advice
+  quick_links JSONB DEFAULT '[]'::jsonb,    -- Quick action navigation
+  featured_intents TEXT[] DEFAULT '{}',     -- Intent slugs for guides
+  planning_checklist TEXT[] DEFAULT '{}',   -- Pre-session checklist items
+  UNIQUE(city_slug, state_slug, country_slug)
+);
+```
+
+**Helper Function**:
+
+```sql
+get_city_editorial(p_city, p_state, p_country)
+  RETURNS city_editorial_content
+```
+
+**RLS Policies**:
+
+- Public read access for all editorial content
+- Admin-only write access via service role or admin users
+
+**Features**:
+
+- Session timing modules with tactical advice for Today/Now/Weekend
+- Quick navigation links (surf map, tide chart, beginner breaks, session logs)
+- Featured intent categories (beginner, least-crowded, tide, water-temp)
+- Planning checklists for pre-session preparation
+- Auto-updating `updated_at` timestamp trigger
+
+**Seed Data**: Includes editorial content for San Diego and Orange County with realistic surf culture copy.
+
+**User Impact**:
+
+- Rich, context-aware city landing pages at `/beaches/[country]/[state]/[city]`
+- Tactical session advice based on time of day and weekend planning
+- Guides surfers to appropriate breaks based on skill and conditions
+- Reduces friction in session planning workflow
 
 #### **Session Forecast Snapshots (20250822190000)**
 
@@ -291,6 +371,63 @@ actual_conditions:
 - Wave height, period, and direction measurements
 - Data quality scoring and validation
 - Fallback mechanisms for data gaps
+
+### **4. Data Normalization**
+
+#### **State Code Normalization (20251203000001)**
+
+**Purpose**: Standardize state values to consistent 2-letter codes for URL routing compatibility.
+
+**Updates Applied**:
+
+```sql
+-- Converted full state names to 2-letter codes
+Hawaii → HI
+Oregon → OR
+Washington → WA
+Florida → FL
+North Carolina → NC
+South Carolina → SC
+Texas → TX
+New Jersey → NJ
+New York → NY
+Massachusetts → MA
+Rhode Island → RI
+California → CA
+```
+
+**Impact**:
+
+- Ensures consistency with URL routing which expects 2-letter state codes
+- Aligns database values with `STATE_SLUG_MAP` in `beach-url-utils.ts`
+- Prevents routing mismatches between slugs and database records
+- Foundation for reliable state-based filtering and navigation
+
+**Note**: While `beach-url-utils.ts` handles both formats in mapping logic, database standardization improves data quality and reduces edge cases.
+
+### **5. Data Maintenance**
+
+#### **Session Log Template Link Update (20251204120001)**
+
+**Purpose**: Update quick links in city editorial content to point to correct route.
+
+**Change Applied**:
+
+```sql
+-- Updated link in city_editorial_content.quick_links JSONB
+"Session log templates" href: /app → /features
+```
+
+**Affected Records**:
+
+- San Diego city editorial content
+- Orange County city editorial content
+
+**Impact**:
+
+- Corrects broken navigation links on city landing pages
+- Ensures users reach the correct features page
+- Maintains consistency with current application routing structure
 
 ## 🔧 **Migration Management Strategy**
 
@@ -655,8 +792,8 @@ Before any new migration:
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Production-ready with growth optimizations  
+**Last Updated**: December 2025
+**Status**: Production-ready with growth optimizations
 **Next Review**: After reaching 100 active users
 
 **Key Principles**: Performance-first, scalable, secure database evolution that supports the app's growth from 0 to 1,000+ users while maintaining data integrity and user experience.
@@ -793,4 +930,3 @@ interface ComponentProps {
 7. Update all documentation
 
 **See**: [/docs/COORDINATE_CONVENTIONS.md](/docs/COORDINATE_CONVENTIONS.md) for comprehensive coordinate naming standards.
-

@@ -9,6 +9,8 @@ import {
 } from "@/lib/api-utils";
 import { withRateLimit } from "@/lib/middleware/rate-limiter";
 
+export const dynamic = "force-dynamic";
+
 // Matches Ruby LocationsController functionality
 async function nearbyBeachesHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
