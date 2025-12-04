@@ -8,12 +8,12 @@
  * - /beaches/mexico/baja-california/rosarito
  */
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ChevronLeft, MapPin, Star } from "lucide-react";
 import { getLocationPageData, getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
-import { generateLocationSlug } from "@/lib/utils/location-slug";
+import { generateLocationSlug, parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
 import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
@@ -64,6 +64,13 @@ export default async function LocationPage({ params }: LocationPageProps) {
   );
 
   if (!response.success || !response.data) {
+    // Check if this is a valid city/location that just lacks ranked page data
+    // If so, redirect to the map view with a search filter
+    if (response.error === "CITY_EXISTS_NO_DATA") {
+      const cityName = parseLocationFromSlug(params.city);
+      redirect(`/map?search=${encodeURIComponent(cityName)}`);
+    }
+    
     notFound();
   }
 
@@ -184,8 +191,8 @@ export default async function LocationPage({ params }: LocationPageProps) {
             cityName={editorial.city_name}
             citySlug={params.city}
             description={editorial.description}
-            topSpotSlug={topSpot?.slug}
-            topSpotName={topSpot?.name}
+            topSpotSlug={topSpot?.slug || undefined}
+            topSpotName={topSpot?.name || undefined}
           />
 
           {/* Guides by Intent Grid */}

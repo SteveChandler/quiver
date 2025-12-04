@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Redirect Missing City Pages to Map** (December 2025)
+  - Improved user experience for cities that exist in the database but lack curated page content (e.g., Honolulu, Oceanside).
+  - Instead of showing a 404 "Location Not Found" error, users are now redirected to the Map page with the city name pre-filled in the search filter.
+  - Updated `getLocationPageData` in `actions/beach/beach-location-list-actions.ts` to detect valid-but-empty locations.
+  - Updated `app/beaches/[country]/[state]/[city]/page.tsx` to handle the redirection logic.
+  - Invalid cities (e.g., typos/spam) still correctly return a 404 status.
+
 ### Fixed
 
 - **Coverage Area Detection Updated for Multi-Region Support** (December 2025)
