@@ -8,6 +8,8 @@ import {
 import { getWindDirectionName } from "@/lib/utils/wind-direction";
 import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
+export const dynamic = "force-dynamic";
+
 // Matches Ruby BuoysController#conditions functionality
 async function conditionsHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);

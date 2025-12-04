@@ -11,6 +11,8 @@ import { withRateLimit } from "@/lib/middleware/rate-limiter";
 import { discoverSurfSpots } from "@/lib/services/surf-discovery-service";
 import { adaptDiscoveryResponse } from "@/lib/adapters/discovery-to-personalized";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Query Parameter Schema
  *

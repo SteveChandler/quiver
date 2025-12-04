@@ -261,6 +261,31 @@ useEffect(() => {
 
 ---
 
+### 📁 **`/city`** - City-Level Surf Destination Pages
+
+#### Components
+
+- **`city-map-view.tsx`** - Full-width interactive map with beach list
+- **`quick-actions-bar.tsx`** - Horizontal navigation row with quick links
+- **`session-timing-modules.tsx`** - Three-card tactical timing advice grid
+- **`about-accordion.tsx`** - Collapsible editorial content section
+- **`guides-by-intent-grid.tsx`** - 2x2 grid of intent-based beach guides
+- **`planning-checklist.tsx`** - Actionable session planning checklist
+
+#### Features
+
+- **Editorial-First Design**: Rich storytelling about city surf culture
+- **Interactive Beach Discovery**: Map + list integration with navigation
+- **Tactical Surf Intelligence**: Session timing, wind, tide, marine layer advice
+- **Intent-Based Navigation**: Filter beaches by goals (beginner, less-crowded, tide-dependent)
+- **Actionable Planning**: Quick links and checklists for preparation
+
+#### Architecture
+
+For detailed component specifications, data flow, and integration patterns, see [`/components/city/ARCHITECTURE.md`](/components/city/ARCHITECTURE.md).
+
+---
+
 ### 📁 **`/forecast`** - Weather & Surf Forecasting
 
 #### Core Forecast Components

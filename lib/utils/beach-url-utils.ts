@@ -245,10 +245,13 @@ export function getBeachUrlSafe(beach: {
     });
   }
 
-  // Fallback to ID-based URL if available
-  if (beach.id) {
-    return `/beach/${beach.id}`;
+  // Fallback to slug-based URL if hierarchical data is missing
+  if (beach.slug) {
+    return `/beach/${beach.slug}`;
   }
+
+  // We no longer fallback to ID-based URLs as they cause 404s or bad UX
+  // if (beach.id) { return \`/beach/\${beach.id}\`; }
 
   // No valid URL can be generated
   return null;

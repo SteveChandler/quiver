@@ -8,15 +8,26 @@
  * - /beaches/mexico/baja-california/rosarito
  */
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ChevronLeft, MapPin, Star } from "lucide-react";
 import { getLocationPageData, getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
-import { generateLocationSlug } from "@/lib/utils/location-slug";
+import { generateLocationSlug, parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
 import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+
+// Editorial content imports
+import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
+import { CityMapView } from "@/components/city/city-map-view";
+import { QuickActionsBar } from "@/components/city/quick-actions-bar";
+import { SessionTimingModules } from "@/components/city/session-timing-modules";
+import { AboutAccordion } from "@/components/city/about-accordion";
+import { GuidesByIntentGrid } from "@/components/city/guides-by-intent-grid";
+import { PlanningChecklist } from "@/components/city/planning-checklist";
 
 // Dynamically import LocationMap with no SSR since it uses Mapbox (client-only)
 const LocationMap = dynamic(
@@ -53,6 +64,13 @@ export default async function LocationPage({ params }: LocationPageProps) {
   );
 
   if (!response.success || !response.data) {
+    // Check if this is a valid city/location that just lacks ranked page data
+    // If so, redirect to the map view with a search filter
+    if (response.error === "CITY_EXISTS_NO_DATA") {
+      const cityName = parseLocationFromSlug(params.city);
+      redirect(`/map?search=${encodeURIComponent(cityName)}`);
+    }
+    
     notFound();
   }
 
@@ -60,6 +78,13 @@ export default async function LocationPage({ params }: LocationPageProps) {
 
   // Check if this is a metro area page
   const metroConfig = isMetroArea(params.city) ? getMetroConfig(params.city) : null;
+
+  // Fetch editorial content for this city (if available)
+  const editorial = await getCityEditorialContent(
+    params.city,
+    params.state,
+    params.country
+  );
 
   // JSON-LD structured data for SEO
   const jsonLd = {
@@ -78,9 +103,9 @@ export default async function LocationPage({ params }: LocationPageProps) {
       "@type": "Beach",
       "name": beach.name,
       "url": `https://quiver.surf/beach/${beach.slug}`,
-      "aggregateRating": beach.average_rating > 0 ? {
+      "aggregateRating": (beach.average_rating || 0) > 0 ? {
         "@type": "AggregateRating",
-        "ratingValue": beach.average_rating,
+        "ratingValue": beach.average_rating || 0,
         "ratingCount": beach.review_count,
         "bestRating": 5,
         "worstRating": 1,
@@ -88,6 +113,104 @@ export default async function LocationPage({ params }: LocationPageProps) {
     })),
   };
 
+  // If editorial content exists, render the enhanced editorial layout
+  if (editorial) {
+    // Transform beaches to SurfSpot format for CityMapView
+    const surfSpots = transformBeachesToSurfSpots(beaches);
+
+    // Get top spot for AboutAccordion
+    const topSpot = beaches[0];
+
+    return (
+      <>
+        {/* JSON-LD Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          {/* Breadcrumb */}
+          <nav aria-label="breadcrumb" className="flex items-center gap-1 text-sm mb-6">
+            <Link
+              href="/map"
+              className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back to Map
+            </Link>
+            <span className="text-gray-400 mx-2">›</span>
+            <span className="text-gray-900 font-medium">{editorial.city_name}</span>
+          </nav>
+
+          {/* Header with editorial region label */}
+          <header className="mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+              Best Surf Beaches in {editorial.city_name}
+            </h1>
+            <p className="text-lg text-gray-600 mb-4">
+              {editorial.region_label}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-4 text-gray-600">
+              <div className="flex items-center gap-1">
+                <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                <span className="font-medium">{stats.averageRating.toFixed(1)}</span>
+                <span>·</span>
+                <span>{stats.totalReviews} reviews</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <MapPin className="h-5 w-5" />
+                <span>{stats.totalBeaches} beaches</span>
+              </div>
+              {stats.topBeaches > 0 && (
+                <div className="inline-flex items-center gap-1 px-3 py-1 bg-ocean-blue/10 text-ocean-blue rounded-full text-sm font-medium">
+                  {stats.topBeaches} Top Rated
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Full-width Interactive Map with Beach List */}
+          <CityMapView
+            spots={surfSpots}
+            cityName={editorial.city_name}
+            citySlug={params.city}
+            stateSlug={params.state}
+            countrySlug={params.country}
+          />
+
+          {/* Quick Actions Bar */}
+          <QuickActionsBar links={editorial.quick_links} />
+
+          {/* Session Timing Modules */}
+          <SessionTimingModules modules={editorial.session_timing} />
+
+          {/* About Accordion */}
+          <AboutAccordion
+            cityName={editorial.city_name}
+            citySlug={params.city}
+            description={editorial.description}
+            topSpotSlug={topSpot?.slug || undefined}
+            topSpotName={topSpot?.name || undefined}
+          />
+
+          {/* Guides by Intent Grid */}
+          <GuidesByIntentGrid
+            cityName={editorial.city_name}
+            citySlug={params.city}
+            featuredIntents={editorial.featured_intents}
+            beaches={beaches}
+          />
+
+          {/* Planning Checklist */}
+          <PlanningChecklist items={editorial.planning_checklist} />
+        </div>
+      </>
+    );
+  }
+
+  // Standard layout for cities without editorial content
   return (
     <>
       {/* JSON-LD Structured Data */}
@@ -172,7 +295,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Link
-                          href={`/beach/${beach.slug}`}
+                          href={getBeachUrlSafe(beach) || '#'}
                           className="text-xl font-semibold text-gray-900 hover:text-ocean-blue transition-colors"
                         >
                           {beach.name}
@@ -189,10 +312,10 @@ export default async function LocationPage({ params }: LocationPageProps) {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-3">
-                      {beach.average_rating > 0 && (
+                      {(beach.average_rating || 0) > 0 && (
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="font-medium">{beach.average_rating.toFixed(1)}</span>
+                          <span className="font-medium">{(beach.average_rating || 0).toFixed(1)}</span>
                           <span>({beach.review_count} reviews)</span>
                         </div>
                       )}
@@ -220,7 +343,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
                     )}
 
                     <Link
-                      href={`/beach/${beach.slug}`}
+                      href={getBeachUrlSafe(beach) || '#'}
                       className="inline-flex items-center text-sm font-medium text-ocean-blue hover:underline"
                     >
                       View Beach Details →

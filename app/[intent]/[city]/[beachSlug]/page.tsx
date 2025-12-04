@@ -28,14 +28,14 @@ interface PageProps {
 }
 
 /**
- * Generic Beach Detail Page for non-California states
+ * Generic Beach Detail Page for all states
  * 
- * This route handles URLs like:
+ * This route handles hierarchical beach URLs like:
+ * - /ca/san-diego/ocean-beach (California beach)
  * - /or/newport/agate-beach (Oregon beach)
  * - /wa/westport/westport-jetty (Washington beach)
  * - /hi/haleiwa/pipeline (Hawaii beach)
  * 
- * California beaches use the more specific /ca/[city]/[beachSlug] route.
  * Intent-based URLs like /surf-forecast/newport use the parent [intent]/[city] route.
  * 
  * The "intent" param is named for consistency with the parent route,
@@ -239,13 +239,10 @@ export async function generateStaticParams() {
     }> = json?.data?.beaches || json?.beaches || [];
 
     // Generate params for all beaches with complete location data
-    // Exclude California beaches as they're handled by the more specific /ca/ route
-    const nonCaBeaches = beaches
+    // This route handles all state-based beach URLs including California (/ca/...)
+    const beachParams = beaches
       .filter((b) => {
-        if (!b.slug || !b.city || !b.state) return false;
-        // Exclude California beaches - they use the /ca/ route
-        const stateSlug = stateToSlug(b.state);
-        return stateSlug !== "ca";
+        return !!(b.slug && b.city && b.state);
       })
       .map((beach) => ({
         intent: stateToSlug(beach.state), // Named 'intent' for route param consistency
@@ -253,8 +250,8 @@ export async function generateStaticParams() {
         beachSlug: beach.slug!,
       }));
 
-    console.log(`Generated ${nonCaBeaches.length} non-CA beach pages for generic state route`);
-    return nonCaBeaches;
+    console.log(`Generated ${beachParams.length} beach pages for generic state route`);
+    return beachParams;
   } catch (error) {
     console.warn(
       "Error generating static params for generic beach pages (likely build-time fetch):",

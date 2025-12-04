@@ -33,6 +33,17 @@ function log(message: string, data?: any) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Legacy California city route redirect
+  // Redirect /ca/san-diego and /ca/orange-county to new /beaches/usa/ca/* routes
+  const legacyCaMatch = pathname.match(/^\/ca\/(san-diego|orange-county)$/);
+  if (legacyCaMatch) {
+    const city = legacyCaMatch[1];
+    return NextResponse.redirect(
+      new URL(`/beaches/usa/ca/${city}`, request.url),
+      { status: 302 }
+    );
+  }
+
   // Classify the route to determine access requirements
   const routeClassification = RouteGuard.classifyRoute(
     pathname,

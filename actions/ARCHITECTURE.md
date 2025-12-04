@@ -8,6 +8,7 @@ Centralize server actions used by UI and API routes. Actions are the single entr
 
 - Top-level modules: `session-actions.ts`, `profile-actions.ts`, `session-media-actions.ts`, `like-actions.ts`, `social-actions.ts`, `intel-actions.ts`, `analytics-actions.ts`, `check-in-actions.ts`, `board-actions.ts`, `forecast-actions.ts`, `forecast-calibration-actions.ts`, `setup-actions.ts`
 - Subdomain folder `beach/` for favorites, location utilities, and queries
+- Subdomain folder `city/` for city editorial content
 
 ## Required Patterns
 
@@ -45,6 +46,8 @@ export async function createPlannedSession(data: SessionInput, userId: string) {
 
 - Return `{ success: boolean, data?: T, error?: string }`
 - Never expose raw DB errors directly to callers; throw and let the wrapper format
+- **Special error signals**: Some actions throw semantic error messages that the UI interprets:
+  - `"CITY_EXISTS_NO_DATA"` - City exists in DB but has no ranked/curated page data. UI should redirect to map with search filter instead of showing 404.
 
 ## Security
 

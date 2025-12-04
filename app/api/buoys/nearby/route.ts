@@ -7,6 +7,8 @@ import {
 } from "@/lib/api-utils";
 import { withBotBlockingAndRateLimit } from "@/lib/middleware/rate-limiter";
 
+export const dynamic = "force-dynamic";
+
 // Matches Ruby BuoysController functionality
 async function nearbyBuoysHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);

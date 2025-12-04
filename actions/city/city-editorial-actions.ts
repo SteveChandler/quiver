@@ -1,0 +1,112 @@
+"use server";
+
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+/**
+ * Session timing module structure
+ */
+export interface SessionTimingModule {
+  icon: "sun" | "clock" | "calendar";
+  title: string;
+  summary: string;
+}
+
+/**
+ * Quick action link structure
+ */
+export interface QuickLink {
+  label: string;
+  href: string;
+}
+
+/**
+ * City editorial content from the database
+ */
+export interface CityEditorialContent {
+  id: string;
+  city_slug: string;
+  state_slug: string;
+  country_slug: string;
+  city_name: string;
+  region_label: string;
+  description: string[];
+  session_timing: SessionTimingModule[];
+  quick_links: QuickLink[];
+  featured_intents: string[];
+  planning_checklist: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Fetch editorial content for a city page.
+ * Returns null if no editorial content exists for this location.
+ *
+ * @param citySlug - City slug (e.g., "san-diego")
+ * @param stateSlug - State slug (e.g., "ca")
+ * @param countrySlug - Country slug (e.g., "usa")
+ */
+export async function getCityEditorialContent(
+  citySlug: string,
+  stateSlug: string = "ca",
+  countrySlug: string = "usa"
+): Promise<CityEditorialContent | null> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase.rpc("get_city_editorial", {
+    p_city: citySlug,
+    p_state: stateSlug,
+    p_country: countrySlug,
+  });
+
+  if (error) {
+    console.error("[getCityEditorialContent] Error fetching editorial content:", error);
+    return null;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  // Parse JSONB fields if they're returned as strings
+  const result = data as CityEditorialContent;
+
+  return {
+    ...result,
+    session_timing:
+      typeof result.session_timing === "string"
+        ? JSON.parse(result.session_timing)
+        : result.session_timing || [],
+    quick_links:
+      typeof result.quick_links === "string"
+        ? JSON.parse(result.quick_links)
+        : result.quick_links || [],
+  };
+}
+
+/**
+ * Check if a city has editorial content without fetching the full content.
+ * Useful for determining layout strategy before the full data fetch.
+ */
+export async function hasCityEditorialContent(
+  citySlug: string,
+  stateSlug: string = "ca",
+  countrySlug: string = "usa"
+): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("city_editorial_content")
+    .select("id")
+    .eq("city_slug", citySlug)
+    .eq("state_slug", stateSlug)
+    .eq("country_slug", countrySlug)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[hasCityEditorialContent] Error checking editorial content:", error);
+    return false;
+  }
+
+  return !!data;
+}

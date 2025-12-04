@@ -71,13 +71,13 @@ export interface LocationStats {
  */
 export interface BeachWithMetrics extends Beach {
   /** Composite score (0-1 scale) combining rating, reviews, and intel */
-  compositeScore: number;
+  composite_score: number;
 
   /** Number of recent intel posts (last 7 days) */
-  recentIntelCount: number;
+  recent_intel_count: number;
 
   /** Average confirmations on recent intel posts */
-  avgConfirmations: number;
+  avg_confirmations: number;
 
   /** Ranking position in the location (1 = best) */
   rank?: number;

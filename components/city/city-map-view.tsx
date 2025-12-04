@@ -1,0 +1,389 @@
+"use client";
+
+import {
+  useState,
+  useMemo,
+  useCallback,
+  Suspense,
+  Component,
+  ReactNode,
+} from "react";
+import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { ChevronRight, MapPin, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { Beach } from "@/types/database";
+import type { SurfSpot } from "@/lib/data/surf-spots";
+
+// Simple Error Boundary for map component
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback: ReactNode;
+}
+
+class MapErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Map component error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+// Dynamic import for InteractiveMap (no SSR for Mapbox)
+const InteractiveMap = dynamic(
+  () =>
+    import("@/components/map/interactive-map").then((mod) => ({
+      default: mod.InteractiveMap,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center bg-slate-100">
+        <div className="text-center">
+          <div className="mb-2 h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-sky-600 mx-auto" />
+          <p className="text-sm text-slate-500">Loading map...</p>
+        </div>
+      </div>
+    ),
+  }
+);
+
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+
+interface CityMapViewProps {
+  spots: SurfSpot[];
+  cityName: string;
+  citySlug: string;
+  stateSlug?: string;
+  countrySlug?: string;
+}
+
+// Transform SurfSpot to Beach-compatible format for the map
+function transformSpotToBeach(spot: SurfSpot): Beach {
+  return {
+    id: spot.id || spot.slug, // Use UUID for forecast lookups, fallback to slug
+    name: spot.name,
+    lat: spot.coordinates.lat,
+    lon: spot.coordinates.lng,
+    slug: spot.slug,
+    city: spot.region.split(",")[0]?.trim() || null,
+    state: "California",
+    country: "USA",
+    skill_level: spot.skillLevel,
+    description: spot.overview,
+    break_type: null,
+    crowd_level: spot.crowdFactor,
+    // Required fields with defaults - use fixed date to prevent hydration mismatch
+    created_at: "2023-01-01T00:00:00.000Z",
+    is_private: false,
+    // Nullable fields
+    access_tips: spot.parking,
+    aspect_deg: null,
+    average_rating: null,
+    best_conditions_prose: spot.conditions,
+    best_months: null,
+    crowd_tips: null,
+    deleted_at: null,
+    features: spot.amenities,
+    geog: null,
+    hazards: spot.hazards,
+    local_etiquette: null,
+    owner_id: null,
+    parking_tips: spot.parking,
+    preference_model: null,
+    preferred_tide_ft_max: null,
+    preferred_tide_ft_min: null,
+    real_takeaways: null,
+    region: spot.region,
+    region_id: null,
+    review_count: null,
+    swell_window_center_deg: null,
+    swell_window_halfwidth_deg: null,
+    swell_window_max_deg: null,
+    swell_window_min_deg: null,
+    warnings: null,
+    wave_tips: spot.swellAdvice,
+    wind_cross_shore_ok_kt: null,
+    wind_offshore_deg: null,
+    wind_offshore_tol_deg: null,
+    wind_onshore_bad_kt: null,
+  };
+}
+
+// Beach list item component
+function BeachListItem({
+  spot,
+  isSelected,
+  isHovered,
+  onHover,
+  onClick,
+}: {
+  spot: SurfSpot;
+  isSelected: boolean;
+  isHovered: boolean;
+  onHover: (spot: SurfSpot | null) => void;
+  onClick: (spot: SurfSpot) => void;
+}) {
+  const skillLevelStyles = {
+    "Beginner friendly": "bg-green-100 text-green-700",
+    Intermediate: "bg-amber-100 text-amber-700",
+    "Intermediate to expert": "bg-orange-100 text-orange-700",
+    Advanced: "bg-red-100 text-red-700",
+    "Longboard friendly": "bg-blue-100 text-blue-700",
+  };
+
+  return (
+    <div
+      className={cn(
+        "p-4 cursor-pointer transition-all duration-200",
+        isSelected && "bg-sky-50 border-l-4 border-sky-500",
+        isHovered && !isSelected && "bg-slate-50",
+        !isSelected && "border-l-4 border-transparent"
+      )}
+      onMouseEnter={() => onHover(spot)}
+      onMouseLeave={() => onHover(null)}
+      onClick={() => onClick(spot)}
+      role="option"
+      aria-selected={isSelected}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-slate-900 truncate">{spot.name}</h3>
+          <span
+            className={cn(
+              "inline-block text-xs font-medium px-2 py-0.5 rounded-full mt-1",
+              skillLevelStyles[spot.skillLevel] || "bg-slate-100 text-slate-600"
+            )}
+          >
+            {spot.skillLevel}
+          </span>
+        </div>
+        <ChevronRight className="h-5 w-5 text-slate-400 flex-shrink-0 mt-1" />
+      </div>
+      <p className="text-sm text-slate-600 mt-2 line-clamp-2">
+        {spot.overview}
+      </p>
+    </div>
+  );
+}
+
+export function CityMapView({
+  spots,
+  cityName,
+  citySlug,
+  stateSlug = "ca",
+  countrySlug = "usa",
+}: CityMapViewProps) {
+  const router = useRouter();
+  const [selectedSpot, setSelectedSpot] = useState<SurfSpot | null>(null);
+  const [hoveredSpot, setHoveredSpot] = useState<SurfSpot | null>(null);
+
+  // Transform spots to Beach format for the map
+  const beaches = useMemo(
+    () =>
+      spots.map((spot) => ({
+        ...transformSpotToBeach(spot),
+        city: cityName, // Ensure we have the city name for URL generation
+        state: stateSlug.toUpperCase(), // Default to CA if not provided, but used for URL gen
+      })),
+    [spots, cityName, stateSlug]
+  );
+
+  // Calculate map center from spots
+  const mapCenter = useMemo((): [number, number] => {
+    if (spots.length === 0) return [32.7157, -117.1611]; // San Diego default
+
+    const avgLat =
+      spots.reduce((sum, s) => sum + s.coordinates.lat, 0) / spots.length;
+    const avgLng =
+      spots.reduce((sum, s) => sum + s.coordinates.lng, 0) / spots.length;
+
+    return [avgLat, avgLng];
+  }, [spots]);
+
+  // Handle beach click from map
+  const handleMapBeachClick = useCallback(
+    (beach: Beach) => {
+      const spot = spots.find((s) => s.slug === beach.id);
+      if (spot) {
+        setSelectedSpot(spot);
+      }
+    },
+    [spots]
+  );
+
+  // Handle beach click from list - navigate to detail page
+  const handleListBeachClick = useCallback(
+    (spot: SurfSpot) => {
+      setSelectedSpot(spot);
+
+      // Construct beach object for URL generation
+      const beachForUrl = {
+        slug: spot.slug,
+        city: citySlug,
+        state: stateSlug,
+        country: countrySlug,
+      };
+
+      const url = getBeachUrlSafe(beachForUrl);
+      if (url) {
+        router.push(url);
+      } else {
+        // Fallback to spots URL if generation fails (shouldn't happen with new logic)
+        router.push(`/spots/${spot.slug}`);
+      }
+    },
+    [router, citySlug, stateSlug, countrySlug]
+  );
+
+  // Handle hover from list
+  const handleListHover = useCallback((spot: SurfSpot | null) => {
+    setHoveredSpot(spot);
+  }, []);
+
+  return (
+    <div className="flex flex-col lg:grid lg:grid-cols-[380px_1fr] gap-0 rounded-xl overflow-hidden border border-slate-200 shadow-lg">
+      {/* Mobile: Map first, then horizontal beach scroll */}
+      {/* Desktop: Beach list on left, map on right */}
+
+      {/* Desktop Beach List (hidden on mobile) */}
+      <div className="hidden lg:block overflow-y-auto bg-white border-r border-slate-200 h-[600px]">
+        <div className="p-4 border-b border-slate-200 sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-sky-600" />
+            <div>
+              <h2 className="font-semibold text-slate-900">Featured Beaches</h2>
+              <p className="text-xs text-slate-500">{spots.length} spots</p>
+            </div>
+          </div>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {spots.map((spot) => (
+            <BeachListItem
+              key={spot.slug}
+              spot={spot}
+              isSelected={selectedSpot?.slug === spot.slug}
+              isHovered={hoveredSpot?.slug === spot.slug}
+              onHover={handleListHover}
+              onClick={handleListBeachClick}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Interactive Map */}
+      <div className="relative bg-slate-100 h-[350px] lg:h-[600px]">
+        <MapErrorBoundary
+          fallback={
+            <div className="flex h-full items-center justify-center bg-slate-100">
+              <div className="text-center p-8">
+                <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+                <p className="text-slate-700 font-medium">
+                  Map temporarily unavailable
+                </p>
+                <p className="text-sm text-slate-500 mt-2">
+                  Browse the beach list to explore spots
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <div className="mb-2 h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-sky-600 mx-auto" />
+                  <p className="text-sm text-slate-500">Loading map...</p>
+                </div>
+              </div>
+            }
+          >
+            <InteractiveMap
+              initialCenter={mapCenter}
+              initialZoom={10}
+              beaches={beaches}
+              onLocationClick={handleMapBeachClick}
+              className="h-full w-full"
+            />
+          </Suspense>
+        </MapErrorBoundary>
+      </div>
+
+      {/* Mobile Beach Scroll (visible only on mobile) */}
+      <div className="lg:hidden bg-white">
+        <div className="p-3 border-b border-slate-200">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-sky-600" />
+            <span className="font-medium text-sm text-slate-900">
+              Featured Beaches
+            </span>
+            <span className="text-xs text-slate-500">({spots.length})</span>
+          </div>
+        </div>
+        <div className="flex overflow-x-auto gap-3 p-3 snap-x snap-mandatory scrollbar-hide">
+          {spots.map((spot) => (
+            <div
+              key={spot.slug}
+              className={cn(
+                "flex-none w-[280px] p-4 rounded-lg border snap-start cursor-pointer transition-all",
+                selectedSpot?.slug === spot.slug
+                  ? "border-sky-500 bg-sky-50"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              )}
+              onClick={() => handleListBeachClick(spot)}
+            >
+              <h3 className="font-semibold text-slate-900 truncate">
+                {spot.name}
+              </h3>
+              <span
+                className={cn(
+                  "inline-block text-xs font-medium px-2 py-0.5 rounded-full mt-1",
+                  spot.skillLevel === "Beginner friendly" &&
+                    "bg-green-100 text-green-700",
+                  spot.skillLevel === "Intermediate" &&
+                    "bg-amber-100 text-amber-700",
+                  spot.skillLevel === "Intermediate to expert" &&
+                    "bg-orange-100 text-orange-700",
+                  spot.skillLevel === "Advanced" && "bg-red-100 text-red-700",
+                  ![
+                    "Beginner friendly",
+                    "Intermediate",
+                    "Intermediate to expert",
+                    "Advanced",
+                  ].includes(spot.skillLevel) && "bg-slate-100 text-slate-600"
+                )}
+              >
+                {spot.skillLevel}
+              </span>
+              <p className="text-sm text-slate-600 mt-2 line-clamp-2">
+                {spot.overview}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

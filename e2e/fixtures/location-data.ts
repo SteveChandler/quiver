@@ -114,16 +114,15 @@ export const MOCK_RANKED_BEACHES: BeachWithMetrics[] = [
     break_type: "Beach Break",
     crowd_level: "Moderate",
     description: "Premier surf spot known for powerful waves",
-    compositeScore: 0.85,
-    recentIntelCount: 5,
-    avgConfirmations: 3.2,
+    composite_score: 0.85,
+    recent_intel_count: 5,
+    avg_confirmations: 3.2,
     rank: 1,
     is_private: false,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
     best_conditions_prose: null,
     region_id: null,
-  },
+  } as unknown as BeachWithMetrics,
   {
     id: "beach-2",
     name: "La Jolla Shores",
@@ -139,16 +138,15 @@ export const MOCK_RANKED_BEACHES: BeachWithMetrics[] = [
     break_type: "Beach Break",
     crowd_level: "Crowded",
     description: "Beginner-friendly beach with gentle waves",
-    compositeScore: 0.75,
-    recentIntelCount: 3,
-    avgConfirmations: 2.5,
+    composite_score: 0.75,
+    recent_intel_count: 3,
+    avg_confirmations: 2.5,
     rank: 2,
     is_private: false,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
     best_conditions_prose: null,
     region_id: null,
-  },
+  } as unknown as BeachWithMetrics,
   {
     id: "beach-3",
     name: "Windansea Beach",
@@ -164,16 +162,15 @@ export const MOCK_RANKED_BEACHES: BeachWithMetrics[] = [
     break_type: "Reef Break",
     crowd_level: "Very Crowded",
     description: "Famous reef break with consistent waves",
-    compositeScore: 0.68,
-    recentIntelCount: 2,
-    avgConfirmations: 1.8,
+    composite_score: 0.68,
+    recent_intel_count: 2,
+    avg_confirmations: 1.8,
     rank: 3,
     is_private: false,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
     best_conditions_prose: null,
     region_id: null,
-  },
+  } as unknown as BeachWithMetrics,
 ];
 
 /**
@@ -261,17 +258,16 @@ export function createMockBeachWithMetrics(
     break_type: "Beach Break",
     crowd_level: "Moderate",
     description: "Test beach description",
-    compositeScore: 0.7,
-    recentIntelCount: 2,
-    avgConfirmations: 2.0,
+    composite_score: 0.7,
+    recent_intel_count: 2,
+    avg_confirmations: 2.0,
     rank: 1,
     is_private: false,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
     best_conditions_prose: null,
     region_id: null,
     ...overrides,
-  };
+  } as unknown as BeachWithMetrics;
 }
 
 /**
@@ -301,10 +297,10 @@ export function createMockRankedBeaches(count: number): BeachWithMetrics[] {
       id: `beach-${i + 1}`,
       name: `Beach ${i + 1}`,
       slug: `beach-${i + 1}`,
-      compositeScore: 0.9 - i * 0.1, // Descending scores
+      composite_score: 0.9 - i * 0.1, // Descending scores
       rank: i + 1,
       review_count: 20 - i * 2, // Descending review count
-      recentIntelCount: 5 - i,
+      recent_intel_count: 5 - i,
     })
   );
 }

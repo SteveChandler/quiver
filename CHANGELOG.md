@@ -7,7 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Redirect Missing City Pages to Map** (December 2025)
+  - Improved user experience for cities that exist in the database but lack curated page content (e.g., Honolulu, Oceanside).
+  - Instead of showing a 404 "Location Not Found" error, users are now redirected to the Map page with the city name pre-filled in the search filter.
+  - Updated `getLocationPageData` in `actions/beach/beach-location-list-actions.ts` to detect valid-but-empty locations.
+  - Updated `app/beaches/[country]/[state]/[city]/page.tsx` to handle the redirection logic.
+  - Invalid cities (e.g., typos/spam) still correctly return a 404 status.
+
+### Fixed
+
+- **Coverage Area Detection Updated for Multi-Region Support** (December 2025)
+  - Updated `lib/constants/coverage-areas.ts` to reflect expanded forecast coverage (California, Oregon, Washington, Hawaii, Baja California).
+  - Removed Hawaii, Orange County, LA, and other now-covered regions from "out of area" detection.
+  - Updated `COVERAGE_MESSAGES.COVERAGE_AREA_INFO` to reflect broader West Coast + Hawaii coverage.
+  - Beaches in Hawaii, Oregon, Washington, and Baja no longer show "outside our coverage area" message.
+  - Updated tests in `__tests__/lib/constants/coverage-areas.test.ts` to match new coverage logic.
+
 ### Added
+
+- **City Editorial Content System** (December 2025)
+
+  - Created `city_editorial_content` database table for storing curated editorial content per city.
+  - Migration: `20251204030000_create_city_editorial_content.sql`
+  - Seeded San Diego and Orange County with editorial content (session timing, guides, planning checklists).
+  - Added `getCityEditorialContent()` server action in `actions/city/city-editorial-actions.ts`.
+  - Added `transformBeachesToSurfSpots()` utility in `lib/utils/beach-to-surfspot-transformer.ts`.
+  - Updated `/beaches/[country]/[state]/[city]/page.tsx` to conditionally render editorial layout when content exists.
+  - Added middleware redirect from `/ca/san-diego` and `/ca/orange-county` to `/beaches/usa/ca/*` routes.
+  - Deleted deprecated `/ca/[city]` route directory.
+  - Added deprecation notices to `lib/data/surf-spots.ts` for `SURF_CITIES`, `SURF_SPOTS`, and helper functions.
+  - Updated "Session log templates" link on City pages to point to `/features` (was `/app`).
+  - Added `20251204120001_update_session_log_template_link.sql` migration for existing database records.
+
+- **City Page Map-First Redesign** (December 2025)
+
+  - Created `components/city/city-map-view.tsx` with interactive map and beach list layout.
+  - Desktop: Beach list (380px) on left, interactive map (600px) on right.
+  - Mobile: Map (350px) on top, horizontal beach card scroll below.
+  - Added `MapErrorBoundary` class component for graceful map error handling with fallback UI.
+  - Added quick actions bar with pill navigation buttons.
+  - Added session timing modules (Today/Now/Weekend cards) for surf planning context.
+  - Added collapsible accordion for "About" section to reduce above-fold text density.
+  - Reuses existing `InteractiveMap` component with SurfSpot → Beach type transformation.
 
 - **Generic State Beach Route** (December 2025)
   - Created `app/[intent]/[city]/[beachSlug]/page.tsx` to support hierarchical URLs for all US states (OR, WA, HI, etc.), not just California.
@@ -19,19 +62,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Intent Page Layout Updates** (December 2025)
+
+  - Refactored `app/[intent]/[city]/page.tsx` to match the standard `LocationPage` layout (Breadcrumbs, Header, Container).
+  - Updated `SURF_INTENTS.beginner.heading` template to "Beginner-friendly breaks in ${cityName}" for consistency.
+  - Improved navigation links to point back to the main city page (`/beaches/usa/ca/[city]`).
+
 - **Database State Code Normalization** (December 2025)
+
   - Normalized all state values in the `beaches` table to 2-letter codes (e.g., "Hawaii" → "HI", "Oregon" → "OR").
   - Migration: `20251203183500_normalize_state_codes.sql`
   - Ensures consistency with URL routing which expects 2-letter state codes.
 
 - **Beach URL Utils Test Updates** (December 2025)
+
   - Added comprehensive test cases for Oregon, Washington, and Hawaii beach URLs.
   - Added tests for `getValidStateSlugs()` and `isValidStateSlug()` functions.
   - Updated existing tests to reflect that known state names now map to 2-letter codes.
 
-
-
 - **E2E Test Suite Cleanup** (December 2025)
+
   - Deleted `e2e/onboarding.spec.ts` - tests were unreliable and tested removed features (referral step).
   - Rewrote `e2e/home.spec.ts` with component-specific tests for HomeScreen:
     - Welcome section: greeting, Plan Session/Log Session buttons with navigation
@@ -48,12 +98,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Kept core tests: page load, login/signup buttons, auth modal
 
 - **E2E Error Detection Improvements** (December 2025)
+
   - Updated `e2e/utils/error-detection.ts` to ignore 429 rate limit errors (both network and console).
   - Removed overly broad "Unable to load" and "Failed to" text patterns that caught graceful degradation messages.
   - Added error detection utilities to `e2e/session-wizard.spec.ts` for all test describe blocks.
   - Tests now properly catch visible errors while ignoring infrastructure rate limiting.
 
 - **Session Wizard E2E Test Improvements** (December 2025)
+
   - Fixed all skipped tests by using correct `data-testid` selectors instead of unreliable placeholder patterns.
   - Updated tests to properly navigate through wizard steps before asserting element visibility.
   - Improved beach selection tests to use dropdown list selectors (`ul li button`).
@@ -67,36 +119,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **City Page Title Duplication** (December 2025)
+
+  - Fixed duplicate "Quiver" in page titles (e.g., "San Diego Surf Reports | Quiver | Quiver").
+  - Root layout already uses `template: "%s | Quiver"` which auto-appends the suffix.
+  - Removed redundant "| Quiver" from `generateMetadata` in `app/ca/[city]/page.tsx`.
+
 - **Session Creation RLS Policy Violation on user_beach_affinity** (December 2025)
+
   - Fixed "new row violates row-level security policy for table 'user_beach_affinity'" error when creating planned sessions.
   - The `update_beach_affinity_on_session_change` trigger function was missing `SECURITY DEFINER`, causing it to fail RLS checks when inserting into `user_beach_affinity`.
   - Added migration `20251203000000_fix_beach_affinity_trigger_security.sql` to add `SECURITY DEFINER` and `SET search_path = public` to the trigger function.
 
 - **Supabase Client Fail-Fast on Missing Configuration** (December 2025)
+
   - Updated `createServerClient` and `createServiceRoleClient` in `lib/supabase.ts` to throw immediately when environment variables are missing.
   - Previously, the code logged an error but continued to create a client with empty credentials, causing cryptic 500 errors during database operations.
   - Added validation for `cookieStore` interface before using it to handle RSC prefetch edge cases.
   - This provides clearer error messages and faster failure for misconfigured environments.
 
 - **Beach Detail Pages Returning 500 for California Beaches** (December 2025)
+
   - Fixed `/ca/[city]/[beachSlug]` routes returning 500 errors on dev.quiversurf.app.
   - The page was checking `beach.state !== "CA"` but some beaches have `state: "California"` (full name) in the database.
   - Updated state validation to accept both "CA" and "California" as valid California beaches.
 
 - **Fixed Sentry Version Conflict with Lighthouse** (December 2025)
+
   - Added yarn resolutions to force `@sentry/node` and `@sentry/core` to version 10.27.0.
   - The `lighthouse@12.6.1` package requires `@sentry/node@^7.0.0`, which conflicted with `@sentry/nextjs@10.27.0` requiring `@sentry/node@10.27.0`.
   - This caused `TypeError: E._INTERNAL_clearAiProviderSkips is not a function` during instrumentation hook initialization, making all API routes return 500 errors on dev deployment.
 
 - **Reverted Sentry SDK to 10.27.0** (December 2025)
+
   - Downgraded `@sentry/nextjs` from `10.28.0` back to `10.27.0` to fix instrumentation hook crash (`E._INTERNAL_clearAiProviderSkips is not a function`) that caused all server-side routes to fail with 500 errors on Vercel deployments.
   - The bug was introduced in Sentry 10.28.0 and affects the `_setupIntegrations` function during server initialization.
 
 - **Sessions API Column Name Mismatch** (December 2025)
+
   - Fixed `app/api/users/[id]/sessions/route.ts` to use correct beach column names (`lat`, `lon` instead of `latitude`, `longitude`).
   - This was causing "column beaches_1.latitude does not exist" errors and triggering fallback queries.
 
 - **geo-tz Timezone Data Files Missing** (December 2025)
+
   - Configured webpack to copy geo-tz data files to `.next/server/data/` during build.
   - Added `copy-webpack-plugin` as a dev dependency.
   - Fixes "ENOENT: no such file or directory, open '.next/server/data/timezones-1970.geojson.geo.dat'" error that occurred during timezone lookups.
@@ -131,19 +196,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated stepper tests to reflect the new step count.
 
 ### Fixed
+
 - **Refresh Page After Onboarding Completion** (December 2025)
+
   - Added `router.refresh()` call after completing onboarding wizard so the home page refreshes with the user's personalized data (home beach forecast, etc.) instead of showing "No Surf Spots Found".
 
 - **Profile Preferences Not Saving in Edit Modal** (December 2025)
+
   - Fixed profile API route (`/api/profile/[id]`) to include surf preference fields (`surf_styles`, `preferred_wave_size`, `preferred_break_type`, `crowd_preference`) and notification settings in the response.
   - Without these fields, the Edit Profile modal would show empty values and not save user preferences correctly.
 
 - **Fixed Onboarding Step Tests** (December 2025)
+
   - Updated HomeBeachStep test to use correct placeholder text ("e.g., Malibu, Pipeline, Rincon..." instead of "Search beaches").
   - Removed test for non-existent Skip button in HomeBeachStep.
   - Fixed PreferencesStep tests to use `getAllByText` for elements that appear multiple times (label + option placeholder).
 
 - **Onboarding Zod Validation Error** (December 2025)
+
   - Fixed uncaught ZodError during onboarding by upgrading `@hookform/resolvers` to v5.2.2 and `react-hook-form` to v7.67.0 (required for Zod v4 compatibility).
   - Updated `profileSchema` in `lib/schemas/onboarding-schemas.ts` to allow optional empty strings for `fullName` and `displayName` fields.
   - Added pre-save uniqueness check for `displayName` in `actions/onboarding-actions.ts` to prevent duplicate key constraint errors with a user-friendly error message.

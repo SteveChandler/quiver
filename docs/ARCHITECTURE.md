@@ -106,6 +106,25 @@ Subscribe with cleanup in `useEffect`.
 - **Forecasting**: 10-day NOAA integration with confidence scoring.
 - **Media**: Photo upload, galleries, optimized storage.
 - **Session Management**: Logging, planning, rich metadata.
+- **Attribution**: UTM tracking and referral system for growth analytics.
+- **Coverage**: California, Oregon, Washington, Hawaii, Baja California.
+
+---
+
+### Documentation Index
+
+| Category | Document | Description |
+|----------|----------|-------------|
+| **API** | [API Overview](api/README.md) | REST API architecture and endpoints |
+| **API** | [Server Actions](api/SERVER_ACTIONS.md) | Next.js server action reference |
+| **API** | [RPC Functions](api/RPC_FUNCTIONS.md) | Supabase stored procedures |
+| **Architecture** | [URL Routing](architecture/URL_ROUTING.md) | Hierarchical URL patterns |
+| **Architecture** | [Forecast Scoring](architecture/FORECAST_SCORING.md) | Surf scoring algorithm |
+| **Architecture** | [Cache Strategy](architecture/CACHE_STRATEGY.md) | Multi-tier caching patterns |
+| **Features** | [Attribution Tracking](features/ATTRIBUTION_TRACKING.md) | UTM and referral tracking |
+| **Features** | [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | City page content system |
+| **Guides** | [Adding States](guides/ADDING_NEW_STATES.md) | Regional expansion guide |
+| **Reference** | [Coverage Areas](COVERAGE_AREAS.md) | Geographic coverage details |
 
 ---
 

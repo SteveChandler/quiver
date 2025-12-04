@@ -28,7 +28,6 @@ export class RouteGuard {
     "/profile",
     "/dashboard",
     "/journal",
-    "/discover",
     "/sessions/new",
   ];
 

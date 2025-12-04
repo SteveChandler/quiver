@@ -6,6 +6,8 @@ import {
   getCalendarHeatmapData,
 } from "@/actions/analytics-actions";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Get session analytics for the current user
  * GET /api/analytics/sessions?userId=me&type=analytics|calendar&year=2024&month=1

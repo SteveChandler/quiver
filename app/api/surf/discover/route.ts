@@ -10,6 +10,8 @@ import {
 import { withRateLimit } from '@/lib/middleware/rate-limiter';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Query Parameter Schema
  *

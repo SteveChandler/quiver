@@ -1,82 +1,74 @@
 import {
-  isWithinSanDiegoCoverage,
-  getDistanceFromSanDiego,
+  getDistanceFromPoint,
   isLikelyOutOfAreaSearch,
   COVERAGE_MESSAGES,
   OUT_OF_AREA_EXAMPLES,
-  SAN_DIEGO_COVERAGE,
+  DEFAULT_MAP_CENTER,
+  COVERED_REGIONS,
 } from "@/lib/constants/coverage-areas";
 
 describe("Coverage Areas", () => {
-  describe("isWithinSanDiegoCoverage", () => {
-    it("should identify Ocean Beach as within San Diego coverage", () => {
-      // Ocean Beach coordinates
-      expect(isWithinSanDiegoCoverage(32.7503, -117.2534)).toBe(true);
-    });
-
-    it("should identify La Jolla as within San Diego coverage", () => {
-      // La Jolla coordinates
-      expect(isWithinSanDiegoCoverage(32.8559, -117.2423)).toBe(true);
-    });
-
-    it("should identify Imperial Beach as within San Diego coverage", () => {
-      // Imperial Beach coordinates (near border)
-      expect(isWithinSanDiegoCoverage(32.5836, -117.1136)).toBe(true);
-    });
-
-    it("should identify Los Angeles as outside San Diego coverage", () => {
-      // Los Angeles coordinates
-      expect(isWithinSanDiegoCoverage(34.0522, -118.2437)).toBe(false);
-    });
-
-    it("should identify Tijuana as outside San Diego coverage", () => {
-      // Tijuana coordinates (south of border)
-      expect(isWithinSanDiegoCoverage(32.5027, -117.0083)).toBe(false);
-    });
-  });
-
-  describe("getDistanceFromSanDiego", () => {
+  describe("getDistanceFromPoint", () => {
     it("should calculate distance from Ocean Beach to itself as ~0", () => {
-      const distance = getDistanceFromSanDiego(32.7503, -117.2534);
+      const distance = getDistanceFromPoint(32.7503, -117.2534);
       expect(distance).toBeLessThan(1);
     });
 
     it("should calculate reasonable distance to Los Angeles", () => {
-      const distance = getDistanceFromSanDiego(34.0522, -118.2437);
+      const distance = getDistanceFromPoint(34.0522, -118.2437);
       expect(distance).toBeGreaterThan(100);
       expect(distance).toBeLessThan(150);
     });
 
     it("should calculate reasonable distance to San Francisco", () => {
-      const distance = getDistanceFromSanDiego(37.7749, -122.4194);
+      const distance = getDistanceFromPoint(37.7749, -122.4194);
       expect(distance).toBeGreaterThan(450);
       expect(distance).toBeLessThan(550);
+    });
+
+    it("should calculate distance from custom reference point", () => {
+      // Distance from LA to San Francisco
+      const distance = getDistanceFromPoint(37.7749, -122.4194, 34.0522, -118.2437);
+      expect(distance).toBeGreaterThan(340);
+      expect(distance).toBeLessThan(400);
     });
   });
 
   describe("isLikelyOutOfAreaSearch", () => {
-    it("should identify known out-of-area examples", () => {
+    it("should identify clearly out-of-area locations", () => {
       expect(isLikelyOutOfAreaSearch("tampico")).toBe(true);
       expect(isLikelyOutOfAreaSearch("Tampico")).toBe(true);
-      expect(isLikelyOutOfAreaSearch("malibu")).toBe(true);
-      expect(isLikelyOutOfAreaSearch("hawaii")).toBe(true);
-      expect(isLikelyOutOfAreaSearch("huntington beach")).toBe(true);
-    });
-
-    it("should identify pattern-based out-of-area searches", () => {
-      expect(isLikelyOutOfAreaSearch("los angeles")).toBe(true);
-      expect(isLikelyOutOfAreaSearch("santa monica")).toBe(true);
-      expect(isLikelyOutOfAreaSearch("san francisco")).toBe(true);
-      expect(isLikelyOutOfAreaSearch("mexico")).toBe(true);
       expect(isLikelyOutOfAreaSearch("florida")).toBe(true);
+      expect(isLikelyOutOfAreaSearch("miami")).toBe(true);
+      expect(isLikelyOutOfAreaSearch("australia")).toBe(true);
+      expect(isLikelyOutOfAreaSearch("bali")).toBe(true);
     });
 
-    it("should not identify San Diego area searches as out-of-area", () => {
+    it("should NOT flag covered regions as out-of-area", () => {
+      // Hawaii is covered
+      expect(isLikelyOutOfAreaSearch("hawaii")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("waikiki")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("pipeline")).toBe(false);
+      
+      // California beaches are covered
+      expect(isLikelyOutOfAreaSearch("malibu")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("huntington beach")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("santa monica")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("newport")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("los angeles")).toBe(false);
+      
+      // San Diego beaches
       expect(isLikelyOutOfAreaSearch("ocean beach")).toBe(false);
       expect(isLikelyOutOfAreaSearch("la jolla")).toBe(false);
       expect(isLikelyOutOfAreaSearch("pacific beach")).toBe(false);
-      expect(isLikelyOutOfAreaSearch("mission beach")).toBe(false);
-      expect(isLikelyOutOfAreaSearch("del mar")).toBe(false);
+      
+      // Oregon/Washington
+      expect(isLikelyOutOfAreaSearch("cannon beach")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("westport")).toBe(false);
+      
+      // Baja (covered)
+      expect(isLikelyOutOfAreaSearch("rosarito")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("k-38")).toBe(false);
     });
 
     it("should handle edge cases", () => {
@@ -96,34 +88,43 @@ describe("Coverage Areas", () => {
     it("should generate appropriate out-of-area messages for known locations", () => {
       const message = COVERAGE_MESSAGES.getOutOfAreaMessage("tampico");
       expect(message).toContain("Tampico, Mexico");
-      expect(message).toContain("1200 miles");
-      expect(message).toContain("San Diego");
+      expect(message).toContain("coverage area");
     });
 
     it("should generate generic messages for unknown locations", () => {
       const message = COVERAGE_MESSAGES.getOutOfAreaMessage("unknown beach");
       expect(message).toContain("unknown beach");
-      expect(message).toContain("San Diego coverage area");
+      expect(message).toContain("coverage area");
     });
 
     it("should generate suggestion messages", () => {
       const message = COVERAGE_MESSAGES.getSuggestionMessage("Ocean Beach");
       expect(message).toContain("Ocean Beach");
-      expect(message).toContain("San Diego beaches");
     });
 
     it("should generate coverage expansion messages", () => {
       const message = COVERAGE_MESSAGES.getCoverageExpansionMessage();
       expect(message).toContain("add beaches");
-      expect(message).toContain("area");
+    });
+
+    it("should reflect broader West Coast coverage in info message", () => {
+      expect(COVERAGE_MESSAGES.COVERAGE_AREA_INFO).toContain("California");
+      expect(COVERAGE_MESSAGES.COVERAGE_AREA_INFO).toContain("Hawaii");
     });
   });
 
   describe("OUT_OF_AREA_EXAMPLES", () => {
-    it("should contain expected locations", () => {
+    it("should contain expected out-of-coverage locations", () => {
       expect(OUT_OF_AREA_EXAMPLES.tampico).toBeDefined();
-      expect(OUT_OF_AREA_EXAMPLES.malibu).toBeDefined();
-      expect(OUT_OF_AREA_EXAMPLES.hawaii).toBeDefined();
+      expect(OUT_OF_AREA_EXAMPLES.florida).toBeDefined();
+      expect(OUT_OF_AREA_EXAMPLES.australia).toBeDefined();
+    });
+
+    it("should NOT contain covered regions", () => {
+      // These should not be in OUT_OF_AREA_EXAMPLES anymore
+      expect((OUT_OF_AREA_EXAMPLES as any).hawaii).toBeUndefined();
+      expect((OUT_OF_AREA_EXAMPLES as any).malibu).toBeUndefined();
+      expect((OUT_OF_AREA_EXAMPLES as any)["huntington beach"]).toBeUndefined();
     });
 
     it("should have proper structure for examples", () => {
@@ -134,20 +135,30 @@ describe("Coverage Areas", () => {
     });
   });
 
-  describe("SAN_DIEGO_COVERAGE", () => {
+  describe("DEFAULT_MAP_CENTER", () => {
     it("should have proper structure", () => {
-      expect(SAN_DIEGO_COVERAGE.name).toBe("San Diego County");
-      expect(SAN_DIEGO_COVERAGE.bounds).toBeDefined();
-      expect(SAN_DIEGO_COVERAGE.center).toBeDefined();
-      expect(SAN_DIEGO_COVERAGE.radius_miles).toBe(50);
+      expect(DEFAULT_MAP_CENTER.name).toBe("San Diego");
+      expect(DEFAULT_MAP_CENTER.center).toBeDefined();
+      expect(DEFAULT_MAP_CENTER.center.lat).toBeCloseTo(32.75, 1);
+      expect(DEFAULT_MAP_CENTER.center.lng).toBeCloseTo(-117.25, 1);
+    });
+  });
+
+  describe("COVERED_REGIONS", () => {
+    it("should include key coverage areas", () => {
+      expect(COVERED_REGIONS).toContain("San Diego County, CA");
+      expect(COVERED_REGIONS).toContain("Orange County, CA");
+      expect(COVERED_REGIONS).toContain("Hawaii");
+      expect(COVERED_REGIONS).toContain("Oregon Coast");
+      expect(COVERED_REGIONS).toContain("Washington Coast");
+      expect(COVERED_REGIONS).toContain("Baja California, Mexico");
     });
 
-    it("should have reasonable bounds", () => {
-      const { bounds } = SAN_DIEGO_COVERAGE;
-      expect(bounds.north).toBeGreaterThan(bounds.south);
-      expect(bounds.east).toBeGreaterThan(bounds.west);
-      expect(bounds.north).toBeLessThan(34); // North of LA
-      expect(bounds.south).toBeGreaterThan(32); // North of Tijuana
+    it("should be an array of strings", () => {
+      expect(Array.isArray(COVERED_REGIONS)).toBe(true);
+      COVERED_REGIONS.forEach(region => {
+        expect(typeof region).toBe("string");
+      });
     });
   });
 });

@@ -23,6 +23,8 @@ Quiver is a full-stack surf tracking application that combines session logging, 
 - 🗺️ **Beach Discovery**: Searchable database of surf spots worldwide
 - ⚡ **Real-time Updates**: Live activity feeds via WebSocket subscriptions
 
+**Coverage Area:** California, Oregon, Washington, Hawaii & Northern Baja California. [See full coverage details](docs/COVERAGE_AREAS.md).
+
 ---
 
 ## 🚀 Quick Start

@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -11,6 +13,8 @@ import {
 } from "@/lib/data/surf-spots";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { CityMapView } from "@/components/city/city-map-view";
+import type { BeachWithMetrics } from "@/types/location";
 
 export const revalidate = 1800;
 
@@ -88,8 +92,31 @@ export default function IntentPage({ params }: IntentPageParams) {
 
   const now = new Date();
   const updatedAt = formatPacificDateTime(now);
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  const regionLabel = city.regionLabel || `${city.name}, California`;
+
+  // Transform spots to minimal BeachWithMetrics for the map
+  const beachesForMap: BeachWithMetrics[] = spots.map(
+    (spot) =>
+      ({
+        id: spot.id || spot.slug,
+        slug: spot.slug,
+        name: spot.name,
+        lat: spot.coordinates.lat,
+        lon: spot.coordinates.lng,
+        // Minimal dummy data for BeachWithMetrics compliance
+        city: city.name,
+        state: "CA",
+        region: spot.region,
+        description: spot.overview,
+        composite_score: 0,
+        recent_intel_count: 0,
+        avg_confirmations: 0,
+        created_at: "",
+        updated_at: "",
+      } as unknown as BeachWithMetrics)
+  );
 
   return (
     <div className="bg-white">
@@ -98,7 +125,7 @@ export default function IntentPage({ params }: IntentPageParams) {
           { name: "Quiver", url: `${baseUrl.replace(/\/$/, "")}/` },
           {
             name: `${city.name} Surf`,
-            url: `${baseUrl.replace(/\/$/, "")}/ca/${city.slug}`,
+            url: `${baseUrl.replace(/\/$/, "")}/beaches/usa/ca/${city.slug}`,
           },
           {
             name: definition.label,
@@ -106,168 +133,148 @@ export default function IntentPage({ params }: IntentPageParams) {
           },
         ]}
       />
-      <section className="mx-auto w-full max-w-6xl px-4 pb-20 pt-10 sm:px-6 lg:px-8">
-        <header className="space-y-4">
-          <p className="text-sm font-semibold uppercase tracking-wide text-sky-600">
-            {city.name} · {definition.label}
-          </p>
-          <h1 className="text-3xl font-bold text-slate-900 sm:text-5xl">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Breadcrumb */}
+        <nav
+          aria-label="breadcrumb"
+          className="flex items-center gap-1 text-sm mb-6"
+        >
+          <Link
+            href={`/beaches/usa/ca/${city.slug}`}
+            className="inline-flex items-center gap-1 text-ocean-blue hover:underline"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to {city.name}
+          </Link>
+          <span className="text-gray-400 mx-2">›</span>
+          <span className="text-gray-900 font-medium">{definition.label}</span>
+        </nav>
+
+        {/* Header */}
+        <header className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
             {definition.heading({ cityName: city.name })}
           </h1>
-          <p className="text-base text-slate-700">
-            Updated {updatedAt} PT · Dialed recommendations refresh every 30
-            minutes based on tide, wind, and crowd telemetry from Quiver.
-          </p>
-          <p className="text-base text-slate-700">
-            {definition.intro({ cityName: city.name })} We pair it with live
-            data so you can decide whether to stay put, scoot north up the
-            freeway, or log a sunset session after work.
-          </p>
+          <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
+
+          <div className="space-y-2 mt-6">
+            <p className="text-base text-slate-700">
+              Updated {updatedAt} · Dialed recommendations refresh every 30
+              minutes based on tide, wind, and crowd telemetry from Quiver.
+            </p>
+            <p className="text-base text-slate-700">
+              {definition.intro({ cityName: city.name })} We pair it with live
+              data so you can decide whether to stay put, scoot north up the
+              freeway, or log a sunset session after work.
+            </p>
+          </div>
         </header>
 
-        <div className="mt-12 grid gap-10 lg:grid-cols-[2fr_1fr] lg:gap-16">
-          <article className="space-y-8 text-base leading-relaxed text-slate-800">
-            <section>
-              <h2 className="text-2xl font-semibold text-slate-900">
-                What to focus on today
-              </h2>
-              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-                {definition.focusPoints.map((point) => (
-                  <li
-                    key={point}
-                    className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-inner"
-                  >
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </section>
+        <div className="space-y-12">
+          {/* Map & List Section */}
+          <section>
+            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+              Top spot recommendations
+            </h2>
+            <p className="mb-6 text-sm text-slate-600">
+              Sort your quiver, choose the right tide window, and jot down a
+              backup in case the main peak gets stacked.
+            </p>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-slate-900">
-                Top spot recommendations
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Sort your quiver, choose the right tide window, and jot down a
-                backup in case the main peak gets stacked.
-              </p>
-              <div className="mt-4 space-y-5">
-                {spots.map((spot) => (
-                  <div
-                    key={spot.slug}
-                    id={spot.slug}
-                    className="rounded-xl border border-slate-200 p-5 shadow-sm"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <a
-                        href={`/spots/${spot.slug}`}
-                        className="text-xl font-semibold text-slate-900 underline-offset-2 hover:text-sky-700 hover:underline"
-                      >
-                        {spot.name}
-                      </a>
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        {spot.skillLevel}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-slate-700">
-                      {spot.conditions}
-                    </p>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-                        <p className="font-semibold uppercase tracking-wide text-slate-500">
-                          Tide cue
-                        </p>
-                        <p className="mt-1 text-sm text-slate-700">
-                          {spot.tideAdvice}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-                        <p className="font-semibold uppercase tracking-wide text-slate-500">
-                          Swell blend
-                        </p>
-                        <p className="mt-1 text-sm text-slate-700">
-                          {spot.swellAdvice}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-                        <p className="font-semibold uppercase tracking-wide text-slate-500">
-                          Wind plan
-                        </p>
-                        <p className="mt-1 text-sm text-slate-700">
-                          {spot.windAdvice}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-xs text-slate-500">
-                      Hazards: {spot.hazards.join(", ")} · Crowd level:{" "}
-                      {spot.crowdFactor}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <CityMapView
+              spots={spots}
+              cityName={city.name}
+              citySlug={city.slug}
+              stateSlug="ca"
+              countrySlug="usa"
+            />
+          </section>
 
+          {/* Editorial Focus Section */}
+          <section>
+            <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+              What to focus on today
+            </h2>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {definition.focusPoints.map((point) => (
+                <li
+                  key={point}
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-inner"
+                >
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <div className="grid gap-8 lg:grid-cols-2">
+            {/* Logging Tips */}
             <section>
-              <h2 className="text-2xl font-semibold text-slate-900">
+              <h2 className="text-2xl font-semibold text-slate-900 mb-4">
                 Session logging tips
               </h2>
-              <p>
+              <p className="text-slate-700 leading-relaxed">
                 Once you wrap the surf, drop a note in your Quiver journal with
                 tide, board, and crowd observations. Over time you&apos;ll see
                 crystal-clear patterns about when {city.name} rewards this type
                 of session objective.
               </p>
             </section>
-          </article>
 
-          <aside className="space-y-6">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-inner">
-              <h2 className="text-lg font-semibold text-slate-900">
-                Rapid-fire checklist
-              </h2>
-              <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                <li>Screenshot the tide window and share it with your crew.</li>
-                <li>Pack the board that matches the fastest section above.</li>
-                <li>
-                  Stash a backup parking plan in notes—crowds shift quickly on
-                  pulsy swells.
-                </li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-slate-200 p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">
-                Continue exploring
-              </h2>
-              <ul className="mt-3 space-y-2 text-sm text-sky-700">
-                <li>
-                  <a
-                    href={`/ca/${city.slug}`}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    Back to the {city.name} surf hub
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href={`/least-crowded/${city.slug}`}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    Less-crowded backups
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href={`/water-temp/${city.slug}`}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    Water temperature trends
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </aside>
+            {/* Checklist & Links */}
+            <aside className="space-y-6">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-inner">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Rapid-fire checklist
+                </h2>
+                <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                  <li>
+                    Screenshot the tide window and share it with your crew.
+                  </li>
+                  <li>
+                    Pack the board that matches the fastest section above.
+                  </li>
+                  <li>
+                    Stash a backup parking plan in notes—crowds shift quickly on
+                    pulsy swells.
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Continue exploring
+                </h2>
+                <ul className="mt-3 space-y-2 text-sm text-sky-700">
+                  <li>
+                    <a
+                      href={`/ca/${city.slug}`}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      Back to the {city.name} surf hub
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={`/least-crowded/${city.slug}`}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      Less-crowded backups
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={`/water-temp/${city.slug}`}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      Water temperature trends
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </aside>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

@@ -21,7 +21,6 @@ export default function robots(): MetadataRoute.Robots {
             "/api/*", // Don't crawl API routes
             "/inbox", // Private: notifications
             "/profile", // Private: user's own profile
-            "/discover", // Auth-required discovery
             "/auth/*", // Auth pages
           ],
         },

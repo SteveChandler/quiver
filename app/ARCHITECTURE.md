@@ -231,6 +231,24 @@ The `/app` directory follows Next.js 13+ App Router conventions, implementing a 
   - Community features (reviews, intel)
   - Real-time conditions
 
+### 📁 `/beaches/[country]/[state]/[city]`
+
+- **Function**: Location listing pages (AllTrails-style city pages)
+- **Type**: Server-side rendered with dynamic routing
+- **Features**:
+  - Ranked list of beaches in a city with composite scoring
+  - City/metro aggregate statistics
+  - Editorial content when available (curated descriptions, session timing advice)
+  - Interactive map with beach markers
+  - SEO-optimized with JSON-LD structured data
+- **Behavior**:
+  - **Valid city with data**: Renders full city page with ranked beaches
+  - **Valid city without data**: Redirects to `/map?search={cityName}` (e.g., Oceanside, Honolulu)
+  - **Invalid city**: Renders 404 "Location Not Found" page
+- **Related Files**:
+  - `actions/beach/beach-location-list-actions.ts` - Data fetching with city existence check
+  - `not-found.tsx` - 404 fallback page
+
 ---
 
 ### 📁 `/features`

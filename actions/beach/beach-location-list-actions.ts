@@ -66,14 +66,12 @@ export async function getLocationPageData(
       }
 
       if (!beaches || beaches.length === 0) {
-        console.error(`[getLocationPageData] No beaches found for metro area:`, {
+        console.warn(`[getLocationPageData] No beaches found for metro area, but metro config exists:`, {
           city: metroConfig.cities,
           state,
           country,
-          metroConfig,
-          queryParams: { p_cities: metroConfig.cities, p_state: state, p_country: country },
         });
-        throw new Error("No beaches found for this metro area");
+        throw new Error("CITY_EXISTS_NO_DATA");
       }
 
       // Fetch metro stats
@@ -129,7 +127,7 @@ export async function getLocationPageData(
       const country = normalizeCountry(parseLocationFromSlug(countrySlug));
 
       // Fetch beaches with metrics using database function
-      const { data: beaches, error: beachesError } = await supabase.rpc(
+      const { data: beachesData, error: beachesError } = await supabase.rpc(
         "get_beaches_by_location_with_scores",
         {
           p_city: city,
@@ -138,12 +136,38 @@ export async function getLocationPageData(
         }
       );
 
+      let beaches = beachesData;
+
       if (beachesError) {
-        console.error("Error fetching beaches by location:", beachesError);
-        throw new Error(`Failed to fetch beaches: ${beachesError.message}`);
+        // If the RPC fails (e.g. schema mismatch), treat as no data so we check for existence below
+        console.error("Error fetching beaches by location (RPC):", beachesError);
+        beaches = [];
       }
 
       if (!beaches || beaches.length === 0) {
+        // Check if the city actually exists in the database to differentiate
+        // between "valid city with no ranked data" vs "invalid location"
+        
+        // Use exact case-insensitive match for city to avoid partial matches (e.g. "la" matching "la jolla")
+        const { count } = await supabase
+          .from("beaches")
+          .select("*", { count: "exact", head: true })
+          .ilike("city", city) 
+          .ilike("state", state) // Use ilike for state too just in case
+          .limit(1);
+
+        if (count && count > 0) {
+          // City exists, but no data returned from the scoring function (or scoring function failed)
+          // This signals the UI to redirect to the map view
+          throw new Error("CITY_EXISTS_NO_DATA");
+        }
+
+        if (beachesError) {
+           // If we had an error AND the city doesn't exist, rethrow the original error
+           // (though likely it's just an invalid city if count is 0)
+           throw new Error(`Failed to fetch beaches: ${beachesError.message}`);
+        }
+
         console.error(`[getLocationPageData] No beaches found for location:`, {
           city,
           state,

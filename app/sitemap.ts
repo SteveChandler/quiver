@@ -7,6 +7,7 @@ import {
   getSpotBySlug,
 } from "@/lib/data/surf-spots";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
+import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { buildLocationUrl } from "@/lib/utils/location-slug";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
@@ -35,8 +36,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const cityRoutes: MetadataRoute.Sitemap = SURF_CITY_SLUGS.map((slug) => {
     const city = getCityBySlug(slug)!;
+    // All curated cities are in California - using buildLocationUrl for consistency
+    const cityUrl = buildLocationUrl(city.name, 'CA', 'USA');
     return {
-      url: `${baseUrl}/ca/${city.slug}`,
+      url: `${baseUrl}${cityUrl}`,
       lastModified: lastmod,
       changeFrequency: "daily",
       priority: 0.9,
@@ -87,48 +90,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         };
       });
     }
-  } catch {
+  } catch (error) {
+    console.error("Sitemap: Failed to load beach locations", error);
     // Fail silently; return empty location routes
   }
 
   // Dynamic beaches and forecasts
   let beachEntries: MetadataRoute.Sitemap = [];
   let forecastEntries: MetadataRoute.Sitemap = [];
-  try {
-    const res = await fetch(`${baseUrl}/api/beaches`, {
-      // Revalidate daily to keep sitemap fresh without heavy load
-      next: { revalidate: 86400 },
-    });
-    if (res.ok) {
-      const json = await res.json();
-      const beaches: Array<{
-        id: string;
-        slug: string | null;
-        city: string | null;
-        state: string | null;
-        updated_at?: string | null
-      }> = json?.beaches || json?.data || [];
+  
+  // Use direct DB call instead of fetch to avoid self-request issues
+  const beachesResponse = await getBeaches();
+  if (beachesResponse.success && beachesResponse.data) {
+    const beaches = beachesResponse.data;
 
-      // Generate hierarchical URLs for beaches
-      beachEntries = beaches
-        .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete URL data
-        .map((beach) => ({
-          url: `${baseUrl}${buildBeachUrl(beach)}`,
-          lastModified: beach.updated_at || lastmod,
-          changeFrequency: "weekly",
-          priority: 0.6,
-        }));
-
-      // Add forecast pages for each beach (still using ID for now)
-      forecastEntries = beaches.map((b) => ({
-        url: `${baseUrl}/forecast/${b.id}`,
-        lastModified: b.updated_at || lastmod,
-        changeFrequency: "daily",
-        priority: 0.8, // High priority for forecast pages
+    // Generate hierarchical URLs for beaches
+    beachEntries = beaches
+      .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete URL data
+      .map((beach) => ({
+        url: `${baseUrl}${buildBeachUrl(beach)}`,
+        lastModified: beach.updated_at || lastmod,
+        changeFrequency: "weekly",
+        priority: 0.6,
       }));
-    }
-  } catch {
-    // Fail silently; return static routes only
+
+    // Add forecast pages for each beach (still using ID for now)
+    forecastEntries = beaches.map((b) => ({
+      url: `${baseUrl}/forecast/${b.id}`,
+      lastModified: b.updated_at || lastmod,
+      changeFrequency: "daily",
+      priority: 0.8, // High priority for forecast pages
+    }));
   }
 
   return [
