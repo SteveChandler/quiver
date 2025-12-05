@@ -232,9 +232,18 @@ export async function updateProfile(
   return withAuthenticatedAction(async (user, supabase) => {
     // Handle case where data might be wrapped in an array (from certain Next.js action calls)
     const updateData = Array.isArray(profileData) ? profileData[0] : profileData;
-    
+
+    // Transform empty strings to null for enum fields (client sends "" for unselected options)
+    const enumFields = ['experience_level', 'preferred_wave_size', 'preferred_break_type', 'crowd_preference'] as const;
+    const sanitizedData = { ...updateData };
+    for (const field of enumFields) {
+      if ((sanitizedData as Record<string, unknown>)[field] === '') {
+        (sanitizedData as Record<string, unknown>)[field] = null;
+      }
+    }
+
     // Validate input data
-    const validationResult = profileUpdateSchema.safeParse(updateData);
+    const validationResult = profileUpdateSchema.safeParse(sanitizedData);
     if (!validationResult.success) {
       throw new Error(`Validation failed: ${validationResult.error.issues.map(i => i.message).join(", ")}`);
     }

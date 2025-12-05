@@ -1,9 +1,11 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Inter, Roboto, Open_Sans } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 import { Providers } from "@/components/providers";
+import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
 
 // Optimize font loading with display swap for better performance
 const inter = Inter({
@@ -108,11 +110,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Get pathname from middleware header for conditional SSR
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") || "/";
+  const isLandingPage = pathname === "/";
+
   return (
     <html
       lang="en"
@@ -223,6 +230,13 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
+        {/*
+          SSR Beach Section for Landing Page SEO
+          Rendered OUTSIDE Providers (client boundary) to ensure server-side rendering.
+          This section is always present in the HTML for crawlers, regardless of JS loading.
+        */}
+        {isLandingPage && <LandingPageSSRSection />}
+
         <Providers>{children}</Providers>
       </body>
     </html>

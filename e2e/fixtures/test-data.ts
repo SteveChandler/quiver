@@ -33,8 +33,8 @@ export const TEST_BEACHES = isDevEnvironment ? {
   // Dev environment: Full beach data from dev.quiversurf.app
   blacks: {
     id: '01330afc-00d3-461b-88f3-b173774766f4',
-    slug: 'blacks-beach',
-    city: 'La Jolla',
+    slug: 'blacks',
+    city: 'San Diego',
     state: 'CA',
     name: 'Blacks'
   },
@@ -56,8 +56,8 @@ export const TEST_BEACHES = isDevEnvironment ? {
   // Local environment: Full beach data from local database
   blacks: {
     id: 'blacks',
-    slug: 'blacks-beach',
-    city: 'La Jolla',
+    slug: 'blacks',
+    city: 'San Diego',
     state: 'CA',
     name: 'Blacks'
   },

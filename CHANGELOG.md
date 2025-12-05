@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **PopularBeachesSection Server Component** (December 2025)
+  - Created `components/landing-page/popular-beaches-section.tsx` as a server-rendered alternative to `SurfHighlightsSection`.
+  - Displays static beach links for SEO crawlability without client-side JavaScript.
+  - Matches SurfHighlightsSection visual styling (gradient background, 4-column grid, beach cards with images and locations).
+  - Uses established patterns: `getBeachUrlSafe` for URLs, `getProxiedImageUrl` for image handling, `FALLBACK_IMAGE_BY_NAME` for fallbacks.
+  - Designed for SSR/SSG landing page implementation to improve SEO and initial load performance.
+  - Includes static "Explore All Surf Spots" CTA linking to `/map`.
+
 ### Changed
 
 - **Redirect Missing City Pages to Map** (December 2025)
@@ -17,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Invalid cities (e.g., typos/spam) still correctly return a 404 status.
 
 ### Fixed
+
+- **Filter E2E Test Errors from Sentry** (December 2025)
+  - Added `beforeSend` filter in `sentry.client.config.ts` to drop intentional test errors from E2E tests.
+  - Prevents false-positive Sentry alerts when E2E tests run against preview environments.
+  - Filters errors matching the pattern `Test error \d+` (e.g., "Test error 1", "Test error 2").
 
 - **Coverage Area Detection Updated for Multi-Region Support** (December 2025)
   - Updated `lib/constants/coverage-areas.ts` to reflect expanded forecast coverage (California, Oregon, Washington, Hawaii, Baja California).
