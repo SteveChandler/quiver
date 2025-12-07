@@ -1,8 +1,8 @@
 /**
  * Geographic coverage areas and related messaging for search functionality
  * 
- * Coverage includes: California (San Diego to Santa Barbara), Oregon, Washington,
- * Hawaii, and Northern Baja California (Mexico).
+ * Coverage includes: US East Coast (ME to FL), Southeast & Gulf Coast (NC, SC, GA, FL, TX),
+ * US West Coast (CA, OR, WA), Hawaii, Puerto Rico, and Northern Baja California (Mexico).
  */
 
 // Default map center (San Diego) - used when no user location available
@@ -16,15 +16,32 @@ export const DEFAULT_MAP_CENTER = {
 
 // Regions with active forecast coverage
 export const COVERED_REGIONS = [
+  // West Coast
   "San Diego County, CA",
   "Orange County, CA",
   "Los Angeles County, CA",
   "Ventura County, CA",
   "Santa Barbara County, CA",
   "Central Coast, CA",
+  "Northern California",
   "Oregon Coast",
   "Washington Coast",
+  // East Coast
+  "Maine Coast",
+  "New Hampshire Coast",
+  "Massachusetts Coast",
+  "Rhode Island Coast",
+  "New York Coast",
+  "New Jersey Coast",
+  // Southeast & Gulf
+  "North Carolina Coast",
+  "South Carolina Coast",
+  "Georgia Coast",
+  "Florida Coast",
+  "Texas Gulf Coast",
+  // Islands & International
   "Hawaii",
+  "Puerto Rico",
   "Baja California, Mexico",
 ] as const;
 
@@ -34,26 +51,6 @@ export const OUT_OF_AREA_EXAMPLES = {
     location: "Tampico, Mexico",
     distance_miles: 1200,
     country: "Mexico",
-  },
-  florida: {
-    location: "Florida",
-    distance_miles: 2200,
-    country: "USA",
-  },
-  "cocoa beach": {
-    location: "Cocoa Beach, Florida",
-    distance_miles: 2200,
-    country: "USA",
-  },
-  miami: {
-    location: "Miami, Florida",
-    distance_miles: 2400,
-    country: "USA",
-  },
-  "new jersey": {
-    location: "New Jersey",
-    distance_miles: 2700,
-    country: "USA",
   },
   australia: {
     location: "Australia",
@@ -65,15 +62,25 @@ export const OUT_OF_AREA_EXAMPLES = {
     distance_miles: 8500,
     country: "Indonesia",
   },
+  uk: {
+    location: "United Kingdom",
+    distance_miles: 5000,
+    country: "UK",
+  },
+  cornwall: {
+    location: "Cornwall, UK",
+    distance_miles: 5000,
+    country: "UK",
+  },
 } as const;
 
 // Messaging templates for different scenarios
 export const COVERAGE_MESSAGES = {
   OUT_OF_AREA_TITLE: "Beach not in our coverage area",
   OUT_OF_AREA_EXPLANATION:
-    "Quiver covers the US West Coast, Hawaii, and Baja California. We're showing you a nearby beach instead.",
+    "Quiver covers US coasts from Maine to Texas, Hawaii, Puerto Rico, and Baja California. We're showing you a nearby beach instead.",
   COVERAGE_AREA_INFO:
-    "📍 Coverage: California, Oregon, Washington, Hawaii & Baja",
+    "📍 Coverage: US East & West Coasts, Gulf, Hawaii, Puerto Rico & Baja",
 
   // Dynamic messages based on search
   getOutOfAreaMessage: (searchTerm: string, detectedLocation?: string) => {
@@ -83,7 +90,7 @@ export const COVERAGE_MESSAGES = {
       ];
 
     if (example) {
-      return `"${example.location}" is not in our coverage area yet. Quiver currently covers the US West Coast, Hawaii, and Baja California.`;
+      return `"${example.location}" is not in our coverage area yet. Quiver currently covers US coasts, Hawaii, Puerto Rico, and Baja California.`;
     }
 
     if (detectedLocation) {
@@ -127,28 +134,28 @@ export function getDistanceFromPoint(
 /**
  * Detect if a search term is likely outside our coverage area.
  * 
- * Coverage includes: California, Oregon, Washington, Hawaii, and Baja California.
+ * Coverage includes: US East Coast (ME to FL), Southeast & Gulf (NC, SC, GA, FL, TX),
+ * US West Coast (CA, OR, WA), Hawaii, Puerto Rico, and Baja California.
  * Only returns true for searches that clearly indicate uncovered regions
- * (e.g., Florida, East Coast, international locations outside Baja).
+ * (e.g., international locations outside Baja/Puerto Rico).
  */
 export function isLikelyOutOfAreaSearch(searchTerm: string): boolean {
   const normalized = searchTerm.toLowerCase().trim();
 
-  // Check against known out-of-area examples (Florida, Australia, etc.)
+  // Check against known out-of-area examples (Australia, UK, etc.)
   if (OUT_OF_AREA_EXAMPLES[normalized as keyof typeof OUT_OF_AREA_EXAMPLES]) {
     return true;
   }
 
-  // Only flag searches that are clearly outside our West Coast + Hawaii + Baja coverage
+  // Only flag searches that are clearly outside our US coverage
   const outOfAreaPatterns = [
-    /florida|miami|cocoa beach|jacksonville|tampa/i,
-    /east coast|new jersey|new york|carolina|virginia beach/i,
     /australia|gold coast|bondi|byron bay/i,
     /indonesia|bali/i,
     /portugal|nazare/i,
     /france|hossegor|biarritz/i,
     /south africa|jeffreys bay/i,
     /japan|chiba/i,
+    /uk|cornwall|newquay/i,
     /\btampico\b/i, // Tampico specifically (not general Mexico)
   ];
 
