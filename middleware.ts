@@ -98,9 +98,13 @@ export async function middleware(request: NextRequest) {
  * Create a NextResponse with security headers and attribution cookies
  */
 function createSecureResponse(request: NextRequest): NextResponse {
+  // Add pathname to request headers for server components to access
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+
   const response = NextResponse.next({
     request: {
-      headers: request.headers,
+      headers: requestHeaders,
     },
   });
 

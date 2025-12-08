@@ -121,3 +121,8 @@ db_backups/
 supabase/remote_*.sql
 supabase/backup_*.sql
 **/*.dump
+
+# Data exports (generated files)
+docs/*.csv
+docs/*_surf_spots.json
+ios/surf_spots_data.json

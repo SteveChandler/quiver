@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **PopularBeachesSection Server Component** (December 2025)
+  - Created `components/landing-page/popular-beaches-section.tsx` as a server-rendered alternative to `SurfHighlightsSection`.
+  - Displays static beach links for SEO crawlability without client-side JavaScript.
+  - Matches SurfHighlightsSection visual styling (gradient background, 4-column grid, beach cards with images and locations).
+  - Uses established patterns: `getBeachUrlSafe` for URLs, `getProxiedImageUrl` for image handling, `FALLBACK_IMAGE_BY_NAME` for fallbacks.
+  - Designed for SSR/SSG landing page implementation to improve SEO and initial load performance.
+  - Includes static "Explore All Surf Spots" CTA linking to `/map`.
+
 ### Changed
 
 - **Redirect Missing City Pages to Map** (December 2025)
@@ -18,12 +28,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Best Surf Window Evening Cutoff** (December 2025)
+
+  - Fixed issue where "Your Best Spot Today" could recommend surf times as late as 7-10 PM.
+  - Updated `isNightHour` function in `lib/utils/timezone-utils.ts` to use 6 PM (18:00) cutoff instead of 9 PM (21:00).
+  - Conservative cutoff accounts for winter sunset times and ensures recommendations are for daylight hours year-round.
+  - Added comprehensive unit tests in `__tests__/lib/utils/timezone-utils.test.ts` covering boundary conditions and regression tests.
+
+- **Filter E2E Test Errors from Sentry** (December 2025)
+
+  - Added `beforeSend` filter in `sentry.client.config.ts` to drop intentional test errors from E2E tests.
+  - Prevents false-positive Sentry alerts when E2E tests run against preview environments.
+  - Filters errors matching the pattern `Test error \d+` (e.g., "Test error 1", "Test error 2").
+
 - **Coverage Area Detection Updated for Multi-Region Support** (December 2025)
   - Updated `lib/constants/coverage-areas.ts` to reflect expanded forecast coverage (California, Oregon, Washington, Hawaii, Baja California).
   - Removed Hawaii, Orange County, LA, and other now-covered regions from "out of area" detection.
   - Updated `COVERAGE_MESSAGES.COVERAGE_AREA_INFO` to reflect broader West Coast + Hawaii coverage.
   - Beaches in Hawaii, Oregon, Washington, and Baja no longer show "outside our coverage area" message.
   - Updated tests in `__tests__/lib/constants/coverage-areas.test.ts` to match new coverage logic.
+
+- **Beaches Table Data Quality & Performance** (December 2025)
+  - Fixed missing metadata for Rincon (CA), Pipeline (HI), Cardiff Reef, and Seabrook beaches.
+  - Corrected coordinate error: New Break (Nubes) now properly separated from Sunset Cliffs (Garbage).
+  - Standardized `break_type` values: "beach break" → "beach", "reef break" → "reef", "point break" → "point".
+  - Standardized `crowd_level` to 4-level scale: light, moderate, crowded, very_crowded.
+  - Fixed country inconsistency: "United States" → "USA".
+  - Dropped 14 unused indexes (0 scans), reducing index overhead by ~50%.
+  - Added missing columns to `beaches_history` audit table (average_rating, region, review_count, slug).
 
 ### Added
 

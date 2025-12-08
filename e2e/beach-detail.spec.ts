@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TEST_BEACH_IDS, VIEWPORTS } from './fixtures/test-data';
+import { TEST_BEACHES, VIEWPORTS } from './fixtures/test-data';
 import { waitForPageLoad, navigateToBeach } from './utils/test-helpers';
 
 /**
@@ -11,7 +11,7 @@ import { waitForPageLoad, navigateToBeach } from './utils/test-helpers';
 
 test.describe('Beach Detail Page', () => {
   test.beforeEach(async ({ page }) => {
-    await navigateToBeach(page, TEST_BEACH_IDS.blacks);
+    await navigateToBeach(page, TEST_BEACHES.blacks);
   });
 
   test('should display beach name and location', async ({ page }) => {
@@ -153,7 +153,7 @@ test.describe('Beach Detail Page', () => {
 
 test.describe('Beach Detail - Forecast Tab', () => {
   test.beforeEach(async ({ page }) => {
-    await navigateToBeach(page, TEST_BEACH_IDS.blacks);
+    await navigateToBeach(page, TEST_BEACHES.blacks);
     await waitForPageLoad(page);
   });
 

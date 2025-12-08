@@ -24,6 +24,16 @@ Sentry.init({
   // in development and sample at a lower rate in production
   replaysOnErrorSampleRate: 1.0,
 
+  // Filter out intentional test errors from E2E tests
+  beforeSend(event, hint) {
+    const error = hint.originalException;
+    // Drop errors that are intentionally thrown by E2E tests
+    if (error instanceof Error && /^Test error \d+$/.test(error.message)) {
+      return null;
+    }
+    return event;
+  },
+
   // If the entire session is not sampled, use the below sample rate to sample
   // sessions when an error occurs.
   integrations: [

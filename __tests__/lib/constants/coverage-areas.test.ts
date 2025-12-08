@@ -35,16 +35,16 @@ describe("Coverage Areas", () => {
   });
 
   describe("isLikelyOutOfAreaSearch", () => {
-    it("should identify clearly out-of-area locations", () => {
+    it("should identify clearly out-of-area locations (international)", () => {
       expect(isLikelyOutOfAreaSearch("tampico")).toBe(true);
       expect(isLikelyOutOfAreaSearch("Tampico")).toBe(true);
-      expect(isLikelyOutOfAreaSearch("florida")).toBe(true);
-      expect(isLikelyOutOfAreaSearch("miami")).toBe(true);
       expect(isLikelyOutOfAreaSearch("australia")).toBe(true);
       expect(isLikelyOutOfAreaSearch("bali")).toBe(true);
+      expect(isLikelyOutOfAreaSearch("cornwall")).toBe(true);
+      expect(isLikelyOutOfAreaSearch("nazare")).toBe(true);
     });
 
-    it("should NOT flag covered regions as out-of-area", () => {
+    it("should NOT flag covered US regions as out-of-area", () => {
       // Hawaii is covered
       expect(isLikelyOutOfAreaSearch("hawaii")).toBe(false);
       expect(isLikelyOutOfAreaSearch("waikiki")).toBe(false);
@@ -69,6 +69,17 @@ describe("Coverage Areas", () => {
       // Baja (covered)
       expect(isLikelyOutOfAreaSearch("rosarito")).toBe(false);
       expect(isLikelyOutOfAreaSearch("k-38")).toBe(false);
+      
+      // East Coast (now covered)
+      expect(isLikelyOutOfAreaSearch("florida")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("miami")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("new jersey")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("new york")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("cocoa beach")).toBe(false);
+      
+      // Puerto Rico (covered)
+      expect(isLikelyOutOfAreaSearch("puerto rico")).toBe(false);
+      expect(isLikelyOutOfAreaSearch("rincon")).toBe(false);
     });
 
     it("should handle edge cases", () => {
@@ -107,24 +118,28 @@ describe("Coverage Areas", () => {
       expect(message).toContain("add beaches");
     });
 
-    it("should reflect broader West Coast coverage in info message", () => {
-      expect(COVERAGE_MESSAGES.COVERAGE_AREA_INFO).toContain("California");
+    it("should reflect nationwide US coverage in info message", () => {
       expect(COVERAGE_MESSAGES.COVERAGE_AREA_INFO).toContain("Hawaii");
+      expect(COVERAGE_MESSAGES.COVERAGE_AREA_INFO).toContain("Puerto Rico");
+      expect(COVERAGE_MESSAGES.COVERAGE_AREA_INFO).toContain("Baja");
     });
   });
 
   describe("OUT_OF_AREA_EXAMPLES", () => {
-    it("should contain expected out-of-coverage locations", () => {
+    it("should contain expected out-of-coverage locations (international only)", () => {
       expect(OUT_OF_AREA_EXAMPLES.tampico).toBeDefined();
-      expect(OUT_OF_AREA_EXAMPLES.florida).toBeDefined();
       expect(OUT_OF_AREA_EXAMPLES.australia).toBeDefined();
+      expect(OUT_OF_AREA_EXAMPLES.bali).toBeDefined();
     });
 
-    it("should NOT contain covered regions", () => {
-      // These should not be in OUT_OF_AREA_EXAMPLES anymore
+    it("should NOT contain covered US regions", () => {
+      // US locations should not be in OUT_OF_AREA_EXAMPLES (now covered)
+      expect((OUT_OF_AREA_EXAMPLES as any).florida).toBeUndefined();
       expect((OUT_OF_AREA_EXAMPLES as any).hawaii).toBeUndefined();
       expect((OUT_OF_AREA_EXAMPLES as any).malibu).toBeUndefined();
-      expect((OUT_OF_AREA_EXAMPLES as any)["huntington beach"]).toBeUndefined();
+      expect((OUT_OF_AREA_EXAMPLES as any)["new jersey"]).toBeUndefined();
+      expect((OUT_OF_AREA_EXAMPLES as any)["cocoa beach"]).toBeUndefined();
+      expect((OUT_OF_AREA_EXAMPLES as any).miami).toBeUndefined();
     });
 
     it("should have proper structure for examples", () => {
@@ -146,11 +161,20 @@ describe("Coverage Areas", () => {
 
   describe("COVERED_REGIONS", () => {
     it("should include key coverage areas", () => {
+      // West Coast
       expect(COVERED_REGIONS).toContain("San Diego County, CA");
       expect(COVERED_REGIONS).toContain("Orange County, CA");
-      expect(COVERED_REGIONS).toContain("Hawaii");
       expect(COVERED_REGIONS).toContain("Oregon Coast");
       expect(COVERED_REGIONS).toContain("Washington Coast");
+      
+      // East Coast
+      expect(COVERED_REGIONS).toContain("New Jersey Coast");
+      expect(COVERED_REGIONS).toContain("New York Coast");
+      expect(COVERED_REGIONS).toContain("Florida Coast");
+      
+      // Islands & International
+      expect(COVERED_REGIONS).toContain("Hawaii");
+      expect(COVERED_REGIONS).toContain("Puerto Rico");
       expect(COVERED_REGIONS).toContain("Baja California, Mexico");
     });
 

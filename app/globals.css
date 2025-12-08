@@ -203,3 +203,10 @@
     transform: none !important;
   }
 }
+
+/* Hide SSR beach section when user is authenticated
+   The SSR section is rendered in layout.tsx for SEO but should be hidden
+   for authenticated users who see the HomeScreen instead */
+body.authenticated .ssr-beach-section {
+  display: none;
+}

@@ -145,4 +145,89 @@ test.describe('Guest Landing Page', () => {
       expect(h1Exists).toBe(true);
     });
   });
+
+  test.describe('SSR/SEO Validation', () => {
+    test('should have beach links in page HTML for SEO crawlability @seo', async ({ page }) => {
+      // Get the page HTML source
+      const response = await page.goto('/');
+      const html = await response?.text();
+
+      // Beach links should be present in the initial HTML
+      // These are server-rendered for SEO crawlability
+      expect(html).toBeTruthy();
+
+      // Check for hierarchical beach URLs (/{state}/{city}/{beach-slug})
+      // At least one of these state slugs should be present
+      const hasStateBeachLinks =
+        html?.includes('href="/ca/') ||
+        html?.includes('href="/fl/') ||
+        html?.includes('href="/hi/') ||
+        html?.includes('href="/or/');
+
+      // Or fallback beach links
+      const hasFallbackBeachLinks = html?.includes('href="/beach/');
+
+      expect(hasStateBeachLinks || hasFallbackBeachLinks).toBe(true);
+    });
+
+    test('should have beach links visible in DOM @seo', async ({ page }) => {
+      // Wait for page to be fully loaded
+      await waitForPageLoad(page);
+
+      // Look for beach links - should be present regardless of JS loading
+      const beachLinks = page.locator('a[href*="/ca/"], a[href*="/fl/"], a[href*="/hi/"], a[href*="/or/"], a[href*="/beach/"]');
+      const linkCount = await beachLinks.count();
+
+      // Should have at least one beach link visible
+      expect(linkCount).toBeGreaterThan(0);
+    });
+
+    test('should have beach section heading in HTML @seo', async ({ page }) => {
+      const response = await page.goto('/');
+      const html = await response?.text();
+
+      // The section should have proper headings for SEO
+      // Check for the "Popular Surf Spots" or similar heading
+      const hasSurfSpotsHeading =
+        html?.includes('Surf Spots') ||
+        html?.includes('surf spots') ||
+        html?.includes('Popular') ||
+        html?.includes('Trending');
+
+      expect(hasSurfSpotsHeading).toBe(true);
+    });
+
+    test('should have structured data for SEO @seo', async ({ page }) => {
+      const response = await page.goto('/');
+      const html = await response?.text();
+
+      // Should have FAQ schema or other structured data
+      const hasStructuredData =
+        html?.includes('application/ld+json') ||
+        html?.includes('FAQPage') ||
+        html?.includes('@type');
+
+      expect(hasStructuredData).toBe(true);
+    });
+
+    test('should render beach images with proper alt text @seo', async ({ page }) => {
+      await waitForPageLoad(page);
+
+      // Find beach card images
+      const beachImages = page.locator('img[alt]').filter({
+        has: page.locator('..').filter({ has: page.locator('a[href*="/ca/"], a[href*="/fl/"], a[href*="/hi/"], a[href*="/beach/"]') }),
+      });
+
+      // Check if any beach images are present with alt text
+      const imageCount = await beachImages.count();
+
+      // If we have beach images, verify they have non-empty alt text
+      if (imageCount > 0) {
+        const firstImage = beachImages.first();
+        const altText = await firstImage.getAttribute('alt');
+        expect(altText).toBeTruthy();
+        expect(altText?.length).toBeGreaterThan(0);
+      }
+    });
+  });
 });

@@ -155,7 +155,14 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 
 ## 🔄 **Recent Updates**
 
-**November 2025 (Latest)**: Phase 2 Documentation Consolidation - reduced redundancy
+**December 2025 (Latest)**:
+- Geographic expansion: East Coast, Southeast, Gulf Coast, Puerto Rico beaches added
+- City Editorial Content System with map-first redesign
+- PopularBeachesSection for improved SEO and initial load performance
+- Best surf window evening cutoff adjusted (9 PM → 6 PM)
+- Data quality improvements and database optimizations
+
+**November 2025**: Phase 2 Documentation Consolidation - reduced redundancy
 
 **Phase 2 Changes:**
 
@@ -209,6 +216,6 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 
 ---
 
-**Last Updated**: November 2025
+**Last Updated**: December 2025
 **Status**: Complete reorganization by purpose
-**Next Review**: December 2025
+**Next Review**: January 2026
