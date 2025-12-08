@@ -3,6 +3,8 @@ import {
   beachNames,
 } from "@/lib/constants/beach-coordinates";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { getBeaches } from "@/actions/beach-actions";
+import { getBeachForecasts, getLatestBeachForecast } from "@/actions/forecast-actions";
 
 export interface Coordinates {
   lat: number;
@@ -239,7 +241,7 @@ export async function fetchForecast(lat: number, lng: number): Promise<any> {
           console.log(
             `Using forecast from nearby ${beach.name} (${beach.distance.toFixed(
               1
-            )} km away) from ${nearbyForecastResult.data[0].forecast_date}`
+            )} km away) from ${nearLatest[0].forecast_date}`
           );
           return nearLatest[0];
         }

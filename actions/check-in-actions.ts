@@ -109,7 +109,7 @@ function buildLegacyCheckInPayload(
 }
 
 async function fetchCheckInWithUser(
-  supabase: ReturnType<typeof createSupabaseServerClient>,
+  supabase: Awaited<ReturnType<typeof createAPIServerClient>>,
   id: string
 ) {
   const { data, error } = await supabase

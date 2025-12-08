@@ -332,6 +332,7 @@ describe("Middleware Integration Tests", () => {
     it("should require auth for creating new sessions", async () => {
       mockAuthValidator.validateAuth.mockResolvedValue({
         authenticated: false,
+        error: "No session",
       });
 
       const request = createMockRequest("/sessions/new");

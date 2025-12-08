@@ -40,9 +40,10 @@ export function CompletionStep() {
         console.error('Onboarding save failed:', result.error);
         toast.error(result.error || 'Failed to save your preferences. Please try again.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to complete onboarding:', error);
-      toast.error(error.message || 'Something went wrong. Please try again.');
+      const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }

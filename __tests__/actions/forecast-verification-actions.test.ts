@@ -25,8 +25,9 @@ jest.mock('@/lib/server-action-utils', () => ({
         supabaseMockOverride = null;
         const data = await action(mockUser, mockSupabase, ...args);
         return { success: true, data };
-      } catch (error: any) {
-        return { success: false, error: error.message };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return { success: false, error: message };
       }
     };
   }),

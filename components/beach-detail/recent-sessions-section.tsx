@@ -22,7 +22,8 @@ export function RecentSessionsSection({ beachId }: RecentSessionsSectionProps) {
     return (json?.data?.sessions || json?.sessions || []) as SessionWithDetails[];
   }, [beachId]);
 
-  const { data: sessions = [], loading, error } = useDataFetcher(fetchSessions, { immediate: true, initialData: [] });
+  const { data: sessionsData, loading, error } = useDataFetcher(fetchSessions, { immediate: true, initialData: [] });
+  const sessions = sessionsData ?? [];
 
   return (
     <Card>

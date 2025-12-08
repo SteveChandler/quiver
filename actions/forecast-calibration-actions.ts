@@ -230,7 +230,7 @@ export async function getForecastAccuracyTrends(
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    const { data, error } = await supabase
+    return supabase
       .from("session_forecast_snapshots")
       .select(
         `
@@ -243,12 +243,6 @@ export async function getForecastAccuracyTrends(
       .eq("beach_id", beachId)
       .gte("session_date", startDate.toISOString().split("T")[0])
       .order("session_date", { ascending: true });
-
-    if (error) {
-      throw new Error(`Failed to fetch accuracy trends: ${error.message}`);
-    }
-
-    return data || [];
   });
 }
 
@@ -311,19 +305,31 @@ export async function getUserForecastAccuracySummary(): Promise<
       accuracyScores.reduce((sum, score) => sum + score, 0) /
       accuracyScores.length;
 
+    // Type for beach stats accumulator
+    type BeachStatsEntry = {
+      sessions: Array<{
+        forecast_snapshot?: { wave_height?: string };
+        actual_conditions?: { wave_height?: string };
+      }>;
+      accuracy: number;
+    };
+
     // Group by beach and calculate beach-specific accuracy
-    const beachStats = snapshots.reduce((acc, snapshot) => {
+    const beachStats = snapshots.reduce<Record<string, BeachStatsEntry>>((acc, snapshot) => {
       const beachName = snapshot.session?.beach_name || "Unknown Beach";
       if (!acc[beachName]) {
         acc[beachName] = { sessions: [], accuracy: 0 };
       }
       acc[beachName].sessions.push(snapshot);
       return acc;
-    }, {} as Record<string, { sessions: any[]; accuracy: number }>);
+    }, {});
 
     const topBeaches = Object.entries(beachStats)
-      .map(([beachName, stats]) => {
-        const beachAccuracyScores = stats.sessions.map((snapshot) => {
+      .map(([beachName, stats]: [string, BeachStatsEntry]) => {
+        const beachAccuracyScores = stats.sessions.map((snapshot: {
+          forecast_snapshot?: { wave_height?: string };
+          actual_conditions?: { wave_height?: string };
+        }) => {
           const forecastHeight = parseFloat(
             snapshot.forecast_snapshot?.wave_height || "0"
           );
@@ -335,7 +341,7 @@ export async function getUserForecastAccuracySummary(): Promise<
         });
 
         const accuracy =
-          beachAccuracyScores.reduce((sum, score) => sum + score, 0) /
+          beachAccuracyScores.reduce((sum: number, score: number) => sum + score, 0) /
           beachAccuracyScores.length;
 
         return {

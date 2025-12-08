@@ -2,14 +2,35 @@
  * Simplified Supabase mock builder for tests
  */
 
+// Type definitions for Supabase mock responses
+interface SupabaseResponse<T = unknown> {
+  data: T | null;
+  error: { message: string; code?: string } | null;
+}
+
+interface MockQueryMethods {
+  select: jest.Mock;
+  eq: jest.Mock;
+  order: jest.Mock;
+  single: jest.Mock;
+  in: jest.Mock;
+  insert: jest.Mock;
+  update: jest.Mock;
+  delete: jest.Mock;
+}
+
+interface MockSupabaseClient {
+  from: jest.Mock;
+}
+
 export class SupabaseMockBuilder {
-  private mockClient: any;
+  private mockClient: MockSupabaseClient;
 
   constructor() {
     this.mockClient = this.createBaseMock();
   }
 
-  private createBaseMock() {
+  private createBaseMock(): MockSupabaseClient {
     return {
       from: jest.fn(() => ({
         select: jest.fn(() => ({
@@ -39,8 +60,12 @@ export class SupabaseMockBuilder {
     };
   }
 
-  withSelect(beachId: string, mockData: any, error: any = null) {
-    const result = error
+  withSelect<T = unknown>(
+    _beachId: string,
+    mockData: T,
+    error: SupabaseResponse["error"] = null
+  ): this {
+    const result: SupabaseResponse<T> = error
       ? { data: null, error }
       : { data: mockData, error: null };
 
@@ -52,8 +77,12 @@ export class SupabaseMockBuilder {
     return this;
   }
 
-  withSelectEq(beachId: string, mockData: any, error: any = null) {
-    const result = error
+  withSelectEq<T = unknown>(
+    _beachId: string,
+    mockData: T,
+    error: SupabaseResponse["error"] = null
+  ): this {
+    const result: SupabaseResponse<T> = error
       ? { data: null, error }
       : { data: mockData, error: null };
 
@@ -64,13 +93,13 @@ export class SupabaseMockBuilder {
     return this;
   }
 
-  withSelectSingle(
-    beachId: string,
-    userId: string,
-    mockData: any,
-    error: any = null
-  ) {
-    const result = error
+  withSelectSingle<T = unknown>(
+    _beachId: string,
+    _userId: string,
+    mockData: T,
+    error: SupabaseResponse["error"] = null
+  ): this {
+    const result: SupabaseResponse<T> = error
       ? { data: null, error }
       : { data: mockData, error: null };
 
@@ -83,8 +112,11 @@ export class SupabaseMockBuilder {
     return this;
   }
 
-  withInsert(mockData: any, error: any = null) {
-    const result = error
+  withInsert<T = unknown>(
+    mockData: T,
+    error: SupabaseResponse["error"] = null
+  ): this {
+    const result: SupabaseResponse<T> = error
       ? { data: null, error }
       : { data: mockData, error: null };
 
@@ -107,8 +139,11 @@ export class SupabaseMockBuilder {
     return this;
   }
 
-  withUpdate(mockData: any, error: any = null) {
-    const result = error
+  withUpdate<T = unknown>(
+    mockData: T,
+    error: SupabaseResponse["error"] = null
+  ): this {
+    const result: SupabaseResponse<T> = error
       ? { data: null, error }
       : { data: mockData, error: null };
 
@@ -132,7 +167,10 @@ export class SupabaseMockBuilder {
     return this;
   }
 
-  withDelete(beachId: string, error: any = null) {
+  withDelete(
+    beachId: string,
+    error: SupabaseResponse["error"] = null
+  ): this {
     // Mock getting beach_id before delete
     const mockSingle = jest.fn().mockResolvedValue({
       data: { beach_id: beachId },
@@ -162,7 +200,7 @@ export class SupabaseMockBuilder {
     return this;
   }
 
-  withDeleteError(error: any) {
+  withDeleteError(error: SupabaseResponse["error"]): this {
     // Mock error in the initial select to get beach_id
     const mockSingle = jest.fn().mockResolvedValue({
       data: null,
@@ -176,12 +214,12 @@ export class SupabaseMockBuilder {
     return this;
   }
 
-  withMultipleBeachStats(
-    beachIds: string[],
-    mockData: any[] | null = [],
-    error: any = null
-  ) {
-    const result = error
+  withMultipleBeachStats<T = unknown>(
+    _beachIds: string[],
+    mockData: T[] | null = [],
+    error: SupabaseResponse["error"] = null
+  ): this {
+    const result: SupabaseResponse<T[] | null> = error
       ? { data: null, error }
       : { data: mockData, error: null };
 
@@ -192,11 +230,11 @@ export class SupabaseMockBuilder {
     return this;
   }
 
-  build() {
+  build(): MockSupabaseClient {
     return this.mockClient;
   }
 
-  reset() {
+  reset(): this {
     this.mockClient = this.createBaseMock();
     return this;
   }

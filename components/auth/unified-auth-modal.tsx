@@ -265,9 +265,9 @@ export function UnifiedAuthModal({
         // Close modal - AuthContext will handle redirect if needed
         onClose();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorType = categorizeAuthError(err);
-      const errorMessage = err?.message || "Authentication failed";
+      const errorMessage = err instanceof Error ? err.message : "Authentication failed";
 
       if (mode === "signup") {
         trackSignupFailed({ method: "password", error_type: errorType });

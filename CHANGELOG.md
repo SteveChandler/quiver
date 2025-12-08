@@ -28,6 +28,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **TypeScript Error Handling & Type Safety Improvements** (December 2025)
+  - **Phase 3**: Replaced `catch (error: any)` with `catch (error: unknown)` pattern across 8 files for stricter type safety.
+    - `lib/server-action-utils.ts`, `app/api/e2e-login/route.ts`, `app/api/beaches/[id]/favorite/toggle/route.ts`
+    - `actions/onboarding-actions.ts`, `components/onboarding/steps/completion-step.tsx`, `components/auth/unified-auth-modal.tsx`
+    - `test-utils/gamification-test-helpers.ts`, `__tests__/actions/forecast-verification-actions.test.ts`
+  - **Phase 4**: Converted `AuthResult` and `authenticateAdmin` return types to discriminated unions.
+    - TypeScript now properly narrows `user` when `authenticated: true` and `error` when `authenticated: false`.
+    - Fixed SupabaseClient import from `@supabase/ssr` to `@supabase/supabase-js`.
+    - Updated related tests to use proper type guards.
+  - TypeScript errors reduced from 1,005 → 1,002 (-3).
+  - See `TYPESCRIPT_FIX_PROGRESS.md` for full tracking.
+
+- **Map Beach Navigation Not Working** (December 2025)
+
+  - Fixed issue where clicking "View Details" on selected beach card or nearby beach thumbnails did not navigate to the beach page.
+  - Root cause: The `get_nearby_beaches` database function was not returning `slug`, `city`, and `state` fields needed by `getBeachUrlSafe()` to generate hierarchical URLs.
+  - Added migration `20251208000000_add_url_fields_to_get_nearby_beaches.sql` to include these fields in the function's return type.
+  - Updated TypeScript types in `types/database.generated.ts` to reflect the new return fields.
+
 - **SSR Beach Section Visibility on All Routes** (December 2025)
 
   - Fixed issue where the SSR beach section (rendered for SEO) would remain visible when authenticated users navigated from the landing page to other routes like `/map` or `/profile`.

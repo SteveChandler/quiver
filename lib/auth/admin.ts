@@ -68,10 +68,13 @@ export async function requireAdmin(): Promise<
 }
 
 // Helper function for API routes to check admin status
-export async function authenticateAdmin() {
+export async function authenticateAdmin(): Promise<
+  | { success: true; user: AdminUser }
+  | { success: false; error: string; status: number }
+> {
   const result = await requireAdmin();
 
-  if (result.error) {
+  if ("error" in result) {
     return {
       success: false,
       error: result.error,
@@ -92,7 +95,7 @@ export async function authenticateAdmin() {
 export async function requireAdminOrThrow(): Promise<AdminUser> {
   const result = await requireAdmin();
 
-  if (result.error) {
+  if ("error" in result) {
     if (result.error === "Authentication required") {
       throw new UnauthorizedError(result.error);
     }

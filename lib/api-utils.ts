@@ -150,17 +150,15 @@ export function withSecurityHeaders(response: NextResponse) {
 
 // Return 405 Method Not Allowed
 export function methodNotAllowed(allowedMethods: string[] = ["GET"]): NextResponse<ApiError> {
-  const response = NextResponse.json(
-    {
-      success: false,
-      error: "Method Not Allowed",
-      timestamp: new Date().toISOString(),
-    },
-    {
-      status: 405,
-      headers: DEFAULT_SECURITY_HEADERS,
-    }
-  );
+  const body: ApiError = {
+    success: false,
+    error: "Method Not Allowed",
+    timestamp: new Date().toISOString(),
+  };
+  const response = NextResponse.json(body, {
+    status: 405,
+    headers: DEFAULT_SECURITY_HEADERS,
+  });
   response.headers.set("Allow", allowedMethods.join(", "));
   return response;
 }
@@ -206,8 +204,8 @@ export function validateOrError<T>(
   if (!result.success) {
     return {
       error: createValidationError(
-        result.error.errors[0].message,
-        result.error.errors
+        result.error.issues[0].message,
+        result.error.issues
       )
     };
   }

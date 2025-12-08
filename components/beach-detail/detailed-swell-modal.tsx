@@ -128,7 +128,7 @@ export function DetailedSwellModal({
                     Confidence:
                   </strong>{" "}
                   <span className="font-open-sans text-emerald-600">
-                    {Math.round(forecast.confidence_score)}%
+                    {Math.round(forecast.confidence_score ?? 0)}%
                   </span>
                 </div>
               </div>

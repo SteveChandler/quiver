@@ -20,6 +20,7 @@ const XP_ACTION_MAP = {
   onboarding_completed: 100,
   referral_signup: 50,
   successful_referral: 100,
+  share_session: 25, // Sharing a session to social media
 } as const;
 
 // Level progression thresholds (9 tiers as per spec)

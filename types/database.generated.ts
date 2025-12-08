@@ -3929,6 +3929,9 @@ export type Database = {
           location: string
           lon: number
           name: string
+          slug: string | null
+          city: string | null
+          state: string | null
         }[]
       }
       get_nearby_buoys: {

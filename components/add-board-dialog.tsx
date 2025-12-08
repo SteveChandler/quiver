@@ -108,8 +108,8 @@ export function AddBoardDialog({
     try {
       const result = await createBoard({
         ...data,
-        image_url: data.image_url || undefined,
-        description: data.description || undefined,
+        image_url: data.image_url || null,
+        description: data.description || null,
       });
 
       if (!result.success) {

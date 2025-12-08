@@ -118,10 +118,11 @@ export async function POST(
     } catch {}
 
     return NextResponse.json({ success: true, action: "added" });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("/api/beaches/[id]/favorite/toggle error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: err?.message || "Unknown error" },
+      { success: false, error: message },
       { status: 500 }
     );
   }

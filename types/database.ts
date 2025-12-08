@@ -54,6 +54,14 @@ export type BeachForecastAccuracy = Database['public']['Tables']['beach_forecast
 export type BeachForecastAccuracyInsert = Database['public']['Tables']['beach_forecast_accuracy']['Insert']
 export type BeachForecastAccuracyUpdate = Database['public']['Tables']['beach_forecast_accuracy']['Update']
 
+export type BeachRecommendationCalibration = Database['public']['Tables']['beach_recommendation_calibration']['Row']
+export type BeachRecommendationCalibrationInsert = Database['public']['Tables']['beach_recommendation_calibration']['Insert']
+export type BeachRecommendationCalibrationUpdate = Database['public']['Tables']['beach_recommendation_calibration']['Update']
+
+export type SessionMedia = Database['public']['Tables']['session_media']['Row']
+export type SessionMediaInsert = Database['public']['Tables']['session_media']['Insert']
+export type SessionMediaUpdate = Database['public']['Tables']['session_media']['Update']
+
 // ===================================================
 // EXTENDED TYPES - Types with relationships/joins
 // ===================================================
@@ -98,8 +106,7 @@ export interface SessionWithDetails extends Session {
 
 export interface BeachWithReviews extends Beach {
   reviews: BeachReview[]
-  review_count?: number
-  // Note: average_rating already exists in Beach type
+  // Note: review_count and average_rating already exist in Beach type
 }
 
 export interface ProfileWithStats extends Profile {
@@ -127,6 +134,108 @@ export interface IntelPostWithUser extends IntelPost {
 
   // User confirmation status
   user_has_confirmed?: boolean
+}
+
+// ===================================================
+// RPC FUNCTION RETURN TYPES
+// ===================================================
+
+// Best times window recommendation (from get_best_times RPC)
+export type GetBestTimesRow = Database['public']['Functions']['get_best_times']['Returns'][0]
+
+// ===================================================
+// FORECAST TYPES
+// ===================================================
+
+// Alias for enhanced forecast row (backward compatibility)
+export type Forecast = Database['public']['Tables']['enhanced_forecasts']['Row']
+
+// ===================================================
+// USER ACTIVITY / ACTIVITY FEED TYPES
+// ===================================================
+
+// Base user activity row from database
+export type UserActivity = Database['public']['Tables']['user_activities']['Row']
+
+// Activity feed item with enriched user profile data
+export interface ActivityFeedItem {
+  id: string
+  user_id: string
+  activity_type: string
+  entity_type: string
+  entity_id: string
+  metadata: Json | null
+  created_at: string
+  // Enriched fields from profile join
+  user_name: string | null
+  user_avatar: string | null
+}
+
+// ===================================================
+// JOURNAL EXPORT TYPES
+// ===================================================
+
+export interface ExportOptions {
+  type: 'monthly' | 'yearly' | 'single'
+  format: 'pdf' | 'html' | 'json'
+  month?: string
+  year?: string
+  sessionIds?: string[]
+  includeAnalytics?: boolean
+  includePhotos?: boolean
+}
+
+export interface ExportResult {
+  filename: string
+  downloadUrl: string
+  generatedAt: string
+  expiresAt: string
+}
+
+// ===================================================
+// CHECK-IN TYPES (legacy table, may be migrated to condition_reports)
+// ===================================================
+
+// Base check-in row
+export interface CheckIn {
+  id: string
+  beach_id: string
+  user_id: string
+  checked_in_at: string
+  wave_height: number | null
+  wind_speed: number | null
+  wind_direction: string | null
+  water_temp: number | null
+  crowd_level: number | null
+  vibe: string | null
+  forecast_accuracy_rating: 'accurate' | 'somewhat' | 'inaccurate' | null
+  created_at?: string
+  // Optional beach relation
+  beaches?: {
+    name: string
+    location_text?: string
+  } | null
+}
+
+// Check-in with user profile data
+export interface CheckInWithUser extends CheckIn {
+  user: {
+    username: string | null
+    profile_picture_url: string | null
+  }
+  profiles?: {
+    username: string | null
+    profile_picture_url: string | null
+  } | null
+}
+
+// Forecast accuracy statistics (from RPC function)
+export interface ForecastAccuracyStats {
+  total_reports: number
+  accurate_count: number
+  somewhat_count: number
+  inaccurate_count: number
+  accuracy_percentage: number
 }
 
 // ===================================================
