@@ -2,6 +2,7 @@
 name: code-reviewer
 description: MUST BE USED to run a rigorous, security-aware review after every feature, bug‑fix, or pull‑request. Use PROACTIVELY before merging to main. Delivers a full, severity‑tagged report and routes security, performance, or heavy‑refactor issues to specialist sub‑agents.
 tools: LS, Read, Grep, Glob, Bash
+model: opus
 ---
 
 # Code‑Reviewer – High‑Trust Quality Gate

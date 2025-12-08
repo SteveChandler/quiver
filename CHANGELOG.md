@@ -48,6 +48,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Beaches in Hawaii, Oregon, Washington, and Baja no longer show "outside our coverage area" message.
   - Updated tests in `__tests__/lib/constants/coverage-areas.test.ts` to match new coverage logic.
 
+- **Beaches Table Data Quality & Performance** (December 2025)
+  - Fixed missing metadata for Rincon (CA), Pipeline (HI), Cardiff Reef, and Seabrook beaches.
+  - Corrected coordinate error: New Break (Nubes) now properly separated from Sunset Cliffs (Garbage).
+  - Standardized `break_type` values: "beach break" → "beach", "reef break" → "reef", "point break" → "point".
+  - Standardized `crowd_level` to 4-level scale: light, moderate, crowded, very_crowded.
+  - Fixed country inconsistency: "United States" → "USA".
+  - Dropped 14 unused indexes (0 scans), reducing index overhead by ~50%.
+  - Added missing columns to `beaches_history` audit table (average_rating, region, review_count, slug).
+
 ### Added
 
 - **City Editorial Content System** (December 2025)
