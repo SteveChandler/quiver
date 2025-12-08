@@ -38,9 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Landing Page "Discover Surf Spots" Duplication** (December 2025)
 
   - Fixed duplicate "Discover epic surf spots" sections appearing for unauthenticated users on the landing page.
-  - Removed `SurfHighlightsSection` from `AuthAwareLandingWrapper` since SSR `PopularBeachesSection` already provides this content.
-  - Moved SSR section rendering in `layout.tsx` to after Providers, ensuring correct DOM order (Hero first, then beach highlights).
-  - Removed unnecessary CSS `order` property from SSR section since DOM order now handles positioning.
+  - Added `body.js-loaded` CSS class to hide SSR `PopularBeachesSection` when JavaScript is loaded.
+  - Client-side `SurfHighlightsSection` renders in correct position (after Hero) with animations.
+  - SSR version remains in HTML for SEO crawlers and no-JS fallback users.
 
 - **Best Surf Window Evening Cutoff** (December 2025)
 

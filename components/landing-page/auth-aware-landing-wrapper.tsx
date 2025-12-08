@@ -7,6 +7,7 @@ import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { HomeScreen } from "@/components/home-screen";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
+import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -42,6 +43,17 @@ export function AuthAwareLandingWrapper() {
   // Note: body.authenticated class management moved to AuthBodyClassManager in providers.tsx
   // This ensures the SSR beach section is hidden on ALL routes, not just the landing page
 
+  // Hide SSR beach section when JS is loaded (client SurfHighlightsSection takes over)
+  // This keeps the SSR version for SEO crawlers and no-JS fallback
+  useEffect(() => {
+    if (!user) {
+      document.body.classList.add("js-loaded");
+    }
+    return () => {
+      document.body.classList.remove("js-loaded");
+    };
+  }, [user]);
+
   // Show loading state while checking authentication
   if (isLoading) {
     return AuthLoadingStates.checking();
@@ -53,16 +65,16 @@ export function AuthAwareLandingWrapper() {
   }
 
   // Unauthenticated users see the interactive landing page sections
-  // Note: PopularBeachesSection (beach highlights) is rendered in layout.tsx via LandingPageSSRSection
-  // for SEO purposes. We don't render SurfHighlightsSection here to avoid duplication.
+  // Note: SSR PopularBeachesSection is also rendered in layout.tsx for SEO crawlers,
+  // but hidden via CSS (body.js-loaded) when this client version is available.
   return (
     <>
       <Navbar />
       <HeroSection />
 
       {/* These sections have client-side interactivity */}
-      {/* Note: Beach highlights ("Discover epic surf spots") are handled by SSR PopularBeachesSection */}
       <div className="space-y-0">
+        <SurfHighlightsSection />
         <ActivitiesSection />
         <ForecastSection />
         <CTASection />
