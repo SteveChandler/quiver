@@ -1,7 +1,8 @@
 // TypeScript CLI to ingest beach photos from Openverse + Flickr into Supabase
 // Usage examples:
-//   yarn photos:fetch --limit=5 --only=sd
-//   yarn photos:fetch --beachId=123e4567-... --limit=8
+//   npx tsx scripts/fetch-beach-photos.ts --limit=5 --only=sd
+//   npx tsx scripts/fetch-beach-photos.ts --beachId=123e4567-... --limit=8
+//   npx tsx scripts/fetch-beach-photos.ts --since="2024-12-06" --limit=5
 
 /*
 ENV REQUIRED
@@ -102,6 +103,7 @@ const BEACH_ID = args.get("beachId");
 const RADIUS_KM = Number(args.get("radiusKm") ?? "2");
 const DRY_RUN = args.get("dryRun") === "true";
 const VERBOSE = args.get("verbose") === "true";
+const SINCE = args.get("since"); // ISO date string, e.g., "2024-12-06"
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -187,6 +189,9 @@ async function getBeaches(): Promise<Beach[]> {
         `country.ilike.%${ONLY}%`,
       ].join(","),
     );
+  }
+  if (SINCE) {
+    query = query.gte("created_at", SINCE);
   }
   const { data, error } = await query.limit(3000);
   if (error) throw error;
