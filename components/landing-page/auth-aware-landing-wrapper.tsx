@@ -40,6 +40,19 @@ export function AuthAwareLandingWrapper() {
     }
   }, []);
 
+  // Manage body class for authenticated state
+  // This hides the SSR beach section (rendered in layout.tsx for SEO) when user is logged in
+  useEffect(() => {
+    if (user) {
+      document.body.classList.add("authenticated");
+    } else {
+      document.body.classList.remove("authenticated");
+    }
+    return () => {
+      document.body.classList.remove("authenticated");
+    };
+  }, [user]);
+
   // Show loading state while checking authentication
   if (isLoading) {
     return AuthLoadingStates.checking();
