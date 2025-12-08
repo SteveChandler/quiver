@@ -28,7 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Best Surf Window Evening Cutoff** (December 2025)
+
+  - Fixed issue where "Your Best Spot Today" could recommend surf times as late as 7-10 PM.
+  - Updated `isNightHour` function in `lib/utils/timezone-utils.ts` to use 6 PM (18:00) cutoff instead of 9 PM (21:00).
+  - Conservative cutoff accounts for winter sunset times and ensures recommendations are for daylight hours year-round.
+  - Added comprehensive unit tests in `__tests__/lib/utils/timezone-utils.test.ts` covering boundary conditions and regression tests.
+
 - **Filter E2E Test Errors from Sentry** (December 2025)
+
   - Added `beforeSend` filter in `sentry.client.config.ts` to drop intentional test errors from E2E tests.
   - Prevents false-positive Sentry alerts when E2E tests run against preview environments.
   - Filters errors matching the pattern `Test error \d+` (e.g., "Test error 1", "Test error 2").

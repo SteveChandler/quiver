@@ -96,13 +96,15 @@ export function getLocalHour(date: Date, timezone: string): number {
 /**
  * Check if an hour is during nighttime (unrealistic for surfing)
  *
- * Night hours are defined as 9 PM to 6 AM (21:00 - 05:59)
+ * Night hours are defined as 6 PM to 6 AM (18:00 - 05:59)
+ * This conservative cutoff accounts for winter sunset times and
+ * ensures recommendations are for daylight hours year-round.
  *
  * @param hour - Hour of the day (0-23)
  * @returns true if the hour is during nighttime
  */
 export function isNightHour(hour: number): boolean {
-  return hour >= 21 || hour < 6;
+  return hour >= 18 || hour < 6;
 }
 
 /**
