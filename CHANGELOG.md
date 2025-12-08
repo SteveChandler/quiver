@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The class is now added/removed globally based on auth state, ensuring the SSR section is hidden on all routes for logged-in users.
   - Preserves SEO benefits (beach links always in HTML for crawlers) while fixing the UI duplication issue.
 
+- **Landing Page "Discover Surf Spots" Duplication** (December 2025)
+
+  - Fixed duplicate "Discover epic surf spots" sections appearing for unauthenticated users on the landing page.
+  - Removed `SurfHighlightsSection` from `AuthAwareLandingWrapper` since SSR `PopularBeachesSection` already provides this content.
+  - Moved SSR section rendering in `layout.tsx` to after Providers, ensuring correct DOM order (Hero first, then beach highlights).
+  - Removed unnecessary CSS `order` property from SSR section since DOM order now handles positioning.
+
 - **Best Surf Window Evening Cutoff** (December 2025)
 
   - Fixed issue where "Your Best Spot Today" could recommend surf times as late as 7-10 PM.

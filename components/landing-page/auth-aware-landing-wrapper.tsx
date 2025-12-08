@@ -7,7 +7,6 @@ import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { HomeScreen } from "@/components/home-screen";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
-import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -54,15 +53,16 @@ export function AuthAwareLandingWrapper() {
   }
 
   // Unauthenticated users see the interactive landing page sections
-  // Note: PopularBeachesSection is rendered separately in the shell (SSR)
+  // Note: PopularBeachesSection (beach highlights) is rendered in layout.tsx via LandingPageSSRSection
+  // for SEO purposes. We don't render SurfHighlightsSection here to avoid duplication.
   return (
     <>
       <Navbar />
       <HeroSection />
 
       {/* These sections have client-side interactivity */}
+      {/* Note: Beach highlights ("Discover epic surf spots") are handled by SSR PopularBeachesSection */}
       <div className="space-y-0">
-        <SurfHighlightsSection />
         <ActivitiesSection />
         <ForecastSection />
         <CTASection />

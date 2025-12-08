@@ -230,14 +230,15 @@ export default async function RootLayout({
         />
       </head>
       <body className={`${inter.className} font-sans antialiased`}>
+        <Providers>{children}</Providers>
+
         {/*
           SSR Beach Section for Landing Page SEO
           Rendered OUTSIDE Providers (client boundary) to ensure server-side rendering.
           This section is always present in the HTML for crawlers, regardless of JS loading.
+          Positioned AFTER Providers so it appears after Hero/main content in DOM order.
         */}
         {isLandingPage && <LandingPageSSRSection />}
-
-        <Providers>{children}</Providers>
       </body>
     </html>
   );
