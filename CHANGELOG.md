@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SSR Beach Section Visibility on All Routes** (December 2025)
+
+  - Fixed issue where the SSR beach section (rendered for SEO) would remain visible when authenticated users navigated from the landing page to other routes like `/map` or `/profile`.
+  - Moved `body.authenticated` class management from `AuthAwareLandingWrapper` to new `AuthBodyClassManager` component in `providers.tsx`.
+  - The class is now added/removed globally based on auth state, ensuring the SSR section is hidden on all routes for logged-in users.
+  - Preserves SEO benefits (beach links always in HTML for crawlers) while fixing the UI duplication issue.
+
 - **Best Surf Window Evening Cutoff** (December 2025)
 
   - Fixed issue where "Your Best Spot Today" could recommend surf times as late as 7-10 PM.
@@ -42,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Filters errors matching the pattern `Test error \d+` (e.g., "Test error 1", "Test error 2").
 
 - **Coverage Area Detection Updated for Multi-Region Support** (December 2025)
+
   - Updated `lib/constants/coverage-areas.ts` to reflect expanded forecast coverage (California, Oregon, Washington, Hawaii, Baja California).
   - Removed Hawaii, Orange County, LA, and other now-covered regions from "out of area" detection.
   - Updated `COVERAGE_MESSAGES.COVERAGE_AREA_INFO` to reflect broader West Coast + Hawaii coverage.

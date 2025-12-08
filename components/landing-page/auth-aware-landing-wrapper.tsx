@@ -40,18 +40,8 @@ export function AuthAwareLandingWrapper() {
     }
   }, []);
 
-  // Manage body class for authenticated state
-  // This hides the SSR beach section (rendered in layout.tsx for SEO) when user is logged in
-  useEffect(() => {
-    if (user) {
-      document.body.classList.add("authenticated");
-    } else {
-      document.body.classList.remove("authenticated");
-    }
-    return () => {
-      document.body.classList.remove("authenticated");
-    };
-  }, [user]);
+  // Note: body.authenticated class management moved to AuthBodyClassManager in providers.tsx
+  // This ensures the SSR beach section is hidden on ALL routes, not just the landing page
 
   // Show loading state while checking authentication
   if (isLoading) {

@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { AuthProvider } from "@/context/auth-context";
+import { useEffect } from "react";
+import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
 import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 import { SelectedBeachProvider } from "@/state/selectedBeach";
@@ -38,6 +39,34 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
 
+/**
+ * AuthBodyClassManager - Manages body.authenticated class globally
+ *
+ * This component adds/removes the 'authenticated' class on the body element
+ * based on the user's authentication state. This is used to hide the SSR
+ * beach section (rendered in layout.tsx for SEO) via CSS when users are
+ * logged in, regardless of which page they're on.
+ *
+ * This fixes the issue where the SSR section persists in the DOM during
+ * client-side navigation from the landing page to other routes.
+ */
+function AuthBodyClassManager() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      document.body.classList.add("authenticated");
+    } else {
+      document.body.classList.remove("authenticated");
+    }
+    return () => {
+      document.body.classList.remove("authenticated");
+    };
+  }, [user]);
+
+  return null;
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLandingPage = pathname === "/";
@@ -58,6 +87,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       </Suspense>
 
       <AuthProvider>
+        {/* Global body class manager for authenticated state */}
+        <AuthBodyClassManager />
         <ProfileProvider>
           {/* Global components that require auth context but should be present on all routes */}
           <Suspense fallback={null}>
