@@ -4,7 +4,7 @@
 
 ## Overview
 
-Quiver currently provides comprehensive surf forecasting coverage for the **US West Coast**, **Hawaii**, and **Northern Baja California** (Mexico). This includes real-time conditions, multi-day forecasts, and historical data for all beaches within these regions.
+Quiver currently provides comprehensive surf forecasting coverage for the **entire United States** (all coasts), **Hawaii**, and **Northern Baja California** (Mexico). This includes real-time conditions, multi-day forecasts, and historical data for all beaches within these regions.
 
 ## Supported Regions
 
@@ -12,30 +12,36 @@ Quiver currently provides comprehensive surf forecasting coverage for the **US W
                               COVERAGE MAP
     ┌─────────────────────────────────────────────────────────┐
     │                                                         │
-    │    ┌─────┐                                              │
-    │    │ WA  │  Washington Coast                            │
-    │    └──┬──┘                                              │
-    │       │                                                 │
-    │    ┌──┴──┐  Oregon Coast                                │
-    │    │ OR  │                                              │
-    │    └──┬──┘                                              │
-    │       │    ┌─────────────────────────────────────────┐  │
-    │    ┌──┴──┐ │ California                              │  │
-    │    │     │ │ • Santa Barbara County                  │  │
-    │    │     │ │ • Ventura County                        │  │
-    │    │ CA  │ │ • Los Angeles County                    │  │
-    │    │     │ │ • Orange County                         │  │
-    │    │     │ │ • San Diego County                      │  │
-    │    └──┬──┘ │ • Central Coast                         │  │
-    │       │    └─────────────────────────────────────────┘  │
-    │    ┌──┴──────┐                                          │
-    │    │  Baja   │  Northern Baja California, Mexico        │
-    │    │California│                                         │
-    │    └─────────┘                                          │
+    │    ┌─────┐                          ┌────┐             │
+    │    │ WA  │  Washington Coast         │ ME │             │
+    │    └──┬──┘                           └─┬──┘             │
+    │       │                                │                │
+    │    ┌──┴──┐  Oregon Coast            ┌─┴─┐              │
+    │    │ OR  │                          │ NY │ East Coast   │
+    │    └──┬──┘                          ├───┤              │
+    │       │    ┌─────────────────────┐  │NJ │              │
+    │    ┌──┴──┐ │ California          │  └─┬─┘              │
+    │    │     │ │ • Santa Barbara     │    │                │
+    │    │     │ │ • Ventura County    │  ┌─┴─┐              │
+    │    │ CA  │ │ • Los Angeles       │  │VA │              │
+    │    │     │ │ • Orange County     │  └─┬─┘              │
+    │    │     │ │ • San Diego         │    │                │
+    │    └──┬──┘ │ • Central Coast     │  ┌─┴─┐ Southeast   │
+    │       │    └─────────────────────┘  │NC │ & Gulf       │
+    │    ┌──┴──────┐                      │SC │              │
+    │    │  Baja   │  Northern Baja       │GA │              │
+    │    │California│ California, MX      │FL │              │
+    │    └─────────┘                      └─┬─┘              │
+    │                                       │                │
+    │       ┌──────┐                      ┌─┴─┐              │
+    │       │  HI  │  Hawaii              │TX │ Gulf Coast   │
+    │       └──────┘  (All Islands)       │AL │              │
+    │                                     │MS │              │
+    │                                     └───┘              │
     │                                                         │
-    │                       ┌──────┐                          │
-    │      Pacific          │  HI  │  Hawaii (All Islands)    │
-    │       Ocean           └──────┘                          │
+    │                     ┌──────┐                            │
+    │      Atlantic       │  PR  │  Puerto Rico               │
+    │       Ocean         └──────┘                            │
     │                                                         │
     └─────────────────────────────────────────────────────────┘
 ```
@@ -53,25 +59,38 @@ Quiver currently provides comprehensive surf forecasting coverage for the **US W
 | Oregon Coast | Oregon, USA | Active | Full coastline |
 | Washington Coast | Washington, USA | Active | Full coastline |
 | Hawaii | Hawaii, USA | Active | All major islands |
+| East Coast | New Jersey, USA | Active | Full coastline |
+| East Coast | New York, USA | Active | Full coastline |
+| East Coast | Rhode Island, USA | Active | Full coastline |
+| East Coast | Virginia Beach, USA | Active | Full coastline |
+| Southeast Coast | North Carolina, USA | Active | Full coastline |
+| Southeast Coast | South Carolina, USA | Active | Full coastline |
+| Southeast Coast | Georgia, USA | Active | Full coastline |
+| Southeast Coast | Florida, USA | Active | Atlantic and Gulf coasts |
+| Gulf Coast | Texas, USA | Active | Full coastline |
+| Gulf Coast | Alabama, USA | Active | Full coastline |
+| Gulf Coast | Mississippi, USA | Active | Full coastline |
+| Puerto Rico | Puerto Rico | Active | All coasts |
 | Northern Baja California | Mexico | Active | Tijuana to Ensenada |
 
 ## Feature Availability by Region
 
-| Feature | CA | OR | WA | HI | Baja |
-|---------|:--:|:--:|:--:|:--:|:----:|
-| Surf Forecasts | Yes | Yes | Yes | Yes | Yes |
-| Real-time Buoy Data | Yes | Yes | Yes | Yes | Partial |
-| Tide Information | Yes | Yes | Yes | Yes | Yes |
-| Beach Details | Yes | Yes | Yes | Yes | Yes |
-| User Reviews | Yes | Yes | Yes | Yes | Yes |
-| Session Logging | Yes | Yes | Yes | Yes | Yes |
-| Photo Galleries | Yes | Yes | Yes | Yes | Partial |
-| Wind Forecasts | Yes | Yes | Yes | Yes | Yes |
-| Water Temperature | Yes | Yes | Yes | Yes | Yes |
+| Feature | CA | OR | WA | HI | Baja | EC | SE | Gulf | PR |
+|---------|:--:|:--:|:--:|:--:|:----:|:--:|:--:|:----:|:--:|
+| Surf Forecasts | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Real-time Buoy Data | Yes | Yes | Yes | Yes | Partial | Yes | Yes | Partial | Partial |
+| Tide Information | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Beach Details | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| User Reviews | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Session Logging | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Photo Galleries | Yes | Yes | Yes | Yes | Partial | Yes | Yes | Partial | Partial |
+| Wind Forecasts | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Water Temperature | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
 
 **Notes:**
 - **Partial** indicates limited data sources or coverage in that region
 - All regions receive the same forecast refresh frequency (6 AM daily + on-demand)
+- **Legend**: CA = California, OR = Oregon, WA = Washington, HI = Hawaii, EC = East Coast, SE = Southeast, Gulf = Gulf Coast, PR = Puerto Rico
 
 ## Data Sources
 
@@ -100,6 +119,10 @@ Quiver aggregates data from multiple authoritative sources:
 | Oregon | 3 | Station 46029 (Columbia River) |
 | Washington | 2 | Station 46005 (Cape Flattery) |
 | Hawaii | 6 | Station 51201 (Waimea) |
+| East Coast | 12+ | Multiple stations per state |
+| Southeast | 8+ | Multiple stations per state |
+| Gulf Coast | 6+ | Multiple stations per state |
+| Puerto Rico | 3 | Station 41053 (San Juan) |
 | Baja | 1 | Station 46254 (fallback) |
 
 ## Forecast Refresh Schedule
@@ -117,8 +140,6 @@ The following popular surf destinations are **not** currently in our coverage ar
 
 | Location | Distance from SD | Status |
 |----------|------------------|--------|
-| Florida (East Coast) | ~2,200 miles | Planned for future |
-| New Jersey | ~2,700 miles | Not planned |
 | Australia | ~7,500 miles | Not planned |
 | Indonesia (Bali) | ~8,500 miles | Not planned |
 | Portugal (Nazare) | ~5,800 miles | Not planned |
@@ -127,9 +148,13 @@ When users search for these locations, Quiver displays a helpful message and sug
 
 ## Expansion Roadmap
 
-### Planned Additions
-1. **Northern California** (complete) - Full coverage from SF to Oregon border
-2. **East Coast US** (planned) - Florida, Carolinas, New Jersey in evaluation
+### Completed Expansions
+1. **Northern California** (Complete - 2025) - Full coverage from SF to Oregon border
+2. **Pacific Northwest** (Complete - 2025) - Oregon and Washington full coverage
+3. **Hawaii** (Complete - 2025) - All major islands
+4. **East Coast US** (Complete - December 2025) - New Jersey, New York, Rhode Island, Virginia Beach
+5. **Southeast & Gulf Coast** (Complete - December 2025) - Florida, Georgia, Carolinas, Texas, Alabama, Mississippi
+6. **Puerto Rico** (Complete - December 2025) - All coasts
 
 ### Request New Coverage
 
@@ -181,4 +206,4 @@ When no user location is available, Quiver defaults to:
 ---
 
 **Last Updated:** December 2025
-**Coverage Status:** Active for West Coast + Hawaii + Baja
+**Coverage Status:** Active for US (All Coasts) + Puerto Rico + Baja
