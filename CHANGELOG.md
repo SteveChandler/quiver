@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **TypeScript Error Handling & Type Safety Improvements** (December 2025)
+
   - **Phase 3**: Replaced `catch (error: any)` with `catch (error: unknown)` pattern across 8 files for stricter type safety.
     - `lib/server-action-utils.ts`, `app/api/e2e-login/route.ts`, `app/api/beaches/[id]/favorite/toggle/route.ts`
     - `actions/onboarding-actions.ts`, `components/onboarding/steps/completion-step.tsx`, `components/auth/unified-auth-modal.tsx`
