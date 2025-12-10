@@ -38,7 +38,10 @@ function FormWrapper({
 
 // Component that renders FormInput inside form context
 function TestFormInput(
-  props: Omit<React.ComponentProps<typeof FormInput<{ title?: string }>>, "control">
+  props: Omit<
+    React.ComponentProps<typeof FormInput<{ title?: string }>>,
+    "control"
+  >
 ) {
   const schema = z.object({
     title: z.string().optional(),
@@ -58,7 +61,10 @@ function TestFormInput(
 
 // Component that renders FormTextarea inside form context
 function TestFormTextarea(
-  props: Omit<React.ComponentProps<typeof FormTextarea<{ description?: string }>>, "control">
+  props: Omit<
+    React.ComponentProps<typeof FormTextarea<{ description?: string }>>,
+    "control"
+  >
 ) {
   const schema = z.object({
     description: z.string().optional(),
@@ -78,7 +84,10 @@ function TestFormTextarea(
 
 // Component that renders FormSelect inside form context
 function TestFormSelect(
-  props: Omit<React.ComponentProps<typeof FormSelect<{ tag?: string }>>, "control">
+  props: Omit<
+    React.ComponentProps<typeof FormSelect<{ tag?: string }>>,
+    "control"
+  >
 ) {
   const schema = z.object({
     tag: z.string().optional(),

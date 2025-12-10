@@ -24,10 +24,17 @@ import {
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Forecast, BeachForecastAccuracy } from "@/types/database";
+import type { BeachForecastAccuracy } from "@/types/database";
+
+// Minimal forecast interface - only the fields actually used by this component
+interface MinimalForecast {
+  wave_height?: string | number | null;
+  wind_speed?: string | number | null;
+  wind_direction?: string | null;
+}
 
 interface AdjustedForecastDisplayProps {
-  rawForecast: Forecast;
+  rawForecast: MinimalForecast;
   beachAccuracy?: BeachForecastAccuracy | null;
   className?: string;
   showComparison?: boolean;
