@@ -619,18 +619,16 @@ export class NOAACOOPSService {
   /**
    * Fetch station information
    * This is optional metadata - failures are handled silently
+   * Uses the new NOAA Metadata API (old datums endpoint is deprecated)
    */
   private async fetchStationInfo(
     stationId: string
   ): Promise<{ name: string } | null> {
     try {
-      const url = new URL(COOPS_BASE_URL);
-      url.searchParams.set("application", "quiver-surf-app");
-      url.searchParams.set("station", stationId);
-      url.searchParams.set("product", "datums");
-      url.searchParams.set("format", "json");
+      // Use new NOAA Metadata API (old datums endpoint returns HTTP 400)
+      const url = `https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/${stationId}.json`;
 
-      const response = await fetch(url.toString(), {
+      const response = await fetch(url, {
         headers: {
           "User-Agent": "quiver-surf-app (contact@quiver.com)",
         },
@@ -643,8 +641,10 @@ export class NOAACOOPSService {
       }
 
       const data = await response.json();
+      // New API returns { stations: [{ name: "La Jolla" }] }
+      const station = data.stations?.[0];
       return {
-        name: data.metadata?.name || `Station ${stationId}`,
+        name: station?.name || `Station ${stationId}`,
       };
     } catch {
       // Silently fail - station info is optional metadata

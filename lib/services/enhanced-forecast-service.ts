@@ -1256,6 +1256,7 @@ export class EnhancedForecastService {
    * Pre-fetches shared data (tide stations) to avoid duplicate API calls
    */
   async updateAllEnhancedForecasts() {
+    console.log("📊 EnhancedForecastService.updateAllEnhancedForecasts() starting (v2 with prefetch)");
     const supabase = await createSupabaseServiceRoleClient();
     // Reduced batch size from 5 to 3 for more controlled API usage
     const BATCH_SIZE = 3;
