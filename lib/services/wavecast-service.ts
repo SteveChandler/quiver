@@ -227,14 +227,14 @@ export class WaveCastService {
         .select('*')
         .order('report_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('❌ Failed to fetch latest report:', error);
         return null;
       }
 
-      return data as WaveCastReport;
+      return data as WaveCastReport | null;
     } catch (error) {
       console.error('❌ Error fetching latest report:', error);
       return null;
@@ -250,14 +250,14 @@ export class WaveCastService {
         .from('wavecast_reports')
         .select('*')
         .eq('report_date', date)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error(`❌ Failed to fetch report for ${date}:`, error);
         return null;
       }
 
-      return data as WaveCastReport;
+      return data as WaveCastReport | null;
     } catch (error) {
       console.error(`❌ Error fetching report for ${date}:`, error);
       return null;
