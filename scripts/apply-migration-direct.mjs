@@ -7,12 +7,18 @@ import pg from 'pg';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const supabaseUrl = 'https://vawdnbbgawichorsjiwe.supabase.co';
-const serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhd2RuYmJnYXdpY2hvcnNqaXdlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NjY2ODQ0NCwiZXhwIjoyMDYyMjQ0NDQ0fQ.4rctfUxZrDgoc2Zu2Lzx1dxKKBwSRkYOxwc0wfGlPtM';
+// SECURITY: Credentials must be provided via environment variables - never hardcode
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const dbPassword = process.env.SUPABASE_DB_PASSWORD;
 
-// We'll need to use the Postgres connection for raw SQL execution
-// Supabase service role key should have API access
-const dbPassword = process.env.SUPABASE_DB_PASSWORD || 'your-db-password-here';
+if (!supabaseUrl || !serviceRoleKey) {
+  console.error('❌ SECURITY ERROR: Missing required environment variables');
+  console.error('   Required: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
+  console.error('   Optional: SUPABASE_DB_PASSWORD (for direct Postgres connection)');
+  console.error('\n   Set these in your .env.local file or export them before running.');
+  process.exit(1);
+}
 
 console.log('🚀 Applying Migration to Production Database');
 console.log('============================================');
@@ -39,9 +45,12 @@ async function applyMigrationViaSql() {
   console.log(migrationSql);
   console.log('=' .repeat(60));
 
+  // Extract project ref from URL for dashboard link
+  const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || 'YOUR_PROJECT_REF';
+  
   console.log('\n📝 INSTRUCTIONS:');
   console.log('1. Copy the SQL above');
-  console.log('2. Go to https://supabase.com/dashboard/project/vawdnbbgawichorsjiwe/sql/new');
+  console.log(`2. Go to https://supabase.com/dashboard/project/${projectRef}/sql/new`);
   console.log('3. Paste and execute the SQL');
   console.log('4. Run the verification script after applying\n');
 
