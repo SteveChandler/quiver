@@ -3,9 +3,9 @@
 # Quiver Database Backup and User Recovery Script
 # This script helps you export data and analyze user traces
 
-# Configuration
-PROJECT_ID="vawdnbbgawichorsjiwe"
-ACCESS_TOKEN="sbp_d8dea6677d504e58464899cc472b1ca8fc076494"
+# Configuration - require credentials from environment (never hardcode secrets)
+PROJECT_ID="${SUPABASE_PROJECT_ID:?Missing SUPABASE_PROJECT_ID - set this to your Supabase project reference}"
+ACCESS_TOKEN="${SUPABASE_ACCESS_TOKEN:?Missing SUPABASE_ACCESS_TOKEN - generate at Supabase Dashboard -> Account -> Access Tokens}"
 BACKUP_DIR="./supabase/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 
