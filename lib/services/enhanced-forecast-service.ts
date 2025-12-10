@@ -1252,9 +1252,12 @@ export class EnhancedForecastService {
 
   /**
    * Update all beaches with enhanced forecasts
+   * Uses batch processing to avoid overwhelming external APIs and preventing timeouts
    */
   async updateAllEnhancedForecasts() {
     const supabase = await createSupabaseServiceRoleClient();
+    const BATCH_SIZE = 5; // Process 5 beaches at a time
+    const BATCH_DELAY_MS = 2000; // 2 second delay between batches
 
     try {
       // Get all beaches
@@ -1266,32 +1269,87 @@ export class EnhancedForecastService {
         throw error;
       }
 
-      // Update forecasts for each beach
-      const results = await Promise.allSettled(
-        beaches.map(async (beach) => {
-          try {
-            const forecasts = await this.generateComprehensiveForecast(beach);
-            const result = await this.storeEnhancedForecasts(beach, forecasts);
-            return { beach: beach.name, success: result.success };
-          } catch (error) {
-            console.error(`Error updating forecasts for ${beach.name}:`, error);
-            return { beach: beach.name, success: false, error };
-          }
-        })
-      );
+      if (!beaches || beaches.length === 0) {
+        console.log("📭 No beaches found to update");
+        return { success: true, results: [] };
+      }
 
-      const successful = results.filter(
-        (r) => r.status === "fulfilled" && r.value.success
-      ).length;
-      const failed = results.length - successful;
+      console.log(`🌊 Starting batch forecast update for ${beaches.length} beaches (batch size: ${BATCH_SIZE})`);
+      const startTime = Date.now();
+
+      // Split beaches into batches
+      const batches: typeof beaches[] = [];
+      for (let i = 0; i < beaches.length; i += BATCH_SIZE) {
+        batches.push(beaches.slice(i, i + BATCH_SIZE));
+      }
+
+      const allResults: Array<{ beach: string; success: boolean; error?: any }> = [];
+      let successCount = 0;
+      let failCount = 0;
+
+      // Process each batch sequentially
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        const batchNum = batchIndex + 1;
+        const totalBatches = batches.length;
+
+        console.log(`📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} beaches)`);
+
+        // Process beaches within batch in parallel
+        const batchResults = await Promise.allSettled(
+          batch.map(async (beach) => {
+            try {
+              const forecasts = await this.generateComprehensiveForecast(beach);
+              const result = await this.storeEnhancedForecasts(beach, forecasts);
+              if (result.success) {
+                console.log(`✅ ${beach.name}: ${forecasts.length} forecasts stored`);
+              } else {
+                console.warn(`⚠️ ${beach.name}: store failed - ${result.error}`);
+              }
+              return { beach: beach.name, success: result.success, error: result.error };
+            } catch (error) {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              console.error(`❌ ${beach.name}: ${errorMsg}`);
+              return { beach: beach.name, success: false, error: errorMsg };
+            }
+          })
+        );
+
+        // Collect results
+        for (const result of batchResults) {
+          if (result.status === "fulfilled") {
+            allResults.push(result.value);
+            if (result.value.success) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } else {
+            allResults.push({ beach: "unknown", success: false, error: "Promise rejected" });
+            failCount++;
+          }
+        }
+
+        console.log(`📊 Batch ${batchNum} complete: ${successCount} success, ${failCount} failed so far`);
+
+        // Add delay between batches to avoid rate limiting (except after last batch)
+        if (batchIndex < batches.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+        }
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(`🏁 Forecast update complete in ${duration}s: ${successCount}/${beaches.length} successful`);
 
       return {
         success: true,
-        results: results.map((r) =>
-          r.status === "fulfilled"
-            ? r.value
-            : { success: false, error: "Promise rejected" }
-        ),
+        results: allResults,
+        summary: {
+          total: beaches.length,
+          successful: successCount,
+          failed: failCount,
+          duration: `${duration}s`,
+        },
       };
     } catch (error) {
       console.error("Error updating all enhanced forecasts:", error);

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
+import { validateCronRequest } from "@/lib/api-response-utils";
+
+// Allow up to 5 minutes for the cron job to complete (Pro plan limit)
+export const maxDuration = 300;
 
 /**
  * Cron job endpoint to refresh all beach forecasts in the background
@@ -7,15 +11,12 @@ import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
  * This should be called every 6 hours to keep forecast data fresh.
  * Configure in vercel.json or use Vercel Cron Jobs.
  *
- * Security: Verifiable via Authorization header or Vercel's cron secret
+ * Security: Verifiable via Authorization header, Vercel's cron secret, or x-vercel-cron header
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify this is a legitimate cron request
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Verify this is a legitimate cron request (supports multiple auth methods)
+    if (!validateCronRequest(request)) {
       console.warn("⚠️ Unauthorized cron request attempt");
       return NextResponse.json(
         { error: "Unauthorized" },
