@@ -119,7 +119,7 @@ export function useBeachCardData(
       const reviewCount = beachStats?.total_reviews || 0;
 
       // Calculate distance
-      let distance = beach.location_text || defaultLocationText;
+      let distance = (beach as any).location_text || defaultLocationText;
       if (userLocation && coords) {
         distance = calculateDistance(
           userLocation.lat,

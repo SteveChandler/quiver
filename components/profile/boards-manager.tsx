@@ -5,18 +5,10 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
+import { BoardFormFields } from "@/components/profile/shared/board-form-fields";
 import {
   Dialog,
   DialogClose,
@@ -36,6 +28,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
+import { ZeroState } from "@/components/ui/zero-state";
 import { createBoard, updateBoard, deleteBoard } from "@/actions/board-actions";
 import type { Board } from "@/types/database";
 import { useAuth } from "@/context/auth-context";
@@ -113,6 +106,8 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
         ...data,
         image_url: data.image_url || null,
         description: data.description || null,
+        size: null,
+        volume: null,
       });
 
       if (!result.success) {
@@ -262,86 +257,9 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
                 onSubmit={form.handleSubmit(handleAddBoard)}
                 className="space-y-4"
               >
-                <FormField
+                <BoardFormFields
                   control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Board Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="My Favorite Shortboard"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="board_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Board Type</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Shortboard, Longboard, Fish, etc."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="dimensions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Dimensions</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={"5'10 x 19 1/4 x 2 3/8"}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Tell us about this board..."
-                          className="resize-none"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="image_url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Image URL (optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="https://example.com/my-board.jpg"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  disabled={isSubmitting}
                 />
                 <DialogFooter>
                   <DialogClose asChild>
@@ -363,19 +281,16 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
       </CardHeader>
       <CardContent>
         {boards.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-muted-foreground">
-              You haven’t added any boards yet.
-            </p>
-            <Button
-              variant="outline"
-              className="mt-2"
-              onClick={() => setIsAddDialogOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Your First Board
-            </Button>
-          </div>
+          <ZeroState
+            icon={Layers}
+            title="No Boards in Your Quiver"
+            description="Track which boards work best in different conditions"
+            action={{
+              label: "Add Your First Board",
+              onClick: () => setIsAddDialogOpen(true),
+              icon: Plus,
+            }}
+          />
         ) : (
           <div className="space-y-4">
             {boards.map((board) => (
@@ -388,7 +303,7 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
                   <div className="text-sm text-muted-foreground">
                     {board.board_type} • {board.dimensions}
                   </div>
-                  {board.session_count > 0 && (
+                  {board.session_count != null && board.session_count > 0 && (
                     <div className="text-xs mt-1 text-muted-foreground">
                       Used in {board.session_count}{" "}
                       {board.session_count === 1 ? "session" : "sessions"}
@@ -431,70 +346,10 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
               onSubmit={form.handleSubmit(handleEditBoard)}
               className="space-y-4"
             >
-              <FormField
+              <BoardFormFields
                 control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Board Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="board_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Board Type</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="dimensions"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Dimensions</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea className="resize-none" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="image_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image URL (optional)</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                disabled={isSubmitting}
+                showPlaceholders={false}
               />
               <DialogFooter>
                 <DialogClose asChild>
@@ -520,8 +375,8 @@ export function BoardsManager({ userId, boards }: BoardsManagerProps) {
           <DialogHeader>
             <DialogTitle>Delete Board</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete “{selectedBoard?.name}”? This
-              action cannot be undone.
+              Are you sure you want to delete &ldquo;{selectedBoard?.name}
+              &rdquo;? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

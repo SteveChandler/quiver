@@ -7,19 +7,18 @@ import {
   findPacificBeach,
   PACIFIC_BEACH_CLUSTER,
 } from "@/lib/beach-cluster-cache";
-import type { Beach, Forecast } from "@/types/database";
 
 // Mock data
-const mockBeach: Beach = {
+const mockBeach = {
   id: "pacific-beach-id",
   name: "Pacific Beach",
   lat: 32.7841,
   lon: -117.2527,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
-};
+} as any;
 
-const mockForecasts: Forecast[] = [
+const mockForecasts = [
   {
     id: "forecast-1",
     beach_id: "pacific-beach-id",
@@ -48,9 +47,9 @@ const mockForecasts: Forecast[] = [
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
   },
-];
+] as any[];
 
-const mockBeaches: Beach[] = [
+const mockBeaches = [
   mockBeach,
   {
     id: "ocean-beach-id",
@@ -84,7 +83,7 @@ const mockBeaches: Beach[] = [
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
   },
-];
+] as any[];
 
 describe("Beach Cluster Cache System", () => {
   beforeEach(() => {

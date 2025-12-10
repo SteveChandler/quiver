@@ -11,13 +11,7 @@ import {
   Sparkles,
   ChevronDown,
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
+import { FormSwitch } from "@/components/ui/form-fields";
 import type { Control } from "react-hook-form";
 
 interface NotificationsSectionProps {
@@ -25,43 +19,6 @@ interface NotificationsSectionProps {
 }
 
 export function NotificationsSection({ control }: NotificationsSectionProps) {
-  // Reusable toggle row component
-  const ToggleRow = ({
-    name,
-    label,
-    Icon,
-  }: {
-    name: string;
-    label: string;
-    Icon: React.FC<any>;
-  }) => (
-    <FormField
-      control={control}
-      name={name}
-      render={({ field }) => (
-        <FormItem className="flex items-center justify-between py-3">
-          <div className="flex items-center gap-3">
-            <Icon
-              className="h-5 w-5 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <FormLabel className="text-sm font-normal text-foreground cursor-pointer">
-              {label}
-            </FormLabel>
-          </div>
-          <FormControl>
-            <Switch
-              checked={field.value}
-              onCheckedChange={field.onChange}
-              className="data-[state=checked]:bg-[#0077B6] focus-visible:ring-[#0077B6]/50 hover:shadow-[0_0_0_3px_rgba(0,119,182,0.15)]"
-              aria-label={label}
-            />
-          </FormControl>
-        </FormItem>
-      )}
-    />
-  );
-
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-sm font-medium">
@@ -78,20 +35,26 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
 
       {/* Master Notification Toggles */}
       <div className="mt-2 divide-y divide-gray-200 dark:divide-gray-800 border-y border-gray-200 dark:border-gray-800">
-        <ToggleRow
+        <FormSwitch
+          control={control}
           name="notif_push_enabled"
           label="Push Notifications"
-          Icon={Bell}
+          icon={Bell}
+          variant="row"
         />
-        <ToggleRow
+        <FormSwitch
+          control={control}
           name="notif_email_enabled"
           label="Email Notifications"
-          Icon={Mail}
+          icon={Mail}
+          variant="row"
         />
-        <ToggleRow
+        <FormSwitch
+          control={control}
           name="notif_inapp_enabled"
           label="In-App Notifications"
-          Icon={AppWindow}
+          icon={AppWindow}
+          variant="row"
         />
       </div>
 
@@ -106,18 +69,40 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
         </summary>
 
         <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-          <ToggleRow
+          <FormSwitch
+            control={control}
             name="notif_session_invites"
             label="Session Invites"
-            Icon={UserPlus}
+            icon={UserPlus}
+            variant="row"
           />
-          <ToggleRow name="notif_likes" label="Likes" Icon={Heart} />
-          <ToggleRow name="notif_follows" label="Follows" Icon={Users} />
-          <ToggleRow name="notif_reminders" label="Reminders" Icon={Clock} />
-          <ToggleRow
+          <FormSwitch
+            control={control}
+            name="notif_likes"
+            label="Likes"
+            icon={Heart}
+            variant="row"
+          />
+          <FormSwitch
+            control={control}
+            name="notif_follows"
+            label="Follows"
+            icon={Users}
+            variant="row"
+          />
+          <FormSwitch
+            control={control}
+            name="notif_reminders"
+            label="Reminders"
+            icon={Clock}
+            variant="row"
+          />
+          <FormSwitch
+            control={control}
             name="notif_xp_updates"
             label="XP Updates"
-            Icon={Sparkles}
+            icon={Sparkles}
+            variant="row"
           />
         </div>
       </details>

@@ -43,14 +43,26 @@ const mockUseDataFetcher = useDataFetcher as unknown as jest.MockedFunction<
   typeof useDataFetcher
 >;
 
+// Helper to create complete mock return value for useDataFetcher
+const createMockDataFetcherReturn = <T>(overrides: {
+  data?: T | null;
+  loading?: boolean;
+  error?: string | null;
+  refetch?: jest.Mock;
+  retry?: jest.Mock;
+  reset?: jest.Mock;
+} = {}) => ({
+  data: overrides.data ?? null,
+  loading: overrides.loading ?? false,
+  error: overrides.error ?? null,
+  refetch: overrides.refetch ?? vi.fn(),
+  retry: overrides.retry ?? vi.fn(),
+  reset: overrides.reset ?? vi.fn(),
+}) as any;
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockUseDataFetcher.mockReturnValue({
-    data: null,
-    loading: false,
-    error: null,
-    refetch: vi.fn(),
-  });
+  mockUseDataFetcher.mockReturnValue(createMockDataFetcherReturn());
 });
 
 describe("Check-in Hooks", () => {
@@ -65,6 +77,11 @@ describe("Check-in Hooks", () => {
           checked_in_at: "2025-01-16T10:00:00Z",
           forecast_accuracy_rating: "accurate" as const,
           user: { username: "surfer1", profile_picture_url: null },
+          wind_speed: null,
+          wind_direction: null,
+          water_temp: null,
+          crowd_level: null,
+          vibe: null,
         },
       ];
 
@@ -73,12 +90,7 @@ describe("Check-in Hooks", () => {
       // Mock useDataFetcher to call the function and return data
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         fetchFn(); // Call the fetch function
-        return {
-          data: mockCheckIns,
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: mockCheckIns });
       });
 
       const { result } = renderHook(() =>
@@ -95,12 +107,7 @@ describe("Check-in Hooks", () => {
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         const result = fetchFn(); // Call the fetch function
         expect(result).resolves.toEqual([]);
-        return {
-          data: [],
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: [] });
       });
 
       const { result } = renderHook(() => useRecentCheckIns(null, 24, 10));
@@ -112,12 +119,7 @@ describe("Check-in Hooks", () => {
     it("handles different time ranges", () => {
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         fetchFn();
-        return {
-          data: [],
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: [] });
       });
 
       renderHook(() => useRecentCheckIns("beach-123", 12, 5));
@@ -140,12 +142,7 @@ describe("Check-in Hooks", () => {
 
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         fetchFn();
-        return {
-          data: mockStats,
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: mockStats });
       });
 
       const { result } = renderHook(() =>
@@ -168,12 +165,7 @@ describe("Check-in Hooks", () => {
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         const result = fetchFn();
         expect(result).resolves.toEqual(defaultStats);
-        return {
-          data: defaultStats,
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: defaultStats });
       });
 
       const { result } = renderHook(() => useForecastAccuracyStats(null, 7));
@@ -193,6 +185,11 @@ describe("Check-in Hooks", () => {
           wave_height: 3.5,
           checked_in_at: "2025-01-16T10:00:00Z",
           forecast_accuracy_rating: "accurate" as const,
+          wind_speed: null,
+          wind_direction: null,
+          water_temp: null,
+          crowd_level: null,
+          vibe: null,
         },
       ];
 
@@ -200,12 +197,7 @@ describe("Check-in Hooks", () => {
 
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         fetchFn();
-        return {
-          data: mockCheckIns,
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: mockCheckIns });
       });
 
       const { result } = renderHook(() => useUserCheckIns("user-123", 20, 0));
@@ -218,12 +210,7 @@ describe("Check-in Hooks", () => {
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         const result = fetchFn();
         expect(result).resolves.toEqual([]);
-        return {
-          data: [],
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: [] });
       });
 
       const { result } = renderHook(() => useUserCheckIns(null, 20, 0));
@@ -244,6 +231,11 @@ describe("Check-in Hooks", () => {
           checked_in_at: "2025-01-16T10:00:00Z",
           forecast_accuracy_rating: "accurate" as const,
           user: { username: "surfer1", profile_picture_url: null },
+          wind_speed: null,
+          wind_direction: null,
+          water_temp: null,
+          crowd_level: null,
+          vibe: null,
         },
       ];
 
@@ -251,12 +243,7 @@ describe("Check-in Hooks", () => {
 
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         fetchFn();
-        return {
-          data: mockCheckIns,
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: mockCheckIns });
       });
 
       const { result } = renderHook(() => useBeachCheckIns("beach-123", 20, 0));
@@ -268,12 +255,7 @@ describe("Check-in Hooks", () => {
     it("handles pagination parameters", () => {
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         fetchFn();
-        return {
-          data: [],
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: [] });
       });
 
       renderHook(() => useBeachCheckIns("beach-123", 10, 20));
@@ -293,6 +275,11 @@ describe("Check-in Hooks", () => {
           checked_in_at: "2025-01-16T10:00:00Z",
           forecast_accuracy_rating: "accurate" as const,
           user: { username: "surfer1", profile_picture_url: null },
+          wind_speed: null,
+          wind_direction: null,
+          water_temp: null,
+          crowd_level: null,
+          vibe: null,
         },
       ];
 
@@ -300,12 +287,7 @@ describe("Check-in Hooks", () => {
 
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         fetchFn();
-        return {
-          data: mockCheckIns,
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: mockCheckIns });
       });
 
       const { result } = renderHook(() =>
@@ -319,12 +301,7 @@ describe("Check-in Hooks", () => {
     it("uses default hours back parameter", () => {
       mockUseDataFetcher.mockImplementation((fetchFn) => {
         fetchFn();
-        return {
-          data: [],
-          loading: false,
-          error: null,
-          refetch: vi.fn(),
-        };
+        return createMockDataFetcherReturn({ data: [] });
       });
 
       renderHook(() => useRealtimeBeachCheckIns("beach-123"));
@@ -335,28 +312,24 @@ describe("Check-in Hooks", () => {
 
   describe("error handling", () => {
     it("handles fetch errors in useRecentCheckIns", () => {
-      const mockError = new Error("Fetch failed");
+      const mockErrorMessage = "Fetch failed";
 
-      mockUseDataFetcher.mockReturnValue({
+      mockUseDataFetcher.mockReturnValue(createMockDataFetcherReturn({
         data: null,
-        loading: false,
-        error: mockError,
-        refetch: vi.fn(),
-      });
+        error: mockErrorMessage,
+      }));
 
       const { result } = renderHook(() => useRecentCheckIns("beach-123"));
 
-      expect(result.current.error).toBe(mockError);
+      expect(result.current.error).toBe(mockErrorMessage);
       expect(result.current.data).toBe(null);
     });
 
     it("handles loading states", () => {
-      mockUseDataFetcher.mockReturnValue({
+      mockUseDataFetcher.mockReturnValue(createMockDataFetcherReturn({
         data: null,
         loading: true,
-        error: null,
-        refetch: vi.fn(),
-      });
+      }));
 
       const { result } = renderHook(() =>
         useForecastAccuracyStats("beach-123")
@@ -371,12 +344,10 @@ describe("Check-in Hooks", () => {
     it("provides refetch function", () => {
       const mockRefetch = vi.fn();
 
-      mockUseDataFetcher.mockReturnValue({
+      mockUseDataFetcher.mockReturnValue(createMockDataFetcherReturn({
         data: [],
-        loading: false,
-        error: null,
         refetch: mockRefetch,
-      });
+      }));
 
       const { result } = renderHook(() => useRecentCheckIns("beach-123"));
 

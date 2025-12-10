@@ -1,28 +1,33 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// Total number of onboarding steps (0-indexed: steps 0-6)
+export const TOTAL_ONBOARDING_STEPS = 7;
+
 interface OnboardingData {
+  // Step 1: Welcome (no data stored)
+
   // Step 2: Profile
   fullName?: string;
   displayName?: string;
 
-  // Step 3: Home Beach
-  homeBeachId?: string;
-  homeBeachName?: string;
-
-  // Step 4: Preferences
+  // Step 3: Experience
   experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+
+  // Step 4: Wave Preferences
   surfStyles?: string[];
   preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
   preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
   crowdPreference?: 'social' | 'moderate' | 'solitude';
 
-  // Step 5: Referral
+  // Step 5: Home Beach
+  homeBeachId?: string;
+  homeBeachName?: string;
+
+  // Step 6: Referral
   referralCode?: string;
 
-  // Step 6: Notifications
-  pushEnabled?: boolean;
-  emailEnabled?: boolean;
+  // Step 7: Completion (no data stored)
 }
 
 interface OnboardingStore {
@@ -59,7 +64,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
       setCurrentStep: (step) => set({ currentStep: step }),
 
       nextStep: () => set((state) => ({
-        currentStep: Math.min(state.currentStep + 1, 6)
+        currentStep: Math.min(state.currentStep + 1, TOTAL_ONBOARDING_STEPS - 1)
       })),
 
       prevStep: () => set((state) => ({

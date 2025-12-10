@@ -3,6 +3,9 @@ import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { ForecastFallbackMessaging } from "@/components/forecast/forecast-fallback-messaging";
 
+// Cast component to any to allow partial props in tests
+const TestFallbackMessaging = ForecastFallbackMessaging as React.FC<any>;
+
 describe("ForecastFallbackMessaging", () => {
   describe("Fallback Scenarios", () => {
     it("should show nearest beach fallback message", () => {
@@ -86,7 +89,7 @@ describe("ForecastFallbackMessaging", () => {
   describe("Data Quality Indicators", () => {
     it("should show accuracy reduction for distant fallbacks", () => {
       render(
-        <ForecastFallbackMessaging
+        <TestFallbackMessaging
           fallbackType="nearest_beach"
           originalLocation="Santa Barbara"
           fallbackLocation="Ventura"
@@ -105,7 +108,7 @@ describe("ForecastFallbackMessaging", () => {
 
     it("should show minimal impact for nearby fallbacks", () => {
       render(
-        <ForecastFallbackMessaging
+        <TestFallbackMessaging
           fallbackType="nearest_buoy"
           originalLocation="Del Mar"
           fallbackLocation="Scripps Pier Buoy"
@@ -124,7 +127,7 @@ describe("ForecastFallbackMessaging", () => {
 
     it("should show high impact warning for far fallbacks", () => {
       render(
-        <ForecastFallbackMessaging
+        <TestFallbackMessaging
           fallbackType="regional"
           originalLocation="Big Sur"
           fallbackLocation="Central California"
@@ -165,7 +168,7 @@ describe("ForecastFallbackMessaging", () => {
 
     it("should show alternative locations", () => {
       render(
-        <ForecastFallbackMessaging
+        <TestFallbackMessaging
           fallbackType="out_of_area"
           originalLocation="Oregon Coast"
           fallbackLocation="Huntington Beach"
@@ -208,7 +211,7 @@ describe("ForecastFallbackMessaging", () => {
   describe("Visual Styling", () => {
     it("should use warning styling for medium impact fallbacks", () => {
       render(
-        <ForecastFallbackMessaging
+        <TestFallbackMessaging
           fallbackType="nearest_beach"
           originalLocation="Seal Beach"
           fallbackLocation="Newport Beach"
@@ -223,7 +226,7 @@ describe("ForecastFallbackMessaging", () => {
 
     it("should use error styling for high impact fallbacks", () => {
       render(
-        <ForecastFallbackMessaging
+        <TestFallbackMessaging
           fallbackType="out_of_area"
           originalLocation="Hawaii"
           fallbackLocation="Huntington Beach"
@@ -237,7 +240,7 @@ describe("ForecastFallbackMessaging", () => {
 
     it("should use info styling for low impact fallbacks", () => {
       render(
-        <ForecastFallbackMessaging
+        <TestFallbackMessaging
           fallbackType="nearest_buoy"
           originalLocation="Cardiff"
           fallbackLocation="Solana Beach Buoy"
@@ -254,7 +257,7 @@ describe("ForecastFallbackMessaging", () => {
   describe("Accessibility", () => {
     it("should have proper ARIA labels for warnings", () => {
       render(
-        <ForecastFallbackMessaging
+        <TestFallbackMessaging
           fallbackType="out_of_area"
           originalLocation="International"
           fallbackLocation="Huntington Beach"
@@ -321,7 +324,7 @@ describe("ForecastFallbackMessaging", () => {
 
     it("should show fallback chain for multiple fallbacks", () => {
       render(
-        <ForecastFallbackMessaging
+        <TestFallbackMessaging
           fallbackType="nearest_beach"
           originalLocation="Redondo Beach"
           fallbackLocation="Manhattan Beach"

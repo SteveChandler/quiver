@@ -303,6 +303,55 @@ interface COOPSForecast {
 }
 
 export class NOAACOOPSService {
+  // In-memory cache for tide data by station ID to avoid duplicate API calls
+  private readonly tideCache = new Map<
+    string,
+    { data: COOPSForecast; timestamp: number }
+  >();
+  private readonly cacheTimeout = 30 * 60 * 1000; // 30 minutes
+
+  /**
+   * Get cached tide data for a station if available and not expired
+   */
+  private getCachedTideData(stationId: string): COOPSForecast | null {
+    const cached = this.tideCache.get(stationId);
+    if (!cached) return null;
+
+    const now = Date.now();
+    if (now - cached.timestamp > this.cacheTimeout) {
+      this.tideCache.delete(stationId);
+      return null;
+    }
+
+    console.log(`📦 Using cached tide data for station ${stationId}`);
+    return cached.data;
+  }
+
+  /**
+   * Cache tide data for a station
+   */
+  private setCachedTideData(stationId: string, data: COOPSForecast): void {
+    this.tideCache.set(stationId, {
+      data,
+      timestamp: Date.now(),
+    });
+
+    // Clean up old cache entries if too many
+    if (this.tideCache.size > 50) {
+      const oldestKey = this.tideCache.keys().next().value;
+      if (oldestKey) {
+        this.tideCache.delete(oldestKey);
+      }
+    }
+  }
+
+  /**
+   * Clear the tide cache (useful for testing or forced refresh)
+   */
+  clearCache(): void {
+    this.tideCache.clear();
+  }
+
   /**
    * Get the appropriate CO-OPS station for a beach location
    * Uses name lookup first, then geographic bounds, then nearest station
@@ -370,12 +419,19 @@ export class NOAACOOPSService {
 
   /**
    * Fetch comprehensive tide and current data from CO-OPS
+   * Uses caching to avoid duplicate API calls for the same station
    */
   async fetchCOOPSData(
     stationId: string,
     days: number = 10
   ): Promise<COOPSForecast | null> {
     try {
+      // Check cache first to avoid duplicate API calls
+      const cached = this.getCachedTideData(stationId);
+      if (cached) {
+        return cached;
+      }
+
       console.log(`Fetching CO-OPS data for station ${stationId}`);
 
       const now = new Date();
@@ -388,19 +444,55 @@ export class NOAACOOPSService {
       const beginDate = formatDate(now);
       const endDateStr = formatDate(endDate);
 
-      // Fetch multiple data types in parallel
-      const [tideData, waterLevelData, stationInfo] = await Promise.all([
-        this.fetchTidePredictions(stationId, beginDate, endDateStr),
-        this.fetchCurrentWaterLevel(stationId),
-        this.fetchStationInfo(stationId),
-      ]);
+      // Fetch multiple data types in parallel using Promise.allSettled
+      // to avoid failures in optional calls (water level, station info) blocking tide data
+      const [tideResult, waterLevelResult, stationInfoResult] =
+        await Promise.allSettled([
+          this.fetchTidePredictions(stationId, beginDate, endDateStr),
+          this.fetchCurrentWaterLevel(stationId),
+          this.fetchStationInfo(stationId),
+        ]);
 
-      return {
+      // Extract results, using fallbacks for failed optional calls
+      const tideData =
+        tideResult.status === "fulfilled"
+          ? tideResult.value
+          : this.generateFallbackTideData();
+      const waterLevelData =
+        waterLevelResult.status === "fulfilled" ? waterLevelResult.value : null;
+      const stationInfo =
+        stationInfoResult.status === "fulfilled"
+          ? stationInfoResult.value
+          : null;
+
+      // Log any failures for debugging (but don't block)
+      if (tideResult.status === "rejected") {
+        console.warn(
+          `⚠️ Tide predictions failed for station ${stationId}, using fallback`
+        );
+      }
+      if (waterLevelResult.status === "rejected") {
+        console.debug(
+          `ℹ️ Water level not available for station ${stationId} (optional)`
+        );
+      }
+      if (stationInfoResult.status === "rejected") {
+        console.debug(
+          `ℹ️ Station info not available for station ${stationId} (optional)`
+        );
+      }
+
+      const result: COOPSForecast = {
         station_id: stationId,
         station_name: stationInfo?.name || `Station ${stationId}`,
         tides: tideData,
         water_level: waterLevelData,
       };
+
+      // Cache the result for future requests
+      this.setCachedTideData(stationId, result);
+
+      return result;
     } catch (error) {
       console.error(
         `Error fetching CO-OPS data for station ${stationId}:`,
@@ -477,27 +569,19 @@ export class NOAACOOPSService {
 
   /**
    * Fetch current water level
+   * Uses YYYYMMDD format for dates and range=1 for recent data
+   * This is optional data - failures are handled silently
    */
   private async fetchCurrentWaterLevel(
     stationId: string
   ): Promise<number | null> {
     try {
-      const now = new Date();
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-
-      const formatDateTime = (date: Date) => {
-        return date
-          .toISOString()
-          .split(".")[0]
-          .replace(/[-:]/g, "")
-          .replace("T", " ");
-      };
-
+      // Use "range" parameter for recent data instead of begin/end dates
+      // This is more reliable and avoids date format issues
       const url = new URL(COOPS_BASE_URL);
       url.searchParams.set("application", "quiver-surf-app");
       url.searchParams.set("station", stationId);
-      url.searchParams.set("begin_date", formatDateTime(oneHourAgo));
-      url.searchParams.set("end_date", formatDateTime(now));
+      url.searchParams.set("range", "1"); // Last 1 hour of data
       url.searchParams.set("product", "water_level");
       url.searchParams.set("datum", "MLLW");
       url.searchParams.set("units", "english");
@@ -508,9 +592,12 @@ export class NOAACOOPSService {
         headers: {
           "User-Agent": "quiver-surf-app (contact@quiver.com)",
         },
+        // Short timeout since this is optional data
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!response.ok) {
+        // Silently fail - water level is optional
         return null;
       }
 
@@ -523,14 +610,15 @@ export class NOAACOOPSService {
       // Return the most recent water level reading
       const latestReading = data.data[data.data.length - 1];
       return parseFloat(latestReading.v);
-    } catch (error) {
-      console.error("Error fetching current water level:", error);
+    } catch {
+      // Silently fail - water level is optional enhancement
       return null;
     }
   }
 
   /**
    * Fetch station information
+   * This is optional metadata - failures are handled silently
    */
   private async fetchStationInfo(
     stationId: string
@@ -546,6 +634,8 @@ export class NOAACOOPSService {
         headers: {
           "User-Agent": "quiver-surf-app (contact@quiver.com)",
         },
+        // Short timeout since this is optional metadata
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!response.ok) {
@@ -556,8 +646,8 @@ export class NOAACOOPSService {
       return {
         name: data.metadata?.name || `Station ${stationId}`,
       };
-    } catch (error) {
-      console.error("Error fetching station info:", error);
+    } catch {
+      // Silently fail - station info is optional metadata
       return null;
     }
   }

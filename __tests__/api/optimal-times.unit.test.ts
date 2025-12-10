@@ -70,7 +70,7 @@ describe("Optimal Times utilities", () => {
     ];
     const result = analyzeOptimalTimes(forecasts as any[], "15:10");
     expect(result.length).toBeGreaterThan(0);
-    result.forEach((r) => {
+    result.forEach((r: { time: string }) => {
       const h = parseTimeToHour(r.time)!;
       expect(h).toBeGreaterThanOrEqual(13);
       expect(h).toBeLessThanOrEqual(17);

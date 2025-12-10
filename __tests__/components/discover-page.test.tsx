@@ -22,7 +22,7 @@ const MockFollowButton = FollowButton as jest.MockedFunction<
 const mockUser = {
   id: "user-1",
   email: "user1@example.com",
-};
+} as any;
 
 // Mock fetch for user search
 global.fetch = jest.fn();
@@ -30,7 +30,7 @@ global.fetch = jest.fn();
 describe("DiscoverPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseAuth.mockReturnValue({ user: mockUser });
+    mockUseAuth.mockReturnValue({ user: mockUser } as any);
     MockFollowButton.mockImplementation(({ userId, initialFollowersCount }) => (
       <button data-testid={`follow-button-${userId}`}>
         Follow (Initial: {initialFollowersCount})
@@ -43,7 +43,7 @@ describe("DiscoverPage", () => {
 
   describe("Authentication", () => {
     it("should show sign-in message for unauthenticated users", () => {
-      mockUseAuth.mockReturnValue({ user: null });
+      mockUseAuth.mockReturnValue({ user: null } as any);
 
       render(<DiscoverPage />);
 
@@ -363,7 +363,7 @@ describe("DiscoverPage", () => {
       ).toBeInTheDocument();
       expect(
         screen.getByText(
-          /As more people join Quiver.*you'll see suggested surfers/s
+          /As more people join Quiver[\s\S]*you'll see suggested surfers/
         )
       ).toBeInTheDocument();
     });

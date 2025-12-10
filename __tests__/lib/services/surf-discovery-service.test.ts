@@ -68,18 +68,19 @@ function createMockForecast(
 }
 
 // Mock beach with no specific wind/tide preferences for simpler scoring
-const mockBeach: Beach = {
+const mockBeach = {
   id: 'test-beach-1',
   name: 'Test Beach',
-  lat: 32.7157,
-  lon: -117.1611,
+  center_lat: 32.7157,
+  center_lng: -117.1611,
+  location_text: 'San Diego, CA',
   wind_offshore_deg: null,
   wind_offshore_tol_deg: null,
   preferred_tide_ft_min: null,
   preferred_tide_ft_max: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-} as Beach;
+} as unknown as Beach;
 
 describe('SurfDiscoveryService - selectBestWindow Time-Priority Logic', () => {
   // Since selectBestWindow is not exported, we need to test it indirectly

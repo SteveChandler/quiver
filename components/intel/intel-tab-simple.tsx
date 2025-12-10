@@ -141,7 +141,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
             // Filter: Only listen to posts created in last 7 days
             filter: `created_at=gte.${isoDateFilter}`,
           },
-          (payload) => {
+          (payload: any) => {
             console.log(
               "[IntelTab] Received intel_posts change:",
               payload.eventType
@@ -150,7 +150,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
             fetchPostsRef.current();
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: string) => {
           console.log("[IntelTab] intel_posts subscription status:", status);
         }),
 
@@ -166,7 +166,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
             schema: "public",
             table: "intel_post_confirmations",
           },
-          (payload) => {
+          (payload: any) => {
             console.log(
               "[IntelTab] Received intel_post_confirmations change:",
               payload.eventType
@@ -175,7 +175,7 @@ export function IntelTabSimple({ className = "" }: IntelTabSimpleProps) {
             fetchPostsRef.current();
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: string) => {
           console.log(
             "[IntelTab] intel_post_confirmations subscription status:",
             status

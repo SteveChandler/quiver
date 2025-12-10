@@ -8,9 +8,9 @@ import { scoreRecommendation } from "@/lib/utils/recommendation-scorer";
 const createMockBeach = (overrides?: Partial<Beach>): Beach => ({
   id: "test-beach",
   name: "Test Beach",
-  lat: 33.7490,
-  lon: -118.4095,
-  location: "Test Location",
+  center_lat: 33.7490,
+  center_lng: -118.4095,
+  location_text: "Test Location",
   region: "Test Region",
   country: "USA",
   is_private: false,
@@ -26,7 +26,7 @@ const createMockBeach = (overrides?: Partial<Beach>): Beach => ({
   preferred_tide_ft_max: 4.0,
   skill_level: "intermediate",
   ...overrides,
-});
+} as unknown as Beach);
 
 describe("Recommendation Scorer Strategy Pattern", () => {
   describe("SwellWindowScorer", () => {

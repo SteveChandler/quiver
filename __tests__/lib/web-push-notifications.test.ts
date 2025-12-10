@@ -6,10 +6,10 @@
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 
 // Mock Firebase modules
-const mockGetToken = jest.fn();
-const mockOnMessage = jest.fn();
-const mockGetMessaging = jest.fn();
-const mockGetFirebaseApp = jest.fn();
+const mockGetToken = jest.fn<any>();
+const mockOnMessage = jest.fn<any>();
+const mockGetMessaging = jest.fn<any>();
+const mockGetFirebaseApp = jest.fn<any>();
 
 jest.mock("firebase/messaging", () => ({
   getToken: mockGetToken,
@@ -25,7 +25,7 @@ jest.mock("@/lib/firebase/config", () => ({
 // Mock global Notification API
 const mockNotification = {
   permission: "default" as NotificationPermission,
-  requestPermission: jest.fn(),
+  requestPermission: jest.fn<any>(),
 };
 
 // Mock service worker
@@ -34,12 +34,12 @@ const mockServiceWorker = {
     scope: "/",
     active: { scriptURL: "http://localhost/firebase-messaging-sw.js" },
   } as ServiceWorkerRegistration),
-  register: jest.fn(),
-  getRegistrations: jest.fn(),
+  register: jest.fn<any>(),
+  getRegistrations: jest.fn<any>(),
 };
 
 // Mock fetch
-global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
+global.fetch = jest.fn<any>() as jest.MockedFunction<typeof fetch>;
 
 beforeEach(() => {
   jest.clearAllMocks();

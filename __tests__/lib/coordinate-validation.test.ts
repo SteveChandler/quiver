@@ -118,7 +118,11 @@ describe('Coordinate Validation Utilities', () => {
 
     afterEach(() => {
       consoleWarnSpy.mockRestore();
-      process.env.NODE_ENV = originalEnv;
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: originalEnv,
+        writable: true,
+        configurable: true,
+      });
     });
 
     it('should return true for valid coordinates', () => {
@@ -132,7 +136,11 @@ describe('Coordinate Validation Utilities', () => {
     });
 
     it('should log warnings in development mode', () => {
-      process.env.NODE_ENV = 'development';
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'development',
+        writable: true,
+        configurable: true,
+      });
       validateCoordinates(91, -117.1611, 'Test Beach');
 
       expect(consoleWarnSpy).toHaveBeenCalled();
@@ -140,7 +148,11 @@ describe('Coordinate Validation Utilities', () => {
     });
 
     it('should not log warnings in production mode', () => {
-      process.env.NODE_ENV = 'production';
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'production',
+        writable: true,
+        configurable: true,
+      });
       validateCoordinates(91, -117.1611, 'Test Beach');
 
       expect(consoleWarnSpy).not.toHaveBeenCalled();
@@ -173,7 +185,11 @@ describe('Coordinate Validation Utilities', () => {
 
     afterEach(() => {
       consoleWarnSpy.mockRestore();
-      process.env.NODE_ENV = originalEnv;
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: originalEnv,
+        writable: true,
+        configurable: true,
+      });
     });
 
     it('should return valid coordinates unchanged', () => {
@@ -222,7 +238,11 @@ describe('Coordinate Validation Utilities', () => {
     });
 
     it('should log warnings when clamping in development mode', () => {
-      process.env.NODE_ENV = 'development';
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'development',
+        writable: true,
+        configurable: true,
+      });
       sanitizeCoordinates(91, 181);
 
       expect(consoleWarnSpy).toHaveBeenCalledTimes(2);
@@ -230,7 +250,11 @@ describe('Coordinate Validation Utilities', () => {
     });
 
     it('should not log warnings in production mode', () => {
-      process.env.NODE_ENV = 'production';
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'production',
+        writable: true,
+        configurable: true,
+      });
       sanitizeCoordinates(91, 181);
 
       expect(consoleWarnSpy).not.toHaveBeenCalled();

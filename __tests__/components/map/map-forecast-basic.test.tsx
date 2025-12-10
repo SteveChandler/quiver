@@ -93,7 +93,8 @@ describe("Map Forecast Basic Tests", () => {
     jest.clearAllMocks();
     
     // Mock successful API responses
-    mockFetch.mockImplementation((url: string) => {
+    mockFetch.mockImplementation((input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       if (typeof url === "string") {
         if (url.includes("/api/beaches") && !url.includes("forecasts")) {
           return Promise.resolve({

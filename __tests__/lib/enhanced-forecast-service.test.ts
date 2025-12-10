@@ -60,8 +60,8 @@ jest.mock("@/lib/utils/distance-utils", () => ({
   calculateDistance: jest.fn(() => 5.2),
 }));
 
-// Sample beach data for testing
-const mockBeach = {
+// Sample beach data for testing (cast to any to avoid strict type checking)
+const mockBeach: any = {
   id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
   name: "Test Beach",
   lat: 37.7749,
@@ -75,7 +75,7 @@ const mockBeach = {
 const FIXED_TEST_DATE = new Date("2024-01-15T12:00:00Z");
 
 // Mock forecast data for 12 days
-const mockForecastData = [];
+const mockForecastData: any[] = [];
 for (let day = 0; day < FORECAST_CONSTANTS.DAYS; day++) {
   const date = new Date(FIXED_TEST_DATE);
   date.setDate(FIXED_TEST_DATE.getDate() + day);

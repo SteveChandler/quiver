@@ -79,7 +79,7 @@ export function BeachesEnhancedForecastWithTransparency({
     if (!forecasts.length) return null;
 
     const highConfidenceCount = forecasts.filter(
-      (f) => f.confidence_score >= 75
+      (f) => (f.confidence_score ?? 0) >= 75
     ).length;
     const fallbackCount = forecasts.filter(
       (f) => f.data_source === "FALLBACK"
@@ -148,7 +148,7 @@ export function BeachesEnhancedForecastWithTransparency({
   const averageConfidence =
     forecasts.length > 0
       ? Math.round(
-          forecasts.reduce((sum, f) => sum + f.confidence_score, 0) /
+          forecasts.reduce((sum, f) => sum + (f.confidence_score ?? 0), 0) /
             forecasts.length
         )
       : 0;
@@ -262,7 +262,7 @@ export function BeachesEnhancedForecastWithTransparency({
             {/* Data Source Indicator */}
             <ForecastDataSourceIndicator
               dataSource={primaryForecast.data_source}
-              confidenceScore={primaryForecast.confidence_score}
+              confidenceScore={primaryForecast.confidence_score ?? 0}
               dataSources={
                 primaryForecast.raw_forecast?.data_sources || [
                   primaryForecast.data_source,
@@ -302,7 +302,7 @@ export function BeachesEnhancedForecastWithTransparency({
                   >
                     <h5 className="font-medium">Data source breakdown</h5>
                     <ConfidenceScoreExplanation
-                      score={primaryForecast.confidence_score}
+                      score={primaryForecast.confidence_score ?? 0}
                       beachName={beachName}
                       showFactors={true}
                       expandable={true}
@@ -339,19 +339,20 @@ export function BeachesEnhancedForecastWithTransparency({
             </div>
             {/* Simple confidence visualization */}
             <div className="grid grid-cols-10 gap-1 h-8">
-              {forecasts.slice(0, 10).map((forecast, index) => (
-                <div
-                  key={index}
-                  className={cn("rounded", {
-                    "bg-green-400": forecast.confidence_score >= 75,
-                    "bg-yellow-400":
-                      forecast.confidence_score >= 50 &&
-                      forecast.confidence_score < 75,
-                    "bg-red-400": forecast.confidence_score < 50,
-                  })}
-                  title={`${forecast.forecast_date} ${forecast.forecast_time}: ${forecast.confidence_score}%`}
-                />
-              ))}
+              {forecasts.slice(0, 10).map((forecast, index) => {
+                const score = forecast.confidence_score ?? 0;
+                return (
+                  <div
+                    key={index}
+                    className={cn("rounded", {
+                      "bg-green-400": score >= 75,
+                      "bg-yellow-400": score >= 50 && score < 75,
+                      "bg-red-400": score < 50,
+                    })}
+                    title={`${forecast.forecast_date} ${forecast.forecast_time}: ${score}%`}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
@@ -360,7 +361,7 @@ export function BeachesEnhancedForecastWithTransparency({
         {transparencyVisible && highlightLowConfidence && (
           <div className="space-y-2">
             {forecasts
-              .filter((f) => f.confidence_score < 50)
+              .filter((f) => (f.confidence_score ?? 0) < 50)
               .map((forecast, index) => (
                 <div
                   key={forecast.id}
@@ -372,7 +373,7 @@ export function BeachesEnhancedForecastWithTransparency({
                       {forecast.forecast_date} {forecast.forecast_time}
                     </span>
                     <Badge className="bg-red-100 text-red-700 text-xs">
-                      {forecast.confidence_score}% confidence
+                      {forecast.confidence_score ?? 0}% confidence
                     </Badge>
                   </div>
                   <div className="text-xs text-red-600 mt-1">

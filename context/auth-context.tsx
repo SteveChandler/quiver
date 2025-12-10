@@ -12,7 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { User, Session } from "@supabase/supabase-js";
+import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Set up auth state listener for real-time updates
         const {
           data: { subscription: authSubscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
+        } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
           if (!mounted) return;
 
           console.log("[AuthContext] Auth state changed:", event);

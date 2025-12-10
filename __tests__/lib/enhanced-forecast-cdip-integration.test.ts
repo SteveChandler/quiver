@@ -90,6 +90,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
   let service: EnhancedForecastService;
   let mockCDIPService: jest.Mocked<CDIPService>;
 
+  // Minimal mock beach - cast to any for testing
   const mockBeach = {
     id: "462bfb3b-b402-485d-b907-7eedfe5e828e",
     name: "Scripps Pier",
@@ -98,7 +99,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
     state: "CA",
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
-  };
+  } as any;
 
   const mockCDIPData: CDIPBuoyData = {
     stationId: "100",

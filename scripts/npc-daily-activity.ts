@@ -270,9 +270,9 @@ interface MockUser {
 interface Beach {
   id: string;
   name: string;
-  location: string;
-  latitude: number;
-  longitude: number;
+  city: string | null;
+  lat: number | null;
+  lon: number | null;
   description?: string;
   skill_level?: string;
 }
@@ -844,8 +844,8 @@ function generateIntelPost(npc: MockUser, beach: Beach): any {
   const { title, description } = generateIntelContent(npc, beach, tag, createdAt, baselineConditions);
 
   // Add slight coordinate offset for realistic posting
-  const latitude = beach.lat + (Math.random() - 0.5) * 0.002; // ~200m variance
-  const longitude = beach.lon + (Math.random() - 0.5) * 0.002;
+  const latitude = (beach.lat ?? 0) + (Math.random() - 0.5) * 0.002; // ~200m variance
+  const longitude = (beach.lon ?? 0) + (Math.random() - 0.5) * 0.002;
 
   return {
     user_id: npc.id,
@@ -1381,7 +1381,7 @@ async function createDailyNPCActivity(supabase: any) {
             break;
           }
 
-          const existingMatch = existingIntel?.find((existing) => {
+          const existingMatch = existingIntel?.find((existing: any) => {
             const existingHash = createIntelDedupeHash({
               userId,
               tag: intelTag,

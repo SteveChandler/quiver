@@ -58,7 +58,7 @@ describe("SessionCard", () => {
       user: { full_name: "Test User" },
     };
 
-    render(<SessionCard {...defaultProps} session={plannedSession} />);
+    render(<SessionCard {...defaultProps} session={plannedSession as any} />);
 
     // Should show the planned session badge
     expect(screen.getByText("Planned Session")).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("SessionCard", () => {
       user: { full_name: "Test User" },
     };
 
-    render(<SessionCard {...defaultProps} session={completedSession} />);
+    render(<SessionCard {...defaultProps} session={completedSession as any} />);
 
     // Should NOT show the planned session badge
     expect(screen.queryByText("Planned Session")).not.toBeInTheDocument();
@@ -95,7 +95,7 @@ describe("SessionCard", () => {
       user: { full_name: "Test User" },
     };
 
-    render(<SessionCard {...defaultProps} session={sessionWithConditions} />);
+    render(<SessionCard {...defaultProps} session={sessionWithConditions as any} />);
 
     // Should show wave conditions section when session data is available
     expect(screen.getByText("4-6 ft")).toBeInTheDocument();

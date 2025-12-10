@@ -1,3 +1,5 @@
+import type { ReadonlyURLSearchParams } from "next/navigation";
+
 /**
  * Session Wizard URL Parameter Utilities
  *
@@ -117,12 +119,13 @@ export function parseSessionWizardParams(
     }
 
     // Transform to validated output format
+    // Note: hasMinimalPrefillData check above guarantees these fields exist
     const data: ValidatedSessionWizardParams = {
       mode: validated.mode,
-      beachId: validated.beach,
+      beachId: validated.beach!,
       beachName: validated.beachName || '',
-      startTime: new Date(validated.startTime),
-      endTime: new Date(validated.endTime),
+      startTime: new Date(validated.startTime!),
+      endTime: new Date(validated.endTime!),
       targetStep: validated.step,
     };
 

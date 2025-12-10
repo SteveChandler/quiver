@@ -46,8 +46,11 @@ jest.mock("@/components/forecast/forecast-fallback-messaging", () => ({
 
 // Mock the enhanced forecast component
 import { EnhancedForecastWithTransparency } from "@/components/forecast/enhanced-forecast-with-transparency";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
-const mockHighQualityForecast = {
+// Use Partial<EnhancedForecastEntity> and cast to any to avoid strict type checking
+const mockHighQualityForecast: any = {
+  water_temp: "65°F",
   id: "1",
   beach_id: "beach-1",
   forecast_date: "2025-01-15",
@@ -70,7 +73,8 @@ const mockHighQualityForecast = {
   },
 };
 
-const mockFallbackForecast = {
+const mockFallbackForecast: any = {
+  water_temp: "62°F",
   id: "2",
   beach_id: "beach-2",
   forecast_date: "2025-01-15",

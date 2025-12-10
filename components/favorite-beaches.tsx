@@ -75,7 +75,7 @@ export function FavoriteBeaches() {
 
     setRemoving(beachId);
     try {
-      const result = await removeFavoriteBeach(beachId);
+      const result = await removeFavoriteBeach(user.id, beachId);
       if (result.success) {
         setBeaches((prev) => prev.filter((beach) => beach.id !== beachId));
         toast({
@@ -117,7 +117,7 @@ export function FavoriteBeaches() {
     setSavingOrder(true);
     try {
       const orderedIds = beaches.map((b) => b.id);
-      const result = await reorderFavoriteBeaches(user.id, orderedIds);
+      const result = await reorderFavoriteBeaches(orderedIds);
       if (result?.success) {
         toast({ title: "Order saved", description: "Favorites updated." });
       } else {
@@ -183,20 +183,20 @@ export function FavoriteBeaches() {
               <div className="flex items-center">
                 <Waves className="h-4 w-4 mr-1 text-blue-500" />
                 <span>
-                  Wave Quality: {beach.wave_quality_rating?.toFixed(1)}/5
+                  Wave Quality: {(beach as any).wave_quality_rating?.toFixed(1) ?? "N/A"}/5
                 </span>
               </div>
               <div className="flex items-center">
                 <Users className="h-4 w-4 mr-1 text-orange-500" />
-                <span>Crowd: {beach.crowd_density_rating?.toFixed(1)}/5</span>
+                <span>Crowd: {(beach as any).crowd_density_rating?.toFixed(1) ?? "N/A"}/5</span>
               </div>
               <div className="flex items-center">
                 <Car className="h-4 w-4 mr-1 text-gray-500" />
-                <span>Parking: {beach.parking_rating?.toFixed(1)}/5</span>
+                <span>Parking: {(beach as any).parking_rating?.toFixed(1) ?? "N/A"}/5</span>
               </div>
               <div className="flex items-center">
                 <Accessibility className="h-4 w-4 mr-1 text-green-500" />
-                <span>Access: {beach.accessibility_rating?.toFixed(1)}/5</span>
+                <span>Access: {(beach as any).accessibility_rating?.toFixed(1) ?? "N/A"}/5</span>
               </div>
             </div>
           </CardContent>

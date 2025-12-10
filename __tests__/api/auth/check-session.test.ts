@@ -3,13 +3,14 @@
  */
 
 import { GET } from "@/app/api/auth/check-session/route";
-import { 
+import {
   createMockSupabaseClient,
   createMockUser,
   createMockSession,
   expectSuccessResponse,
   expectErrorResponse,
   setupApiTestEnvironment,
+  mockNodeEnv,
 } from "@/test-utils/api-test-helpers";
 
 // Mock the Supabase server client
@@ -203,8 +204,7 @@ describe("/api/auth/check-session", () => {
     });
 
     it("should not leak error stack traces in production", async () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "production";
+      const restoreEnv = mockNodeEnv("production");
 
       mockSupabaseClient.auth.getSession.mockRejectedValue(
         new Error("Database connection failed with sensitive info")
@@ -218,7 +218,7 @@ describe("/api/auth/check-session", () => {
       expect(data).not.toHaveProperty("stack");
       expect(data).not.toHaveProperty("details");
 
-      process.env.NODE_ENV = originalEnv;
+      restoreEnv();
     });
   });
 

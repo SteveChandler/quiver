@@ -11,7 +11,6 @@ const config: CapacitorConfig = {
   appId: "app.quiversurf.mobile",
   appName: "Quiver",
   webDir: "out",
-  bundledWebRuntime: false,
   server: {
     androidScheme: "https",
     url: "https://quiversurf.app",

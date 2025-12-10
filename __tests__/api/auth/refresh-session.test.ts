@@ -3,13 +3,14 @@
  */
 
 import { POST } from "@/app/api/auth/refresh-session/route";
-import { 
+import {
   createMockSupabaseClient,
   createMockUser,
   createMockSession,
   expectSuccessResponse,
   expectErrorResponse,
   setupApiTestEnvironment,
+  mockNodeEnv,
 } from "@/test-utils/api-test-helpers";
 
 // Mock the Supabase server client
@@ -34,9 +35,6 @@ describe("/api/auth/refresh-session", () => {
     const testEnv = setupApiTestEnvironment();
     cleanup = testEnv.cleanup;
     jest.clearAllMocks();
-
-    // Add refreshSession method to mock client
-    mockSupabaseClient.auth.refreshSession = jest.fn();
   });
 
   afterEach(() => {
@@ -289,8 +287,7 @@ describe("/api/auth/refresh-session", () => {
 
   describe("Security", () => {
     it("should not leak error details in production", async () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "production";
+      const restoreEnv = mockNodeEnv("production");
 
       const mockUser = createMockUser();
       const mockSession = createMockSession(mockUser);
@@ -312,7 +309,7 @@ describe("/api/auth/refresh-session", () => {
       expect(data).not.toHaveProperty("details");
       expect(data).not.toHaveProperty("stack");
 
-      process.env.NODE_ENV = originalEnv;
+      restoreEnv();
     });
 
     it("should handle malformed session data safely", async () => {

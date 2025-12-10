@@ -13,8 +13,8 @@ export const formatSessionDescription = (session: SessionWithDetails) => {
 
   // Add wave conditions
   const conditions = [];
-  if (session.wave_height) {
-    conditions.push(`Wave Height: ${session.wave_height}`);
+  if (session.wave_height_ft) {
+    conditions.push(`Wave Height: ${session.wave_height_ft}ft`);
   }
   if (session.water_temp) {
     conditions.push(`Water Temp: ${session.water_temp}`);
@@ -22,8 +22,8 @@ export const formatSessionDescription = (session: SessionWithDetails) => {
   if (session.wave_quality) {
     conditions.push(`Wave Quality: ${session.wave_quality}/5`);
   }
-  if (session.crowd_rating) {
-    conditions.push(`Crowd Level: ${session.crowd_rating}/5`);
+  if (session.crowd_level) {
+    conditions.push(`Crowd Level: ${session.crowd_level}/5`);
   }
 
   if (conditions.length > 0) {
@@ -111,7 +111,7 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
     width: 500,
     height: 350,
     zoom: 12,
-    markerText: coords ? undefined : beachName,
+    markerText: coords ? undefined : (beachName ?? undefined),
   });
   
   if (process.env.NODE_ENV === 'development') {

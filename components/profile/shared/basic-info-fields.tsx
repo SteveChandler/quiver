@@ -1,15 +1,7 @@
 "use client";
 
 import { Control } from "react-hook-form";
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { FormInput, FormTextarea } from "@/components/ui/form-fields";
 import type { ProfileFormValues } from "@/lib/schemas/profile-schema";
 
 interface BasicInfoFieldsProps {
@@ -19,6 +11,8 @@ interface BasicInfoFieldsProps {
   showEmail?: boolean;
   /** Whether to show the phone number field */
   showPhone?: boolean;
+  /** Whether the fields are disabled */
+  disabled?: boolean;
 }
 
 /**
@@ -30,85 +24,55 @@ export function BasicInfoFields({
   control,
   showEmail = false,
   showPhone = false,
+  disabled = false,
 }: BasicInfoFieldsProps) {
   return (
     <div className="space-y-4">
-      <FormField
+      <FormInput
         control={control}
         name="full_name"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Name</FormLabel>
-            <FormControl>
-              <Input placeholder="Your name" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
+        label="Name"
+        placeholder="Your name"
+        disabled={disabled}
       />
 
       {showEmail && (
-        <FormField
+        <FormInput
           control={control}
           name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="Your email" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          label="Email"
+          type="email"
+          placeholder="Your email"
+          disabled={disabled}
         />
       )}
 
       {showPhone && (
-        <FormField
+        <FormInput
           control={control}
           name="phone_number"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Phone Number</FormLabel>
-              <FormControl>
-                <Input placeholder="Your phone number" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          label="Phone Number"
+          type="tel"
+          placeholder="Your phone number"
+          disabled={disabled}
         />
       )}
 
-      <FormField
+      <FormTextarea
         control={control}
         name="bio"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Bio</FormLabel>
-            <FormControl>
-              <Textarea
-                placeholder="Tell us about yourself and your surfing journey"
-                className="resize-none"
-                {...field}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
+        label="Bio"
+        placeholder="Tell us about yourself and your surfing journey"
+        disabled={disabled}
+        rows={3}
       />
 
-      <FormField
+      <FormInput
         control={control}
         name="location"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Location</FormLabel>
-            <FormControl>
-              <Input placeholder="Where are you based?" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
+        label="Location"
+        placeholder="Where are you based?"
+        disabled={disabled}
       />
     </div>
   );

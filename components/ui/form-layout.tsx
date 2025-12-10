@@ -12,7 +12,7 @@ import { Form } from "@/components/ui/form";
 import { UseFormReturn } from "react-hook-form";
 
 interface CardFormLayoutProps {
-  title: string;
+  title: ReactNode;
   description?: string;
   form: UseFormReturn<any>;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;

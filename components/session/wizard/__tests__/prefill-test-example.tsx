@@ -373,7 +373,7 @@ function ForecastCard({ forecast }) {
     setShowWizard(true);
   };
 
-  const handleComplete = async (sessionData) => {
+  const handleComplete = async (sessionData: any) => {
     console.log('Session created:', sessionData);
     setShowWizard(false);
   };

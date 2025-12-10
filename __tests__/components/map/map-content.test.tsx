@@ -34,13 +34,14 @@ const mockBeaches = createMockBeaches(3);
 describe("MapContent", () => {
   const defaultProps = {
     loading: false,
-    locationError: null,
+    locationError: null as string | null,
     usingDefaultLocation: false,
-    userLocation: { lat: 32.7, lng: -117.2 },
-    selectedBeach: null,
-    filteredBeaches: mockBeaches,
+    userLocation: { lat: 32.7, lon: -117.2 } as { lat: number; lon: number } | null,
+    selectedBeach: null as any,
+    filteredBeaches: mockBeaches as any,
     searchQuery: "",
-    regionViewport: null,
+    regionViewport: null as any,
+    hasTimedOut: false,
     onGetUserLocation: jest.fn(),
     onUseDefaultLocation: jest.fn(),
     onBeachSelect: jest.fn(),
@@ -114,7 +115,7 @@ describe("MapContent", () => {
       <MapContent
         {...defaultProps}
         searchQuery="Ocean"
-        filteredBeaches={[mockBeaches[0]]}
+        filteredBeaches={[mockBeaches[0]] as any}
       />
     );
 
@@ -162,7 +163,7 @@ describe("MapContent", () => {
       <MapContent
         {...defaultProps}
         usingDefaultLocation={true}
-        userLocation={{ lat: 32.7, lng: -117.2 }}
+        userLocation={{ lat: 32.7, lon: -117.2 }}
       />
     );
 
@@ -215,7 +216,7 @@ describe("MapContent", () => {
   });
 
   it("should show selected beach name in overlay", () => {
-    render(<MapContent {...defaultProps} selectedBeach={mockBeaches[0]} />);
+    render(<MapContent {...defaultProps} selectedBeach={mockBeaches[0] as any} />);
 
     expect(
       screen.getByText(`Showing ${mockBeaches[0].name}`)
@@ -245,7 +246,7 @@ describe("MapContent", () => {
   });
 
   it("should use correct map center based on selected beach", () => {
-    const selectedBeach = mockBeaches[0];
+    const selectedBeach = mockBeaches[0] as any;
     render(<MapContent {...defaultProps} selectedBeach={selectedBeach} />);
 
     // The map should be rendered with the selected beach coordinates
@@ -257,7 +258,7 @@ describe("MapContent", () => {
       <MapContent
         {...defaultProps}
         searchQuery="Ocean"
-        filteredBeaches={[mockBeaches[0]]}
+        filteredBeaches={[mockBeaches[0]] as any}
       />
     );
 

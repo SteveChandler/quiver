@@ -32,7 +32,7 @@ export function useMultipleBeachReviews(beachIds: string[]) {
       const result = await getMultipleBeachReviewStats(beachIds);
 
       if (result.success) {
-        setReviewStats(result.data);
+        setReviewStats(result.data ?? {});
         lastBeachIdsRef.current = beachIdsKey;
       } else {
         setError(result.error || "Failed to fetch review stats");

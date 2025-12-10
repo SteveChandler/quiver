@@ -19,24 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Form } from "@/components/ui/form";
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  FormInput,
+  FormTextarea,
+  FormSelect,
+} from "@/components/ui/form-fields";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, MapPin, User, Calendar } from "lucide-react";
@@ -58,7 +46,11 @@ interface IntelEditDialogProps {
   submitting?: boolean;
 }
 
-const INTEL_TAG_OPTIONS: { value: IntelPostTag; label: string; description: string }[] = [
+const INTEL_TAG_OPTIONS: {
+  value: IntelPostTag;
+  label: string;
+  description: string;
+}[] = [
   {
     value: "parking",
     label: "Parking",
@@ -120,7 +112,9 @@ export function IntelEditDialog({
     }
   }, [intel, form]);
 
-  const handleSubmit = async (data: z.infer<typeof updateIntelContentSchema>) => {
+  const handleSubmit = async (
+    data: z.infer<typeof updateIntelContentSchema>
+  ) => {
     await onSubmit(data);
     onClose();
   };
@@ -151,9 +145,13 @@ export function IntelEditDialog({
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">{intel.beach?.name || "Unknown Beach"}</p>
+                    <p className="font-medium">
+                      {intel.beach?.name || "Unknown Beach"}
+                    </p>
                     {intel.beach?.region && (
-                      <p className="text-xs text-muted-foreground">{intel.beach.region}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {intel.beach.region}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -178,81 +176,44 @@ export function IntelEditDialog({
 
             {/* Edit Form */}
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(handleSubmit)}
+                className="space-y-4"
+              >
                 {/* Tag */}
-                <FormField
+                <FormSelect
                   control={form.control}
                   name="tag"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tag *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a tag" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {INTEL_TAG_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              <div>
-                                <p className="font-medium">{option.label}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {option.description}
-                                </p>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                  label="Tag *"
+                  placeholder="Select a tag"
+                  options={INTEL_TAG_OPTIONS}
+                  renderOption={(option) => (
+                    <div>
+                      <p className="font-medium">{option.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {option.description as string}
+                      </p>
+                    </div>
                   )}
                 />
 
                 {/* Title */}
-                <FormField
+                <FormInput
                   control={form.control}
                   name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title *</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Brief summary of the intel"
-                          {...field}
-                          maxLength={100}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        {field.value.length}/100 characters
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Title *"
+                  placeholder="Brief summary of the intel"
+                  maxLength={100}
                 />
 
                 {/* Description */}
-                <FormField
+                <FormTextarea
                   control={form.control}
                   name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description *</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Detailed information about this intel report"
-                          rows={6}
-                          {...field}
-                          maxLength={500}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        {field.value.length}/500 characters
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Description *"
+                  placeholder="Detailed information about this intel report"
+                  rows={6}
+                  maxLength={500}
                 />
 
                 <DialogFooter>
@@ -260,7 +221,9 @@ export function IntelEditDialog({
                     Cancel
                   </Button>
                   <Button type="submit" disabled={submitting}>
-                    {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {submitting && (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    )}
                     Save Changes
                   </Button>
                 </DialogFooter>

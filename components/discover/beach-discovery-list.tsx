@@ -173,7 +173,9 @@ export function BeachDiscoveryList({
     );
   }
 
-  // Success state with recommendations
+  // Success state with recommendations - discovery is guaranteed non-null here
+  if (!discovery) return null;
+
   return (
     <div className="space-y-4" data-testid="beach-discovery-list">
       {/* Header */}

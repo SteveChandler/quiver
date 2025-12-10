@@ -140,7 +140,7 @@ describe("server-action-utils", () => {
     });
 
     test("provides supabase client to action", async () => {
-      let clientReceived = null;
+      let clientReceived: any = null;
       await withAuthenticatedAction(async (user, supabase) => {
         clientReceived = supabase;
         return "test";
@@ -235,7 +235,7 @@ describe("server-action-utils", () => {
     });
 
     test("provides supabase client to operation", async () => {
-      let clientReceived = null;
+      let clientReceived: any = null;
       await withDatabaseOperation(async (supabase) => {
         clientReceived = supabase;
         return { data: { test: true }, error: null };

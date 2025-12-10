@@ -123,7 +123,7 @@ describe("Beach Review Actions", () => {
 
     it("should handle no review found", async () => {
       mockSupabaseClient = mockSupabaseBuilder
-        .withSelectSingle("beach-1", "user-1", null, { code: "PGRST116" })
+        .withSelectSingle("beach-1", "user-1", null, { message: "No rows returned", code: "PGRST116" })
         .build();
 
       const result = await getUserReviewForBeach("beach-1", "user-1");

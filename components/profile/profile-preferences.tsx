@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -24,6 +23,7 @@ import {
   FormItem,
   FormLabel,
 } from "@/components/ui/form";
+import { FormSwitch } from "@/components/ui/form-fields";
 import { toast } from "@/components/ui/use-toast";
 import { updateProfile } from "@/actions/profile-actions";
 import { BeachSelector } from "@/components/BeachSelector";
@@ -210,96 +210,36 @@ export function ProfilePreferences({
             <div className="space-y-4">
               <h3 className="text-sm font-medium">Notification Settings</h3>
 
-              <FormField<PreferencesFormValues>
+              <FormSwitch<PreferencesFormValues>
                 control={form.control}
                 name="notif_reminders"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        Session Reminders
-                      </FormLabel>
-                      <FormDescription>
-                        Receive reminders to log your surf sessions
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value as boolean}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
+                label="Session Reminders"
+                description="Receive reminders to log your surf sessions"
+                disabled={isSubmitting}
               />
 
-              <FormField<PreferencesFormValues>
+              <FormSwitch<PreferencesFormValues>
                 control={form.control}
                 name="digest_session_invites"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        Session Invite Digests
-                      </FormLabel>
-                      <FormDescription>
-                        Get periodic digest of session invitations
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value as boolean}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
+                label="Session Invite Digests"
+                description="Get periodic digest of session invitations"
+                disabled={isSubmitting}
               />
 
-              <FormField<PreferencesFormValues>
+              <FormSwitch<PreferencesFormValues>
                 control={form.control}
                 name="inapp_session_invites"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        In‑app Session Invites
-                      </FormLabel>
-                      <FormDescription>
-                        Show session invitations in your activity feed
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value as boolean}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
+                label="In‑app Session Invites"
+                description="Show session invitations in your activity feed"
+                disabled={isSubmitting}
               />
 
-              <FormField<PreferencesFormValues>
+              <FormSwitch<PreferencesFormValues>
                 control={form.control}
                 name="email_session_invites"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        Email Session Invites
-                      </FormLabel>
-                      <FormDescription>
-                        Receive email when someone invites you to a surf session
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value as boolean}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
+                label="Email Session Invites"
+                description="Receive email when someone invites you to a surf session"
+                disabled={isSubmitting}
               />
             </div>
           </CardContent>

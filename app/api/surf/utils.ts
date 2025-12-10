@@ -325,8 +325,8 @@ export async function getSurfForecast({
         const matchedBeach = matchingBeaches[0];
         beachName = matchedBeach.name;
         coordinates = {
-          lat: matchedBeach.lat,
-          lng: matchedBeach.lon,
+          lat: matchedBeach.lat ?? 0,
+          lng: matchedBeach.lon ?? 0,
         };
 
         // Get forecast from database
@@ -365,8 +365,8 @@ export async function getSurfForecast({
               if (beach.id === matchedBeach.id) continue; // Skip the current beach
 
               const distance = getDistanceInKm(
-                { lat: matchedBeach.lat, lng: matchedBeach.lon },
-                { lat: beach.lat, lng: beach.lon }
+                { lat: matchedBeach.lat ?? 0, lng: matchedBeach.lon ?? 0 },
+                { lat: beach.lat ?? 0, lng: beach.lon ?? 0 }
               );
 
               // Look for beaches within 20 miles (32 km)

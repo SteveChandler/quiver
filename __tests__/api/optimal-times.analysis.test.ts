@@ -139,7 +139,7 @@ describe("optimal-times analysis helpers", () => {
     // Should prefer blocks around the selected time and exclude distant times
     expect(slots.length).toBeGreaterThanOrEqual(1);
     // Each slot should contain a time near the selection
-    const hours = slots.map((s) => parseTimeToHour(s.time as string) ?? 0);
+    const hours = slots.map((s: { time: string }) => parseTimeToHour(s.time) ?? 0);
     for (const h of hours) {
       const diff = Math.min(Math.abs(h - 6), 24 - Math.abs(h - 6));
       expect(diff).toBeLessThanOrEqual(2.1);

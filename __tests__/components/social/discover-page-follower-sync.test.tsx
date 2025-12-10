@@ -49,7 +49,7 @@ global.fetch = jest.fn();
 describe("DiscoverPage Follower Count Synchronization", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseAuth.mockReturnValue({ user: mockUser });
+    mockUseAuth.mockReturnValue({ user: mockUser } as any);
   });
 
   describe("Luna follower count bug reproduction", () => {

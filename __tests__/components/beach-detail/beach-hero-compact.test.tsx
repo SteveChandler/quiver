@@ -11,7 +11,7 @@ import { render, screen } from "@testing-library/react";
 import { BeachHeroCompact } from "@/components/beach-detail/beach-hero-compact";
 import type { Beach } from "@/types/database";
 
-const mockBeach: Beach & { average_rating?: number; review_count?: number } = {
+const mockBeach = {
   id: "test-beach-1",
   name: "Ocean Beach",
   city: "San Francisco",
@@ -28,7 +28,7 @@ const mockBeach: Beach & { average_rating?: number; review_count?: number } = {
   updated_at: "2024-01-01",
   enabled: true,
   country: "USA",
-};
+} as any;
 
 describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
   describe("Container Styling", () => {
@@ -154,9 +154,9 @@ describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
     it("should not display rating if average_rating not available", () => {
       const beach = {
         ...mockBeach,
-        average_rating: undefined,
+        average_rating: null,
         wave_quality_rating: 3.8,
-      };
+      } as any;
       render(<BeachHeroCompact beach={beach} />);
       // Component only uses average_rating, not wave_quality_rating as fallback
       expect(screen.queryByText("3.8")).not.toBeInTheDocument();
@@ -267,7 +267,7 @@ describe("BeachHeroCompact Component - Phase 4 Specifications", () => {
     });
 
     it("should fallback to region_id if city/state not available", () => {
-      const beach = { ...mockBeach, city: undefined, state: undefined };
+      const beach = { ...mockBeach, city: null, state: null } as any;
       render(<BeachHeroCompact beach={beach} />);
       expect(screen.getByText("Northern California")).toBeInTheDocument();
     });

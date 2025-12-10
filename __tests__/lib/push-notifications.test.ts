@@ -6,7 +6,7 @@
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 
 // Mock Firebase Admin SDK
-const mockSendEachForMulticast = jest.fn();
+const mockSendEachForMulticast = jest.fn<any>();
 const mockMessaging = {
   sendEachForMulticast: mockSendEachForMulticast,
 };
@@ -17,7 +17,7 @@ jest.mock("@/lib/services/firebase-admin", () => ({
 }));
 
 // Mock Supabase service role client
-const mockSupabaseFrom = jest.fn();
+const mockSupabaseFrom = jest.fn<any>();
 const mockSupabase = {
   from: mockSupabaseFrom,
 };
@@ -64,8 +64,8 @@ describe("Push Notifications Service", () => {
       ];
 
       mockSupabaseFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockResolvedValue({
+        select: jest.fn<any>().mockReturnValue({
+          in: jest.fn<any>().mockResolvedValue({
             data: mockDevices,
             error: null,
           }),
@@ -118,15 +118,15 @@ describe("Push Notifications Service", () => {
         { device_token: "invalid-token", platform: "ios", user_id: "user-2" },
       ];
 
-      const mockDelete = jest.fn().mockReturnValue({
-        in: jest.fn().mockResolvedValue({ error: null }),
+      const mockDelete = jest.fn<any>().mockReturnValue({
+        in: jest.fn<any>().mockResolvedValue({ error: null }),
       });
 
       mockSupabaseFrom.mockImplementation((table: string) => {
         if (table === "user_devices") {
           return {
-            select: jest.fn().mockReturnValue({
-              in: jest.fn().mockResolvedValue({
+            select: jest.fn<any>().mockReturnValue({
+              in: jest.fn<any>().mockResolvedValue({
                 data: mockDevices,
                 error: null,
               }),
@@ -162,15 +162,15 @@ describe("Push Notifications Service", () => {
 
       // Verify invalid token was deleted
       expect(mockDelete).toHaveBeenCalled();
-      expect(mockDelete().in).toHaveBeenCalledWith("device_token", [
+      expect((mockDelete as any)().in).toHaveBeenCalledWith("device_token", [
         "invalid-token",
       ]);
     });
 
     it("should handle errors gracefully", async () => {
       mockSupabaseFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockResolvedValue({
+        select: jest.fn<any>().mockReturnValue({
+          in: jest.fn<any>().mockResolvedValue({
             data: null,
             error: new Error("Database error"),
           }),
@@ -203,8 +203,8 @@ describe("Push Notifications Service", () => {
       ];
 
       mockSupabaseFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockResolvedValue({
+        select: jest.fn<any>().mockReturnValue({
+          in: jest.fn<any>().mockResolvedValue({
             data: mockDevices,
             error: null,
           }),

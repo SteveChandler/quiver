@@ -28,7 +28,7 @@ jest.mock("@/components/ui/use-toast", () => ({
 }));
 
 describe("Board Creation Event Bubbling Prevention", () => {
-  const mockBoard: Board = {
+  const mockBoard = {
     id: "test-board-id",
     user_id: "test-user-id",
     name: "Test Board",
@@ -37,9 +37,11 @@ describe("Board Creation Event Bubbling Prevention", () => {
     description: "Test board description",
     image_url: null,
     session_count: 0,
+    size: null,
+    volume: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  };
+  } as Board;
 
   beforeEach(() => {
     jest.clearAllMocks();

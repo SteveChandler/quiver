@@ -14,8 +14,15 @@ import { Info, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BeachForecastAccuracy } from "@/types/database";
 
+// Extended type for accuracy data with additional computed fields
+interface ExtendedAccuracy extends BeachForecastAccuracy {
+  wave_height_accuracy?: number | null;
+  wind_accuracy?: number | null;
+  updated_at?: string;
+}
+
 interface ForecastAccuracyCardProps {
-  accuracy: BeachForecastAccuracy;
+  accuracy: ExtendedAccuracy;
   beachName?: string;
   className?: string;
   showTrend?: boolean;
@@ -73,7 +80,7 @@ export function ForecastAccuracyCard({
                   Based on {accuracy.total_sessions_count} user sessions
                   <br />
                   Last updated:{" "}
-                  {new Date(accuracy.updated_at).toLocaleDateString()}
+                  {accuracy.updated_at ? new Date(accuracy.updated_at).toLocaleDateString() : "N/A"}
                 </p>
               </TooltipContent>
             </Tooltip>

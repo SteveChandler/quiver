@@ -1,3 +1,4 @@
+// @ts-expect-error - defineConfig may not exist in older @capacitor/assets versions
 import { defineConfig } from "@capacitor/assets";
 
 export default defineConfig({

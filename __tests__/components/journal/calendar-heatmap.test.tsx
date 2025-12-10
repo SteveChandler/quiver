@@ -5,7 +5,8 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 // Mock dependencies
 jest.mock("@/hooks/use-data-fetcher");
 
-const mockSessions = [
+// Cast to any to avoid strict type checking on mock session objects
+const mockSessions: any[] = [
   {
     id: "session-1",
     user_id: "user-123",

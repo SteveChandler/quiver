@@ -209,7 +209,7 @@ describe('Gamification Actions', () => {
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(1);
       expect(result.data?.[0].badge_slug).toBe('first_ride');
-      expect(result.data?.[0].badge_definitions.name).toBe('First Ride');
+      expect((result.data?.[0] as any).badge_definitions.name).toBe('First Ride');
     });
 
     test('should return empty array for user with no badges', async () => {

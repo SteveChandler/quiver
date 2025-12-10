@@ -677,7 +677,7 @@ describe("AppHeader", () => {
 
       if (searchInput) {
         // Type rapidly
-        await user.type(searchInput, "rapidtest", { delay: 10 });
+        await user.type(searchInput, "rapidtest");
         expect(searchInput).toHaveValue("rapidtest");
       }
     });
@@ -1507,7 +1507,7 @@ describe("AppHeader", () => {
 
         const { rerender } = render(<AppHeader />);
 
-        let badge = screen.getByTestId("notification-badge");
+        let badge: HTMLElement | null = screen.getByTestId("notification-badge");
         expect(badge).toBeInTheDocument();
 
         // Update count

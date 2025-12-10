@@ -55,15 +55,16 @@ describe("Features Constants", () => {
     });
 
     it("has sections content structure", () => {
-      const sections = ["social", "forecast", "features", "cta"];
+      const sections = ["social", "forecast", "features", "cta"] as const;
+      const sectionsObj = CONTENT.sections as Record<string, { title: string; subtitle: string }>;
 
       sections.forEach((section) => {
         expect(CONTENT.sections).toHaveProperty(section);
-        expect(CONTENT.sections[section]).toHaveProperty("title");
-        expect(CONTENT.sections[section]).toHaveProperty("subtitle");
+        expect(sectionsObj[section]).toHaveProperty("title");
+        expect(sectionsObj[section]).toHaveProperty("subtitle");
 
-        expect(typeof CONTENT.sections[section].title).toBe("string");
-        expect(typeof CONTENT.sections[section].subtitle).toBe("string");
+        expect(typeof sectionsObj[section].title).toBe("string");
+        expect(typeof sectionsObj[section].subtitle).toBe("string");
       });
     });
 

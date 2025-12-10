@@ -21,7 +21,7 @@
  * - user_surf_preferences: 1 record (confidence > 0.5)
  */
 
-import { chromium } from "@playwright/test";
+import { chromium, Page } from "@playwright/test";
 import { createTestSession } from "../utils/session-test-data";
 import * as dotenv from 'dotenv';
 import path from 'path';

@@ -48,16 +48,31 @@ const mockRemoveIntelPostConfirmation =
   >;
 const mockToast = toast as jest.Mocked<typeof toast>;
 
+// Create a mock user that satisfies the User type (partial mock)
 const mockUser = {
   id: "user123",
   email: "test@example.com",
+  app_metadata: {},
+  user_metadata: {},
+  aud: "authenticated",
+  created_at: "2024-01-01T00:00:00Z",
+} as any;
+
+// Default filters for IntelData
+const defaultFilters = {
+  latitude: 32.7157,
+  longitude: -117.1611,
+  radius: 5,
+  tag: "all" as const,
+  limit: 50,
 };
 
+// Complete mock intel post with all required properties
 const mockIntelPost = {
   id: "post123",
   user_id: "user456",
-  lat: 32.7157,
-  lon: -117.1611,
+  latitude: 32.7157,
+  longitude: -117.1611,
   tag: "conditions" as const,
   title: "Great waves today!",
   description: "Perfect conditions with clean 4-6ft waves and offshore winds",
@@ -66,6 +81,12 @@ const mockIntelPost = {
   created_at: "2024-01-15T10:00:00Z",
   is_active: true,
   updated_at: "2024-01-15T10:00:00Z",
+  beach_id: null,
+  dedupe_hash: null,
+  expires_at: null,
+  photo_storage_path: null,
+  photo_url: null,
+  surf_conditions: null,
   user: {
     id: "user456",
     full_name: "surfer123",
@@ -77,13 +98,56 @@ const mockIntelPost = {
 const defaultProps = {
   beachId: "beach123",
   beachName: "La Jolla Shores",
-  lat: 32.7157,
-  lon: -117.1611,
+  latitude: 32.7157,
+  longitude: -117.1611,
+};
+
+// Mock auth return value helper
+const mockAuthReturn = (user: any = mockUser) => ({
+  user,
+  session: null,
+  isLoading: false,
+  isAuthenticated: !!user,
+  signUp: jest.fn(),
+  signIn: jest.fn(),
+  signOut: jest.fn(),
+  refreshSession: jest.fn(),
+});
+
+// Mock intel data return value helper - cast to any to bypass strict type checking
+const mockIntelDataReturn = (overrides: {
+  data?: { posts: any[]; total?: number; filters?: any } | null;
+  loading?: boolean;
+  error?: string | null;
+  refetch?: jest.Mock;
+  posts?: any[];
+  updateFilters?: jest.Mock;
+  hasData?: boolean;
+} = {}) => {
+  const dataWithDefaults = overrides.data !== undefined
+    ? overrides.data === null
+      ? null
+      : {
+          posts: overrides.data.posts || [],
+          total: overrides.data.total ?? overrides.data.posts?.length ?? 0,
+          filters: overrides.data.filters || defaultFilters,
+        }
+    : { posts: [], total: 0, filters: defaultFilters };
+
+  return {
+    data: dataWithDefaults,
+    loading: overrides.loading ?? false,
+    error: overrides.error ?? null,
+    refetch: overrides.refetch ?? jest.fn(),
+    posts: overrides.posts ?? (dataWithDefaults?.posts || []),
+    updateFilters: overrides.updateFilters ?? jest.fn(),
+    hasData: overrides.hasData ?? (dataWithDefaults?.posts?.length ?? 0) > 0,
+  } as any;
 };
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUseAuth.mockReturnValue({ user: mockUser, loading: false });
+  mockUseAuth.mockReturnValue(mockAuthReturn());
   mockToast.success = jest.fn();
   mockToast.error = jest.fn();
 });
@@ -92,7 +156,7 @@ describe("BeachIntelSection", () => {
   describe("Loading States", () => {
     it("shows loading skeleton when loading with no posts", () => {
       mockUseIntelData.mockReturnValue({
-        data: { posts: [], total: 0, filters: {} },
+        data: { posts: [], total: 0, filters: defaultFilters },
         loading: true,
         error: null,
         refetch: jest.fn(),
@@ -109,7 +173,7 @@ describe("BeachIntelSection", () => {
 
     it("renders properly when not loading", () => {
       mockUseIntelData.mockReturnValue({
-        data: { posts: [], total: 0, filters: {} },
+        data: { posts: [], total: 0, filters: defaultFilters },
         loading: false,
         error: null,
         refetch: jest.fn(),
@@ -128,7 +192,7 @@ describe("BeachIntelSection", () => {
   describe("Empty State", () => {
     it("shows empty state message when no posts", () => {
       mockUseIntelData.mockReturnValue({
-        data: { posts: [], total: 0, filters: {} },
+        data: { posts: [], total: 0, filters: defaultFilters },
         loading: false,
         error: null,
         refetch: jest.fn(),
@@ -150,7 +214,7 @@ describe("BeachIntelSection", () => {
 
     it("opens post form when clicking 'Add First Intel'", () => {
       mockUseIntelData.mockReturnValue({
-        data: { posts: [], total: 0, filters: {} },
+        data: { posts: [], total: 0, filters: defaultFilters },
         loading: false,
         error: null,
         refetch: jest.fn(),
@@ -173,6 +237,9 @@ describe("BeachIntelSection", () => {
         loading: false,
         error: "Network error",
         refetch: jest.fn(),
+        posts: [],
+        updateFilters: jest.fn(),
+        hasData: false,
       });
 
       render(<BeachIntelSection {...defaultProps} />);
@@ -190,6 +257,9 @@ describe("BeachIntelSection", () => {
         loading: false,
         error: "Network error",
         refetch: mockRefetch,
+        posts: [],
+        updateFilters: jest.fn(),
+        hasData: false,
       });
 
       render(<BeachIntelSection {...defaultProps} />);
@@ -201,12 +271,9 @@ describe("BeachIntelSection", () => {
 
   describe("Intel Posts Display", () => {
     it("renders intel posts correctly", () => {
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [mockIntelPost] },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [mockIntelPost] as any },
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -220,12 +287,9 @@ describe("BeachIntelSection", () => {
     });
 
     it("shows post count badge when posts exist", () => {
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [mockIntelPost] },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [mockIntelPost] as any },
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -238,17 +302,15 @@ describe("BeachIntelSection", () => {
         id: `post${i}`,
         title: `Post ${i}`,
         user: {
+          id: `user${i}`,
           full_name: `User ${i}`,
           avatar_url: null,
         },
       }));
 
-      mockUseIntelData.mockReturnValue({
-        data: { posts: multiplePosts },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: multiplePosts as any },
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -267,7 +329,7 @@ describe("BeachIntelSection", () => {
         title: "Older with confirmations",
         confirmations_count: 10,
         created_at: "2023-01-01T00:00:00Z",
-        user: { full_name: "Old User", avatar_url: null },
+        user: { id: "old-user", full_name: "Old User", avatar_url: null },
       };
       const newestLowConfirmed = {
         ...mockIntelPost,
@@ -275,15 +337,12 @@ describe("BeachIntelSection", () => {
         title: "Newest with few confirmations",
         confirmations_count: 0,
         created_at: "2025-01-01T00:00:00Z",
-        user: { full_name: "New User", avatar_url: null },
+        user: { id: "new-user", full_name: "New User", avatar_url: null },
       };
 
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [olderHighConfirmed, newestLowConfirmed] },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [olderHighConfirmed, newestLowConfirmed] as any },
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -295,12 +354,9 @@ describe("BeachIntelSection", () => {
 
   describe("Post Form Integration", () => {
     it("opens intel post form when clicking 'Add Intel'", () => {
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [mockIntelPost] },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [mockIntelPost] as any },
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -310,12 +366,10 @@ describe("BeachIntelSection", () => {
 
     it("handles successful post creation", async () => {
       const mockRefetch = jest.fn();
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [] },
-        loading: false,
-        error: null,
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [] as any },
         refetch: mockRefetch,
-      });
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -336,12 +390,10 @@ describe("BeachIntelSection", () => {
     it("handles confirming a post", async () => {
       const mockRefetch = jest.fn();
       mockConfirmIntelPost.mockResolvedValue({ success: true });
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [mockIntelPost] },
-        loading: false,
-        error: null,
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [mockIntelPost] as any },
         refetch: mockRefetch,
-      });
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -362,17 +414,16 @@ describe("BeachIntelSection", () => {
         ...mockIntelPost,
         user_has_confirmed: true,
         user: {
+          id: "confirmed-user",
           full_name: "Confirmed User",
           avatar_url: null,
         },
       };
       mockRemoveIntelPostConfirmation.mockResolvedValue({ success: true });
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [confirmedPost] },
-        loading: false,
-        error: null,
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [confirmedPost] as any },
         refetch: mockRefetch,
-      });
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -392,12 +443,9 @@ describe("BeachIntelSection", () => {
         success: false,
         error: "Network error",
       });
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [mockIntelPost] },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [mockIntelPost] as any },
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -409,13 +457,10 @@ describe("BeachIntelSection", () => {
     });
 
     it("hides voting controls for unauthenticated users", async () => {
-      mockUseAuth.mockReturnValue({ user: null, loading: false });
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [mockIntelPost] },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseAuth.mockReturnValue(mockAuthReturn(null));
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [mockIntelPost] as any },
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -431,17 +476,15 @@ describe("BeachIntelSection", () => {
         ...mockIntelPost,
         description: "A".repeat(150), // Long description
         user: {
+          id: "long-post-user",
           full_name: "Long Post User",
           avatar_url: null,
         },
       };
 
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [longPost] },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [longPost] as any },
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -456,12 +499,9 @@ describe("BeachIntelSection", () => {
     });
 
     it("doesn't show expansion controls for short descriptions", () => {
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [mockIntelPost] }, // Short description
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [mockIntelPost] as any },
+      }));
 
       render(<BeachIntelSection {...defaultProps} />);
 
@@ -472,12 +512,9 @@ describe("BeachIntelSection", () => {
 
   describe("Responsive Design", () => {
     it("applies custom className", () => {
-      mockUseIntelData.mockReturnValue({
-        data: { posts: [] },
-        loading: false,
-        error: null,
-        refetch: jest.fn(),
-      });
+      mockUseIntelData.mockReturnValue(mockIntelDataReturn({
+        data: { posts: [] as any },
+      }));
 
       const { container } = render(
         <BeachIntelSection {...defaultProps} className="custom-class" />

@@ -47,7 +47,7 @@ const mockBeaches: Beach[] = [
     description: null,
     location_text: null,
     is_spot: true,
-  } as Beach,
+  } as unknown as Beach,
   {
     id: "2",
     name: "Ocean Beach",
@@ -62,7 +62,7 @@ const mockBeaches: Beach[] = [
     description: null,
     location_text: null,
     is_spot: true,
-  } as Beach,
+  } as unknown as Beach,
 ];
 
 describe("useBeachAutocomplete", () => {

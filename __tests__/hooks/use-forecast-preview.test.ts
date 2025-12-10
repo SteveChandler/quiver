@@ -283,7 +283,7 @@ describe("useForecastPreview", () => {
     });
 
     it("should handle rapid beachId changes without race conditions", async () => {
-      mockGetBeachForecastPreview.mockImplementation((beachId) => {
+      mockGetBeachForecastPreview.mockImplementation((beachId: string) => {
         return Promise.resolve({
           success: true,
           data: { ...mockForecastData, wave_height: `${beachId}-waves` },

@@ -59,7 +59,7 @@ jest.mock("@/lib/utils", () => ({
 }));
 
 describe("ForecastAccuracyCard", () => {
-  const mockAccuracyData: BeachForecastAccuracy = {
+  const mockAccuracyData = {
     id: "accuracy-1",
     beach_id: "beach-1",
     avg_wave_height_delta: 0.5,
@@ -73,7 +73,7 @@ describe("ForecastAccuracyCard", () => {
     wind_accuracy: 82.8,
     calculation_date: "2024-01-15",
     updated_at: "2024-01-15T10:30:00Z",
-  };
+  } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();

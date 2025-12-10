@@ -577,7 +577,6 @@ describe("UserStats", () => {
       const slowPromise = new Promise((resolve) => {
         slowResolve = resolve;
       });
-      // @ts-expect-error test-only mutation
       mockGetUserStats.mockReturnValueOnce(slowPromise);
 
       rerender(

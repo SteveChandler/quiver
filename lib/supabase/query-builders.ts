@@ -62,7 +62,7 @@ export interface ApprovedPhotosOptions {
  * @param options - Filtering options
  * @returns The query builder with filters applied
  */
-export function withApprovedPhotos<T extends PostgrestFilterBuilder<any, any, any>>(
+export function withApprovedPhotos<T extends PostgrestFilterBuilder<any, any, any, any>>(
   query: T,
   options: ApprovedPhotosOptions = {}
 ): T {

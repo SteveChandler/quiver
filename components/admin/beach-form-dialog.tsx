@@ -20,27 +20,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  FormInput,
+  FormNumberInput,
+  FormSelect,
+  FormCheckbox,
+} from "@/components/ui/form-fields";
 
-import { beachFormSchema, type BeachFormData } from "@/lib/validation/admin/beach-schema";
+import {
+  beachFormSchema,
+  type BeachFormData,
+} from "@/lib/validation/admin/beach-schema";
 import type { Beach } from "@/types/database";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 
@@ -62,7 +54,7 @@ export function BeachFormDialog({
   const isEditing = !!beach;
 
   const form = useForm<BeachFormData>({
-    resolver: zodResolver(beachFormSchema),
+    resolver: zodResolver(beachFormSchema) as any,
     defaultValues: {
       name: "",
       location: "",
@@ -88,8 +80,8 @@ export function BeachFormDialog({
           country: beach.country || "",
           latitude: beach.lat,
           longitude: beach.lon,
-          break_type: beach.break_type,
-          skill_level: beach.skill_level,
+          break_type: beach.break_type as any,
+          skill_level: beach.skill_level as any,
           is_private: beach.is_private || false,
           hazards: beach.hazards || [],
         });
@@ -119,7 +111,9 @@ export function BeachFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Beach" : "Create New Beach"}</DialogTitle>
+          <DialogTitle>
+            {isEditing ? "Edit Beach" : "Create New Beach"}
+          </DialogTitle>
           <DialogDescription>
             {isEditing
               ? "Update beach information. Changes will be logged in the audit trail."
@@ -128,199 +122,110 @@ export function BeachFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit as any)}
+            className="space-y-6"
+          >
             {/* Basic Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground">Basic Information</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground">
+                Basic Information
+              </h3>
 
-              <FormField
-                control={form.control}
+              <FormInput<BeachFormData>
+                control={form.control as any}
                 name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Beach Name *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Malibu Surfrider Beach" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="Beach Name *"
+                placeholder="e.g., Malibu Surfrider Beach"
               />
 
               <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
+                <FormInput<BeachFormData>
+                  control={form.control as any}
                   name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location (City/Area)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Malibu" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Location (City/Area)"
+                  placeholder="e.g., Malibu"
                 />
 
-                <FormField
-                  control={form.control}
+                <FormInput<BeachFormData>
+                  control={form.control as any}
                   name="region"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Region *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Southern California" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Region *"
+                  placeholder="e.g., Southern California"
                 />
               </div>
 
-              <FormField
-                control={form.control}
+              <FormInput<BeachFormData>
+                control={form.control as any}
                 name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., USA" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="Country"
+                placeholder="e.g., USA"
               />
             </div>
 
             {/* Location Coordinates */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground">Coordinates</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground">
+                Coordinates
+              </h3>
 
               <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
+                <FormNumberInput<BeachFormData>
+                  control={form.control as any}
                   name="latitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Latitude</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="any"
-                          placeholder="e.g., 34.0259"
-                          {...field}
-                          value={field.value ?? ""}
-                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Latitude"
+                  placeholder="e.g., 34.0259"
                 />
 
-                <FormField
-                  control={form.control}
+                <FormNumberInput<BeachFormData>
+                  control={form.control as any}
                   name="longitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Longitude</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="any"
-                          placeholder="e.g., -118.7798"
-                          {...field}
-                          value={field.value ?? ""}
-                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Longitude"
+                  placeholder="e.g., -118.7798"
                 />
               </div>
             </div>
 
             {/* Beach Characteristics */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground">Characteristics</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground">
+                Characteristics
+              </h3>
 
               <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
+                <FormSelect<BeachFormData>
+                  control={form.control as any}
                   name="break_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Break Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value || ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select break type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="beach">Beach Break</SelectItem>
-                          <SelectItem value="point">Point Break</SelectItem>
-                          <SelectItem value="reef">Reef Break</SelectItem>
-                          <SelectItem value="river">River Mouth</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Break Type"
+                  placeholder="Select break type"
+                  options={[
+                    { value: "beach", label: "Beach Break" },
+                    { value: "point", label: "Point Break" },
+                    { value: "reef", label: "Reef Break" },
+                    { value: "river", label: "River Mouth" },
+                    { value: "other", label: "Other" },
+                  ]}
                 />
 
-                <FormField
-                  control={form.control}
+                <FormSelect<BeachFormData>
+                  control={form.control as any}
                   name="skill_level"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Skill Level</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value || ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select skill level" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="beginner">Beginner</SelectItem>
-                          <SelectItem value="intermediate">Intermediate</SelectItem>
-                          <SelectItem value="advanced">Advanced</SelectItem>
-                          <SelectItem value="expert">Expert</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  label="Skill Level"
+                  placeholder="Select skill level"
+                  options={[
+                    { value: "beginner", label: "Beginner" },
+                    { value: "intermediate", label: "Intermediate" },
+                    { value: "advanced", label: "Advanced" },
+                    { value: "expert", label: "Expert" },
+                  ]}
                 />
               </div>
 
-              <FormField
-                control={form.control}
+              <FormCheckbox<BeachFormData>
+                control={form.control as any}
                 name="is_private"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Private Beach</FormLabel>
-                      <FormDescription>
-                        Mark this beach as private or requiring special access
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
+                label="Private Beach"
+                description="Mark this beach as private or requiring special access"
               />
             </div>
 

@@ -42,8 +42,8 @@ function prepareBeachCardData(
       { lat: coords.latitude, lon: coords.longitude },
       "miles"
     );
-  } else if (beach.location_text) {
-    distance = beach.location_text;
+  } else if ((beach as any).location_text) {
+    distance = (beach as any).location_text;
   } else {
     // Fallback distance calculation for display
     distance = `${Math.floor(Math.random() * 20) + 1} miles`;

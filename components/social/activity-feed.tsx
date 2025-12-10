@@ -2,9 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
+import { ZeroState } from "@/components/ui/zero-state";
 import { useActivityFeed } from "@/hooks/use-activity-feed";
 import { ActivityItem, getActivityLink } from "@/components/social/activity";
-import { RefreshCw, Users } from "lucide-react";
+import { RefreshCw, Users, UserPlus } from "lucide-react";
 
 interface ActivityFeedProps {
   userId?: string; // If provided, show personalized feed; otherwise show global feed
@@ -34,7 +35,6 @@ export function ActivityFeed({
     refreshInterval: 30000,
   });
 
-
   if (loading && activities.length === 0) {
     return (
       <div className={`py-8 ${className}`}>
@@ -57,15 +57,24 @@ export function ActivityFeed({
 
   if (activities.length === 0) {
     return (
-      <div className={`text-center py-8 text-muted-foreground ${className}`}>
-        <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p className="text-lg font-medium mb-2">No activities yet</p>
-        <p className="text-sm">
-          {userId
+      <ZeroState
+        icon={Users}
+        title="No Activities Yet"
+        description={
+          userId
             ? "Follow other surfers to see their activities here"
-            : "Start logging sessions and connecting with other surfers!"}
-        </p>
-      </div>
+            : "Start logging sessions and connecting with other surfers!"
+        }
+        action={
+          userId
+            ? undefined
+            : {
+                label: "Log Your First Session",
+                href: "/sessions/new?mode=log",
+              }
+        }
+        className={className}
+      />
     );
   }
 

@@ -16,7 +16,6 @@ const config: CapacitorConfig = {
   appId: "app.quiversurf.mobile",
   appName: "Quiver Dev",
   webDir: "out",
-  bundledWebRuntime: false,
   server: {
     androidScheme: "https",
     // REPLACE THIS URL with your tunnel URL

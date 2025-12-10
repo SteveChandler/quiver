@@ -18,7 +18,7 @@ describe("usePersonalizedHomeForecast", () => {
   const mockUser = { id: "user-123", email: "test@example.com" };
 
   // Mock discovery response (what useSurfDiscovery returns)
-  const mockDiscoveryResponse: SurfDiscoveryResponse = {
+  const mockDiscoveryResponse = {
     recommendations: [
       {
         beach: {
@@ -47,7 +47,7 @@ describe("usePersonalizedHomeForecast", () => {
           windAlignment: 3,
           tideFit: 2,
           affinityBonus: 0,
-          timeDecay: 0,
+          distancePenalty: 0,
         },
         summary: "Great conditions expected",
         reasons: ["Clean waves", "Offshore wind", "Good tide", "Perfect timing"],
@@ -59,9 +59,16 @@ describe("usePersonalizedHomeForecast", () => {
       totalBeachesConsidered: 10,
       successfulForecasts: 8,
       partialSuccess: false,
-      generatedAt: "2025-01-20T06:00:00Z",
+      failedBeaches: 2,
+      staleBeaches: 0,
+      generated_at: "2025-01-20T06:00:00Z",
     },
-  };
+    searchCriteria: {
+      location: { lat: 32.8328, lon: -117.2713 },
+      radiusMiles: 50,
+      targetDate: new Date("2025-01-20"),
+    },
+  } as unknown as SurfDiscoveryResponse;
 
   // Expected personalized recommendation (after adaptation)
   const mockRecommendation: PersonalizedForecastRecommendation = {

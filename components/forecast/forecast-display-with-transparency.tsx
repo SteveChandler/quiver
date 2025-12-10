@@ -90,7 +90,7 @@ export function ForecastDisplayWithTransparency({
     if (!forecasts.length) return null;
 
     const highConfidenceCount = forecasts.filter(
-      (f) => f.confidence_score >= 75
+      (f) => (f.confidence_score ?? 0) >= 75
     ).length;
     const fallbackCount = forecasts.filter(
       (f) => f.data_source === "FALLBACK"
@@ -311,7 +311,7 @@ export function ForecastDisplayWithTransparency({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ForecastDataSourceIndicator
               dataSource={primaryForecast.data_source}
-              confidenceScore={primaryForecast.confidence_score}
+              confidenceScore={primaryForecast.confidence_score ?? 0}
               dataSources={
                 primaryForecast.raw_forecast?.data_sources || [
                   primaryForecast.data_source,
@@ -326,7 +326,7 @@ export function ForecastDisplayWithTransparency({
             />
 
             <ConfidenceScoreExplanation
-              score={primaryForecast.confidence_score}
+              score={primaryForecast.confidence_score ?? 0}
               beachName={beach?.name}
               compact={compact}
               data-testid="detailed-confidence-explanation"
@@ -411,20 +411,20 @@ export function ForecastDisplayWithTransparency({
                           <div className="flex items-center space-x-2">
                             <Badge
                               variant={
-                                forecast.confidence_score >= 75
+                                (forecast.confidence_score ?? 0) >= 75
                                   ? "default"
                                   : "secondary"
                               }
                               className={cn("text-xs", {
                                 "bg-green-100 text-green-700":
-                                  forecast.confidence_score >= 75,
+                                  (forecast.confidence_score ?? 0) >= 75,
                                 "bg-red-100 text-red-700":
-                                  forecast.confidence_score < 50,
+                                  (forecast.confidence_score ?? 0) < 50,
                               })}
                             >
-                              {forecast.confidence_score >= 75
+                              {(forecast.confidence_score ?? 0) >= 75
                                 ? "High confidence"
-                                : forecast.confidence_score >= 50
+                                : (forecast.confidence_score ?? 0) >= 50
                                 ? "Medium confidence"
                                 : "Low confidence"}
                             </Badge>

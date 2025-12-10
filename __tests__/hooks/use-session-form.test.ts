@@ -277,7 +277,10 @@ describe('useSessionForm', () => {
         expect(result.current.loadingData).toBe(false);
       });
 
-      const photos = ['photo1.jpg', 'photo2.jpg'];
+      const photos = [
+        new File(['content1'], 'photo1.jpg', { type: 'image/jpeg' }),
+        new File(['content2'], 'photo2.jpg', { type: 'image/jpeg' }),
+      ];
 
       act(() => {
         result.current.updateField('photos', photos);
@@ -835,7 +838,10 @@ describe('useSessionForm', () => {
         result.current.updateField('crowdLevel', '3');
         result.current.updateField('overallRating', '5');
         result.current.updateField('notes', 'Epic session!');
-        result.current.updateField('photos', ['photo1.jpg', 'photo2.jpg']);
+        result.current.updateField('photos', [
+          new File(['content1'], 'photo1.jpg', { type: 'image/jpeg' }),
+          new File(['content2'], 'photo2.jpg', { type: 'image/jpeg' }),
+        ]);
       });
 
       // Verify complete state

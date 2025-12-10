@@ -52,7 +52,11 @@ describe("Map Utils", () => {
     });
 
     it("should prefer placeholder in production when no provider is configured", () => {
-      process.env.NODE_ENV = "production";
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'production',
+        writable: true,
+        configurable: true,
+      });
       process.env.VERCEL = "1";
 
       const result = getStaticMapImageUrl(32.7, -117.2);

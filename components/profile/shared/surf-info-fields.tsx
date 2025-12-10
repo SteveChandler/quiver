@@ -2,7 +2,6 @@
 
 import { useId } from "react";
 import { Control, UseFormSetValue } from "react-hook-form";
-import { FormMessage } from "@/components/ui/form";
 import { BeachSelector } from "@/components/BeachSelector";
 import type { ProfileFormValues } from "@/lib/schemas/profile-schema";
 import {
@@ -12,13 +11,7 @@ import {
   PreferredBreakTypeField,
   CrowdPreferenceField,
 } from "@/components/profile/shared/preference-fields";
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { FormInput } from "@/components/ui/form-fields";
 
 interface SurfInfoFieldsProps {
   /** React Hook Form control object */
@@ -86,11 +79,7 @@ export function SurfInfoFields({
         error={undefined}
       />
 
-      <SurfStylesField
-        control={control}
-        name="surf_styles"
-        error={undefined}
-      />
+      <SurfStylesField control={control} name="surf_styles" error={undefined} />
 
       <PreferredWaveSizeField
         control={control}
@@ -113,18 +102,11 @@ export function SurfInfoFields({
       {showInstagram && (
         <>
           <h3 className="text-sm font-medium">Social Media</h3>
-          <FormField
+          <FormInput
             control={control}
             name="instagram"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Instagram</FormLabel>
-                <FormControl>
-                  <Input placeholder="@yourusername" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            label="Instagram"
+            placeholder="@yourusername"
           />
         </>
       )}

@@ -79,8 +79,8 @@ describe('Gamification Core Logic', () => {
         { level: 9, title: "Quiver King/Queen", xp_required: 4000 },
       ] as const;
 
-      let currentLevel = LEVEL_THRESHOLDS[0];
-      
+      let currentLevel: (typeof LEVEL_THRESHOLDS)[number] = LEVEL_THRESHOLDS[0];
+
       for (const threshold of LEVEL_THRESHOLDS) {
         if (totalXP >= threshold.xp_required) {
           currentLevel = threshold;
@@ -88,7 +88,7 @@ describe('Gamification Core Logic', () => {
           break;
         }
       }
-      
+
       return { level: currentLevel.level, title: currentLevel.title };
     }
 

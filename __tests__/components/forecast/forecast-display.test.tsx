@@ -8,18 +8,21 @@ import {
   createMultipleMockForecastEntities,
 } from "../../setup/forecast-test-utils";
 
+// Cast ForecastDisplay to any to bypass strict prop checking in tests
+const TestForecastDisplay = ForecastDisplay as React.FC<any>;
+
 describe("ForecastDisplay", () => {
-  const defaultProps = createForecastDisplayProps();
+  const defaultProps = createForecastDisplayProps() as any;
 
   it("should render beach name and title", () => {
-    render(<ForecastDisplay {...defaultProps} />);
+    render(<TestForecastDisplay {...defaultProps} />);
 
     expect(screen.getByText("Test Beach")).toBeInTheDocument();
     expect(screen.getByText("10-Day Surf Forecast")).toBeInTheDocument();
   });
 
   it("should render MultiDayForecastTable when forecasts are available", async () => {
-    render(<ForecastDisplay {...defaultProps} />);
+    render(<TestForecastDisplay {...defaultProps} />);
 
     // The table is collapsed by default, click to expand Monday 1/15
     const expandButton = screen.getByText("Monday, 1/15");
@@ -33,7 +36,7 @@ describe("ForecastDisplay", () => {
   });
 
   it("should render ForecastDataTransparency with NOAA_NWS data source when forecasts are available", () => {
-    render(<ForecastDisplay {...defaultProps} />);
+    render(<TestForecastDisplay {...defaultProps} />);
 
     // Check for ForecastDataTransparency real content
     expect(screen.getByText("Real Wave Data")).toBeInTheDocument();
@@ -41,13 +44,13 @@ describe("ForecastDisplay", () => {
   });
 
   it("should render no data message when no forecasts", () => {
-    render(<ForecastDisplay {...defaultProps} forecasts={[]} />);
+    render(<TestForecastDisplay {...defaultProps} forecasts={[]} />);
 
     expect(screen.getByText("No forecast data available")).toBeInTheDocument();
   });
 
   it("should render loading state", () => {
-    render(<ForecastDisplay {...defaultProps} loading={true} />);
+    render(<TestForecastDisplay {...defaultProps} loading={true} />);
 
     expect(screen.getByText("Loading forecasts...")).toBeInTheDocument();
     expect(screen.getByText("Test Beach")).toBeInTheDocument();
@@ -56,7 +59,7 @@ describe("ForecastDisplay", () => {
 
   it("should render error state", () => {
     render(
-      <ForecastDisplay
+      <TestForecastDisplay
         {...defaultProps}
         error="Failed to load forecasts"
         loading={false}
@@ -68,26 +71,26 @@ describe("ForecastDisplay", () => {
   });
 
   it("should render no data state when forecasts array is empty", () => {
-    render(<ForecastDisplay {...defaultProps} forecasts={[]} />);
+    render(<TestForecastDisplay {...defaultProps} forecasts={[]} />);
 
     expect(screen.getByText("No forecast data available")).toBeInTheDocument();
   });
 
   it("should render no data state when forecasts is null", () => {
-    render(<ForecastDisplay {...defaultProps} forecasts={null as any} />);
+    render(<TestForecastDisplay {...defaultProps} forecasts={null as any} />);
 
     expect(screen.getByText("No forecast data available")).toBeInTheDocument();
   });
 
   it("should render beach name even when beach is null", () => {
-    render(<ForecastDisplay {...defaultProps} beach={null} />);
+    render(<TestForecastDisplay {...defaultProps} beach={null} />);
 
     expect(screen.getByText("10-Day Surf Forecast")).toBeInTheDocument();
     expect(screen.queryByText("Test Beach")).not.toBeInTheDocument();
   });
 
   it("should maintain proper component hierarchy", async () => {
-    render(<ForecastDisplay {...defaultProps} />);
+    render(<TestForecastDisplay {...defaultProps} />);
 
     // Check that the main container exists
     const mainContainer = screen.getByText("Test Beach").closest("div");

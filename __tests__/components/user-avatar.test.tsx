@@ -136,7 +136,7 @@ describe("UserAvatar", () => {
     });
 
     it("logs successful image load in development", () => {
-      process.env.NODE_ENV = "development";
+      (process.env as any).NODE_ENV = "development";
       const validSrc = "https://example.com/avatar.jpg";
       render(<UserAvatar src={validSrc} name="John Doe" />);
 
@@ -152,7 +152,11 @@ describe("UserAvatar", () => {
     });
 
     it("does not log image load in production", () => {
-      process.env.NODE_ENV = "production";
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'production',
+        writable: true,
+        configurable: true,
+      });
       const validSrc = "https://example.com/avatar.jpg";
       render(<UserAvatar src={validSrc} name="John Doe" />);
 

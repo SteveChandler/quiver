@@ -15,15 +15,15 @@ const mockGetNearbyBeaches = getNearbyBeaches as jest.MockedFunction<
 >;
 
 describe("useBeachSearch", () => {
-  const mockBeaches = createMockBeaches(5);
+  const mockBeaches = createMockBeaches(5) as any[];
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetBeaches.mockResolvedValue({
+    (mockGetBeaches as any).mockResolvedValue({
       success: true,
       data: mockBeaches,
     });
-    mockGetNearbyBeaches.mockResolvedValue({
+    (mockGetNearbyBeaches as any).mockResolvedValue({
       success: true,
       data: mockBeaches,
     });
@@ -68,11 +68,11 @@ describe("useBeachSearch", () => {
       });
 
       // Should find beaches with "La Jolla" in location_text
-      const laJollaBeaches = result.current.filteredBeaches.filter((beach) =>
+      const laJollaBeaches = result.current.filteredBeaches.filter((beach: any) =>
         beach.location_text?.includes("La Jolla")
       );
       expect(laJollaBeaches.length).toBeGreaterThan(0);
-      expect(result.current.filteredBeaches[0].location_text).toContain(
+      expect((result.current.filteredBeaches[0] as any).location_text).toContain(
         "La Jolla"
       );
     });
@@ -207,7 +207,7 @@ describe("useBeachSearch", () => {
       });
 
       act(() => {
-        result.current.setSelectedBeach(mockBeaches[0]);
+        (result.current.setSelectedBeach as any)(mockBeaches[0]);
       });
 
       expect(result.current.selectedBeach).toBe(mockBeaches[0]);
@@ -221,7 +221,7 @@ describe("useBeachSearch", () => {
       });
 
       act(() => {
-        result.current.setSelectedBeach(mockBeaches[0]);
+        (result.current.setSelectedBeach as any)(mockBeaches[0]);
       });
 
       expect(result.current.selectedBeach).toBe(mockBeaches[0]);
@@ -241,7 +241,7 @@ describe("useBeachSearch", () => {
       });
 
       act(() => {
-        result.current.setSelectedBeach(mockBeaches[0]);
+        (result.current.setSelectedBeach as any)(mockBeaches[0]);
       });
 
       expect(result.current.selectedBeach).toBe(mockBeaches[0]);
@@ -264,7 +264,7 @@ describe("useBeachSearch", () => {
       });
 
       act(() => {
-        result.current.setSelectedBeach(mockBeaches[0]);
+        (result.current.setSelectedBeach as any)(mockBeaches[0]);
       });
 
       const nearbyBeaches = result.current.nearbyBeachesForScroll;
@@ -300,7 +300,7 @@ describe("useBeachSearch", () => {
         resolvePromise = resolve;
       });
 
-      mockGetBeaches.mockReturnValue(promise);
+      (mockGetBeaches as any).mockReturnValue(promise);
 
       const { result } = renderHook(() => useBeachSearch());
 

@@ -77,7 +77,7 @@ export async function authenticateAdmin(): Promise<
   if ("error" in result) {
     return {
       success: false,
-      error: result.error,
+      error: result.error ?? "Unknown error",
       status: result.error === "Authentication required" ? 401 : 403,
     };
   }

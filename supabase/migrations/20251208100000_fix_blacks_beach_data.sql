@@ -36,3 +36,5 @@ COMMIT;
 -- After this migration, the beach should be accessible at:
 -- - /ca/la-jolla/blacks (hierarchical URL - preferred)
 -- - /beach/blacks (legacy URL - will redirect to hierarchical)
+
+

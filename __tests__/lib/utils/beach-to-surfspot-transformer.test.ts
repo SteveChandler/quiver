@@ -667,7 +667,11 @@ describe("Beach to SurfSpot Transformer", () => {
 
     it("should log warning in development for invalid coordinates", () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "development";
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'development',
+        writable: true,
+        configurable: true,
+      });
       const consoleSpy = jest.spyOn(console, "warn").mockImplementation();
 
       validateBeachCoordinates(mockBeachInvalidCoords, "test-context");
@@ -677,7 +681,11 @@ describe("Beach to SurfSpot Transformer", () => {
       expect(consoleSpy.mock.calls[0][0]).toContain("test-context");
 
       consoleSpy.mockRestore();
-      process.env.NODE_ENV = originalEnv;
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: originalEnv,
+        writable: true,
+        configurable: true,
+      });
     });
   });
 
