@@ -303,6 +303,10 @@ interface COOPSForecast {
 }
 
 export class NOAACOOPSService {
+  private isDev(): boolean {
+    return process.env.NODE_ENV === "development";
+  }
+
   // In-memory cache for tide data by station ID to avoid duplicate API calls
   private readonly tideCache = new Map<
     string,
@@ -323,7 +327,9 @@ export class NOAACOOPSService {
       return null;
     }
 
-    console.log(`📦 Using cached tide data for station ${stationId}`);
+    if (this.isDev()) {
+      console.log(`📦 Using cached tide data for station ${stationId}`);
+    }
     return cached.data;
   }
 
@@ -381,9 +387,11 @@ export class NOAACOOPSService {
           lng >= region.lonMin &&
           lng <= region.lonMax
         ) {
-          console.log(
-            `📍 Using ${region.name} tide station (${region.stationId}) for ${beachName} at ${lat}, ${lng}`
-          );
+          if (this.isDev()) {
+            console.log(
+              `📍 Using ${region.name} tide station (${region.stationId}) for ${beachName} at ${lat}, ${lng}`
+            );
+          }
           return region.stationId;
         }
       }
@@ -404,9 +412,11 @@ export class NOAACOOPSService {
         }
       }
 
-      console.log(
-        `📍 Using nearest tide station (${nearestStation}) for ${beachName} at ${lat}, ${lng} (distance: ${nearestDistance.toFixed(2)}°)`
-      );
+      if (this.isDev()) {
+        console.log(
+          `📍 Using nearest tide station (${nearestStation}) for ${beachName} at ${lat}, ${lng} (distance: ${nearestDistance.toFixed(2)}°)`
+        );
+      }
       return nearestStation;
     }
 
@@ -432,7 +442,9 @@ export class NOAACOOPSService {
         return cached;
       }
 
-      console.log(`Fetching CO-OPS data for station ${stationId}`);
+      if (this.isDev()) {
+        console.log(`Fetching CO-OPS data for station ${stationId}`);
+      }
 
       const now = new Date();
       const endDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -523,7 +535,9 @@ export class NOAACOOPSService {
       url.searchParams.set("interval", "hilo"); // High and low tides only
       url.searchParams.set("format", "json");
 
-      console.log(`Fetching NOAA CO-OPS tide data from: ${url.toString()}`);
+      if (this.isDev()) {
+        console.log(`Fetching NOAA CO-OPS tide data from: ${url.toString()}`);
+      }
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -541,7 +555,10 @@ export class NOAACOOPSService {
       }
 
       const data = await response.json();
-      console.log(`Received tide data for station ${stationId}:`, data);
+      // This can be extremely verbose (50+ prediction rows); keep it dev-only.
+      if (this.isDev()) {
+        console.log(`Received tide data for station ${stationId}:`, data);
+      }
 
       if (!data.predictions) {
         console.warn("No tide predictions data returned, using fallback");
@@ -555,13 +572,17 @@ export class NOAACOOPSService {
         type: prediction.type === "H" ? "high" : "low",
       }));
 
-      console.log(
-        `Parsed ${tideData.length} tide predictions for station ${stationId}`
-      );
+      if (this.isDev()) {
+        console.log(
+          `Parsed ${tideData.length} tide predictions for station ${stationId}`
+        );
+      }
       return tideData;
     } catch (error) {
       console.error("Error fetching tide predictions:", error);
-      console.log("Using fallback tide data for development");
+      if (this.isDev()) {
+        console.log("Using fallback tide data for development");
+      }
       // Return fallback simulated data for development
       return this.generateFallbackTideData();
     }

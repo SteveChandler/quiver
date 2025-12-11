@@ -221,6 +221,8 @@ class NOAAWeatherDataSource implements WeatherDataSource {
 }
 
 export class EnhancedForecastService {
+  private readonly warnedSchemaColumns = new Set<string>();
+
   /**
    * Convert cardinal wind direction (e.g. "SW") to degrees.
    * Returns null when unknown/unparseable.
@@ -1231,6 +1233,28 @@ export class EnhancedForecastService {
     const supabase = await createSupabaseServiceRoleClient();
 
     try {
+      const isDev = process.env.NODE_ENV === "development";
+
+      const extractMissingColumnName = (err: any): string | null => {
+        const msg = typeof err?.message === "string" ? err.message : "";
+        const match = msg.match(/Could not find the '([^']+)' column/);
+        return match?.[1] ?? null;
+      };
+
+      const stripColumnFromRows = (
+        rows: Array<Record<string, unknown>>,
+        columnName: string
+      ): Array<Record<string, unknown>> => {
+        return rows.map((row) => {
+          if (!Object.prototype.hasOwnProperty.call(row, columnName)) {
+            return row;
+          }
+          const copy: Record<string, unknown> = { ...row };
+          delete copy[columnName];
+          return copy;
+        });
+      };
+
       // Deduplicate forecasts by unique key (beach_id, forecast_date, forecast_time)
       // This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time" errors
       const uniqueForecasts = new Map<string, EnhancedForecastEntity>();
@@ -1239,13 +1263,17 @@ export class EnhancedForecastService {
         if (!uniqueForecasts.has(key)) {
           uniqueForecasts.set(key, forecast);
         } else {
-          console.log(`⚠️ Skipping duplicate forecast: ${key}`);
+          if (isDev) {
+            console.log(`⚠️ Skipping duplicate forecast: ${key}`);
+          }
         }
       });
 
-      console.log(
-        `📊 Deduplicated ${forecasts.length} forecasts to ${uniqueForecasts.size} unique entries`
-      );
+      if (isDev) {
+        console.log(
+          `📊 Deduplicated ${forecasts.length} forecasts to ${uniqueForecasts.size} unique entries`
+        );
+      }
 
       // Upsert in chunks to avoid exceeding PostgREST payload limits
       // Increased from 24 to 100 to reduce total number of database calls
@@ -1256,22 +1284,62 @@ export class EnhancedForecastService {
       const chunkSize = 100;
       let lastData: any = null;
       for (let i = 0; i < toRows.length; i += chunkSize) {
-        const chunk = toRows.slice(i, i + chunkSize);
-        const { data, error } = await supabase
-          .from("enhanced_forecasts")
-          .upsert(chunk, {
-            onConflict: "beach_id,forecast_date,forecast_time",
-          });
-        if (error) {
-          console.error("Enhanced forecast upsert error:", {
-            message: (error as any).message,
-            details: (error as any).details,
-            hint: (error as any).hint,
-            code: (error as any).code,
-          });
-          throw error;
+        let chunk: Array<Record<string, unknown>> = toRows.slice(i, i + chunkSize);
+        let lastError: any = null;
+
+        // Allow a few "schema strip" retries in case multiple new columns
+        // are missing in the target environment.
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const { data, error } = await supabase
+            .from("enhanced_forecasts")
+            .upsert(chunk, {
+              onConflict: "beach_id,forecast_date,forecast_time",
+            });
+
+          if (!error) {
+            lastData = data;
+            lastError = null;
+            break;
+          }
+
+          lastError = error;
+
+          const missingColumn = extractMissingColumnName(error);
+          const canStrip =
+            !!missingColumn &&
+            chunk.some((row) =>
+              Object.prototype.hasOwnProperty.call(row, missingColumn)
+            );
+
+          if (!canStrip) {
+            console.error("Enhanced forecast upsert error:", {
+              message: (error as any).message,
+              details: (error as any).details,
+              hint: (error as any).hint,
+              code: (error as any).code,
+            });
+            throw error;
+          }
+
+          if (missingColumn && !this.warnedSchemaColumns.has(missingColumn)) {
+            console.warn(
+              `⚠️ Enhanced forecast schema mismatch (missing column '${missingColumn}'). Retrying store without that column.`
+            );
+            this.warnedSchemaColumns.add(missingColumn);
+          }
+
+          chunk = stripColumnFromRows(chunk, missingColumn);
         }
-        lastData = data;
+
+        if (lastError) {
+          console.error("Enhanced forecast upsert error:", {
+            message: (lastError as any).message,
+            details: (lastError as any).details,
+            hint: (lastError as any).hint,
+            code: (lastError as any).code,
+          });
+          throw lastError;
+        }
       }
 
       return { success: true, data: lastData };

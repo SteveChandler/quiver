@@ -53,11 +53,17 @@ export class CDIPService {
     ]);
   }
 
+  private isDev(): boolean {
+    return process.env.NODE_ENV === "development";
+  }
+
   /**
    * Fetch current wave data for a specific CDIP station
    */
   async fetchBuoyData(stationId: string): Promise<CDIPBuoyData | null> {
-    console.log(`🌊 CDIP fetchBuoyData called for station: ${stationId}`);
+    if (this.isDev()) {
+      console.log(`🌊 CDIP fetchBuoyData called for station: ${stationId}`);
+    }
     try {
       if (this.blacklist.has(String(stationId))) {
         console.warn(`🚫 CDIP station ${stationId} is blacklisted. Skipping fetch.`);
@@ -69,7 +75,9 @@ export class CDIPService {
         console.warn(`❌ Unknown CDIP station: ${stationId}`);
         return null;
       }
-      console.log(`✅ CDIP station config found: ${stationConfig.name}`);
+      if (this.isDev()) {
+        console.log(`✅ CDIP station config found: ${stationConfig.name}`);
+      }
 
       // Check rate limiting
       if (!CDIPRateLimiter.canMakeRequest()) {
@@ -79,17 +87,23 @@ export class CDIPService {
         );
         return null;
       }
-      console.log(`✅ CDIP rate limit check passed`);
+      if (this.isDev()) {
+        console.log(`✅ CDIP rate limit check passed`);
+      }
 
       // Check cache
       const cached = this.getCachedData(stationId);
       if (cached) {
-        console.log(`📦 CDIP returning cached data for station ${stationId}`);
+        if (this.isDev()) {
+          console.log(`📦 CDIP returning cached data for station ${stationId}`);
+        }
         return cached;
       }
 
       // Fetch data from CDIP API
-      console.log(`🔄 CDIP fetching raw data for station ${stationId}`);
+      if (this.isDev()) {
+        console.log(`🔄 CDIP fetching raw data for station ${stationId}`);
+      }
       const rawData = await this.fetchCDIPRawData(stationId);
       if (!rawData) {
         console.warn(
@@ -97,9 +111,11 @@ export class CDIPService {
         );
         return null;
       }
-      console.log(
-        `✅ CDIP raw data fetched successfully for station ${stationId}`
-      );
+      if (this.isDev()) {
+        console.log(
+          `✅ CDIP raw data fetched successfully for station ${stationId}`
+        );
+      }
 
       // Transform and validate data
       const buoyData = this.transformToCDIPBuoyData(stationId, rawData);
@@ -185,11 +201,13 @@ export class CDIPService {
       }
 
       if (nearestStation) {
-        console.log(
-          `📍 Nearest CDIP station to ${latitude}, ${longitude}: ${nearestStation} (${minDistance.toFixed(
-            1
-          )}km)`
-        );
+        if (this.isDev()) {
+          console.log(
+            `📍 Nearest CDIP station to ${latitude}, ${longitude}: ${nearestStation} (${minDistance.toFixed(
+              1
+            )}km)`
+          );
+        }
       }
 
       return nearestStation;
@@ -395,7 +413,9 @@ export class CDIPService {
       );
       const url = `${CDIP_API_CONFIG.baseUrl}${endpoint}`;
 
-      console.log(`🌊 Fetching CDIP data from: ${url}`);
+      if (this.isDev()) {
+        console.log(`🌊 Fetching CDIP data from: ${url}`);
+      }
 
       const response = await apiClient.fetchCDIPData(url, {
         headers: {
@@ -430,9 +450,11 @@ export class CDIPService {
         stationId
       );
 
-      console.log(
-        `✅ Successfully fetched CDIP data for station ${stationId}: ${transformedData.data.length} data points`
-      );
+      if (this.isDev()) {
+        console.log(
+          `✅ Successfully fetched CDIP data for station ${stationId}: ${transformedData.data.length} data points`
+        );
+      }
 
       return transformedData;
     } catch (error) {

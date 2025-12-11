@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Prioritize beaches with **no** `enhanced_forecasts` rows first, then beaches with the **oldest** `updated_at` values.
     - Use a freshness window (12h) that won’t re-select the previous run’s beaches on a 6h cron cadence.
     - Reduced noisy per-timepoint CDIP logs in production to avoid Vercel log caps hiding success/failure output.
+    - Reduced verbose tide + wave source logs in production (large CO-OPS payloads, WaveWatch/NWS/Open-Meteo debug logs) to stay under Vercel’s 256-line limit.
+    - Made forecast writes resilient to prod schema drift: if PostgREST reports a missing column (e.g. `wind_direction_deg`), retry the upsert once after stripping the unknown field so forecasts still store successfully.
   - Extended NOAA CO-OPS tide station mappings to cover all US coastal regions:
     - **West Coast**: Hawaii, Oregon, Washington, Northern/Central/Southern California, Baja Mexico
     - **East Coast**: Maine, New Hampshire, Massachusetts, Rhode Island, New York, New Jersey, Delaware, Maryland, Virginia, North Carolina, South Carolina, Georgia
