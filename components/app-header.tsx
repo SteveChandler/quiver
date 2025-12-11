@@ -75,8 +75,9 @@ export function AppHeader() {
     }
   }, [user]);
 
-  const { data: unreadCount = 0, refetch: refetchUnreadCount } =
+  const { data: unreadCountData, refetch: refetchUnreadCount } =
     useDataFetcher<number>(fetchNotificationsCount);
+  const unreadCount = unreadCountData ?? 0;
 
   // Use shared subscription hook to avoid duplicate subscriptions
   // This replaces the inline subscription logic that was duplicating inbox page subscriptions

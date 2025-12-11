@@ -221,9 +221,8 @@ describe("GuidesByIntentGrid Component", () => {
     });
 
     it("should return null when featuredIntents is undefined", () => {
-      // @ts-expect-error - Testing undefined case
       const { container } = render(
-        <GuidesByIntentGrid {...defaultProps} featuredIntents={undefined} />
+        <GuidesByIntentGrid {...defaultProps} featuredIntents={undefined as any} />
       );
 
       expect(container.firstChild).toBeNull();

@@ -22,7 +22,7 @@ jest.mock("next/link", () => {
   };
 });
 
-const mockBeach: Beach = {
+const mockBeach = {
   id: "test-beach-1",
   name: "Ocean Beach",
   city: "San Francisco",
@@ -34,7 +34,7 @@ const mockBeach: Beach = {
   updated_at: "2024-01-01",
   enabled: true,
   country: "USA",
-};
+} as any;
 
 describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
   describe("Container Styling", () => {
@@ -168,25 +168,25 @@ describe("BeachBreadcrumb Component - Phase 4 Specifications", () => {
     });
 
     it("should fallback to region_id if city/state not available", () => {
-      const beach = { ...mockBeach, city: undefined, state: undefined };
+      const beach = { ...mockBeach, city: null, state: null } as Beach;
       render(<BeachBreadcrumb beach={beach} />);
       expect(screen.getByText("Northern California")).toBeInTheDocument();
     });
 
     it("should use default California if city/state/region_id unavailable", () => {
-      const beach = { ...mockBeach, city: undefined, state: undefined, region_id: undefined };
+      const beach = { ...mockBeach, city: null, state: null, region_id: null } as Beach;
       render(<BeachBreadcrumb beach={beach} />);
       expect(screen.getByText("California")).toBeInTheDocument();
     });
   });
 
   describe("Location Page Links - Phase 1 Enhancement", () => {
-    const beachWithLocationData: Beach = {
+    const beachWithLocationData = {
       ...mockBeach,
       city: "La Jolla",
       state: "CA",
       country: "USA",
-    };
+    } as Beach;
 
     it("should render location as clickable link when city and state are available", () => {
       render(<BeachBreadcrumb beach={beachWithLocationData} />);

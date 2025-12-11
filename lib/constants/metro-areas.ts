@@ -81,15 +81,15 @@ const METRO_AREAS: Record<string, MetroAreaConfig> = {
   //   pageTitle: 'San Francisco Bay Area Surf Spots',
   // },
   //
-  // 'orange-county': {
-  //   slug: 'orange-county',
-  //   displayName: 'Orange County',
-  //   state: 'CA',
-  //   country: 'USA',
-  //   cities: ['Huntington Beach', 'Newport Beach', 'San Clemente', 'Laguna Beach', 'Dana Point'],
-  //   description: 'Surf the famous beaches of Orange County, California\'s premier surf destination.',
-  //   pageTitle: 'Orange County Surf Spots',
-  // },
+  'orange-county': {
+    slug: 'orange-county',
+    displayName: 'Orange County',
+    state: 'CA',
+    country: 'USA',
+    cities: ['Huntington Beach', 'Newport Beach', 'Newport Coast', 'San Clemente', 'Laguna Beach', 'Dana Point'],
+    description: 'Surf the famous beaches of Orange County, California\'s premier surf destination.',
+    pageTitle: 'Orange County Surf Spots',
+  },
 } as const;
 
 /**

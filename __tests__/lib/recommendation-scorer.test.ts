@@ -2,12 +2,12 @@ import { scoreRecommendation } from "@/lib/utils/recommendation-scorer";
 import type { Beach } from "@/types/database";
 
 describe("Recommendation Scorer", () => {
-  const mockBeach: Beach = {
+  const mockBeach = {
     id: "test-beach-1",
     name: "Test Beach",
-    lat: 33.7490,
-    lon: -118.4095,
-    location: "Manhattan Beach, CA",
+    center_lat: 33.7490,
+    center_lng: -118.4095,
+    location_text: "Manhattan Beach, CA",
     region: "Los Angeles",
     country: "USA",
     is_private: false,
@@ -23,7 +23,7 @@ describe("Recommendation Scorer", () => {
     preferred_tide_ft_min: 1.0,
     preferred_tide_ft_max: 4.0,
     skill_level: "intermediate",
-  };
+  } as unknown as Beach;
 
   describe("Basic scoring functionality", () => {
     it("should return a score between 0 and 100", () => {

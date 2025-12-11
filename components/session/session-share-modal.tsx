@@ -25,7 +25,7 @@ import {
   generateShareUrl,
   generateShareImageUrl,
   type SharePlatform,
-  type ShareVariant,
+  type LegacyShareVariant,
 } from "@/actions/social-share-actions";
 import { track } from "@/lib/analytics";
 
@@ -83,7 +83,7 @@ export function SessionShareModal({
   beachName,
   shareCount = 0,
 }: SessionShareModalProps) {
-  const [selectedVariant, setSelectedVariant] = useState<ShareVariant>("story");
+  const [selectedVariant, setSelectedVariant] = useState<LegacyShareVariant>("story");
   const [isSharing, setIsSharing] = useState(false);
   const [sharedPlatforms, setSharedPlatforms] = useState<Set<SharePlatform>>(
     new Set()
@@ -102,7 +102,7 @@ export function SessionShareModal({
           variant: selectedVariant,
         });
 
-        const shareUrl = generateShareUrl({
+        const shareUrl = await generateShareUrl({
           sessionId,
           platform,
           variant: selectedVariant,

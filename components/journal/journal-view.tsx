@@ -23,6 +23,7 @@ import {
   Settings,
   CalendarClock,
   CheckCircle,
+  BookOpen,
 } from "lucide-react";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { CalendarHeatmap } from "./calendar-heatmap";
@@ -34,6 +35,7 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getUserSessions } from "@/actions/session-actions";
 import { CenteredLoadingSpinner } from "@/components/ui/loading-spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ZeroState } from "@/components/ui/zero-state";
 import type {
   SessionWithDetails,
   JournalViewMode,
@@ -124,7 +126,7 @@ export function JournalView({ className }: JournalViewProps) {
   } = useDataFetcher(fetchAnalytics, { initialData: null });
 
   useEffect(() => {
-    setDisplayOptions((prev) => ({ ...prev, viewMode }));
+    setDisplayOptions((prev: JournalDisplayOptions) => ({ ...prev, viewMode }));
   }, [viewMode]);
 
   const handleSessionClick = (session: SessionWithDetails) => {
@@ -179,21 +181,21 @@ export function JournalView({ className }: JournalViewProps) {
   const noSessions = (sessions || []).length === 0;
   if (noSessions) {
     return (
-      <Card className="border-dashed">
-        <CardContent className="pt-6 text-center space-y-3">
-          <p className="text-muted-foreground">
-            You haven&apos;t logged any sessions yet.
-          </p>
-          <div className="flex gap-2 justify-center">
-            <Button asChild>
-              <Link href="/sessions/new?mode=log">Log your first session</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/sessions/new?mode=plan">Plan a session</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <ZeroState
+        icon={BookOpen}
+        title="No Sessions Yet"
+        description="Start tracking your surf journey by logging your first session"
+        action={{
+          label: "Log Your First Session",
+          href: "/sessions/new?mode=log",
+          icon: Plus,
+        }}
+        secondaryAction={{
+          label: "Plan a Session",
+          href: "/sessions/new?mode=plan",
+        }}
+        proTip="Add photos to capture memories and track your progression over time"
+      />
     );
   }
 
@@ -348,29 +350,30 @@ export function JournalView({ className }: JournalViewProps) {
                   </div>
                 ))
               ) : (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <p className="text-muted-foreground mb-4">
-                      {sessionFilter === "planned"
-                        ? "No planned sessions yet. Start planning your surf adventures!"
-                        : "No completed sessions yet. Start logging your surf sessions!"}
-                    </p>
-                    <Button asChild>
-                      <Link
-                        href={
-                          sessionFilter === "planned"
-                            ? "/plan-session"
-                            : "/log-session"
-                        }
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        {sessionFilter === "planned"
-                          ? "Plan Your First Session"
-                          : "Log Your First Session"}
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+                <ZeroState
+                  icon={sessionFilter === "planned" ? CalendarClock : BookOpen}
+                  title={
+                    sessionFilter === "planned"
+                      ? "No Planned Sessions"
+                      : "No Completed Sessions"
+                  }
+                  description={
+                    sessionFilter === "planned"
+                      ? "Plan your next surf adventure to stay organized"
+                      : "Log your surf sessions to track your progression"
+                  }
+                  action={{
+                    label:
+                      sessionFilter === "planned"
+                        ? "Plan a Session"
+                        : "Log a Session",
+                    href:
+                      sessionFilter === "planned"
+                        ? "/sessions/new?mode=plan"
+                        : "/sessions/new?mode=log",
+                    icon: Plus,
+                  }}
+                />
               )}
             </div>
           ) : (

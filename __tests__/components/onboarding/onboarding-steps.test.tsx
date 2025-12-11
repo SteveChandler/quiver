@@ -3,15 +3,34 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProfileStep } from "@/components/onboarding/steps/profile-step";
 import { HomeBeachStep } from "@/components/onboarding/steps/home-beach-step";
-import { PreferencesStep } from "@/components/onboarding/steps/preferences-step";
+import { ExperienceStep } from "@/components/onboarding/steps/experience-step";
+import { WavePreferencesStep } from "@/components/onboarding/steps/wave-preferences-step";
+import { WelcomeStep } from "@/components/onboarding/steps/welcome-step";
+import { ReferralStep } from "@/components/onboarding/steps/referral-step";
+import { CompletionStep } from "@/components/onboarding/steps/completion-step";
 import { useOnboardingStore } from "@/store/onboarding-store";
 
 // Mock the store
 jest.mock("@/store/onboarding-store");
 const mockUseOnboardingStore = useOnboardingStore as unknown as jest.Mock;
 
-// Mock global fetch for HomeBeachStep
+// Mock global fetch for HomeBeachStep, ReferralStep, and CompletionStep
 global.fetch = jest.fn();
+
+// Mock next/navigation for CompletionStep
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
+}));
+
+// Mock profile context for CompletionStep
+jest.mock("@/context/profile-context", () => ({
+  useProfileContext: () => ({ updateProfile: jest.fn() }),
+}));
+
+// Mock onboarding actions for CompletionStep
+jest.mock("@/actions/onboarding-actions", () => ({
+  saveOnboardingData: jest.fn().mockResolvedValue({ success: true, profile: {} }),
+}));
 
 describe("Onboarding Step Components", () => {
   const mockUpdateData = jest.fn();
@@ -110,30 +129,18 @@ describe("Onboarding Step Components", () => {
     // Full flow tested in E2E (e2e/onboarding.spec.ts).
   });
 
-  describe("PreferencesStep", () => {
-    it("renders experience level section", () => {
-      render(<PreferencesStep />);
-      // Use getAllByText since label and select option both contain the text
-      const experienceLevelElements = screen.getAllByText(/Experience Level/i);
-      expect(experienceLevelElements.length).toBeGreaterThan(0);
-    });
-
-    it("renders surf styles section", () => {
-      render(<PreferencesStep />);
-      expect(screen.getByText(/Surf Styles/i)).toBeInTheDocument();
-    });
-
-    it("renders optional preference sections", () => {
-      render(<PreferencesStep />);
-      // Use getAllByText since label and select option both contain the text
-      const waveSizeElements = screen.getAllByText(/Preferred Wave Size/i);
-      const breakTypeElements = screen.getAllByText(/Preferred Break Type/i);
-      expect(waveSizeElements.length).toBeGreaterThan(0);
-      expect(breakTypeElements.length).toBeGreaterThan(0);
+  describe("ExperienceStep", () => {
+    it("renders experience level cards", () => {
+      render(<ExperienceStep />);
+      expect(screen.getByText(/What's your experience/i)).toBeInTheDocument();
+      expect(screen.getByTestId("experience-beginner")).toBeInTheDocument();
+      expect(screen.getByTestId("experience-intermediate")).toBeInTheDocument();
+      expect(screen.getByTestId("experience-advanced")).toBeInTheDocument();
+      expect(screen.getByTestId("experience-expert")).toBeInTheDocument();
     });
 
     it("renders continue and back buttons", () => {
-      render(<PreferencesStep />);
+      render(<ExperienceStep />);
       expect(
         screen.getByRole("button", { name: /Continue/i })
       ).toBeInTheDocument();
@@ -142,7 +149,7 @@ describe("Onboarding Step Components", () => {
 
     it("calls prevStep when back button is clicked", async () => {
       const user = userEvent.setup();
-      render(<PreferencesStep />);
+      render(<ExperienceStep />);
 
       const backBtn = screen.getByRole("button", { name: /Back/i });
       await user.click(backBtn);
@@ -150,8 +157,196 @@ describe("Onboarding Step Components", () => {
       expect(mockPrevStep).toHaveBeenCalled();
     });
 
-    // Note: Form validation tests with react-hook-form Controller
-    // are prone to Jest/JSDOM environment issues.
-    // Full form validation tested in E2E (e2e/onboarding.spec.ts).
+    it("selects an experience level and enables continue", async () => {
+      const user = userEvent.setup();
+      render(<ExperienceStep />);
+
+      const intermediateCard = screen.getByTestId("experience-intermediate");
+      await user.click(intermediateCard);
+
+      expect(
+        screen.getByRole("button", { name: /Continue/i })
+      ).not.toBeDisabled();
+    });
+  });
+
+  describe("WavePreferencesStep", () => {
+    it("renders wave size and break type sections", () => {
+      render(<WavePreferencesStep />);
+      expect(screen.getByText(/What waves do you prefer/i)).toBeInTheDocument();
+      expect(screen.getByText(/Wave Size/i)).toBeInTheDocument();
+      expect(screen.getByText(/Break Type/i)).toBeInTheDocument();
+      expect(screen.getByText(/Surf Styles/i)).toBeInTheDocument();
+    });
+
+    it("renders continue and back buttons", () => {
+      render(<WavePreferencesStep />);
+      expect(
+        screen.getByRole("button", { name: /Continue/i })
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
+    });
+
+    it("calls prevStep when back button is clicked", async () => {
+      const user = userEvent.setup();
+      render(<WavePreferencesStep />);
+
+      const backBtn = screen.getByRole("button", { name: /Back/i });
+      await user.click(backBtn);
+
+      expect(mockPrevStep).toHaveBeenCalled();
+    });
+
+    it("requires at least one surf style to continue", () => {
+      render(<WavePreferencesStep />);
+      // Continue should be disabled initially (no surf styles selected)
+      expect(screen.getByRole("button", { name: /Continue/i })).toBeDisabled();
+    });
+
+    it("enables continue when surf style is selected", async () => {
+      const user = userEvent.setup();
+      render(<WavePreferencesStep />);
+
+      const shortboardBtn = screen.getByTestId("surf-style-shortboard");
+      await user.click(shortboardBtn);
+
+      expect(
+        screen.getByRole("button", { name: /Continue/i })
+      ).not.toBeDisabled();
+    });
+  });
+
+  describe("WelcomeStep", () => {
+    it("renders welcome content correctly", () => {
+      render(<WelcomeStep />);
+
+      expect(screen.getByTestId("welcome-step")).toBeInTheDocument();
+      expect(screen.getByTestId("welcome-logo")).toBeInTheDocument();
+      expect(screen.getByText(/Welcome to Quiver/i)).toBeInTheDocument();
+      expect(screen.getByText(/Your personal surf companion/i)).toBeInTheDocument();
+    });
+
+    it("renders Get Started button", () => {
+      render(<WelcomeStep />);
+
+      expect(screen.getByTestId("welcome-get-started")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Get Started/i })
+      ).toBeInTheDocument();
+    });
+
+    it("calls nextStep when Get Started is clicked", async () => {
+      const user = userEvent.setup();
+      render(<WelcomeStep />);
+
+      await user.click(screen.getByTestId("welcome-get-started"));
+
+      expect(mockNextStep).toHaveBeenCalled();
+    });
+  });
+
+  describe("ReferralStep", () => {
+    it("renders referral form correctly", () => {
+      render(<ReferralStep />);
+
+      expect(
+        screen.getByText(/Were you invited by a friend/i)
+      ).toBeInTheDocument();
+      expect(screen.getByTestId("referral-code-input")).toBeInTheDocument();
+      expect(screen.getByLabelText(/Referral Code/i)).toBeInTheDocument();
+    });
+
+    it("renders Back, Skip, and Continue buttons", () => {
+      render(<ReferralStep />);
+
+      expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Skip/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Continue/i })
+      ).toBeInTheDocument();
+    });
+
+    it("calls prevStep when Back is clicked", async () => {
+      const user = userEvent.setup();
+      render(<ReferralStep />);
+
+      await user.click(screen.getByRole("button", { name: /Back/i }));
+
+      expect(mockPrevStep).toHaveBeenCalled();
+    });
+
+    it("calls nextStep when Skip is clicked", async () => {
+      const user = userEvent.setup();
+      render(<ReferralStep />);
+
+      await user.click(screen.getByRole("button", { name: /Skip/i }));
+
+      expect(mockNextStep).toHaveBeenCalled();
+    });
+
+    it("displays referral benefits information", () => {
+      render(<ReferralStep />);
+
+      expect(screen.getByText(/Referral Benefits/i)).toBeInTheDocument();
+      // Use getAllByText since "+50 XP for you" appears in both "+50 XP for you" and "+50 XP for your friend"
+      const xpTexts = screen.getAllByText(/\+50 XP/i);
+      expect(xpTexts.length).toBeGreaterThanOrEqual(2);
+    });
+
+    // Note: Async validation tests deferred to E2E due to Jest/fetch limitations
+  });
+
+  describe("CompletionStep", () => {
+    const mockCompleteOnboarding = jest.fn();
+
+    beforeEach(() => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        completeOnboarding: mockCompleteOnboarding,
+      });
+    });
+
+    it("renders completion content correctly", () => {
+      render(<CompletionStep />);
+
+      expect(screen.getByTestId("completion-step")).toBeInTheDocument();
+      expect(screen.getByText(/You're all set/i)).toBeInTheDocument();
+      expect(screen.getByText(/\+100 XP earned/i)).toBeInTheDocument();
+    });
+
+    it("renders View Full Forecast button", () => {
+      render(<CompletionStep />);
+
+      expect(
+        screen.getByTestId("complete-onboarding-button")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /View Full Forecast/i })
+      ).toBeInTheDocument();
+    });
+
+    it("shows personalized welcome when fullName is set", () => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: { fullName: "John Doe" },
+        completeOnboarding: mockCompleteOnboarding,
+      });
+      render(<CompletionStep />);
+
+      expect(screen.getByText(/Welcome, John/i)).toBeInTheDocument();
+    });
+
+    it("shows forecast preview section when home beach is set", () => {
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: { homeBeachId: "beach-123", homeBeachName: "Malibu" },
+        completeOnboarding: mockCompleteOnboarding,
+      });
+      render(<CompletionStep />);
+
+      expect(screen.getByText(/Today at Malibu/i)).toBeInTheDocument();
+    });
+
+    // Note: Save flow and async operations tested in E2E
   });
 });

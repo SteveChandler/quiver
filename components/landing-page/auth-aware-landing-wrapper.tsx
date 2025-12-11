@@ -43,6 +43,17 @@ export function AuthAwareLandingWrapper() {
   // Note: body.authenticated class management moved to AuthBodyClassManager in providers.tsx
   // This ensures the SSR beach section is hidden on ALL routes, not just the landing page
 
+  // Hide SSR beach section when JS is loaded (client SurfHighlightsSection takes over)
+  // This keeps the SSR version for SEO crawlers and no-JS fallback
+  useEffect(() => {
+    if (!user) {
+      document.body.classList.add("js-loaded");
+    }
+    return () => {
+      document.body.classList.remove("js-loaded");
+    };
+  }, [user]);
+
   // Show loading state while checking authentication
   if (isLoading) {
     return AuthLoadingStates.checking();
@@ -54,7 +65,8 @@ export function AuthAwareLandingWrapper() {
   }
 
   // Unauthenticated users see the interactive landing page sections
-  // Note: PopularBeachesSection is rendered separately in the shell (SSR)
+  // Note: SSR PopularBeachesSection is also rendered in layout.tsx for SEO crawlers,
+  // but hidden via CSS (body.js-loaded) when this client version is available.
   return (
     <>
       <Navbar />

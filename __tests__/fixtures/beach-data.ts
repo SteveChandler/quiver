@@ -2,15 +2,16 @@
  * Beach Data Test Fixtures
  *
  * Mock beach data for testing beach transformation and mapping functionality.
- * Follows BeachWithMetrics interface from types/location.ts
+ * Uses createMockBeachWithMetrics factory to ensure all required Beach fields are present.
  */
 
 import type { BeachWithMetrics } from "@/types/location";
+import { createMockBeachWithMetrics } from "../setup/typed-mocks";
 
 /**
  * Complete beach with all fields populated
  */
-export const mockBeachComplete: BeachWithMetrics = {
+export const mockBeachComplete: BeachWithMetrics = createMockBeachWithMetrics({
   id: "beach-complete-001",
   name: "Sunset Cliffs",
   slug: "sunset-cliffs",
@@ -23,29 +24,26 @@ export const mockBeachComplete: BeachWithMetrics = {
   description: "A scenic point break with consistent waves and rocky coastline.",
   skill_level: "Intermediate",
   crowd_level: "Moderate",
-  best_months: "September - November",
+  best_months: [9, 10, 11],
   best_conditions_prose: "Works best on south swells with light offshore winds.",
   wave_tips: "Watch for rocks and rip currents near the point.",
   hazards: ["Rocks", "Strong currents", "Sea urchins"],
   features: ["Restrooms", "Parking", "Showers"],
   parking_tips: "Street parking available along Sunset Cliffs Blvd.",
   access_tips: "Multiple stairways down the cliffs.",
-  // Metrics
+  break_type: "Point Break",
   composite_score: 0.85,
   recent_intel_count: 12,
   avg_confirmations: 4.2,
   rank: 3,
-  // Additional Beach fields
-  center_lat: 32.7198,
-  center_lng: -117.2557,
-  rating: 4.5,
+  average_rating: 4.5,
   review_count: 87,
-};
+});
 
 /**
  * Beginner-friendly beach
  */
-export const mockBeachBeginner: BeachWithMetrics = {
+export const mockBeachBeginner: BeachWithMetrics = createMockBeachWithMetrics({
   id: "beach-beginner-001",
   name: "La Jolla Shores",
   slug: "la-jolla-shores",
@@ -58,27 +56,26 @@ export const mockBeachBeginner: BeachWithMetrics = {
   description: "Wide sandy beach with gentle waves, perfect for beginners.",
   skill_level: "Beginner",
   crowd_level: "Heavy",
-  best_months: "Year-round",
+  best_months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   best_conditions_prose: "Best in summer with small south swells.",
   wave_tips: "Soft sand bottom makes wipeouts forgiving.",
   hazards: ["Stingrays"],
   features: ["Restrooms", "Parking", "Lifeguards", "Rentals"],
   parking_tips: "Large parking lot with meters.",
   access_tips: "Beach level access from parking lot.",
+  break_type: "Beach Break",
   composite_score: 0.92,
   recent_intel_count: 25,
   avg_confirmations: 5.1,
   rank: 1,
-  center_lat: 32.8553,
-  center_lng: -117.2563,
-  rating: 4.8,
+  average_rating: 4.8,
   review_count: 234,
-};
+});
 
 /**
  * Longboard-friendly beach
  */
-export const mockBeachLongboard: BeachWithMetrics = {
+export const mockBeachLongboard: BeachWithMetrics = createMockBeachWithMetrics({
   id: "beach-longboard-001",
   name: "Tourmaline",
   slug: "tourmaline",
@@ -91,27 +88,26 @@ export const mockBeachLongboard: BeachWithMetrics = {
   description: "Mellow point break ideal for longboarders.",
   skill_level: "Longboard",
   crowd_level: "Light",
-  best_months: "Year-round",
+  best_months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   best_conditions_prose: "Any south or west swell works here.",
   wave_tips: "Long rides possible on bigger days.",
   hazards: [],
   features: ["Parking", "Restrooms"],
   parking_tips: "Free lot fills up early on weekends.",
   access_tips: "Easy beach access from parking lot.",
+  break_type: "Point Break",
   composite_score: 0.78,
   recent_intel_count: 8,
   avg_confirmations: 3.5,
   rank: 5,
-  center_lat: 32.8048,
-  center_lng: -117.2657,
-  rating: 4.3,
+  average_rating: 4.3,
   review_count: 56,
-};
+});
 
 /**
  * Advanced beach
  */
-export const mockBeachAdvanced: BeachWithMetrics = {
+export const mockBeachAdvanced: BeachWithMetrics = createMockBeachWithMetrics({
   id: "beach-advanced-001",
   name: "Blacks Beach",
   slug: "blacks-beach",
@@ -124,27 +120,26 @@ export const mockBeachAdvanced: BeachWithMetrics = {
   description: "World-class beach break with powerful waves.",
   skill_level: "Advanced",
   crowd_level: "Moderate",
-  best_months: "October - March",
+  best_months: [10, 11, 12, 1, 2, 3],
   best_conditions_prose: "Best on large west swells with offshore Santa Anas.",
   wave_tips: "Powerful waves with steep takeoffs.",
   hazards: ["Strong currents", "Difficult access"],
   features: [],
   parking_tips: "Park at Gliderport and hike down.",
   access_tips: "Long hike down steep cliff.",
+  break_type: "Beach Break",
   composite_score: 0.88,
   recent_intel_count: 15,
   avg_confirmations: 4.8,
   rank: 2,
-  center_lat: 32.8891,
-  center_lng: -117.2529,
-  rating: 4.7,
+  average_rating: 4.7,
   review_count: 156,
-};
+});
 
 /**
  * Expert-only beach
  */
-export const mockBeachExpert: BeachWithMetrics = {
+export const mockBeachExpert: BeachWithMetrics = createMockBeachWithMetrics({
   id: "beach-expert-001",
   name: "Windansea",
   slug: "windansea",
@@ -157,72 +152,55 @@ export const mockBeachExpert: BeachWithMetrics = {
   description: "Challenging reef break for experienced surfers.",
   skill_level: "Expert",
   crowd_level: "Heavy",
-  best_months: "Winter",
+  best_months: [11, 12, 1, 2],
   best_conditions_prose: "Needs large west swell and calm winds.",
   wave_tips: "Shallow reef, aggressive locals.",
   hazards: ["Shallow reef", "Rocks", "Localism"],
   features: [],
   parking_tips: "Limited street parking.",
   access_tips: "Stairs down to beach.",
+  break_type: "Reef Break",
   composite_score: 0.75,
   recent_intel_count: 10,
   avg_confirmations: 4.0,
   rank: 6,
-  center_lat: 32.8333,
-  center_lng: -117.2831,
-  rating: 4.2,
+  average_rating: 4.2,
   review_count: 89,
-};
+});
 
 /**
  * Beach with minimal data (edge case testing)
  */
-export const mockBeachMinimal: BeachWithMetrics = {
+export const mockBeachMinimal: BeachWithMetrics = createMockBeachWithMetrics({
   id: "beach-minimal-001",
   name: "Unknown Beach",
   slug: "unknown-beach",
-  lat: null as unknown as number,
-  lon: null as unknown as number,
-  city: null as unknown as string,
-  state: null as unknown as string,
-  country: null as unknown as string,
-  region: null as unknown as string,
-  description: null as unknown as string,
-  skill_level: null as unknown as string,
-  crowd_level: null as unknown as string,
-  best_months: null as unknown as string,
-  best_conditions_prose: null as unknown as string,
-  wave_tips: null as unknown as string,
-  hazards: null as unknown as string[],
-  features: null as unknown as string[],
-  parking_tips: null as unknown as string,
-  access_tips: null as unknown as string,
+  lat: 0,
+  lon: 0,
   composite_score: 0,
   recent_intel_count: 0,
   avg_confirmations: 0,
   rank: undefined,
-  center_lat: null as unknown as number,
-  center_lng: null as unknown as number,
-  rating: null as unknown as number,
+  average_rating: 0,
   review_count: 0,
-};
+});
 
 /**
  * Beach with invalid coordinates (out of bounds)
  */
-export const mockBeachInvalidCoords: BeachWithMetrics = {
+export const mockBeachInvalidCoords: BeachWithMetrics = createMockBeachWithMetrics({
   ...mockBeachComplete,
   id: "beach-invalid-coords-001",
   name: "Invalid Coords Beach",
   slug: "invalid-coords-beach",
   lat: 200, // Invalid: > 90
   lon: -400, // Invalid: < -180
-};
+});
 
 /**
  * Beach in Orange County
  */
-export const mockBeachOrangeCounty: BeachWithMetrics = {
+export const mockBeachOrangeCounty: BeachWithMetrics = createMockBeachWithMetrics({
   id: "beach-oc-001",
   name: "Huntington Beach",
   slug: "huntington-beach",
@@ -235,33 +213,32 @@ export const mockBeachOrangeCounty: BeachWithMetrics = {
   description: "Surf City USA with consistent beach break.",
   skill_level: "Intermediate",
   crowd_level: "Heavy",
-  best_months: "Year-round",
+  best_months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   best_conditions_prose: "Works on most swells.",
   wave_tips: "Watch for crowds near the pier.",
   hazards: ["Crowds"],
   features: ["Restrooms", "Parking", "Lifeguards"],
   parking_tips: "Large public lots available.",
   access_tips: "Easy beach access.",
+  break_type: "Beach Break",
   composite_score: 0.82,
   recent_intel_count: 20,
   avg_confirmations: 4.0,
   rank: 4,
-  center_lat: 33.6595,
-  center_lng: -118.0015,
-  rating: 4.4,
+  average_rating: 4.4,
   review_count: 312,
-};
+});
 
 /**
  * Beach with light crowd
  */
-export const mockBeachLightCrowd: BeachWithMetrics = {
+export const mockBeachLightCrowd: BeachWithMetrics = createMockBeachWithMetrics({
   ...mockBeachLongboard,
   id: "beach-light-crowd-001",
   name: "Secret Spot",
   slug: "secret-spot",
   crowd_level: "Low",
-};
+});
 
 /**
  * Collection of all mock beaches for batch testing

@@ -34,35 +34,25 @@ export const profileFormSchema = z.object({
 
   // Surf Information with enum validation
   experience_level: z
-    .enum(experienceLevelValues, {
-      errorMap: () => ({ message: "Please select a valid experience level" }),
-    })
+    .enum(experienceLevelValues, { message: "Please select a valid experience level" })
     .optional()
     .or(z.literal("")),
   home_beach_id: z.string().uuid().nullable().optional(),
   surf_styles: z
     .array(
-      z.enum(surfStyleValues, {
-        errorMap: () => ({ message: "Please select valid surf styles" }),
-      })
+      z.enum(surfStyleValues, { message: "Please select valid surf styles" })
     )
     .optional(),
   preferred_wave_size: z
-    .enum(waveSizeValues, {
-      errorMap: () => ({ message: "Please select a valid wave size" }),
-    })
+    .enum(waveSizeValues, { message: "Please select a valid wave size" })
     .optional()
     .or(z.literal("")),
   preferred_break_type: z
-    .enum(breakTypeValues, {
-      errorMap: () => ({ message: "Please select a valid break type" }),
-    })
+    .enum(breakTypeValues, { message: "Please select a valid break type" })
     .optional()
     .or(z.literal("")),
   crowd_preference: z
-    .enum(crowdPreferenceValues, {
-      errorMap: () => ({ message: "Please select a valid crowd preference" }),
-    })
+    .enum(crowdPreferenceValues, { message: "Please select a valid crowd preference" })
     .optional()
     .or(z.literal("")),
 

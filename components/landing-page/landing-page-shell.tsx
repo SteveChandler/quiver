@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getFeaturedBeaches } from "@/lib/data/server/featured-beaches";
 import { PopularBeachesSection } from "./popular-beaches-section";
 import { QuiverFAQSchema } from "@/components/seo/faq-schema";
@@ -16,7 +17,7 @@ export async function LandingPageShell({ children }: LandingPageShellProps) {
       <QuiverFAQSchema />
 
       {/* Hidden fallback CTA for E2E test compatibility */}
-      <a
+      <Link
         href="/auth/sign-up"
         data-testid="test-fallback-cta"
         className="hidden"
@@ -24,7 +25,7 @@ export async function LandingPageShell({ children }: LandingPageShellProps) {
         tabIndex={-1}
       >
         Sign Up
-      </a>
+      </Link>
 
       {/* Auth-aware content slot (client boundary) */}
       {children}

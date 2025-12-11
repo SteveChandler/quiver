@@ -27,7 +27,10 @@ import type { Profile, Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { ForecastDataState } from "@/types/forecast-states";
 import { getForecastStateInfo } from "@/types/forecast-states";
-import { ForecastErrorStateCard, ForecastLoadingSkeleton } from "@/components/forecast/forecast-error-state";
+import {
+  ForecastErrorStateCard,
+  ForecastLoadingSkeleton,
+} from "@/components/forecast/forecast-error-state";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { track, slugify } from "@/lib/analytics";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
@@ -59,7 +62,7 @@ export function ForecastTab({
   } = useSurfDiscovery({
     maxResults: 3, // Fetch 3 recommendations - first goes to personalized card, all to list
     enabled: !!profile, // Only fetch when user has profile
-    immediate: true,    // Fetch on mount
+    immediate: true, // Fetch on mount
   });
 
   // Adapt first discovery result to personalized format for PersonalizedForecastCard
@@ -69,7 +72,8 @@ export function ForecastTab({
   const hasRecommendation = hasRecommendations;
 
   const [showAdjusted, setShowAdjusted] = useState(false);
-  const [forecastState, setForecastState] = useState<ForecastDataState>("loading");
+  const [forecastState, setForecastState] =
+    useState<ForecastDataState>("loading");
   const [forecastError, setForecastError] = useState<Error | null>(null);
 
   // When no home beach is set, pick a popular beach to display instead
@@ -167,7 +171,8 @@ export function ForecastTab({
       const { getCurrentForecast } = await import(
         "@/lib/utils/current-forecast-utils"
       );
-      const currentForecast = getCurrentForecast<EnhancedForecastEntity>(forecasts);
+      const currentForecast =
+        getCurrentForecast<EnhancedForecastEntity>(forecasts);
 
       if (currentForecast) {
         console.log(
@@ -313,12 +318,12 @@ export function ForecastTab({
 
     // Build URL with prefill parameters
     const params = new URLSearchParams({
-      mode: 'plan',
+      mode: "plan",
       beach: recommendation.beach.id,
       beachName: recommendation.beach.name,
       startTime: recommendation.window.start.toISOString(),
       endTime: recommendation.window.end.toISOString(),
-      step: '3', // Jump to Goals step
+      step: "3", // Jump to Goals step
     });
 
     const url = `/sessions/new?${params.toString()}`;
@@ -391,7 +396,12 @@ export function ForecastTab({
   }
 
   // Show error states using the new error state component
-  if (!todaysForecast || fetchError || forecastError || ["failed", "rate_limited", "no_coverage"].includes(forecastState)) {
+  if (
+    !todaysForecast ||
+    fetchError ||
+    forecastError ||
+    ["failed", "rate_limited", "no_coverage"].includes(forecastState)
+  ) {
     return (
       <div data-testid="forecast-tab" className="space-y-4">
         {shouldShowHomeBeachBanner && (
@@ -431,14 +441,14 @@ export function ForecastTab({
       )}
       {/* Personalized Forecast Recommendation */}
       {profile && (
-              <PersonalizedForecastCard
-                recommendation={recommendation}
-                loading={personalizedLoading}
-                error={personalizedError ? new Error(personalizedError) : null}
-                onPlanSession={handlePlanSession}
-                onViewBeach={handleViewBeachFromPersonalized}
-              />
-            )}
+        <PersonalizedForecastCard
+          recommendation={recommendation}
+          loading={personalizedLoading}
+          error={personalizedError ? new Error(personalizedError) : null}
+          onPlanSession={handlePlanSession}
+          onViewBeach={handleViewBeachFromPersonalized}
+        />
+      )}
       {/* Surf Discovery - Top Spots for You (uses same data as personalized card) */}
       {profile && (
         <BeachDiscoveryList
@@ -447,8 +457,6 @@ export function ForecastTab({
           errorMessage={discoveryError}
         />
       )}
-
-      
 
       {/* Beach Header */}
       <Card className="bg-gradient-to-r from-ocean-blue to-blue-500 text-white rounded-lg border-0 shadow-md">
@@ -471,8 +479,8 @@ export function ForecastTab({
         </CardHeader>
       </Card>
 
-      {/* Community-Adjusted Forecast */}
-      {beachAccuracy && (
+      {/* Community-Adjusted Forecast - only show when we have real session data */}
+      {beachAccuracy && (beachAccuracy.total_sessions_count ?? 0) > 0 && (
         <div className="space-y-2">
           {!showAdjusted && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -490,9 +498,19 @@ export function ForecastTab({
         </div>
       )}
 
-      {/* Raw Forecast Display - only show when no accuracy data or when user wants to see comparison */}
-      {(!beachAccuracy || showAdjusted) && (
-        <Card className={showAdjusted && beachAccuracy ? "opacity-75" : ""}>
+      {/* Raw Forecast Display - only show when no real calibration data or when user wants to see comparison */}
+      {(!beachAccuracy ||
+        (beachAccuracy.total_sessions_count ?? 0) === 0 ||
+        showAdjusted) && (
+        <Card
+          className={
+            showAdjusted &&
+            beachAccuracy &&
+            (beachAccuracy.total_sessions_count ?? 0) > 0
+              ? "opacity-75"
+              : ""
+          }
+        >
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center space-x-2">
@@ -517,16 +535,17 @@ export function ForecastTab({
                     showRefreshButton={true}
                   />
                 )}
-                {beachAccuracy && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleToggleForecast}
-                    className="text-blue-600 hover:text-blue-700"
-                  >
-                    {showAdjusted ? "Show Raw" : "Show Adjusted"}
-                  </Button>
-                )}
+                {beachAccuracy &&
+                  (beachAccuracy.total_sessions_count ?? 0) > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleToggleForecast}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      {showAdjusted ? "Show Raw" : "Show Adjusted"}
+                    </Button>
+                  )}
               </div>
             </CardTitle>
           </CardHeader>
@@ -654,8 +673,13 @@ export function ForecastTab({
                 const lon = effectiveBeach.lon ?? 0;
 
                 // Warn in development if coordinates look suspicious
-                if (process.env.NODE_ENV === 'development' && (lat === 0 || lon === 0)) {
-                  console.warn(`⚠️ ForecastTab: Beach ${effectiveBeach.name} has zero coordinates`);
+                if (
+                  process.env.NODE_ENV === "development" &&
+                  (lat === 0 || lon === 0)
+                ) {
+                  console.warn(
+                    `⚠️ ForecastTab: Beach ${effectiveBeach.name} has zero coordinates`
+                  );
                   console.warn(`  Beach ID: ${effectiveBeach.id}`);
                   console.warn(`  Latitude: ${lat}`);
                   console.warn(`  Longitude: ${lon}`);

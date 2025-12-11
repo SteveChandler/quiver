@@ -177,6 +177,7 @@ describe("WavePeriodDisplay", () => {
         <WavePeriodDisplay
           waveHeight="3-4 ft"
           wavePeriod="11s"
+          waveDirection="W"
           variant="detailed"
         />
       );
@@ -187,6 +188,7 @@ describe("WavePeriodDisplay", () => {
         <WavePeriodDisplay
           waveHeight="2-3 ft"
           wavePeriod="9s"
+          waveDirection="W"
           variant="detailed"
         />
       );
@@ -197,6 +199,7 @@ describe("WavePeriodDisplay", () => {
         <WavePeriodDisplay
           waveHeight="2-3 ft"
           wavePeriod="7s"
+          waveDirection="W"
           variant="detailed"
         />
       );
@@ -207,6 +210,7 @@ describe("WavePeriodDisplay", () => {
         <WavePeriodDisplay
           waveHeight="1-2 ft"
           wavePeriod="4s"
+          waveDirection="W"
           variant="detailed"
         />
       );
@@ -219,6 +223,7 @@ describe("WavePeriodDisplay", () => {
         <WavePeriodDisplay
           waveHeight="4-6 ft"
           wavePeriod="14s"
+          waveDirection="W"
           variant="detailed"
         />
       );
@@ -230,6 +235,7 @@ describe("WavePeriodDisplay", () => {
         <WavePeriodDisplay
           waveHeight="3-4 ft"
           wavePeriod="11s"
+          waveDirection="W"
           variant="detailed"
         />
       );
@@ -241,6 +247,7 @@ describe("WavePeriodDisplay", () => {
         <WavePeriodDisplay
           waveHeight="1-2 ft"
           wavePeriod="4s"
+          waveDirection="W"
           variant="detailed"
         />
       );

@@ -13,37 +13,41 @@ const validateEnvironment = () => {
 
   // Required variables
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    errors.push('NEXT_PUBLIC_SUPABASE_URL is required');
+    errors.push("NEXT_PUBLIC_SUPABASE_URL is required");
   }
   if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    errors.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is required');
+    errors.push("NEXT_PUBLIC_SUPABASE_ANON_KEY is required");
   }
 
   // Optional but recommended
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    warnings.push('SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail');
+    warnings.push(
+      "SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail"
+    );
   }
   if (!process.env.NEXT_PUBLIC_SITE_URL) {
-    warnings.push('NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly');
+    warnings.push(
+      "NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly"
+    );
   }
 
   // Log warnings
   if (warnings.length > 0) {
-    console.warn('⚠️  Environment Configuration Warnings:');
-    warnings.forEach(w => console.warn(`   • ${w}`));
+    console.warn("⚠️  Environment Configuration Warnings:");
+    warnings.forEach((w) => console.warn(`   • ${w}`));
   }
 
   // Handle errors
   if (errors.length > 0) {
     const msg = [
-      '❌ Environment Configuration Errors:',
-      ...errors.map(e => `   • ${e}`),
-      '',
-      '💡 Setup: Copy .env.example to .env.local and fill in your values',
-      '   See docs/SUPABASE_SETUP.md for detailed instructions',
-    ].join('\n');
+      "❌ Environment Configuration Errors:",
+      ...errors.map((e) => `   • ${e}`),
+      "",
+      "💡 Setup: Copy .env.example to .env.local and fill in your values",
+      "   See docs/SUPABASE_SETUP.md for detailed instructions",
+    ].join("\n");
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       throw new Error(msg);
     } else {
       console.error(msg);
@@ -341,7 +345,14 @@ const pwaConfig = withPWA({
   register: true,
   skipWaiting: true,
   // Exclude files that don't exist or shouldn't be precached
-  buildExcludes: [/app-build-manifest\.json$/],
+  buildExcludes: [
+    /app-build-manifest\.json$/,
+    /middleware-manifest\.json$/,
+    /build-manifest\.json$/,
+    /react-loadable-manifest\.json$/,
+    /server\/middleware-manifest\.json$/,
+  ],
+  cleanupOutdatedCaches: true,
   runtimeCaching: [
     // Forecast API - NetworkFirst with 3s timeout (fresh data priority, short cache for offline)
     {

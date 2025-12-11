@@ -109,7 +109,8 @@ describe("Simple Map Test", () => {
     jest.clearAllMocks();
     apiCalls.length = 0;
     
-    mockFetch.mockImplementation((url: string) => {
+    mockFetch.mockImplementation((input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       apiCalls.push(url);
       console.log('MOCK FETCH CALLED:', url);
       

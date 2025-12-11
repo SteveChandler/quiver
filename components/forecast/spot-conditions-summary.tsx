@@ -27,6 +27,8 @@ type Props = {
       date: string;
       sunrise_utc: string | null;
       sunset_utc: string | null;
+      sunrise_local?: string | null;
+      sunset_local?: string | null;
       source: string;
     }>;
   } | null;
@@ -63,7 +65,7 @@ export function SpotConditionsSummary({ data, className }: Props) {
       if (latest.source) return latest.source.toUpperCase();
     }
     // Fall back to tides/sun if marine missing
-    if (data.tides?.length) return "NOAA";
+    if (data?.tides?.length) return "NOAA";
     return "–";
   }, [latest, data]);
 

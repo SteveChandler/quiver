@@ -48,15 +48,15 @@ describe("AdminChecker", () => {
 
     it("should prioritize canonical ID over metadata", () => {
       const canonicalAdminId = ADMIN_USER_IDS[0];
-      const mockUser: Partial<User> = {
+      const mockUser = {
         id: canonicalAdminId,
         email: "admin@quiver.surf",
         user_metadata: {
           is_admin: false, // Contradictory metadata
         },
-      } as User;
+      } as unknown as User;
 
-      const result = adminChecker.checkAdminStatus(mockUser as User);
+      const result = adminChecker.checkAdminStatus(mockUser);
 
       // Canonical ID should win
       expect(result.isAdmin).toBe(true);
@@ -66,59 +66,59 @@ describe("AdminChecker", () => {
 
   describe("User Metadata Admin Checking", () => {
     it("should recognize is_admin flag in user_metadata", () => {
-      const mockUser: Partial<User> = {
+      const mockUser = {
         id: "user-789",
         email: "metadata-admin@example.com",
         user_metadata: {
           is_admin: true,
         },
-      } as User;
+      } as unknown as User;
 
-      const result = adminChecker.checkAdminStatus(mockUser as User);
+      const result = adminChecker.checkAdminStatus(mockUser);
 
       expect(result.isAdmin).toBe(true);
       expect(result.reason).toBe("Admin metadata flag");
     });
 
     it("should recognize role=admin in user_metadata", () => {
-      const mockUser: Partial<User> = {
+      const mockUser = {
         id: "user-456",
         email: "role-admin@example.com",
         user_metadata: {
           role: "admin",
         },
-      } as User;
+      } as unknown as User;
 
-      const result = adminChecker.checkAdminStatus(mockUser as User);
+      const result = adminChecker.checkAdminStatus(mockUser);
 
       expect(result.isAdmin).toBe(true);
       expect(result.reason).toBe("Admin metadata flag");
     });
 
     it("should reject is_admin=false in metadata", () => {
-      const mockUser: Partial<User> = {
+      const mockUser = {
         id: "user-999",
         email: "not-admin@example.com",
         user_metadata: {
           is_admin: false,
         },
-      } as User;
+      } as unknown as User;
 
-      const result = adminChecker.checkAdminStatus(mockUser as User);
+      const result = adminChecker.checkAdminStatus(mockUser);
 
       expect(result.isAdmin).toBe(false);
     });
 
     it("should reject non-admin roles", () => {
-      const mockUser: Partial<User> = {
+      const mockUser = {
         id: "user-888",
         email: "moderator@example.com",
         user_metadata: {
           role: "moderator",
         },
-      } as User;
+      } as unknown as User;
 
-      const result = adminChecker.checkAdminStatus(mockUser as User);
+      const result = adminChecker.checkAdminStatus(mockUser);
 
       expect(result.isAdmin).toBe(false);
     });
@@ -215,15 +215,15 @@ describe("AdminChecker", () => {
     });
 
     it("should handle malformed role values", () => {
-      const mockUser: Partial<User> = {
+      const mockUser = {
         id: "user-malformed",
         email: "malformed@example.com",
         user_metadata: {
           role: "ADMIN", // Should be lowercase "admin"
         },
-      } as User;
+      } as unknown as User;
 
-      const result = adminChecker.checkAdminStatus(mockUser as User);
+      const result = adminChecker.checkAdminStatus(mockUser);
 
       expect(result.isAdmin).toBe(false);
     });

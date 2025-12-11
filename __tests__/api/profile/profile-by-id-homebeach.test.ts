@@ -84,7 +84,7 @@ describe("/api/profile/[id] includes home_beach", () => {
     });
 
     const req = createMockRequest("GET");
-    const res = await GET(req as any, { params: { id: targetUserId } });
+    const res = await GET(req as any, { params: Promise.resolve({ id: targetUserId }) });
     const body = await expectSuccessResponse<any>(res, 200);
 
     expect(body.data).toMatchObject({

@@ -40,7 +40,7 @@ jest.mock('@/lib/utils/direction-utils', () => ({
 }));
 
 describe('BeachStatsGrid', () => {
-  const mockBeach: Beach = {
+  const mockBeach = {
     id: 'test-beach-1',
     name: 'Test Beach',
     lat: 33.7701,
@@ -57,7 +57,7 @@ describe('BeachStatsGrid', () => {
     preferred_tide_ft_max: 5,
     created_at: '2024-01-01',
     updated_at: '2024-01-01',
-  };
+  } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -162,7 +162,7 @@ describe('BeachStatsGrid', () => {
       });
 
       // Mock the function to return 'N' for calibration data
-      degreeWindowToCardinal.mockImplementation((min, max) => {
+      degreeWindowToCardinal.mockImplementation((min: number, max: number) => {
         if (min === 315 && max === 45) return 'N';
         if (min === 225 && max === 315) return 'W';
         return 'SW';
@@ -192,7 +192,7 @@ describe('BeachStatsGrid', () => {
       };
 
       const { degreeWindowToCardinal } = require('@/lib/utils/direction-utils');
-      degreeWindowToCardinal.mockImplementation((min, max) => {
+      degreeWindowToCardinal.mockImplementation((min: number | null, max: number | null) => {
         if (min === null || max === null) return null;
         return 'W';
       });
@@ -215,7 +215,7 @@ describe('BeachStatsGrid', () => {
       });
 
       const { degreeWindowToCardinal } = require('@/lib/utils/direction-utils');
-      degreeWindowToCardinal.mockImplementation((min, max) => {
+      degreeWindowToCardinal.mockImplementation((min: number, max: number) => {
         if (min === 240 && max === 300) return 'W';
         return 'SW';
       });
@@ -415,7 +415,7 @@ describe('BeachStatsGrid', () => {
 
   describe('Edge Cases', () => {
     test('handles beach with all null values', () => {
-      const emptyBeach: Beach = {
+      const emptyBeach = {
         id: 'empty-beach',
         name: 'Empty Beach',
         lat: null,
@@ -432,7 +432,7 @@ describe('BeachStatsGrid', () => {
         preferred_tide_ft_max: null,
         created_at: '2024-01-01',
         updated_at: '2024-01-01',
-      };
+      } as any;
 
       const { degreeWindowToCardinal } = require('@/lib/utils/direction-utils');
       degreeWindowToCardinal.mockReturnValue(null);

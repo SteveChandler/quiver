@@ -40,11 +40,12 @@ interface MockUser {
 interface Beach {
   id: string;
   name: string;
-  location: string;
-  latitude: number;
-  longitude: number;
+  city: string | null;
+  lat: number | null;
+  lon: number | null;
   description?: string;
   skill_level?: string;
+  location?: string;
 }
 
 interface SurfConditions {
@@ -293,7 +294,7 @@ function generateReviewContent(user: MockUser, beach: Beach): { title: string; c
 
 function inferBeachType(beach: Beach): keyof typeof BEACH_CHARACTERISTICS {
   const name = beach.name.toLowerCase();
-  const location = beach.location.toLowerCase();
+  const location = (beach.location || '').toLowerCase();
   const description = (beach.description || '').toLowerCase();
   
   // Popular beaches
@@ -326,7 +327,7 @@ function detectBeachCharacteristics(beach: Beach): {
   isPier: boolean;
 } {
   const name = beach.name.toLowerCase();
-  const location = beach.location.toLowerCase();
+  const location = (beach.location || '').toLowerCase();
   const description = (beach.description || '').toLowerCase();
   const combined = `${name} ${location} ${description}`;
   
@@ -939,8 +940,8 @@ async function seedIntelPosts(
       const createdAt = randomDateInRange(14); // Within last 2 weeks (increased from 10 days)
       
       // Add slight offset to beach coordinates for realistic intel posting
-      const latitude = addRandomOffset(beach.lat);
-      const longitude = addRandomOffset(beach.lon);
+      const latitude = addRandomOffset(beach.lat ?? 0);
+      const longitude = addRandomOffset(beach.lon ?? 0);
       
       const intelData: Record<string, any> = {
         user_id: user.id,
@@ -975,11 +976,11 @@ async function seedIntelPosts(
         longitude,
       });
 
-      const createdAt = intelData.created_at
+      const dedupeTime = intelData.created_at
         ? new Date(intelData.created_at)
         : new Date();
       const dedupeWindowStart = new Date(
-        createdAt.getTime() - DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES * 60 * 1000
+        dedupeTime.getTime() - DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES * 60 * 1000
       ).toISOString();
 
       const { data: existingIntel, error: dedupeError } = await supabase
@@ -998,7 +999,7 @@ async function seedIntelPosts(
           dedupeError
         );
       } else {
-        const existingMatch = existingIntel?.find(existing => {
+        const existingMatch = existingIntel?.find((existing: any) => {
           const existingHash = createIntelDedupeHash({
             userId: user.id,
             tag,

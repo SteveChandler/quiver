@@ -56,48 +56,78 @@ async function completeOnboarding() {
     }
 
     // Look for onboarding questions or steps
-    console.log('📝 Looking for onboarding steps...');
+    // New flow: Welcome → Profile → Experience → Wave Preferences → Home Beach → Referral → Completion
+    console.log('📝 Completing onboarding steps...');
 
-    // Step 1: Wave size preference
-    const waveSizeButtons = page.locator('button').filter({ hasText: /small|medium|large|any size/i });
-    const hasWaveSize = await waveSizeButtons.count() > 0;
-
-    if (hasWaveSize) {
-      console.log('   Step 1: Selecting wave size preference (Medium)...');
-      const mediumButton = page.locator('button').filter({ hasText: /medium/i }).first();
-      if (await mediumButton.isVisible().catch(() => false)) {
-        await mediumButton.click();
+    // Step 1: Welcome Step - Click "Get Started"
+    const welcomeStep = page.getByTestId('welcome-step');
+    if (await welcomeStep.isVisible({ timeout: 3000 }).catch(() => false)) {
+      console.log('   Step 1: Welcome - Clicking Get Started...');
+      const getStartedBtn = page.getByTestId('welcome-get-started');
+      if (await getStartedBtn.isVisible().catch(() => false)) {
+        await getStartedBtn.click();
         await page.waitForTimeout(1000);
       }
     }
 
-    // Step 2: Break type preference
-    const breakTypeButtons = page.locator('button').filter({ hasText: /beach|point|reef|any type/i });
-    const hasBreakType = await breakTypeButtons.count() > 0;
-
-    if (hasBreakType) {
-      console.log('   Step 2: Selecting break type preference (Beach Break)...');
-      const beachButton = page.locator('button').filter({ hasText: /beach/i }).first();
-      if (await beachButton.isVisible().catch(() => false)) {
-        await beachButton.click();
-        await page.waitForTimeout(1000);
+    // Step 2: Profile Step - Fill name if fields are visible
+    const fullNameInput = page.getByLabel(/full name/i);
+    if (await fullNameInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log('   Step 2: Profile - Filling in name...');
+      await fullNameInput.fill('Test User');
+      const displayNameInput = page.getByLabel(/display name/i);
+      if (await displayNameInput.isVisible().catch(() => false)) {
+        await displayNameInput.fill('TestSurfer');
       }
+      const continueBtn = page.getByRole('button', { name: /continue/i });
+      await continueBtn.click();
+      await page.waitForTimeout(1000);
     }
 
-    // Step 3: Crowd preference
-    const crowdButtons = page.locator('button').filter({ hasText: /social|moderate|solitude/i });
-    const hasCrowd = await crowdButtons.count() > 0;
-
-    if (hasCrowd) {
-      console.log('   Step 3: Selecting crowd preference (Moderate)...');
-      const moderateButton = page.locator('button').filter({ hasText: /moderate/i }).first();
-      if (await moderateButton.isVisible().catch(() => false)) {
-        await moderateButton.click();
-        await page.waitForTimeout(1000);
-      }
+    // Step 3: Experience Step - Select experience level
+    const experienceStep = page.getByTestId('experience-step');
+    if (await experienceStep.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log('   Step 3: Experience - Selecting Intermediate...');
+      const intermediateCard = page.getByTestId('experience-intermediate');
+      await intermediateCard.click();
+      await page.waitForTimeout(500);
+      const continueBtn = page.getByRole('button', { name: /continue/i });
+      await continueBtn.click();
+      await page.waitForTimeout(1000);
     }
 
-    // Step 4: Referral code (if provided)
+    // Step 4: Wave Preferences Step - Select wave size, break type, and surf style
+    const wavePrefsStep = page.getByTestId('wave-preferences-step');
+    if (await wavePrefsStep.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log('   Step 4: Wave Preferences - Selecting preferences...');
+
+      // Select medium waves
+      const mediumWaveBtn = page.getByTestId('wave-size-medium');
+      if (await mediumWaveBtn.isVisible().catch(() => false)) {
+        await mediumWaveBtn.click();
+      }
+
+      // Select beach break
+      const beachBreakBtn = page.getByTestId('break-type-beach');
+      if (await beachBreakBtn.isVisible().catch(() => false)) {
+        await beachBreakBtn.click();
+      }
+
+      // Select shortboard surf style (required)
+      const shortboardBtn = page.getByTestId('surf-style-shortboard');
+      if (await shortboardBtn.isVisible().catch(() => false)) {
+        await shortboardBtn.click();
+      }
+
+      await page.waitForTimeout(500);
+      const continueBtn = page.getByRole('button', { name: /continue/i });
+      await continueBtn.click();
+      await page.waitForTimeout(1000);
+    }
+
+    // Step 5: Home Beach - Skip or search (handled by generic button click below)
+
+    // Step 6: Referral code (if provided)
     if (referralCode) {
       console.log(`\n🎁 Looking for referral step...`);
       const referralInput = page.getByLabel(/referral.*code/i);

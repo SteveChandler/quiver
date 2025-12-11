@@ -18,7 +18,8 @@ interface BeachCheckInsProps {
 
 export function BeachCheckIns({ beachId, beachName }: BeachCheckInsProps) {
   const [showForm, setShowForm] = useState(false);
-  const { data: checkIns = [], loading, refetch } = useRecentCheckIns(beachId);
+  const { data: checkInsData, loading, refetch } = useRecentCheckIns(beachId);
+  const checkIns = checkInsData ?? [];
   const { data: accuracy } = useForecastAccuracyStats(beachId);
 
   return (

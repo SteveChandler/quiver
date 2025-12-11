@@ -3,7 +3,7 @@
  */
 
 import { GET } from "@/app/api/users/search/route";
-import { 
+import {
   createMockSupabaseClient,
   createMockUser,
   createMockProfile,
@@ -17,6 +17,22 @@ import {
   mockDatabaseError,
   mockAuthError,
 } from "@/test-utils/api-test-helpers";
+
+// Type for user search response data
+interface UserSearchResponse {
+  users: Array<{
+    id: string;
+    full_name: string | null;
+    followers_count: number;
+    following_count: number;
+    avatar_url?: string | null;
+    relevance?: number;
+  }>;
+  total?: number;
+  count?: number;
+  query?: string;
+  message?: string;
+}
 
 // Mock the Supabase API server client
 const mockSupabaseClient = createMockSupabaseClient();
@@ -148,7 +164,7 @@ describe("/api/users/search", () => {
       );
 
       const response = await GET(request);
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<UserSearchResponse>(response, 200);
 
       expect(data.data.users).toHaveLength(1);
       const [user] = data.data.users;
@@ -177,7 +193,7 @@ describe("/api/users/search", () => {
       });
 
       const response = await GET(request);
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<UserSearchResponse>(response, 200);
 
       expect(data.data.users).toHaveLength(1);
       const [user] = data.data.users;
@@ -267,7 +283,7 @@ describe("/api/users/search", () => {
       const data = await expectSuccessResponse(response, 200);
 
       // Verify current user is not in results
-      expect(data.data.users).not.toContainEqual(
+      expect((data.data as UserSearchResponse).users).not.toContainEqual(
         expect.objectContaining({ id: "current-user" })
       );
 
@@ -293,7 +309,7 @@ describe("/api/users/search", () => {
       });
 
       const response = await GET(request);
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<UserSearchResponse>(response, 200);
 
       // Should only include valid user
       expect(data.data.users).toHaveLength(1);
@@ -330,7 +346,7 @@ describe("/api/users/search", () => {
       });
 
       const response = await GET(request);
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<UserSearchResponse>(response, 200);
 
       const users = data.data.users;
       expect(users).toHaveLength(3);
@@ -407,7 +423,7 @@ describe("/api/users/search", () => {
       });
 
       const response = await GET(request);
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<UserSearchResponse>(response, 200);
 
       expect(data.data.users).toHaveLength(3);
       // The test verifies case-insensitive search works correctly
@@ -426,7 +442,7 @@ describe("/api/users/search", () => {
       });
 
       const response = await GET(request);
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<UserSearchResponse>(response, 200);
 
       expect(data.data.query).toBe("test");
       // The test verifies whitespace is trimmed from search query
@@ -477,7 +493,7 @@ describe("/api/users/search", () => {
       });
 
       const response = await GET(request);
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<UserSearchResponse>(response, 200);
 
       // Verify query only selects allowed fields
       // The test verifies only safe fields are selected and returned
@@ -532,7 +548,7 @@ describe("/api/users/search", () => {
       const responses = await Promise.all(requests.map(request => GET(request)));
 
       responses.forEach(async (response) => {
-        const data = await expectSuccessResponse(response, 200);
+        const data = await expectSuccessResponse<UserSearchResponse>(response, 200);
         expect(data.data.users).toHaveLength(1);
       });
     });

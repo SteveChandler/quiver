@@ -100,13 +100,13 @@ export function makeAuthenticatedAction<
 
       const data = await action(user, supabase, ...args);
       return { success: true, data };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Server action error:", error);
       let message: string;
       if (error instanceof Error) {
         message = error.message;
       } else if (error && typeof error === "object" && "message" in error) {
-        message = String(error.message);
+        message = String((error as { message: unknown }).message);
       } else {
         message = "Unknown error occurred";
         console.error("Unhandled error type:", typeof error, error);

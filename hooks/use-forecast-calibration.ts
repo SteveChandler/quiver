@@ -122,7 +122,7 @@ export function useForecastCalibration({
 
           return result.data;
         } else {
-          throw new Error(result.message || "Failed to submit feedback");
+          throw new Error(result.error || "Failed to submit feedback");
         }
       } catch (error) {
         console.error("Error submitting forecast feedback:", error);
@@ -142,7 +142,7 @@ export function useForecastCalibration({
   // Check if feedback has already been submitted for a session
   const hasFeedbackForSession = useCallback(
     (sessionId: string) => {
-      return sessionSnapshots.some(
+      return (sessionSnapshots ?? []).some(
         (snapshot) => snapshot.session_id === sessionId
       );
     },

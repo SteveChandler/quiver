@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { ForecastDisplay } from "@/components/forecast/forecast-display";
 import { BeachesEnhancedForecast } from "@/components/beaches-enhanced-forecast";
-import { EnhancedForecast } from "@/types/database";
+
+// EnhancedForecast type alias for test mock data - uses any for flexibility
+type EnhancedForecast = any;
 
 // Mock the MultiDayForecastTable component
 jest.mock("@/components/forecast/forecast-table", () => ({
@@ -98,7 +100,7 @@ describe("Enhanced Forecast Components", () => {
     },
   ];
 
-  const mockBeach = {
+  const mockBeach: any = {
     id: "beach-1",
     name: "Ocean Beach",
     coordinates: { lat: 32.7553, lon: -117.2547 },

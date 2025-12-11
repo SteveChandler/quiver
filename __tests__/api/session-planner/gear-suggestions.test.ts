@@ -3,7 +3,7 @@
  */
 
 import { GET } from "@/app/api/session-planner/gear-suggestions/route";
-import { 
+import {
   createMockSupabaseClient,
   createMockUser,
   createMockRequest,
@@ -15,6 +15,12 @@ import {
   mockDatabaseSuccess,
   mockDatabaseError,
 } from "@/test-utils/api-test-helpers";
+
+// Type for board suggestions returned from the API
+interface BoardSuggestion {
+  board: { board_type: string; id: string };
+  score: number;
+}
 
 // Mock the api-response-utils functions
 jest.mock("@/lib/api-response-utils", () => ({
@@ -393,8 +399,14 @@ describe("/api/session-planner/gear-suggestions", () => {
       expect(data.data.suggestions).toHaveLength(2);
       
       // For 4ft waves, shortboard should score higher than longboard
-      const shortboardSuggestion = data.data.suggestions.find(s => s.board.board_type === "shortboard");
-      const longboardSuggestion = data.data.suggestions.find(s => s.board.board_type === "longboard");
+      const shortboardSuggestion = data.data.suggestions.find(
+        (s: { board: { board_type: string }; score: number }) =>
+          s.board.board_type === "shortboard"
+      );
+      const longboardSuggestion = data.data.suggestions.find(
+        (s: { board: { board_type: string }; score: number }) =>
+          s.board.board_type === "longboard"
+      );
       
       expect(shortboardSuggestion.score).toBeGreaterThan(longboardSuggestion.score);
       expect(data.data.analysisResults.recommendationBasis).toBe("Board catalog only");
@@ -536,8 +548,12 @@ describe("/api/session-planner/gear-suggestions", () => {
       const response = await GET(request);
       const data = await response.json();
 
-      const longboardSuggestion = data.data.suggestions.find(s => s.board.board_type === "longboard");
-      const shortboardSuggestion = data.data.suggestions.find(s => s.board.board_type === "shortboard");
+      const longboardSuggestion = data.data.suggestions.find(
+        (s: BoardSuggestion) => s.board.board_type === "longboard"
+      );
+      const shortboardSuggestion = data.data.suggestions.find(
+        (s: BoardSuggestion) => s.board.board_type === "shortboard"
+      );
 
       expect(longboardSuggestion.score).toBeGreaterThan(shortboardSuggestion.score);
     });
@@ -573,8 +589,12 @@ describe("/api/session-planner/gear-suggestions", () => {
       const response = await GET(request);
       const data = await response.json();
 
-      const longboardSuggestion = data.data.suggestions.find(s => s.board.board_type === "longboard");
-      const shortboardSuggestion = data.data.suggestions.find(s => s.board.board_type === "shortboard");
+      const longboardSuggestion = data.data.suggestions.find(
+        (s: BoardSuggestion) => s.board.board_type === "longboard"
+      );
+      const shortboardSuggestion = data.data.suggestions.find(
+        (s: BoardSuggestion) => s.board.board_type === "shortboard"
+      );
 
       expect(shortboardSuggestion.score).toBeGreaterThan(longboardSuggestion.score);
     });

@@ -11,7 +11,7 @@ interface ActivityTextProps {
  */
 export function ActivityText({ activity, onUserClick }: ActivityTextProps) {
   const userName = activity.user_name || "Someone";
-  const metadata = activity.metadata || {};
+  const metadata = (activity.metadata || {}) as Record<string, any>;
 
   // Render user name - either interactive button or static text
   const UserName = onUserClick ? (

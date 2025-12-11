@@ -34,10 +34,8 @@ jest.mock("@/lib/api-response-utils", () => ({
   })),
 }));
 
-const mockSupabaseServerClient =
-  createSupabaseServerClient as jest.MockedFunction<
-    typeof createSupabaseServerClient
-  >;
+// Cast to any to bypass strict type checking on mock functions
+const mockSupabaseServerClient = createSupabaseServerClient as jest.Mock;
 
 describe("/api/session-planner/optimal-times", () => {
   setupMockSupabase();

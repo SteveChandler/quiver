@@ -427,7 +427,7 @@ describe("/api/admin/sync-buoys", () => {
       // Override environment to remove service role key
       restoreEnv();
       restoreEnv = mockEnvVars({
-        SUPABASE_SERVICE_ROLE_KEY: undefined, // Missing service role key
+        SUPABASE_SERVICE_ROLE_KEY: "", // Missing service role key (empty string)
       });
 
       mockNOAABuoySync.syncBuoysForExistingBeaches.mockResolvedValue({

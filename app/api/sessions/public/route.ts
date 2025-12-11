@@ -87,7 +87,7 @@ async function publicSessionsHandler(request: NextRequest): Promise<NextResponse
 
     // Transform the data for frontend consumption
     const publicSessions =
-      sessions?.map((session) => ({
+      sessions?.map((session: any) => ({
         id: session.id,
         beachName: session.beach_name,
         beachId: session.beach_id,

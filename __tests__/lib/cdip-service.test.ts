@@ -69,7 +69,7 @@ jest.mock("@/lib/constants/cdip-stations", () => {
       dataTypes: { wave: "xy" },
       formats: { json: "json" },
     },
-    getStationConfig: jest.fn((stationId) => mockStations[stationId] || null),
+    getStationConfig: jest.fn((stationId: string) => (mockStations as Record<string, any>)[stationId] || null),
     getStationCoverageRadius: jest.fn(() => 50),
   };
 });
@@ -270,9 +270,10 @@ describe.skip("CDIPService - API integration tests (mocked)", () => {
           ["2024-01-15T20:00:00Z", 1.2, 8.5, 225],
           ["2024-01-15T21:00:00Z", 1.4, 9.1, 230],
         ],
+        dataGaps: [],
       };
 
-      const result = service.transformToCDIPBuoyData("100", rawData);
+      const result = service.transformToCDIPBuoyData("100", rawData as any);
 
       expect(result).not.toBeNull();
       expect(result?.stationId).toBe("100");
@@ -292,9 +293,10 @@ describe.skip("CDIPService - API integration tests (mocked)", () => {
         sensorId: "100p1",
         units: "m,s,deg",
         data: [],
+        dataGaps: [],
       };
 
-      const result = service.transformToCDIPBuoyData("100", rawData);
+      const result = service.transformToCDIPBuoyData("100", rawData as any);
       expect(result).toBeNull();
     });
 
@@ -307,9 +309,10 @@ describe.skip("CDIPService - API integration tests (mocked)", () => {
           ["invalid-timestamp", "not-a-number", 8.5, 225],
           ["2024-01-15T21:00:00Z", 1.4, 9.1, 230], // Valid data point
         ],
+        dataGaps: [],
       };
 
-      const result = service.transformToCDIPBuoyData("100", rawData);
+      const result = service.transformToCDIPBuoyData("100", rawData as any);
 
       expect(result).not.toBeNull();
       expect(result?.data).toHaveLength(1); // Only valid data point

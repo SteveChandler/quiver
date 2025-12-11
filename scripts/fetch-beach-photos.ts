@@ -3,6 +3,7 @@
 //   npx tsx scripts/fetch-beach-photos.ts --limit=5 --only=sd
 //   npx tsx scripts/fetch-beach-photos.ts --beachId=123e4567-... --limit=8
 //   npx tsx scripts/fetch-beach-photos.ts --since="2024-12-06" --limit=5
+//   npx tsx scripts/fetch-beach-photos.ts --missingOnly --limit=5  # Only beaches without photos
 
 /*
 ENV REQUIRED
@@ -21,10 +22,10 @@ import pLimit from "p-limit";
 type Beach = {
   id: string;
   name: string;
-  latitude: number;
-  longitude: number;
-  location?: string | null;
-  region?: string | null;
+  lat: number;
+  lon: number;
+  city?: string | null;
+  state?: string | null;
   country?: string | null;
 };
 
@@ -104,6 +105,7 @@ const RADIUS_KM = Number(args.get("radiusKm") ?? "2");
 const DRY_RUN = args.get("dryRun") === "true";
 const VERBOSE = args.get("verbose") === "true";
 const SINCE = args.get("since"); // ISO date string, e.g., "2024-12-06"
+const MISSING_ONLY = args.get("missingOnly") === "true"; // Only fetch for beaches without photos
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -184,8 +186,8 @@ async function getBeaches(): Promise<Beach[]> {
     query = query.or(
       [
         `name.ilike.%${ONLY}%`,
-        `location.ilike.%${ONLY}%`,
-        `region.ilike.%${ONLY}%`,
+        `city.ilike.%${ONLY}%`,
+        `state.ilike.%${ONLY}%`,
         `country.ilike.%${ONLY}%`,
       ].join(","),
     );
@@ -193,13 +195,44 @@ async function getBeaches(): Promise<Beach[]> {
   if (SINCE) {
     query = query.gte("created_at", SINCE);
   }
-  const { data, error } = await query.limit(3000);
+  const { data: allBeaches, error } = await query.limit(3000);
   if (error) throw error;
-  return (data as Beach[]) ?? [];
+
+  let beaches = (allBeaches as Beach[]) ?? [];
+
+  // Filter to only beaches missing photos
+  if (MISSING_ONLY && beaches.length > 0) {
+    const beachIds = beaches.map((b) => b.id);
+
+    // Get beach IDs that already have approved, non-deleted photos
+    const { data: beachesWithPhotos, error: photosError } = await supabase
+      .from("beach_photos")
+      .select("beach_id")
+      .in("beach_id", beachIds)
+      .eq("approved", true)
+      .is("deleted_at", null);
+
+    if (photosError) {
+      console.error("Error fetching existing photos:", photosError);
+      throw photosError;
+    }
+
+    const beachIdsWithPhotos = new Set(
+      (beachesWithPhotos ?? []).map((p: { beach_id: string }) => p.beach_id)
+    );
+
+    const originalCount = beaches.length;
+    beaches = beaches.filter((b) => !beachIdsWithPhotos.has(b.id));
+    console.log(
+      `Filtered to ${beaches.length} beaches missing photos (excluded ${beachIdsWithPhotos.size} beaches with existing photos)`
+    );
+  }
+
+  return beaches;
 }
 
 function normalizeQuery(beach: Beach): string {
-  const place = beach.location ?? beach.region ?? "";
+  const place = beach.city ?? beach.state ?? "";
   const country = beach.country ?? "";
 
   // Build query parts
@@ -214,9 +247,9 @@ function normalizeQuery(beach: Beach): string {
     )
     .filter(part => part.length > 0);
 
-  // Fallback: if name is very short, prioritize region + country
-  if (beach.name.length <= 3 && beach.region && beach.country) {
-    return `${beach.region} ${beach.country} beach`.replace(/\s+/g, " ").trim();
+  // Fallback: if name is very short, prioritize state + country
+  if (beach.name.length <= 3 && beach.state && beach.country) {
+    return `${beach.state} ${beach.country} beach`.replace(/\s+/g, " ").trim();
   }
 
   return parts.join(" ");
@@ -314,7 +347,7 @@ async function fetchFlickr(beach: Beach, limit = LIMIT): Promise<PhotoRecord[]> 
   const url = `https://api.flickr.com/services/rest/?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Flickr error ${res.status}`);
-  const json: FlickrSearchResp = await res.json();
+  const json = (await res.json()) as FlickrSearchResp;
   return json.photos.photo.map((photo) => {
     const licenseInfo = FLICKR_LICENSE_MAP[photo.license] || { code: "Unknown", url: "" };
     const image_url = photo.url_o || flickrStaticUrl(photo, "b");
@@ -350,7 +383,7 @@ async function main() {
   if (DRY_RUN) {
     console.log("\n[DRY RUN] Would process the following beaches:");
     for (const beach of beaches) {
-      const place = beach.location ?? beach.region ?? "";
+      const place = beach.city ?? beach.state ?? "";
       const query = normalizeQuery(beach);
       console.log(`  - ${beach.name} (${place})`);
       console.log(`    Query: "${query}"`);
@@ -365,7 +398,7 @@ async function main() {
   const tasks = beaches.map((beach) =>
     limit(async () => {
       try {
-        const place = beach.location ?? beach.region ?? "";
+        const place = beach.city ?? beach.state ?? "";
         console.log(`Processing ${beach.name} (${place})`);
 
         // Only fetch from Openverse for now (Flickr disabled)

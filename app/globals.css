@@ -210,3 +210,10 @@
 body.authenticated .ssr-beach-section {
   display: none;
 }
+
+/* Hide SSR beach section when JavaScript is loaded for unauthenticated users
+   The client-side SurfHighlightsSection takes over with animations/interactivity.
+   The SSR version remains for SEO crawlers and no-JS fallback. */
+body.js-loaded .ssr-beach-section {
+  display: none;
+}

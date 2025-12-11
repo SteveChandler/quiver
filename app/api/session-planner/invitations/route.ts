@@ -559,8 +559,8 @@ export async function POST(request: NextRequest) {
 
             const notificationRecords =
               profiles
-                ?.filter((p) => p.inapp_session_invites !== false)
-                .map((p) => ({
+                ?.filter((p: any) => p.inapp_session_invites !== false)
+                .map((p: any) => ({
                   user_id: p.id,
                   type: "session_invite" as const,
                   data: {

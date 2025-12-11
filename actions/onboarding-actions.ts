@@ -123,11 +123,16 @@ export async function saveOnboardingData(data: OnboardingData) {
       });
 
       return { success: true, profile: updatedProfile };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save onboarding data:', error);
-      
+
       // Handle unique constraint violation specifically
-      if (error.message?.includes('idx_profiles_display_name') || error.code === '23505') {
+      const errorMessage = error instanceof Error ? error.message : '';
+      const errorCode = error && typeof error === 'object' && 'code' in error
+        ? (error as { code: unknown }).code
+        : undefined;
+
+      if (errorMessage.includes('idx_profiles_display_name') || errorCode === '23505') {
         return {
           success: false,
           error: 'Display name is already taken. Please choose another.',
@@ -136,7 +141,7 @@ export async function saveOnboardingData(data: OnboardingData) {
 
       return {
         success: false,
-        error: error.message || 'Failed to save your preferences',
+        error: errorMessage || 'Failed to save your preferences',
       };
     }
   });

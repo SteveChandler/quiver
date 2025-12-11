@@ -12,9 +12,10 @@ import {
 import { Stepper } from "./stepper";
 import { WelcomeStep } from "./steps/welcome-step";
 import { ProfileStep } from "./steps/profile-step";
+import { ExperienceStep } from "./steps/experience-step";
+import { WavePreferencesStep } from "./steps/wave-preferences-step";
 import { HomeBeachStep } from "./steps/home-beach-step";
-import { PreferencesStep } from "./steps/preferences-step";
-import { NotificationsStep } from "./steps/notifications-step";
+import { ReferralStep } from "./steps/referral-step";
 import { CompletionStep } from "./steps/completion-step";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
@@ -23,9 +24,10 @@ import type { Profile } from "@/types/database";
 const STEPS = [
   WelcomeStep,
   ProfileStep,
+  ExperienceStep,
+  WavePreferencesStep,
   HomeBeachStep,
-  PreferencesStep,
-  NotificationsStep,
+  ReferralStep,
   CompletionStep,
 ];
 

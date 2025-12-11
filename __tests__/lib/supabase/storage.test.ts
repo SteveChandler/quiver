@@ -5,7 +5,6 @@
 
 import { uploadSessionPhoto, getUserStorageUsage } from "@/lib/supabase/storage";
 import * as imageConversion from "image-conversion";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Mock the image-conversion library
 jest.mock("image-conversion", () => ({
@@ -13,7 +12,7 @@ jest.mock("image-conversion", () => ({
 }));
 
 describe("storage.ts - Image Compression and Upload", () => {
-  let mockSupabase: jest.Mocked<SupabaseClient>;
+  let mockSupabase: any;
   let consoleLogSpy: jest.SpyInstance;
   let consoleWarnSpy: jest.SpyInstance;
   let consoleErrorSpy: jest.SpyInstance;
@@ -70,7 +69,7 @@ describe("storage.ts - Image Compression and Upload", () => {
       } as any);
 
       // Mock storage upload
-      mockSupabase.storage.from.mockReturnValue({
+      (mockSupabase.storage.from as jest.Mock).mockReturnValue({
         upload: jest.fn().mockResolvedValue({
           data: { path: "test/path/123.jpg" },
           error: null,
@@ -78,10 +77,10 @@ describe("storage.ts - Image Compression and Upload", () => {
         getPublicUrl: jest.fn().mockReturnValue({
           data: { publicUrl: "https://example.com/test.jpg" },
         }),
-      } as any);
+      });
 
       // Mock RPC for storage usage update
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      (mockSupabase.rpc as jest.Mock).mockResolvedValue({ data: null, error: null });
 
       const result = await uploadSessionPhoto(
         originalFile,
@@ -132,7 +131,7 @@ describe("storage.ts - Image Compression and Upload", () => {
       } as any);
 
       // Mock storage upload
-      mockSupabase.storage.from.mockReturnValue({
+      (mockSupabase.storage.from as jest.Mock).mockReturnValue({
         upload: jest.fn().mockResolvedValue({
           data: { path: "test/path/123.jpg" },
           error: null,
@@ -140,9 +139,9 @@ describe("storage.ts - Image Compression and Upload", () => {
         getPublicUrl: jest.fn().mockReturnValue({
           data: { publicUrl: "https://example.com/test.jpg" },
         }),
-      } as any);
+      });
 
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      (mockSupabase.rpc as jest.Mock).mockResolvedValue({ data: null, error: null });
 
       const result = await uploadSessionPhoto(
         smallFile,
@@ -188,7 +187,7 @@ describe("storage.ts - Image Compression and Upload", () => {
         }),
       } as any);
 
-      mockSupabase.storage.from.mockReturnValue({
+      (mockSupabase.storage.from as jest.Mock).mockReturnValue({
         upload: jest.fn().mockResolvedValue({
           data: { path: "test/path/123.jpg" },
           error: null,
@@ -196,9 +195,9 @@ describe("storage.ts - Image Compression and Upload", () => {
         getPublicUrl: jest.fn().mockReturnValue({
           data: { publicUrl: "https://example.com/test.jpg" },
         }),
-      } as any);
+      });
 
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      (mockSupabase.rpc as jest.Mock).mockResolvedValue({ data: null, error: null });
 
       await uploadSessionPhoto(file, "session-123", "user-456", mockSupabase);
 
@@ -365,7 +364,7 @@ describe("storage.ts - Image Compression and Upload", () => {
         }),
       } as any);
 
-      mockSupabase.storage.from.mockReturnValue({
+      (mockSupabase.storage.from as jest.Mock).mockReturnValue({
         upload: jest.fn().mockResolvedValue({
           data: { path: "session-123/user-456/123.jpg" },
           error: null,
@@ -373,9 +372,9 @@ describe("storage.ts - Image Compression and Upload", () => {
         getPublicUrl: jest.fn().mockReturnValue({
           data: { publicUrl: "https://example.com/test.jpg" },
         }),
-      } as any);
+      });
 
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      (mockSupabase.rpc as jest.Mock).mockResolvedValue({ data: null, error: null });
 
       await uploadSessionPhoto(file, "session-123", "user-456", mockSupabase);
 
@@ -425,12 +424,12 @@ describe("storage.ts - Image Compression and Upload", () => {
 
       // Mock storage upload failure
       const storageError = new Error("Bucket policy violation");
-      mockSupabase.storage.from.mockReturnValue({
+      (mockSupabase.storage.from as jest.Mock).mockReturnValue({
         upload: jest.fn().mockResolvedValue({
           data: null,
           error: storageError,
         }),
-      } as any);
+      });
 
       const result = await uploadSessionPhoto(
         file,

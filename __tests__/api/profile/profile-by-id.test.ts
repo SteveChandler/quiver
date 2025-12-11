@@ -34,7 +34,7 @@ describe("/api/profile/[id]", () => {
     jest.clearAllMocks();
     
     // Reset mock to return fresh chain objects for each call
-    mockSupabaseClient.from.mockImplementation(() => ({
+    (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
       insert: jest.fn().mockReturnThis(),
       update: jest.fn().mockReturnThis(),
@@ -87,9 +87,9 @@ describe("/api/profile/[id]", () => {
 
       // Set up mock to track calls and return appropriate data
       let callCount = 0;
-      mockSupabaseClient.from.mockImplementation((tableName: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((tableName: string) => {
         callCount++;
-        
+
         if (tableName === 'profiles') {
           // First call is profiles
           return {
@@ -118,7 +118,7 @@ describe("/api/profile/[id]", () => {
             })),
           };
         }
-        
+
         // Default fallback
         return {
           select: jest.fn().mockReturnThis(),
@@ -130,7 +130,7 @@ describe("/api/profile/[id]", () => {
       });
 
       const request = createMockRequest("GET");
-      const response = await GET(request, { params: { id: targetUserId } });
+      const response = await GET(request, { params: Promise.resolve({ id: targetUserId }) });
 
       const data = await expectSuccessResponse(response, 200);
       expect(data.data).toMatchObject({
@@ -152,7 +152,7 @@ describe("/api/profile/[id]", () => {
       mockUnauthenticatedUser(mockSupabaseClient);
 
       // Set up mock to handle multiple calls correctly
-      mockSupabaseClient.from.mockImplementation((tableName: string) => {
+      (mockSupabaseClient.from as jest.Mock).mockImplementation((tableName: string) => {
         if (tableName === 'profiles') {
           return {
             select: jest.fn().mockReturnThis(),
@@ -170,7 +170,7 @@ describe("/api/profile/[id]", () => {
             error: null,
           };
         }
-        
+
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
@@ -185,12 +185,12 @@ describe("/api/profile/[id]", () => {
         createMockRequest("GET")
       );
       const responses = await Promise.all(
-        requests.map(request => GET(request, { params: { id: targetUserId } }))
+        requests.map(request => GET(request, { params: Promise.resolve({ id: targetUserId }) }))
       );
 
       for (const response of responses) {
         const data = await expectSuccessResponse(response, 200);
-        expect(data.data.id).toBe(targetUserId);
+        expect((data as any).data.id).toBe(targetUserId);
       }
     });
   });

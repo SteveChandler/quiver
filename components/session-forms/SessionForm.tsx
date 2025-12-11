@@ -385,7 +385,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
       };
 
       if (isPlanning) {
-        const result = await createPlannedSession(sessionData, user.id);
+        const result = await createPlannedSession(sessionData);
         if (!result.success) {
           throw new Error(result.error);
         }
@@ -461,7 +461,11 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
           }),
         };
 
-        const session = await createLoggedSession(loggedSessionData, user.id);
+        const sessionResult = await createLoggedSession(loggedSessionData);
+        if (!sessionResult.success || !sessionResult.data) {
+          throw new Error(sessionResult.error || "Failed to create session");
+        }
+        const session = sessionResult.data;
         setCreatedSession(session);
 
         // If photos were selected, upload them
@@ -542,7 +546,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
                   <CheckCircle2 className="w-5 h-5 mr-2" />
                   <div>
                     <p className="font-medium">{text.successMessage}</p>
-                    <p className="text-sm opacity-80">{text.finishMessage}</p>
+                    <p className="text-sm opacity-80">{('finishMessage' in text) ? text.finishMessage : ''}</p>
                   </div>
                 </div>
               </CardContent>
@@ -574,6 +578,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
             <LocationStep
               formState={formState}
               beaches={beaches}
+              mode={mode}
               updateField={updateField}
             />
           </SimpleCardLayout>

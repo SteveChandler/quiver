@@ -51,7 +51,7 @@ const mockNavigatorShare = navigator.share as jest.MockedFunction<typeof navigat
 const mockUser = {
   id: "user-1",
   email: "user@example.com",
-};
+} as any;
 
 const defaultProps = {
   sessionId: "session-1",
@@ -67,9 +67,9 @@ describe("ShareModal", () => {
     
     mockUseAuth.mockReturnValue({
       user: mockUser,
-      loading: false,
+      isLoading: false,
       signOut: jest.fn(),
-    });
+    } as any);
     
     mockUseIsMobile.mockReturnValue(false);
     
@@ -623,10 +623,10 @@ describe("ShareModal", () => {
     it("should handle unauthenticated user", () => {
       mockUseAuth.mockReturnValue({
         user: null,
-        loading: false,
+        isLoading: false,
         signOut: jest.fn(),
-      });
-      
+      } as any);
+
       render(<ShareModal {...defaultProps} isPublic={false} />);
       
       // Should still render but make public button should be disabled
@@ -636,10 +636,10 @@ describe("ShareModal", () => {
     it("should not make public without user", async () => {
       mockUseAuth.mockReturnValue({
         user: null,
-        loading: false,
+        isLoading: false,
         signOut: jest.fn(),
-      });
-      
+      } as any);
+
       render(<ShareModal {...defaultProps} isPublic={false} />);
       
       const makePublicButton = screen.getByText("Make shareable");

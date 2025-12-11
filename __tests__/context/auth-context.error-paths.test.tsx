@@ -54,7 +54,7 @@ describe("AuthContext error paths", () => {
   it("handles getSession error and sets unauthenticated", async () => {
     mockGetSession.mockResolvedValueOnce({
       data: { session: null },
-      error: new Error("boom"),
+      error: { message: "boom" } as any,
     });
 
     render(

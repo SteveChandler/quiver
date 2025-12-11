@@ -1,12 +1,65 @@
 /**
  * API Testing Utilities for Quiver
- * 
+ *
  * This file provides centralized utilities for testing API routes following
  * the patterns established in lib/api-utils.ts and CLAUDE.md guidelines.
  */
 
 import { NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
+
+// Type alias for Jest mock functions - handles jest.Mock compatibility
+type MockFn<T = any, Y extends any[] = any[]> = jest.Mock<T, Y>;
+
+// Supabase query chain type for proper typing of chained methods
+export interface MockQueryChain {
+  select: MockFn;
+  insert: MockFn;
+  update: MockFn;
+  delete: MockFn;
+  upsert: MockFn;
+  eq: MockFn;
+  neq: MockFn;
+  gt: MockFn;
+  gte: MockFn;
+  lt: MockFn;
+  lte: MockFn;
+  like: MockFn;
+  ilike: MockFn;
+  in: MockFn;
+  is: MockFn;
+  not: MockFn;
+  or: MockFn;
+  order: MockFn;
+  limit: MockFn;
+  range: MockFn;
+  textSearch: MockFn;
+  single: MockFn;
+  maybeSingle: MockFn;
+  then: MockFn;
+  data: any;
+  error: any;
+}
+
+// Type for the mock Supabase client
+export interface MockSupabaseClient {
+  auth: {
+    getUser: MockFn;
+    getSession: MockFn;
+    signOut: MockFn;
+    refreshSession: MockFn;
+    signInWithPassword: MockFn;
+    signUp: MockFn;
+    signInWithOAuth: MockFn;
+    resetPasswordForEmail: MockFn;
+    updateUser: MockFn;
+  };
+  from: MockFn<MockQueryChain>;
+  rpc: MockFn;
+  storage: {
+    from: MockFn;
+  };
+}
 
 // Mock response interfaces matching lib/api-utils.ts
 export interface MockApiError {
@@ -63,10 +116,10 @@ export function createMockSession(user: User = createMockUser()) {
 }
 
 // Mock Supabase client factory
-export function createMockSupabaseClient() {
+export function createMockSupabaseClient(): MockSupabaseClient {
   // Create a shared query chain object that all methods return
-  const createQueryChain = () => {
-    const chain = {
+  const createQueryChain = (): MockQueryChain => {
+    const chain: MockQueryChain = {
       select: jest.fn(),
       insert: jest.fn(),
       update: jest.fn(),
@@ -82,6 +135,8 @@ export function createMockSupabaseClient() {
       ilike: jest.fn(),
       in: jest.fn(),
       is: jest.fn(),
+      not: jest.fn(),
+      or: jest.fn(),
       order: jest.fn(),
       limit: jest.fn(),
       range: jest.fn(),
@@ -94,9 +149,10 @@ export function createMockSupabaseClient() {
     };
     
     // Make all methods return the same chain for proper chaining
-    Object.keys(chain).forEach(key => {
-      if (typeof chain[key] === 'function' && key !== 'single' && key !== 'maybeSingle' && key !== 'then') {
-        chain[key].mockReturnValue(chain);
+    (Object.keys(chain) as Array<keyof MockQueryChain>).forEach(key => {
+      const value = chain[key];
+      if (typeof value === 'function' && key !== 'single' && key !== 'maybeSingle' && key !== 'then') {
+        (value as MockFn).mockReturnValue(chain);
       }
     });
     
@@ -110,14 +166,29 @@ export function createMockSupabaseClient() {
     return chain;
   };
 
-  const mockClient = {
+  const mockClient: MockSupabaseClient = {
     auth: {
       getUser: jest.fn(),
       getSession: jest.fn(),
       signOut: jest.fn(),
+      refreshSession: jest.fn(),
+      signInWithPassword: jest.fn(),
+      signUp: jest.fn(),
+      signInWithOAuth: jest.fn(),
+      resetPasswordForEmail: jest.fn(),
+      updateUser: jest.fn(),
     },
     from: jest.fn(() => createQueryChain()),
     rpc: jest.fn(() => ({ data: null, error: null })),
+    storage: {
+      from: jest.fn(() => ({
+        upload: jest.fn(),
+        download: jest.fn(),
+        getPublicUrl: jest.fn(),
+        remove: jest.fn(),
+        list: jest.fn(),
+      })),
+    },
   };
 
   // Set default auth responses
@@ -125,9 +196,29 @@ export function createMockSupabaseClient() {
     data: { user: null },
     error: null,
   });
-  
+
   mockClient.auth.getSession.mockResolvedValue({
     data: { session: null },
+    error: null,
+  });
+
+  mockClient.auth.refreshSession.mockResolvedValue({
+    data: { session: null, user: null },
+    error: null,
+  });
+
+  mockClient.auth.signInWithPassword.mockResolvedValue({
+    data: { session: null, user: null },
+    error: null,
+  });
+
+  mockClient.auth.signUp.mockResolvedValue({
+    data: { session: null, user: null },
+    error: null,
+  });
+
+  mockClient.auth.updateUser.mockResolvedValue({
+    data: { user: null },
     error: null,
   });
 
@@ -185,45 +276,51 @@ export function expectErrorResponse(
     expect(data).toHaveProperty("success", false);
     expect(data).toHaveProperty("error");
     expect(data).toHaveProperty("timestamp");
-    if (expectedErrorMessage) {
-      expect(data.error).toContain(expectedErrorMessage);
+    if (expectedErrorMessage && !data.success) {
+      expect((data as MockApiError).error).toContain(expectedErrorMessage);
     }
     return data as MockApiError;
   });
 }
 
 // Authentication test helpers
-export function mockAuthenticatedUser(mockClient: any, user: User = createMockUser()) {
+export function mockAuthenticatedUser(
+  mockClient: MockSupabaseClient,
+  user: User = createMockUser()
+) {
   mockClient.auth.getUser.mockResolvedValue({
     data: { user },
     error: null,
   });
-  
+
   mockClient.auth.getSession.mockResolvedValue({
     data: { session: createMockSession(user) },
     error: null,
   });
 }
 
-export function mockUnauthenticatedUser(mockClient: any) {
+export function mockUnauthenticatedUser(mockClient: MockSupabaseClient) {
   mockClient.auth.getUser.mockResolvedValue({
     data: { user: null },
     error: null,
   });
-  
+
   mockClient.auth.getSession.mockResolvedValue({
     data: { session: null },
     error: null,
   });
 }
 
-export function mockAuthError(mockClient: any, errorMessage: string = "Authentication failed") {
+export function mockAuthError(
+  mockClient: MockSupabaseClient,
+  errorMessage: string = "Authentication failed"
+) {
   const error = { message: errorMessage };
   mockClient.auth.getUser.mockResolvedValue({
     data: { user: null },
     error,
   });
-  
+
   mockClient.auth.getSession.mockResolvedValue({
     data: { session: null },
     error,
@@ -231,10 +328,10 @@ export function mockAuthError(mockClient: any, errorMessage: string = "Authentic
 }
 
 // Database query test helpers
-export function mockDatabaseSuccess(mockClient: any, data: any) {
+export function mockDatabaseSuccess(mockClient: MockSupabaseClient, data: any) {
   // Mock the from method to return a chain that resolves with the data
   mockClient.from.mockImplementation(() => {
-    const chain = {
+    const chain: MockQueryChain = {
       select: jest.fn(),
       insert: jest.fn(),
       update: jest.fn(),
@@ -250,6 +347,8 @@ export function mockDatabaseSuccess(mockClient: any, data: any) {
       ilike: jest.fn(),
       in: jest.fn(),
       is: jest.fn(),
+      not: jest.fn(),
+      or: jest.fn(),
       order: jest.fn(),
       limit: jest.fn(),
       range: jest.fn(),
@@ -260,33 +359,43 @@ export function mockDatabaseSuccess(mockClient: any, data: any) {
       data: data,
       error: null,
     };
-    
+
     // Make all methods return the same chain for proper chaining
-    Object.keys(chain).forEach(key => {
-      if (typeof chain[key] === 'function' && key !== 'single' && key !== 'maybeSingle' && key !== 'then') {
-        chain[key].mockReturnValue(chain);
+    Object.keys(chain).forEach((key) => {
+      const k = key as keyof MockQueryChain;
+      if (
+        typeof chain[k] === "function" &&
+        k !== "single" &&
+        k !== "maybeSingle" &&
+        k !== "then"
+      ) {
+        (chain[k] as MockFn).mockReturnValue(chain);
       }
     });
-    
+
     // Set return values for terminal methods
     chain.single.mockResolvedValue({ data, error: null });
     chain.maybeSingle.mockResolvedValue({ data, error: null });
-    chain.then.mockImplementation((onResolve) => {
+    chain.then.mockImplementation((onResolve: (value: any) => any) => {
       return Promise.resolve(onResolve({ data, error: null }));
     });
-    
+
     return chain;
   });
   
   return mockClient;
 }
 
-export function mockDatabaseError(mockClient: any, errorMessage: string, code?: string) {
+export function mockDatabaseError(
+  mockClient: MockSupabaseClient,
+  errorMessage: string,
+  code?: string
+) {
   const error = { message: errorMessage, code };
-  
+
   // Mock the from method to return a chain that resolves with the error
   mockClient.from.mockImplementation(() => {
-    const chain = {
+    const chain: MockQueryChain = {
       select: jest.fn(),
       insert: jest.fn(),
       update: jest.fn(),
@@ -302,6 +411,8 @@ export function mockDatabaseError(mockClient: any, errorMessage: string, code?: 
       ilike: jest.fn(),
       in: jest.fn(),
       is: jest.fn(),
+      not: jest.fn(),
+      or: jest.fn(),
       order: jest.fn(),
       limit: jest.fn(),
       range: jest.fn(),
@@ -312,24 +423,30 @@ export function mockDatabaseError(mockClient: any, errorMessage: string, code?: 
       data: null,
       error: error,
     };
-    
+
     // Make all methods return the same chain for proper chaining
-    Object.keys(chain).forEach(key => {
-      if (typeof chain[key] === 'function' && key !== 'single' && key !== 'maybeSingle' && key !== 'then') {
-        chain[key].mockReturnValue(chain);
+    Object.keys(chain).forEach((key) => {
+      const k = key as keyof MockQueryChain;
+      if (
+        typeof chain[k] === "function" &&
+        k !== "single" &&
+        k !== "maybeSingle" &&
+        k !== "then"
+      ) {
+        (chain[k] as MockFn).mockReturnValue(chain);
       }
     });
-    
+
     // Set return values for terminal methods
     chain.single.mockResolvedValue({ data: null, error });
     chain.maybeSingle.mockResolvedValue({ data: null, error });
-    chain.then.mockImplementation((onResolve) => {
+    chain.then.mockImplementation((onResolve: (value: any) => any) => {
       return Promise.resolve(onResolve({ data: null, error }));
     });
-    
+
     return chain;
   });
-  
+
   return mockClient;
 }
 
@@ -432,10 +549,40 @@ export function resetAllMocks() {
 // Environment variable mocking
 export function mockEnvVars(vars: Record<string, string>) {
   const originalEnv = process.env;
-  process.env = { ...originalEnv, ...vars };
-  
+  // Use Object.defineProperty to work around readonly restriction
+  Object.defineProperty(process, "env", {
+    value: { ...originalEnv, ...vars },
+    writable: true,
+    configurable: true,
+  });
+
   return () => {
-    process.env = originalEnv;
+    Object.defineProperty(process, "env", {
+      value: originalEnv,
+      writable: true,
+      configurable: true,
+    });
+  };
+}
+
+/**
+ * Helper to safely set NODE_ENV for tests without TypeScript readonly errors.
+ * Returns a cleanup function to restore the original value.
+ */
+export function mockNodeEnv(env: "production" | "development" | "test") {
+  const originalEnv = process.env.NODE_ENV;
+  Object.defineProperty(process.env, "NODE_ENV", {
+    value: env,
+    writable: true,
+    configurable: true,
+  });
+
+  return () => {
+    Object.defineProperty(process.env, "NODE_ENV", {
+      value: originalEnv,
+      writable: true,
+      configurable: true,
+    });
   };
 }
 

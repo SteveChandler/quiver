@@ -15,7 +15,7 @@ import type { Beach } from "@/types/database";
 const { format, addHours, isValid } = dateFns;
 
 describe("BeachDiscoveryCard - Date/Time Display", () => {
-  const mockBeach: Beach = {
+  const mockBeach = {
     id: "beach-1",
     name: "Pipeline",
     slug: "pipeline",
@@ -41,7 +41,7 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
     crowd_level: "very-crowded",
     timezone: "Pacific/Honolulu",
     created_at: new Date().toISOString(),
-  };
+  } as any;
 
   const createMockRecommendation = (
     startDate: Date,

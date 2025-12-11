@@ -61,7 +61,7 @@ jest.mock('next/image', () => ({
 }));
 
 describe('BeachPhotoGallery', () => {
-  const mockBeach: Beach = {
+  const mockBeach = {
     id: 'test-beach-1',
     name: 'Test Beach',
     lat: 33.7701,
@@ -72,7 +72,7 @@ describe('BeachPhotoGallery', () => {
     break_type: 'Beach Break',
     created_at: '2024-01-01',
     updated_at: '2024-01-01',
-  };
+  } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();

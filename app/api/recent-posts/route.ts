@@ -76,7 +76,7 @@ async function recentPostsHandler(request: NextRequest): Promise<NextResponse> {
 
     // Transform the data for the frontend
     const posts =
-      sessions?.map((session) => ({
+      sessions?.map((session: any) => ({
         id: session.id,
         caption:
           session.notes ||

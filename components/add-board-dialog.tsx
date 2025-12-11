@@ -7,16 +7,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
+import { BoardFormFields } from "@/components/profile/shared/board-form-fields";
 import {
   Dialog,
   DialogClose,
@@ -95,21 +87,26 @@ export function AddBoardDialog({
     });
   };
 
-  const handleAddBoard = async (data: BoardFormValues, event?: React.FormEvent) => {
+  const handleAddBoard = async (
+    data: BoardFormValues,
+    event?: React.FormEvent
+  ) => {
     // Prevent the form submit from bubbling up to any parent forms
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
-    
+
     if (!user?.id) return;
 
     setIsSubmitting(true);
     try {
       const result = await createBoard({
         ...data,
-        image_url: data.image_url || undefined,
-        description: data.description || undefined,
+        image_url: data.image_url || null,
+        description: data.description || null,
+        size: null,
+        volume: null,
       });
 
       if (!result.success) {
@@ -181,81 +178,7 @@ export function AddBoardDialog({
           }}
           className="space-y-4"
         >
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Board Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="My Favorite Shortboard" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="board_type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Board Type</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Shortboard, Longboard, Fish, etc."
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="dimensions"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dimensions</FormLabel>
-                <FormControl>
-                  <Input placeholder="5'10 x 19 1/4 x 2 3/8" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Description</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Tell us about this board..."
-                    className="resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="image_url"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Image URL (optional)</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="https://example.com/my-board.jpg"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <BoardFormFields control={form.control} disabled={isSubmitting} />
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button" onClick={resetForm}>

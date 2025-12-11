@@ -56,7 +56,7 @@ jest.mock("@/components/ui/button", () => ({
 }));
 
 describe("DetailedSwellModal", () => {
-  const mockForecast: EnhancedForecastEntity = {
+  const mockForecast = {
     id: "test-id",
     beach_id: "test-beach",
     forecast_date: "2024-08-07",
@@ -88,7 +88,7 @@ describe("DetailedSwellModal", () => {
     data_quality: "HIGH",
     is_real_time: true,
     is_stale_data: false,
-  };
+  } as any;
 
   const defaultProps = {
     forecast: mockForecast,

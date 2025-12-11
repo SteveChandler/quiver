@@ -104,7 +104,7 @@ export function ForecastDisplay({
   }
 
   // Get the data source from the first forecast (all forecasts from the same generation will have the same data source)
-  const dataSource = forecasts[0]?.data_source || "FALLBACK";
+  const dataSource = (forecasts[0]?.data_source || "FALLBACK") as "NOAA_NWS" | "CDIP" | "FALLBACK";
 
   return (
     <div className="max-w-6xl mx-auto px-4 space-y-6">

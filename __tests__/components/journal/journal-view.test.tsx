@@ -66,7 +66,7 @@ jest.mock("@/components/journal/calendar-heatmap", () => ({
 }));
 
 jest.mock("@/components/journal/session-analytics", () => ({
-  SessionAnalytics: ({ onRefresh }: { onRefresh: Function }) => (
+  SessionAnalytics: ({ onRefresh }: { onRefresh: () => void }) => (
     <div data-testid="session-analytics">
       <button onClick={onRefresh} data-testid="refresh-analytics">
         Refresh Analytics
@@ -269,10 +269,13 @@ describe("JournalView", () => {
     });
 
     render(<JournalView />);
+    expect(screen.getByText("No Sessions Yet")).toBeInTheDocument();
     expect(
-      screen.getByText("You haven't logged any sessions yet.")
+      screen.getByText(
+        "Start tracking your surf journey by logging your first session"
+      )
     ).toBeInTheDocument();
-    expect(screen.getByText("Log your first session")).toBeInTheDocument();
+    expect(screen.getByText("Log Your First Session")).toBeInTheDocument();
   });
 
   it("toggles between list and calendar view", () => {
@@ -407,10 +410,9 @@ describe("JournalView", () => {
 
     render(<JournalView />);
 
-    // Default is Completed tab -> our CTA should show instead of old copy
-    expect(
-      screen.getByText("You haven't logged any sessions yet.")
-    ).toBeInTheDocument();
+    // Default shows ZeroState component with proper content
+    expect(screen.getByText("No Sessions Yet")).toBeInTheDocument();
+    expect(screen.getByText("Log Your First Session")).toBeInTheDocument();
   });
 
   it("opens annotation modal when session is clicked", () => {
@@ -458,11 +460,9 @@ describe("JournalView", () => {
     });
 
     render(<JournalView />);
-    expect(
-      screen.getByText("You haven't logged any sessions yet.")
-    ).toBeInTheDocument();
-    expect(screen.getByText("Log your first session")).toBeInTheDocument();
-    expect(screen.getByText("Plan a session")).toBeInTheDocument();
+    expect(screen.getByText("No Sessions Yet")).toBeInTheDocument();
+    expect(screen.getByText("Log Your First Session")).toBeInTheDocument();
+    expect(screen.getByText("Plan a Session")).toBeInTheDocument();
   });
 
   it("displays correct session counts and statistics", () => {

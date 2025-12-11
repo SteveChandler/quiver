@@ -13,18 +13,28 @@ const mockGetSessionPhotosAction = getSessionPhotosAction as jest.MockedFunction
 >;
 
 describe("useSessionPhotos", () => {
-  const mockPhotos: SessionPhoto[] = [
+  const mockPhotos = [
     {
       id: "photo-1",
       public_url: "https://example.com/photo1.jpg",
       caption: "First photo",
+      session_id: "session-123",
+      user_id: "user-123",
+      storage_path: "sessions/session-123/photo1.jpg",
+      file_size: 1024,
+      created_at: "2024-01-15T10:00:00Z",
     },
     {
       id: "photo-2",
       public_url: "https://example.com/photo2.jpg",
       caption: "Second photo",
+      session_id: "session-123",
+      user_id: "user-123",
+      storage_path: "sessions/session-123/photo2.jpg",
+      file_size: 2048,
+      created_at: "2024-01-15T10:01:00Z",
     },
-  ];
+  ] as SessionPhoto[];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -145,7 +155,12 @@ describe("useSessionPhotos", () => {
         {
           id: "photo-3",
           public_url: "https://example.com/photo3.jpg",
-        },
+          session_id: "session-123",
+          user_id: "user-123",
+          storage_path: "sessions/session-123/photo3.jpg",
+          file_size: 3072,
+          created_at: "2024-01-15T10:02:00Z",
+        } as SessionPhoto,
       ],
     });
 

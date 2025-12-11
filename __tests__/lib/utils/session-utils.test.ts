@@ -70,7 +70,7 @@ describe("session-utils", () => {
       wave_height_ft: 4,
       wind_speed_mph: 10,
       wind_direction: "offshore",
-      water_temp: "65F",
+      water_temp: 65,
       wave_quality: 4,
       crowd_rating: 2,
       goals: ["Practice turns", "Work on paddling"],

@@ -63,9 +63,10 @@ export async function GET(req: Request) {
     }
 
     return createSuccessResponse({ ok: true }, 200);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "unexpected error";
     return NextResponse.json(
-      { error: error?.message || "unexpected error" },
+      { error: message },
       { status: 500, headers: DEFAULT_SECURITY_HEADERS }
     );
   }

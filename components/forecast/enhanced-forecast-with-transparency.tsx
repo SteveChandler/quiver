@@ -31,10 +31,11 @@ export function EnhancedForecastWithTransparency({
   className,
 }: EnhancedForecastWithTransparencyProps) {
   // Extract transparency data from forecast
-  const rawForecast = forecast.raw_forecast;
+  const rawForecast = forecast.raw_forecast as any;
   const dataSources = rawForecast?.data_sources || [forecast.data_source];
   const isFallback = forecast.data_source === "FALLBACK";
-  const isLowConfidence = forecast.confidence_score < 50;
+  const confidenceScore = forecast.confidence_score ?? 0;
+  const isLowConfidence = confidenceScore < 50;
 
   // Determine container styling based on data quality
   const getContainerStyling = () => {
@@ -87,18 +88,18 @@ export function EnhancedForecastWithTransparency({
             {showConfidence && (
               <Badge
                 variant={
-                  forecast.confidence_score >= 75 ? "default" : "secondary"
+                  confidenceScore >= 75 ? "default" : "secondary"
                 }
                 className={cn("text-xs", {
                   "bg-green-100 text-green-700":
-                    forecast.confidence_score >= 75,
+                    confidenceScore >= 75,
                   "bg-yellow-100 text-yellow-700":
-                    forecast.confidence_score >= 50 &&
-                    forecast.confidence_score < 75,
-                  "bg-red-100 text-red-700": forecast.confidence_score < 50,
+                    confidenceScore >= 50 &&
+                    confidenceScore < 75,
+                  "bg-red-100 text-red-700": confidenceScore < 50,
                 })}
               >
-                {forecast.confidence_score}%
+                {confidenceScore}%
               </Badge>
             )}
           </div>
@@ -115,7 +116,7 @@ export function EnhancedForecastWithTransparency({
           {showDataSource && (
             <ForecastDataSourceIndicator
               dataSource={forecast.data_source}
-              confidenceScore={forecast.confidence_score}
+              confidenceScore={confidenceScore}
               dataSources={dataSources}
               fallbackLocation={fallbackInfo?.fallback_location}
               nearestBuoyDistance={fallbackInfo?.distance}
@@ -131,7 +132,7 @@ export function EnhancedForecastWithTransparency({
           {/* Confidence Score Explanation */}
           {showConfidence && (
             <ConfidenceScoreExplanation
-              score={forecast.confidence_score}
+              score={confidenceScore}
               beachName={beachName}
               expandable={interactive}
               compact={compact || minimal}

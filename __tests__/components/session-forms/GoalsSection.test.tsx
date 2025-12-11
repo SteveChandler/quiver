@@ -16,11 +16,12 @@ jest.mock('@/lib/constants/session-form-constants', () => ({
 
 const mockUpdateField = jest.fn();
 
-const defaultFormState: SessionFormState = {
+const defaultFormState = {
   selectedDate: '',
   selectedTime: '',
   selectedBeach: '',
   selectedBeachId: '',
+  selectedBoard: '',
   boardId: '',
   notes: '',
   overallRating: '',
@@ -29,7 +30,9 @@ const defaultFormState: SessionFormState = {
   parkingEase: '',
   waterTemp: '',
   duration: '',
-};
+  photos: [],
+  waveTypes: [],
+} as SessionFormState;
 
 describe('GoalsSection', () => {
   beforeEach(() => {

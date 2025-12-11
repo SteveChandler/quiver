@@ -9,7 +9,7 @@
  * - Rendered as a sibling to Providers in layout.tsx (not a child)
  * - Fetches beach data server-side
  * - Renders static beach links that appear in view-source
- * - Positioned at bottom of page using CSS to avoid disrupting the layout
+ * - Positioned AFTER Providers in DOM order so it appears after the Hero section
  *
  * @module components/landing-page/landing-page-ssr-section
  */
@@ -36,8 +36,7 @@ export async function LandingPageSSRSection() {
       {/*
         Hidden container for SSR beach links
         This ensures beach links are in the HTML for crawlers.
-        The visible beach cards are rendered by SurfHighlightsSection (client).
-        This hidden section provides the SEO fallback.
+        Provides screen-reader accessible links as fallback.
       */}
       <div
         id="ssr-beach-links"
@@ -69,14 +68,10 @@ export async function LandingPageSSRSection() {
 
       {/*
         Visible SSR Beach Section
-        Positioned to appear after the main content via CSS order.
-        This renders the full visual beach cards server-side.
+        Renders the full visual beach cards server-side for SEO.
+        Positioned after main content in layout.tsx DOM order.
       */}
-      <div
-        id="ssr-beach-section"
-        className="ssr-beach-section"
-        style={{ order: 100 }}
-      >
+      <div id="ssr-beach-section" className="ssr-beach-section">
         <PopularBeachesSection beaches={beaches} />
       </div>
     </>
@@ -119,7 +114,8 @@ function getBeachUrl(beach: {
 
   if (beach.slug && beach.city && beach.state) {
     const stateSlug =
-      stateSlugMap[beach.state] || beach.state.toLowerCase().replace(/\s+/g, "-");
+      stateSlugMap[beach.state] ||
+      beach.state.toLowerCase().replace(/\s+/g, "-");
     const citySlug = beach.city.toLowerCase().replace(/\s+/g, "-");
     return `/${stateSlug}/${citySlug}/${beach.slug}`;
   }

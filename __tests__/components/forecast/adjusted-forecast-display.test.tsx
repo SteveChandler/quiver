@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { AdjustedForecastDisplay } from "@/components/forecast/adjusted-forecast-display";
 import type { Forecast, BeachForecastAccuracy } from "@/types/database";
 
-const mockRawForecast: Forecast = {
+const mockRawForecast = {
   id: "forecast-1",
   beach_id: "beach-1",
   valid_time: "2024-01-15T10:00:00Z",
@@ -18,9 +18,9 @@ const mockRawForecast: Forecast = {
   data_source: "NOAA_NWS",
   created_at: "2024-01-15T08:00:00Z",
   updated_at: "2024-01-15T08:00:00Z",
-};
+} as any;
 
-const mockBeachAccuracy: BeachForecastAccuracy = {
+const mockBeachAccuracy = {
   id: "accuracy-1",
   beach_id: "beach-1",
   avg_wave_height_delta: 1.0, // Forecast typically 1ft too high
@@ -32,7 +32,7 @@ const mockBeachAccuracy: BeachForecastAccuracy = {
   calculation_date: "2024-01-15",
   created_at: "2024-01-15T08:00:00Z",
   updated_at: "2024-01-15T08:00:00Z",
-};
+} as any;
 
 describe("AdjustedForecastDisplay", () => {
   it("renders compact version correctly", () => {

@@ -132,7 +132,7 @@ describe("SessionTimingModules Component", () => {
     it("should default to Sun icon for unknown type", () => {
       render(
         <SessionTimingModules
-          modules={[{ icon: "unknown", title: "Test", summary: "Test summary" }]}
+          modules={[{ icon: "unknown" as any, title: "Test", summary: "Test summary" }]}
         />
       );
 
@@ -142,7 +142,7 @@ describe("SessionTimingModules Component", () => {
     it("should handle case-insensitive icon names", () => {
       render(
         <SessionTimingModules
-          modules={[{ icon: "SUN", title: "Test", summary: "Test summary" }]}
+          modules={[{ icon: "SUN" as any, title: "Test", summary: "Test summary" }]}
         />
       );
 

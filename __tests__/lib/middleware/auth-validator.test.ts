@@ -76,7 +76,9 @@ describe("AuthValidator", () => {
       const result = await validator.validateAuth();
 
       expect(result.authenticated).toBe(true);
-      expect(result.user).toEqual(mockUser);
+      if (result.authenticated) {
+        expect(result.user).toEqual(mockUser);
+      }
       expect(mockSupabaseClient.auth.getSession).toHaveBeenCalledTimes(1);
       expect(mockSupabaseClient.auth.getUser).not.toHaveBeenCalled();
     });
@@ -133,7 +135,9 @@ describe("AuthValidator", () => {
       const result = await validator.validateAuth();
 
       expect(result.authenticated).toBe(true);
-      expect(result.user).toEqual(mockUser);
+      if (result.authenticated) {
+        expect(result.user).toEqual(mockUser);
+      }
       expect(mockSupabaseClient.auth.getSession).toHaveBeenCalledTimes(1);
       expect(mockSupabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
     });
@@ -159,8 +163,9 @@ describe("AuthValidator", () => {
       const result = await validator.validateAuth();
 
       expect(result.authenticated).toBe(false);
-      expect(result.user).toBeUndefined();
-      expect(result.error).toBeTruthy();
+      if (!result.authenticated) {
+        expect(result.error).toBeTruthy();
+      }
     });
   });
 
@@ -178,7 +183,9 @@ describe("AuthValidator", () => {
       const result = await validator.validateAuth();
 
       expect(result.authenticated).toBe(false);
-      expect(result.error).toBe("Authentication failed");
+      if (!result.authenticated) {
+        expect(result.error).toBe("Authentication failed");
+      }
     });
 
     it("should handle malformed session data", async () => {

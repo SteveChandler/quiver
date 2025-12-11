@@ -50,13 +50,13 @@ export const forecastLogger = {
   /**
    * Log cron job completion with metrics
    */
-  cronComplete: (executionId: string, metrics: CronMetrics) => {
+  cronComplete: (executionId: string, metrics: Omit<CronMetrics, 'executionId'>) => {
     const context = {
       executionId,
       timestamp: new Date().toISOString(),
       ...metrics,
     };
-    
+
     console.log('[Forecast Cron] Completed', JSON.stringify(context, null, 2));
   },
 

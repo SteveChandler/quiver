@@ -439,11 +439,13 @@ describe("saveOnboardingData", () => {
       const result = await saveOnboardingData(onboardingData);
 
       expect(result.success).toBe(true);
-      expect(result.profile).toBeDefined();
-      expect(result.profile.id).toBe("user-123");
-      expect(result.profile.full_name).toBe("Test User");
-      expect(result.profile.display_name).toBe("test_user");
-      expect(result.profile.home_beach_id).toBe("beach-123");
+      if (result.success && "profile" in result && result.profile) {
+        const profile = result.profile as { id: string; full_name: string; display_name: string; home_beach_id: string };
+        expect(profile.id).toBe("user-123");
+        expect(profile.full_name).toBe("Test User");
+        expect(profile.display_name).toBe("test_user");
+        expect(profile.home_beach_id).toBe("beach-123");
+      }
     });
   });
 });

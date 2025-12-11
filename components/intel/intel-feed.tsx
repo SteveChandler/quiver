@@ -17,15 +17,17 @@ import {
   Users,
   ExternalLink,
   AlertTriangle,
+  MessageCircle,
+  PenSquare,
 } from "lucide-react";
 import {
   getIntelTagConfig,
   getConfidenceColor,
   getConfidenceLabel,
 } from "@/lib/constants/intel";
-import { INTEL_UI_TEXT } from "@/lib/constants/intel";
 import type { IntelPostWithUser, IntelPostTag } from "@/types/database";
 import { cn } from "@/lib/utils";
+import { ZeroState } from "@/components/ui/zero-state";
 import { getNearestBeachName } from "@/lib/utils/nearest-beach";
 
 interface IntelFeedProps {
@@ -34,6 +36,7 @@ interface IntelFeedProps {
   onPostClick?: (post: IntelPostWithUser) => void;
   onConfirm: (postId: string, isCurrentlyConfirmed: boolean) => void;
   onPlanSession: (post: IntelPostWithUser) => void;
+  onShareIntel?: () => void;
   canConfirm: boolean;
   selectedTag?: IntelPostTag | "all";
   className?: string;
@@ -45,6 +48,7 @@ export function IntelFeed({
   onPostClick,
   onConfirm,
   onPlanSession,
+  onShareIntel,
   canConfirm,
   selectedTag = "all",
   className = "",
@@ -100,21 +104,21 @@ export function IntelFeed({
 
   if (filteredPosts.length === 0) {
     return (
-      <div className={cn("text-center py-8", className)}>
-        <div className="space-y-3">
-          <div className="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
-            <MapPin className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <div>
-            <h3 className="text-lg font-medium">
-              {INTEL_UI_TEXT.EMPTY_STATE.TITLE}
-            </h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              {INTEL_UI_TEXT.EMPTY_STATE.DESCRIPTION}
-            </p>
-          </div>
-        </div>
-      </div>
+      <ZeroState
+        icon={MessageCircle}
+        title="No Local Intel Yet"
+        description="Be the first to share what's happening at this spot"
+        action={
+          onShareIntel
+            ? {
+                label: "Share Intel",
+                onClick: onShareIntel,
+                icon: PenSquare,
+              }
+            : undefined
+        }
+        className={className}
+      />
     );
   }
 

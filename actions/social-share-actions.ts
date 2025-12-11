@@ -6,6 +6,9 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import type { SharePlatform, ShareVariant } from "@/types/session-share";
 
+// Re-export types for consumers
+export type { SharePlatform, ShareVariant };
+
 // Legacy variant support (map old string variants to numeric variants)
 export type LegacyShareVariant = "story" | "square";
 export type ShareVariantInput = ShareVariant | LegacyShareVariant;

@@ -136,9 +136,8 @@ describe("AboutAccordion Component", () => {
     });
 
     it("should return null when description is undefined", () => {
-      // @ts-expect-error - Testing undefined case
       const { container } = render(
-        <AboutAccordion {...defaultProps} description={undefined} />
+        <AboutAccordion {...defaultProps} description={undefined as any} />
       );
 
       expect(container.firstChild).toBeNull();

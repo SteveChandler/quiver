@@ -312,7 +312,7 @@ describe("Forecast Analytics Utils", () => {
   });
 
   describe("calculateAccuracyTrends", () => {
-    const mockSnapshots: SessionForecastSnapshot[] = [
+    const mockSnapshots = [
       {
         id: "1",
         session_date: "2024-01-15",
@@ -334,7 +334,7 @@ describe("Forecast Analytics Utils", () => {
         actual_conditions: { wave_height: "2.5" },
         forecast_confidence_score: 70,
       },
-    ] as SessionForecastSnapshot[];
+    ] as unknown as SessionForecastSnapshot[];
 
     it("groups sessions by date correctly", () => {
       const trends = calculateAccuracyTrends(mockSnapshots);
@@ -387,7 +387,7 @@ describe("Forecast Analytics Utils", () => {
         forecast_snapshot: { wave_height: "2 ft", wind_speed: "8 mph" },
         actual_conditions: { wave_height: "2.5", wind_speed: "10 mph" },
       },
-    ] as SessionForecastSnapshot[];
+    ] as unknown as SessionForecastSnapshot[];
 
     beforeAll(() => {
       jest.useFakeTimers();
@@ -460,7 +460,7 @@ describe("Forecast Analytics Utils", () => {
         actual_conditions: { wave_height: "3 ft" },
         forecast_confidence_score: 50,
       },
-    ] as SessionForecastSnapshot[];
+    ] as unknown as SessionForecastSnapshot[];
 
     it("groups snapshots by data source", () => {
       const comparison = compareDataSources(mockSnapshots);

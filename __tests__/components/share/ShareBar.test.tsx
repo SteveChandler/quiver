@@ -16,7 +16,7 @@ jest.mock('@/actions/social-share-actions', () => ({
   generateShareImageUrl: jest.fn().mockResolvedValue('https://example.com/share-image.png'),
 }));
 
-const mockSession: SessionWithDetails = {
+const mockSession = {
   id: 'test-session-123',
   user_id: 'user-123',
   beach_id: 'beach-123',
@@ -37,7 +37,7 @@ const mockSession: SessionWithDetails = {
   wave_height_min: 4,
   wave_height_max: 6,
   wind_speed: 8,
-};
+} as any;
 
 const mockUser = {
   id: 'user-123',

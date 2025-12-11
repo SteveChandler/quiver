@@ -3,6 +3,7 @@
  * Tests invitations, referrals, and other growth-driving social features
  */
 
+import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 // Use lightweight NextRequest/NextResponse mock to avoid constructor issues
 jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
@@ -39,20 +40,28 @@ const mockSendSessionInviteEmail =
   sendSessionInviteEmail as jest.MockedFunction<typeof sendSessionInviteEmail>;
 
 // Helper to create mock chain methods
-const createMockChain = (finalResult: any) => {
-  const chainMethods = {
-    select: jest.fn(() => chainMethods),
-    eq: jest.fn(() => chainMethods),
-    ilike: jest.fn(() => chainMethods),
-    insert: jest.fn(() => chainMethods),
+const createMockChain = (finalResult: any): Record<string, jest.Mock> => {
+  const chainMethods: Record<string, jest.Mock> = {
+    select: jest.fn(),
+    eq: jest.fn(),
+    ilike: jest.fn(),
+    insert: jest.fn(),
     single: jest.fn(() => finalResult),
     maybeSingle: jest.fn(() => finalResult),
-    order: jest.fn(() => chainMethods),
+    order: jest.fn(),
     limit: jest.fn(() => finalResult),
-    not: jest.fn(() => chainMethods),
+    not: jest.fn(),
     gt: jest.fn(() => finalResult),
-    in: jest.fn(() => chainMethods),
+    in: jest.fn(),
   };
+  // Chain methods return themselves
+  chainMethods.select.mockReturnValue(chainMethods);
+  chainMethods.eq.mockReturnValue(chainMethods);
+  chainMethods.ilike.mockReturnValue(chainMethods);
+  chainMethods.insert.mockReturnValue(chainMethods);
+  chainMethods.order.mockReturnValue(chainMethods);
+  chainMethods.not.mockReturnValue(chainMethods);
+  chainMethods.in.mockReturnValue(chainMethods);
   return chainMethods;
 };
 
@@ -157,7 +166,7 @@ describe("Viral Growth Mechanisms", () => {
       });
 
       mockSupabaseClient.from.mockImplementation(fromMock);
-      mockSendSessionInviteEmail.mockResolvedValue(true);
+      mockSendSessionInviteEmail.mockResolvedValue(undefined);
 
       const requestBody = {
         sessionId: "session-1",
@@ -256,7 +265,7 @@ describe("Viral Growth Mechanisms", () => {
       });
 
       mockSupabaseClient.from.mockImplementation(fromMock);
-      mockSendSessionInviteEmail.mockResolvedValue(true);
+      mockSendSessionInviteEmail.mockResolvedValue(undefined);
 
       const request = new NextRequest(
         "http://localhost:3000/api/session-planner/invitations",
@@ -357,7 +366,7 @@ describe("Viral Growth Mechanisms", () => {
         { id: "user-4", full_name: "Local Legend", followers_count: 250 },
       ];
 
-      mockGetSuggestedUsers.mockResolvedValue({
+      (mockGetSuggestedUsers as jest.Mock).mockResolvedValue({
         success: true,
         data: mockSuggestions,
       });
@@ -369,7 +378,7 @@ describe("Viral Growth Mechanisms", () => {
         const loadSuggestions = async () => {
           setLoading(true);
           const result = await mockGetSuggestedUsers(5);
-          if (result.success) {
+          if (result.success && result.data) {
             setSuggestions(result.data);
           }
           setLoading(false);
@@ -386,7 +395,7 @@ describe("Viral Growth Mechanisms", () => {
               <div data-testid="loading">Finding awesome surfers...</div>
             ) : (
               <div data-testid="suggestions-list">
-                {suggestions.map((user) => (
+                {suggestions.map((user: any) => (
                   <div key={user.id} data-testid={`suggestion-${user.id}`}>
                     {user.full_name} ({user.followers_count} followers)
                     <button
@@ -403,7 +412,6 @@ describe("Viral Growth Mechanisms", () => {
         );
       };
 
-      const React = require("react");
       render(<SuggestedUsersComponent />);
 
       await waitFor(() => {
@@ -422,7 +430,7 @@ describe("Viral Growth Mechanisms", () => {
     });
 
     it("should enable easy following for viral growth", async () => {
-      mockFollowUser.mockResolvedValue({
+      (mockFollowUser as jest.Mock).mockResolvedValue({
         success: true,
         data: { followId: "follow-1", message: "Now following Popular Surfer" },
       });
@@ -444,7 +452,6 @@ describe("Viral Growth Mechanisms", () => {
         );
       };
 
-      const React = require("react");
       render(<FollowButton userId="user-2" />);
 
       const followButton = screen.getByTestId("follow-button");
@@ -604,7 +611,6 @@ describe("Viral Growth Mechanisms", () => {
       };
 
       const consoleSpy = jest.spyOn(console, "log").mockImplementation();
-      const React = require("react");
 
       render(<ReferralTracker />);
 
@@ -662,7 +668,6 @@ describe("Viral Growth Mechanisms", () => {
         );
       };
 
-      const React = require("react");
       render(<InviteRewards />);
 
       expect(screen.getByText("Invited: 3 friends")).toBeInTheDocument();

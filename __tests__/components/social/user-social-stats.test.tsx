@@ -14,7 +14,7 @@ jest.mock("@/components/social/followers-modal", () => ({
   ),
 }));
 
-const mockProfile: Profile = {
+const mockProfile = {
   id: "user-1",
   full_name: "John Doe",
   email: "john@example.com",
@@ -25,7 +25,7 @@ const mockProfile: Profile = {
   avatar_url: null,
   bio: null,
   location: null,
-  instagram_handle: null,
+  instagram: null,
   skill_level: null,
   preferred_conditions: null,
   favorite_spots: null,
@@ -33,7 +33,7 @@ const mockProfile: Profile = {
   last_seen_at: null,
   session_count: 0,
   activity_feed_enabled: true,
-};
+} as unknown as Profile;
 
 describe("UserSocialStats", () => {
   it("should display followers and following counts", () => {
@@ -74,9 +74,9 @@ describe("UserSocialStats", () => {
   it("should handle undefined counts", () => {
     const profileWithUndefinedCounts = {
       ...mockProfile,
-      followers_count: undefined,
-      following_count: undefined,
-    };
+      followers_count: null,
+      following_count: null,
+    } as unknown as Profile;
 
     render(<UserSocialStats profile={profileWithUndefinedCounts} />);
 

@@ -38,26 +38,36 @@ jest.mock('@/lib/api-response-utils', () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
+// Mock chain type for Supabase queries
+interface MockChain {
+  select: jest.Mock<MockChain>;
+  not: jest.Mock<MockChain>;
+  gte: jest.Mock<Promise<{ data: { user_id: string }[] | null; error: { message: string } | null }>>;
+}
+
+// Helper to create a mock chain with default data
+function createMockChain(
+  data: { user_id: string }[] | null = [
+    { user_id: "user-1" },
+    { user_id: "user-2" },
+    { user_id: "user-3" },
+    { user_id: "user-1" }, // Duplicate to test uniqueness
+  ],
+  error: { message: string } | null = null
+): MockChain {
+  const chain: MockChain = {
+    select: jest.fn(),
+    not: jest.fn(),
+    gte: jest.fn(() => Promise.resolve({ data, error })),
+  };
+  chain.select.mockReturnValue(chain);
+  chain.not.mockReturnValue(chain);
+  return chain;
+}
+
 // Mock Supabase
 const mockSupabaseClient = {
-  from: jest.fn(() => {
-    const mockChain = {
-      select: jest.fn(() => mockChain),
-      not: jest.fn(() => mockChain),
-      gte: jest.fn(() =>
-        Promise.resolve({
-          data: [
-            { user_id: 'user-1' },
-            { user_id: 'user-2' },
-            { user_id: 'user-3' },
-            { user_id: 'user-1' }, // Duplicate to test uniqueness
-          ],
-          error: null,
-        })
-      ),
-    };
-    return mockChain;
-  }),
+  from: jest.fn(() => createMockChain()),
 };
 
 jest.mock('@/lib/supabase/server', () => ({
@@ -78,27 +88,10 @@ describe('User Preference Update Cron Job API', () => {
     jest.clearAllMocks();
 
     // Reset environment to production for most tests
-    process.env.VERCEL_ENV = 'production';
+    process.env.VERCEL_ENV = "production";
 
     // Reset mockSupabaseClient to default behavior (3 users)
-    mockSupabaseClient.from = jest.fn(() => {
-      const mockChain = {
-        select: jest.fn(() => mockChain),
-        not: jest.fn(() => mockChain),
-        gte: jest.fn(() =>
-          Promise.resolve({
-            data: [
-              { user_id: 'user-1' },
-              { user_id: 'user-2' },
-              { user_id: 'user-3' },
-              { user_id: 'user-1' }, // Duplicate to test uniqueness
-            ],
-            error: null,
-          })
-        ),
-      };
-      return mockChain;
-    });
+    mockSupabaseClient.from = jest.fn(() => createMockChain());
 
     // Default: computeUserPreferences succeeds
     (computeUserPreferences as jest.Mock).mockResolvedValue({
@@ -200,19 +193,7 @@ describe('User Preference Update Cron Job API', () => {
       });
 
       it('should handle empty result set gracefully', async () => {
-        mockSupabaseClient.from = jest.fn(() => {
-          const mockChain = {
-            select: jest.fn(() => mockChain),
-            not: jest.fn(() => mockChain),
-            gte: jest.fn(() =>
-              Promise.resolve({
-                data: [],
-                error: null,
-              })
-            ),
-          };
-          return mockChain;
-        });
+        mockSupabaseClient.from = jest.fn(() => createMockChain([]));
 
         const request = mockRequest({
           authorization: 'Bearer valid-cron-secret',
@@ -234,19 +215,7 @@ describe('User Preference Update Cron Job API', () => {
           user_id: `user-${i}`,
         }));
 
-        mockSupabaseClient.from = jest.fn(() => {
-          const mockChain = {
-            select: jest.fn(() => mockChain),
-            not: jest.fn(() => mockChain),
-            gte: jest.fn(() =>
-              Promise.resolve({
-                data: users,
-                error: null,
-              })
-            ),
-          };
-          return mockChain;
-        });
+        mockSupabaseClient.from = jest.fn(() => createMockChain(users));
 
         const request = mockRequest({
           authorization: 'Bearer valid-cron-secret',
@@ -362,19 +331,9 @@ describe('User Preference Update Cron Job API', () => {
       });
 
       it('should handle Supabase query errors', async () => {
-        mockSupabaseClient.from = jest.fn(() => {
-          const mockChain = {
-            select: jest.fn(() => mockChain),
-            not: jest.fn(() => mockChain),
-            gte: jest.fn(() =>
-              Promise.resolve({
-                data: null,
-                error: { message: 'Connection timeout' },
-              })
-            ),
-          };
-          return mockChain;
-        });
+        mockSupabaseClient.from = jest.fn(() =>
+          createMockChain(null, { message: "Connection timeout" })
+        );
 
         const request = mockRequest({
           authorization: 'Bearer valid-cron-secret',
@@ -426,19 +385,7 @@ describe('User Preference Update Cron Job API', () => {
           user_id: `user-${i}`,
         }));
 
-        mockSupabaseClient.from = jest.fn(() => {
-          const mockChain = {
-            select: jest.fn(() => mockChain),
-            not: jest.fn(() => mockChain),
-            gte: jest.fn(() =>
-              Promise.resolve({
-                data: users,
-                error: null,
-              })
-            ),
-          };
-          return mockChain;
-        });
+        mockSupabaseClient.from = jest.fn(() => createMockChain(users));
 
         const startTime = Date.now();
         const request = mockRequest({
@@ -479,6 +426,8 @@ describe('User Preference Update Cron Job API', () => {
       });
 
       it('should return degraded status when database is unavailable', async () => {
+        // Use different mock chain for this specific test (health check uses different pattern)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mockSupabaseClient.from = jest.fn(() => ({
           select: jest.fn(() =>
             Promise.resolve({
@@ -487,7 +436,7 @@ describe('User Preference Update Cron Job API', () => {
               count: null,
             })
           ),
-        }));
+        })) as any;
 
         const request = mockRequest({
           authorization: 'Bearer valid-cron-secret',

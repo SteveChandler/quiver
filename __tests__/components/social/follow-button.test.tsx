@@ -31,7 +31,7 @@ const defaultUseUserFollowReturn = {
 describe("FollowButton", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseAuth.mockReturnValue({ user: mockUser });
+    mockUseAuth.mockReturnValue({ user: mockUser } as any);
     mockUseUserFollow.mockReturnValue(defaultUseUserFollowReturn);
   });
 
@@ -117,7 +117,7 @@ describe("FollowButton", () => {
     });
 
     it("should not render for unauthenticated users", () => {
-      mockUseAuth.mockReturnValue({ user: null });
+      mockUseAuth.mockReturnValue({ user: null } as any);
 
       render(<FollowButton userId="user-2" />);
 

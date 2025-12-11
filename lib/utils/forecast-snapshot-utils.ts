@@ -6,7 +6,7 @@
  * alongside the actual conditions reported by the user.
  */
 
-import { createClient, createSupabaseServiceRoleClient as createServiceRoleClient } from "@/lib/supabase/server";
+import { createSupabaseServiceRoleClient as createServiceRoleClient } from "@/lib/supabase/server";
 
 interface SessionForSnapshot {
   id: string;

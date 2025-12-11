@@ -302,34 +302,34 @@ export const createMockDataFetcherResponse = (
 
 // Mock fetch responses
 export const mockFetchSuccess = (data: any) => {
-  global.fetch = jest.fn().mockResolvedValue({
+  (global.fetch as any) = jest.fn(() => Promise.resolve({
     ok: true,
     json: () => Promise.resolve(data),
-  });
+  }));
 };
 
 export const mockFetchError = (error: string, status = 500) => {
-  global.fetch = jest.fn().mockResolvedValue({
+  (global.fetch as any) = jest.fn(() => Promise.resolve({
     ok: false,
     status,
     json: () => Promise.resolve({ error }),
-  });
+  }));
 };
 
 export const mockFetchNetworkError = () => {
-  global.fetch = jest.fn().mockRejectedValue(new Error("Network error"));
+  (global.fetch as any) = jest.fn(() => Promise.reject(new Error("Network error")));
 };
 
 // Mock Supabase client responses
 export const mockSupabaseAuth = {
-  getUser: jest.fn().mockResolvedValue({
+  getUser: jest.fn(() => Promise.resolve({
     data: { user: mockUser },
     error: null,
-  }),
-  getSession: jest.fn().mockResolvedValue({
+  })),
+  getSession: jest.fn(() => Promise.resolve({
     data: { session: { user: mockUser } },
     error: null,
-  }),
+  })),
 };
 
 export const mockSupabaseSelect = (data: any, error: any = null) => ({
@@ -338,21 +338,21 @@ export const mockSupabaseSelect = (data: any, error: any = null) => ({
   not: jest.fn().mockReturnThis(),
   order: jest.fn().mockReturnThis(),
   limit: jest.fn().mockReturnThis(),
-  single: jest.fn().mockResolvedValue({ data, error }),
-  maybeSingle: jest.fn().mockResolvedValue({ data, error }),
+  single: jest.fn(() => Promise.resolve({ data, error })),
+  maybeSingle: jest.fn(() => Promise.resolve({ data, error })),
 });
 
 export const mockSupabaseInsert = (data: any, error: any = null) => ({
   insert: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
-  single: jest.fn().mockResolvedValue({ data, error }),
+  single: jest.fn(() => Promise.resolve({ data, error })),
 });
 
 export const mockSupabaseUpdate = (data: any, error: any = null) => ({
   update: jest.fn().mockReturnThis(),
   eq: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
-  single: jest.fn().mockResolvedValue({ data, error }),
+  single: jest.fn(() => Promise.resolve({ data, error })),
 });
 
 export const mockSupabaseFrom = (
@@ -368,8 +368,8 @@ export const mockSupabaseFrom = (
     not: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
-    single: jest.fn().mockResolvedValue({ data, error }),
-    maybeSingle: jest.fn().mockResolvedValue({ data, error }),
+    single: jest.fn(() => Promise.resolve({ data, error })),
+    maybeSingle: jest.fn(() => Promise.resolve({ data, error })),
   };
 
   return mockMethods;
@@ -378,7 +378,7 @@ export const mockSupabaseFrom = (
 // Test helper functions
 export const createMockRequest = (
   searchParams: Record<string, string> = {}
-) => {
+): any => {
   const url = new URL("http://localhost:3000/api/test");
   Object.entries(searchParams).forEach(([key, value]) => {
     url.searchParams.set(key, value);
@@ -387,7 +387,7 @@ export const createMockRequest = (
   return new Request(url.toString());
 };
 
-export const createMockPostRequest = (body: any) => {
+export const createMockPostRequest = (body: any): any => {
   return new Request("http://localhost:3000/api/test", {
     method: "POST",
     headers: {
@@ -397,7 +397,7 @@ export const createMockPostRequest = (body: any) => {
   });
 };
 
-export const createMockPatchRequest = (body: any) => {
+export const createMockPatchRequest = (body: any): any => {
   return new Request("http://localhost:3000/api/test", {
     method: "PATCH",
     headers: {
@@ -410,7 +410,7 @@ export const createMockPatchRequest = (body: any) => {
 // Jest setup helpers
 export const setupMockFetch = () => {
   beforeEach(() => {
-    global.fetch = jest.fn();
+    (global.fetch as jest.Mock) = jest.fn();
   });
 
   afterEach(() => {

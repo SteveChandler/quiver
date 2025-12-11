@@ -3,18 +3,18 @@ import { describe, test, expect, jest, beforeEach, beforeAll } from '@jest/globa
 // Mock Supabase service-role client
 const mockSupabase = {
   auth: {
-    getUser: jest.fn(),
+    getUser: jest.fn<any>(),
   },
-  from: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  select: jest.fn().mockReturnThis(),
-  single: jest.fn(),
-  eq: jest.fn().mockReturnThis(),
-  gte: jest.fn().mockReturnThis(),
-  order: jest.fn().mockReturnThis(),
-  limit: jest.fn(),
-  update: jest.fn().mockReturnThis(),
-  rpc: jest.fn(),
+  from: jest.fn<any>().mockReturnThis(),
+  insert: jest.fn<any>().mockReturnThis(),
+  select: jest.fn<any>().mockReturnThis(),
+  single: jest.fn<any>(),
+  eq: jest.fn<any>().mockReturnThis(),
+  gte: jest.fn<any>().mockReturnThis(),
+  order: jest.fn<any>().mockReturnThis(),
+  limit: jest.fn<any>(),
+  update: jest.fn<any>().mockReturnThis(),
+  rpc: jest.fn<any>(),
 };
 
 let createIntelPost: typeof import('@/actions/intel-actions')['createIntelPost'];

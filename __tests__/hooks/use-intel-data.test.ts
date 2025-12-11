@@ -41,8 +41,8 @@ describe("useIntelData", () => {
     id,
     user_id: "user-123",
     beach_id: "beach-123",
-    lat,
-    lon,
+    latitude: lat,
+    longitude: lon,
     tag,
     title: `Test Intel Post ${id}`,
     description: "Test description",
@@ -65,7 +65,7 @@ describe("useIntelData", () => {
   const mockIntelPosts = [
     createMockIntelPost("post-1", 32.7157, -117.1611, "conditions"),
     createMockIntelPost("post-2", 32.7158, -117.1612, "hazard"),
-    createMockIntelPost("post-3", 32.7159, -117.1613, "photo"),
+    createMockIntelPost("post-3", 32.7159, -117.1613, "crowd"),
   ];
 
   const createMockIntelData = (lat: number, lon: number) => ({
@@ -532,8 +532,8 @@ describe("useIntelData", () => {
           posts: [],
           total: 0,
           filters: {
-            latitude: 32.7157,
-            longitude: -117.1611,
+            lat: 32.7157,
+            lon: -117.1611,
             radius: 5,
             tag: "all",
             limit: 50,
@@ -932,8 +932,8 @@ describe("useIntelData", () => {
           posts: [],
           total: 0,
           filters: {
-            latitude: 32.7157,
-            longitude: -117.1611,
+            lat: 32.7157,
+            lon: -117.1611,
             radius: 5,
             tag: "all",
             limit: 50,

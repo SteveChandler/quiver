@@ -63,7 +63,7 @@ export function useSessionLike(
           table: "session_likes",
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload) => {
+        (payload: { new: { user_id?: string } }) => {
           setLikesCount((prev) => prev + 1);
           // If this is the current user's like, update their liked status
           if (user && payload.new.user_id === user.id) {
@@ -79,7 +79,7 @@ export function useSessionLike(
           table: "session_likes",
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload) => {
+        (payload: { old: { user_id?: string } }) => {
           setLikesCount((prev) => Math.max(0, prev - 1));
           // If this is the current user's like being removed, update their liked status
           if (user && payload.old.user_id === user.id) {

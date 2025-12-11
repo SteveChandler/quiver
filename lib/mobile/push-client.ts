@@ -41,12 +41,16 @@ export async function ensurePushRegistration(
 
     await PushNotifications.register();
 
-    return await new Promise<PushRegistrationResult>((resolve) => {
+    // Store listener handles so we can clean them up later
+    let registrationListenerHandle: Awaited<ReturnType<typeof PushNotifications.addListener>> | null = null;
+    let errorListenerHandle: Awaited<ReturnType<typeof PushNotifications.addListener>> | null = null;
+
+    return await new Promise<PushRegistrationResult>(async (resolve) => {
       let resolved = false;
       const cleanup = async () => {
         await Promise.allSettled([
-          registrationListener.remove(),
-          errorListener.remove(),
+          registrationListenerHandle?.remove(),
+          errorListenerHandle?.remove(),
         ]);
         clearTimeout(timeoutHandle);
       };
@@ -59,7 +63,7 @@ export async function ensurePushRegistration(
         }
       };
 
-      const registrationListener = PushNotifications.addListener(
+      registrationListenerHandle = await PushNotifications.addListener(
         "registration",
         async ({ value }) => {
           try {
@@ -75,7 +79,7 @@ export async function ensurePushRegistration(
         }
       );
 
-      const errorListener = PushNotifications.addListener(
+      errorListenerHandle = await PushNotifications.addListener(
         "registrationError",
         async (error) => {
           options.onError?.(error);

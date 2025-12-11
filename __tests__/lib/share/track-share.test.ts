@@ -11,13 +11,17 @@ import {
 } from '@/lib/share/track-share';
 
 // Mock Supabase client
-const mockSupabase = {
-  from: jest.fn(() => mockSupabase),
-  insert: jest.fn(() => mockSupabase),
-  rpc: jest.fn(() => mockSupabase),
-  select: jest.fn(() => mockSupabase),
+const mockSupabase: Record<string, jest.Mock> = {
+  from: jest.fn(),
+  insert: jest.fn(),
+  rpc: jest.fn(),
+  select: jest.fn(),
   single: jest.fn(() => ({ data: null, error: null })),
 };
+mockSupabase.from.mockReturnValue(mockSupabase);
+mockSupabase.insert.mockReturnValue(mockSupabase);
+mockSupabase.rpc.mockReturnValue(mockSupabase);
+mockSupabase.select.mockReturnValue(mockSupabase);
 
 jest.mock('@/lib/supabase/client', () => ({
   createClient: jest.fn(() => mockSupabase),
@@ -526,9 +530,9 @@ describe('track-share analytics', () => {
       delete (global as any).gtag;
 
       expect(() => {
-        trackSharePlatformSelected('instagram', { sessionId: 'test' });
-        trackShareCompleted('instagram', { sessionId: 'test' });
-        trackShareFailed('instagram', { sessionId: 'test' });
+        trackSharePlatformSelected('instagram', { sessionId: 'test', variant: 1, aspectRatio: '1:1' });
+        trackShareCompleted('instagram', { sessionId: 'test', variant: 1, aspectRatio: '1:1' });
+        trackShareFailed('instagram', { sessionId: 'test', variant: 1, aspectRatio: '1:1', error: 'test error' });
       }).not.toThrow();
 
       // No need to restore - jest.clearAllMocks() handles this

@@ -229,8 +229,9 @@ export function mockWithAuthenticatedAction(mockState: MockDatabaseState, tracke
       const mockSupabase = createGamificationSupabaseMock(mockState, tracker);
       const result = await fn(mockGamificationUser, mockSupabase, ...args);
       return { success: true, data: result };
-    } catch (error: any) {
-      return { success: false, error: error?.message ?? String(error) };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, error: message };
     }
   };
   return jest.fn(impl);

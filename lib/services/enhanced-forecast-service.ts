@@ -1252,9 +1252,16 @@ export class EnhancedForecastService {
 
   /**
    * Update all beaches with enhanced forecasts
+   * Uses batch processing to avoid overwhelming external APIs and preventing timeouts
+   * Pre-fetches shared data (tide stations) to avoid duplicate API calls
    */
   async updateAllEnhancedForecasts() {
+    console.log("📊 EnhancedForecastService.updateAllEnhancedForecasts() starting (v2 with prefetch)");
     const supabase = await createSupabaseServiceRoleClient();
+    // Reduced batch size from 5 to 3 for more controlled API usage
+    const BATCH_SIZE = 3;
+    // Reduced delay since we're pre-fetching shared data
+    const BATCH_DELAY_MS = 1500;
 
     try {
       // Get all beaches
@@ -1266,32 +1273,120 @@ export class EnhancedForecastService {
         throw error;
       }
 
-      // Update forecasts for each beach
-      const results = await Promise.allSettled(
-        beaches.map(async (beach) => {
-          try {
-            const forecasts = await this.generateComprehensiveForecast(beach);
-            const result = await this.storeEnhancedForecasts(beach, forecasts);
-            return { beach: beach.name, success: result.success };
-          } catch (error) {
-            console.error(`Error updating forecasts for ${beach.name}:`, error);
-            return { beach: beach.name, success: false, error };
-          }
-        })
-      );
+      if (!beaches || beaches.length === 0) {
+        console.log("📭 No beaches found to update");
+        return { success: true, results: [] };
+      }
 
-      const successful = results.filter(
-        (r) => r.status === "fulfilled" && r.value.success
-      ).length;
-      const failed = results.length - successful;
+      console.log(
+        `🌊 Starting batch forecast update for ${beaches.length} beaches (batch size: ${BATCH_SIZE})`
+      );
+      const startTime = Date.now();
+
+      // Pre-fetch tide data for unique stations to avoid duplicate API calls
+      // This significantly reduces the number of CO-OPS API calls
+      await this.prefetchTideStations(beaches);
+
+      // Split beaches into batches
+      const batches: typeof beaches[] = [];
+      for (let i = 0; i < beaches.length; i += BATCH_SIZE) {
+        batches.push(beaches.slice(i, i + BATCH_SIZE));
+      }
+
+      const allResults: Array<{
+        beach: string;
+        success: boolean;
+        error?: any;
+      }> = [];
+      let successCount = 0;
+      let failCount = 0;
+
+      // Process each batch sequentially
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        const batchNum = batchIndex + 1;
+        const totalBatches = batches.length;
+
+        console.log(
+          `📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} beaches)`
+        );
+
+        // Process beaches within batch in parallel
+        const batchResults = await Promise.allSettled(
+          batch.map(async (beach) => {
+            try {
+              const forecasts =
+                await this.generateComprehensiveForecast(beach);
+              const result = await this.storeEnhancedForecasts(
+                beach,
+                forecasts
+              );
+              if (result.success) {
+                console.log(
+                  `✅ ${beach.name}: ${forecasts.length} forecasts stored`
+                );
+              } else {
+                console.warn(
+                  `⚠️ ${beach.name}: store failed - ${result.error}`
+                );
+              }
+              return {
+                beach: beach.name,
+                success: result.success,
+                error: result.error,
+              };
+            } catch (error) {
+              const errorMsg =
+                error instanceof Error ? error.message : String(error);
+              console.error(`❌ ${beach.name}: ${errorMsg}`);
+              return { beach: beach.name, success: false, error: errorMsg };
+            }
+          })
+        );
+
+        // Collect results
+        for (const result of batchResults) {
+          if (result.status === "fulfilled") {
+            allResults.push(result.value);
+            if (result.value.success) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } else {
+            allResults.push({
+              beach: "unknown",
+              success: false,
+              error: "Promise rejected",
+            });
+            failCount++;
+          }
+        }
+
+        console.log(
+          `📊 Batch ${batchNum} complete: ${successCount} success, ${failCount} failed so far`
+        );
+
+        // Add delay between batches to avoid rate limiting (except after last batch)
+        if (batchIndex < batches.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+        }
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(
+        `🏁 Forecast update complete in ${duration}s: ${successCount}/${beaches.length} successful`
+      );
 
       return {
         success: true,
-        results: results.map((r) =>
-          r.status === "fulfilled"
-            ? r.value
-            : { success: false, error: "Promise rejected" }
-        ),
+        results: allResults,
+        summary: {
+          total: beaches.length,
+          successful: successCount,
+          failed: failCount,
+          duration: `${duration}s`,
+        },
       };
     } catch (error) {
       console.error("Error updating all enhanced forecasts:", error);
@@ -1300,5 +1395,44 @@ export class EnhancedForecastService {
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
+  }
+
+  /**
+   * Pre-fetch tide data for all unique stations to populate the cache
+   * This avoids duplicate API calls when multiple beaches share the same station
+   */
+  private async prefetchTideStations(beaches: Beach[]): Promise<void> {
+    // Get unique station IDs for all beaches
+    const stationIds = new Set<string>();
+    for (const beach of beaches) {
+      const stationId = this.coopsService.getStationForLocation(
+        beach.name,
+        beach.lat ?? 0,
+        beach.lon ?? 0
+      );
+      stationIds.add(stationId);
+    }
+
+    const uniqueStations = Array.from(stationIds);
+    console.log(
+      `📡 Pre-fetching tide data for ${uniqueStations.length} unique stations (covering ${beaches.length} beaches)`
+    );
+
+    // Fetch in small batches to avoid overwhelming the API
+    const STATION_BATCH_SIZE = 5;
+    for (let i = 0; i < uniqueStations.length; i += STATION_BATCH_SIZE) {
+      const batch = uniqueStations.slice(i, i + STATION_BATCH_SIZE);
+      await Promise.allSettled(
+        batch.map((stationId) =>
+          this.coopsService.fetchCOOPSData(stationId, FORECAST_CONSTANTS.DAYS)
+        )
+      );
+      // Small delay between station batches
+      if (i + STATION_BATCH_SIZE < uniqueStations.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    console.log(`✅ Tide station pre-fetch complete`);
   }
 }

@@ -16,10 +16,7 @@ import { useEnhancedForecast } from "@/hooks/use-enhanced-forecast";
 import { ForecastStats } from "./forecast/forecast-stats";
 import { LoadingSpinner, ErrorDisplay } from "@/lib/utils/forecast-ui-utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  ForecastDataTransparency,
-  createMockDataSources,
-} from "@/components/ui/forecast-data-transparency";
+import ForecastDataTransparency from "@/components/ui/forecast-data-transparency";
 import {
   MultiDayForecastTable,
   SimplifiedForecastTable,

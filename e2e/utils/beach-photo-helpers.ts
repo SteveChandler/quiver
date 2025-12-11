@@ -93,9 +93,9 @@ export async function createTestBeachPhoto(
 
     const { data, error } = await admin
       .from('beach_photos')
-      .insert(photoData)
+      .insert(photoData as any)
       .select('id, beach_id')
-      .single();
+      .single() as { data: { id: string; beach_id: string } | null; error: any };
 
     if (error) {
       console.error('[Beach Photo Helper] Failed to create test photo:', error);
@@ -105,12 +105,12 @@ export async function createTestBeachPhoto(
       };
     }
 
-    console.log(`[Beach Photo Helper] Test photo created: ${data.id}`);
+    console.log(`[Beach Photo Helper] Test photo created: ${data?.id}`);
 
     return {
       success: true,
-      photoId: data.id,
-      beachId: data.beach_id,
+      photoId: data?.id,
+      beachId: data?.beach_id,
     };
   } catch (error) {
     console.error('[Beach Photo Helper] Failed to create test photo:', error);
@@ -133,12 +133,12 @@ export async function softDeleteBeachPhoto(photoId: string): Promise<PhotoOperat
   try {
     console.log(`[Beach Photo Helper] Soft-deleting photo: ${photoId}`);
 
-    const { data, error } = await admin
-      .from('beach_photos')
+    const { data, error } = await (admin
+      .from('beach_photos') as any)
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', photoId)
       .select('id, beach_id')
-      .single();
+      .single() as { data: { id: string; beach_id: string } | null; error: any };
 
     if (error) {
       console.error('[Beach Photo Helper] Failed to soft-delete photo:', error);
@@ -148,12 +148,12 @@ export async function softDeleteBeachPhoto(photoId: string): Promise<PhotoOperat
       };
     }
 
-    console.log(`[Beach Photo Helper] Photo soft-deleted: ${data.id}`);
+    console.log(`[Beach Photo Helper] Photo soft-deleted: ${data?.id}`);
 
     return {
       success: true,
-      photoId: data.id,
-      beachId: data.beach_id,
+      photoId: data?.id,
+      beachId: data?.beach_id,
     };
   } catch (error) {
     console.error('[Beach Photo Helper] Failed to soft-delete photo:', error);
@@ -216,12 +216,12 @@ export async function restoreBeachPhoto(photoId: string): Promise<PhotoOperation
   try {
     console.log(`[Beach Photo Helper] Restoring photo: ${photoId}`);
 
-    const { data, error } = await admin
-      .from('beach_photos')
+    const { data, error } = await (admin
+      .from('beach_photos') as any)
       .update({ deleted_at: null })
       .eq('id', photoId)
       .select('id, beach_id')
-      .single();
+      .single() as { data: { id: string; beach_id: string } | null; error: any };
 
     if (error) {
       console.error('[Beach Photo Helper] Failed to restore photo:', error);
@@ -231,12 +231,12 @@ export async function restoreBeachPhoto(photoId: string): Promise<PhotoOperation
       };
     }
 
-    console.log(`[Beach Photo Helper] Photo restored: ${data.id}`);
+    console.log(`[Beach Photo Helper] Photo restored: ${data?.id}`);
 
     return {
       success: true,
-      photoId: data.id,
-      beachId: data.beach_id,
+      photoId: data?.id,
+      beachId: data?.beach_id,
     };
   } catch (error) {
     console.error('[Beach Photo Helper] Failed to restore photo:', error);
@@ -377,7 +377,7 @@ export async function findBeachIdByName(beachName: string): Promise<string | nul
       .from('beaches')
       .select('id')
       .eq('name', beachName)
-      .single();
+      .single() as { data: { id: string } | null; error: any };
 
     if (error || !data) {
       console.error('[Beach Photo Helper] Failed to find beach:', error);
@@ -406,7 +406,7 @@ export async function getRandomPublicBeachId(): Promise<string | null> {
       .select('id')
       .eq('is_private', false)
       .not('slug', 'is', null)
-      .limit(10);
+      .limit(10) as { data: { id: string }[] | null; error: any };
 
     if (error || !data || data.length === 0) {
       console.error('[Beach Photo Helper] Failed to get random beach:', error);

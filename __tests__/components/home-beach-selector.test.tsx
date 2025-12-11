@@ -41,7 +41,7 @@ describe("HomeBeachSelector", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Default mock for beaches list
-    mockUseDataFetcher.mockImplementation((fetchFn, options = {}) => {
+    (mockUseDataFetcher as jest.Mock).mockImplementation((fetchFn: any, options: any = {}) => {
       if (!options.skip) {
         return {
           data: mockBeaches,
@@ -49,6 +49,7 @@ describe("HomeBeachSelector", () => {
           error: null,
           refetch: jest.fn(),
           retry: jest.fn(),
+          reset: jest.fn(),
         };
       }
       return {
@@ -57,6 +58,7 @@ describe("HomeBeachSelector", () => {
         error: null,
         refetch: jest.fn(),
         retry: jest.fn(),
+        reset: jest.fn(),
       };
     });
   });
@@ -93,11 +95,13 @@ describe("HomeBeachSelector", () => {
   });
 
   it("shows loading state when beaches are loading", () => {
-    mockUseDataFetcher.mockReturnValue({
+    (mockUseDataFetcher as jest.Mock).mockReturnValue({
       data: [],
       loading: true,
       error: null,
       refetch: jest.fn(),
+      retry: jest.fn(),
+      reset: jest.fn(),
     });
 
     render(

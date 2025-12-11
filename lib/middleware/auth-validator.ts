@@ -13,14 +13,17 @@
  */
 
 import { type NextRequest } from "next/server";
-import { createServerClient, type SupabaseClient } from "@supabase/ssr";
-import type { User } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
-export interface AuthResult {
-  authenticated: boolean;
-  user?: User;
-  error?: string;
-}
+/**
+ * Discriminated union for auth results.
+ * When authenticated is true, user is guaranteed to exist.
+ * When authenticated is false, error is guaranteed to exist.
+ */
+export type AuthResult =
+  | { authenticated: true; user: User }
+  | { authenticated: false; error: string };
 
 export interface SupabaseCookieOptions {
   get(name: string): string | undefined;

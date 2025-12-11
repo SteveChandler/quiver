@@ -92,10 +92,10 @@ export function useSessionForecast(
     if (!bestForecast) return null;
 
     return {
-      wave_height: bestForecast.wave_height || undefined,
-      wind_speed: bestForecast.wind_speed || undefined,
+      wave_height: bestForecast.wave_height ? Number(bestForecast.wave_height) : undefined,
+      wind_speed: bestForecast.wind_speed ? Number(bestForecast.wind_speed) : undefined,
       wind_direction: bestForecast.wind_direction || undefined,
-      water_temp: bestForecast.water_temp || undefined,
+      water_temp: bestForecast.water_temp ? Number(bestForecast.water_temp) : undefined,
     };
   }, [forecasts, sessionTime]);
 

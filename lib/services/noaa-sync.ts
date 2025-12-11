@@ -55,7 +55,7 @@ export class NOAABuoySync {
         `Sample beaches:`,
         beaches
           .slice(0, 3)
-          .map((b) => `${b.name} (${b.lat}, ${b.lon})`)
+          .map((b) => `${b.name} (${b.latitude}, ${b.longitude})`)
       );
 
       // 2. Fetch NOAA station master list
@@ -131,7 +131,13 @@ export class NOAABuoySync {
       throw new Error(`Failed to fetch beaches: ${error.message}`);
     }
 
-    return data || [];
+    // Map database columns to interface (lat/lon -> latitude/longitude)
+    return (data || []).map((b: any) => ({
+      id: b.id,
+      name: b.name,
+      latitude: b.lat,
+      longitude: b.lon,
+    }));
   }
 
   /**
@@ -236,8 +242,8 @@ export class NOAABuoySync {
         const distance = this.calculateDistance(
           stationLat,
           stationLng,
-          beach.lat,
-          beach.lon
+          beach.latitude,
+          beach.longitude
         );
         totalDistanceChecks++;
 

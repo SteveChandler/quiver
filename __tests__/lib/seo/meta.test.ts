@@ -8,6 +8,9 @@
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 
+// Type helper for test assertions - Metadata has union types that need narrowing
+const getMeta = (params: Parameters<typeof buildPageMetadata>[0]): any => buildPageMetadata(params);
+
 describe("SEO Meta Builder", () => {
   const mockParams = {
     title: "Test Page Title",
@@ -85,7 +88,7 @@ describe("SEO Meta Builder", () => {
       });
 
       it("should include og:type from SEO_CONFIG", () => {
-        const result = buildPageMetadata(mockParams);
+        const result = getMeta(mockParams);
         expect(result.openGraph?.type).toBe(SEO_CONFIG.openGraph.type);
       });
 
@@ -127,7 +130,7 @@ describe("SEO Meta Builder", () => {
 
     describe("Twitter Card Metadata", () => {
       it("should include twitter:card type from SEO_CONFIG", () => {
-        const result = buildPageMetadata(mockParams);
+        const result = getMeta(mockParams);
         expect(result.twitter?.card).toBe(SEO_CONFIG.twitter.card);
       });
 
@@ -175,17 +178,17 @@ describe("SEO Meta Builder", () => {
       });
 
       it("should set index based on DISALLOW_ROBOTS env", () => {
-        const result = buildPageMetadata(mockParams);
+        const result = getMeta(mockParams);
         expect(typeof result.robots?.index).toBe("boolean");
       });
 
       it("should set follow based on DISALLOW_ROBOTS env", () => {
-        const result = buildPageMetadata(mockParams);
+        const result = getMeta(mockParams);
         expect(typeof result.robots?.follow).toBe("boolean");
       });
 
       it("should include googleBot configuration", () => {
-        const result = buildPageMetadata(mockParams);
+        const result = getMeta(mockParams);
         expect(result.robots?.googleBot).toBeDefined();
         expect(typeof result.robots?.googleBot?.index).toBe("boolean");
         expect(typeof result.robots?.googleBot?.follow).toBe("boolean");
@@ -196,7 +199,7 @@ describe("SEO Meta Builder", () => {
         const originalEnv = process.env.DISALLOW_ROBOTS;
         delete process.env.DISALLOW_ROBOTS;
 
-        const result = buildPageMetadata(mockParams);
+        const result = getMeta(mockParams);
         expect(result.robots?.index).toBe(true);
         expect(result.robots?.follow).toBe(true);
 
@@ -301,7 +304,7 @@ describe("SEO Meta Builder", () => {
       });
 
       it("should preserve SEO_CONFIG structure for twitter", () => {
-        const result = buildPageMetadata(mockParams);
+        const result = getMeta(mockParams);
 
         expect(result.twitter?.card).toBe(SEO_CONFIG.twitter.card);
         expect(result.twitter?.site).toBe(SEO_CONFIG.twitter.site);

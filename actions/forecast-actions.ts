@@ -272,7 +272,7 @@ export async function getBeachForecastPreview(beachId: string) {
     const { data: enhancedForecasts, error: enhancedError } = await supabase
       .from("enhanced_forecasts")
       .select(
-        "forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition, confidence_score"
+        "forecast_date, forecast_time, wave_height, wind_speed, wind_direction, weather_condition, confidence_score, data_source"
       )
       .eq("beach_id", beachId)
       .in("forecast_date", [today, tomorrow])
@@ -300,9 +300,7 @@ export async function getBeachForecastPreview(beachId: string) {
             // Include metadata for transparency
             metadata: {
               primarySource: currentForecast.data_source || "FALLBACK",
-              allSources: currentForecast.data_sources || [
-                currentForecast.data_source || "FALLBACK",
-              ],
+              allSources: [currentForecast.data_source || "FALLBACK"],
               confidenceScore: currentForecast.confidence_score ?? 50,
               lastUpdated: new Date().toISOString(), // Will be from DB if available
               isRealTimeData: currentForecast.data_source === "CDIP",

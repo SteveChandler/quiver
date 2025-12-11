@@ -242,7 +242,7 @@ describe("User Surf Preferences RLS Policies", () => {
       const { error } = await supabaseAdmin
         .from("user_surf_preferences")
         .delete()
-        .eq("id", tempPref?.id);
+        .eq("id", tempPref?.id || "");
 
       // Will fail because of UNIQUE constraint (user1 already has preferences)
       // But this shows delete permission exists for service role

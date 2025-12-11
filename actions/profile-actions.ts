@@ -51,7 +51,12 @@ const profileUpdateSchema = z.object({
   email_session_invites: z.boolean().optional(),
 }).passthrough(); // Allow extra fields that aren't in schema
 
-export async function getProfile(userId: string) {
+// Return types for profile functions
+type ProfileSuccessResult = { success: true; data: Profile };
+type ProfileErrorResult = { success: false; error: string; isConnectionError?: boolean };
+type ProfileResult = ProfileSuccessResult | ProfileErrorResult;
+
+export async function getProfile(userId: string): Promise<ProfileResult> {
   if (!userId) {
     return { success: false, error: "No user ID provided" };
   }
@@ -157,7 +162,7 @@ export async function fetchProfile(userId: string) {
   }
 }
 
-async function createProfile(userId: string) {
+async function createProfile(userId: string): Promise<ProfileResult> {
   if (!userId) {
     return { success: false, error: "No user ID provided" };
   }

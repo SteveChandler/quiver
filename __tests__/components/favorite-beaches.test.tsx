@@ -15,7 +15,7 @@ const mockBeachActions =
 // Set up mocks before tests
 beforeEach(() => {
   mockUseAuth.mockReturnValue({
-    user: { id: "test-user-id", email: "dev@local.test" },
+    user: { id: "test-user-id", email: "dev@local.test" } as any,
     isLoading: false,
     isAuthenticated: true,
     session: null,
@@ -23,7 +23,7 @@ beforeEach(() => {
     signIn: jest.fn(),
     signOut: jest.fn(),
     refreshSession: jest.fn(),
-  });
+  } as any);
   
   mockBeachActions.getFavoriteBeaches.mockResolvedValue({ success: true, data: [] });
   mockBeachActions.removeFavoriteBeach.mockResolvedValue({ success: true });

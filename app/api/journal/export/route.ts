@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     if (userError || !user) {
       return createSuccessResponse(
         { error: "Authentication required" },
-        { status: 401 }
+        401
       );
     }
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (!exportOptions.type || !exportOptions.format) {
       return createSuccessResponse(
         { error: "Export type and format are required" },
-        { status: 400 }
+        400
       );
     }
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         if (!exportOptions.month) {
           return createSuccessResponse(
             { error: "Month is required for monthly export" },
-            { status: 400 }
+            400
           );
         }
         sessions = allSessions.filter(
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         if (!exportOptions.year) {
           return createSuccessResponse(
             { error: "Year is required for yearly export" },
-            { status: 400 }
+            400
           );
         }
         sessions = allSessions.filter(
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         ) {
           return createSuccessResponse(
             { error: "Session IDs are required for single session export" },
-            { status: 400 }
+            400
           );
         }
         sessions = allSessions.filter((session) =>
@@ -96,13 +96,13 @@ export async function POST(request: NextRequest) {
       default:
         return createSuccessResponse(
           { error: "Invalid export type" },
-          { status: 400 }
+          400
         );
     }
 
     // Get analytics if requested
     if (exportOptions.includeAnalytics) {
-      const analyticsResult = await getSessionAnalytics(user.id);
+      const analyticsResult = await getSessionAnalytics(supabase, user.id);
       if (analyticsResult.success) {
         analytics = analyticsResult.data;
       }

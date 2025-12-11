@@ -35,7 +35,7 @@ describe("OnboardingDialog Logic", () => {
       profile: null,
       isLoading: false,
     });
-    (useOnboardingStore as jest.Mock).mockReturnValue({
+    (useOnboardingStore as unknown as jest.Mock).mockReturnValue({
       isOpen: false,
       currentStep: 0,
       openDialog: mockOpenDialog,

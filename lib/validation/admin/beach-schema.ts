@@ -50,14 +50,14 @@ export const beachFormSchema = z.object({
 
   break_type: z
     .enum(["beach", "point", "reef", "river", "other"], {
-      errorMap: () => ({ message: "Invalid break type" })
+      message: "Invalid break type"
     })
     .optional()
     .nullable(),
 
   skill_level: z
     .enum(["beginner", "intermediate", "advanced", "expert"], {
-      errorMap: () => ({ message: "Invalid skill level" })
+      message: "Invalid skill level"
     })
     .optional()
     .nullable(),

@@ -103,8 +103,8 @@ export async function createTestUser(
   await new Promise(resolve => setTimeout(resolve, 100));
 
   // Verify profile exists and update is_mock flag
-  const { error: profileError } = await admin
-    .from('profiles')
+  const { error: profileError } = await (admin
+    .from('profiles') as any)
     .update({
       is_mock: true, // Mark as mock/test user
       full_name: 'Test User', // Ensure consistent naming
@@ -116,8 +116,8 @@ export async function createTestUser(
     console.error(`[Profile Helper] Failed to update profile (may not exist): ${profileError.message}`);
 
     // Try to insert as fallback (for cases where trigger didn't fire)
-    const { error: insertError } = await admin
-      .from('profiles')
+    const { error: insertError } = await (admin
+      .from('profiles') as any)
       .insert({
         id: data.user.id,
         email: testEmail,
@@ -180,7 +180,7 @@ async function resolveBeachId(beachName: string): Promise<string | null> {
     .from('beaches')
     .select('id')
     .eq('name', beachName)
-    .single();
+    .single() as { data: { id: string } | null; error: any };
 
   if (error || !data) {
     console.error(`[Profile Helper] Failed to resolve beach "${beachName}":`, error);
@@ -212,7 +212,7 @@ export async function getUserProfile(userId: string): Promise<ProfileData | null
         )
       `)
       .eq('id', userId)
-      .single();
+      .single() as { data: { id: string; full_name: string | null; email: string; home_beach_id: string | null; beaches: { name: string } | null } | null; error: any };
 
     if (error || !data) {
       console.error('[Profile Helper] Failed to get profile:', error);
@@ -248,12 +248,12 @@ export async function updateUserProfile(
   const admin = getAdminClient();
 
   try {
-    const { data, error } = await admin
-      .from('profiles')
+    const { data, error } = await (admin
+      .from('profiles') as any)
       .update(updates)
       .eq('id', userId)
       .select('id, home_beach_id')
-      .single();
+      .single() as { data: { id: string; home_beach_id: string | null } | null; error: any };
 
     if (error) {
       console.error('[Profile Helper] Failed to update profile:', error);
@@ -265,8 +265,8 @@ export async function updateUserProfile(
 
     return {
       success: true,
-      profileId: data.id,
-      home_beach_id: data.home_beach_id,
+      profileId: data?.id,
+      home_beach_id: data?.home_beach_id,
     };
   } catch (error) {
     console.error('[Profile Helper] Failed to update user profile:', error);

@@ -12,6 +12,16 @@ jest.mock("@/hooks/useGeo", () => ({
   }),
 }));
 
+jest.mock("@/context/profile-context", () => ({
+  useProfileContext: () => ({
+    profile: null,
+    homeBeach: null,
+    isLoading: false,
+    error: null,
+    refreshProfile: jest.fn(),
+  }),
+}));
+
 describe("HomeScreen forecast tab integration (smoke)", () => {
   it("renders without crashing with nearby chips visible", () => {
     render(<HomeScreen />);

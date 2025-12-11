@@ -29,7 +29,7 @@ jest.mock("@/components/ui/use-toast", () => ({
 }));
 
 describe("Board Creation and Auto-Selection", () => {
-  const mockBoard: Board = {
+  const mockBoard = {
     id: "test-board-id",
     user_id: "test-user-id",
     name: "Test Board",
@@ -38,9 +38,11 @@ describe("Board Creation and Auto-Selection", () => {
     description: "Test board description",
     image_url: null,
     session_count: 0,
+    size: null,
+    volume: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  };
+  } as Board;
 
   const mockFormState = {
     selectedBoard: "",
@@ -51,7 +53,14 @@ describe("Board Creation and Auto-Selection", () => {
     selectedTime: "",
     notes: "",
     duration: "",
-  };
+    waveQuality: "",
+    waterTemp: "",
+    crowdLevel: "",
+    parkingEase: "",
+    overallRating: "",
+    photos: [],
+    invitees: [],
+  } as any;
 
   const mockUpdateField = jest.fn();
 

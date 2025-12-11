@@ -14,7 +14,7 @@ import {
 import { TidesDisplay, NextTide } from "./tides-display";
 import { cn } from "@/lib/utils";
 
-interface BuoyConditionsData {
+export interface BuoyConditionsData {
   water_temperature?: number;
   air_temperature?: number;
   wind_speed?: number;
