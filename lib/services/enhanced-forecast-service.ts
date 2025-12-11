@@ -387,13 +387,13 @@ export class EnhancedForecastService {
           selectedStation = await this.cdipService.getNearestStation(
             beach.lat ?? 0,
             beach.lon ?? 0,
-            50 // 50km radius
+            150 // 150km radius to cover gaps where station 67 is blacklisted
           );
         }
 
         if (!selectedStation) {
           console.warn(
-            `❌ No nearby CDIP station found for ${beach.name} within 50km`
+            `❌ No nearby CDIP station found for ${beach.name} within 150km`
           );
           return null;
         }
