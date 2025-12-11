@@ -91,7 +91,7 @@ export default function AdminPhotosPage() {
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
-    const result = await getPhotoStats();
+    const result = await getPhotoStats({});
     if (!result.success) {
       return null;
     }

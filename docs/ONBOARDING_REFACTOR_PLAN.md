@@ -1,4 +1,4 @@
-# Onboarding Flow Refactoring Plan
+i # Onboarding Flow Refactoring Plan
 
 > **Document Created**: December 2025
 > **Status**: Approved for Implementation

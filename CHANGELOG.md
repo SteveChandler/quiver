@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **CDIP Timestamp Display** (December 2025)
+  - Removed confusing "Xh ago" timestamps from beach forecast pages that showed when CDIP buoys last reported.
+  - Users mistakenly thought these timestamps indicated Quiver's data was stale.
+  - Removed `ForecastFreshnessBadge` from the forecast transparency section in `forecast-tab.tsx`.
+  - Removed inline "Updated:" timestamps from `forecast-data-source-indicator.tsx`.
+  - Kept data source badges, confidence scores, and other non-timestamp indicators.
+
 ### Fixed
 
 - **Forecast Cron Job Reliability Improvements** (December 2025)

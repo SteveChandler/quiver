@@ -8,7 +8,6 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
 import { ForecastDataSourceIndicator } from "@/components/forecast/forecast-data-source-indicator";
-import { ForecastFreshnessBadge } from "@/components/ui/forecast-freshness-badge";
 import { BuoyStationLink } from "@/components/forecast/buoy-station-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -224,10 +223,6 @@ export function ForecastTab({
                 />
               )}
             </div>
-            <ForecastFreshnessBadge
-              updatedAt={forecastMetadata.lastUpdated}
-              showRefreshButton={true}
-            />
           </div>
         </section>
       )}

@@ -39,10 +39,13 @@ export async function generateMetadata({
 
     if (result.success && result.data) {
       const session = result.data;
+      // Supabase joins return single objects for .single() queries, but TS types as arrays
+      const beach = session.beach as unknown as { name: string } | null;
+      const user = session.user as unknown as { full_name: string; username: string } | null;
       const beachName =
-        session.beach?.name || session.beach_name || "Unknown Beach";
+        beach?.name || session.beach_name || "Unknown Beach";
       const userName =
-        session.user?.full_name || session.user?.username || "Surfer";
+        user?.full_name || user?.username || "Surfer";
       const ratingText = session.rating ? `${session.rating}-star` : "";
       const statusText =
         session.status === "completed" ? "Surf Session" : "Planned Session";

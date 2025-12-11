@@ -347,26 +347,6 @@ export function ForecastDataSourceIndicator({
                 </div>
               )}
 
-            {/* Stale data warning - only show with valid data */}
-            {hasValidData && isStaleData && lastUpdated && (
-              <div
-                className="flex items-center space-x-1 mt-1"
-                data-testid="stale-data-warning"
-              >
-                <AlertTriangle className="h-3 w-3 text-amber-600" />
-                <span className="text-xs text-amber-600">
-                  Data may be outdated - Last updated:{" "}
-                  {formatLastUpdated(lastUpdated)}
-                </span>
-              </div>
-            )}
-
-            {/* Real-time data info - only show with valid data */}
-            {hasValidData && isRealTimeData && lastUpdated && (
-              <p className="text-xs text-green-600 mt-1">
-                Updated: {formatLastUpdated(lastUpdated)}
-              </p>
-            )}
           </div>
         </div>
 

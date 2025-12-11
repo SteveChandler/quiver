@@ -109,7 +109,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete URL data
       .map((beach) => ({
         url: `${baseUrl}${buildBeachUrl(beach)}`,
-        lastModified: beach.updated_at || lastmod,
+        lastModified: beach.created_at || lastmod,
         changeFrequency: "weekly",
         priority: 0.6,
       }));
@@ -117,7 +117,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Add forecast pages for each beach (still using ID for now)
     forecastEntries = beaches.map((b) => ({
       url: `${baseUrl}/forecast/${b.id}`,
-      lastModified: b.updated_at || lastmod,
+      lastModified: lastmod, // Use current date for forecasts as they update frequently
       changeFrequency: "daily",
       priority: 0.8, // High priority for forecast pages
     }));
