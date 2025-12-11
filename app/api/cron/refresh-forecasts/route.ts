@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log("🔄 Starting background forecast refresh cron job... (v2 with prefetch+batching)");
+    console.log("🔄 Starting background forecast refresh cron job... (v3 with stale-only updates)");
     const startTime = Date.now();
 
     // Update all beach forecasts
