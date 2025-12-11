@@ -17,9 +17,9 @@ export default async function ForecastPage({
 }) {
   // Fetch beach data server-side
   try {
-    const beach = await getBeachById(params.beachId);
+    const result = await getBeachById(params.beachId);
 
-    if (!beach) {
+    if (!result.success || !result.data) {
       return (
         <div className="flex flex-col min-h-screen">
           <main className="flex-1 container mx-auto px-4 py-6">
@@ -33,6 +33,8 @@ export default async function ForecastPage({
         </div>
       );
     }
+
+    const beach = result.data;
 
     return (
       <div className="flex flex-col min-h-screen">
@@ -65,10 +67,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   // Fetch beach data for enhanced SEO
   try {
-    const beach = await getBeachById(params.beachId);
+    const result = await getBeachById(params.beachId);
 
-    if (beach && beach.name) {
-      const beachName = beach.name;
+    if (result.success && result.data && result.data.name) {
+      const beachName = result.data.name;
 
       return buildPageMetadata({
         title: `${beachName} Surf Forecast - 10-Day Conditions & Wave Reports`,

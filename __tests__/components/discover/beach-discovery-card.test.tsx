@@ -11,6 +11,7 @@ import * as dateFns from "date-fns";
 import { BeachDiscoveryCard } from "@/components/discover/beach-discovery-card";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 const { format, addHours, isValid } = dateFns;
 
@@ -49,8 +50,17 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
     overrides: Partial<SurfDiscoveryRecommendation> = {}
   ): SurfDiscoveryRecommendation => ({
     beach: mockBeach,
+    forecast: {} as EnhancedForecastEntity,
     score: 85,
     matchQuality: "excellent",
+    subscores: {
+      waveHeightFit: 20,
+      periodEnergyScore: 15,
+      windAlignment: 15,
+      tideFit: 10,
+      affinityBonus: 10,
+      distancePenalty: 0,
+    },
     window: {
       start: startDate,
       end: endDate,
@@ -60,9 +70,13 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
       wavePeriod: "12s",
       confidence: 85,
     },
-    summary: `Best at ${format(startDate, "EEE h:mm a")}. Good swell direction and light offshore wind.`,
+    summary: `Best at ${format(
+      startDate,
+      "EEE h:mm a"
+    )}. Good swell direction and light offshore wind.`,
     reasons: ["Good swell direction", "Light offshore wind", "Rising tide"],
     warnings: [],
+    generated_at: new Date().toISOString(),
     ...overrides,
   });
 
@@ -140,8 +154,13 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
     it("should format summary with valid date (not 'Invalid Date')", () => {
       const startDate = new Date("2025-01-15T16:00:00");
       const endDate = new Date("2025-01-15T19:00:00");
-      const summary = `Best at ${format(startDate, "EEE h:mm a")}. Good conditions.`;
-      const recommendation = createMockRecommendation(startDate, endDate, { summary });
+      const summary = `Best at ${format(
+        startDate,
+        "EEE h:mm a"
+      )}. Good conditions.`;
+      const recommendation = createMockRecommendation(startDate, endDate, {
+        summary,
+      });
 
       render(
         <BeachDiscoveryCard
@@ -194,7 +213,9 @@ describe("BeachDiscoveryCard - Date/Time Display", () => {
       // Should handle midnight crossing correctly
       const startFormatted = format(startDate, "EEE h:mm a");
       const endFormatted = format(endDate, "h:mm a");
-      expect(screen.getByText(`${startFormatted} - ${endFormatted}`)).toBeInTheDocument();
+      expect(
+        screen.getByText(`${startFormatted} - ${endFormatted}`)
+      ).toBeInTheDocument();
     });
 
     it("should handle noon times (12:00 PM)", () => {

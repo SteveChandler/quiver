@@ -19,7 +19,6 @@ import { HighConfidenceIndicator } from "@/components/forecast/high-confidence-i
 import { KpiTile } from "@/components/ui/kpi-tile";
 import { BeachIntelSection } from "@/components/intel/beach-intel-section";
 import { HomeBeachBanner } from "@/components/home/HomeBeachBanner";
-import { ForecastFreshnessBadge } from "@/components/ui/forecast-freshness-badge";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
@@ -527,14 +526,7 @@ export function ForecastTab({
               </div>
 
               <div className="flex items-center gap-2">
-                {todaysForecast?.updated_at && (
-                  <ForecastFreshnessBadge
-                    updatedAt={todaysForecast.updated_at}
-                    onRefresh={refetch}
-                    isRefreshing={forecastLoading}
-                    showRefreshButton={true}
-                  />
-                )}
+                {/* Forecast Freshness Badge Removed as per user request */}
                 {beachAccuracy &&
                   (beachAccuracy.total_sessions_count ?? 0) > 0 && (
                     <Button

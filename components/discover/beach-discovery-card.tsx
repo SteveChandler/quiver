@@ -5,7 +5,14 @@ import * as dateFns from "date-fns";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Waves, Wind, Clock, TrendingUp, AlertTriangle } from "lucide-react";
+import {
+  MapPin,
+  Waves,
+  Wind,
+  Clock,
+  TrendingUp,
+  AlertTriangle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
@@ -30,8 +37,18 @@ export function BeachDiscoveryCard({
   onViewBeach,
   onPlanSession,
 }: BeachDiscoveryCardProps) {
-  const { beach, score, matchQuality, summary, reasons, warnings, window, distanceMiles } =
-    recommendation;
+  const {
+    beach,
+    score,
+    matchQuality,
+    summary,
+    reasons,
+    warnings,
+    window,
+    distanceMiles,
+  } = recommendation;
+
+  const displayScore = Number.isFinite(score) ? Math.round(score) : 0;
 
   // Match quality colors
   const matchQualityColors = {
@@ -76,7 +93,9 @@ export function BeachDiscoveryCard({
             )}
           </div>
           <div className="text-right">
-            <div className="text-3xl font-bold text-blue-600">{score}</div>
+            <div className="text-3xl font-bold text-blue-600">
+              {displayScore}
+            </div>
             <div className="text-xs text-gray-500">match score</div>
           </div>
         </div>
@@ -90,7 +109,8 @@ export function BeachDiscoveryCard({
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Clock className="h-4 w-4" />
           <span>
-            {format(window.start, "EEE h:mm a")} - {format(window.end, "h:mm a")}
+            {format(window.start, "EEE h:mm a")} -{" "}
+            {format(window.end, "h:mm a")}
           </span>
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
@@ -9,6 +9,62 @@ import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { Suspense } from "react";
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 import dynamic from "next/dynamic";
+
+// Capture early client-side errors (including hydration) before effects run.
+if (typeof window !== "undefined") {
+  const w = window as unknown as {
+    __quiverConsolePatched?: boolean;
+  };
+
+  if (!w.__quiverConsolePatched) {
+    w.__quiverConsolePatched = true;
+
+    const originalError = console.error.bind(console);
+    const originalWarn = console.warn.bind(console);
+
+    const postConsoleEvent = (level: "error" | "warn", args: unknown[]) => {
+      const first =
+        typeof args?.[0] === "string"
+          ? args[0]
+          : args?.[0] &&
+            typeof args?.[0] === "object" &&
+            "message" in (args[0] as any)
+          ? String((args[0] as any).message)
+          : "[non-string console message]";
+
+      // #region agent log (H5)
+      fetch(
+        "http://127.0.0.1:7242/ingest/34f14e6e-7bc2-48aa-9171-48f9e1984d59",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "pre-fix",
+            hypothesisId: "H5",
+            location: "components/providers.tsx:consolePatch",
+            message: "console event captured",
+            data: {
+              level,
+              first: String(first).slice(0, 500),
+            },
+            timestamp: Date.now(),
+          }),
+        }
+      ).catch(() => {});
+      // #endregion agent log
+    };
+
+    console.error = (...args: unknown[]) => {
+      postConsoleEvent("error", args);
+      originalError(...args);
+    };
+    console.warn = (...args: unknown[]) => {
+      postConsoleEvent("warn", args);
+      originalWarn(...args);
+    };
+  }
+}
 
 // Dynamic imports for analytics components
 const GoogleAnalytics = dynamic(
@@ -67,9 +123,100 @@ function AuthBodyClassManager() {
   return null;
 }
 
+function AuthOverlays() {
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
+
+  const allowUnauthedDebug =
+    searchParams?.get("showOnboarding") === "1" ||
+    searchParams?.get("showTour") === "1";
+
+  if (!user && !allowUnauthedDebug) return null;
+
+  return (
+    <>
+      <Suspense fallback={null}>
+        <OnboardingDialog />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ProductTour />
+      </Suspense>
+    </>
+  );
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLandingPage = pathname === "/";
+
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      // #region agent log (H5)
+      fetch(
+        "http://127.0.0.1:7242/ingest/34f14e6e-7bc2-48aa-9171-48f9e1984d59",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "pre-fix",
+            hypothesisId: "H5",
+            location: "components/providers.tsx:windowError",
+            message: "window error event captured",
+            data: {
+              message: event.message,
+              filename: event.filename,
+              lineno: event.lineno,
+              colno: event.colno,
+              stack: event.error?.stack
+                ? String(event.error.stack).slice(0, 2000)
+                : null,
+            },
+            timestamp: Date.now(),
+          }),
+        }
+      ).catch(() => {});
+      // #endregion agent log
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      // #region agent log (H5)
+      fetch(
+        "http://127.0.0.1:7242/ingest/34f14e6e-7bc2-48aa-9171-48f9e1984d59",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: "debug-session",
+            runId: "pre-fix",
+            hypothesisId: "H5",
+            location: "components/providers.tsx:unhandledRejection",
+            message: "unhandled promise rejection captured",
+            data: {
+              reason:
+                typeof event.reason === "string"
+                  ? event.reason
+                  : event.reason?.message
+                  ? String(event.reason.message)
+                  : "[non-string rejection]",
+              stack: event.reason?.stack
+                ? String(event.reason.stack).slice(0, 2000)
+                : null,
+            },
+            timestamp: Date.now(),
+          }),
+        }
+      ).catch(() => {});
+      // #endregion agent log
+    };
+
+    window.addEventListener("error", handleError);
+    window.addEventListener("unhandledrejection", handleRejection);
+    return () => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleRejection);
+    };
+  }, []);
 
   // For the landing page, we want a minimal provider tree to improve performance
   // Unauthenticated users on the landing page don't need:
@@ -90,13 +237,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         {/* Global body class manager for authenticated state */}
         <AuthBodyClassManager />
         <ProfileProvider>
-          {/* Global components that require auth context but should be present on all routes */}
-          <Suspense fallback={null}>
-            <OnboardingDialog />
-          </Suspense>
-          <Suspense fallback={null}>
-            <ProductTour />
-          </Suspense>
+          {/* Auth-only overlays (do not mount when logged out) */}
+          <AuthOverlays />
 
           {/*
             Conditional rendering of heavy providers

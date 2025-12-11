@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -9,6 +9,7 @@ import {
   type SurfCitySlug,
 } from "@/lib/data/surf-spots";
 import { buildPageMetadata } from "@/lib/seo/meta";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { SpotStructuredData } from "@/components/seo/spot-structured-data";
 import {
   getSpotDataBySlug,
@@ -54,7 +55,11 @@ export async function generateMetadata({
   }).format(now);
 
   const title = `${spot.name} Surf Report, Tides, Water Temp & Forecast (Today)`;
-  const description = `Updated ${formattedDate}. Live ${spot.name} surf report for ${spot.region || "Southern California"}: tides, water temperature, swell tips, wind strategy, and nearby alternatives powered by Quiver.`;
+  const description = `Updated ${formattedDate}. Live ${
+    spot.name
+  } surf report for ${
+    spot.region || "Southern California"
+  }: tides, water temperature, swell tips, wind strategy, and nearby alternatives powered by Quiver.`;
 
   return buildPageMetadata({
     title,
@@ -77,17 +82,25 @@ export default async function SpotPage({ params }: SpotPageParams) {
     return notFound();
   }
 
+  // 301 Redirect to canonical URL if possible
+  // This consolidates legacy /spots/[slug] URLs to the new hierarchical structure
+  if (spot.slug && spot.city && spot.state) {
+    const canonicalUrl = buildBeachUrl({
+      slug: spot.slug,
+      city: spot.city,
+      state: spot.state,
+    });
+    permanentRedirect(canonicalUrl);
+  }
+
   const city = spot.citySlug ? getCityBySlug(spot.citySlug) : null;
 
   // Fetch featured photo if we have a beach ID
-  const featuredPhoto = spot.id
-    ? await getSpotFeaturedPhoto(spot.id)
-    : null;
+  const featuredPhoto = spot.id ? await getSpotFeaturedPhoto(spot.id) : null;
 
   const now = new Date();
   const updatedAt = formatPacificDateTime(now);
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   // Build narrative paragraphs from available content
   const narrative: string[] = [];
@@ -97,7 +110,8 @@ export default async function SpotPage({ params }: SpotPageParams) {
   if (spot.tideAdvice) narrative.push(`Tide insight: ${spot.tideAdvice}`);
   if (spot.swellAdvice) narrative.push(`Swell outlook: ${spot.swellAdvice}`);
   if (spot.windAdvice) narrative.push(`Wind game plan: ${spot.windAdvice}`);
-  if (spot.waterTemp) narrative.push(`Water temperature watch: ${spot.waterTemp}`);
+  if (spot.waterTemp)
+    narrative.push(`Water temperature watch: ${spot.waterTemp}`);
   if (spot.crowdFactor && spot.hazards) {
     narrative.push(
       `Crowd and safety notes: Expect a ${spot.crowdFactor.toLowerCase()} pack and keep an eye on ${spot.hazards.join(
@@ -107,7 +121,9 @@ export default async function SpotPage({ params }: SpotPageParams) {
   }
   if (spot.parking && spot.amenities) {
     narrative.push(
-      `Parking and amenities: ${spot.parking}. Nearby support includes ${spot.amenities.join(
+      `Parking and amenities: ${
+        spot.parking
+      }. Nearby support includes ${spot.amenities.join(
         ", "
       )}. Lock in a backup parking option so you can pivot fast when the lot reaches capacity.`
     );
@@ -219,7 +235,10 @@ export default async function SpotPage({ params }: SpotPageParams) {
                 </p>
                 <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                   {quickFacts.map((fact) => (
-                    <div key={fact.label} className="rounded-lg bg-white p-3 shadow">
+                    <div
+                      key={fact.label}
+                      className="rounded-lg bg-white p-3 shadow"
+                    >
                       <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         {fact.label}
                       </dt>
@@ -232,8 +251,8 @@ export default async function SpotPage({ params }: SpotPageParams) {
                 {spot.hazards && spot.hazards.length > 0 && (
                   <div className="mt-4 text-sm text-slate-600">
                     <p>
-                      Hazards to watch: {spot.hazards.join(", ")}. Log the session in
-                      your{" "}
+                      Hazards to watch: {spot.hazards.join(", ")}. Log the
+                      session in your{" "}
                       <Link
                         href="/app"
                         className="font-semibold text-sky-700 underline-offset-2 hover:underline"
@@ -269,7 +288,9 @@ export default async function SpotPage({ params }: SpotPageParams) {
                       <summary className="cursor-pointer text-base font-medium text-slate-900 group-open:text-sky-700">
                         {item.question}
                       </summary>
-                      <p className="mt-2 text-sm text-slate-700">{item.answer}</p>
+                      <p className="mt-2 text-sm text-slate-700">
+                        {item.answer}
+                      </p>
                     </details>
                   ))}
                 </div>

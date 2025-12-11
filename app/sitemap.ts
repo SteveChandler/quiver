@@ -2,9 +2,7 @@ import type { MetadataRoute } from "next";
 
 import {
   SURF_CITY_SLUGS,
-  SURF_SPOT_SLUGS,
   getCityBySlug,
-  getSpotBySlug,
 } from "@/lib/data/surf-spots";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
@@ -59,18 +57,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   );
 
-  const curatedSpotRoutes: MetadataRoute.Sitemap = SURF_SPOT_SLUGS.map(
-    (slug) => {
-      const spot = getSpotBySlug(slug);
-      return {
-        url: `${baseUrl}/spots/${slug}`,
-        lastModified: lastmod,
-        changeFrequency: "hourly",
-        priority: spot?.skillLevel === "Beginner friendly" ? 0.85 : 0.8,
-      };
-    }
-  );
-
   // Location pages (AllTrails-style beach listings by city)
   let locationRoutes: MetadataRoute.Sitemap = [];
   try {
@@ -109,7 +95,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete URL data
       .map((beach) => ({
         url: `${baseUrl}${buildBeachUrl(beach)}`,
-        lastModified: beach.updated_at || lastmod,
+        lastModified: beach.created_at || lastmod,
         changeFrequency: "weekly",
         priority: 0.6,
       }));
@@ -117,7 +103,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Add forecast pages for each beach (still using ID for now)
     forecastEntries = beaches.map((b) => ({
       url: `${baseUrl}/forecast/${b.id}`,
-      lastModified: b.updated_at || lastmod,
+      lastModified: lastmod, // Use current date for forecasts as they update frequently
       changeFrequency: "daily",
       priority: 0.8, // High priority for forecast pages
     }));
@@ -127,7 +113,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticRoutes,
     ...cityRoutes,
     ...intentRoutes,
-    ...curatedSpotRoutes,
     ...locationRoutes,
     ...beachEntries,
     ...forecastEntries,

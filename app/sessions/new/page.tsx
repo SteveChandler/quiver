@@ -67,7 +67,7 @@ function NewSessionPageContent({
           status: "planned" as const,
         };
 
-        result = await createPlannedSession(plannedSessionData, user.id);
+        result = await createPlannedSession(plannedSessionData);
 
         if (!result.success) {
           throw new Error(result.error);
@@ -120,7 +120,7 @@ function NewSessionPageContent({
           }),
         };
 
-        result = await createLoggedSession(loggedSessionData, user.id);
+        result = await createLoggedSession(loggedSessionData);
 
         if (!result.success) {
           throw new Error(result.error);

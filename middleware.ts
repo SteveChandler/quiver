@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
     const city = legacyCaMatch[1];
     return NextResponse.redirect(
       new URL(`/beaches/usa/ca/${city}`, request.url),
-      { status: 302 }
+      { status: 301 }
     );
   }
 
