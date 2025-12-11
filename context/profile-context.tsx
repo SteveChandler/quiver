@@ -38,7 +38,9 @@ export interface ProfileContextValue {
   refreshProfile: () => Promise<void>;
 }
 
-const ProfileContext = createContext<ProfileContextValue | undefined>(undefined);
+const ProfileContext = createContext<ProfileContextValue | undefined>(
+  undefined
+);
 
 interface CachedProfileData {
   profile: Profile | null;
@@ -51,7 +53,10 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const REQUEST_TTL = 30000; // 30 seconds for request deduplication
 
 // Request deduplication cache to prevent duplicate API calls
-const profileRequestCache = new Map<string, Promise<{ profile: Profile | null; homeBeach: Beach | null }>>();
+const profileRequestCache = new Map<
+  string,
+  Promise<{ profile: Profile | null; homeBeach: Beach | null }>
+>();
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -82,7 +87,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (cached) {
         const parsedData: CachedProfileData = JSON.parse(cached);
         const isExpired = Date.now() - parsedData.timestamp > CACHE_DURATION;
-        
+
         // Validate that the cached profile belongs to the current user
         const isCorrectUser = parsedData.profile?.id === user.id;
 
@@ -99,7 +104,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           // Don't return here - we want to continue to set up state
           // but we can set the loading state immediately
         } else {
-          console.log("⏰ Cached profile data expired or invalid user, will refetch");
+          console.log(
+            "⏰ Cached profile data expired or invalid user, will refetch"
+          );
           localStorage.removeItem(cacheKey);
         }
       }
@@ -114,10 +121,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!user?.id) {
       const cacheKey = getCacheKey();
       if (cacheKey) localStorage.removeItem(cacheKey);
-      
+
       setProfile(null);
       setHomeBeach(null);
       setIsLoading(false);
+
       return { profile: null, homeBeach: null };
     }
 
@@ -142,6 +150,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
 
         const profileData = profileResult.data;
+
         console.log("✅ Profile loaded:", {
           id: profileData.id,
           homeBeachId: profileData.home_beach_id,
@@ -151,10 +160,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
         // Resolve home beach if profile has home_beach_id
         if (profileData.home_beach_id) {
-          const beachResult = await getBeachById(profileData.home_beach_id);
-          if (beachResult.success && beachResult.data) {
-            homeBeachData = beachResult.data;
-            console.log("✅ Found home beach by ID:", homeBeachData.name);
+          try {
+            const beachResult = await getBeachById(profileData.home_beach_id);
+
+            if (beachResult.success && beachResult.data) {
+              homeBeachData = beachResult.data;
+              console.log("✅ Found home beach by ID:", homeBeachData.name);
+            }
+          } catch (e) {
+            // Continue without homeBeach; do not fail profile load here.
           }
         }
 
@@ -258,38 +272,46 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, [clearCache, fetchProfileAndHomeBeach]);
 
   // Optimistic update for immediate UI feedback
-  const updateProfile = useCallback((updatedProfile: Profile) => {
-    console.log("⚡ Optimistic profile update");
-    setProfile(updatedProfile);
+  const updateProfile = useCallback(
+    (updatedProfile: Profile) => {
+      console.log("⚡ Optimistic profile update");
+      setProfile(updatedProfile);
 
-    // Update cache with new profile data
-    const cacheData: CachedProfileData = {
-      profile: updatedProfile,
-      homeBeach,
-      timestamp: Date.now(),
-    };
+      // Update cache with new profile data
+      const cacheData: CachedProfileData = {
+        profile: updatedProfile,
+        homeBeach,
+        timestamp: Date.now(),
+      };
 
-    try {
-      const cacheKey = getCacheKey();
-      if (cacheKey) {
-        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-        setCachedData(cacheData);
+      try {
+        const cacheKey = getCacheKey();
+        if (cacheKey) {
+          localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+          setCachedData(cacheData);
+        }
+      } catch (error) {
+        console.warn("Failed to update cached profile data:", error);
       }
-    } catch (error) {
-      console.warn("Failed to update cached profile data:", error);
-    }
-  }, [homeBeach, getCacheKey]);
+    },
+    [homeBeach, getCacheKey]
+  );
 
   // Listen for onboarding completion to refresh data immediately
   useEffect(() => {
     const handleOnboardingComplete = () => {
-      console.log("🎉 Onboarding completed event received, refreshing profile...");
+      console.log(
+        "🎉 Onboarding completed event received, refreshing profile..."
+      );
       refreshProfile();
     };
 
-    window.addEventListener('onboarding_completed', handleOnboardingComplete);
+    window.addEventListener("onboarding_completed", handleOnboardingComplete);
     return () => {
-      window.removeEventListener('onboarding_completed', handleOnboardingComplete);
+      window.removeEventListener(
+        "onboarding_completed",
+        handleOnboardingComplete
+      );
     };
   }, [refreshProfile]);
 
@@ -313,9 +335,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <ProfileContext.Provider value={value}>
-      {children}
-    </ProfileContext.Provider>
+    <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
   );
 }
 

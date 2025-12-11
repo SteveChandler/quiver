@@ -221,6 +221,45 @@ class NOAAWeatherDataSource implements WeatherDataSource {
 }
 
 export class EnhancedForecastService {
+  /**
+   * Convert cardinal wind direction (e.g. "SW") to degrees.
+   * Returns null when unknown/unparseable.
+   */
+  private cardinalToDegrees(dir: string | null | undefined): number | null {
+    if (!dir) return null;
+    const trimmed = dir.trim();
+    if (!trimmed) return null;
+
+    // If already numeric, treat as degrees
+    const asNum = Number(trimmed);
+    if (Number.isFinite(asNum)) {
+      const normalized = ((asNum % 360) + 360) % 360;
+      return normalized;
+    }
+
+    const directionMap: Record<string, number> = {
+      N: 0,
+      NNE: 22.5,
+      NE: 45,
+      ENE: 67.5,
+      E: 90,
+      ESE: 112.5,
+      SE: 135,
+      SSE: 157.5,
+      S: 180,
+      SSW: 202.5,
+      SW: 225,
+      WSW: 247.5,
+      W: 270,
+      WNW: 292.5,
+      NW: 315,
+      NNW: 337.5,
+    };
+
+    const upper = trimmed.toUpperCase();
+    return directionMap[upper] ?? null;
+  }
+
   private waveWatchService: NOAAWaveWatchService;
   private coopsService: NOAACOOPSService;
   private cdipService: CDIPService;
@@ -757,6 +796,7 @@ export class EnhancedForecastService {
           ? this.extractWindSpeed(weatherPoint.windSpeed)
           : "10 mph",
         wind_direction: weatherPoint?.windDirection || "SW",
+        wind_direction_deg: this.cardinalToDegrees(weatherPoint?.windDirection || "SW"),
 
         // Tide information
         tide_status: tideInfo.status,
@@ -838,11 +878,14 @@ export class EnhancedForecastService {
     // Only use CDIP data for current conditions (within 6 hours)
     // Beyond that, NOAA forecasts are more appropriate
     if (hoursFromNow > 6) {
-      console.log(
-        `📊 Target time ${targetTime.toISOString()} is ${hoursFromNow.toFixed(
-          1
-        )}h from now - using NOAA forecast instead of CDIP current conditions`
-      );
+      // This function is called per-forecast timepoint; avoid noisy production logs.
+      if (process.env.NODE_ENV === "development") {
+        console.log(
+          `📊 Target time ${targetTime.toISOString()} is ${hoursFromNow.toFixed(
+            1
+          )}h from now - using NOAA forecast instead of CDIP current conditions`
+        );
+      }
       return null;
     }
 
@@ -853,11 +896,14 @@ export class EnhancedForecastService {
     );
 
     const recentData = sortedData[0];
-    console.log(
-      `🌊 Using CDIP current conditions for ${targetTime.toISOString()}: ${
-        recentData.significantWaveHeight
-      }m from ${recentData.timestamp}`
-    );
+    // This function is called per-forecast timepoint; avoid noisy production logs.
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        `🌊 Using CDIP current conditions for ${targetTime.toISOString()}: ${
+          recentData.significantWaveHeight
+        }m from ${recentData.timestamp}`
+      );
+    }
 
     return recentData;
   }
@@ -1124,15 +1170,7 @@ export class EnhancedForecastService {
       };
 
       const parseDirection = (str: string | null): number => {
-        if (!str) return 0;
-        // Convert text direction to degrees if needed
-        const directionMap: { [key: string]: number } = {
-          'N': 0, 'NNE': 22.5, 'NE': 45, 'ENE': 67.5,
-          'E': 90, 'ESE': 112.5, 'SE': 135, 'SSE': 157.5,
-          'S': 180, 'SSW': 202.5, 'SW': 225, 'WSW': 247.5,
-          'W': 270, 'WNW': 292.5, 'NW': 315, 'NNW': 337.5
-        };
-        return directionMap[str] || 0;
+        return this.cardinalToDegrees(str) ?? 0;
       };
 
       // Create automated forecast data object
@@ -1265,14 +1303,20 @@ export class EnhancedForecastService {
     // Maximum beaches to process per cron run to avoid timeout
     // With ~45 beaches taking 5min, limit to 30 for safety margin
     const MAX_BEACHES_PER_RUN = 30;
-    // Only update beaches with forecasts older than this (in hours)
-    const STALE_THRESHOLD_HOURS = 4;
+    /**
+     * Freshness window for deciding what is "stale enough" to refresh.
+     *
+     * IMPORTANT: This MUST be >= the cron interval (currently 6h) or else the same
+     * beaches will be re-selected every run and overall coverage will never catch up.
+     */
+    const FRESHNESS_WINDOW_HOURS = 12;
 
     try {
-      const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_HOURS * 60 * 60 * 1000).toISOString();
-      
-      // Get beaches that need updating (no recent forecasts)
-      // This query finds beaches where the most recent forecast is older than threshold
+      const staleThreshold = new Date(
+        Date.now() - FRESHNESS_WINDOW_HOURS * 60 * 60 * 1000
+      ).toISOString();
+
+      // Get all beaches (authoritative list)
       const { data: allBeaches, error: beachError } = await supabase
         .from("beaches")
         .select("*");
@@ -1286,37 +1330,82 @@ export class EnhancedForecastService {
         return { success: true, results: [] };
       }
 
-      // Check which beaches have stale forecasts
-      const { data: recentForecasts } = await supabase
-        .from("enhanced_forecasts")
-        .select("beach_id, updated_at")
-        .gte("updated_at", staleThreshold)
-        .order("updated_at", { ascending: false });
+      const totalBeaches = allBeaches.length;
 
-      const recentBeachIds = new Set(recentForecasts?.map(f => f.beach_id) || []);
-      
-      // Filter to only beaches that need updating
-      let beachesToUpdate = allBeaches.filter(b => !recentBeachIds.has(b.id));
-      
-      // If all beaches are fresh, update a few anyway (round-robin)
-      if (beachesToUpdate.length === 0) {
-        console.log("✅ All beaches have fresh forecasts, updating oldest 5 for rotation");
-        // Get beaches sorted by oldest forecast
-        const { data: oldestForecasts } = await supabase
+      /**
+       * Build a per-beach "latest updated_at" map.
+       *
+       * NOTE: PostgREST doesn't support a clean "latest per group" query without RPC,
+       * so we paginate through `enhanced_forecasts` ordered by updated_at desc until
+       * we've seen at least one row per beach (or we run out of rows).
+       */
+      const latestUpdatedAtByBeach = new Map<string, string>();
+      const PAGE_SIZE = 5000;
+      for (let offset = 0; latestUpdatedAtByBeach.size < totalBeaches; offset += PAGE_SIZE) {
+        const { data: page, error: forecastError } = await supabase
           .from("enhanced_forecasts")
-          .select("beach_id")
-          .order("updated_at", { ascending: true })
-          .limit(5);
-        
-        const oldestBeachIds = new Set(oldestForecasts?.map(f => f.beach_id) || []);
-        beachesToUpdate = allBeaches.filter(b => oldestBeachIds.has(b.id));
+          .select("beach_id, updated_at")
+          .order("updated_at", { ascending: false })
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (forecastError) {
+          throw forecastError;
+        }
+
+        if (!page || page.length === 0) {
+          break;
+        }
+
+        for (const row of page as Array<{ beach_id: string; updated_at: string | null }>) {
+          if (!row?.beach_id || !row.updated_at) continue;
+          if (!latestUpdatedAtByBeach.has(row.beach_id)) {
+            latestUpdatedAtByBeach.set(row.beach_id, row.updated_at);
+            if (latestUpdatedAtByBeach.size >= totalBeaches) break;
+          }
+        }
+
+        if (page.length < PAGE_SIZE) {
+          break;
+        }
+      }
+
+      const missingBeaches = allBeaches.filter((b) => !latestUpdatedAtByBeach.has(b.id));
+      const staleBeaches = allBeaches
+        .filter((b) => {
+          const updatedAt = latestUpdatedAtByBeach.get(b.id);
+          return Boolean(updatedAt && updatedAt < staleThreshold);
+        })
+        // Oldest first so we systematically catch up coverage/freshness
+        .sort((a, b) => {
+          const aUpdated = latestUpdatedAtByBeach.get(a.id) ?? "";
+          const bUpdated = latestUpdatedAtByBeach.get(b.id) ?? "";
+          return aUpdated.localeCompare(bUpdated);
+        });
+
+      // Prioritize missing coverage first, then oldest stale
+      let beachesToUpdate = [...missingBeaches, ...staleBeaches];
+
+      // If everything is fresh and present, rotate a few oldest anyway
+      if (beachesToUpdate.length === 0) {
+        console.log(
+          "✅ All beaches have fresh forecasts, updating oldest 5 for rotation"
+        );
+        beachesToUpdate = allBeaches
+          .filter((b) => latestUpdatedAtByBeach.has(b.id))
+          .sort((a, b) => {
+            const aUpdated = latestUpdatedAtByBeach.get(a.id) ?? "";
+            const bUpdated = latestUpdatedAtByBeach.get(b.id) ?? "";
+            return aUpdated.localeCompare(bUpdated);
+          })
+          .slice(0, 5);
       }
 
       // Limit to max beaches per run
       const beaches = beachesToUpdate.slice(0, MAX_BEACHES_PER_RUN);
+      const selectedMissing = beaches.filter((b) => !latestUpdatedAtByBeach.has(b.id)).length;
 
       console.log(
-        `🌊 Starting batch forecast update for ${beaches.length}/${allBeaches.length} beaches (${beachesToUpdate.length} stale, max ${MAX_BEACHES_PER_RUN} per run, batch size: ${BATCH_SIZE})`
+        `🌊 Starting batch forecast update for ${beaches.length}/${allBeaches.length} beaches (missing: ${missingBeaches.length}, stale>${FRESHNESS_WINDOW_HOURS}h: ${staleBeaches.length}, selectedMissing: ${selectedMissing}, max ${MAX_BEACHES_PER_RUN} per run, batch size: ${BATCH_SIZE})`
       );
       const startTime = Date.now();
 

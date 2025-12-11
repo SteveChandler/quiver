@@ -171,30 +171,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Set up auth state listener for real-time updates
         const {
           data: { subscription: authSubscription },
-        } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-          if (!mounted) return;
+        } = supabase.auth.onAuthStateChange(
+          (event: AuthChangeEvent, session: Session | null) => {
+            if (!mounted) return;
 
-          console.log("[AuthContext] Auth state changed:", event);
+            console.log("[AuthContext] Auth state changed:", event);
 
-          // Handle post-auth redirect when user signs in
-          if (event === "SIGNED_IN" && session) {
-            // Clear stored redirect path - components will re-render with new auth state
-            // This prevents redirect loops caused by hard page reloads
-            const storedPath = localStorage.getItem("auth_redirect_path");
-            if (storedPath) {
-              console.log(
-                "[AuthContext] Clearing redirect path (already on page):",
-                storedPath
-              );
-              localStorage.removeItem("auth_redirect_path");
+            // #region agent log (H1/H4)
+            fetch(
+              "http://127.0.0.1:7242/ingest/34f14e6e-7bc2-48aa-9171-48f9e1984d59",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  sessionId: "debug-session",
+                  runId: "pre-fix",
+                  hypothesisId: "H4",
+                  location: "context/auth-context.tsx:onAuthStateChange",
+                  message: "auth state change event received",
+                  data: {
+                    event,
+                    hasSession: !!session,
+                    userIdSuffix: session?.user?.id
+                      ? session.user.id.slice(-6)
+                      : null,
+                  },
+                  timestamp: Date.now(),
+                }),
+              }
+            ).catch(() => {});
+            // #endregion agent log
+
+            // Handle post-auth redirect when user signs in
+            if (event === "SIGNED_IN" && session) {
+              // Clear stored redirect path - components will re-render with new auth state
+              // This prevents redirect loops caused by hard page reloads
+              const storedPath = localStorage.getItem("auth_redirect_path");
+              if (storedPath) {
+                console.log(
+                  "[AuthContext] Clearing redirect path (already on page):",
+                  storedPath
+                );
+                localStorage.removeItem("auth_redirect_path");
+              }
+              // Note: We don't navigate here. The auth state update (below) will cause
+              // React components to re-render and show authenticated content.
+              // For cross-page redirects (OAuth, magic link), see app/auth/callback/route.ts
             }
-            // Note: We don't navigate here. The auth state update (below) will cause
-            // React components to re-render and show authenticated content.
-            // For cross-page redirects (OAuth, magic link), see app/auth/callback/route.ts
-          }
 
-          updateAuthState(session);
-        });
+            updateAuthState(session);
+          }
+        );
 
         subscription = authSubscription;
       } catch (error) {

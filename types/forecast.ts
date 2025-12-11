@@ -122,6 +122,13 @@ export interface EnhancedForecastEntity {
   wave_height: string | null;
   wave_period?: string | null;
   wave_direction?: string | null;
+  /**
+   * Wind direction in degrees (0-360).
+   *
+   * Stored in `enhanced_forecasts.wind_direction_deg` and preferred for scoring/analytics.
+   * Optional for backward compatibility with older cached rows.
+   */
+  wind_direction_deg?: number | null;
   swell_1_height?: string | null;
   swell_1_period?: string | null;
   swell_1_direction?: string | null;

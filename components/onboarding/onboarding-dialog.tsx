@@ -66,6 +66,16 @@ export function OnboardingDialog() {
   const { isOpen, currentStep, openDialog, reset, checkUserId } =
     useOnboardingStore();
 
+  const isTesting = searchParams?.get("showOnboarding") === "1";
+  const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
+  const substantiallyComplete = isProfileSubstantiallyComplete(profile);
+
+  // Ensure we only render if user is logged in (unless testing)
+  // This prevents showing the dialog on the landing page after logout
+  const shouldRender =
+    isOpen &&
+    (isTesting || (user && !hasCompletedOnboarding && !substantiallyComplete));
+
   // Scope onboarding store to current user - prevents stale data from previous users
   useEffect(() => {
     if (user?.id) {
@@ -112,22 +122,21 @@ export function OnboardingDialog() {
     }
   }, [openDialog, reset, searchParams]);
 
+  // Ensure store is reset on logout
+  useEffect(() => {
+    if (!user) {
+      reset();
+    }
+  }, [user, reset]);
+
   const CurrentStepComponent = STEPS[currentStep];
 
   if (!CurrentStepComponent) {
     return null;
   }
 
-  // Determine if we should render based on profile completion status
-  const isTesting = searchParams?.get("showOnboarding") === "1";
-  const hasCompletedOnboarding = !!profile?.onboarding_completed_at;
-  const shouldRender =
-    isOpen &&
-    ((!hasCompletedOnboarding && !isProfileSubstantiallyComplete(profile)) ||
-      isTesting);
-
   return (
-    <Dialog open={shouldRender}>
+    <Dialog open={!!shouldRender}>
       <DialogContent
         className="max-w-lg max-h-[90vh] overflow-y-auto"
         onInteractOutside={(e) => e.preventDefault()}

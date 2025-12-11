@@ -21,3 +21,4 @@ WHERE quick_links @> '[{"label": "Session log templates"}]';
 
 
 
+

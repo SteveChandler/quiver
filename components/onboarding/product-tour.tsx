@@ -1,67 +1,80 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Onborda, OnbordaProvider, useOnborda, Step, CardComponentProps } from 'onborda';
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import {
+  Onborda,
+  OnbordaProvider,
+  useOnborda,
+  Step,
+  CardComponentProps,
+} from "onborda";
 
 // Tour type is not exported from main index, define it locally
 interface Tour {
   tour: string;
   steps: Step[];
 }
-import { useOnboardingStore } from '@/store/onboarding-store';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
-import { track } from '@/lib/analytics';
+import { useOnboardingStore } from "@/store/onboarding-store";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
+import { track } from "@/lib/analytics";
+import { useAuth } from "@/context/auth-context";
 
 const TOUR_STEPS: Step[] = [
   {
-    icon: '🗺️',
-    title: 'Interactive Forecast Map',
-    content: 'Explore surf conditions at beaches near you. Tap any marker to see detailed forecasts.',
-    selector: '#forecast-map',
-    side: 'bottom',
+    icon: "🗺️",
+    title: "Interactive Forecast Map",
+    content:
+      "Explore surf conditions at beaches near you. Tap any marker to see detailed forecasts.",
+    selector: "#forecast-map",
+    side: "bottom",
     showControls: true,
     pointerPadding: 10,
     pointerRadius: 8,
   },
   {
-    icon: '🏠',
-    title: 'Your Home Beach',
-    content: 'Quick access to your home beach forecast. Update this anytime from your profile.',
-    selector: '#home-beach-widget',
-    side: 'bottom',
+    icon: "🏠",
+    title: "Your Home Beach",
+    content:
+      "Quick access to your home beach forecast. Update this anytime from your profile.",
+    selector: "#home-beach-widget",
+    side: "bottom",
     showControls: true,
   },
   {
-    icon: '⭐',
-    title: 'XP & Achievements',
-    content: 'Track your surf sessions and unlock achievements. You just earned +100 XP for completing onboarding!',
-    selector: '#gamification-widget',
-    side: 'left',
+    icon: "⭐",
+    title: "XP & Achievements",
+    content:
+      "Track your surf sessions and unlock achievements. You just earned +100 XP for completing onboarding!",
+    selector: "#gamification-widget",
+    side: "left",
     showControls: true,
   },
   {
-    icon: '📱',
-    title: 'Session Feed',
-    content: 'See what the community is surfing. Share your own sessions and photos.',
-    selector: '#session-feed',
-    side: 'top',
+    icon: "📱",
+    title: "Session Feed",
+    content:
+      "See what the community is surfing. Share your own sessions and photos.",
+    selector: "#session-feed",
+    side: "top",
     showControls: true,
   },
   {
-    icon: '➕',
-    title: 'Log Your First Session',
-    content: 'Ready to track your surf? Tap here to log your first session and earn more XP!',
-    selector: '#create-session-button',
-    side: 'left',
+    icon: "➕",
+    title: "Log Your First Session",
+    content:
+      "Ready to track your surf? Tap here to log your first session and earn more XP!",
+    selector: "#create-session-button",
+    side: "left",
     showControls: true,
   },
 ];
 
 const TOURS: Tour[] = [
   {
-    tour: 'main-product-tour',
+    tour: "main-product-tour",
     steps: TOUR_STEPS,
   },
 ];
@@ -81,7 +94,7 @@ function TourCard({
   };
 
   useEffect(() => {
-    track('product_tour_step_viewed', {
+    track("product_tour_step_viewed", {
       step: currentStep + 1,
       step_title: step.title,
       total_steps: totalSteps,
@@ -118,7 +131,7 @@ function TourCard({
             <div
               key={i}
               className={`h-1.5 flex-1 rounded-full transition-colors ${
-                i <= currentStep ? 'bg-ocean-blue' : 'bg-gray-200'
+                i <= currentStep ? "bg-ocean-blue" : "bg-gray-200"
               }`}
             />
           ))}
@@ -135,7 +148,7 @@ function TourCard({
             onClick={currentStep === totalSteps - 1 ? close : nextStep}
             className="flex-1 bg-ocean-blue hover:bg-ocean-blue-dark"
           >
-            {currentStep === totalSteps - 1 ? 'Finish Tour' : 'Next'}
+            {currentStep === totalSteps - 1 ? "Finish Tour" : "Next"}
           </Button>
         </div>
 
@@ -155,30 +168,43 @@ function ProductTourContent() {
   const onborda = useOnborda();
   const { isCompleted } = useOnboardingStore();
   const [tourStartTime, setTourStartTime] = useState<number>(0);
+  const pathname = usePathname();
+  const { user } = useAuth();
 
   useEffect(() => {
     // Listen for onboarding completion event
     const handleOnboardingComplete = () => {
-      const tourCompleted = localStorage.getItem('product_tour_completed');
+      const tourCompleted = localStorage.getItem("product_tour_completed");
+
       if (!tourCompleted) {
         // Delay to let modal close
         setTimeout(() => {
           setTourStartTime(Date.now());
-          track('product_tour_started', {
-            tour_id: 'main-product-tour',
+          track("product_tour_started", {
+            tour_id: "main-product-tour",
             timestamp: Date.now(),
           });
-          onborda.startOnborda('main-product-tour');
+          onborda.startOnborda("main-product-tour");
         }, 500);
       }
     };
 
-    window.addEventListener('onboarding_completed', handleOnboardingComplete);
+    window.addEventListener("onboarding_completed", handleOnboardingComplete);
 
     return () => {
-      window.removeEventListener('onboarding_completed', handleOnboardingComplete);
+      window.removeEventListener(
+        "onboarding_completed",
+        handleOnboardingComplete
+      );
     };
-  }, [onborda]);
+  }, [onborda, pathname, user?.id]);
+
+  // Close tour when user logs out (prevents tour overlay on landing page)
+  useEffect(() => {
+    if (!user && onborda.isOnbordaVisible) {
+      onborda.closeOnborda();
+    }
+  }, [user, onborda, pathname]);
 
   useEffect(() => {
     // Track tour completion when it closes
@@ -187,18 +213,18 @@ function ProductTourContent() {
 
       if (onborda.currentStep === TOUR_STEPS.length - 1) {
         // Completed
-        track('product_tour_completed', {
+        track("product_tour_completed", {
           timestamp: Date.now(),
           time_spent_seconds: timeSpent,
         });
-        localStorage.setItem('product_tour_completed', 'true');
+        localStorage.setItem("product_tour_completed", "true");
       } else {
         // Skipped
-        track('product_tour_skipped', {
+        track("product_tour_skipped", {
           at_step: onborda.currentStep + 1,
           timestamp: Date.now(),
         });
-        localStorage.setItem('product_tour_completed', 'skipped');
+        localStorage.setItem("product_tour_completed", "skipped");
       }
 
       setTourStartTime(0);

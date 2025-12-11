@@ -23,7 +23,6 @@
  * @module lib/services/surf-discovery-service
  */
 
-import { format } from 'date-fns';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { getUserSurfPreferences } from './preference-learning-service';
 import { getTimezoneFromCoords, getLocalHour, isNightHour } from '@/lib/utils/timezone-utils';
@@ -154,6 +153,15 @@ export async function discoverSurfSpots(
         continue;
       }
 
+      // IMPORTANT: Score the same forecast entry we selected for bestWindow.
+      // The window is derived from a specific forecast timestamp, so we match it here
+      // to avoid scoring a different time slot (e.g. forecasts[0]).
+      const bestWindowForecast =
+        forecasts.find((f) => {
+          const t = new Date(`${f.forecast_date}T${f.forecast_time}Z`).getTime();
+          return t === bestWindow.start.getTime();
+        }) || forecasts[0];
+
       // Calculate distance (stubbed for Phase 2)
       const distanceMiles = userLocation
         ? calculateDistance(userLocation, {
@@ -168,7 +176,7 @@ export async function discoverSurfSpots(
       // Detailed scoring
       const detailedScore = await scoreBeachForDiscovery({
         beach,
-        forecast: forecasts[0],
+        forecast: bestWindowForecast,
         userPrefs,
         affinity,
         distanceMiles,
@@ -177,7 +185,7 @@ export async function discoverSurfSpots(
       scored.push({
         beach,
         window: bestWindow,
-        forecast: forecasts[0],
+        forecast: bestWindowForecast,
         score: detailedScore.total,
         matchQuality: detailedScore.matchQuality,
         subscores: detailedScore.subscores,
@@ -447,7 +455,7 @@ async function scoreBeachForDiscovery(args: {
   const waveHeight = parseFloat(forecast.wave_height || '0');
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
   const windSpeed = parseFloat(forecast.wind_speed || '0');
-  const windDir = parseWaveDirection(forecast.wind_direction || '');
+  const windDir = getDirectionDegrees(forecast.wind_direction_deg, forecast.wind_direction);
   const tideHeight = parseFloat(forecast.tide_height || '0');
   const tideStatus = forecast.tide_status?.toLowerCase() || '';
 
@@ -515,6 +523,19 @@ async function scoreBeachForDiscovery(args: {
     const offshoreDir = beach.wind_offshore_deg;
     const tolerance = beach.wind_offshore_tol_deg || 30;
 
+    if (windDir === null) {
+      // Missing wind direction even though the beach has metadata.
+      // Fall back to a general wind assessment based on speed only.
+      if (windSpeed <= 10) {
+        subscores.windAlignment = 15;
+        reasons.push(`Light wind ${forecast.wind_speed} - favorable conditions`);
+      } else if (windSpeed <= 15) {
+        subscores.windAlignment = 8;
+      } else {
+        subscores.windAlignment = 0;
+        warnings.push(`Strong wind ${forecast.wind_speed} may affect conditions`);
+      }
+    } else {
     const angleDiff = Math.min(
       Math.abs(windDir - offshoreDir),
       360 - Math.abs(windDir - offshoreDir)
@@ -531,6 +552,7 @@ async function scoreBeachForDiscovery(args: {
     } else {
       subscores.windAlignment = 0;
       warnings.push(`Onshore wind may create choppy conditions`);
+    }
     }
   } else {
     // No beach wind data - use general assessment
@@ -589,17 +611,36 @@ async function scoreBeachForDiscovery(args: {
     }
   }
 
-  // Calculate total
+  // Calculate total (normalized)
+  //
+  // Goal: Make 100 achievable even when some beach metadata is missing.
+  // We normalize the "conditions" subtotal to a 0-100 scale based on which scoring
+  // dimensions are available for this beach, then apply affinity (optional bonus)
+  // and distance (optional penalty).
+  const windMax =
+    beach.wind_offshore_deg !== null && beach.wind_offshore_tol_deg !== null
+      ? 20
+      : 15; // speed-only fallback scoring max
+  const tideMax =
+    beach.preferred_tide_ft_min !== null && beach.preferred_tide_ft_max !== null
+      ? 15
+      : 8; // neutral credit when no beach tide metadata
+
+  const conditionsEarned =
+    subscores.waveHeightFit +
+    subscores.periodEnergyScore +
+    subscores.windAlignment +
+    subscores.tideFit;
+  const conditionsMax = 25 + 20 + windMax + tideMax;
+
+  const normalizedConditions =
+    conditionsMax > 0 ? (conditionsEarned / conditionsMax) * 100 : 0;
+
   const total = Math.max(
     0,
     Math.min(
       100,
-      subscores.waveHeightFit +
-        subscores.periodEnergyScore +
-        subscores.windAlignment +
-        subscores.tideFit +
-        subscores.affinityBonus +
-        subscores.distancePenalty
+      normalizedConditions + subscores.affinityBonus + subscores.distancePenalty
     )
   );
 
@@ -657,7 +698,7 @@ function scoreForecastWindow(
   const waveHeight = parseFloat(forecast.wave_height || '0');
   const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
   const windSpeed = parseFloat(forecast.wind_speed || '0');
-  const windDir = parseWaveDirection(forecast.wind_direction || '');
+  const windDir = getDirectionDegrees(forecast.wind_direction_deg, forecast.wind_direction);
   const tideHeight = parseFloat(forecast.tide_height || '0');
 
   // 1. Wave Height Fit (0-25 points)
@@ -709,17 +750,27 @@ function scoreForecastWindow(
     const offshoreDir = beach.wind_offshore_deg;
     const tolerance = beach.wind_offshore_tol_deg || 30;
 
-    const angleDiff = Math.min(
-      Math.abs(windDir - offshoreDir),
-      360 - Math.abs(windDir - offshoreDir)
-    );
+    if (windDir === null) {
+      // Missing direction: fall back to speed-only assessment.
+      if (windSpeed <= 10) {
+        score += 15;
+      } else if (windSpeed <= 15) {
+        score += 8;
+      }
+      // else 0
+    } else {
+      const angleDiff = Math.min(
+        Math.abs(windDir - offshoreDir),
+        360 - Math.abs(windDir - offshoreDir)
+      );
 
-    if (angleDiff <= tolerance && windSpeed <= 15) {
-      score += 20;
-    } else if (angleDiff <= tolerance * 2) {
-      score += 10;
+      if (angleDiff <= tolerance && windSpeed <= 15) {
+        score += 20;
+      } else if (angleDiff <= tolerance * 2) {
+        score += 10;
+      }
+      // else 0 points for onshore wind
     }
-    // else 0 points for onshore wind
   } else {
     // No beach wind data - use general assessment
     if (windSpeed <= 10) {
@@ -869,7 +920,19 @@ function generateDiscoverySummary(
   window: PersonalizedForecastWindow,
   score: DetailedScore
 ): string {
-  const timeStr = format(window.start, 'EEE h:mm a');
+  // NOTE: Avoid date-fns here to keep this service robust in all runtimes.
+  // `Intl.DateTimeFormat` is available in Node/Edge and won't fail due to ESM/CJS interop.
+  const timeStr = (() => {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        weekday: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(window.start);
+    } catch {
+      return window.start.toISOString();
+    }
+  })();
 
   const matchDesc =
     score.matchQuality === 'perfect'
@@ -942,7 +1005,44 @@ function parseWaveDirection(dir: string): number {
     NNW: 337.5,
   };
 
-  return directions[dir.toUpperCase()] || 0;
+  const v = directions[dir.toUpperCase()];
+  return v ?? 0;
+}
+
+/**
+ * Prefer degree-based wind direction when present; fall back to parsing cardinal strings.
+ * Returns null when direction is missing/unparseable.
+ */
+function getDirectionDegrees(
+  windDirectionDeg: number | string | null | undefined,
+  windDirectionText: string | null | undefined
+): number | null {
+  if (windDirectionDeg !== null && windDirectionDeg !== undefined) {
+    const asNum =
+      typeof windDirectionDeg === 'number' ? windDirectionDeg : Number(windDirectionDeg);
+    if (Number.isFinite(asNum)) {
+      return ((asNum % 360) + 360) % 360;
+    }
+  }
+
+  if (!windDirectionText) return null;
+  const trimmed = windDirectionText.trim();
+  if (!trimmed) return null;
+
+  // If text is actually numeric degrees, parse it.
+  const asNum = Number(trimmed);
+  if (Number.isFinite(asNum)) {
+    return ((asNum % 360) + 360) % 360;
+  }
+
+  // Cardinal fallback (N/SW/etc). Note: parseWaveDirection returns 0 for both "N" and unknown,
+  // so handle unknown by checking membership first.
+  const upper = trimmed.toUpperCase();
+  const knownCardinals = new Set([
+    'N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'
+  ]);
+  if (!knownCardinals.has(upper)) return null;
+  return parseWaveDirection(upper);
 }
 
 /**

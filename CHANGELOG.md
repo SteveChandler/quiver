@@ -18,10 +18,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Surf Discovery Match Score Formatting** (December 2025)
+
+  - Rounded Surf Discovery "match score" display on Home → Forecast recommendations to a whole number (no decimals).
+  - Fixed Surf Discovery scoring to evaluate the same forecast time window displayed to the user (prevents low scores caused by scoring a different time slot).
+  - Standardized wind alignment scoring to prefer `wind_direction_deg` (with safe fallback parsing for legacy rows).
+  - Normalized condition scoring so a 100 match is achievable even when a beach is missing wind/tide metadata.
+
+- **Onboarding/Tour Overlay Gating** (December 2025)
+
+  - Prevented onboarding and product tour overlays from mounting on the landing page when logged out.
+
 - **Forecast Cron Job Reliability Improvements** (December 2025)
   - Fixed parallel processing overload in `updateAllEnhancedForecasts` - now processes beaches in batches of 5 with 2-second delays between batches.
   - Added `maxDuration = 300` (5 minutes) to `/api/cron/refresh-forecasts` route to prevent premature timeouts.
   - Replaced manual auth check with `validateCronRequest` for consistent cron authentication.
+  - Fixed refresh coverage stagnation where the cron would repeatedly update the same subset of beaches:
+    - Prioritize beaches with **no** `enhanced_forecasts` rows first, then beaches with the **oldest** `updated_at` values.
+    - Use a freshness window (12h) that won’t re-select the previous run’s beaches on a 6h cron cadence.
+    - Reduced noisy per-timepoint CDIP logs in production to avoid Vercel log caps hiding success/failure output.
   - Extended NOAA CO-OPS tide station mappings to cover all US coastal regions:
     - **West Coast**: Hawaii, Oregon, Washington, Northern/Central/Southern California, Baja Mexico
     - **East Coast**: Maine, New Hampshire, Massachusetts, Rhode Island, New York, New Jersey, Delaware, Maryland, Virginia, North Carolina, South Carolina, Georgia
