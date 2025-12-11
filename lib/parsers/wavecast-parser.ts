@@ -194,41 +194,135 @@ function parseSwells(text: string): WaveCastSwell[] {
 }
 
 /**
+ * Mapping of body-part height descriptions to approximate feet
+ */
+const HEIGHT_MAP: Record<string, { min: number; max: number }> = {
+  ankle: { min: 0.5, max: 1 },
+  knee: { min: 1, max: 2 },
+  thigh: { min: 2, max: 2.5 },
+  waist: { min: 2, max: 3 },
+  chest: { min: 3, max: 4 },
+  shoulder: { min: 4, max: 5 },
+  head: { min: 5, max: 6 },
+  overhead: { min: 6, max: 8 },
+};
+
+/**
+ * Parse descriptive wave height from text (e.g., "waist high", "chest+", "waist to chest")
+ * Returns height range in feet or null if no match
+ */
+function parseDescriptiveHeight(
+  text: string
+): { min: number; max: number } | null {
+  const lowerText = text.toLowerCase();
+
+  // Pattern for range: "waist to chest high" or "waist-to-chest"
+  const rangeMatch = lowerText.match(
+    /(ankle|knee|thigh|waist|chest|shoulder|head|overhead)\s*(?:to|-)\s*(ankle|knee|thigh|waist|chest|shoulder|head|overhead)/i
+  );
+  if (rangeMatch) {
+    const lower = HEIGHT_MAP[rangeMatch[1]];
+    const upper = HEIGHT_MAP[rangeMatch[2]];
+    if (lower && upper) {
+      return { min: lower.min, max: upper.max };
+    }
+  }
+
+  // Pattern for single height with modifier: "chest+", "chest max", "chest high"
+  const singleMatch = lowerText.match(
+    /(ankle|knee|thigh|waist|chest|shoulder|head|overhead)\s*(high|max|\+|plus)?/i
+  );
+  if (singleMatch) {
+    const base = HEIGHT_MAP[singleMatch[1]];
+    if (base) {
+      const modifier = singleMatch[2]?.toLowerCase();
+      // "+" or "plus" adds ~0.5-1 ft to max
+      if (modifier === '+' || modifier === 'plus') {
+        return { min: base.min, max: base.max + 1 };
+      }
+      // "max" uses the upper end of the range
+      if (modifier === 'max') {
+        return { min: base.max - 0.5, max: base.max };
+      }
+      // Default: use full range
+      return { min: base.min, max: base.max };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Parse wave forecast predictions
  */
 function parseWaveForecasts(text: string): WaveCastWaveForecast[] {
   const forecasts: WaveCastWaveForecast[] = [];
+  const seenDays = new Set<string>();
 
-  // Look for size predictions like "3-5 feet" or "waist to chest high"
-  const sizePatterns = [
-    /(\d+)[-–](\d+)\s*(?:ft|feet|foot)/gi,
-    /(waist|knee|ankle|chest|shoulder|head|overhead)/gi,
-  ];
-
-  // Extract days of the week
-  const dayMatches = text.matchAll(/(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)/gi);
+  // Extract days of the week with "the Xth/Xst/Xnd/Xrd" pattern for better matching
+  // e.g., "Wednesday the 10th", "Thursday the 11th"
+  const dayMatches = text.matchAll(
+    /(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)(?:\s+the\s+\d{1,2}(?:st|nd|rd|th))?/gi
+  );
 
   for (const dayMatch of dayMatches) {
-    const dayName = dayMatch[0];
+    const dayName = dayMatch[0].split(/\s+/)[0]; // Get just the day name
     const dayIndex = dayMatch.index!;
 
-    // Look for size info near this day mention
+    // Skip duplicate days (take first occurrence which is usually the forecast section)
+    const dayKey = `${dayName}-${dayIndex}`;
+
+    // Look for size info near this day mention (within 300 chars after)
     const contextAfter = text.slice(dayIndex, Math.min(text.length, dayIndex + 300));
 
-    // Try to find numeric size
-    const sizeMatch = contextAfter.match(/(\d+)[-–](\d+)\s*(?:ft|feet|foot)/i);
+    // Skip if this context doesn't look like a forecast (e.g., it's in the weather section)
+    // Forecasts typically contain "high", "waves", "breaks", "swell", or size indicators
+    if (
+      !/(?:high|waves?|breaks?|swell|facing|sets?|waist|chest|knee|ankle|shoulder|head|overhead|\d+[-–]?\d*\s*(?:ft|feet|foot|'))/i.test(
+        contextAfter
+      )
+    ) {
+      continue;
+    }
 
-    if (sizeMatch) {
-      forecasts.push({
-        date: new Date().toISOString().split('T')[0], // Will be refined later
-        day_name: dayName,
-        height_range: {
-          min: parseInt(sizeMatch[1]),
-          max: parseInt(sizeMatch[2]),
+    // Try to find numeric size first (e.g., "3-5 feet", "3-5'", "3-5 ft")
+    const numericMatch = contextAfter.match(
+      /(\d+)[-–](\d+)\s*(?:ft|feet|foot|')/i
+    );
+
+    let heightRange: { min: number; max: number; unit: 'ft' | 'm' } | null =
+      null;
+
+    if (numericMatch) {
+      heightRange = {
+        min: parseInt(numericMatch[1]),
+        max: parseInt(numericMatch[2]),
+        unit: 'ft',
+      };
+    } else {
+      // Fall back to descriptive height parsing
+      const descriptive = parseDescriptiveHeight(contextAfter);
+      if (descriptive) {
+        heightRange = {
+          min: descriptive.min,
+          max: descriptive.max,
           unit: 'ft',
-        },
-        description: contextAfter.slice(0, 200).trim(),
-      });
+        };
+      }
+    }
+
+    if (heightRange) {
+      // Avoid duplicate forecasts for the same day
+      const forecastKey = `${dayName}-${heightRange.min}-${heightRange.max}`;
+      if (!seenDays.has(forecastKey)) {
+        seenDays.add(forecastKey);
+        forecasts.push({
+          date: new Date().toISOString().split('T')[0], // Will be refined later
+          day_name: dayName,
+          height_range: heightRange,
+          description: contextAfter.slice(0, 200).trim(),
+        });
+      }
     }
   }
 
