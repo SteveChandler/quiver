@@ -1256,30 +1256,67 @@ export class EnhancedForecastService {
    * Pre-fetches shared data (tide stations) to avoid duplicate API calls
    */
   async updateAllEnhancedForecasts() {
-    console.log("📊 EnhancedForecastService.updateAllEnhancedForecasts() starting (v2 with prefetch)");
+    console.log("📊 EnhancedForecastService.updateAllEnhancedForecasts() starting (v3 with stale-only updates)");
     const supabase = await createSupabaseServiceRoleClient();
-    // Reduced batch size from 5 to 3 for more controlled API usage
+    // Process beaches in small batches
     const BATCH_SIZE = 3;
-    // Reduced delay since we're pre-fetching shared data
-    const BATCH_DELAY_MS = 1500;
+    // Delay between batches to avoid rate limiting
+    const BATCH_DELAY_MS = 1000;
+    // Maximum beaches to process per cron run to avoid timeout
+    // With ~45 beaches taking 5min, limit to 30 for safety margin
+    const MAX_BEACHES_PER_RUN = 30;
+    // Only update beaches with forecasts older than this (in hours)
+    const STALE_THRESHOLD_HOURS = 4;
 
     try {
-      // Get all beaches
-      const { data: beaches, error } = await supabase
+      const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_HOURS * 60 * 60 * 1000).toISOString();
+      
+      // Get beaches that need updating (no recent forecasts)
+      // This query finds beaches where the most recent forecast is older than threshold
+      const { data: allBeaches, error: beachError } = await supabase
         .from("beaches")
         .select("*");
 
-      if (error) {
-        throw error;
+      if (beachError) {
+        throw beachError;
       }
 
-      if (!beaches || beaches.length === 0) {
+      if (!allBeaches || allBeaches.length === 0) {
         console.log("📭 No beaches found to update");
         return { success: true, results: [] };
       }
 
+      // Check which beaches have stale forecasts
+      const { data: recentForecasts } = await supabase
+        .from("enhanced_forecasts")
+        .select("beach_id, updated_at")
+        .gte("updated_at", staleThreshold)
+        .order("updated_at", { ascending: false });
+
+      const recentBeachIds = new Set(recentForecasts?.map(f => f.beach_id) || []);
+      
+      // Filter to only beaches that need updating
+      let beachesToUpdate = allBeaches.filter(b => !recentBeachIds.has(b.id));
+      
+      // If all beaches are fresh, update a few anyway (round-robin)
+      if (beachesToUpdate.length === 0) {
+        console.log("✅ All beaches have fresh forecasts, updating oldest 5 for rotation");
+        // Get beaches sorted by oldest forecast
+        const { data: oldestForecasts } = await supabase
+          .from("enhanced_forecasts")
+          .select("beach_id")
+          .order("updated_at", { ascending: true })
+          .limit(5);
+        
+        const oldestBeachIds = new Set(oldestForecasts?.map(f => f.beach_id) || []);
+        beachesToUpdate = allBeaches.filter(b => oldestBeachIds.has(b.id));
+      }
+
+      // Limit to max beaches per run
+      const beaches = beachesToUpdate.slice(0, MAX_BEACHES_PER_RUN);
+
       console.log(
-        `🌊 Starting batch forecast update for ${beaches.length} beaches (batch size: ${BATCH_SIZE})`
+        `🌊 Starting batch forecast update for ${beaches.length}/${allBeaches.length} beaches (${beachesToUpdate.length} stale, max ${MAX_BEACHES_PER_RUN} per run, batch size: ${BATCH_SIZE})`
       );
       const startTime = Date.now();
 
