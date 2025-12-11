@@ -2,9 +2,7 @@ import type { MetadataRoute } from "next";
 
 import {
   SURF_CITY_SLUGS,
-  SURF_SPOT_SLUGS,
   getCityBySlug,
-  getSpotBySlug,
 } from "@/lib/data/surf-spots";
 import { getAllBeachLocations } from "@/actions/beach/beach-location-list-actions";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
@@ -56,18 +54,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: "daily",
         priority: intent === "beginner" ? 0.85 : 0.8,
       }));
-    }
-  );
-
-  const curatedSpotRoutes: MetadataRoute.Sitemap = SURF_SPOT_SLUGS.map(
-    (slug) => {
-      const spot = getSpotBySlug(slug);
-      return {
-        url: `${baseUrl}/spots/${slug}`,
-        lastModified: lastmod,
-        changeFrequency: "hourly",
-        priority: spot?.skillLevel === "Beginner friendly" ? 0.85 : 0.8,
-      };
     }
   );
 
@@ -127,7 +113,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticRoutes,
     ...cityRoutes,
     ...intentRoutes,
-    ...curatedSpotRoutes,
     ...locationRoutes,
     ...beachEntries,
     ...forecastEntries,
