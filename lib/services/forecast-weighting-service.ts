@@ -44,6 +44,10 @@ export class ForecastWeightingService {
   private readonly cacheTimeout = 60 * 60 * 1000; // 1 hour
   private latestExpertReport: WaveCastReport | null = null;
   private lastFetchTime = 0;
+  // Track if the wavecast_reports table is unavailable (406 = table doesn't exist)
+  private tableUnavailable = false;
+  private tableCheckTime = 0;
+  private readonly tableCheckInterval = 24 * 60 * 60 * 1000; // Retry once per day
 
   constructor() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -208,9 +212,14 @@ export class ForecastWeightingService {
    */
   private async getExpertReportForDate(date: Date): Promise<WaveCastReport | null> {
     const dateStr = date.toISOString().split('T')[0];
+    const now = Date.now();
+
+    // Skip if table is known to be unavailable (check once per day)
+    if (this.tableUnavailable && now - this.tableCheckTime < this.tableCheckInterval) {
+      return null;
+    }
 
     // Check cache
-    const now = Date.now();
     if (
       this.latestExpertReport &&
       this.latestExpertReport.report_date === dateStr &&
@@ -225,9 +234,18 @@ export class ForecastWeightingService {
         .from('wavecast_reports')
         .select('*')
         .eq('report_date', dateStr)
-        .single();
+        .maybeSingle();
+
+      // Check for 406 (table doesn't exist) - mark as unavailable
+      if (exactError && (exactError as any).code === '42P01') {
+        console.warn('⚠️ wavecast_reports table does not exist, skipping expert data');
+        this.tableUnavailable = true;
+        this.tableCheckTime = now;
+        return null;
+      }
 
       if (!exactError && exactMatch) {
+        this.tableUnavailable = false; // Table exists
         this.latestExpertReport = exactMatch as WaveCastReport;
         this.lastFetchTime = now;
         return this.latestExpertReport;
@@ -244,7 +262,7 @@ export class ForecastWeightingService {
         .lte('report_date', dateStr)
         .order('report_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (!recentError && recentReport) {
         this.latestExpertReport = recentReport as WaveCastReport;
@@ -254,7 +272,15 @@ export class ForecastWeightingService {
 
       return null;
     } catch (error) {
-      console.error('Error fetching expert report:', error);
+      // Handle HTTP 406 (Not Acceptable) - table doesn't exist
+      const errorMessage = String(error);
+      if (errorMessage.includes('406') || errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
+        console.warn('⚠️ wavecast_reports table unavailable, skipping expert data for 24h');
+        this.tableUnavailable = true;
+        this.tableCheckTime = now;
+      } else {
+        console.error('Error fetching expert report:', error);
+      }
       return null;
     }
   }
@@ -280,6 +306,15 @@ export class ForecastWeightingService {
     latestReportDate: string | null;
     reportsLast7Days: number;
   }> {
+    // Skip if table is known to be unavailable
+    if (this.tableUnavailable && Date.now() - this.tableCheckTime < this.tableCheckInterval) {
+      return {
+        hasRecentData: false,
+        latestReportDate: null,
+        reportsLast7Days: 0,
+      };
+    }
+
     try {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -291,6 +326,11 @@ export class ForecastWeightingService {
         .order('report_date', { ascending: false });
 
       if (error) {
+        // Check for table not existing
+        if ((error as any).code === '42P01') {
+          this.tableUnavailable = true;
+          this.tableCheckTime = Date.now();
+        }
         throw error;
       }
 
@@ -300,7 +340,11 @@ export class ForecastWeightingService {
         reportsLast7Days: recentReports?.length || 0,
       };
     } catch (error) {
-      console.error('Error fetching expert data stats:', error);
+      // Silently handle table not existing
+      const errorMessage = String(error);
+      if (!errorMessage.includes('406') && !errorMessage.includes('does not exist')) {
+        console.error('Error fetching expert data stats:', error);
+      }
       return {
         hasRecentData: false,
         latestReportDate: null,
