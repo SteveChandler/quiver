@@ -66,6 +66,8 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       return createEmptyMetrics('critical', ['No beaches found in database']);
     }
     
+    const beachNameMap = new Map(beaches.map(b => [b.id, b.name]));
+
     /**
      * Read the latest forecast row per beach via a DB view.
      * This avoids scanning/paginating `enhanced_forecasts` (many rows per beach).
@@ -81,14 +83,15 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
 
     (latestResult.data ?? []).forEach((row: any) => {
       if (!row?.beach_id || !row.updated_at) return;
+      // Defensive: ignore orphaned forecast rows that don't map to a known beach.
+      // (This can happen if the DB has legacy rows without FK constraints.)
+      if (!beachNameMap.has(row.beach_id)) return;
       latestByBeach.set(row.beach_id, {
         beach_id: row.beach_id,
         updated_at: row.updated_at,
         data_source: row.data_source ?? null,
       });
     });
-    
-    const beachNameMap = new Map(beaches.map(b => [b.id, b.name]));
     
     let staleCount = 0;
     let criticalStaleCount = 0;
@@ -133,7 +136,7 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     });
     
     const beachesWithForecasts = latestByBeach.size;
-    const coveragePercentage = beachesWithForecasts / totalBeaches;
+    const coveragePercentage = Math.min(1, beachesWithForecasts / totalBeaches);
     const averageForecastAge = beachesWithForecasts > 0 ? totalAge / beachesWithForecasts : 0;
     
     const issues: string[] = [];
