@@ -63,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resolves issue where forecasts were not updating (170+ hours stale) due to API rate limiting and function timeouts.
 
 - **Forecast Health Check Coverage Accuracy** (December 2025)
-  - Fixed `/api/monitoring/forecast-health` under-reporting coverage/staleness by paginating `enhanced_forecasts` and computing metrics from the latest row per beach (avoids Supabase/PostgREST default page limits).
+  - Fixed `/api/monitoring/forecast-health` under-reporting coverage/staleness by querying `public.v_enhanced_forecast_latest` (latest row per beach) instead of scanning/paginating `enhanced_forecasts`.
 
 ### Added
 

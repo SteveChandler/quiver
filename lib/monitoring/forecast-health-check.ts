@@ -67,51 +67,26 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
     }
     
     /**
-     * Build a per-beach "latest updated_at" map.
-     *
-     * IMPORTANT: `enhanced_forecasts` has many rows per beach (e.g. 96 timepoints),
-     * and Supabase/PostgREST applies default limits unless we paginate.
-     * If we only read the first page, coverage will be dramatically undercounted.
+     * Read the latest forecast row per beach via a DB view.
+     * This avoids scanning/paginating `enhanced_forecasts` (many rows per beach).
      */
     const latestByBeach = new Map<string, { beach_id: string; updated_at: string; data_source: string | null }>();
-    const PAGE_SIZE = 5000;
-    for (let offset = 0; latestByBeach.size < totalBeaches; offset += PAGE_SIZE) {
-      const forecastsPage = await supabase
-        .from('enhanced_forecasts')
-        .select('beach_id, updated_at, data_source')
-        .order('updated_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
+    const latestResult = await supabase
+      .from('v_enhanced_forecast_latest')
+      .select('beach_id, updated_at, data_source');
 
-      if (forecastsPage.error) {
-        return createEmptyMetrics('critical', ['Failed to fetch forecasts: ' + forecastsPage.error.message]);
-      }
-
-      const page = (forecastsPage.data ?? []) as Array<{
-        beach_id: string | null;
-        updated_at: string | null;
-        data_source: string | null;
-      }>;
-
-      if (page.length === 0) {
-        break;
-      }
-
-      for (const row of page) {
-        if (!row?.beach_id || !row.updated_at) continue;
-        if (!latestByBeach.has(row.beach_id)) {
-          latestByBeach.set(row.beach_id, {
-            beach_id: row.beach_id,
-            updated_at: row.updated_at,
-            data_source: row.data_source,
-          });
-          if (latestByBeach.size >= totalBeaches) break;
-        }
-      }
-
-      if (page.length < PAGE_SIZE) {
-        break;
-      }
+    if (latestResult.error) {
+      return createEmptyMetrics('critical', ['Failed to fetch latest forecasts: ' + latestResult.error.message]);
     }
+
+    (latestResult.data ?? []).forEach((row: any) => {
+      if (!row?.beach_id || !row.updated_at) return;
+      latestByBeach.set(row.beach_id, {
+        beach_id: row.beach_id,
+        updated_at: row.updated_at,
+        data_source: row.data_source ?? null,
+      });
+    });
     
     const beachNameMap = new Map(beaches.map(b => [b.id, b.name]));
     
