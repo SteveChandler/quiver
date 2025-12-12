@@ -56,8 +56,8 @@ describe('Forecast Health Check', () => {
   it('paginates enhanced_forecasts so coverage is not undercounted', async () => {
     const nowIso = new Date().toISOString();
 
-    // Page 1: default page size worth of rows, all for beach-1 (simulates clustered updates)
-    const page1 = Array.from({ length: 5000 }, () => ({
+    // Page 1: capped page size worth of rows, all for beach-1 (simulates clustered updates)
+    const page1 = Array.from({ length: 1000 }, () => ({
       beach_id: 'beach-1',
       updated_at: nowIso,
       data_source: 'NOAA_NWS',
@@ -84,7 +84,7 @@ describe('Forecast Health Check', () => {
     expect(metrics.healthStatus).toBe('healthy');
 
     expect(rangeMock).toHaveBeenCalledTimes(2);
-    expect(rangeMock).toHaveBeenNthCalledWith(1, 0, 5000 - 1);
-    expect(rangeMock).toHaveBeenNthCalledWith(2, 5000, 2 * 5000 - 1);
+    expect(rangeMock).toHaveBeenNthCalledWith(1, 0, 1000 - 1);
+    expect(rangeMock).toHaveBeenNthCalledWith(2, 1000, 2 * 1000 - 1);
   });
 });

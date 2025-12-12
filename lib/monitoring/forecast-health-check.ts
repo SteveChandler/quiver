@@ -74,7 +74,12 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
      * If we only read the first page, coverage will be dramatically undercounted.
      */
     const latestByBeach = new Map<string, { beach_id: string; updated_at: string; data_source: string | null }>();
-    const PAGE_SIZE = 5000;
+    /**
+     * NOTE: Supabase/PostgREST commonly enforces a max row cap per request (often 1000).
+     * Using a larger requested range can still return capped results and trick
+     * "page.length < PAGE_SIZE" end-of-table checks into breaking early.
+     */
+    const PAGE_SIZE = 1000;
     for (let offset = 0; latestByBeach.size < totalBeaches; offset += PAGE_SIZE) {
       const forecastsPage = await supabase
         .from('enhanced_forecasts')
@@ -108,9 +113,9 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
         }
       }
 
-      if (page.length < PAGE_SIZE) {
-        break;
-      }
+      // If we received fewer rows than requested, we likely hit the end.
+      // (If the backend caps max rows, PAGE_SIZE should be <= that cap.)
+      if (page.length < PAGE_SIZE) break;
     }
     
     const beachNameMap = new Map(beaches.map(b => [b.id, b.name]));
