@@ -42,6 +42,7 @@ export async function GET(request: Request) {
 
     let totals = { marine: 0, tides: 0, sun: 0, beaches: beaches?.length || 0 };
     const cdip = new CDIPService();
+    const refreshedAt = new Date().toISOString();
 
     for (const b of beaches || []) {
       // Marine from NDBC/CDIP
@@ -61,6 +62,7 @@ export async function GET(request: Request) {
             marineRows.push({
               beach_id: b.id,
               ts: obs.ts,
+              created_at: refreshedAt,
               wave_height_m: obs.wave_height_m,
               wave_period_s: obs.wave_period_s,
               wave_direction_deg: obs.wave_direction_deg,
@@ -95,6 +97,7 @@ export async function GET(request: Request) {
                 marineRows.push({
                   beach_id: b.id,
                   ts,
+                  created_at: refreshedAt,
                   wave_height_m: p.significantWaveHeight
                     ? p.significantWaveHeight * 0.3048
                     : null,
@@ -147,6 +150,7 @@ export async function GET(request: Request) {
               projections.push({
                 beach_id: b.id,
                 ts: t.toISOString(),
+                created_at: refreshedAt,
                 wave_height_m: base.wave_height_m ?? null,
                 wave_period_s: base.wave_period_s ?? null,
                 wave_direction_deg: base.wave_direction_deg ?? null,
@@ -188,6 +192,7 @@ export async function GET(request: Request) {
           let rows = preds.map((p) => ({
             beach_id: b.id,
             ts: p.ts,
+            created_at: refreshedAt,
             tide_height_m: p.tide_height_m,
             tide_phase: p.tide_phase,
             source: "noaa",
@@ -227,6 +232,7 @@ export async function GET(request: Request) {
                   .map((d) => ({
                     beach_id: b.id,
                     ts: d.toISOString(),
+                    created_at: refreshedAt,
                     tide_height_m: interpHeightAt(d),
                     tide_phase: null,
                     source: "noaa_hilo_interpolated",
@@ -276,6 +282,7 @@ export async function GET(request: Request) {
             sunrise_utc: times.sunrise?.toISOString() ?? null,
             sunset_utc: times.sunset?.toISOString() ?? null,
             source: "computed",
+            created_at: refreshedAt,
           } as any;
           const { error } = await supabase
             .from("sun_times")
