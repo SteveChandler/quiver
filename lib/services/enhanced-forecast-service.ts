@@ -221,6 +221,12 @@ class NOAAWeatherDataSource implements WeatherDataSource {
 }
 
 export class EnhancedForecastService {
+  private readonly warnedSchemaColumns = new Set<string>();
+  private isVerboseLoggingEnabled(): boolean {
+    const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
+    return process.env.FORECAST_VERBOSE_LOGS === "true" || env !== "production";
+  }
+
   /**
    * Convert cardinal wind direction (e.g. "SW") to degrees.
    * Returns null when unknown/unparseable.
@@ -408,9 +414,11 @@ export class EnhancedForecastService {
    * Fetch CDIP data with retry logic
    */
   private async fetchCDIPDataWithRetry(beach: Beach) {
-    console.log(
-      `🏖️ fetchCDIPDataWithRetry called for beach: ${beach.name} (${beach.lat}, ${beach.lon})`
-    );
+    if (this.isVerboseLoggingEnabled()) {
+      console.log(
+        `🏖️ fetchCDIPDataWithRetry called for beach: ${beach.name} (${beach.lat}, ${beach.lon})`
+      );
+    }
     return withRetry(async () => {
       try {
         // Prefer explicit override when present
@@ -418,11 +426,15 @@ export class EnhancedForecastService {
         const beachAny = beach as any;
         if (beachAny.cdip_station) {
           selectedStation = beachAny.cdip_station;
-          console.log(
-            `✅ Using CDIP override station ${selectedStation} for ${beach.name}`
-          );
+          if (this.isVerboseLoggingEnabled()) {
+            console.log(
+              `✅ Using CDIP override station ${selectedStation} for ${beach.name}`
+            );
+          }
         } else {
-          console.log(`🔍 Looking for nearest CDIP station for ${beach.name}`);
+          if (this.isVerboseLoggingEnabled()) {
+            console.log(`🔍 Looking for nearest CDIP station for ${beach.name}`);
+          }
           selectedStation = await this.cdipService.getNearestStation(
             beach.lat ?? 0,
             beach.lon ?? 0,
@@ -437,20 +449,26 @@ export class EnhancedForecastService {
           return null;
         }
 
-        console.log(
-          `✅ Selected CDIP station ${selectedStation} for ${beach.name}`
-        );
+        if (this.isVerboseLoggingEnabled()) {
+          console.log(
+            `✅ Selected CDIP station ${selectedStation} for ${beach.name}`
+          );
+        }
 
         // Fetch CDIP data for the nearest station
-        console.log(
-          `🌊 Fetching CDIP data from station ${selectedStation} for ${beach.name}`
-        );
+        if (this.isVerboseLoggingEnabled()) {
+          console.log(
+            `🌊 Fetching CDIP data from station ${selectedStation} for ${beach.name}`
+          );
+        }
         const cdipData = await this.cdipService.fetchBuoyData(selectedStation);
 
         if (cdipData) {
-          console.log(
-            `✅ Successfully fetched CDIP data for ${beach.name} from station ${selectedStation}`
-          );
+          if (this.isVerboseLoggingEnabled()) {
+            console.log(
+              `✅ Successfully fetched CDIP data for ${beach.name} from station ${selectedStation}`
+            );
+          }
         } else {
           console.warn(
             `❌ CDIP data fetch returned null for ${beach.name} from station ${selectedStation}`
@@ -879,7 +897,7 @@ export class EnhancedForecastService {
     // Beyond that, NOAA forecasts are more appropriate
     if (hoursFromNow > 6) {
       // This function is called per-forecast timepoint; avoid noisy production logs.
-      if (process.env.NODE_ENV === "development") {
+      if (this.isVerboseLoggingEnabled()) {
         console.log(
           `📊 Target time ${targetTime.toISOString()} is ${hoursFromNow.toFixed(
             1
@@ -897,7 +915,7 @@ export class EnhancedForecastService {
 
     const recentData = sortedData[0];
     // This function is called per-forecast timepoint; avoid noisy production logs.
-    if (process.env.NODE_ENV === "development") {
+    if (this.isVerboseLoggingEnabled()) {
       console.log(
         `🌊 Using CDIP current conditions for ${targetTime.toISOString()}: ${
           recentData.significantWaveHeight
@@ -1231,6 +1249,31 @@ export class EnhancedForecastService {
     const supabase = await createSupabaseServiceRoleClient();
 
     try {
+      const verboseLogsEnabled = this.isVerboseLoggingEnabled();
+
+      const extractMissingColumnName = (err: any): string | null => {
+        const msg = typeof err?.message === "string" ? err.message : "";
+        const match = msg.match(/Could not find the '([^']+)' column/);
+        return match?.[1] ?? null;
+      };
+
+      const stripColumnFromRows = (
+        rows: Array<Record<string, unknown>>,
+        columnName: string
+      ): { rows: Array<Record<string, unknown>>; didStrip: boolean } => {
+        let didStrip = false;
+        const nextRows = rows.map((row) => {
+          if (!Object.prototype.hasOwnProperty.call(row, columnName)) {
+            return row;
+          }
+          didStrip = true;
+          const copy: Record<string, unknown> = { ...row };
+          delete copy[columnName];
+          return copy;
+        });
+        return { rows: nextRows, didStrip };
+      };
+
       // Deduplicate forecasts by unique key (beach_id, forecast_date, forecast_time)
       // This prevents "ON CONFLICT DO UPDATE command cannot affect row a second time" errors
       const uniqueForecasts = new Map<string, EnhancedForecastEntity>();
@@ -1239,13 +1282,17 @@ export class EnhancedForecastService {
         if (!uniqueForecasts.has(key)) {
           uniqueForecasts.set(key, forecast);
         } else {
-          console.log(`⚠️ Skipping duplicate forecast: ${key}`);
+          if (verboseLogsEnabled) {
+            console.log(`⚠️ Skipping duplicate forecast: ${key}`);
+          }
         }
       });
 
-      console.log(
-        `📊 Deduplicated ${forecasts.length} forecasts to ${uniqueForecasts.size} unique entries`
-      );
+      if (verboseLogsEnabled) {
+        console.log(
+          `📊 Deduplicated ${forecasts.length} forecasts to ${uniqueForecasts.size} unique entries`
+        );
+      }
 
       // Upsert in chunks to avoid exceeding PostgREST payload limits
       // Increased from 24 to 100 to reduce total number of database calls
@@ -1256,22 +1303,75 @@ export class EnhancedForecastService {
       const chunkSize = 100;
       let lastData: any = null;
       for (let i = 0; i < toRows.length; i += chunkSize) {
-        const chunk = toRows.slice(i, i + chunkSize);
-        const { data, error } = await supabase
-          .from("enhanced_forecasts")
-          .upsert(chunk, {
-            onConflict: "beach_id,forecast_date,forecast_time",
-          });
-        if (error) {
-          console.error("Enhanced forecast upsert error:", {
-            message: (error as any).message,
-            details: (error as any).details,
-            hint: (error as any).hint,
-            code: (error as any).code,
-          });
-          throw error;
+        let chunk: Array<Record<string, unknown>> = toRows.slice(i, i + chunkSize);
+        let lastError: any = null;
+
+        // Allow a few "schema strip" retries in case multiple new columns
+        // are missing in the target environment.
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const { data, error } = await supabase
+            .from("enhanced_forecasts")
+            .upsert(chunk, {
+              onConflict: "beach_id,forecast_date,forecast_time",
+            });
+
+          if (!error) {
+            lastData = data;
+            lastError = null;
+            break;
+          }
+
+          lastError = error;
+
+          const missingColumn = extractMissingColumnName(error);
+          const canAttemptStrip =
+            error?.code === "PGRST204" && !!missingColumn;
+
+          if (!canAttemptStrip) {
+            console.error("Enhanced forecast upsert error:", {
+              message: (error as any).message,
+              details: (error as any).details,
+              hint: (error as any).hint,
+              code: (error as any).code,
+            });
+            throw error;
+          }
+
+          if (missingColumn && !this.warnedSchemaColumns.has(missingColumn)) {
+            console.warn(
+              `⚠️ Enhanced forecast schema mismatch (missing column '${missingColumn}'). Retrying store without that column.`
+            );
+            this.warnedSchemaColumns.add(missingColumn);
+          }
+
+          const { rows: strippedRows, didStrip } = stripColumnFromRows(
+            chunk,
+            missingColumn
+          );
+
+          // If stripping didn't change anything, retrying would loop forever.
+          if (!didStrip) {
+            console.error("Enhanced forecast upsert error:", {
+              message: (error as any).message,
+              details: (error as any).details,
+              hint: (error as any).hint,
+              code: (error as any).code,
+            });
+            throw error;
+          }
+
+          chunk = strippedRows;
         }
-        lastData = data;
+
+        if (lastError) {
+          console.error("Enhanced forecast upsert error:", {
+            message: (lastError as any).message,
+            details: (lastError as any).details,
+            hint: (lastError as any).hint,
+            code: (lastError as any).code,
+          });
+          throw lastError;
+        }
       }
 
       return { success: true, data: lastData };

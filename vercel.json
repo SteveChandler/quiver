@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/enhanced-forecast-sync",
-      "schedule": "0 6 * * *"
+      "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/cron/forecasts/refresh",
@@ -11,10 +11,6 @@
     {
       "path": "/api/cron/wavecast-scrape",
       "schedule": "0 16 * * 0,2,4"
-    },
-    {
-      "path": "/api/cron/refresh-forecasts",
-      "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/cron/update-user-preferences",

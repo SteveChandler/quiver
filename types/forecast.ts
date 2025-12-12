@@ -332,6 +332,12 @@ export interface CDIPDataResponse {
       latitude: number;
       longitude: number;
     };
+    /**
+     * Optional extra metadata fields used by our ERDDAP transformer.
+     * Not all CDIP responses include these.
+     */
+    parameters?: string[];
+    units?: Record<string, string>;
   };
 }
 
