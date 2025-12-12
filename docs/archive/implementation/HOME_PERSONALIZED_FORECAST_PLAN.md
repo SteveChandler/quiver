@@ -3,6 +3,7 @@
 > **Status:** Implementation completed. Original `personalized-home-forecast-service.ts` was deprecated and removed in November 2025. Functionality now handled by `surf-discovery-service.ts` with cache-backed architecture. See `lib/services/ARCHITECTURE.md` for current implementation details.
 
 ## Goals & Outcomes
+
 - **Best spot for you today**: Surface one beach recommendation that aligns with the rider’s preferences, recent behavior, and today’s conditions. Should feel like a coach pick, not a static home beach card.
 - **Best time for you today**: Highlight a concrete 2–3 hour window that balances wave quality, tide stage, and daylight for the chosen beach.
 - **Ideal conditions summary**: Summarize why the recommendation is a match (wave range, tide, wind, crowd fit, board pick) in a single glance card to boost trust.
@@ -11,6 +12,7 @@
 ## Experience Blueprint
 
 ### Visual Hierarchy & Layout
+
 - Position the Personalized Forecast card at the top of the Forecast tab (`components/home-screen/forecast-tab.tsx`) directly under the tab content so it is visible before scrolling.
 - **Mobile-First Design** (375px - 768px):
   - Single column layout
@@ -24,17 +26,21 @@
   - Larger KPI tiles for better scannability
 
 ### Card Structure
+
 1. **Header Section**:
+
    - Title: "Your Best Spot Today" with Target icon
    - Personalization badge (top-right): "For You" with Sparkles icon
    - Uses ocean-blue gradient background for visual distinction
 
 2. **Beach Snapshot**:
+
    - Beach name (large, semibold)
    - Distance from current location (if geolocation available)
    - "Details" button linking to `/beach/[slug]` (ghost variant, right-aligned)
 
 3. **Best Surf Window** (highlighted section):
+
    - Blue-tinted background (`bg-blue-50`) for emphasis
    - Time range: e.g., "8:00 AM - 11:00 AM"
    - Confidence badge: e.g., "85% confident"
@@ -42,12 +48,14 @@
    - Clock icon for visual association
 
 4. **Ideal Conditions KPIs** (3-column grid):
+
    - Wave Height: using `KpiTile` with blue theme
    - Crowd Level: using `KpiTile` with green theme
    - Match Score: using `KpiTile` with purple theme
    - Each tile shows value + unit + label
 
 5. **Personalization Explanation**:
+
    - Light gray background (`bg-gray-50`)
    - Info icon with summary text
    - Examples: "3-4 ft waves match your preference + offshore wind + mid-tide rising"
@@ -60,11 +68,14 @@
    - BookOpen icon on primary button
 
 ### Empty/Error States
+
 - **Not logged in**:
+
   - Show generic recommendation OR
   - Reuse `HomeBeachBanner` to prompt sign-up/login
 
 - **No preferences yet** (< 3 sessions):
+
   ```tsx
   <Card className="border-dashed">
     <CardContent className="text-center py-6">
@@ -73,14 +84,13 @@
       <p className="text-sm text-muted-foreground mb-3">
         Tell us about your surf style for personalized recommendations
       </p>
-      <Button onClick={() => router.push("/profile")}>
-        Update Profile
-      </Button>
+      <Button onClick={() => router.push("/profile")}>Update Profile</Button>
     </CardContent>
   </Card>
   ```
 
 - **Building profile** (3-5 sessions):
+
   ```tsx
   <Card className="bg-yellow-50/50 border-yellow-200">
     <CardContent className="py-4">
@@ -98,6 +108,7 @@
   ```
 
 - **Rate limited**:
+
   ```tsx
   <Alert variant="warning" data-testid="rate-limit-message">
     <AlertCircle className="h-4 w-4" />
@@ -115,6 +126,7 @@
   - Show retry button if transient error
 
 ### Accessibility
+
 - All interactive elements keyboard accessible
 - ARIA labels for icon-only buttons
 - Semantic HTML structure (headings, landmarks)
@@ -122,6 +134,7 @@
 - Loading states announced to screen readers
 
 ## Data & Scoring Strategy
+
 1. **Candidate beach pool**
    - Start with `(homeBeach || favorites || nearby chips)` combinations; fallback to `coach picks` to guarantee at least one beach.
    - Include user’s last 3 logged beaches (from `sessions` table via `/api/sessions` or supabase view) to reflect recency bias.
@@ -142,7 +155,9 @@
 ## Technical Implementation Plan
 
 ### Phase 1 – Service & API (Backend)
+
 1. **Create service module** `lib/services/personalized-home-forecast-service.ts`
+
    - Input: `userId`, optional `geo` (lat/lon - **NOT lng**), optional override `beachId`.
    - **CRITICAL PERFORMANCE REQUIREMENTS**:
      - **Batching**: Fetch forecasts with concurrency limit (max 3 parallel requests) to avoid rate limiting
@@ -155,10 +170,14 @@
      - Score beaches using `personalized-scoring-service` and select best.
      - Produce DTO: `{ beach, window, forecast, score, personalized, breakdown, summary, reasons[], generated_at }`.
    - Implementation pattern:
+
      ```typescript
      import { LRUCache } from "lru-cache";
 
-     const forecastCache = new LRUCache<string, PersonalizedForecastRecommendation>({
+     const forecastCache = new LRUCache<
+       string,
+       PersonalizedForecastRecommendation
+     >({
        max: 100,
        ttl: 5 * 60 * 1000, // 5 minutes
      });
@@ -177,8 +196,8 @@
        const candidates = await buildCandidatePool(userId, options);
        if (candidates.length === 0) {
          return {
-           reason: 'no_beaches',
-           message: 'No beaches available for personalized recommendations',
+           reason: "no_beaches",
+           message: "No beaches available for personalized recommendations",
            generated_at: new Date().toISOString(),
          };
        }
@@ -196,8 +215,8 @@
 
        if (!best) {
          return {
-           reason: 'insufficient_data',
-           message: 'Not enough data to generate personalized recommendation',
+           reason: "insufficient_data",
+           message: "Not enough data to generate personalized recommendation",
            minSessionsRequired: 3,
            generated_at: new Date().toISOString(),
          };
@@ -238,8 +257,13 @@
          while (inFlight.size < options.maxConcurrent && queue.length > 0) {
            const beach = queue.shift()!;
            const promise = fetchForecastForBeach(beach, options.timeout)
-             .then(forecast => results.push({ beach, forecast }))
-             .catch(error => console.warn(`Failed to fetch forecast for ${beach.name}:`, error))
+             .then((forecast) => results.push({ beach, forecast }))
+             .catch((error) =>
+               console.warn(
+                 `Failed to fetch forecast for ${beach.name}:`,
+                 error
+               )
+             )
              .finally(() => inFlight.delete(promise));
 
            inFlight.add(promise);
@@ -253,7 +277,9 @@
        return results;
      }
      ```
+
 2. **API route** `app/api/home/personalized-forecast/route.ts`
+
    - **CRITICAL**: Follow standardized API response format (see API Specification section below)
    - Use existing `ApiSuccess`/`ApiError` from `lib/api-utils.ts`
    - Auth required; use `createSupabaseServerClient`
@@ -265,33 +291,36 @@
    - HTTP cache headers: `Cache-Control: public, max-age=300`
    - Security headers: automatically applied via `createSuccessResponse`
    - Complete implementation example:
+
      ```typescript
      // app/api/home/personalized-forecast/route.ts
-     import { NextRequest } from 'next/server';
-     import { z } from 'zod';
+     import { NextRequest } from "next/server";
+     import { z } from "zod";
      import {
        createSuccessResponse,
        handleApiError,
        createAuthError,
        CacheDuration,
-     } from '@/lib/api-utils';
-     import { withRateLimit } from '@/lib/middleware/rate-limiter';
-     import { createSupabaseServerClient } from '@/lib/supabase/server';
-     import { getPersonalizedHomeForecast } from '@/lib/services/personalized-home-forecast-service';
-     import { assertValidCoordinates } from '@/lib/coordinate-validation';
+     } from "@/lib/api-utils";
+     import { withRateLimit } from "@/lib/middleware/rate-limiter";
+     import { createSupabaseServerClient } from "@/lib/supabase/server";
+     import { getPersonalizedHomeForecast } from "@/lib/services/personalized-home-forecast-service";
+     import { assertValidCoordinates } from "@/lib/coordinate-validation";
 
      // Request validation schema
-     const QuerySchema = z.object({
-       lat: z.coerce.number().min(-90).max(90).optional(),
-       lon: z.coerce.number().min(-180).max(180).optional(),
-       homeBeachId: z.string().uuid().optional(),
-     }).refine(
-       (data) => (data.lat !== undefined) === (data.lon !== undefined),
-       { message: 'Both lat and lon must be provided together' }
-     );
+     const QuerySchema = z
+       .object({
+         lat: z.coerce.number().min(-90).max(90).optional(),
+         lon: z.coerce.number().min(-180).max(180).optional(),
+         homeBeachId: z.string().uuid().optional(),
+       })
+       .refine(
+         (data) => (data.lat !== undefined) === (data.lon !== undefined),
+         { message: "Both lat and lon must be provided together" }
+       );
 
-     export const runtime = 'nodejs';
-     export const dynamic = 'force-dynamic';
+     export const runtime = "nodejs";
+     export const dynamic = "force-dynamic";
 
      async function personalizedForecastHandler(request: NextRequest) {
        const startTime = Date.now();
@@ -299,18 +328,21 @@
        try {
          // 1. Authentication
          const supabase = await createSupabaseServerClient();
-         const { data: { user }, error: authError } = await supabase.auth.getUser();
+         const {
+           data: { user },
+           error: authError,
+         } = await supabase.auth.getUser();
 
          if (authError || !user) {
-           return createAuthError('Authentication required');
+           return createAuthError("Authentication required");
          }
 
          // 2. Parse and validate query params
          const { searchParams } = new URL(request.url);
          const parseResult = QuerySchema.safeParse({
-           lat: searchParams.get('lat'),
-           lon: searchParams.get('lon'),
-           homeBeachId: searchParams.get('homeBeachId'),
+           lat: searchParams.get("lat"),
+           lon: searchParams.get("lon"),
+           homeBeachId: searchParams.get("homeBeachId"),
          });
 
          if (!parseResult.success) {
@@ -328,20 +360,21 @@
 
          // 3. Coordinate validation
          if (lat !== undefined && lon !== undefined) {
-           assertValidCoordinates(lat, lon, 'Personalized forecast API');
+           assertValidCoordinates(lat, lon, "Personalized forecast API");
          }
 
          // 4. Rate limiting handled by middleware (see export at bottom)
 
          // 5. Fetch personalized forecast
          const recommendation = await getPersonalizedHomeForecast(user.id, {
-           geo: lat !== undefined && lon !== undefined ? { lat, lon } : undefined,
+           geo:
+             lat !== undefined && lon !== undefined ? { lat, lon } : undefined,
            homeBeachId,
          });
 
          // 6. Log telemetry
          const duration = Date.now() - startTime;
-         console.log('[PersonalizedForecast]', {
+         console.log("[PersonalizedForecast]", {
            duration_ms: duration,
            user_id: user.id,
            has_recommendation: !!recommendation,
@@ -350,30 +383,29 @@
 
          // 7. Return cached response
          return createSuccessResponse(
-           recommendation,  // Can be null for insufficient data
-           CacheDuration.SHORT  // 5 minutes
+           recommendation, // Can be null for insufficient data
+           CacheDuration.SHORT // 5 minutes
          );
-
        } catch (error) {
-         return handleApiError(
-           error,
-           'Failed to fetch personalized forecast'
-         );
+         return handleApiError(error, "Failed to fetch personalized forecast");
        }
      }
 
      // Apply rate limiting middleware: 10 req/min for authenticated users
      export const GET = withRateLimit(
        personalizedForecastHandler,
-       "authenticated-forecast"  // Rate limit tier defined in rate-limiter.ts
+       "authenticated-forecast" // Rate limit tier defined in rate-limiter.ts
      );
      ```
 
 ### Phase 2 – Frontend Data Layer
+
 1. **Hook** `hooks/use-personalized-home-forecast.ts`
+
    - **CRITICAL**: Must use established `useDataFetcher` hook pattern (see `hooks/use-data-fetcher.ts` for reference)
    - Follow the exact pattern from `forecast-tab.tsx:82-85` for data fetching
    - Implementation:
+
      ```typescript
      // hooks/use-personalized-home-forecast.ts
      import { useCallback, useMemo } from "react";
@@ -387,7 +419,9 @@
        favoriteBeachIds?: string[];
      }
 
-     export function usePersonalizedHomeForecast(options: UsePersonalizedHomeForecastOptions) {
+     export function usePersonalizedHomeForecast(
+       options: UsePersonalizedHomeForecastOptions
+     ) {
        const { coords } = useGeo();
 
        // Memoize fetch function per Quiver patterns
@@ -399,14 +433,20 @@
            ...(options.homeBeachId && { homeBeachId: options.homeBeachId }),
          });
 
-         const response = await fetch(`/api/home/personalized-forecast?${params}`, {
-           // Let HTTP Cache-Control headers manage caching (not cache: "no-store")
-           next: { revalidate: 0 }
-         });
+         const response = await fetch(
+           `/api/home/personalized-forecast?${params}`,
+           {
+             // Let HTTP Cache-Control headers manage caching (not cache: "no-store")
+             next: { revalidate: 0 },
+           }
+         );
 
          if (!response.ok) {
            const error = await response.json().catch(() => ({}));
-           throw new Error(error.error || `Failed to fetch personalized forecast: ${response.status}`);
+           throw new Error(
+             error.error ||
+               `Failed to fetch personalized forecast: ${response.status}`
+           );
          }
 
          const result = await response.json();
@@ -414,13 +454,14 @@
          return result.success ? result.data : null;
        }, [options.userId, options.homeBeachId, coords?.lat, coords?.lon]);
 
-       const { data, loading, error, refetch } = useDataFetcher<PersonalizedForecastResponse | null>(
-         fetchPersonalizedForecast,
-         {
-           skip: !options.userId,
-           initialData: null,
-         }
-       );
+       const { data, loading, error, refetch } =
+         useDataFetcher<PersonalizedForecastResponse | null>(
+           fetchPersonalizedForecast,
+           {
+             skip: !options.userId,
+             initialData: null,
+           }
+         );
 
        // Auto-refresh if data is stale (>30 minutes old)
        const isStale = useMemo(() => {
@@ -430,14 +471,19 @@
        }, [data?.generated_at]);
 
        // Type guard to check if data is a recommendation
-       const isRecommendation = (data: PersonalizedForecastResponse | null): data is PersonalizedForecastRecommendation => {
-         return !!data && 'beach' in data;
+       const isRecommendation = (
+         data: PersonalizedForecastResponse | null
+       ): data is PersonalizedForecastRecommendation => {
+         return !!data && "beach" in data;
        };
 
        return {
          data,
          recommendation: isRecommendation(data) ? data : null,
-         metadata: !isRecommendation(data) && data ? data as PersonalizedForecastMetadata : null,
+         metadata:
+           !isRecommendation(data) && data
+             ? (data as PersonalizedForecastMetadata)
+             : null,
          loading,
          error,
          isStale,
@@ -446,19 +492,22 @@
        };
      }
      ```
+
    - Exposes `{ data, recommendation, metadata, loading, error, isStale, refetch, hasPersonalization }`.
    - `recommendation` is non-null when a personalized beach was found
    - `metadata` is non-null when no recommendation available (contains reason and message)
    - Handles stale data by comparing `generated_at` vs now and auto-refreshing if >30 minutes old or when `homeBeach` changes.
 
 2. **Type definitions**
+
    - Add `PersonalizedHomeForecast` interface under `types/personalization.ts` (NEW FILE):
+
      ```typescript
      export interface PersonalizedForecastRecommendation {
        beach: Beach;
        window: {
          start: string; // ISO timestamp
-         end: string;   // ISO timestamp
+         end: string; // ISO timestamp
          tide: string;
          wind: string;
          wave_height: string;
@@ -480,7 +529,7 @@
 
      // Metadata returned when no personalized recommendation available
      export interface PersonalizedForecastMetadata {
-       reason: 'insufficient_data' | 'no_beaches' | 'no_forecasts';
+       reason: "insufficient_data" | "no_beaches" | "no_forecasts";
        message: string;
        minSessionsRequired?: number;
        generated_at: string; // ISO timestamp
@@ -491,6 +540,7 @@
        | PersonalizedForecastRecommendation
        | PersonalizedForecastMetadata;
      ```
+
    - Provide union for UI states: `type ForecastState = "loading" | "ready" | "needs_prefs" | "error" | "rate_limited"`.
 
 3. **Storybook/fixtures**
@@ -498,7 +548,9 @@
    - Include edge cases: no preferences, low confidence, rate limited, etc.
 
 ### Phase 3 – UI Integration
+
 1. **New component** `components/home-screen/personalized-forecast-card.tsx`
+
    - **CRITICAL**: Follow existing component patterns from `forecast-tab.tsx` (lines 1-40)
    - **MUST reuse** existing UI components:
      - `Card`, `CardContent`, `CardHeader`, `CardTitle` from `@/components/ui/card`
@@ -512,6 +564,7 @@
      - Stack vertically on mobile, side-by-side on desktop
      - Use `touch-manipulation` CSS class for buttons
    - Component structure:
+
      ```tsx
      interface PersonalizedForecastCardProps {
        recommendation: PersonalizedForecastRecommendation | null;
@@ -534,13 +587,21 @@
        if (error) return <PersonalizedForecastError error={error} />;
        if (!recommendation) return null;
 
-       const { beach, window, score, breakdown, summary, reasons } = recommendation;
+       const { beach, window, score, breakdown, summary, reasons } =
+         recommendation;
 
        return (
-         <Card className="relative overflow-hidden bg-gradient-to-br from-ocean-blue/5 to-blue-500/5" data-testid="personalized-forecast-card">
+         <Card
+           className="relative overflow-hidden bg-gradient-to-br from-ocean-blue/5 to-blue-500/5"
+           data-testid="personalized-forecast-card"
+         >
            {/* Personalization Badge - Top Right */}
            <div className="absolute top-3 right-3">
-             <Badge variant="blue" className="flex items-center gap-1" data-testid="personalization-badge">
+             <Badge
+               variant="blue"
+               className="flex items-center gap-1"
+               data-testid="personalization-badge"
+             >
                <Sparkles className="h-3 w-3" />
                <span>For You</span>
              </Badge>
@@ -576,7 +637,10 @@
              </div>
 
              {/* Best Time Window */}
-             <div className="bg-blue-50 rounded-lg p-3" data-testid="best-window">
+             <div
+               className="bg-blue-50 rounded-lg p-3"
+               data-testid="best-window"
+             >
                <div className="flex items-center justify-between mb-2">
                  <span className="text-sm font-medium">Best Window</span>
                  <Badge variant="outline" className="text-xs">
@@ -586,7 +650,8 @@
                <div className="flex items-center gap-3">
                  <Clock className="h-4 w-4 text-blue-600" />
                  <span className="font-semibold text-blue-900">
-                   {formatTimeWindow(window.start)} - {formatTimeWindow(window.end)}
+                   {formatTimeWindow(window.start)} -{" "}
+                   {formatTimeWindow(window.end)}
                  </span>
                </div>
                <div className="flex gap-4 mt-2 text-xs text-blue-700">
@@ -656,20 +721,25 @@
        );
      }
      ```
+
    - Include separate components for skeleton, error, and empty states
    - Use `data-testid` attributes for Playwright tests
 
 2. **Home screen wiring** - Follow `forecast-tab.tsx` integration pattern
+
    - In `components/home-screen/forecast-tab.tsx` (NOT `index.tsx`):
+
      - Import `usePersonalizedHomeForecast` hook
      - Call hook at component top with proper options:
        ```typescript
-       const { recommendation, loading, error, refetch } = usePersonalizedHomeForecast({
-         userId: profile?.id,
-         homeBeachId: homeBeach?.id,
-       });
+       const { recommendation, loading, error, refetch } =
+         usePersonalizedHomeForecast({
+           userId: profile?.id,
+           homeBeachId: homeBeach?.id,
+         });
        ```
      - Render with Suspense boundary:
+
        ```tsx
        <div className="space-y-4">
          {profile && (
@@ -683,10 +753,14 @@
                    beach_id: recommendation?.beach.id,
                    score: recommendation?.score,
                  });
-                 router.push(`/sessions/new?mode=plan&beach=${recommendation?.beach.id}`);
+                 router.push(
+                   `/sessions/new?mode=plan&beach=${recommendation?.beach.id}`
+                 );
                }}
                onViewBeach={(beachId) => {
-                 track("personalized_forecast_view_clicked", { beach_id: beachId });
+                 track("personalized_forecast_view_clicked", {
+                   beach_id: beachId,
+                 });
                  router.push(getBeachUrlSafe({ id: beachId }));
                }}
              />
@@ -698,6 +772,7 @@
          {/* ... existing forecast content ... */}
        </div>
        ```
+
    - Keep logic isolated so Forecast tab continues to function even if personalized service fails
    - Use guard clauses and error boundaries
 
@@ -706,6 +781,7 @@
    - Content guidelines stored in `docs/copy/home-personalized-forecast.md` (optional) to align design/product review.
 
 ### Phase 4 – Analytics, Feedback, & Controls
+
 1. Instrument events:
    - `personalized_forecast_impression`, `personalized_forecast_click_plan`, `personalized_forecast_click_view_beach`, `personalized_forecast_dismissed`, `personalized_forecast_feedback_submitted`.
    - Payload fields: `beach_id`, `score`, `window_start/end`, `reasons`, `personalized` boolean.
@@ -715,7 +791,9 @@
 ## Testing & Validation
 
 ### Unit Tests (Jest)
+
 - **Service layer** (`lib/services/personalized-home-forecast-service.test.ts`):
+
   - Mock Supabase client and forecast API responses
   - Test candidate pool building logic
   - Verify batching respects concurrency limits (max 3 parallel)
@@ -725,6 +803,7 @@
   - Test window selection logic (best time calculation)
 
 - **Hook tests** (`hooks/use-personalized-home-forecast.test.ts`):
+
   - Test `useDataFetcher` integration
   - Verify skip logic when userId is null
   - Test stale data detection (>30 min)
@@ -738,6 +817,7 @@
   - Test responsive rendering (mobile vs desktop)
 
 ### Integration Tests (Playwright)
+
 Create new file: `e2e/personalized-forecast.spec.ts`
 
 ```typescript
@@ -745,7 +825,9 @@ import { test, expect } from "@playwright/test";
 import { seedTestUser, seedBeachData, mockForecastAPI } from "./fixtures";
 
 test.describe("Personalized Home Forecast", () => {
-  test("shows personalized recommendation for user with preferences", async ({ page }) => {
+  test("shows personalized recommendation for user with preferences", async ({
+    page,
+  }) => {
     // Setup: User with 10+ sessions and preferences
     const user = await seedTestUser({
       hasPreferences: true,
@@ -756,12 +838,18 @@ test.describe("Personalized Home Forecast", () => {
     await page.goto("/home?tab=forecast");
 
     // Verify card appears
-    await expect(page.locator('[data-testid="personalized-forecast-card"]')).toBeVisible();
-    await expect(page.locator('[data-testid="personalization-badge"]')).toContainText("For You");
+    await expect(
+      page.locator('[data-testid="personalized-forecast-card"]')
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="personalization-badge"]')
+    ).toContainText("For You");
 
     // Verify window is displayed
     await expect(page.locator('[data-testid="best-window"]')).toBeVisible();
-    await expect(page.locator('[data-testid="best-window"]')).toContainText(/\d{1,2}:\d{2}/); // Time format
+    await expect(page.locator('[data-testid="best-window"]')).toContainText(
+      /\d{1,2}:\d{2}/
+    ); // Time format
 
     // Test Plan Session interaction
     await page.click('[data-testid="plan-session-from-personalized"]');
@@ -774,7 +862,9 @@ test.describe("Personalized Home Forecast", () => {
     await page.goto("/home?tab=forecast");
 
     // Should show prompt to update preferences
-    await expect(page.locator('[data-testid="needs-more-data-message"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="needs-more-data-message"]')
+    ).toBeVisible();
     await expect(page.getByText(/Set Your Preferences/i)).toBeVisible();
 
     // Click should navigate to profile
@@ -785,13 +875,18 @@ test.describe("Personalized Home Forecast", () => {
   test("handles rate limiting gracefully", async ({ page }) => {
     // Mock rate limit response
     await page.route("**/api/home/personalized-forecast", (route) => {
-      route.fulfill({ status: 429, body: JSON.stringify({ error: "Too many requests" }) });
+      route.fulfill({
+        status: 429,
+        body: JSON.stringify({ error: "Too many requests" }),
+      });
     });
 
     await seedTestUser({ sessions: 10 });
     await page.goto("/home?tab=forecast");
 
-    await expect(page.locator('[data-testid="rate-limit-message"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="rate-limit-message"]')
+    ).toBeVisible();
     await expect(page.getByText(/Too Many Requests/i)).toBeVisible();
   });
 
@@ -817,7 +912,9 @@ test.describe("Personalized Home Forecast", () => {
     expect(gridClasses).toContain("grid-cols-3");
   });
 
-  test("shows building profile state for intermediate users", async ({ page }) => {
+  test("shows building profile state for intermediate users", async ({
+    page,
+  }) => {
     await seedTestUser({ sessions: 4 }); // Between 3-5 sessions
 
     await page.goto("/home?tab=forecast");
@@ -841,7 +938,9 @@ test.describe("Personalized Home Forecast", () => {
     await page.click('[data-testid="plan-session-from-personalized"]');
 
     // Verify analytics event fired
-    const planEvent = analyticsEvents.find(e => e.event === "personalized_forecast_plan_clicked");
+    const planEvent = analyticsEvents.find(
+      (e) => e.event === "personalized_forecast_plan_clicked"
+    );
     expect(planEvent).toBeDefined();
     expect(planEvent.beach_id).toBeTruthy();
   });
@@ -849,16 +948,23 @@ test.describe("Personalized Home Forecast", () => {
   test("degrades gracefully on API failure", async ({ page }) => {
     // Mock API error
     await page.route("**/api/home/personalized-forecast", (route) => {
-      route.fulfill({ status: 500, body: JSON.stringify({ error: "Internal server error" }) });
+      route.fulfill({
+        status: 500,
+        body: JSON.stringify({ error: "Internal server error" }),
+      });
     });
 
     await seedTestUser({ sessions: 10 });
     await page.goto("/home?tab=forecast");
 
     // Should still show regular forecast content
-    await expect(page.locator('[data-testid="personalized-forecast-card"]')).not.toBeVisible();
+    await expect(
+      page.locator('[data-testid="personalized-forecast-card"]')
+    ).not.toBeVisible();
     // Regular forecast should be visible
-    await expect(page.locator('[data-testid="forecast-display"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="forecast-display"]')
+    ).toBeVisible();
   });
 
   test("updates when home beach changes", async ({ page }) => {
@@ -866,7 +972,9 @@ test.describe("Personalized Home Forecast", () => {
 
     await page.goto("/home?tab=forecast");
 
-    const firstBeach = await page.locator('[data-testid="personalized-forecast-card"] h3').textContent();
+    const firstBeach = await page
+      .locator('[data-testid="personalized-forecast-card"] h3')
+      .textContent();
 
     // Change home beach
     await page.click('[data-testid="set-home-beach-button"]');
@@ -875,13 +983,16 @@ test.describe("Personalized Home Forecast", () => {
     // Wait for re-fetch
     await page.waitForTimeout(1000);
 
-    const secondBeach = await page.locator('[data-testid="personalized-forecast-card"] h3').textContent();
+    const secondBeach = await page
+      .locator('[data-testid="personalized-forecast-card"] h3')
+      .textContent();
     expect(secondBeach).not.toBe(firstBeach);
   });
 });
 ```
 
 ### API Route Tests
+
 Create file: `__tests__/api/home/personalized-forecast.test.ts`
 
 ```typescript
@@ -917,13 +1028,16 @@ describe("/api/home/personalized-forecast", () => {
 ```
 
 ### Load Testing
+
 Script: `scripts/load-test-personalized-forecast.ts`
+
 - Hit `/api/home/personalized-forecast` with 100 concurrent requests
 - Verify caching reduces database load
 - Measure P50, P95, P99 response times
 - Confirm rate limiting activates appropriately
 
 ### Manual QA Checklist
+
 - [ ] User with home beach set
 - [ ] User without home beach (should show popular beach)
 - [ ] User with no preferences (show prompt)
@@ -947,30 +1061,34 @@ Script: `scripts/load-test-personalized-forecast.ts`
 **MUST follow Quiver's coordinate naming standards** (see `/docs/COORDINATE_CONVENTIONS.md`):
 
 ### Standard Naming
+
 - ✅ **CORRECT**: `lat`, `lon`, `latitude`, `longitude`
 - ❌ **INCORRECT**: `lng` (do NOT use in new code)
 
 ### Implementation Requirements
 
 1. **API Parameters**:
+
    ```typescript
    // ✅ CORRECT
    const params = new URLSearchParams({
      lat: String(coords.lat),
-     lon: String(coords.lon),  // NOT lng!
+     lon: String(coords.lon), // NOT lng!
    });
    ```
 
 2. **Component Props**:
+
    ```typescript
    // ✅ CORRECT - Use full names
    interface BeachProps {
      latitude: number;
-     longitude: number;  // NOT lng!
+     longitude: number; // NOT lng!
    }
    ```
 
 3. **Database Mapping** (CRITICAL):
+
    ```typescript
    // ❌ WRONG - Assumes property names match
    <Component latitude={beach.latitude} />  // beach.latitude doesn't exist!
@@ -983,19 +1101,21 @@ Script: `scripts/load-test-personalized-forecast.ts`
    ```
 
 4. **Validation**:
+
    ```typescript
-   import { assertValidCoordinates } from '@/lib/coordinate-validation';
+   import { assertValidCoordinates } from "@/lib/coordinate-validation";
 
    // Before API calls
-   assertValidCoordinates(lat, lon, 'Personalized forecast API');
+   assertValidCoordinates(lat, lon, "Personalized forecast API");
 
    // In development
-   if (process.env.NODE_ENV === 'development') {
-     validateCoordinates(latitude, longitude, 'PersonalizedForecastCard');
+   if (process.env.NODE_ENV === "development") {
+     validateCoordinates(latitude, longitude, "PersonalizedForecastCard");
    }
    ```
 
 ### Common Pitfalls to Avoid
+
 - Using `lng` instead of `lon` in API parameters
 - Assuming `beach.latitude` exists (it's `beach.center_lat`)
 - Not mapping database fields to component props
@@ -1004,6 +1124,7 @@ Script: `scripts/load-test-personalized-forecast.ts`
 ## Dependencies & Risks
 
 ### Data Dependencies
+
 - **Supabase data freshness**: `user_surf_preferences` must be populated
   - **Action**: Add migration/backfill task if coverage is low
   - **Minimum**: Require 3 sessions before showing personalized recommendations
@@ -1088,6 +1209,7 @@ END $$;
 ```
 
 **Run verification**:
+
 ```bash
 # Local development
 npx supabase db push
@@ -1098,6 +1220,7 @@ npx supabase db execute --file scripts/verify-personalized-forecast-dependencies
 ```
 
 ### Performance Risks
+
 - **Forecast API latency**: Multiple forecast fetches could be slow
   - **Mitigation**: Batching (max 3 concurrent), caching (5 min TTL), timeouts
 - **Database query performance**: Complex joins for candidate pool
@@ -1106,6 +1229,7 @@ npx supabase db execute --file scripts/verify-personalized-forecast-dependencies
   - **Mitigation**: Limit cache to 100 entries, 5-minute TTL
 
 ### Privacy & Security
+
 - **User data exposure**: Only show data for authenticated user
   - **Action**: Ensure API route validates session before accessing service role
 - **RLS policies**: Verify proper row-level security on all tables
@@ -1141,6 +1265,7 @@ GRANT SELECT ON user_beach_affinity TO authenticated;
 ```
 
 **Testing RLS Policies**:
+
 ```sql
 -- Test as authenticated user
 SET request.jwt.claim.sub = 'test-user-id';
@@ -1155,6 +1280,7 @@ SELECT * FROM user_beach_affinity WHERE user_id = 'other-user-id';
 ```
 
 ### Design & UX Risks
+
 - **Design alignment**: Visual design must match Quiver's style
   - **Action**: Need Figma mockup review with product/design before implementation
 - **Content voice**: Copy must sound like a helpful coach, not marketing
@@ -1163,6 +1289,7 @@ SELECT * FROM user_beach_affinity WHERE user_id = 'other-user-id';
   - **Action**: Accessibility audit after implementation
 
 ### Edge Cases
+
 - **Best window before sunrise/after sunset**:
   - **Solution**: Clamp to daylight hours OR add "dawn patrol" / "sunset session" label
 - **No valid candidates**: All beaches fail scoring
@@ -1177,32 +1304,33 @@ SELECT * FROM user_beach_affinity WHERE user_id = 'other-user-id';
 ## Performance Budgets & Monitoring
 
 ### API Response Time Targets
+
 ```typescript
 const PERFORMANCE_BUDGETS = {
   // API endpoint response times (ms)
   personalizedForecast: {
-    p50: 500,   // 50th percentile - must be <500ms
-    p95: 1500,  // 95th percentile - must be <1.5s
-    p99: 3000,  // 99th percentile - must be <3s
+    p50: 500, // 50th percentile - must be <500ms
+    p95: 1500, // 95th percentile - must be <1.5s
+    p99: 3000, // 99th percentile - must be <3s
     timeout: 5000, // Hard timeout - abort after 5s
   },
 
   // Component render times (ms)
   componentRender: {
-    firstRender: 100,  // Initial render <100ms
-    reRender: 50,      // Subsequent renders <50ms
+    firstRender: 100, // Initial render <100ms
+    reRender: 50, // Subsequent renders <50ms
   },
 
   // Bundle size impact
   bundleSize: {
-    maxIncrease: 15,   // Maximum 15KB gzipped increase
+    maxIncrease: 15, // Maximum 15KB gzipped increase
     totalJsLimit: 300, // Total JS budget: 300KB gzipped
   },
 
   // Cache effectiveness
   cacheHitRate: {
-    target: 0.7,       // 70% cache hit rate
-    minimum: 0.5,      // 50% minimum acceptable
+    target: 0.7, // 70% cache hit rate
+    minimum: 0.5, // 50% minimum acceptable
   },
 };
 ```
@@ -1210,6 +1338,7 @@ const PERFORMANCE_BUDGETS = {
 ### Monitoring & Telemetry
 
 1. **API Metrics** (track in service):
+
    ```typescript
    {
      duration_ms: number,
@@ -1225,6 +1354,7 @@ const PERFORMANCE_BUDGETS = {
    ```
 
 2. **Frontend Metrics** (track with analytics):
+
    ```typescript
    // Performance
    track("personalized_forecast_performance", {
@@ -1244,8 +1374,8 @@ const PERFORMANCE_BUDGETS = {
    // Errors
    track("personalized_forecast_error", {
      error_type: "rate_limit" | "timeout" | "no_data" | "api_error",
-     beach_id?: string,
-     candidate_count?: number,
+     beach_id: string,
+     candidate_count: number,
    });
    ```
 
@@ -1256,6 +1386,7 @@ const PERFORMANCE_BUDGETS = {
    - Alert on P99 > 5s
 
 ### Alerting Thresholds
+
 - **P95 response time > 2s** for 5 minutes → Alert engineering
 - **Cache hit rate < 50%** for 1 hour → Investigate caching
 - **Error rate > 5%** for 5 minutes → Alert on-call
@@ -1264,12 +1395,15 @@ const PERFORMANCE_BUDGETS = {
 ## Feature Flags & Rollout
 
 ### Feature Flag Configuration
+
 ```typescript
 // lib/features/flags.ts
 export const FEATURE_FLAGS = {
   HOME_PERSONALIZED_FORECAST: {
     enabled: process.env.NEXT_PUBLIC_ENABLE_PERSONALIZED_FORECAST === "true",
-    rolloutPercentage: parseInt(process.env.NEXT_PUBLIC_PERSONALIZED_ROLLOUT || "0"),
+    rolloutPercentage: parseInt(
+      process.env.NEXT_PUBLIC_PERSONALIZED_ROLLOUT || "0"
+    ),
 
     isEnabled(userId?: string): boolean {
       if (!this.enabled) return false;
@@ -1278,7 +1412,7 @@ export const FEATURE_FLAGS = {
 
       // Consistent rollout based on user ID hash
       const hash = hashCode(userId);
-      return (hash % 100) < this.rolloutPercentage;
+      return hash % 100 < this.rolloutPercentage;
     },
   },
 };
@@ -1292,6 +1426,7 @@ if (FEATURE_FLAGS.HOME_PERSONALIZED_FORECAST.isEnabled(userId)) {
 ### Rollout Plan
 
 #### Phase 1: Internal Dogfooding (Week 1)
+
 - Enable flag for internal users only
 - Seed QA users with varied preference profiles
 - Collect feedback on UX and accuracy
@@ -1299,6 +1434,7 @@ if (FEATURE_FLAGS.HOME_PERSONALIZED_FORECAST.isEnabled(userId)) {
 - **Success criteria**: 0 critical bugs, <2s P95 response time
 
 #### Phase 2: Limited Beta (Week 2)
+
 - Gradually expand to 10% of users (A/B test)
 - Monitor KPIs:
   - Home → Beach detail click-through rate
@@ -1307,6 +1443,7 @@ if (FEATURE_FLAGS.HOME_PERSONALIZED_FORECAST.isEnabled(userId)) {
 - **Success criteria**: Conversion lift >10% vs control
 
 #### Phase 3: Expanded Rollout (Week 3)
+
 - Expand to 50% of users
 - Continue monitoring metrics
 - Collect "Was this helpful?" feedback
@@ -1314,6 +1451,7 @@ if (FEATURE_FLAGS.HOME_PERSONALIZED_FORECAST.isEnabled(userId)) {
 - **Success criteria**: No degradation in core metrics
 
 #### Phase 4: Full Release (Week 4)
+
 - Deploy to 100% of users
 - Monitor for 72 hours
 - Collect success metrics:
@@ -1323,7 +1461,9 @@ if (FEATURE_FLAGS.HOME_PERSONALIZED_FORECAST.isEnabled(userId)) {
 - **Success criteria**: >20% increase in home-to-session flow
 
 ### Rollback Plan
+
 If critical issues occur:
+
 1. **Immediate**: Set `NEXT_PUBLIC_PERSONALIZED_ROLLOUT=0`
 2. **Within 5 minutes**: Deploy config change
 3. **Within 15 minutes**: Verify card is hidden for all users
@@ -1332,6 +1472,7 @@ If critical issues occur:
 ## Implementation Checklist
 
 ### Phase 1: Backend (Week 1)
+
 - [ ] Create `types/personalization.ts` with interfaces
 - [ ] Implement `lib/services/personalized-home-forecast-service.ts`
   - [ ] Candidate pool building
@@ -1346,6 +1487,7 @@ If critical issues occur:
 - [ ] Unit tests for service layer
 
 ### Phase 2: Frontend (Week 1-2)
+
 - [ ] Create `hooks/use-personalized-home-forecast.ts`
   - [ ] Proper `useDataFetcher` integration
   - [ ] Stale data detection
@@ -1362,6 +1504,7 @@ If critical issues occur:
 - [ ] Component unit tests
 
 ### Phase 3: Testing & Quality (Week 2)
+
 - [ ] Playwright E2E tests (`e2e/personalized-forecast.spec.ts`)
   - [ ] Happy path test
   - [ ] New user state test
@@ -1374,6 +1517,7 @@ If critical issues occur:
 - [ ] Manual QA across devices
 
 ### Phase 4: Launch Prep (Week 2-3)
+
 - [ ] Feature flag implementation
 - [ ] Performance monitoring setup
 - [ ] Sentry error tracking configuration
@@ -1383,6 +1527,7 @@ If critical issues occur:
 - [ ] Rollout plan approval
 
 ### Phase 5: Rollout & Monitor (Week 3-4)
+
 - [ ] Internal dogfooding (10 users)
 - [ ] Beta rollout (10% users)
 - [ ] Expanded rollout (50% users)
@@ -1394,17 +1539,20 @@ If critical issues occur:
 ## Success Metrics
 
 ### Primary KPIs
+
 - **Session creation rate**: +20% from personalized recommendations
 - **Home → Beach detail CTR**: +15% vs generic forecast
 - **User satisfaction**: >75% "helpful" feedback rating
 
 ### Secondary KPIs
+
 - **Recommendation accuracy**: >80% confidence on average
 - **Cache hit rate**: >70% to minimize API calls
 - **API performance**: P95 <1.5s response time
 - **Error rate**: <2% of requests fail
 
 ### Monitoring Dashboards
+
 - Real-time: Vercel Analytics + custom dashboard
 - Weekly: Session creation trends
 - Monthly: User engagement and retention impact
@@ -1426,29 +1574,31 @@ GET /api/home/personalized-forecast
 
 ### Request Parameters
 
-| Parameter | Type | Required | Validation | Description |
-|-----------|------|----------|------------|-------------|
-| `lat` | number | No | -90 to 90 | User's current latitude (short name, NOT `latitude`) |
-| `lon` | number | No | -180 to 180 | User's current longitude (short name, NOT `lng`) |
-| `homeBeachId` | string | No | UUID format | Override home beach ID |
+| Parameter     | Type   | Required | Validation  | Description                                          |
+| ------------- | ------ | -------- | ----------- | ---------------------------------------------------- |
+| `lat`         | number | No       | -90 to 90   | User's current latitude (short name, NOT `latitude`) |
+| `lon`         | number | No       | -180 to 180 | User's current longitude (short name, NOT `lng`)     |
+| `homeBeachId` | string | No       | UUID format | Override home beach ID                               |
 
 **Validation Rules**:
+
 - If `lat` is provided, `lon` must also be provided (and vice versa)
 - Coordinates must be valid geographic coordinates
 - `homeBeachId` must be a valid UUID if provided
 
 ```typescript
 // Request validation schema (Zod)
-import { z } from 'zod';
+import { z } from "zod";
 
-export const PersonalizedForecastQuerySchema = z.object({
-  lat: z.coerce.number().min(-90).max(90).optional(),
-  lon: z.coerce.number().min(-180).max(180).optional(),
-  homeBeachId: z.string().uuid().optional(),
-}).refine(
-  (data) => (data.lat !== undefined) === (data.lon !== undefined),
-  { message: 'Both lat and lon must be provided together' }
-);
+export const PersonalizedForecastQuerySchema = z
+  .object({
+    lat: z.coerce.number().min(-90).max(90).optional(),
+    lon: z.coerce.number().min(-180).max(180).optional(),
+    homeBeachId: z.string().uuid().optional(),
+  })
+  .refine((data) => (data.lat !== undefined) === (data.lon !== undefined), {
+    message: "Both lat and lon must be provided together",
+  });
 ```
 
 ### Response Format
@@ -1456,6 +1606,7 @@ export const PersonalizedForecastQuerySchema = z.object({
 #### Success Response (200 OK)
 
 **With Recommendation**:
+
 ```typescript
 {
   "success": true,
@@ -1497,6 +1648,7 @@ export const PersonalizedForecastQuerySchema = z.object({
 ```
 
 **No Recommendation** (insufficient data):
+
 ```typescript
 {
   "success": true,
@@ -1508,6 +1660,7 @@ export const PersonalizedForecastQuerySchema = z.object({
 #### Error Responses
 
 **400 Bad Request** (Invalid parameters):
+
 ```typescript
 {
   "success": false,
@@ -1517,6 +1670,7 @@ export const PersonalizedForecastQuerySchema = z.object({
 ```
 
 **401 Unauthorized** (Not authenticated):
+
 ```typescript
 {
   "success": false,
@@ -1526,6 +1680,7 @@ export const PersonalizedForecastQuerySchema = z.object({
 ```
 
 **429 Too Many Requests** (Rate limit exceeded):
+
 ```typescript
 {
   "success": false,
@@ -1535,6 +1690,7 @@ export const PersonalizedForecastQuerySchema = z.object({
 ```
 
 **Headers**:
+
 ```
 Retry-After: 60
 X-RateLimit-Limit: 10
@@ -1543,6 +1699,7 @@ X-RateLimit-Reset: 1700300400
 ```
 
 **500 Internal Server Error**:
+
 ```typescript
 {
   "success": false,
@@ -1554,6 +1711,7 @@ X-RateLimit-Reset: 1700300400
 ### Response Headers
 
 **Success Response (200 OK)**:
+
 ```
 Cache-Control: public, max-age=300, s-maxage=300
 ETag: "abc123..."
@@ -1564,6 +1722,7 @@ X-XSS-Protection: 1; mode=block
 ```
 
 **Conditional Request Support**:
+
 ```
 Request:
   If-None-Match: "abc123..."
@@ -1578,7 +1737,7 @@ Response (if not modified):
 ```typescript
 // types/personalization.ts
 
-import type { Beach, EnhancedForecastEntity } from '@/types/database';
+import type { Beach, EnhancedForecastEntity } from "@/types/database";
 
 /**
  * Personalized forecast recommendation
@@ -1586,25 +1745,25 @@ import type { Beach, EnhancedForecastEntity } from '@/types/database';
 export interface PersonalizedForecastRecommendation {
   beach: Beach;
   window: {
-    start: string;        // ISO 8601 timestamp
-    end: string;          // ISO 8601 timestamp
+    start: string; // ISO 8601 timestamp
+    end: string; // ISO 8601 timestamp
     tide: string;
     wind: string;
-    waveHeight: string;   // camelCase
-    confidence: number;   // 0-100
+    waveHeight: string; // camelCase
+    confidence: number; // 0-100
   };
   forecast: EnhancedForecastEntity;
-  score: number;          // 0-100
+  score: number; // 0-100
   personalized: boolean;
   breakdown: {
     base: number;
-    onboardingPrefs: number;  // camelCase
-    learnedPrefs: number;     // camelCase
+    onboardingPrefs: number; // camelCase
+    learnedPrefs: number; // camelCase
     affinity: number;
   };
   summary: string;
   reasons: string[];
-  generatedAt: string;    // ISO 8601, camelCase
+  generatedAt: string; // ISO 8601, camelCase
 }
 
 /**
@@ -1613,7 +1772,7 @@ export interface PersonalizedForecastRecommendation {
 export interface ApiSuccess<T> {
   success: true;
   data: T;
-  timestamp: string;  // ISO 8601
+  timestamp: string; // ISO 8601
 }
 
 /**
@@ -1623,7 +1782,7 @@ export interface ApiError {
   success: false;
   error: string;
   details?: any;
-  timestamp: string;  // ISO 8601
+  timestamp: string; // ISO 8601
 }
 
 /**
@@ -1637,25 +1796,28 @@ export type PersonalizedForecastResponse =
 ### Example Requests
 
 **Example 1: Get personalized forecast with location**
+
 ```bash
 curl -X GET \
-  'https://quiver.surf/api/home/personalized-forecast?lat=32.7157&lon=-117.1611' \
+  'https://www.quiversurf.app/api/home/personalized-forecast?lat=32.7157&lon=-117.1611' \
   -H 'Cookie: sb-access-token=eyJhbG...' \
   -H 'Accept: application/json'
 ```
 
 **Example 2: Get personalized forecast with home beach override**
+
 ```bash
 curl -X GET \
-  'https://quiver.surf/api/home/personalized-forecast?homeBeachId=123e4567-e89b-12d3-a456-426614174000' \
+  'https://www.quiversurf.app/api/home/personalized-forecast?homeBeachId=123e4567-e89b-12d3-a456-426614174000' \
   -H 'Cookie: sb-access-token=eyJhbG...' \
   -H 'Accept: application/json'
 ```
 
 **Example 3: Conditional request with ETag**
+
 ```bash
 curl -X GET \
-  'https://quiver.surf/api/home/personalized-forecast' \
+  'https://www.quiversurf.app/api/home/personalized-forecast' \
   -H 'Cookie: sb-access-token=eyJhbG...' \
   -H 'If-None-Match: "abc123..."' \
   -H 'Accept: application/json'
@@ -1664,12 +1826,14 @@ curl -X GET \
 ### Caching Strategy (Three-Tier)
 
 1. **HTTP Cache** (Browser/CDN):
+
    - Duration: 5 minutes
    - Headers: `Cache-Control: public, max-age=300`
    - Invalidation: Time-based expiration
    - Support: `If-None-Match` for bandwidth savings
 
 2. **Server-side Cache** (LRU):
+
    - Duration: 5 minutes
    - Key: `userId-lat-lon`
    - Size: 100 entries
@@ -1686,6 +1850,7 @@ curl -X GET \
 **Breaking Changes**: Require new endpoint (e.g., `/api/home/personalized-forecast-v2`)
 
 **Deprecation Policy**:
+
 - Breaking changes require 90-day notice
 - Old version supported for 6 months after deprecation
 - Deprecated endpoints return `Warning` header:
@@ -1694,11 +1859,13 @@ curl -X GET \
   ```
 
 **Safe Changes** (non-breaking):
+
 - Adding optional fields to response
 - Adding new query parameters (with defaults)
 - Adding new error codes
 
 **Breaking Changes** (require new version):
+
 - Removing or renaming fields
 - Changing field types
 - Changing required parameters
@@ -1707,10 +1874,12 @@ curl -X GET \
 ### Rate Limiting
 
 **Limits**:
+
 - 10 requests per minute per user
 - Sliding window algorithm
 
 **Headers**:
+
 ```
 X-RateLimit-Limit: 10
 X-RateLimit-Remaining: 7
@@ -1718,6 +1887,7 @@ X-RateLimit-Reset: 1700300400  // Unix timestamp
 ```
 
 **Exceeded Response**:
+
 ```
 429 Too Many Requests
 Retry-After: 60  // Seconds until reset
@@ -1726,6 +1896,7 @@ Retry-After: 60  // Seconds until reset
 **Implementation** (choose one):
 
 Option 1: Supabase database-backed (recommended for accuracy):
+
 ```sql
 -- Migration: rate_limiting.sql
 CREATE TABLE IF NOT EXISTS api_rate_limits (
@@ -1766,13 +1937,14 @@ $$ LANGUAGE plpgsql;
 ```
 
 Option 2: In-memory (Upstash Redis):
+
 ```typescript
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(10, '1 m'),
+  limiter: Ratelimit.slidingWindow(10, "1 m"),
   analytics: true,
 });
 
@@ -1785,12 +1957,14 @@ const { success, limit, remaining, reset } = await ratelimit.limit(
 ### Performance Requirements
 
 **API Response Times**:
+
 - P50: <500ms
 - P95: <1500ms
 - P99: <3000ms
 - Timeout: 5000ms (hard limit)
 
 **Monitoring**:
+
 ```typescript
 // Log metrics for each request
 {
@@ -1807,6 +1981,7 @@ const { success, limit, remaining, reset } = await ratelimit.limit(
 ```
 
 **Alerting**:
+
 - P95 > 2s for 5 minutes → Alert engineering
 - Cache hit rate < 50% for 1 hour → Investigate
 - Error rate > 5% for 5 minutes → Alert on-call
@@ -1818,6 +1993,7 @@ const { success, limit, remaining, reset } = await ratelimit.limit(
 Based on comprehensive architectural review, the following critical fixes were applied:
 
 #### 1. API Response Format (CRITICAL FIX)
+
 - ❌ **Before**: Returned 204 No Content when no personalized data available
 - ✅ **After**: Returns 200 with `{ success: true, data: metadata }` containing reason and context
 - **Impact**: Consistent with Quiver's `ApiSuccess`/`ApiError` pattern, provides actionable frontend feedback
@@ -1827,6 +2003,7 @@ Based on comprehensive architectural review, the following critical fixes were a
   - Frontend can now show specific messages based on `reason` (insufficient_data, no_beaches, etc.)
 
 #### 2. Rate Limiting Implementation (CRITICAL FIX)
+
 - ❌ **Before**: Rate limiting mentioned but not implemented
 - ✅ **After**: Uses `withRateLimit` middleware from existing Quiver infrastructure
 - **Impact**: Prevents API abuse, aligns with existing rate limiting patterns
@@ -1836,6 +2013,7 @@ Based on comprehensive architectural review, the following critical fixes were a
   - Documented rate limit tier definition
 
 #### 3. Coordinate Naming Violations (CRITICAL FIX)
+
 - ❌ **Before**: Used `centerLat`/`centerLng` in API response, `lng` in parameters
 - ✅ **After**: Uses `latitude`/`longitude` in API response, `lat`/`lon` in parameters
 - **Impact**: Prevents mapping bugs, aligns with documented coordinate conventions
@@ -1845,6 +2023,7 @@ Based on comprehensive architectural review, the following critical fixes were a
   - All parameters use `lat`/`lon` (NOT `lng`)
 
 #### 4. useDataFetcher Integration (CRITICAL FIX)
+
 - ❌ **Before**: Used `cache: "no-store"` which bypasses HTTP caching
 - ✅ **After**: Uses `next: { revalidate: 0 }` to respect HTTP Cache-Control headers
 - **Impact**: Allows proper HTTP caching, improves performance
@@ -1854,6 +2033,7 @@ Based on comprehensive architectural review, the following critical fixes were a
   - Improved error handling to extract error message from response
 
 #### 5. RLS Policies (NEW ADDITION)
+
 - ❌ **Before**: No RLS policy implementation documented
 - ✅ **After**: Complete RLS policies for `user_surf_preferences` and `user_beach_affinity`
 - **Impact**: Ensures data security, prevents unauthorized access
@@ -1863,6 +2043,7 @@ Based on comprehensive architectural review, the following critical fixes were a
   - Added testing SQL to verify RLS policies work correctly
 
 #### 6. Migration Verification Script (NEW ADDITION)
+
 - ❌ **Before**: No automated dependency verification
 - ✅ **After**: SQL script to verify all required tables, columns, and RLS policies exist
 - **Impact**: Prevents runtime failures from missing dependencies
@@ -1872,6 +2053,7 @@ Based on comprehensive architectural review, the following critical fixes were a
   - Provides clear error messages with migration numbers to run
 
 ### Previous Design Review Fixes (Already Applied)
+
 1. ✅ **Data Fetching Pattern**: Uses `useDataFetcher` hook correctly
 2. ✅ **Performance Optimization**: Batching, caching, timeouts implemented
 3. ✅ **Component Architecture**: Aligned with `forecast-tab.tsx` patterns
@@ -1881,7 +2063,9 @@ Based on comprehensive architectural review, the following critical fixes were a
 7. ✅ **Performance Budgets**: Specific metrics (P50 <500ms, P95 <1.5s, P99 <3s)
 
 ### Ready for Implementation
+
 This refined plan now:
+
 - Follows Quiver's established patterns exactly
 - Includes production-ready code examples
 - Has comprehensive testing strategy
@@ -1895,6 +2079,7 @@ This refined plan now:
 **Supporting**: Data platform (preference enrichment), Infrastructure (caching, monitoring)
 **Estimated Timeline**: 3-4 weeks from start to full rollout
 **Dependencies**:
+
 - `user_surf_preferences` table populated (>70% coverage)
 - `user_beach_affinity` migration deployed
 - Feature flag infrastructure available

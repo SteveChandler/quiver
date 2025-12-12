@@ -10,25 +10,28 @@ All public API endpoints are protected by rate limiting to prevent abuse and ens
 
 ### Rate Limit Policies
 
-| Endpoint Category | Requests/Minute | Requests/Hour | Burst Limit | Notes |
-|-------------------|-----------------|---------------|-------------|-------|
-| **Image Proxy** (`/api/image-proxy`) | 10 | 100 | 5 | CRITICAL: SSRF protection |
-| **Recommendations** (`/api/v1/recommendations`) | 20 | 200 | 5 | Expensive N+1 queries |
-| **Beach Search** (`/api/beaches/search`) | 30 | 300 | 10 | Complex search operations |
-| **Forecast Bulk** (`/api/forecasts/bulk`) | 60 | 1000 | 20 | Bulk data fetching |
-| **Coach Picks** (`/api/coach-picks`) | 60 | 1000 | 20 | RPC function calls |
-| **Public Endpoints** (general) | 60 | 1000 | 20 | Standard public access |
-| **Authenticated Endpoints** | 120 | 5000 | 50 | Higher limits for auth users |
+| Endpoint Category                               | Requests/Minute | Requests/Hour | Burst Limit | Notes                        |
+| ----------------------------------------------- | --------------- | ------------- | ----------- | ---------------------------- |
+| **Image Proxy** (`/api/image-proxy`)            | 10              | 100           | 5           | CRITICAL: SSRF protection    |
+| **Recommendations** (`/api/v1/recommendations`) | 20              | 200           | 5           | Expensive N+1 queries        |
+| **Beach Search** (`/api/beaches/search`)        | 30              | 300           | 10          | Complex search operations    |
+| **Forecast Bulk** (`/api/forecasts/bulk`)       | 60              | 1000          | 20          | Bulk data fetching           |
+| **Coach Picks** (`/api/coach-picks`)            | 60              | 1000          | 20          | RPC function calls           |
+| **Public Endpoints** (general)                  | 60              | 1000          | 20          | Standard public access       |
+| **Authenticated Endpoints**                     | 120             | 5000          | 50          | Higher limits for auth users |
 
 ### Understanding Rate Limits
 
 #### Requests Per Minute
+
 The maximum number of requests allowed in any 60-second rolling window.
 
 #### Requests Per Hour
+
 The maximum number of requests allowed in any 1-hour rolling window.
 
 #### Burst Limit
+
 The maximum number of rapid consecutive requests allowed. Prevents sudden spikes.
 
 ### Rate Limit Headers
@@ -49,12 +52,13 @@ When rate limit is exceeded, you'll receive:
 {
   "success": false,
   "error": "Rate limit exceeded. Please wait before making more requests.",
-  "retryAfter": 42,  // Seconds until you can retry
+  "retryAfter": 42, // Seconds until you can retry
   "timestamp": "2025-11-14T10:15:00Z"
 }
 ```
 
 **HTTP Headers:**
+
 ```http
 HTTP/1.1 429 Too Many Requests
 Retry-After: 42
@@ -74,7 +78,9 @@ async function makeRequest(url: string) {
   const response = await fetch(url);
 
   // Check rate limit headers
-  const remaining = parseInt(response.headers.get('X-RateLimit-Remaining') || '0');
+  const remaining = parseInt(
+    response.headers.get("X-RateLimit-Remaining") || "0"
+  );
 
   if (remaining < 5) {
     // Approaching limit - slow down
@@ -95,7 +101,7 @@ async function fetchWithRetry(url: string, maxRetries = 3) {
     const response = await fetch(url);
 
     if (response.status === 429) {
-      const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
+      const retryAfter = parseInt(response.headers.get("Retry-After") || "60");
       console.log(`Rate limited. Retrying after ${retryAfter}s`);
       await delay(retryAfter * 1000);
       continue;
@@ -104,7 +110,7 @@ async function fetchWithRetry(url: string, maxRetries = 3) {
     return response;
   }
 
-  throw new Error('Max retries exceeded');
+  throw new Error("Max retries exceeded");
 }
 ```
 
@@ -121,7 +127,7 @@ async function cachedFetch(url: string) {
 
   const headers: HeadersInit = {};
   if (cached?.etag) {
-    headers['If-None-Match'] = cached.etag;
+    headers["If-None-Match"] = cached.etag;
   }
 
   const response = await fetch(url, { headers });
@@ -131,7 +137,7 @@ async function cachedFetch(url: string) {
     return cached.data;
   }
 
-  const etag = response.headers.get('ETag');
+  const etag = response.headers.get("ETag");
   const data = await response.json();
 
   if (etag) {
@@ -153,7 +159,7 @@ for (const beachId of beachIds) {
 }
 
 // Good: Single bulk request
-const beachIdsParam = beachIds.join(',');
+const beachIdsParam = beachIds.join(",");
 await fetch(`/api/forecasts/bulk?beachIds=${beachIdsParam}`);
 ```
 
@@ -166,30 +172,33 @@ await fetch(`/api/forecasts/bulk?beachIds=${beachIdsParam}`);
 **Risk:** Server-Side Request Forgery (SSRF)
 
 **Protections:**
+
 - Strict rate limiting (10 req/min)
 - Domain whitelist (only approved image sources)
 - No redirects followed
 - User agent filtering
 
 **Usage:**
+
 ```typescript
 // Only whitelisted domains allowed
 const allowedDomains = [
-  'api.openverse.org',
-  'upload.wikimedia.org',
-  'live.staticflickr.com',
-  'i0.wp.com',
-  'i1.wp.com',
-  'i2.wp.com',
-  'files.wordpress.com'
+  "api.openverse.org",
+  "upload.wikimedia.org",
+  "live.staticflickr.com",
+  "i0.wp.com",
+  "i1.wp.com",
+  "i2.wp.com",
+  "files.wordpress.com",
 ];
 
 // Example: Proxy an image
-const imageUrl = encodeURIComponent('https://api.openverse.org/image.jpg');
+const imageUrl = encodeURIComponent("https://api.openverse.org/image.jpg");
 const proxyUrl = `/api/image-proxy?url=${imageUrl}`;
 ```
 
 **Do NOT:**
+
 - Try to proxy internal URLs (127.0.0.1, localhost, etc.)
 - Use for non-image content
 - Bypass domain whitelist
@@ -199,19 +208,22 @@ const proxyUrl = `/api/image-proxy?url=${imageUrl}`;
 **Risk:** N+1 query performance issue
 
 **Protections:**
+
 - Rate limiting (20 req/min)
 - Limited to 25 beaches per request
 - Query timeout enforcement
 
 **Usage:**
+
 ```typescript
 // Get recommendations for location
 const response = await fetch(
-  '/api/v1/recommendations?lat=33.7701&lon=-118.1937&skill=intermediate'
+  "/api/v1/recommendations?lat=33.7701&lon=-118.1937&skill=intermediate"
 );
 ```
 
 **Do NOT:**
+
 - Poll this endpoint continuously
 - Make parallel requests
 - Use for real-time updates (data updates hourly)
@@ -237,14 +249,15 @@ Public endpoints allow anonymous access with standard rate limits.
 Authenticated users get higher rate limits. Include session token:
 
 ```typescript
-const response = await fetch('/api/endpoint', {
+const response = await fetch("/api/endpoint", {
   headers: {
-    'Cookie': 'sb-access-token=...',
+    Cookie: "sb-access-token=...",
   },
 });
 ```
 
 **Benefits:**
+
 - 2x higher rate limits
 - Access to private data
 - Personalized responses
@@ -267,15 +280,15 @@ Permissions-Policy: geolocation=(self), camera=(), microphone=()
 ### Allowed Origins
 
 Development: `http://localhost:3000`
-Production: `https://quiver.surf`, `https://*.vercel.app`
+Production: `https://www.quiversurf.app`, `https://*.vercel.app`
 
 ### Preflight Requests
 
 OPTIONS requests are handled automatically. Include credentials:
 
 ```typescript
-fetch('/api/endpoint', {
-  credentials: 'include',  // Include cookies
+fetch("/api/endpoint", {
+  credentials: "include", // Include cookies
 });
 ```
 
@@ -288,7 +301,7 @@ Rate limit violations are logged for security monitoring:
 ```json
 {
   "endpoint": "beach-search",
-  "identifier": "192.168.1.x",  // IP masked for privacy
+  "identifier": "192.168.1.x", // IP masked for privacy
   "timestamp": "2025-11-14T10:15:00Z",
   "limits": {
     "perMinute": 30,
@@ -301,11 +314,13 @@ Rate limit violations are logged for security monitoring:
 ### Attack Detection
 
 Automated attack detection triggers on:
+
 - 5+ violations within 5 minutes
 - Distributed attacks from multiple IPs
 - Unusual traffic patterns
 
 **Response:**
+
 - Critical alerts sent to security team
 - Automatic IP blocking (future)
 - Incident investigation
@@ -333,6 +348,7 @@ Currently using in-memory rate limiting. Future improvements:
 When traffic grows beyond serverless constraints:
 
 **Benefits:**
+
 - True distributed rate limiting
 - Persistent across cold starts
 - Accurate counts across all instances
@@ -343,15 +359,15 @@ When traffic grows beyond serverless constraints:
 
 ### Common Error Codes
 
-| Code | Meaning | Action |
-|------|---------|--------|
-| 400 | Bad Request | Check request parameters |
-| 401 | Unauthorized | Authenticate or refresh session |
-| 403 | Forbidden | Access denied (check permissions) |
-| 404 | Not Found | Endpoint or resource doesn't exist |
-| 429 | Too Many Requests | Wait and retry (check `Retry-After`) |
-| 500 | Internal Server Error | Retry with backoff, report if persists |
-| 503 | Service Unavailable | Temporary outage, retry with backoff |
+| Code | Meaning               | Action                                 |
+| ---- | --------------------- | -------------------------------------- |
+| 400  | Bad Request           | Check request parameters               |
+| 401  | Unauthorized          | Authenticate or refresh session        |
+| 403  | Forbidden             | Access denied (check permissions)      |
+| 404  | Not Found             | Endpoint or resource doesn't exist     |
+| 429  | Too Many Requests     | Wait and retry (check `Retry-After`)   |
+| 500  | Internal Server Error | Retry with backoff, report if persists |
+| 503  | Service Unavailable   | Temporary outage, retry with backoff   |
 
 ### Error Response Format
 
@@ -359,7 +375,8 @@ When traffic grows beyond serverless constraints:
 {
   "success": false,
   "error": "Human-readable error message",
-  "details": {  // Optional, only in development
+  "details": {
+    // Optional, only in development
     "field": "specific error details"
   },
   "timestamp": "2025-11-14T10:15:00Z"
@@ -369,6 +386,7 @@ When traffic grows beyond serverless constraints:
 ## Changelog
 
 ### 2025-11-14: Initial Rate Limiting Implementation
+
 - Added rate limiting to 10+ public endpoints
 - Implemented tiered limits based on risk
 - Added monitoring and telemetry

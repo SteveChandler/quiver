@@ -29,7 +29,7 @@ jest.mock("sonner", () => ({
 
 // Mock clipboard API
 const mockClipboardWriteText = jest.fn().mockResolvedValue(undefined);
-Object.defineProperty(navigator, 'clipboard', {
+Object.defineProperty(navigator, "clipboard", {
   writable: true,
   configurable: true,
   value: {
@@ -37,10 +37,18 @@ Object.defineProperty(navigator, 'clipboard', {
   },
 });
 
-const mockShareSession = shareSession as jest.MockedFunction<typeof shareSession>;
-const mockTrackSessionShare = trackSessionShare as jest.MockedFunction<typeof trackSessionShare>;
-const mockGenerateShareUrl = generateShareUrl as jest.MockedFunction<typeof generateShareUrl>;
-const mockGenerateShareImageUrl = generateShareImageUrl as jest.MockedFunction<typeof generateShareImageUrl>;
+const mockShareSession = shareSession as jest.MockedFunction<
+  typeof shareSession
+>;
+const mockTrackSessionShare = trackSessionShare as jest.MockedFunction<
+  typeof trackSessionShare
+>;
+const mockGenerateShareUrl = generateShareUrl as jest.MockedFunction<
+  typeof generateShareUrl
+>;
+const mockGenerateShareImageUrl = generateShareImageUrl as jest.MockedFunction<
+  typeof generateShareImageUrl
+>;
 const mockTrack = track as jest.MockedFunction<typeof track>;
 
 const defaultProps = {
@@ -56,10 +64,20 @@ describe("SessionShareModal", () => {
     jest.clearAllMocks();
 
     // Setup default mocks
-    mockGenerateShareUrl.mockReturnValue("https://quiversurf.app/sessions/session-123?utm_source=instagram");
-    mockGenerateShareImageUrl.mockResolvedValue("https://quiversurf.app/api/social/share/og?sessionId=session-123&variant=story&t=abc123");
-    mockShareSession.mockResolvedValue({ method: "web", url: "https://quiversurf.app/sessions/session-123" });
-    mockTrackSessionShare.mockResolvedValue({ success: true, share: null, shareUrl: "" });
+    mockGenerateShareUrl.mockResolvedValue(
+      "https://www.quiversurf.app/sessions/session-123?utm_source=instagram"
+    );
+    mockGenerateShareImageUrl.mockResolvedValue(
+      "https://www.quiversurf.app/api/social/share/og?sessionId=session-123&variant=story&t=abc123"
+    );
+    mockShareSession.mockResolvedValue({
+      method: "web",
+      url: "https://www.quiversurf.app/sessions/session-123",
+    });
+    mockTrackSessionShare.mockResolvedValue({
+      success: true,
+      data: { success: true, share: null, shareUrl: "" },
+    });
   });
 
   describe("Rendering", () => {
@@ -168,11 +186,15 @@ describe("SessionShareModal", () => {
 
       // Instagram should have pink color
       const instagramButton = screen.getByText("Instagram").closest("button");
-      expect(instagramButton?.querySelector(".text-pink-600")).toBeInTheDocument();
+      expect(
+        instagramButton?.querySelector(".text-pink-600")
+      ).toBeInTheDocument();
 
       // Twitter should have blue color
       const twitterButton = screen.getByText("Twitter").closest("button");
-      expect(twitterButton?.querySelector(".text-blue-500")).toBeInTheDocument();
+      expect(
+        twitterButton?.querySelector(".text-blue-500")
+      ).toBeInTheDocument();
     });
   });
 
@@ -250,7 +272,10 @@ describe("SessionShareModal", () => {
       await user.click(instagramButton);
 
       await waitFor(() => {
-        expect(mockGenerateShareImageUrl).toHaveBeenCalledWith("session-123", "story");
+        expect(mockGenerateShareImageUrl).toHaveBeenCalledWith(
+          "session-123",
+          "story"
+        );
       });
     });
 
@@ -341,7 +366,9 @@ describe("SessionShareModal", () => {
       await user.click(instagramButton);
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Failed to share. Please try again.");
+        expect(toast.error).toHaveBeenCalledWith(
+          "Failed to share. Please try again."
+        );
       });
     });
   });
@@ -432,7 +459,9 @@ describe("SessionShareModal", () => {
 
       // Error is caught and toast is shown (inner try-catch handles it)
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Failed to share. Please try again.");
+        expect(toast.error).toHaveBeenCalledWith(
+          "Failed to share. Please try again."
+        );
       });
     });
 
@@ -458,7 +487,9 @@ describe("SessionShareModal", () => {
       render(<SessionShareModal {...defaultProps} shareCount={0} />);
 
       expect(screen.getByText("Be the first to share! 🌊")).toBeInTheDocument();
-      expect(screen.getByText(/Help grow the Quiver community/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Help grow the Quiver community/)
+      ).toBeInTheDocument();
     });
 
     it("should show progress prompt when shareCount is 1-2", () => {
@@ -471,7 +502,9 @@ describe("SessionShareModal", () => {
     it("should not show prompts when shareCount is 3+", () => {
       render(<SessionShareModal {...defaultProps} shareCount={3} />);
 
-      expect(screen.queryByText("Be the first to share! 🌊")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Be the first to share! 🌊")
+      ).not.toBeInTheDocument();
       expect(screen.queryByText("Keep it going! 🚀")).not.toBeInTheDocument();
     });
 
@@ -493,7 +526,12 @@ describe("SessionShareModal", () => {
   describe("Loading States", () => {
     it("should show loading spinner while sharing", async () => {
       const user = userEvent.setup();
-      mockShareSession.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ method: "web", url: "" }), 100)));
+      mockShareSession.mockImplementation(
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ method: "web", url: "" }), 100)
+          )
+      );
 
       render(<SessionShareModal {...defaultProps} />);
 
@@ -509,7 +547,12 @@ describe("SessionShareModal", () => {
 
     it("should disable buttons while sharing", async () => {
       const user = userEvent.setup();
-      mockShareSession.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ method: "web", url: "" }), 100)));
+      mockShareSession.mockImplementation(
+        () =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve({ method: "web", url: "" }), 100)
+          )
+      );
 
       render(<SessionShareModal {...defaultProps} />);
 
@@ -549,9 +592,12 @@ describe("SessionShareModal", () => {
       fireEvent.keyDown(dialog, { key: "Escape", code: "Escape" });
 
       await waitFor(() => {
-        expect(mockTrack).toHaveBeenCalledWith("share_modal_closed", expect.objectContaining({
-          sharedCount: 2,
-        }));
+        expect(mockTrack).toHaveBeenCalledWith(
+          "share_modal_closed",
+          expect.objectContaining({
+            sharedCount: 2,
+          })
+        );
       });
     });
   });
@@ -568,7 +614,10 @@ describe("SessionShareModal", () => {
       await user.click(screen.getByText("Instagram"));
 
       await waitFor(() => {
-        expect(mockGenerateShareImageUrl).toHaveBeenCalledWith("session-123", "square");
+        expect(mockGenerateShareImageUrl).toHaveBeenCalledWith(
+          "session-123",
+          "square"
+        );
       });
     });
 
@@ -616,7 +665,9 @@ describe("SessionShareModal", () => {
 
       // Negative counts don't match any gamification prompt conditions
       // (shareCount === 0 is false, shareCount > 0 && shareCount < 3 is false)
-      expect(screen.queryByText("Be the first to share! 🌊")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Be the first to share! 🌊")
+      ).not.toBeInTheDocument();
       expect(screen.queryByText("Keep it going! 🚀")).not.toBeInTheDocument();
     });
 

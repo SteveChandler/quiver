@@ -14,6 +14,7 @@
 Quiver is a full-stack surf tracking application that combines session logging, multi-source forecasting, and social features to create the ultimate surf companion app.
 
 **Key Features:**
+
 - 📱 **Mobile-First**: Native iOS and Android apps (Capacitor)
 - 🌐 **Web Platform**: Full-featured web application
 - 🔮 **Smart Forecasting**: Multi-source forecast aggregation (NOAA, NDBC, CDIP)
@@ -67,14 +68,15 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
 **New to the project?** These guides eliminate common confusion:
 
-| Guide | Solves |
-|-------|--------|
-| **[Supabase Setup Guide](docs/SUPABASE_SETUP.md)** ⭐ | "Which Supabase client should I use?" |
-| **[Environment Variables](.env.example)** | "What environment variables do I need?" |
-| **[Testing Guide](docs/TESTING_GUIDE.md)** _(coming soon)_ | "How do I run tests?" |
-| **[Troubleshooting](docs/TROUBLESHOOTING.md)** | "Why isn't X working?" |
+| Guide                                                      | Solves                                  |
+| ---------------------------------------------------------- | --------------------------------------- |
+| **[Supabase Setup Guide](docs/SUPABASE_SETUP.md)** ⭐      | "Which Supabase client should I use?"   |
+| **[Environment Variables](.env.example)**                  | "What environment variables do I need?" |
+| **[Testing Guide](docs/TESTING_GUIDE.md)** _(coming soon)_ | "How do I run tests?"                   |
+| **[Troubleshooting](docs/TROUBLESHOOTING.md)**             | "Why isn't X working?"                  |
 
 **Quick Answers:**
+
 - **Supabase Connection**: Use `lib/supabase/client` for browser, `lib/supabase/server` for server components, `lib/supabase/api-server-client` for API routes. See [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)
 - **Running Tests**: `yarn test` (unit tests), `npx playwright test` (E2E tests). See [TEST_ARCHITECTURE.md](docs/TEST_ARCHITECTURE.md)
 - **Local Supabase**: Run `supabase start`, copy keys from `supabase status` to `.env.local`
@@ -85,39 +87,40 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
 ### Architecture & Design
 
-| Document | Description |
-|----------|-------------|
+| Document                                                                  | Description                                                             |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | **[System Architecture Guide](docs/architecture/SYSTEM_ARCHITECTURE.md)** | Complete system overview, design decisions, and architecture principles |
-| **[API Documentation](docs/architecture/API_DOCUMENTATION.md)** | Complete REST API reference with examples |
-| **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Top-level index to all architecture documentation |
+| **[API Documentation](docs/architecture/API_DOCUMENTATION.md)**           | Complete REST API reference with examples                               |
+| **[ARCHITECTURE.md](docs/ARCHITECTURE.md)**                               | Top-level index to all architecture documentation                       |
 
 ### Architecture Diagrams
 
-| Diagram | Purpose |
-|---------|---------|
-| **[System Context](docs/diagrams/system-context.md)** | High-level ecosystem view with external dependencies |
-| **[Container Architecture](docs/diagrams/container-architecture.md)** | Technology containers and their interactions |
-| **[Database Schema (ERD)](docs/diagrams/database-schema.md)** | Complete database design with 40+ tables |
-| **[Authentication Flow](docs/diagrams/auth-flow.md)** | User authentication and authorization architecture |
-| **[Session Creation Flow](docs/diagrams/session-creation-flow.md)** | End-to-end session creation with 11 steps |
-| **[Deployment Architecture](docs/diagrams/deployment.md)** | Production infrastructure and CI/CD pipeline |
-| **[API Request Lifecycle](docs/diagrams/api-request-flow.md)** | Complete API request processing flow |
+| Diagram                                                               | Purpose                                              |
+| --------------------------------------------------------------------- | ---------------------------------------------------- |
+| **[System Context](docs/diagrams/system-context.md)**                 | High-level ecosystem view with external dependencies |
+| **[Container Architecture](docs/diagrams/container-architecture.md)** | Technology containers and their interactions         |
+| **[Database Schema (ERD)](docs/diagrams/database-schema.md)**         | Complete database design with 40+ tables             |
+| **[Authentication Flow](docs/diagrams/auth-flow.md)**                 | User authentication and authorization architecture   |
+| **[Session Creation Flow](docs/diagrams/session-creation-flow.md)**   | End-to-end session creation with 11 steps            |
+| **[Deployment Architecture](docs/diagrams/deployment.md)**            | Production infrastructure and CI/CD pipeline         |
+| **[API Request Lifecycle](docs/diagrams/api-request-flow.md)**        | Complete API request processing flow                 |
 
 ### Development Guides
 
-| Guide | Description |
-|-------|-------------|
-| **[SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)** ⭐ | Complete Supabase connection guide - which client to use when |
-| **[SETUP.md](docs/SETUP.md)** | Development environment setup and configuration |
-| **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Common development issues and solutions |
-| **[CLAUDE.md](docs/CLAUDE.md)** | AI-assisted development guide and coding standards |
-| **[MOBILE_LOCAL_DEV.md](docs/MOBILE_LOCAL_DEV.md)** | Mobile development with local tunnels |
+| Guide                                               | Description                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| **[SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)** ⭐  | Complete Supabase connection guide - which client to use when |
+| **[SETUP.md](docs/SETUP.md)**                       | Development environment setup and configuration               |
+| **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**   | Common development issues and solutions                       |
+| **[CLAUDE.md](docs/CLAUDE.md)**                     | AI-assisted development guide and coding standards            |
+| **[MOBILE_LOCAL_DEV.md](docs/MOBILE_LOCAL_DEV.md)** | Mobile development with local tunnels                         |
 
 ---
 
 ## 🛠️ Technology Stack
 
 ### Frontend
+
 - **Framework**: Next.js 14 (App Router, React Server Components)
 - **Language**: TypeScript 5.6
 - **Styling**: Tailwind CSS 3.4
@@ -126,6 +129,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 - **Maps**: Google Maps + Mapbox
 
 ### Backend
+
 - **API**: Next.js API Routes (serverless)
 - **Database**: PostgreSQL 15 (via Supabase)
 - **Authentication**: Supabase Auth (JWT-based)
@@ -133,17 +137,20 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 - **Real-time**: Supabase Realtime (WebSocket)
 
 ### Mobile
+
 - **Framework**: Capacitor 7
 - **Platforms**: iOS, Android
 - **Native Features**: Camera, Geolocation, Push Notifications
 
 ### Infrastructure
+
 - **Hosting**: Vercel (serverless functions + CDN)
 - **Database**: Supabase (managed PostgreSQL)
 - **Push Notifications**: Firebase Cloud Messaging
 - **CI/CD**: GitHub Actions
 
 ### External APIs
+
 - **NOAA APIs**: Wave forecasts, tides, wind
 - **NDBC Buoys**: Real-time wave measurements
 - **CDIP Stations**: Coastal wave data
@@ -211,22 +218,26 @@ npx cap open android     # Open in Android Studio
 ### Development Workflow
 
 1. **Create a feature branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
 2. **Make changes following established patterns**
+
    - Read relevant `ARCHITECTURE.md` files in each directory
    - Use `useDataFetcher` for data fetching
    - Use `withAuthenticatedAction` for server actions
    - Use centralized API utilities from `lib/api-utils.ts`
 
 3. **Write tests**
+
    - Unit tests for utilities and hooks
    - Component tests for UI components
    - E2E tests for critical user flows
 
 4. **Run tests and build**
+
    ```bash
    yarn test
    yarn build
@@ -234,6 +245,7 @@ npx cap open android     # Open in Android Studio
    ```
 
 5. **Update CHANGELOG.md**
+
    - Add entry under `[Unreleased]` section
 
 6. **Create Pull Request**
@@ -283,11 +295,13 @@ npx playwright test --grep auth   # E2E tests matching "auth"
 ### Production Deployment
 
 **Web Application:**
+
 - Automatic deployment to Vercel on merge to `main`
 - Preview deployments for all pull requests
-- URL: [quiversurf.app](https://quiversurf.app)
+- URL: [www.quiversurf.app](https://www.quiversurf.app)
 
 **Mobile Apps:**
+
 - Manual build and submission to app stores
 - TestFlight (iOS) for beta testing
 - Google Play internal/beta tracks for testing
@@ -391,6 +405,7 @@ See [Database Schema Documentation](docs/diagrams/database-schema.md) for comple
 ### Building Mobile Apps
 
 **iOS:**
+
 ```bash
 yarn build:ios
 npx cap sync ios
@@ -399,6 +414,7 @@ npx cap open ios
 ```
 
 **Android:**
+
 ```bash
 yarn build:android
 npx cap sync android
@@ -429,16 +445,19 @@ See [Mobile Development Guide](docs/MOBILE_LOCAL_DEV.md) for detailed instructio
 ### Development Standards
 
 1. **Read Architecture Docs First**
+
    - Check `ARCHITECTURE.md` files in relevant directories
    - Follow established patterns (data fetching, server actions, API utilities)
 
 2. **Code Style**
+
    - TypeScript-first with explicit types
    - Functional components with hooks
    - Early returns for guard clauses
    - Meaningful variable names
 
 3. **Testing Requirements**
+
    - Add tests for new features
    - Maintain 95%+ test coverage
    - E2E tests for critical user flows
@@ -518,6 +537,7 @@ Refs: #issue-number
 ### Common Issues
 
 **Build Errors:**
+
 ```bash
 # Clear Next.js cache
 rm -rf .next
@@ -528,6 +548,7 @@ yarn install
 ```
 
 **Database Connection Issues:**
+
 ```bash
 # Restart Supabase
 supabase stop
@@ -538,6 +559,7 @@ supabase db reset
 ```
 
 **Type Errors:**
+
 ```bash
 # Regenerate types
 supabase gen types typescript --project-id <id> > types/database.ts

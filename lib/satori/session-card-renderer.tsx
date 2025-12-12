@@ -8,7 +8,11 @@ import satori, { type SatoriOptions } from "satori";
 import { Resvg } from "@resvg/resvg-js";
 import QRCode from "qrcode";
 import type { SessionWithDetails } from "@/types/database";
-import type { ShareVariant, AspectRatio, GeneratedImage } from "@/types/session-share";
+import type {
+  ShareVariant,
+  AspectRatio,
+  GeneratedImage,
+} from "@/types/session-share";
 import { ASPECT_RATIO_DIMENSIONS } from "@/types/session-share";
 import { loadFonts } from "@/lib/social-share-utils";
 import { format } from "date-fns";
@@ -16,7 +20,10 @@ import { format } from "date-fns";
 /**
  * Extract session data for rendering
  */
-function extractSessionData(session: SessionWithDetails, photoCount: number = 0) {
+function extractSessionData(
+  session: SessionWithDetails,
+  photoCount: number = 0
+) {
   const beachName = session.beaches?.name || "Unknown Beach";
   const date = format(new Date(session.arrival_time), "MMM d, yyyy");
   const rating = session.rating || 0;
@@ -130,7 +137,11 @@ function renderPhotoBadge(photoCount: number, color: string = "#FFFFFF") {
       },
     },
     React.createElement("span", null, "📷"),
-    React.createElement("span", null, `${photoCount} ${photoCount === 1 ? "photo" : "photos"}`)
+    React.createElement(
+      "span",
+      null,
+      `${photoCount} ${photoCount === 1 ? "photo" : "photos"}`
+    )
   );
 }
 
@@ -310,7 +321,8 @@ function renderVariant1(
   const { width, height } = dimensions;
 
   // Default ocean background (can be overridden with session photo in future)
-  const backgroundImage = "linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%), linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #f59e0b 100%)";
+  const backgroundImage =
+    "linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%), linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #f59e0b 100%)";
 
   return React.createElement(
     "div",
@@ -512,8 +524,7 @@ function renderVariant2(
       {
         style: {
           height: imageHeight,
-          backgroundImage:
-            "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+          backgroundImage: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
           display: "flex",
           padding: 32,
           justifyContent: "space-between",
@@ -1013,8 +1024,7 @@ function renderVariant6(
         display: "flex",
         flexDirection: "column",
         padding: 64,
-        backgroundImage:
-          "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        backgroundImage: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
       },
     },
     // Header
@@ -1179,12 +1189,19 @@ export async function renderSessionCardImage(
     }
 
     // Generate QR code for session share URL
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
     const shareUrl = `${baseUrl}/s/${session.id}`;
     const qrCode = await generateQRCode(shareUrl);
 
     // Render JSX to SVG using Satori
-    const jsx = renderVariant(session, variant, aspectRatio, photoCount, qrCode);
+    const jsx = renderVariant(
+      session,
+      variant,
+      aspectRatio,
+      photoCount,
+      qrCode
+    );
     const satoriOptions: SatoriOptions = {
       width: dimensions.width,
       height: dimensions.height,

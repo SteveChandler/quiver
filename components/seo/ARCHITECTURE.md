@@ -59,8 +59,8 @@ const organizationSchema = {
   "@type": "Organization",
   name: "Quiver",
   description: "Community-driven surf forecasting and session tracking",
-  url: "https://quiver.surf",
-  logo: "https://quiver.surf/logo.png",
+  url: "https://www.quiversurf.app",
+  logo: "https://www.quiversurf.app/logo.png",
   sameAs: [
     "https://twitter.com/quiversurf",
     "https://instagram.com/quiversurf",
@@ -300,19 +300,19 @@ const breadcrumbSchema = {
       "@type": "ListItem",
       position: 1,
       name: "Home",
-      item: "https://quiver.surf",
+      item: "https://www.quiversurf.app",
     },
     {
       "@type": "ListItem",
       position: 2,
       name: "Beaches",
-      item: "https://quiver.surf/map",
+      item: "https://www.quiversurf.app/map",
     },
     {
       "@type": "ListItem",
       position: 3,
       name: beachName,
-      item: `https://quiver.surf/beach/${beachId}`,
+      item: `https://www.quiversurf.app/beach/${beachId}`,
     },
   ],
 };

@@ -1,4 +1,5 @@
 # Database Migration Deployment Summary
+
 **Date:** 2025-10-30
 **Project:** Quiver Surf App
 **Environment:** Production Supabase (vawdnbbgawichorsjiwe)
@@ -14,6 +15,7 @@ Critical database functions have been successfully deployed to production Supaba
 ## Problem Statement
 
 The production Supabase database had outdated function definitions that referenced non-existent columns:
+
 - `b.latitude` and `b.longitude` (should be `b.latitude` and `b.longitude` - already correct)
 - `b.swell_rating` and `b.wind_rating` (columns removed in prior migrations)
 - `b.state` (column structure changed)
@@ -21,6 +23,7 @@ The production Supabase database had outdated function definitions that referenc
 This caused build failures during Vercel deployments when Next.js attempted to pre-generate static location pages via `generateStaticParams()`.
 
 **Error Messages Observed:**
+
 ```
 Error: column b.latitude does not exist
 Error: column b.state does not exist
@@ -32,17 +35,21 @@ Error: column b.swell_rating does not exist
 ## Migrations Deployed
 
 ### Migration 1: `20251030000000_fix_location_ranking_functions.sql`
+
 **Status:** ✅ Applied to production
 **Purpose:** Fix references to non-existent columns in location ranking functions
 
 **Functions Updated:**
+
 1. `get_beaches_by_location_with_scores(p_city, p_state, p_country)`
+
    - Returns beaches for a specific location with composite ranking scores
    - Fixed column references to use `b.latitude`, `b.longitude`
    - Removed references to `b.swell_rating`, `b.wind_rating`
    - Uses composite scoring: rating (40%), review volume (30%), recent intel (20%), intel quality (10%)
 
 2. `get_all_beach_locations()`
+
    - Returns unique city/state/country combinations for static page generation
    - Critical for Next.js `generateStaticParams()` function
    - Filters locations with 3+ beaches
@@ -52,21 +59,26 @@ Error: column b.swell_rating does not exist
    - Includes total beaches, average rating, total reviews, top beaches count
 
 **Security:**
+
 - All functions use `SECURITY DEFINER` with proper permissions
 - Granted `EXECUTE` to both `authenticated` and `anon` roles (location pages are public)
 
 **Performance:**
+
 - Added indexes on `beaches(city, state, country)` for fast lookups
 - Added index on `intel_posts(beach_id, created_at)` for recent activity queries
 
 ---
 
 ### Migration 2: `20251030183000_create_metro_area_functions.sql`
+
 **Status:** ✅ Applied to production
 **Purpose:** Enable metro area aggregation (e.g., "San Diego Area" combining multiple neighborhoods)
 
 **Functions Created:**
+
 1. `get_beaches_by_metro_with_scores(p_cities[], p_state, p_country)`
+
    - Returns beaches across multiple cities in a metro area
    - Uses same ranking algorithm as single-city function
    - Example: San Diego metro includes La Jolla, Pacific Beach, San Diego
@@ -76,10 +88,12 @@ Error: column b.swell_rating does not exist
    - Includes cities count, total beaches, average rating, total reviews
 
 **Security:**
+
 - Functions use `SECURITY DEFINER` for safe execution
 - Public access granted for location pages
 
 **Example Usage:**
+
 ```sql
 SELECT * FROM get_beaches_by_metro_with_scores(
   ARRAY['La Jolla', 'Pacific Beach', 'San Diego'],
@@ -91,12 +105,14 @@ SELECT * FROM get_beaches_by_metro_with_scores(
 ---
 
 ### Migration 3: `20251030200000_force_redeploy_location_functions.sql`
+
 **Status:** ✅ Applied to production
 **Purpose:** Force re-creation of all location functions to ensure production schema is up-to-date
 
 This migration was created to ensure the production database has the correct function definitions, combining DDL from migrations 1 and 2.
 
 **Why This Was Needed:**
+
 - Migrations 1 and 2 were already marked as "applied" in the migration history
 - However, production database still had stale function definitions
 - This forced a complete DROP and CREATE of all functions
@@ -106,29 +122,37 @@ This migration was created to ensure the production database has the correct fun
 ## Deployment Process
 
 ### Step 1: Verify Current State
+
 ```bash
 npx supabase migration list --linked
 ```
+
 - Confirmed linked project: `quiverDB` (vawdnbbgawichorsjiwe)
 - Identified that migrations were marked as applied but functions were outdated
 
 ### Step 2: Create Force-Redeploy Migration
+
 Created `/supabase/migrations/20251030200000_force_redeploy_location_functions.sql` combining:
+
 - All DROP statements for existing functions
 - All CREATE statements with correct schema
 - All GRANT statements for permissions
 
 ### Step 3: Deploy to Production
+
 ```bash
 npx supabase db push --linked --include-all
 ```
+
 - Successfully applied migration `20251030200000`
 - No errors during deployment
 
 ### Step 4: Verification
+
 ```bash
 npx supabase gen types typescript --linked
 ```
+
 - Generated TypeScript types from production database
 - Confirmed all 5 functions present with correct signatures:
   - ✅ `get_beaches_by_location_with_scores`
@@ -144,11 +168,13 @@ npx supabase gen types typescript --linked
 ### Fixed Issues
 
 1. **Vercel Build Failures**
+
    - Next.js can now successfully pre-generate static location pages
    - `generateStaticParams()` no longer fails with column errors
    - Build time reduced (no failed builds requiring retries)
 
 2. **Location Pages**
+
    - `/locations/[country]/[state]/[city]` routes now work correctly
    - Beach rankings display accurate composite scores
    - Stats (total beaches, average rating) calculate correctly
@@ -214,6 +240,7 @@ SELECT * FROM get_metro_stats(
 ### Monitoring
 
 Monitor the following post-deployment:
+
 - ✅ Vercel build success rate
 - ✅ Location page load times
 - ✅ Database query performance (check Supabase dashboard)
@@ -224,30 +251,34 @@ Monitor the following post-deployment:
 ## Technical Details
 
 ### Database Configuration
+
 - **Project:** quiverDB (vawdnbbgawichorsjiwe)
 - **Region:** West US (North California)
 - **Database Version:** PostgreSQL 15
 - **Linked:** Yes (via Supabase CLI)
 
 ### Migration Files
+
 All migration files located in `/supabase/migrations/`:
+
 - `20251030000000_fix_location_ranking_functions.sql` (332 lines)
 - `20251030183000_create_metro_area_functions.sql` (215 lines)
 - `20251030200000_force_redeploy_location_functions.sql` (463 lines)
 
 ### Functions Summary
 
-| Function Name | Parameters | Returns | Purpose |
-|---------------|------------|---------|---------|
-| `get_all_beach_locations` | None | Table of locations | Get all unique city/state/country combinations |
-| `get_beaches_by_location_with_scores` | city, state, country | Table of beaches | Get ranked beaches for a location |
-| `get_location_stats` | city, state, country | Statistics row | Get aggregate stats for a location |
-| `get_beaches_by_metro_with_scores` | cities[], state, country | Table of beaches | Get ranked beaches across metro area |
-| `get_metro_stats` | cities[], state, country | Statistics row | Get aggregate stats for metro area |
+| Function Name                         | Parameters               | Returns            | Purpose                                        |
+| ------------------------------------- | ------------------------ | ------------------ | ---------------------------------------------- |
+| `get_all_beach_locations`             | None                     | Table of locations | Get all unique city/state/country combinations |
+| `get_beaches_by_location_with_scores` | city, state, country     | Table of beaches   | Get ranked beaches for a location              |
+| `get_location_stats`                  | city, state, country     | Statistics row     | Get aggregate stats for a location             |
+| `get_beaches_by_metro_with_scores`    | cities[], state, country | Table of beaches   | Get ranked beaches across metro area           |
+| `get_metro_stats`                     | cities[], state, country | Statistics row     | Get aggregate stats for metro area             |
 
 ### Composite Score Algorithm
 
 All ranking functions use the same composite score formula:
+
 ```
 composite_score =
   (rating / 5.0) * 0.40 +                                    // 40% weight
@@ -277,12 +308,14 @@ If issues arise, rollback is possible:
 ## Files Modified
 
 ### New Files Created
+
 - `/supabase/migrations/20251030200000_force_redeploy_location_functions.sql`
 - `/private/tmp/redeploy_functions.sql` (temporary, can be deleted)
 - `/private/tmp/test_functions.sql` (temporary, can be deleted)
 - `/private/tmp/test_db_functions.mjs` (temporary, can be deleted)
 
 ### Files Not Modified
+
 - Existing migrations remain unchanged
 - Application code requires no changes
 - Environment variables unchanged
@@ -306,9 +339,10 @@ All critical database functions have been updated in production. The Next.js bui
 - **Database:** Supabase Project `quiverDB`
 - **Deployment Tool:** Supabase CLI v1.x
 - **Migration Status:** All migrations applied
-- **Production URL:** `https://quiversurf.app`
+- **Production URL:** `https://www.quiversurf.app`
 
 For questions or issues, check:
+
 1. Supabase Dashboard → SQL Editor → Run verification queries
 2. Vercel Dashboard → Deployments → Build logs
 3. Application logs → Check for database query errors

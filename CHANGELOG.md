@@ -25,11 +25,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Standardized wind alignment scoring to prefer `wind_direction_deg` (with safe fallback parsing for legacy rows).
   - Normalized condition scoring so a 100 match is achievable even when a beach is missing wind/tide metadata.
 
+- **Canonical Host Normalization (www)** (December 2025)
+
+  - Standardized canonical URLs, OpenGraph URLs, and structured data to use `https://www.quiversurf.app` as the single canonical host.
+  - Updated share URL fallbacks, docs, and tests to avoid mixing `quiver.surf` / non-www `quiversurf.app` hosts (reduces Search Console “alternate with proper canonical” noise).
+
 - **Onboarding/Tour Overlay Gating** (December 2025)
 
   - Prevented onboarding and product tour overlays from mounting on the landing page when logged out.
 
+- **Legacy State/City URLs Redirect to Map** (December 2025)
+
+  - Redirects legacy 2-segment URLs like `/ca/encinitas` to `/map?search=Encinitas` so users land on the filtered map instead of a 404.
+  - Preserves 3-segment beach detail routes like `/ca/san-diego/ocean-beach`.
+
 - **Forecast Cron Job Reliability Improvements** (December 2025)
+
   - Fixed parallel processing overload in `updateAllEnhancedForecasts` - now processes beaches in batches of 5 with 2-second delays between batches.
   - Standardized the canonical cron endpoint to `/api/cron/enhanced-forecast-sync` and ensured it runs via **GET** (Vercel Cron default) as well as POST.
   - Updated Vercel cron scheduling to run `/api/cron/enhanced-forecast-sync` every 6 hours (and removed the duplicate scheduled `/api/cron/refresh-forecasts` job).
@@ -50,6 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added geographic coordinate-based tide station lookup for beaches not in the name-based mapping.
   - Added detailed logging for batch progress, success/failure counts, and station selection.
   - Resolves issue where forecasts were not updating (170+ hours stale) due to API rate limiting and function timeouts.
+
+- **Forecast Health Check Coverage Accuracy** (December 2025)
+  - Fixed `/api/monitoring/forecast-health` under-reporting coverage/staleness by paginating `enhanced_forecasts` and computing metrics from the latest row per beach (avoids Supabase/PostgREST default page limits).
 
 ### Added
 

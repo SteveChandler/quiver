@@ -11,7 +11,7 @@ import { buildShareText, buildShortShareText, buildInstagramLinkStickerTooltip }
  * Get base URL for the application
  */
 function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+  return process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 }
 
 /**

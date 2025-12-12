@@ -62,7 +62,7 @@ export async function trackSessionShare(input: ShareSessionInput) {
     }
 
     // Generate share URL with UTM parameters
-    const shareUrl = generateShareUrl({
+    const shareUrl = await generateShareUrl({
       sessionId,
       platform,
       variant,
@@ -120,7 +120,8 @@ export async function generateShareUrl(options: ShareUrlOptions): Promise<string
   // Normalize variant to numeric format
   const variant = normalizeVariant(inputVariant);
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
   const sessionUrl = `${baseUrl}/sessions/${sessionId}`;
 
   // Add UTM parameters for analytics
@@ -159,7 +160,8 @@ export async function generateShareImageUrl(
     .update(canonical)
     .digest("hex");
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
   const imageUrl = new URL(`${baseUrl}/api/social/share/og`);
   imageUrl.searchParams.set("sessionId", sessionId);
   imageUrl.searchParams.set("variant", String(normalizedVariant));

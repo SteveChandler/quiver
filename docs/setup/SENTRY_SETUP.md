@@ -17,26 +17,34 @@ yarn add @sentry/nextjs
 ## Configuration Files
 
 ### 1. Client Configuration
+
 **File**: `sentry.client.config.ts`
+
 - Initializes Sentry for client-side errors
 - Enabled only in production (`NODE_ENV === "production"`)
 - Includes Session Replay integration (10% sample rate, 100% on errors)
 - Traces sample rate: 100% (adjust in production if needed)
 
 ### 2. Server Configuration
+
 **File**: `sentry.server.config.ts`
+
 - Initializes Sentry for server-side errors
 - Enabled only in production
 - Traces sample rate: 100%
 
 ### 3. Edge Configuration
+
 **File**: `sentry.edge.config.ts`
+
 - Initializes Sentry for edge runtime (middleware, edge functions)
 - Enabled only in production
 - Traces sample rate: 100%
 
 ### 4. Next.js Configuration
+
 **File**: `next.config.mjs`
+
 - Wrapped with `withSentryConfig()` for automatic instrumentation
 - Configures source map uploads
 - Enables automatic Vercel Cron Monitors
@@ -49,6 +57,7 @@ The share image generation API route has been instrumented with Sentry error tra
 **File**: `app/api/sessions/[id]/share-image/route.ts`
 
 **Error Capture**:
+
 ```typescript
 Sentry.captureException(error, {
   tags: {
@@ -69,6 +78,7 @@ Sentry.captureException(error, {
 ```
 
 **What Gets Tracked**:
+
 - Image generation failures
 - Font loading errors
 - Session fetch errors
@@ -82,6 +92,7 @@ Sentry.captureException(error, {
 Add these environment variables to your Vercel project or deployment environment:
 
 #### Sentry DSN (Required)
+
 ```bash
 # Client-side DSN (public)
 NEXT_PUBLIC_SENTRY_DSN=https://YOUR_PUBLIC_KEY@YOUR_SENTRY_ORG.ingest.sentry.io/YOUR_PROJECT_ID
@@ -91,6 +102,7 @@ SENTRY_DSN=https://YOUR_PUBLIC_KEY@YOUR_SENTRY_ORG.ingest.sentry.io/YOUR_PROJECT
 ```
 
 #### Sentry Project Configuration (Optional, for source map uploads)
+
 ```bash
 SENTRY_ORG=your-organization-slug
 SENTRY_PROJECT=your-project-slug
@@ -100,21 +112,25 @@ SENTRY_AUTH_TOKEN=your-auth-token  # For uploading source maps in CI/CD
 ### Getting Your Sentry DSN
 
 1. **Create a Sentry Account** (if you don't have one):
+
    - Go to [sentry.io](https://sentry.io)
    - Sign up or log in
 
 2. **Create a New Project**:
+
    - Click "Create Project"
    - Select "Next.js" as the platform
    - Name it "quiversurf" or similar
    - Click "Create Project"
 
 3. **Get Your DSN**:
+
    - After project creation, you'll see your DSN
    - It looks like: `https://abc123@o123.ingest.sentry.io/456`
    - Copy this value
 
 4. **Add to Vercel**:
+
    ```bash
    # Using Vercel CLI
    vercel env add NEXT_PUBLIC_SENTRY_DSN
@@ -136,6 +152,7 @@ SENTRY_AUTH_TOKEN=your-auth-token  # For uploading source maps in CI/CD
 Once Sentry is configured with your DSN, set up these alerts:
 
 #### 1. High Error Rate Alert
+
 **Path**: Settings > Alerts > Create Alert Rule
 
 - **Metric**: Error count
@@ -145,6 +162,7 @@ Once Sentry is configured with your DSN, set up these alerts:
 - **Priority**: P1 - High
 
 #### 2. Image Generation Performance Alert
+
 **Path**: Settings > Alerts > Create Alert Rule
 
 - **Metric**: Transaction duration (P95)
@@ -154,6 +172,7 @@ Once Sentry is configured with your DSN, set up these alerts:
 - **Priority**: P2 - Medium
 
 #### 3. Rate Limit Exceeded Alert
+
 **Path**: Settings > Alerts > Create Alert Rule
 
 - **Metric**: Custom event count
@@ -165,6 +184,7 @@ Once Sentry is configured with your DSN, set up these alerts:
 ### Slack Integration
 
 1. **Install Sentry Slack App**:
+
    - Go to Settings > Integrations
    - Find and install "Slack"
    - Authenticate with your Slack workspace
@@ -183,12 +203,14 @@ Sentry is disabled in development by default (`enabled: process.env.NODE_ENV ===
 To test locally:
 
 1. **Temporarily enable Sentry in dev**:
+
    ```typescript
    // In sentry.server.config.ts
    enabled: true, // Force enable for testing
    ```
 
 2. **Trigger a test error**:
+
    ```bash
    curl http://localhost:3000/api/sessions/invalid-id/share-image?variant=1
    ```
@@ -205,15 +227,17 @@ To test locally:
 After deployment:
 
 1. **Trigger a test error**:
+
    ```bash
    # Try invalid session ID
-   curl https://quiversurf.app/api/sessions/00000000-0000-0000-0000-000000000000/share-image?variant=1
+   curl https://www.quiversurf.app/api/sessions/00000000-0000-0000-0000-000000000000/share-image?variant=1
 
    # Try invalid variant
-   curl https://quiversurf.app/api/sessions/VALID_SESSION_ID/share-image?variant=99
+   curl https://www.quiversurf.app/api/sessions/VALID_SESSION_ID/share-image?variant=99
    ```
 
 2. **Verify in Sentry dashboard**:
+
    - Go to Issues tab
    - Look for recent errors
    - Click to see details, stack traces, breadcrumbs
@@ -225,16 +249,19 @@ After deployment:
 ### Key Metrics to Track
 
 1. **Error Rate**:
+
    - Path: Dashboards > Create Dashboard > Add "Error Rate" widget
    - Filter: `feature:social-share`
    - Goal: <1% error rate
 
 2. **Response Time (P95)**:
+
    - Widget: Transaction duration (P95)
    - Transaction: `/api/sessions/*/share-image`
    - Goal: <2 seconds
 
 3. **Throughput**:
+
    - Widget: Events per minute
    - Filter: `feature:social-share`
    - Tracks: Share activity over time
@@ -260,6 +287,7 @@ After deployment:
 ### Sentry Not Receiving Errors
 
 **Check**:
+
 1. `NEXT_PUBLIC_SENTRY_DSN` is set in Vercel
 2. `SENTRY_DSN` is set in Vercel
 3. `NODE_ENV=production` in deployed environment
@@ -268,6 +296,7 @@ After deployment:
 ### Source Maps Not Uploading
 
 **Check**:
+
 1. `SENTRY_AUTH_TOKEN` is set in CI/CD
 2. `SENTRY_ORG` and `SENTRY_PROJECT` match your Sentry project
 3. Check build logs for "Sentry" or "source map" messages
@@ -275,6 +304,7 @@ After deployment:
 ### Too Many Alerts
 
 **Solutions**:
+
 1. Increase alert thresholds
 2. Add filters to reduce noise
 3. Use "Ignore" rules for known non-critical errors
@@ -283,21 +313,25 @@ After deployment:
 ## Cost Considerations
 
 Sentry pricing is based on:
+
 - **Events**: Errors and transactions
 - **Replay sessions**: Session recordings
 
 **Free Tier** (Developer plan):
+
 - 5,000 errors/month
 - 10,000 performance units/month
 - 1 user
 
 **Recommended Plan** (Team plan - $26/month):
+
 - 50,000 errors/month
 - 100,000 performance units/month
 - Unlimited users
 - Better support
 
 **Estimate for QuiverSurf**:
+
 - Expected errors: <500/month (with 1% error rate at 50k shares)
 - Performance events: ~50k/month (100% trace sampling)
 - **Recommended**: Start with free tier, upgrade if needed
@@ -309,17 +343,20 @@ Sentry pricing is based on:
 1. **Acknowledge alert** in Slack/email
 
 2. **Assess severity**:
+
    - P0: >5% error rate or total outage
    - P1: 1-5% error rate
    - P2: <1% error rate but concerning pattern
 
 3. **Check Sentry issue**:
+
    - View error details
    - Check stack trace
    - Review breadcrumbs
    - Look for patterns (variant, aspect ratio, etc.)
 
 4. **Quick fixes**:
+
    - If font issue: Verify fonts exist on server
    - If rate limit: Check for abuse
    - If auth: Check Supabase status

@@ -13,7 +13,8 @@ import { buildSessionDescription } from "@/lib/share/share-text-builder";
 import { SharePageClient } from "./share-client";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
 /**
  * Fetch session data server-side
@@ -159,7 +160,13 @@ export default async function SharePage({
                   name: beachName,
                 },
             startDate: session.arrival_time,
-            endDate: session.departure_time || undefined,
+            endDate:
+              session.duration_minutes && session.duration_minutes > 0
+                ? new Date(
+                    new Date(session.arrival_time).getTime() +
+                      session.duration_minutes * 60 * 1000
+                  ).toISOString()
+                : undefined,
             aggregateRating: session.rating
               ? {
                   "@type": "AggregateRating",

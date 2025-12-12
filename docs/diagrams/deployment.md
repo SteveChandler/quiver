@@ -168,7 +168,7 @@ graph LR
     end
 
     subgraph "Deployment Targets"
-        VercelProd[Vercel Production<br/>quiversurf.app]
+        VercelProd[Vercel Production<br/>www.quiversurf.app]
         VercelPreview[Vercel Preview<br/>PR Deployments]
     end
 
@@ -433,6 +433,7 @@ npx cap sync android
 ### Supabase Configuration
 
 **Project Settings**:
+
 - **Region**: US West (Oregon)
 - **Instance Size**: Free Tier (upgradable to Pro)
 - **Storage**: 10GB database + 1GB file storage
@@ -483,7 +484,7 @@ GOOGLE_MAPS_API_KEY=[api-key]
 MAPBOX_ACCESS_TOKEN=[token]
 
 # App Config
-NEXT_PUBLIC_APP_URL=https://quiversurf.app
+NEXT_PUBLIC_APP_URL=https://www.quiversurf.app
 NODE_ENV=production
 ```
 
@@ -503,14 +504,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=[local-anon-key]
 
 ### Current Capacity
 
-| Component | Current Limit | Notes |
-|-----------|--------------|-------|
-| **Vercel Functions** | Unlimited invocations | Auto-scales per request |
-| **Database Connections** | 100 (pooled) | PgBouncer connection pooling |
-| **Database Storage** | 10GB | Upgradable to 100GB+ |
-| **File Storage** | 1GB | Upgradable to unlimited |
-| **CDN Bandwidth** | Unlimited | Fair use policy |
-| **WebSocket Connections** | 10,000+ | Supabase Realtime auto-scales |
+| Component                 | Current Limit         | Notes                         |
+| ------------------------- | --------------------- | ----------------------------- |
+| **Vercel Functions**      | Unlimited invocations | Auto-scales per request       |
+| **Database Connections**  | 100 (pooled)          | PgBouncer connection pooling  |
+| **Database Storage**      | 10GB                  | Upgradable to 100GB+          |
+| **File Storage**          | 1GB                   | Upgradable to unlimited       |
+| **CDN Bandwidth**         | Unlimited             | Fair use policy               |
+| **WebSocket Connections** | 10,000+               | Supabase Realtime auto-scales |
 
 ### Auto-Scaling Behavior
 
@@ -639,6 +640,7 @@ graph TD
 ### Database Backups
 
 **Supabase Pro Plan**:
+
 - **Frequency**: Daily automatic backups
 - **Retention**: 7 days (configurable up to 30 days)
 - **Type**: Full database dump + point-in-time recovery
@@ -732,24 +734,24 @@ graph LR
 
 ### Current Costs (Estimated)
 
-| Service | Plan | Monthly Cost |
-|---------|------|--------------|
-| **Vercel** | Pro | $20/month |
-| **Supabase** | Pro | $25/month |
+| Service      | Plan         | Monthly Cost                 |
+| ------------ | ------------ | ---------------------------- |
+| **Vercel**   | Pro          | $20/month                    |
+| **Supabase** | Pro          | $25/month                    |
 | **Firebase** | Spark (Free) | $0 (pay-as-you-go for scale) |
-| **Domain** | Namecheap | $12/year |
-| **Total** | | ~$46/month |
+| **Domain**   | Namecheap    | $12/year                     |
+| **Total**    |              | ~$46/month                   |
 
 ### Scaling Costs
 
 At 10,000 monthly active users:
 
-| Service | Estimated Cost |
-|---------|---------------|
-| **Vercel** | $20-40/month (function invocations included) |
-| **Supabase** | $25-50/month (database + bandwidth) |
-| **Firebase** | $10-20/month (push notifications) |
-| **Total** | ~$55-110/month |
+| Service      | Estimated Cost                               |
+| ------------ | -------------------------------------------- |
+| **Vercel**   | $20-40/month (function invocations included) |
+| **Supabase** | $25-50/month (database + bandwidth)          |
+| **Firebase** | $10-20/month (push notifications)            |
+| **Total**    | ~$55-110/month                               |
 
 ### Cost Optimization Strategies
 
@@ -778,6 +780,7 @@ At 10,000 monthly active users:
 ---
 
 **Deployment Summary**:
+
 - Fully automated CI/CD pipeline
 - Preview deployments for every PR
 - Production deployments on merge to main

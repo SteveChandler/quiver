@@ -187,7 +187,11 @@ export async function shareSession(
       : undefined,
   };
 
-  trackShare("share_session_fallback", "fallback", fallbackContext);
+  trackShare(
+    "share_session_fallback",
+    "fallback",
+    fallbackContext as unknown as Record<string, unknown>
+  );
   if (options.fallback) {
     await options.fallback(fallbackContext);
   }
@@ -205,6 +209,7 @@ export function buildSessionUrl(sessionId: string): string {
   if (typeof window !== "undefined") {
     return `${window.location.origin}/sessions/${sessionId}`; // eslint-disable-line no-restricted-properties
   }
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
   return `${origin}/sessions/${sessionId}`;
 }

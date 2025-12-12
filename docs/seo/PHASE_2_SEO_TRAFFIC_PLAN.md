@@ -159,7 +159,7 @@ export default async function StateLandingPage({ params }) {
   "@type": "CollectionPage",
   "name": "California Surf Beaches",
   "description": "Complete guide to surfing in California",
-  "url": "https://quiversurf.app/california",
+  "url": "https://www.quiversurf.app/california",
   "mainEntity": {
     "@type": "ItemList",
     "numberOfItems": 156,
@@ -170,7 +170,7 @@ export default async function StateLandingPage({ params }) {
         "item": {
           "@type": "Beach",
           "name": "Ocean Beach",
-          "url": "https://quiversurf.app/ca/san-diego/ocean-beach"
+          "url": "https://www.quiversurf.app/ca/san-diego/ocean-beach"
         }
       }
       // ... more beaches
@@ -442,7 +442,7 @@ return [
 
 4. **Lighthouse SEO Audit**
    ```bash
-   npx lighthouse https://quiversurf.app/california --only-categories=seo
+   npx lighthouse https://www.quiversurf.app/california --only-categories=seo
    ```
 
 ### Manual Checklist
@@ -489,7 +489,4 @@ return [
 
 **Last Updated**: December 8, 2025  
 **Author**: Phase 2 SEO Planning
-
-
-
 

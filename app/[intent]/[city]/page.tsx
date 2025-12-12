@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 import {
@@ -15,6 +15,8 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { CityMapView } from "@/components/city/city-map-view";
 import type { BeachWithMetrics } from "@/types/location";
+import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
+import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 
 export const revalidate = 1800;
 
@@ -39,14 +41,27 @@ export async function generateStaticParams() {
 }
 
 interface IntentPageParams {
-  params: { intent: SurfIntentSlug; city: SurfCitySlug };
+  // NOTE: although this page is primarily for surf intents, this route also
+  // receives legacy 2-segment state/city URLs (e.g. /ca/encinitas).
+  params: { intent: string; city: string };
 }
 
 export async function generateMetadata({
   params,
 }: IntentPageParams): Promise<Metadata> {
+  // If this is a legacy state/city URL, we redirect in the page render.
+  // Metadata can't redirect, so just avoid surf-intent metadata generation.
+  if (isValidStateSlug(params.intent)) {
+    const cityName = parseLocationFromSlug(params.city);
+    return buildPageMetadata({
+      title: `Surf spots in ${cityName} | Quiver`,
+      description: `Open the surf map filtered to ${cityName}.`,
+      path: `/${params.intent}/${params.city}`,
+    });
+  }
+
   const city = getCityBySlug(params.city);
-  const definition = SURF_INTENTS[params.intent];
+  const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
   if (!city || !definition) return {};
 
   const now = new Date();
@@ -56,7 +71,10 @@ export async function generateMetadata({
   }).format(now);
 
   const title = definition.titleTemplate({ cityName: city.name });
-  const topSpotNames = getSpotsForIntent(city.slug, params.intent)
+  const topSpotNames = getSpotsForIntent(
+    city.slug,
+    params.intent as SurfIntentSlug
+  )
     .slice(0, 3)
     .map((spot) => spot.name);
   const description = definition.metaDescription({
@@ -79,13 +97,22 @@ export async function generateMetadata({
 
 export default function IntentPage({ params }: IntentPageParams) {
   const city = getCityBySlug(params.city);
-  const definition = SURF_INTENTS[params.intent];
+  const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
+
+  // Legacy 2-segment state/city route: redirect to map filtered by city
+  // Examples: /ca/encinitas, /or/newport
+  if (isValidStateSlug(params.intent)) {
+    const cityName = parseLocationFromSlug(params.city);
+    const redirectTo = `/map?search=${encodeURIComponent(cityName)}`;
+
+    redirect(redirectTo);
+  }
 
   if (!city || !definition) {
     return notFound();
   }
 
-  const spots = getSpotsForIntent(city.slug, params.intent);
+  const spots = getSpotsForIntent(city.slug, params.intent as SurfIntentSlug);
   if (spots.length === 0) {
     return notFound();
   }
@@ -247,7 +274,7 @@ export default function IntentPage({ params }: IntentPageParams) {
                 <ul className="mt-3 space-y-2 text-sm text-sky-700">
                   <li>
                     <a
-                      href={`/ca/${city.slug}`}
+                      href={`/beaches/usa/ca/${city.slug}`}
                       className="underline-offset-2 hover:underline"
                     >
                       Back to the {city.name} surf hub

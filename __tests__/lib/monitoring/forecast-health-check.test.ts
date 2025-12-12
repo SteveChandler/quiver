@@ -2,84 +2,89 @@
  * Tests for Forecast Health Check
  */
 
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+
+jest.mock('@/lib/utils/forecast-client-utils', () => ({
+  isDataStale: jest.fn(() => false),
+}));
+
+type RangeResult = { data: any[] | null; error: { message: string } | null };
+const rangeMock = jest.fn<(from: number, to: number) => Promise<RangeResult>>();
+
+jest.mock('@/lib/supabase/server', () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({
+    from: (table: string) => {
+      if (table === 'beaches') {
+        return {
+          select: jest.fn(() =>
+            Promise.resolve({
+              data: [
+                { id: 'beach-1', name: 'Beach One' },
+                { id: 'beach-2', name: 'Beach Two' },
+                { id: 'beach-3', name: 'Beach Three' },
+              ],
+              error: null,
+            })
+          ),
+        };
+      }
+
+      if (table === 'enhanced_forecasts') {
+        return {
+          select: jest.fn(() => ({
+            order: jest.fn(() => ({
+              range: rangeMock,
+            })),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    },
+  })),
+}));
 
 describe('Forecast Health Check', () => {
-  describe('Health Metrics Calculation', () => {
-    it('should categorize health status correctly', () => {
-      const testCases = [
-        {
-          criticalStale: 0,
-          coverage: 0.95,
-          expectedStatus: 'healthy',
-        },
-        {
-          criticalStale: 0,
-          coverage: 0.85,
-          expectedStatus: 'critical',
-        },
-        {
-          criticalStale: 5,
-          coverage: 0.95,
-          expectedStatus: 'critical',
-        },
-      ];
+  let checkForecastHealth: typeof import('@/lib/monitoring/forecast-health-check').checkForecastHealth;
 
-      testCases.forEach((testCase) => {
-        expect(testCase.expectedStatus).toBeDefined();
-      });
-    });
-
-    it('should identify stale beaches correctly', () => {
-      const now = Date.now();
-      const hourInMs = 60 * 60 * 1000;
-
-      const testBeaches = [
-        {
-          updated_at: new Date(now - 2 * hourInMs).toISOString(),
-          data_source: 'CDIP',
-          expectedStale: true,
-        },
-        {
-          updated_at: new Date(now - 1 * hourInMs).toISOString(),
-          data_source: 'CDIP',
-          expectedStale: false,
-        },
-      ];
-
-      testBeaches.forEach((beach) => {
-        expect(beach.expectedStale).toBeDefined();
-      });
-    });
+  beforeEach(async () => {
+    rangeMock.mockReset();
+    jest.resetModules();
+    ({ checkForecastHealth } = await import('@/lib/monitoring/forecast-health-check'));
   });
 
-  describe('Coverage Calculation', () => {
-    it('should calculate coverage percentage correctly', () => {
-      const testCases = [
-        { total: 100, withForecasts: 95, expected: 0.95 },
-        { total: 100, withForecasts: 100, expected: 1.0 },
-        { total: 100, withForecasts: 85, expected: 0.85 },
-      ];
+  it('paginates enhanced_forecasts so coverage is not undercounted', async () => {
+    const nowIso = new Date().toISOString();
 
-      testCases.forEach((testCase) => {
-        const coverage = testCase.withForecasts / testCase.total;
-        expect(coverage).toBe(testCase.expected);
-      });
-    });
-  });
-});
+    // Page 1: default page size worth of rows, all for beach-1 (simulates clustered updates)
+    const page1 = Array.from({ length: 5000 }, () => ({
+      beach_id: 'beach-1',
+      updated_at: nowIso,
+      data_source: 'NOAA_NWS',
+    }));
 
-describe('Forecast Logger', () => {
-  describe('Structured Logging', () => {
-    it('should format log entries with required fields', () => {
-      const logEntry = {
-        timestamp: new Date().toISOString(),
-        executionId: 'test-uuid',
-        level: 'info',
-      };
+    // Page 2: contains the remaining beaches so we can reach full coverage
+    const page2 = [
+      { beach_id: 'beach-2', updated_at: nowIso, data_source: 'NOAA_NWS' },
+      { beach_id: 'beach-3', updated_at: nowIso, data_source: 'NOAA_NWS' },
+      // extra rows shouldn't matter
+      { beach_id: 'beach-1', updated_at: nowIso, data_source: 'NOAA_NWS' },
+    ];
 
-      expect(logEntry.timestamp).toBeDefined();
-      expect(logEntry.executionId).toBeDefined();
-    });
+    rangeMock
+      .mockResolvedValueOnce({ data: page1, error: null })
+      .mockResolvedValueOnce({ data: page2, error: null });
+
+    const metrics = await checkForecastHealth();
+
+    expect(metrics.totalBeaches).toBe(3);
+    expect(metrics.beachesWithForecasts).toBe(3);
+    expect(metrics.coveragePercentage).toBe(1);
+    expect(metrics.beachesWithStaleData).toBe(0);
+    expect(metrics.healthStatus).toBe('healthy');
+
+    expect(rangeMock).toHaveBeenCalledTimes(2);
+    expect(rangeMock).toHaveBeenNthCalledWith(1, 0, 5000 - 1);
+    expect(rangeMock).toHaveBeenNthCalledWith(2, 5000, 2 * 5000 - 1);
   });
 });
