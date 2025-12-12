@@ -88,6 +88,9 @@ describe("PersonalizedForecastCard", () => {
       "Good match for your surf style",
     ],
     generated_at: "2025-11-21T08:00:00Z",
+    total_beaches_count: 1,
+    available_beaches_count: 1,
+    partial_success: false,
   };
 
   beforeEach(() => {

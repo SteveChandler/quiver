@@ -12,7 +12,6 @@ jest.mock("@/lib/gamification-actions", () => ({
 
 // Track last operations for assertions
 let lastProfileUpdate: any = null;
-let lastReferralInsert: any = null;
 let lastXPTrackCalls: any[] = [];
 
 // Mock server action utils
@@ -73,24 +72,8 @@ jest.mock("@/lib/server-action-utils", () => {
                   });
                 }
               }),
-              maybeSingle: () => Promise.resolve({
-                data: { id: 'referrer-123', referral_code: 'SURF2024' },
-                error: null
-              })
             })
           })
-        };
-      }
-
-      if (table === 'referrals') {
-        return {
-          insert: (data: any) => {
-            lastReferralInsert = data;
-            // Simulate referrals table doesn't exist
-            return Promise.resolve({
-              error: { message: 'relation "referrals" does not exist', code: '42P01' }
-            });
-          }
         };
       }
 
@@ -109,7 +92,6 @@ describe("saveOnboardingData", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     lastProfileUpdate = null;
-    lastReferralInsert = null;
     lastXPTrackCalls = [];
   });
 
@@ -270,48 +252,6 @@ describe("saveOnboardingData", () => {
     });
   });
 
-  describe("Referral Processing", () => {
-    it("should process referral code if provided", async () => {
-      const onboardingData = {
-        fullName: "Test User",
-        displayName: "test_user",
-        referralCode: "SURF2024",
-      };
-
-      const result = await saveOnboardingData(onboardingData);
-
-      expect(result.success).toBe(true);
-      // Referral insert attempted (even though table doesn't exist)
-      expect(lastReferralInsert).toBeDefined();
-    });
-
-    it("should not fail if referral table doesn't exist", async () => {
-      const onboardingData = {
-        fullName: "Test User",
-        displayName: "test_user",
-        referralCode: "SURF2024",
-      };
-
-      // Should still succeed even if referrals table doesn't exist
-      const result = await saveOnboardingData(onboardingData);
-
-      expect(result.success).toBe(true);
-    });
-
-    it("should skip referral processing if no code provided", async () => {
-      const onboardingData = {
-        fullName: "Test User",
-        displayName: "test_user",
-        // No referralCode
-      };
-
-      const result = await saveOnboardingData(onboardingData);
-
-      expect(result.success).toBe(true);
-      expect(lastReferralInsert).toBe(null);
-    });
-  });
-
   describe("Analytics Tracking", () => {
     it("should track onboarding_completed event with all metadata", async () => {
       const { track } = require("@/lib/analytics");
@@ -322,7 +262,6 @@ describe("saveOnboardingData", () => {
         homeBeachId: "beach-123",
         experienceLevel: "intermediate" as const,
         surfStyles: ["shortboard", "longboard"],
-        referralCode: "SURF2024",
         pushEnabled: true,
         emailEnabled: false,
       };
@@ -335,7 +274,6 @@ describe("saveOnboardingData", () => {
         has_home_beach: true,
         experience_level: 'intermediate',
         surf_styles_count: 2,
-        used_referral: true,
         push_enabled: true,
         email_enabled: false,
       });
@@ -357,7 +295,6 @@ describe("saveOnboardingData", () => {
         has_home_beach: false,
         experience_level: undefined,
         surf_styles_count: 0,
-        used_referral: false,
         push_enabled: false,
         email_enabled: true, // Default true when not provided
       });
@@ -417,7 +354,6 @@ describe("saveOnboardingData", () => {
         preferredWaveSize: "large" as const,
         preferredBreakType: "reef" as const,
         crowdPreference: "solitude" as const,
-        referralCode: "SURF2024",
         pushEnabled: true,
         emailEnabled: true,
       };

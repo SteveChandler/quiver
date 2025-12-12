@@ -234,7 +234,11 @@ describe('share-url-builder', () => {
         },
       };
 
-      const filename = buildImageFilename(sessionWithSpecialChars, 1, '1:1');
+      const filename = buildImageFilename(
+        sessionWithSpecialChars as SessionWithDetails,
+        1,
+        '1:1'
+      );
 
       expect(filename).not.toContain('/');
       expect(filename).toMatch(/^[a-zA-Z0-9_\-\.]+$/);

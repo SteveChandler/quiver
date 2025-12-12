@@ -378,8 +378,9 @@ describe("Viral Growth Mechanisms", () => {
         const loadSuggestions = async () => {
           setLoading(true);
           const result = await mockGetSuggestedUsers(5);
-          if (result.success && result.data) {
-            setSuggestions(result.data);
+          const data = (result as any)?.data;
+          if ((result as any)?.success && Array.isArray(data)) {
+            setSuggestions(data);
           }
           setLoading(false);
         };

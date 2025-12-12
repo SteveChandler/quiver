@@ -1261,6 +1261,7 @@ export type Database = {
           wave_period: string | null
           weather_condition: string | null
           wind_direction: string | null
+          wind_direction_deg: number | null
           wind_speed: string | null
           wind_wave_direction: string | null
           wind_wave_height: string | null
@@ -1294,6 +1295,7 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
+          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -1327,6 +1329,7 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
+          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -3318,6 +3321,7 @@ export type Database = {
           wave_period: string | null
           weather_condition: string | null
           wind_direction: string | null
+          wind_direction_deg: number | null
           wind_speed: string | null
           wind_wave_direction: string | null
           wind_wave_height: string | null
@@ -3351,6 +3355,7 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
+          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -3384,6 +3389,7 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
+          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null

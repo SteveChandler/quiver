@@ -26,7 +26,7 @@ import {
   AlertTriangle,
   Eye,
 } from "lucide-react";
-import formatDistanceToNow from "date-fns/formatDistanceToNow";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";

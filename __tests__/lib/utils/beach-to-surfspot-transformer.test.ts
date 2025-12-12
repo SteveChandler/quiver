@@ -48,7 +48,9 @@ describe("Beach to SurfSpot Transformer", () => {
 
       it("should NOT access beach.lng property (does not exist)", () => {
         // Verify the beach fixture doesn't have a lng property
-        expect((mockBeachComplete as Record<string, unknown>).lng).toBeUndefined();
+        expect(
+          (mockBeachComplete as unknown as Record<string, unknown>).lng
+        ).toBeUndefined();
 
         const result = transformBeachToSurfSpot(mockBeachComplete);
 

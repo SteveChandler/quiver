@@ -97,7 +97,8 @@ export async function GET(
     );
 
     // Return PNG with proper headers
-    return new NextResponse(png, {
+    const pngBody = png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength);
+    return new NextResponse(pngBody, {
       headers: {
         "Content-Type": "image/png",
         // Cache for 1 hour (as per requirements)

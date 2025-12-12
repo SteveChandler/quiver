@@ -136,8 +136,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         confirmed: true,
         confirmations_count: updatedPost?.confirmations_count || 0,
         confirmation_id: confirmation.id,
-      },
-      "Intel post confirmed successfully"
+      }
     );
   } catch (error) {
     console.error("Intel confirmation POST error:", error);
@@ -226,8 +225,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         confirmed: false,
         confirmations_count: updatedPost?.confirmations_count || 0,
         confirmation_id: deletedConfirmation.id,
-      },
-      "Intel post confirmation removed successfully"
+      }
     );
   } catch (error) {
     console.error("Intel confirmation DELETE error:", error);

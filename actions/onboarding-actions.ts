@@ -13,7 +13,6 @@ interface OnboardingData {
   preferredWaveSize?: 'small' | 'medium' | 'large' | 'any';
   preferredBreakType?: 'beach' | 'point' | 'reef' | 'any';
   crowdPreference?: 'social' | 'moderate' | 'solitude';
-  referralCode?: string;
   pushEnabled?: boolean;
   emailEnabled?: boolean;
 }
@@ -70,39 +69,6 @@ export async function saveOnboardingData(data: OnboardingData) {
       }
 
 
-      // Process referral code if provided
-      if (data.referralCode) {
-        const { data: referrer } = await supabase
-          .from('profiles')
-          .select('id, referral_code')
-          .eq('referral_code', data.referralCode)
-          .maybeSingle();
-
-        if (referrer) {
-          // Create referral record
-          const { error: referralError } = await supabase
-            .from('referrals')
-            .insert({
-              referrer_id: referrer.id,
-              referee_id: user.id,
-              referral_code: data.referralCode,
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-            });
-
-          if (!referralError) {
-            // Award XP for both users (if gamification system exists)
-            try {
-              const { trackXP } = await import('@/lib/gamification-actions');
-              await trackXP('referral_signup', user.id, 'invite');
-              await trackXP('successful_referral', referrer.id, 'invite');
-            } catch (xpError) {
-              console.log('XP tracking not available:', xpError);
-            }
-          }
-        }
-      }
-
       // Award welcome XP for completing onboarding
       try {
         const { trackXP } = await import('@/lib/gamification-actions');
@@ -117,7 +83,6 @@ export async function saveOnboardingData(data: OnboardingData) {
         has_home_beach: !!data.homeBeachId,
         experience_level: data.experienceLevel,
         surf_styles_count: data.surfStyles?.length || 0,
-        used_referral: !!data.referralCode,
         push_enabled: data.pushEnabled || false,
         email_enabled: data.emailEnabled !== false,
       });

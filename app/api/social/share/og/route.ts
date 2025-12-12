@@ -108,8 +108,9 @@ export async function GET(request: NextRequest) {
     };
 
     const { png } = await renderShareImage(data, variant, ratio);
+    const pngBody = png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength);
 
-    return new Response(png, {
+    return new Response(pngBody, {
       headers: {
         "Content-Type": "image/png",
         "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Total number of onboarding steps (0-indexed: steps 0-6)
-export const TOTAL_ONBOARDING_STEPS = 7;
+// Total number of onboarding steps (0-indexed: steps 0-5)
+export const TOTAL_ONBOARDING_STEPS = 6;
 
 interface OnboardingData {
   // Step 1: Welcome (no data stored)
@@ -24,10 +24,7 @@ interface OnboardingData {
   homeBeachId?: string;
   homeBeachName?: string;
 
-  // Step 6: Referral
-  referralCode?: string;
-
-  // Step 7: Completion (no data stored)
+  // Step 6: Completion (no data stored)
 }
 
 interface OnboardingStore {

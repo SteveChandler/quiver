@@ -2,6 +2,7 @@
 // and exports convenience type aliases for common usage patterns
 
 import type { Database } from './database.generated'
+import type { EnhancedForecastEntity as ForecastEnhancedForecastEntity } from './forecast'
 
 // Re-export the full Database type and JSON type
 export type { Database }
@@ -149,6 +150,45 @@ export type GetBestTimesRow = Database['public']['Functions']['get_best_times'][
 
 // Alias for enhanced forecast row (backward compatibility)
 export type Forecast = Database['public']['Tables']['enhanced_forecasts']['Row']
+
+/**
+ * Backward-compatible forecast types.
+ *
+ * These are used widely in older components/tests and intentionally live in `types/database.ts`
+ * as convenience re-exports, even though the canonical definition lives in `types/forecast.ts`.
+ */
+export type EnhancedForecastEntity = ForecastEnhancedForecastEntity
+
+/**
+ * Legacy "enhanced forecast" shape used across tests and UI.
+ *
+ * We keep this permissive because the app has accumulated multiple forecast shapes (domain vs DB vs view-model).
+ * The index signature (via intersection) prevents excess-property errors in test factories.
+ */
+export type EnhancedForecast = EnhancedForecastEntity & Record<string, unknown>
+
+/**
+ * Journal/analytics convenience types (used by journal components and test mocks).
+ * Keep these minimal and evolve as features solidify.
+ */
+export type CalendarHeatmapData = {
+  date: string
+  count: number
+  sessions?: string[]
+}
+
+export type SessionAnalytics = {
+  totalSessions: number
+  totalHours?: number
+  averageRating?: number
+}
+
+export type JournalViewMode = 'calendar' | 'list'
+
+export type JournalDisplayOptions = {
+  showRatings?: boolean
+  showPhotos?: boolean
+}
 
 // ===================================================
 // USER ACTIVITY / ACTIVITY FEED TYPES

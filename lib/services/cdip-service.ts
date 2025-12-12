@@ -37,6 +37,12 @@ export class CDIPService {
     string,
     { data: CDIPBuoyData; timestamp: number }
   >();
+  /**
+   * Deduplicate concurrent requests per station.
+   * Without this, multiple beaches that map to the same station within a batch
+   * can trigger duplicate HTTP calls before the cache is populated.
+   */
+  private readonly inFlightFetches = new Map<string, Promise<CDIPBuoyData | null>>();
   private readonly cacheTimeout = 30 * 60 * 1000; // 30 minutes
   private readonly blacklist: Set<string>;
 
@@ -80,19 +86,7 @@ export class CDIPService {
         console.log(`✅ CDIP station config found: ${stationConfig.name}`);
       }
 
-      // Check rate limiting
-      if (!CDIPRateLimiter.canMakeRequest()) {
-        const waitTime = CDIPRateLimiter.getTimeUntilReset();
-        console.warn(
-          `⏰ CDIP rate limit exceeded, next request available in ${waitTime}ms`
-        );
-        return null;
-      }
-      if (this.isVerbose()) {
-        console.log(`✅ CDIP rate limit check passed`);
-      }
-
-      // Check cache
+      // Check cache first (cache hits should never be blocked by rate limiting)
       const cached = this.getCachedData(stationId);
       if (cached) {
         if (this.isVerbose()) {
@@ -101,36 +95,67 @@ export class CDIPService {
         return cached;
       }
 
-      // Fetch data from CDIP API
-      if (this.isVerbose()) {
-        console.log(`🔄 CDIP fetching raw data for station ${stationId}`);
-      }
-      const rawData = await this.fetchCDIPRawData(stationId);
-      if (!rawData) {
-        console.warn(
-          `❌ CDIP fetchCDIPRawData returned null for station ${stationId}`
-        );
-        return null;
-      }
-      if (this.isVerbose()) {
-        console.log(
-          `✅ CDIP raw data fetched successfully for station ${stationId}`
-        );
+      // Deduplicate concurrent fetches for the same station within the same process.
+      const inFlight = this.inFlightFetches.get(stationId);
+      if (inFlight) {
+        if (this.isVerbose()) {
+          console.log(`🧵 CDIP joining in-flight fetch for station ${stationId}`);
+        }
+        return await inFlight;
       }
 
-      // Transform and validate data
-      const buoyData = this.transformToCDIPBuoyData(stationId, rawData);
-      if (!buoyData) {
-        return null;
-      }
+      const fetchPromise = (async (): Promise<CDIPBuoyData | null> => {
+        try {
+          // Check rate limiting (only applies when we actually need to hit the network)
+          if (!CDIPRateLimiter.canMakeRequest()) {
+            const waitTime = CDIPRateLimiter.getTimeUntilReset();
+            console.warn(
+              `⏰ CDIP rate limit exceeded, next request available in ${waitTime}ms`
+            );
+            return null;
+          }
+          if (this.isVerbose()) {
+            console.log(`✅ CDIP rate limit check passed`);
+          }
 
-      // Cache the data
-      this.setCachedData(stationId, buoyData);
+          // Fetch data from CDIP API
+          if (this.isVerbose()) {
+            console.log(`🔄 CDIP fetching raw data for station ${stationId}`);
+          }
+          const rawData = await this.fetchCDIPRawData(stationId);
+          if (!rawData) {
+            console.warn(
+              `❌ CDIP fetchCDIPRawData returned null for station ${stationId}`
+            );
+            return null;
+          }
+          if (this.isVerbose()) {
+            console.log(
+              `✅ CDIP raw data fetched successfully for station ${stationId}`
+            );
+          }
 
-      // Record successful request
-      CDIPRateLimiter.recordRequest(`station/${stationId}`);
+          // Transform and validate data
+          const buoyData = this.transformToCDIPBuoyData(stationId, rawData);
+          if (!buoyData) {
+            return null;
+          }
 
-      return buoyData;
+          // Cache the data
+          this.setCachedData(stationId, buoyData);
+
+          // Record successful request
+          CDIPRateLimiter.recordRequest(`station/${stationId}`);
+
+          return buoyData;
+        } finally {
+          // Always clear in-flight marker (success or failure)
+          this.inFlightFetches.delete(stationId);
+        }
+      })();
+
+      this.inFlightFetches.set(stationId, fetchPromise);
+      return await fetchPromise;
     } catch (error) {
       console.error(
         `💥 Error fetching CDIP data for station ${stationId}:`,

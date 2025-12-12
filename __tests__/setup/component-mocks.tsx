@@ -147,7 +147,11 @@ export const mockSessionComponents = () => {
 // Mock journal components
 export const mockJournalComponents = () => {
   jest.mock("@/components/journal/calendar-heatmap", () => ({
-    CalendarHeatmap: ({ onDateClick }: { onDateClick: Function }) => (
+    CalendarHeatmap: ({
+      onDateClick,
+    }: {
+      onDateClick: (date: string, sessions: unknown[]) => void;
+    }) => (
       <div
         data-testid="calendar-heatmap"
         onClick={() => onDateClick("2024-01-15", [])}
@@ -158,7 +162,7 @@ export const mockJournalComponents = () => {
   }));
 
   jest.mock("@/components/journal/session-analytics", () => ({
-    SessionAnalytics: ({ onRefresh }: { onRefresh: Function }) => (
+    SessionAnalytics: ({ onRefresh }: { onRefresh: () => void }) => (
       <div data-testid="session-analytics">
         <button onClick={onRefresh} data-testid="refresh-analytics">
           Refresh Analytics

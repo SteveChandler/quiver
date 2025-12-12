@@ -14,8 +14,6 @@ This document identifies functionality that is incomplete, looks functional but 
 
 | Priority | Issue                                   | Effort   | User Impact                         |
 | -------- | --------------------------------------- | -------- | ----------------------------------- |
-| 🔴 P0    | Referral XP not awarded                 | 1-2h     | High - broken promise               |
-| 🔴 P0    | Referral Dashboard missing              | 4-6h     | High - can't share code             |
 | 🟠 P1    | Push notifications: no sending logic    | 1 day    | Medium - notifications don't arrive |
 | 🟠 P1    | Intel cleanup not scheduled             | 1h       | Low - data bloat                    |
 | 🟠 P1    | GPS Discovery stubbed                   | 2-3 days | Medium - feature gap                |
@@ -27,107 +25,7 @@ This document identifies functionality that is incomplete, looks functional but 
 
 ## 🔴 Critical Gaps (Broken Promises)
 
-### 1. Referral XP Not Being Awarded
-
-**Location**: `actions/onboarding-actions.ts`
-
-**Problem**: The referral step tells users "Enter their referral code to unlock bonus XP for both of you!" but XP is never actually credited.
-
-**Evidence**:
-
-```typescript
-// e2e/utils/referral-helpers.ts:465-471
-export async function verifyReferralXPAwarded(...) {
-  // Check for XP events (if gamification is implemented)
-  // For now, return placeholder - implement when XP system is in place
-  console.log('XP verification not yet implemented');
-  return { referrerXP: false, refereeXP: false };
-}
-```
-
-**Root Cause**: After creating the referral record in `saveOnboardingData()`, there's no call to `awardXP()` for either party.
-
-**Fix**:
-
-```typescript
-// In actions/onboarding-actions.ts, after referral record creation (~line 95):
-import { awardXP } from "@/lib/gamification-actions";
-
-// Award XP to referee (new user completing onboarding)
-await awardXP(userId, "referral_signup", 50);
-
-// Award XP to referrer
-if (referrer?.id) {
-  await awardXP(referrer.id, "successful_referral", 100);
-}
-```
-
-**Files to modify**:
-
-- `actions/onboarding-actions.ts`
-
-**Testing**:
-
-- Add test case in `__tests__/actions/onboarding-actions.test.ts`
-- Verify with E2E in `e2e/utils/referral-helpers.ts`
-
----
-
-### 2. Referral Dashboard Missing
-
-**Problem**: Users cannot see their referral code or track referral stats. There's no `/app/referrals` route.
-
-**Backend exists**:
-
-- `/api/referrals/validate` - validates codes ✅
-- `profiles.referral_code` - stores unique codes ✅
-- `referrals` table - tracks relationships ✅
-
-**What's missing**: UI to display and share referral code
-
-**Implementation**:
-
-1. **Create page**: `/app/referrals/page.tsx`
-
-```tsx
-import { AuthGuard } from "@/components/auth/auth-guard";
-import { Container } from "@/components/ui/container";
-import { ReferralCodeCard } from "@/components/referrals/referral-code-card";
-import { ReferralStatsCard } from "@/components/referrals/referral-stats-card";
-import { ReferralHistoryList } from "@/components/referrals/referral-history-list";
-
-export const metadata = {
-  title: "My Referrals | Quiver",
-  description: "Share your referral code and track your referrals",
-};
-
-export default function ReferralsPage() {
-  return (
-    <AuthGuard>
-      <Container className="py-8 space-y-6">
-        <h1 className="text-2xl font-bold">Your Referrals</h1>
-        <ReferralCodeCard />
-        <ReferralStatsCard />
-        <ReferralHistoryList />
-      </Container>
-    </AuthGuard>
-  );
-}
-```
-
-2. **Create API endpoint**: `/app/api/referrals/stats/route.ts`
-
-```typescript
-// Returns: { code, total, pending, completed, xpEarned }
-```
-
-3. **Components to create**:
-
-- `components/referrals/referral-code-card.tsx` - Display code + copy button
-- `components/referrals/referral-stats-card.tsx` - Show counts
-- `components/referrals/referral-history-list.tsx` - List referred users
-
----
+_No current P0 gaps in this doc after removing the referral feature from the product surface._
 
 ## 🟠 Features With Backend But No UI
 
@@ -460,8 +358,6 @@ export async function checkUserExists(email: string): Promise<boolean> {
 
 ### Week 1 (Critical Fixes)
 
-- [ ] Add referral XP awards in `saveOnboardingData()` (1-2h)
-- [ ] Create `/app/referrals` page and components (4-6h)
 - [ ] Add intel cleanup cron job (1h)
 - [ ] Update CHANGELOG.md
 
@@ -470,7 +366,6 @@ export async function checkUserExists(email: string): Promise<boolean> {
 - [ ] Implement push notification sender service (4-6h)
 - [ ] Integrate notifications in social actions (2h)
 - [ ] Add server-side photo quota enforcement (2h)
-- [ ] Add E2E test for referral XP (2h)
 
 ### Week 3 (Feature Completion)
 
@@ -494,26 +389,7 @@ For each fix, add corresponding tests:
 
 ### Referral XP
 
-```typescript
-// __tests__/actions/onboarding-actions.test.ts
-it("should award XP to both referrer and referee on referral completion", async () => {
-  const result = await saveOnboardingData({
-    ...validData,
-    referralCode: "VALID_CODE",
-  });
-
-  expect(awardXP).toHaveBeenCalledWith(
-    expect.any(String),
-    "referral_signup",
-    50
-  );
-  expect(awardXP).toHaveBeenCalledWith(
-    "referrer-id",
-    "successful_referral",
-    100
-  );
-});
-```
+_(Referral XP removed along with the referral feature.)_
 
 ### Intel Cleanup
 
@@ -550,6 +426,3 @@ it("should reject upload when quota exceeded", async () => {
 
 _Document created: December 10, 2025_  
 _Last updated: December 10, 2025_
-
-
-

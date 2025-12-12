@@ -2,12 +2,10 @@ import {
   profileSchema,
   homeBeachSchema,
   preferencesSchema,
-  referralSchema,
   notificationsSchema,
   type ProfileFormData,
   type HomeBeachFormData,
   type PreferencesFormData,
-  type ReferralFormData,
   type NotificationsFormData,
 } from '@/lib/schemas/onboarding-schemas';
 
@@ -331,48 +329,6 @@ describe('Onboarding Schemas', () => {
 
         const result = preferencesSchema.safeParse(invalidData);
         expect(result.success).toBe(false);
-      });
-    });
-  });
-
-  describe('referralSchema', () => {
-    describe('Valid Data', () => {
-      it('accepts valid referral code', () => {
-        const validData = {
-          referralCode: 'SURF2024',
-        };
-
-        const result = referralSchema.safeParse(validData);
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data).toEqual(validData);
-        }
-      });
-
-      it('accepts empty referral code (optional)', () => {
-        const validData = {
-          referralCode: '',
-        };
-
-        const result = referralSchema.safeParse(validData);
-        expect(result.success).toBe(true);
-      });
-
-      it('accepts undefined referral code', () => {
-        const validData = {};
-
-        const result = referralSchema.safeParse(validData);
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.referralCode).toBeUndefined();
-        }
-      });
-
-      it('accepts object without referralCode field', () => {
-        const validData = {};
-
-        const result = referralSchema.safeParse(validData);
-        expect(result.success).toBe(true);
       });
     });
   });
