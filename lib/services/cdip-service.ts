@@ -13,6 +13,7 @@
 
 import { CDIPRateLimiter } from "@/lib/utils/rate-limiter";
 import { calculateDistance } from "@/lib/utils/distance-utils";
+import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
 import {
   CDIP_STATIONS,
   SOCAL_PRIMARY_STATIONS,
@@ -53,15 +54,15 @@ export class CDIPService {
     ]);
   }
 
-  private isDev(): boolean {
-    return process.env.NODE_ENV === "development";
+  private isVerbose(): boolean {
+    return isForecastVerboseLoggingEnabled();
   }
 
   /**
    * Fetch current wave data for a specific CDIP station
    */
   async fetchBuoyData(stationId: string): Promise<CDIPBuoyData | null> {
-    if (this.isDev()) {
+    if (this.isVerbose()) {
       console.log(`🌊 CDIP fetchBuoyData called for station: ${stationId}`);
     }
     try {
@@ -75,7 +76,7 @@ export class CDIPService {
         console.warn(`❌ Unknown CDIP station: ${stationId}`);
         return null;
       }
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(`✅ CDIP station config found: ${stationConfig.name}`);
       }
 
@@ -87,21 +88,21 @@ export class CDIPService {
         );
         return null;
       }
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(`✅ CDIP rate limit check passed`);
       }
 
       // Check cache
       const cached = this.getCachedData(stationId);
       if (cached) {
-        if (this.isDev()) {
+        if (this.isVerbose()) {
           console.log(`📦 CDIP returning cached data for station ${stationId}`);
         }
         return cached;
       }
 
       // Fetch data from CDIP API
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(`🔄 CDIP fetching raw data for station ${stationId}`);
       }
       const rawData = await this.fetchCDIPRawData(stationId);
@@ -111,7 +112,7 @@ export class CDIPService {
         );
         return null;
       }
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(
           `✅ CDIP raw data fetched successfully for station ${stationId}`
         );
@@ -201,7 +202,7 @@ export class CDIPService {
       }
 
       if (nearestStation) {
-        if (this.isDev()) {
+        if (this.isVerbose()) {
           console.log(
             `📍 Nearest CDIP station to ${latitude}, ${longitude}: ${nearestStation} (${minDistance.toFixed(
               1
@@ -413,7 +414,7 @@ export class CDIPService {
       );
       const url = `${CDIP_API_CONFIG.baseUrl}${endpoint}`;
 
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(`🌊 Fetching CDIP data from: ${url}`);
       }
 
@@ -450,7 +451,7 @@ export class CDIPService {
         stationId
       );
 
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(
           `✅ Successfully fetched CDIP data for station ${stationId}: ${transformedData.data.length} data points`
         );
