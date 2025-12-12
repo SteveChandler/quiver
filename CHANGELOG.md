@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Preserves 3-segment beach detail routes like `/ca/san-diego/ocean-beach`.
 
 - **Forecast Cron Job Reliability Improvements** (December 2025)
+
   - Fixed parallel processing overload in `updateAllEnhancedForecasts` - now processes beaches in batches of 5 with 2-second delays between batches.
   - Standardized the canonical cron endpoint to `/api/cron/enhanced-forecast-sync` and ensured it runs via **GET** (Vercel Cron default) as well as POST.
   - Updated Vercel cron scheduling to run `/api/cron/enhanced-forecast-sync` every 6 hours (and removed the duplicate scheduled `/api/cron/refresh-forecasts` job).
@@ -60,6 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added geographic coordinate-based tide station lookup for beaches not in the name-based mapping.
   - Added detailed logging for batch progress, success/failure counts, and station selection.
   - Resolves issue where forecasts were not updating (170+ hours stale) due to API rate limiting and function timeouts.
+
+- **Forecast Health Check Coverage Accuracy** (December 2025)
+  - Fixed `/api/monitoring/forecast-health` under-reporting coverage/staleness by paginating `enhanced_forecasts` and computing metrics from the latest row per beach (avoids Supabase/PostgREST default page limits).
 
 ### Added
 

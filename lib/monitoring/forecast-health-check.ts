@@ -66,21 +66,52 @@ export async function checkForecastHealth(): Promise<ForecastHealthMetrics> {
       return createEmptyMetrics('critical', ['No beaches found in database']);
     }
     
-    const forecastsResult = await supabase
-      .from('enhanced_forecasts')
-      .select('beach_id, updated_at, data_source')
-      .order('updated_at', { ascending: false });
-    
-    if (forecastsResult.error) {
-      return createEmptyMetrics('critical', ['Failed to fetch forecasts: ' + forecastsResult.error.message]);
-    }
-    
-    const latestByBeach = new Map<string, any>();
-    forecastsResult.data?.forEach(forecast => {
-      if (!latestByBeach.has(forecast.beach_id)) {
-        latestByBeach.set(forecast.beach_id, forecast);
+    /**
+     * Build a per-beach "latest updated_at" map.
+     *
+     * IMPORTANT: `enhanced_forecasts` has many rows per beach (e.g. 96 timepoints),
+     * and Supabase/PostgREST applies default limits unless we paginate.
+     * If we only read the first page, coverage will be dramatically undercounted.
+     */
+    const latestByBeach = new Map<string, { beach_id: string; updated_at: string; data_source: string | null }>();
+    const PAGE_SIZE = 5000;
+    for (let offset = 0; latestByBeach.size < totalBeaches; offset += PAGE_SIZE) {
+      const forecastsPage = await supabase
+        .from('enhanced_forecasts')
+        .select('beach_id, updated_at, data_source')
+        .order('updated_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (forecastsPage.error) {
+        return createEmptyMetrics('critical', ['Failed to fetch forecasts: ' + forecastsPage.error.message]);
       }
-    });
+
+      const page = (forecastsPage.data ?? []) as Array<{
+        beach_id: string | null;
+        updated_at: string | null;
+        data_source: string | null;
+      }>;
+
+      if (page.length === 0) {
+        break;
+      }
+
+      for (const row of page) {
+        if (!row?.beach_id || !row.updated_at) continue;
+        if (!latestByBeach.has(row.beach_id)) {
+          latestByBeach.set(row.beach_id, {
+            beach_id: row.beach_id,
+            updated_at: row.updated_at,
+            data_source: row.data_source,
+          });
+          if (latestByBeach.size >= totalBeaches) break;
+        }
+      }
+
+      if (page.length < PAGE_SIZE) {
+        break;
+      }
+    }
     
     const beachNameMap = new Map(beaches.map(b => [b.id, b.name]));
     
@@ -200,5 +231,5 @@ export async function getBeachForecastCoverage(beachId: string): Promise<number>
     return 0;
   }
   
-  return result.data?.length || 0;
+  return result.count ?? 0;
 }
