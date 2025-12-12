@@ -13,6 +13,9 @@ import {
 import { forecastLogger } from "@/lib/monitoring/forecast-logger";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 
+// Allow up to 5 minutes for the cron job to complete (Vercel limit)
+export const maxDuration = 300;
+
 async function runEnhancedForecastSync(request: NextRequest): Promise<Response> {
   const startTime = Date.now();
   const executionId = crypto.randomUUID();

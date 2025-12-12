@@ -97,7 +97,7 @@ export async function GET(
     );
 
     // Return PNG with proper headers
-    const pngBody = png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength);
+    const pngBody = new Blob([png as unknown as Uint8Array<ArrayBuffer>], { type: "image/png" });
     return new NextResponse(pngBody, {
       headers: {
         "Content-Type": "image/png",

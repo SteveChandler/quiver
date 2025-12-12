@@ -128,7 +128,9 @@ describe("Viral Growth Mechanisms", () => {
             gt: jest.fn(() => mockChain),
             order: jest.fn(() => mockChain),
             single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-            maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+            maybeSingle: jest.fn(() =>
+              Promise.resolve({ data: null, error: null })
+            ),
             insert: jest.fn((data: any) => ({
               select: jest.fn(() => ({
                 single: jest.fn(() => {
@@ -221,7 +223,9 @@ describe("Viral Growth Mechanisms", () => {
             gt: jest.fn(() => mockChain),
             order: jest.fn(() => mockChain),
             single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-            maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+            maybeSingle: jest.fn(() =>
+              Promise.resolve({ data: null, error: null })
+            ),
             insert: jest.fn((data: any) => ({
               select: jest.fn(() => ({
                 single: jest.fn(() =>

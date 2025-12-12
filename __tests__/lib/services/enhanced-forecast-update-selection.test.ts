@@ -33,8 +33,7 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
 
     // Build a mock Supabase client that supports the limited method chains used
     // by updateAllEnhancedForecasts().
-    const enhancedForecastRows = [
-      // Newest first, as if ordered by updated_at desc:
+    const latestRows = [
       { beach_id: "b5", updated_at: "2025-12-11T06:30:00Z" }, // 5.5h old (fresh within 12h)
       { beach_id: "b4", updated_at: "2025-12-10T10:00:00Z" }, // older
       { beach_id: "b3", updated_at: "2025-12-09T10:00:00Z" }, // oldest
@@ -50,15 +49,17 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
 
         if (table === "enhanced_forecasts") {
           return {
-            select: () => ({
-              order: () => ({
-                range: () =>
-                  Promise.resolve({
-                    data: enhancedForecastRows,
-                    error: null,
-                  }),
+            select: () => Promise.resolve({ data: [], error: null }),
+          };
+        }
+
+        if (table === "v_enhanced_forecast_latest") {
+          return {
+            select: () =>
+              Promise.resolve({
+                data: latestRows,
+                error: null,
               }),
-            }),
           };
         }
 

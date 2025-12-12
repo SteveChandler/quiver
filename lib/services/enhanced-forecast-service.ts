@@ -608,6 +608,33 @@ export class EnhancedForecastService {
   }): Promise<EnhancedForecastWithRawData[]> {
     const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
+    const verboseLogs = this.isVerboseLoggingEnabled();
+
+    /**
+     * Forecast validation warnings can be extremely noisy (called per timepoint).
+     * In production, we aggregate per beach to avoid drowning out cron success/failure logs.
+     * Set FORECAST_VERBOSE_LOGS=true (or run non-production) to see the full per-timepoint payloads.
+     */
+    type ForecastValidationSample = {
+      date: string | null;
+      time: string | null;
+      dataSource: string | null;
+      values: {
+        waveHeight: string | null;
+        wavePeriod: string | null;
+        swell1Height: string | null;
+        swell1Period: string | null;
+      };
+      sampleWarningMessage: string;
+    };
+
+    const validationWarningTypes = new Map<
+      string,
+      { count: number; sample: ForecastValidationSample }
+    >();
+    const validationDataSourceCounts = new Map<string, number>();
+    let validationTimepointsWithWarnings = 0;
+    let validationTotalWarnings = 0;
 
     // Local helpers for safe value formatting and sanity checks
     const formatPeriodSeconds = (
@@ -866,7 +893,59 @@ export class EnhancedForecastService {
       } as EnhancedForecastWithRawData;
 
       // Validate forecast values for San Diego area and flag unrealistic conditions
-      this.validateForecastValues(forecast, beach.name);
+      const { warnings: validationWarnings } = this.validateForecastValues(
+        forecast,
+        beach.name
+      );
+      if (validationWarnings.length > 0) {
+        const payload = {
+          date: forecast.forecast_date,
+          time: forecast.forecast_time,
+          dataSource: forecast.data_source,
+          warnings: validationWarnings,
+          values: {
+            waveHeight: forecast.wave_height ?? null,
+            wavePeriod: forecast.wave_period ?? null,
+            swell1Height: forecast.swell_1_height ?? null,
+            swell1Period: forecast.swell_1_period ?? null,
+          },
+        };
+
+        if (verboseLogs) {
+          console.warn(
+            `🌊 Forecast validation warnings for ${beach.name || "unknown beach"}:`,
+            payload
+          );
+        } else {
+          validationTimepointsWithWarnings += 1;
+          validationTotalWarnings += validationWarnings.length;
+          const dsKey = String(payload.dataSource || "UNKNOWN");
+          validationDataSourceCounts.set(
+            dsKey,
+            (validationDataSourceCounts.get(dsKey) ?? 0) + validationWarnings.length
+          );
+
+          for (const message of validationWarnings) {
+            const type = message.split(":")[0]?.trim() || message;
+            const existing = validationWarningTypes.get(type);
+            if (existing) {
+              existing.count += 1;
+              continue;
+            }
+
+            validationWarningTypes.set(type, {
+              count: 1,
+              sample: {
+                date: payload.date ?? null,
+                time: payload.time ?? null,
+                dataSource: payload.dataSource ?? null,
+                values: payload.values,
+                sampleWarningMessage: message,
+              },
+            });
+          }
+        }
+      }
 
       // Apply expert weighting silently (no visible attribution)
       const weightedForecast = await this.applyExpertWeighting(
@@ -876,6 +955,24 @@ export class EnhancedForecastService {
       );
 
       forecasts.push(weightedForecast);
+    }
+
+    if (!verboseLogs && validationWarningTypes.size > 0) {
+      console.warn(`🌊 Forecast validation summary for ${beach.name}:`, {
+        beachId: beach.id,
+        beachName: beach.name,
+        totalForecasts: TOTAL_FORECASTS,
+        timepointsWithWarnings: validationTimepointsWithWarnings,
+        totalWarnings: validationTotalWarnings,
+        dataSourceCounts: Object.fromEntries(validationDataSourceCounts),
+        warningTypes: Array.from(validationWarningTypes.entries())
+          .sort((a, b) => b[1].count - a[1].count)
+          .map(([type, info]) => ({
+            type,
+            count: info.count,
+            sample: info.sample,
+          })),
+      });
     }
 
     return forecasts;
@@ -1103,7 +1200,7 @@ export class EnhancedForecastService {
   private validateForecastValues(
     forecast: EnhancedForecastEntity,
     beachName?: string
-  ): boolean {
+  ): { isValid: boolean; warnings: string[] } {
     const waveHeight = parseFloat(forecast.wave_height || "0");
     const wavePeriod = parseFloat(
       forecast.wave_period?.replace("s", "") || "0"
@@ -1141,25 +1238,7 @@ export class EnhancedForecastService {
       );
     }
 
-    if (warnings.length > 0) {
-      console.warn(
-        `🌊 Forecast validation warnings for ${beachName || "unknown beach"}:`,
-        {
-          date: forecast.forecast_date,
-          time: forecast.forecast_time,
-          dataSource: forecast.data_source,
-          warnings,
-          values: {
-            waveHeight: forecast.wave_height,
-            wavePeriod: forecast.wave_period,
-            swell1Height: forecast.swell_1_height,
-            swell1Period: forecast.swell_1_period,
-          },
-        }
-      );
-    }
-
-    return isValid;
+    return { isValid, warnings };
   }
 
   /**
@@ -1397,24 +1476,22 @@ export class EnhancedForecastService {
     console.log("📊 EnhancedForecastService.updateAllEnhancedForecasts() starting (v3 with stale-only updates)");
     const supabase = await createSupabaseServiceRoleClient();
     // Process beaches in small batches
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = Number(process.env.FORECAST_BATCH_SIZE ?? 3);
     // Delay between batches to avoid rate limiting
-    const BATCH_DELAY_MS = 1000;
+    const BATCH_DELAY_MS = Number(process.env.FORECAST_BATCH_DELAY_MS ?? 1000);
     // Maximum beaches to process per cron run to avoid timeout
     // With ~45 beaches taking 5min, limit to 30 for safety margin
-    const MAX_BEACHES_PER_RUN = 30;
+    const MAX_BEACHES_PER_RUN = Number(process.env.FORECAST_MAX_BEACHES_PER_RUN ?? 30);
     /**
      * Freshness window for deciding what is "stale enough" to refresh.
      *
-     * IMPORTANT: This MUST be >= the cron interval (currently 6h) or else the same
+     * IMPORTANT: This MUST be >= the cron interval (currently 2h) or else the same
      * beaches will be re-selected every run and overall coverage will never catch up.
      */
-    const FRESHNESS_WINDOW_HOURS = 12;
+    const FRESHNESS_WINDOW_HOURS = Number(process.env.FORECAST_FRESHNESS_WINDOW_HOURS ?? 12);
 
     try {
-      const staleThreshold = new Date(
-        Date.now() - FRESHNESS_WINDOW_HOURS * 60 * 60 * 1000
-      ).toISOString();
+      const staleThresholdMs = Date.now() - FRESHNESS_WINDOW_HOURS * 60 * 60 * 1000;
 
       // Get all beaches (authoritative list)
       const { data: allBeaches, error: beachError } = await supabase
@@ -1434,52 +1511,35 @@ export class EnhancedForecastService {
 
       /**
        * Build a per-beach "latest updated_at" map.
-       *
-       * NOTE: PostgREST doesn't support a clean "latest per group" query without RPC,
-       * so we paginate through `enhanced_forecasts` ordered by updated_at desc until
-       * we've seen at least one row per beach (or we run out of rows).
+       * Use a DB view that returns a single latest row per beach to avoid PostgREST row caps.
        */
-      const latestUpdatedAtByBeach = new Map<string, string>();
-      const PAGE_SIZE = 5000;
-      for (let offset = 0; latestUpdatedAtByBeach.size < totalBeaches; offset += PAGE_SIZE) {
-        const { data: page, error: forecastError } = await supabase
-          .from("enhanced_forecasts")
-          .select("beach_id, updated_at")
-          .order("updated_at", { ascending: false })
-          .range(offset, offset + PAGE_SIZE - 1);
+      const latestUpdatedAtByBeachMs = new Map<string, number>();
+      const { data: latestRows, error: latestError } = await supabase
+        .from("v_enhanced_forecast_latest")
+        .select("beach_id, updated_at");
 
-        if (forecastError) {
-          throw forecastError;
-        }
-
-        if (!page || page.length === 0) {
-          break;
-        }
-
-        for (const row of page as Array<{ beach_id: string; updated_at: string | null }>) {
-          if (!row?.beach_id || !row.updated_at) continue;
-          if (!latestUpdatedAtByBeach.has(row.beach_id)) {
-            latestUpdatedAtByBeach.set(row.beach_id, row.updated_at);
-            if (latestUpdatedAtByBeach.size >= totalBeaches) break;
-          }
-        }
-
-        if (page.length < PAGE_SIZE) {
-          break;
-        }
+      if (latestError) {
+        throw latestError;
       }
 
-      const missingBeaches = allBeaches.filter((b) => !latestUpdatedAtByBeach.has(b.id));
+      for (const row of (latestRows ?? []) as Array<{ beach_id: string; updated_at: string | null }>) {
+        if (!row?.beach_id || !row.updated_at) continue;
+        const ts = new Date(row.updated_at).getTime();
+        if (!Number.isFinite(ts)) continue;
+        latestUpdatedAtByBeachMs.set(row.beach_id, ts);
+      }
+
+      const missingBeaches = allBeaches.filter((b) => !latestUpdatedAtByBeachMs.has(b.id));
       const staleBeaches = allBeaches
         .filter((b) => {
-          const updatedAt = latestUpdatedAtByBeach.get(b.id);
-          return Boolean(updatedAt && updatedAt < staleThreshold);
+          const updatedAtMs = latestUpdatedAtByBeachMs.get(b.id);
+          return Boolean(updatedAtMs && updatedAtMs < staleThresholdMs);
         })
         // Oldest first so we systematically catch up coverage/freshness
         .sort((a, b) => {
-          const aUpdated = latestUpdatedAtByBeach.get(a.id) ?? "";
-          const bUpdated = latestUpdatedAtByBeach.get(b.id) ?? "";
-          return aUpdated.localeCompare(bUpdated);
+          const aUpdated = latestUpdatedAtByBeachMs.get(a.id) ?? 0;
+          const bUpdated = latestUpdatedAtByBeachMs.get(b.id) ?? 0;
+          return aUpdated - bUpdated;
         });
 
       // Prioritize missing coverage first, then oldest stale
@@ -1491,18 +1551,18 @@ export class EnhancedForecastService {
           "✅ All beaches have fresh forecasts, updating oldest 5 for rotation"
         );
         beachesToUpdate = allBeaches
-          .filter((b) => latestUpdatedAtByBeach.has(b.id))
+          .filter((b) => latestUpdatedAtByBeachMs.has(b.id))
           .sort((a, b) => {
-            const aUpdated = latestUpdatedAtByBeach.get(a.id) ?? "";
-            const bUpdated = latestUpdatedAtByBeach.get(b.id) ?? "";
-            return aUpdated.localeCompare(bUpdated);
+            const aUpdated = latestUpdatedAtByBeachMs.get(a.id) ?? 0;
+            const bUpdated = latestUpdatedAtByBeachMs.get(b.id) ?? 0;
+            return aUpdated - bUpdated;
           })
           .slice(0, 5);
       }
 
       // Limit to max beaches per run
       const beaches = beachesToUpdate.slice(0, MAX_BEACHES_PER_RUN);
-      const selectedMissing = beaches.filter((b) => !latestUpdatedAtByBeach.has(b.id)).length;
+      const selectedMissing = beaches.filter((b) => !latestUpdatedAtByBeachMs.has(b.id)).length;
 
       console.log(
         `🌊 Starting batch forecast update for ${beaches.length}/${allBeaches.length} beaches (missing: ${missingBeaches.length}, stale>${FRESHNESS_WINDOW_HOURS}h: ${staleBeaches.length}, selectedMissing: ${selectedMissing}, max ${MAX_BEACHES_PER_RUN} per run, batch size: ${BATCH_SIZE})`

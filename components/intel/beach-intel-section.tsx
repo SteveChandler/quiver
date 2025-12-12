@@ -74,9 +74,11 @@ export function BeachIntelSection({
 
   // Validate coordinates in development
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       if (!validateCoordinates(latitude, longitude, `Beach: ${beachName}`)) {
-        console.warn(`⚠️ BeachIntelSection received invalid coordinates for ${beachName}`);
+        console.warn(
+          `⚠️ BeachIntelSection received invalid coordinates for ${beachName}`
+        );
         console.warn(`  Beach ID: ${beachId}`);
         console.warn(`  Latitude: ${latitude}`);
         console.warn(`  Longitude: ${longitude}`);
@@ -516,7 +518,7 @@ function IntelPostCard({
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 text-xs text-gray-600">
                 <MapPin className="h-3 w-3" />
-                <span>{post.beach_name || 'Unknown Beach'}</span>
+                <span>{post.beach_name || "Unknown Beach"}</span>
               </div>
               {canConfirm && (
                 <Button

@@ -12,7 +12,7 @@ export const MONITORING_CONFIG = {
   WARNING_STALE_HOURS: 12,           // Warning if data >12h old
   
   // Cron job monitoring
-  EXPECTED_CRON_INTERVAL_HOURS: 6,   // Cron should run every 6h
+  EXPECTED_CRON_INTERVAL_HOURS: 2,   // Cron should run every 2h
   CRON_TIMEOUT_MULTIPLIER: 1.5,      // Alert if 1.5x expected time passes
   
   // API health
