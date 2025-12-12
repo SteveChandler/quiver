@@ -20,13 +20,49 @@ export async function GET(request: Request) {
     const metrics = await checkForecastHealth();
     
     // Log the health check results
+    const sources = metrics.sources;
     forecastLogger.healthCheck(metrics.healthStatus, {
+      totalBeaches: metrics.totalBeaches,
       coverage: `${(metrics.coveragePercentage * 100).toFixed(1)}%`,
       staleBeaches: metrics.beachesWithStaleData,
       criticalStale: metrics.beachesWithCriticalStaleData,
       warningStale: metrics.beachesWithWarningStaleData,
       oldestForecastAge: `${metrics.oldestForecastAge.toFixed(2)}h`,
       averageForecastAge: `${metrics.averageForecastAge.toFixed(2)}h`,
+      sources: {
+        enhanced: {
+          coverage: `${(sources.enhanced.coveragePercentage * 100).toFixed(1)}%`,
+          stale: sources.enhanced.beachesWithStaleData,
+          critical: sources.enhanced.beachesWithCriticalStaleData,
+          warning: sources.enhanced.beachesWithWarningStaleData,
+          oldestAgeHours: Number(sources.enhanced.oldestAgeHours.toFixed(2)),
+          averageAgeHours: Number(sources.enhanced.averageAgeHours.toFixed(2)),
+        },
+        marine: {
+          coverage: `${(sources.marine.coveragePercentage * 100).toFixed(1)}%`,
+          stale: sources.marine.beachesWithStaleData,
+          critical: sources.marine.beachesWithCriticalStaleData,
+          warning: sources.marine.beachesWithWarningStaleData,
+          oldestAgeHours: Number(sources.marine.oldestAgeHours.toFixed(2)),
+          averageAgeHours: Number(sources.marine.averageAgeHours.toFixed(2)),
+        },
+        tide: {
+          coverage: `${(sources.tide.coveragePercentage * 100).toFixed(1)}%`,
+          stale: sources.tide.beachesWithStaleData,
+          critical: sources.tide.beachesWithCriticalStaleData,
+          warning: sources.tide.beachesWithWarningStaleData,
+          oldestAgeHours: Number(sources.tide.oldestAgeHours.toFixed(2)),
+          averageAgeHours: Number(sources.tide.averageAgeHours.toFixed(2)),
+        },
+        sun: {
+          coverage: `${(sources.sun.coveragePercentage * 100).toFixed(1)}%`,
+          stale: sources.sun.beachesWithStaleData,
+          critical: sources.sun.beachesWithCriticalStaleData,
+          warning: sources.sun.beachesWithWarningStaleData,
+          oldestAgeHours: Number(sources.sun.oldestAgeHours.toFixed(2)),
+          averageAgeHours: Number(sources.sun.averageAgeHours.toFixed(2)),
+        },
+      },
       issues: metrics.issues,
     });
     
@@ -41,13 +77,19 @@ export async function GET(request: Request) {
     }
     
     // Log individual stale beaches
+    const enhancedWarningHours = sources.enhanced.thresholds.warningHours;
+    const enhancedCriticalHours = sources.enhanced.thresholds.criticalHours;
     metrics.staleBeaches.slice(0, 10).forEach(beach => {
       forecastLogger.staleDataDetected(
         beach.beachId,
         beach.beachName,
         beach.ageHours,
         beach.dataSource,
-        beach.ageHours > 24 ? 'critical' : beach.ageHours > 12 ? 'error' : 'warning'
+        beach.ageHours > enhancedCriticalHours
+          ? 'critical'
+          : beach.ageHours > enhancedWarningHours
+            ? 'error'
+            : 'warning'
       );
     });
     
