@@ -57,6 +57,8 @@ describe('Forecast Health Check', () => {
         { beach_id: 'beach-1', updated_at: nowIso, data_source: 'NOAA_NWS' },
         { beach_id: 'beach-2', updated_at: nowIso, data_source: 'CDIP' },
         { beach_id: 'beach-3', updated_at: nowIso, data_source: 'CDIP' },
+        // Orphaned row should be ignored by the health check filter
+        { beach_id: 'beach-999', updated_at: nowIso, data_source: 'NOAA_NWS' },
       ],
       error: null,
     });
