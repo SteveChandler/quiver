@@ -7,6 +7,28 @@
 
 import { AlertSeverity } from './forecast-monitoring-config';
 
+export function isForecastVerboseLoggingEnabled(): boolean {
+  const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
+  return process.env.FORECAST_VERBOSE_LOGS === 'true' || env !== 'production';
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '"[unserializable]"';
+  }
+}
+
+function logLine(
+  level: 'log' | 'warn' | 'error',
+  prefix: string,
+  context: unknown
+): void {
+  const line = `${prefix} ${safeStringify(context)}`;
+  console[level](line);
+}
+
 interface BaseLogContext {
   timestamp: string;
   [key: string]: any;
@@ -44,7 +66,7 @@ export const forecastLogger = {
       ...metadata,
     };
     
-    console.log('[Forecast Cron] Started', JSON.stringify(context, null, 2));
+    logLine('log', '[Forecast Cron] Started', context);
   },
 
   /**
@@ -57,7 +79,7 @@ export const forecastLogger = {
       ...metrics,
     };
 
-    console.log('[Forecast Cron] Completed', JSON.stringify(context, null, 2));
+    logLine('log', '[Forecast Cron] Completed', context);
   },
 
   /**
@@ -72,7 +94,7 @@ export const forecastLogger = {
       ...context,
     };
     
-    console.error('[Forecast Cron] Failed', JSON.stringify(errorContext, null, 2));
+    logLine('error', '[Forecast Cron] Failed', errorContext);
   },
 
   /**
@@ -87,7 +109,7 @@ export const forecastLogger = {
       ...context,
     };
     
-    console.error('[Forecast API Error]', JSON.stringify(errorContext, null, 2));
+    logLine('error', '[Forecast API Error]', errorContext);
   },
 
   /**
@@ -110,7 +132,7 @@ export const forecastLogger = {
     };
     
     const logLevel = severity === 'critical' || severity === 'error' ? 'error' : 'warn';
-    console[logLevel]('[Forecast Stale Data]', JSON.stringify(context, null, 2));
+    logLine(logLevel, '[Forecast Stale Data]', context);
   },
 
   /**
@@ -133,7 +155,8 @@ export const forecastLogger = {
       ...context,
     };
     
-    console.log('[Forecast Batch Progress]', JSON.stringify(progressContext, null, 2));
+    if (!isForecastVerboseLoggingEnabled()) return;
+    logLine('log', '[Forecast Batch Progress]', progressContext);
   },
 
   /**
@@ -148,7 +171,7 @@ export const forecastLogger = {
       ...context,
     };
     
-    console.warn('[Forecast Rate Limit]', JSON.stringify(warningContext, null, 2));
+    logLine('warn', '[Forecast Rate Limit]', warningContext);
   },
 
   /**
@@ -165,7 +188,8 @@ export const forecastLogger = {
     };
     
     const logLevel = status === 'critical' ? 'error' : status === 'degraded' ? 'warn' : 'log';
-    console[logLevel]('[Forecast Health Check]', JSON.stringify(context, null, 2));
+    if (status === 'healthy' && !isForecastVerboseLoggingEnabled()) return;
+    logLine(logLevel, '[Forecast Health Check]', context);
   },
 
   /**
@@ -180,7 +204,8 @@ export const forecastLogger = {
       ...context,
     };
     
-    console.warn('[Forecast Slow Query]', JSON.stringify(queryContext, null, 2));
+    if (!isForecastVerboseLoggingEnabled()) return;
+    logLine('warn', '[Forecast Slow Query]', queryContext);
   },
 
   /**
@@ -202,7 +227,8 @@ export const forecastLogger = {
       timestamp: new Date().toISOString(),
     };
     
-    console.log('[Forecast Generated]', JSON.stringify(context, null, 2));
+    if (!isForecastVerboseLoggingEnabled()) return;
+    logLine('log', '[Forecast Generated]', context);
   },
 
   /**
@@ -224,6 +250,6 @@ export const forecastLogger = {
     };
     
     const logLevel = severity === 'critical' ? 'error' : 'warn';
-    console[logLevel]('[Forecast Coverage Gap]', JSON.stringify(context, null, 2));
+    logLine(logLevel, '[Forecast Coverage Gap]', context);
   },
 };

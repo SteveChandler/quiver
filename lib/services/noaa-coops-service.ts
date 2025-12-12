@@ -1,4 +1,5 @@
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
 
 // NOAA CO-OPS API endpoints
 const COOPS_BASE_URL =
@@ -303,8 +304,8 @@ interface COOPSForecast {
 }
 
 export class NOAACOOPSService {
-  private isDev(): boolean {
-    return process.env.NODE_ENV === "development";
+  private isVerbose(): boolean {
+    return isForecastVerboseLoggingEnabled();
   }
 
   // In-memory cache for tide data by station ID to avoid duplicate API calls
@@ -327,7 +328,7 @@ export class NOAACOOPSService {
       return null;
     }
 
-    if (this.isDev()) {
+    if (this.isVerbose()) {
       console.log(`📦 Using cached tide data for station ${stationId}`);
     }
     return cached.data;
@@ -387,7 +388,7 @@ export class NOAACOOPSService {
           lng >= region.lonMin &&
           lng <= region.lonMax
         ) {
-          if (this.isDev()) {
+          if (this.isVerbose()) {
             console.log(
               `📍 Using ${region.name} tide station (${region.stationId}) for ${beachName} at ${lat}, ${lng}`
             );
@@ -412,7 +413,7 @@ export class NOAACOOPSService {
         }
       }
 
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(
           `📍 Using nearest tide station (${nearestStation}) for ${beachName} at ${lat}, ${lng} (distance: ${nearestDistance.toFixed(2)}°)`
         );
@@ -442,7 +443,7 @@ export class NOAACOOPSService {
         return cached;
       }
 
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(`Fetching CO-OPS data for station ${stationId}`);
       }
 
@@ -484,14 +485,18 @@ export class NOAACOOPSService {
         );
       }
       if (waterLevelResult.status === "rejected") {
-        console.debug(
-          `ℹ️ Water level not available for station ${stationId} (optional)`
-        );
+        if (this.isVerbose()) {
+          console.log(
+            `ℹ️ Water level not available for station ${stationId} (optional)`
+          );
+        }
       }
       if (stationInfoResult.status === "rejected") {
-        console.debug(
-          `ℹ️ Station info not available for station ${stationId} (optional)`
-        );
+        if (this.isVerbose()) {
+          console.log(
+            `ℹ️ Station info not available for station ${stationId} (optional)`
+          );
+        }
       }
 
       const result: COOPSForecast = {
@@ -535,7 +540,7 @@ export class NOAACOOPSService {
       url.searchParams.set("interval", "hilo"); // High and low tides only
       url.searchParams.set("format", "json");
 
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(`Fetching NOAA CO-OPS tide data from: ${url.toString()}`);
       }
 
@@ -556,7 +561,7 @@ export class NOAACOOPSService {
 
       const data = await response.json();
       // This can be extremely verbose (50+ prediction rows); keep it dev-only.
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(`Received tide data for station ${stationId}:`, data);
       }
 
@@ -572,7 +577,7 @@ export class NOAACOOPSService {
         type: prediction.type === "H" ? "high" : "low",
       }));
 
-      if (this.isDev()) {
+      if (this.isVerbose()) {
         console.log(
           `Parsed ${tideData.length} tide predictions for station ${stationId}`
         );
@@ -580,9 +585,8 @@ export class NOAACOOPSService {
       return tideData;
     } catch (error) {
       console.error("Error fetching tide predictions:", error);
-      if (this.isDev()) {
-        console.log("Using fallback tide data for development");
-      }
+      // Only log fallback details when verbose is enabled.
+      if (this.isVerbose()) console.log("Using fallback tide data");
       // Return fallback simulated data for development
       return this.generateFallbackTideData();
     }
