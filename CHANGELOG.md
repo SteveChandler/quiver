@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   - Prevented onboarding and product tour overlays from mounting on the landing page when logged out.
 
+- **Legacy State/City URLs Redirect to Map** (December 2025)
+
+  - Redirects legacy 2-segment URLs like `/ca/encinitas` to `/map?search=Encinitas` so users land on the filtered map instead of a 404.
+  - Preserves 3-segment beach detail routes like `/ca/san-diego/ocean-beach`.
+
 - **Forecast Cron Job Reliability Improvements** (December 2025)
   - Fixed parallel processing overload in `updateAllEnhancedForecasts` - now processes beaches in batches of 5 with 2-second delays between batches.
   - Standardized the canonical cron endpoint to `/api/cron/enhanced-forecast-sync` and ensured it runs via **GET** (Vercel Cron default) as well as POST.
