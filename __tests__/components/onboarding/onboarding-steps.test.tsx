@@ -6,7 +6,6 @@ import { HomeBeachStep } from "@/components/onboarding/steps/home-beach-step";
 import { ExperienceStep } from "@/components/onboarding/steps/experience-step";
 import { WavePreferencesStep } from "@/components/onboarding/steps/wave-preferences-step";
 import { WelcomeStep } from "@/components/onboarding/steps/welcome-step";
-import { ReferralStep } from "@/components/onboarding/steps/referral-step";
 import { CompletionStep } from "@/components/onboarding/steps/completion-step";
 import { useOnboardingStore } from "@/store/onboarding-store";
 
@@ -14,7 +13,7 @@ import { useOnboardingStore } from "@/store/onboarding-store";
 jest.mock("@/store/onboarding-store");
 const mockUseOnboardingStore = useOnboardingStore as unknown as jest.Mock;
 
-// Mock global fetch for HomeBeachStep, ReferralStep, and CompletionStep
+// Mock global fetch for HomeBeachStep and CompletionStep
 global.fetch = jest.fn();
 
 // Mock next/navigation for CompletionStep
@@ -29,7 +28,9 @@ jest.mock("@/context/profile-context", () => ({
 
 // Mock onboarding actions for CompletionStep
 jest.mock("@/actions/onboarding-actions", () => ({
-  saveOnboardingData: jest.fn().mockResolvedValue({ success: true, profile: {} }),
+  saveOnboardingData: jest
+    .fn()
+    .mockResolvedValue({ success: true, profile: {} }),
 }));
 
 describe("Onboarding Step Components", () => {
@@ -223,7 +224,9 @@ describe("Onboarding Step Components", () => {
       expect(screen.getByTestId("welcome-step")).toBeInTheDocument();
       expect(screen.getByTestId("welcome-logo")).toBeInTheDocument();
       expect(screen.getByText(/Welcome to Quiver/i)).toBeInTheDocument();
-      expect(screen.getByText(/Your personal surf companion/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Your personal surf companion/i)
+      ).toBeInTheDocument();
     });
 
     it("renders Get Started button", () => {
@@ -243,57 +246,6 @@ describe("Onboarding Step Components", () => {
 
       expect(mockNextStep).toHaveBeenCalled();
     });
-  });
-
-  describe("ReferralStep", () => {
-    it("renders referral form correctly", () => {
-      render(<ReferralStep />);
-
-      expect(
-        screen.getByText(/Were you invited by a friend/i)
-      ).toBeInTheDocument();
-      expect(screen.getByTestId("referral-code-input")).toBeInTheDocument();
-      expect(screen.getByLabelText(/Referral Code/i)).toBeInTheDocument();
-    });
-
-    it("renders Back, Skip, and Continue buttons", () => {
-      render(<ReferralStep />);
-
-      expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Skip/i })).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /Continue/i })
-      ).toBeInTheDocument();
-    });
-
-    it("calls prevStep when Back is clicked", async () => {
-      const user = userEvent.setup();
-      render(<ReferralStep />);
-
-      await user.click(screen.getByRole("button", { name: /Back/i }));
-
-      expect(mockPrevStep).toHaveBeenCalled();
-    });
-
-    it("calls nextStep when Skip is clicked", async () => {
-      const user = userEvent.setup();
-      render(<ReferralStep />);
-
-      await user.click(screen.getByRole("button", { name: /Skip/i }));
-
-      expect(mockNextStep).toHaveBeenCalled();
-    });
-
-    it("displays referral benefits information", () => {
-      render(<ReferralStep />);
-
-      expect(screen.getByText(/Referral Benefits/i)).toBeInTheDocument();
-      // Use getAllByText since "+50 XP for you" appears in both "+50 XP for you" and "+50 XP for your friend"
-      const xpTexts = screen.getAllByText(/\+50 XP/i);
-      expect(xpTexts.length).toBeGreaterThanOrEqual(2);
-    });
-
-    // Note: Async validation tests deferred to E2E due to Jest/fetch limitations
   });
 
   describe("CompletionStep", () => {

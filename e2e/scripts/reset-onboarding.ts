@@ -96,37 +96,7 @@ async function resetOnboarding() {
     console.log(`   Break Type Pref: ${profile.preferred_break_type || '(not set)'}`);
     console.log(`   Crowd Pref: ${profile.crowd_preference || '(not set)'}`);
 
-    // Step 3: Clean up referral records
-    console.log('\n🧹 Cleaning up referral records...');
-
-    // Delete referrals where user is the referee
-    const { error: deleteRefereeError } = await supabase
-      .from('referrals')
-      .delete()
-      .eq('referee_id', user.id);
-
-    if (deleteRefereeError) {
-      console.warn(`⚠️  Failed to delete referee referrals: ${deleteRefereeError.message}`);
-    } else {
-      console.log('✅ Cleaned up referee referral records');
-    }
-
-    // Delete referrals where user is the referrer (optional - usually not needed)
-    const shouldCleanReferrer = process.argv.includes('--clean-referrer');
-    if (shouldCleanReferrer) {
-      const { error: deleteReferrerError } = await supabase
-        .from('referrals')
-        .delete()
-        .eq('referrer_id', user.id);
-
-      if (deleteReferrerError) {
-        console.warn(`⚠️  Failed to delete referrer referrals: ${deleteReferrerError.message}`);
-      } else {
-        console.log('✅ Cleaned up referrer referral records');
-      }
-    }
-
-    // Step 4: Reset onboarding state
+    // Step 3: Reset onboarding state
     console.log('\n🔄 Resetting onboarding state...');
 
     const { error: updateError } = await supabase
@@ -182,7 +152,6 @@ async function resetOnboarding() {
     console.log('   http://localhost:3000');
     console.log('\n3. The onboarding flow should appear automatically');
     console.log('   (or add ?showOnboarding=1 to force it to appear)');
-    console.log('\n💡 Tip: Use --clean-referrer flag to also delete referrals where user is the referrer');
 
   } catch (error) {
     console.error('\n❌ Failed to reset onboarding');

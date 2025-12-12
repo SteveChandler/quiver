@@ -138,21 +138,6 @@ export const RATE_LIMITS = {
   } as RateLimiterConfig,
 
   /**
-   * Referral Validation - MEDIUM
-   *
-   * Endpoint: /api/referrals/validate
-   * Risk: Brute force attacks
-   * Cost: Database queries
-   *
-   * Already implemented - keeping for reference
-   */
-  "referral-validation": {
-    requestsPerMinute: 10,
-    requestsPerHour: 100,
-    burstLimit: 5,
-  } as RateLimiterConfig,
-
-  /**
    * Personalized Forecast - MEDIUM
    *
    * Endpoint: /api/home/personalized-forecast
@@ -205,8 +190,6 @@ const RATE_LIMIT_MESSAGES = {
     "API rate limit exceeded. Please wait before making more requests.",
   "authenticated-default":
     "API rate limit exceeded. Please reduce request frequency.",
-  "referral-validation":
-    "Too many validation attempts. Please try again later.",
   "personalized-forecast":
     "Personalized forecast rate limit exceeded. Please wait before requesting another recommendation.",
   "surf-discovery":

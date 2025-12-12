@@ -38,13 +38,6 @@ export const preferencesSchema = z.object({
 
 export type PreferencesFormData = z.infer<typeof preferencesSchema>;
 
-// Step 5: Referral (optional)
-export const referralSchema = z.object({
-  referralCode: z.string().optional(),
-});
-
-export type ReferralFormData = z.infer<typeof referralSchema>;
-
 // Step 6: Notifications
 export const notificationsSchema = z.object({
   pushEnabled: z.boolean().default(false),

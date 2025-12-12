@@ -15,7 +15,6 @@ import { ProfileStep } from "./steps/profile-step";
 import { ExperienceStep } from "./steps/experience-step";
 import { WavePreferencesStep } from "./steps/wave-preferences-step";
 import { HomeBeachStep } from "./steps/home-beach-step";
-import { ReferralStep } from "./steps/referral-step";
 import { CompletionStep } from "./steps/completion-step";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
@@ -27,7 +26,6 @@ const STEPS = [
   ExperienceStep,
   WavePreferencesStep,
   HomeBeachStep,
-  ReferralStep,
   CompletionStep,
 ];
 

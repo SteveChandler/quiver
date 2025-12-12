@@ -63,13 +63,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resolves issue where forecasts were not updating (170+ hours stale) due to API rate limiting and function timeouts.
 
 - **Forecast Health Check Coverage Accuracy** (December 2025)
+
   - Fixed `/api/monitoring/forecast-health` under-reporting coverage/staleness by querying `public.v_enhanced_forecast_latest` (latest row per beach) instead of scanning/paginating `enhanced_forecasts`.
+
+- **Enhanced Forecast Data Integrity (Orphan Rows)** (December 2025)
+  - Added migration `20251212180000_add_enhanced_forecasts_beach_fk.sql` to enforce `enhanced_forecasts.beach_id → beaches.id` via a validated FK.
+  - Deletes existing orphan `enhanced_forecasts` rows before validation and records a deletion summary in `public.data_cleanup_audit`.
 
 ### Added
 
 - **Feature Gaps & Implementation Plan Documentation** (December 2025)
   - Created `docs/GAPS_AND_IMPLEMENTATION_PLAN.md` documenting incomplete functionality.
-  - Identified 9 gaps including: referral XP not awarded, missing referral dashboard, stubbed GPS discovery, push notifications without sending logic, intel cleanup not scheduled, photo quota client-side only, personalization scores not widely shown, coordinate naming inconsistency.
+  - Identified gaps including: stubbed GPS discovery, push notifications without sending logic, intel cleanup not scheduled, photo quota client-side only, personalization scores not widely shown, coordinate naming inconsistency.
   - Provides prioritized implementation recommendations with code examples.
   - Includes testing requirements and week-by-week implementation checklist.
 
@@ -392,9 +397,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Removed Referral Step from Onboarding** (December 2025)
-  - Removed the "Were you invited by a friend?" referral code step from the onboarding flow since the app is currently free.
-  - Onboarding flow reduced from 7 steps to 6 steps: Welcome → Profile → Home Beach → Preferences → Notifications → Completion.
-  - Updated stepper tests to reflect the new step count.
+  - Fully removed referrals from the product surface (UI + runtime code) while leaving DB objects intact for safety.
+  - Removed the "Were you invited by a friend?" step and all referral processing and validation entry points.
+  - Onboarding now has 6 steps: Welcome → Profile → Experience → Wave Preferences → Home Beach → Completion.
+  - Deleted the `/api/referrals/validate` endpoint and related unit tests/config.
 
 ### Fixed
 
