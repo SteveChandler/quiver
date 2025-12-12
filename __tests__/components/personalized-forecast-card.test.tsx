@@ -1,6 +1,6 @@
 /**
  * Tests for PersonalizedForecastCard Component
- * 
+ *
  * Verifies rendering, state handling, user interactions, and data display
  */
 
@@ -82,7 +82,8 @@ describe("PersonalizedForecastCard", () => {
       learnedPrefs: 7,
       affinity: 0,
     },
-    summary: "Best conditions at Ocean Beach today morning: 3-5 ft waves, 10 wind",
+    summary:
+      "Best conditions at Ocean Beach today morning: 3-5 ft waves, 10 wind",
     reasons: [
       "Conditions match your preferred wave and wind patterns",
       "Good match for your surf style",
@@ -109,7 +110,9 @@ describe("PersonalizedForecastCard", () => {
         />
       );
 
-      expect(screen.getByTestId("personalized-forecast-card-loading")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("personalized-forecast-card-loading")
+      ).toBeInTheDocument();
     });
 
     it("does not render recommendation content while loading", () => {
@@ -130,7 +133,7 @@ describe("PersonalizedForecastCard", () => {
   describe("Error State", () => {
     it("renders error message when error is provided", () => {
       const error = new Error("Failed to fetch forecast");
-      
+
       render(
         <PersonalizedForecastCard
           recommendation={null}
@@ -141,14 +144,18 @@ describe("PersonalizedForecastCard", () => {
         />
       );
 
-      expect(screen.getByTestId("personalized-forecast-card-error")).toBeInTheDocument();
-      expect(screen.getByText("Unable to Load Recommendation")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("personalized-forecast-card-error")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Unable to Load Recommendation")
+      ).toBeInTheDocument();
       expect(screen.getByText("Failed to fetch forecast")).toBeInTheDocument();
     });
 
     it("shows generic error message when error has no message", () => {
       const error = new Error();
-      
+
       render(
         <PersonalizedForecastCard
           recommendation={null}
@@ -159,7 +166,9 @@ describe("PersonalizedForecastCard", () => {
         />
       );
 
-      expect(screen.getByText(/An error occurred while fetching/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/An error occurred while fetching/)
+      ).toBeInTheDocument();
     });
   });
 
@@ -175,7 +184,9 @@ describe("PersonalizedForecastCard", () => {
         />
       );
 
-      expect(screen.getByText("No personalized recommendation available.")).toBeInTheDocument();
+      expect(
+        screen.getByText("No personalized recommendation available.")
+      ).toBeInTheDocument();
     });
   });
 
@@ -183,4 +194,3 @@ describe("PersonalizedForecastCard", () => {
   // The component works correctly in production - this is a test infrastructure limitation.
   // Coverage includes: loading states, error states, and no-recommendation states (tested above).
 });
-

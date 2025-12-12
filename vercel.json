@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/enhanced-forecast-sync",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 */2 * * *"
     },
     {
       "path": "/api/cron/forecasts/refresh",

@@ -72,6 +72,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added detailed logging for batch progress, success/failure counts, and station selection.
   - Resolves issue where forecasts were not updating (170+ hours stale) due to API rate limiting and function timeouts.
 
+- **Forecast Validation Warning Log Deduping** (December 2025)
+
+  - Aggregated noisy per-timepoint forecast validation warnings into a single per-beach summary in production to avoid Vercel log caps hiding important cron output.
+  - Detailed per-timepoint warning payloads are still available when `FORECAST_VERBOSE_LOGS=true` (or in non-production environments).
+
+- **Enhanced Forecast Sync Catch-Up Fix** (December 2025)
+
+  - Fixed `/api/cron/enhanced-forecast-sync` selection incorrectly reporting most beaches as “missing” due to PostgREST row caps by switching update selection to `public.v_enhanced_forecast_latest` (one row per beach).
+  - Increased sync cadence to every 2 hours to ensure all beaches are refreshed within the 24h critical freshness window without exceeding per-run time limits.
+
 - **Forecast Health Check Coverage Accuracy** (December 2025)
 
   - Fixed `/api/monitoring/forecast-health` under-reporting coverage/staleness by querying `public.v_enhanced_forecast_latest` (latest row per beach) instead of scanning/paginating `enhanced_forecasts`.

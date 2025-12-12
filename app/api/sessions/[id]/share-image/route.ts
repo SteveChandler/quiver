@@ -147,10 +147,7 @@ export async function GET(
     );
 
     // Return PNG with appropriate headers
-    const pngBody = image.png.buffer.slice(
-      image.png.byteOffset,
-      image.png.byteOffset + image.png.byteLength
-    );
+    const pngBody = new Blob([image.png as unknown as Uint8Array<ArrayBuffer>], { type: "image/png" });
     return new NextResponse(pngBody, {
       status: 200,
       headers: {

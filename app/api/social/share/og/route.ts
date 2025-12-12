@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     };
 
     const { png } = await renderShareImage(data, variant, ratio);
-    const pngBody = png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength);
+    const pngBody = new Blob([png as unknown as Uint8Array<ArrayBuffer>], { type: "image/png" });
 
     return new Response(pngBody, {
       headers: {
