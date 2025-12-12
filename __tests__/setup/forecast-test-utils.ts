@@ -69,8 +69,6 @@ export const createMockEnhancedForecastEntity = (
   next_tide_time: "12:30",
   next_tide_type: "High",
   next_tide_height: "5.2 ft",
-  current_speed: "0.5 kts",
-  current_direction: "N",
   weather_condition: "Partly Cloudy",
   confidence_score: 85,
   data_source: "NOAA_NWS",

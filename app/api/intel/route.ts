@@ -376,10 +376,7 @@ export async function POST(request: NextRequest) {
       user_confirmed: false,
     };
 
-    return createSuccessResponse(
-      enrichedPost,
-      "Intel post created successfully!"
-    );
+    return createSuccessResponse(enrichedPost);
   } catch (error) {
     console.error("Intel API POST error:", error);
     return handleApiError(error, "Failed to create intel post");

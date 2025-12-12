@@ -383,13 +383,13 @@ describe('useOnboardingStore', () => {
 
       act(() => {
         result.current.updateData({
-          pushEnabled: true,
-          emailEnabled: false,
+          preferredWaveSize: 'small',
+          preferredBreakType: 'reef',
         });
       });
 
-      expect(result.current.data.pushEnabled).toBe(true);
-      expect(result.current.data.emailEnabled).toBe(false);
+      expect(result.current.data.preferredWaveSize).toBe('small');
+      expect(result.current.data.preferredBreakType).toBe('reef');
     });
   });
 });

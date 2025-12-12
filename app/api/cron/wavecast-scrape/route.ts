@@ -5,7 +5,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { getWaveCastService } from '@/lib/services/wavecast-service';
+import { getWaveCastService, WaveCastService } from '@/lib/services/wavecast-service';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const wavecastService = getWaveCastService();
 
     // Check if we should scrape today (Sun/Tue/Thu)
-    const shouldScrape = testMode || getWaveCastService.shouldScrapeToday();
+    const shouldScrape = testMode || WaveCastService.shouldScrapeToday();
 
     if (!shouldScrape) {
       const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });

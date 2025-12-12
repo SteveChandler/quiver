@@ -326,6 +326,12 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
  * Creates a mock Forecast with required fields
  */
 export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast {
+  // `Forecast` has some non-optional fields where `Partial<>` introduces `undefined`
+  // via object spread. Normalize those fields explicitly to keep the return type strict.
+  const { wind_direction_deg, ...restOverrides } = overrides as Partial<Forecast> & {
+    wind_direction_deg?: number | null;
+  };
+
   return {
     id: `forecast-${Date.now()}`,
     beach_id: "beach-123",
@@ -362,7 +368,8 @@ export function createMockForecast(overrides: Partial<Forecast> = {}): Forecast 
     next_tide_time: "14:00:00",
     next_tide_type: "high",
     raw_forecast: null,
-    ...overrides,
+    wind_direction_deg: wind_direction_deg ?? null,
+    ...restOverrides,
   };
 }
 

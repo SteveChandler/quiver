@@ -319,7 +319,11 @@ export function calculateAccuracyTrends(
  */
 export function calculateBeachAccuracyStats(
   snapshots: SessionForecastSnapshot[]
-): Partial<BeachForecastAccuracy> {
+): (Partial<BeachForecastAccuracy> & {
+  wave_height_accuracy?: number | null
+  wind_accuracy?: number | null
+  calculation_date?: string
+}) {
   if (snapshots.length === 0) {
     return {
       total_sessions_count: 0,

@@ -231,7 +231,12 @@ export async function GET(request: Request) {
                     tide_phase: null,
                     source: "noaa_hilo_interpolated",
                   }))
-                  .filter((r) => r.tide_height_m != null);
+                  .filter(
+                    (
+                      r
+                    ): r is typeof r & { tide_height_m: number } =>
+                      r.tide_height_m != null
+                  );
                 rows = interpRows;
               }
             } catch (fallbackErr) {

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Patched transitive `jws` versions** (December 2025)
+  - Forced `jws` resolutions to `3.2.3` and `4.0.1` to address the auth0/node-jws HS256 improper signature verification advisory.
+
 ### Removed
 
 - **CDIP Timestamp Display** (December 2025)
@@ -17,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Kept data source badges, confidence scores, and other non-timestamp indicators.
 
 ### Fixed
+
+- **Location Pages RPC Coordinate Columns** (December 2025)
+
+  - Fixed `get_beaches_by_location_with_scores` to use `lat/lon` (not `latitude/longitude`) so `/beaches/[country]/[state]/[city]` pages don't fail with `column b.latitude does not exist`.
 
 - **Surf Discovery Match Score Formatting** (December 2025)
 
@@ -52,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added `FORECAST_VERBOSE_LOGS=true` to temporarily enable verbose provider logs for incident debugging.
     - Switched forecast cron logs to single-line JSON to reduce multi-line log explosion under Vercel’s 256-line cap.
     - Made forecast writes resilient to prod schema drift: if PostgREST reports a missing column (e.g. `wind_direction_deg`), retry the upsert after stripping the unknown field so forecasts still store successfully.
+  - Added `enhanced_forecasts.wind_direction_deg` (numeric) and backfilled from `wind_direction` so wind degrees persist in production (removes schema-mismatch retries and enables reliable wind scoring/analytics).
   - Extended NOAA CO-OPS tide station mappings to cover all US coastal regions:
     - **West Coast**: Hawaii, Oregon, Washington, Northern/Central/Southern California, Baja Mexico
     - **East Coast**: Maine, New Hampshire, Massachusetts, Rhode Island, New York, New Jersey, Delaware, Maryland, Virginia, North Carolina, South Carolina, Georgia

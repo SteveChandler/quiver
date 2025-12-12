@@ -117,7 +117,7 @@ describe("/api/session-planner/invitations", () => {
     userId = "user-1",
     email: string | null = "test@example.com"
   ) {
-    mockServer.mockResolvedValue({
+    (mockServer as unknown as jest.Mock).mockResolvedValue({
       auth: {
         getUser: jest.fn().mockResolvedValue({
           data: { user: { id: userId, email } },
@@ -297,7 +297,7 @@ describe("/api/session-planner/invitations", () => {
       }),
     };
 
-    mockServer.mockResolvedValue({
+    (mockServer as unknown as jest.Mock).mockResolvedValue({
       auth: {
         getUser: jest.fn().mockResolvedValue({
           data: { user: { id: "user-1", email: "t@example.com" } },

@@ -147,7 +147,11 @@ export async function GET(
     );
 
     // Return PNG with appropriate headers
-    return new NextResponse(image.png, {
+    const pngBody = image.png.buffer.slice(
+      image.png.byteOffset,
+      image.png.byteOffset + image.png.byteLength
+    );
+    return new NextResponse(pngBody, {
       status: 200,
       headers: {
         "Content-Type": "image/png",

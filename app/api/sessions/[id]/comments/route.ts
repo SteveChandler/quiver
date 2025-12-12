@@ -69,7 +69,7 @@ export async function POST(
 
     // Validate against schema (including max length check)
     const validationResult = validateOrError(CommentSchema, {
-      ...parseResult.data,
+      ...(parseResult.data as Record<string, unknown>),
       session_id: sessionId, // Add session_id from URL params
     });
 

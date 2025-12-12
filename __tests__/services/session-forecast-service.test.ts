@@ -303,8 +303,8 @@ describe('session-forecast-service', () => {
       const result = await analyzePreferredConditions('user-1', 4);
 
       expect(result?.beachFrequency).toHaveLength(2);
-      expect(result?.beachFrequency[0].sessionCount).toBeGreaterThanOrEqual(
-        result?.beachFrequency[1].sessionCount
+      expect(result?.beachFrequency[0].sessionCount ?? 0).toBeGreaterThanOrEqual(
+        result?.beachFrequency[1].sessionCount ?? 0
       );
     });
 

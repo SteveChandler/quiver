@@ -72,7 +72,7 @@ describe("session-utils", () => {
       wind_direction: "offshore",
       water_temp: 65,
       wave_quality: 4,
-      crowd_rating: 2,
+      crowd_level: 2,
       goals: ["Practice turns", "Work on paddling"],
       duration_minutes: 95,
     });

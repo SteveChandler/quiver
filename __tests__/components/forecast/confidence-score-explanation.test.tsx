@@ -72,7 +72,7 @@ describe("ConfidenceScoreExplanation", () => {
 
   describe("Factor Breakdown", () => {
     it("should show detailed factor breakdown when expanded", async () => {
-      const { user } = render(
+      render(
         <ConfidenceScoreExplanation
           score={78}
           factors={{

@@ -389,9 +389,18 @@ describe("/api/social/share/og", () => {
     it("should handle HEAD request errors", async () => {
       // Force an error by mocking URL constructor to throw
       const originalURL = global.URL;
-      global.URL = jest.fn().mockImplementation(() => {
+      const URLMock = jest.fn().mockImplementation(() => {
         throw new Error("URL error");
       });
+      // Satisfy DOM `URL` typings used by NextRequest internals
+      (URLMock as any).prototype = (originalURL as any).prototype;
+      (URLMock as any).canParse = (originalURL as any).canParse ?? (() => false);
+      (URLMock as any).parse = (originalURL as any).parse ?? (() => null);
+      (URLMock as any).createObjectURL =
+        (originalURL as any).createObjectURL ?? jest.fn();
+      (URLMock as any).revokeObjectURL =
+        (originalURL as any).revokeObjectURL ?? jest.fn();
+      global.URL = URLMock as any;
 
       const request = new NextRequest(
         "http://localhost:3000/api/social/share/og?sessionId=550e8400-e29b-41d4-a716-446655440000"

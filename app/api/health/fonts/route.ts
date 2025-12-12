@@ -23,7 +23,7 @@ const REQUIRED_FONTS: FontSpec[] = [
 ];
 
 // Also check for WOFF2 variants (Inter uses WOFF2 currently)
-const WOFF2_VARIANTS = [
+const WOFF2_VARIANTS: FontSpec[] = [
   { name: "Inter", weight: 400, style: "normal", file: "Inter/Inter-Regular.woff2" },
   { name: "Inter", weight: 700, style: "normal", file: "Inter/Inter-Bold.woff2" },
 ];
