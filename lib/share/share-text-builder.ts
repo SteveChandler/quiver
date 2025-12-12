@@ -158,7 +158,8 @@ Track your sessions at quiversurf.app 📱
  */
 export function buildInstagramLinkStickerTooltip(
   sessionId: string,
-  baseUrl: string = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app"
+  baseUrl: string =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"
 ): string {
   const shareUrl = `${baseUrl}/s/${sessionId}`;
   return `Add Link Sticker → ${shareUrl}`;

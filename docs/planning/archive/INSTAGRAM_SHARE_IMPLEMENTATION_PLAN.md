@@ -12,6 +12,7 @@
 Complete Instagram Story sharing system with auto-generated session graphics for viral growth. Every shared session = free advertising, driving organic user acquisition through network effects.
 
 ### Growth Impact
+
 - **Viral Coefficient Target**: 1.5+ (each user brings 1.5 friends)
 - **Share Rate Target**: 20% of sessions get shared
 - **Acquisition Channel**: Zero-cost viral user acquisition
@@ -22,9 +23,11 @@ Complete Instagram Story sharing system with auto-generated session graphics for
 ## ✅ Implementation Status
 
 ### Phase 1: Enhanced Share Image Generation ✅ COMPLETE
+
 **Files Modified**: [`lib/social-share-utils.ts`](../lib/social-share-utils.ts)
 
 **Enhancements**:
+
 - ✅ User attribution with "by [username]" display
 - ✅ Star ratings (⭐⭐⭐⭐⭐) for overall and wave quality
 - ✅ Session duration display (e.g., "2h 30m")
@@ -34,6 +37,7 @@ Complete Instagram Story sharing system with auto-generated session graphics for
 - ✅ Quiver branding watermark with domain
 
 **Technical Details**:
+
 ```typescript
 export type SessionData = {
   title?: string;
@@ -53,6 +57,7 @@ export type SessionData = {
 ```
 
 **Image Generation**:
+
 - Uses Satori for SVG → PNG rendering
 - Resvg for high-quality PNG output
 - Gradient backgrounds with photo overlays
@@ -64,9 +69,11 @@ export type SessionData = {
 ### Phase 2: Share Tracking Infrastructure ✅ COMPLETE
 
 #### Database Schema
+
 **File Created**: [`supabase/migrations/20251024000001_create_session_shares_tracking.sql`](../supabase/migrations/20251024000001_create_session_shares_tracking.sql)
 
 **Tables**:
+
 ```sql
 -- Track individual share events
 CREATE TABLE session_shares (
@@ -85,18 +92,21 @@ ALTER TABLE sessions ADD COLUMN share_count integer DEFAULT 0;
 ```
 
 **Functions**:
+
 - `get_session_share_stats(p_session_id)` - Detailed share breakdown
 - `get_user_viral_coefficient(p_user_id)` - Calculate viral growth metric
 - `increment_session_share_count()` - Trigger function
 - `decrement_session_share_count()` - Trigger function
 
 **RLS Policies**:
+
 - Users can view shares for public sessions or own sessions
 - Users can create shares for sessions they can view
 - Users can only delete their own shares
 - Spam prevention: 1 share per user/session/platform/day
 
 **Indexes**:
+
 ```sql
 CREATE INDEX idx_session_shares_session_id ON session_shares(session_id);
 CREATE INDEX idx_session_shares_user_id ON session_shares(user_id);
@@ -106,36 +116,42 @@ CREATE INDEX idx_sessions_share_count ON sessions(share_count DESC) WHERE share_
 ```
 
 #### Server Actions
+
 **File Created**: [`actions/social-share-actions.ts`](../actions/social-share-actions.ts)
 
 **Functions**:
+
 ```typescript
 // Track a session share event
-export async function trackSessionShare(input: ShareSessionInput)
+export async function trackSessionShare(input: ShareSessionInput);
 
 // Generate shareable URL with UTM parameters
-export function generateShareUrl(options: ShareUrlOptions): string
+export function generateShareUrl(options: ShareUrlOptions): string;
 
 // Generate signed share image URL
-export async function generateShareImageUrl(sessionId: string, variant: ShareVariant): Promise<string>
+export async function generateShareImageUrl(
+  sessionId: string,
+  variant: ShareVariant
+): Promise<string>;
 
 // Get share statistics for a session
-export async function getSessionShareStats(sessionId: string)
+export async function getSessionShareStats(sessionId: string);
 
 // Get user's viral coefficient
-export async function getUserViralCoefficient(userId?: string)
+export async function getUserViralCoefficient(userId?: string);
 
 // Get trending shared sessions
-export async function getTrendingSharedSessions(limit?: number)
+export async function getTrendingSharedSessions(limit?: number);
 
 // Get share analytics for a user
-export async function getUserShareAnalytics()
+export async function getUserShareAnalytics();
 
 // Delete a share record
-export async function deleteShare(shareId: string)
+export async function deleteShare(shareId: string);
 ```
 
 **Features**:
+
 - UTM parameter tracking (`utm_source`, `utm_medium`, `utm_campaign`, `utm_content`)
 - HMAC signature for secure share image URLs
 - XP tracking integration
@@ -148,9 +164,11 @@ export async function deleteShare(shareId: string)
 ### Phase 3: Share UI Components ✅ COMPLETE
 
 #### Share Button Component
+
 **File Created**: [`components/session/session-share-button.tsx`](../components/session/session-share-button.tsx)
 
 **Features**:
+
 - Share2 icon from lucide-react
 - Real-time share count display
 - Click animation (scale + rotate)
@@ -159,6 +177,7 @@ export async function deleteShare(shareId: string)
 - Size variants (sm, md, lg)
 
 **Usage**:
+
 ```tsx
 <SessionShareButton
   sessionId={id}
@@ -168,9 +187,11 @@ export async function deleteShare(shareId: string)
 ```
 
 #### Share Modal Component
+
 **File Created**: [`components/session/session-share-modal.tsx`](../components/session/session-share-modal.tsx)
 
 **Features**:
+
 - **Format Selection**: Story (9:16) vs Square (1:1)
 - **Platform Selection**:
   - Instagram (pink gradient)
@@ -188,6 +209,7 @@ export async function deleteShare(shareId: string)
 - **Error Handling**: Toast notifications for failures
 
 **User Flow**:
+
 1. Click share button → Modal opens
 2. Select format (Story/Square)
 3. Click platform button
@@ -197,9 +219,11 @@ export async function deleteShare(shareId: string)
 7. Share count increments
 
 #### Session Card Integration
+
 **File Modified**: [`components/session-card.tsx`](../components/session-card.tsx)
 
 **Changes**:
+
 - Imported `SessionShareButton` and `SessionShareModal`
 - Added `shareModalOpen` state
 - Added `handleShareClick` handler
@@ -208,6 +232,7 @@ export async function deleteShare(shareId: string)
 - Share count extracted from `session?.share_count`
 
 **Visual Placement**:
+
 ```
 [👍 Like] [💬 Comments] [🔗 Share] [➕ Follow]
 ```
@@ -217,34 +242,46 @@ export async function deleteShare(shareId: string)
 ### Phase 4: Mobile Native Sharing ✅ COMPLETE
 
 #### Share Image Utils
+
 **File Created**: [`lib/utils/share-image-utils.ts`](../lib/utils/share-image-utils.ts)
 
 **Functions**:
+
 ```typescript
 // Download share image from OG API
-export async function downloadShareImage(imageUrl: string): Promise<Blob>
+export async function downloadShareImage(imageUrl: string): Promise<Blob>;
 
 // Convert to platform-specific format if needed
-export async function prepareImageForPlatform(imageBlob: Blob, platform: string): Promise<Blob>
+export async function prepareImageForPlatform(
+  imageBlob: Blob,
+  platform: string
+): Promise<Blob>;
 
 // Create File object for sharing
-export function createShareImageFile(blob: Blob, sessionId: string, variant: ShareVariant): File
+export function createShareImageFile(
+  blob: Blob,
+  sessionId: string,
+  variant: ShareVariant
+): File;
 
 // Feature detection
-export function canShare(): boolean
-export function canShareFiles(): boolean
+export function canShare(): boolean;
+export function canShareFiles(): boolean;
 ```
 
 **Features**:
+
 - Blob download from share image API
 - File object creation with proper MIME types
 - Platform-specific format conversion (extensible)
 - Web Share API capability detection
 
 #### Enhanced Mobile Share
+
 **File Modified**: [`lib/mobile/share.ts`](../lib/mobile/share.ts)
 
 **Enhancements**:
+
 - ✅ Added `imageUrl` parameter to `ShareSessionOptions`
 - ✅ Image file sharing via Web Share API
 - ✅ Fallback chain: Capacitor → Web Share with files → Web Share text-only → Fallback callback
@@ -252,6 +289,7 @@ export function canShareFiles(): boolean
 - ✅ Graceful degradation when image sharing fails
 
 **Share Flow**:
+
 ```typescript
 1. Try Capacitor Share with image (native mobile)
 2. Try Web Share API with files (modern browsers)
@@ -260,6 +298,7 @@ export function canShareFiles(): boolean
 ```
 
 **Analytics Integration**:
+
 - `share_session_attempt` - User initiates share
 - `share_session_success` - Share completed
 - `share_session_error` - Share failed
@@ -270,6 +309,7 @@ export function canShareFiles(): boolean
 ### Phase 5: Analytics Tracking ✅ COMPLETE
 
 **Events Tracked**:
+
 ```typescript
 // Modal lifecycle
 track("share_modal_opened", { sessionId, surface });
@@ -288,6 +328,7 @@ track("share_image_generated", { sessionId, variant });
 ```
 
 **Metrics Available**:
+
 ```typescript
 // Session-level metrics
 const stats = await getSessionShareStats(sessionId);
@@ -314,6 +355,7 @@ const trending = await getTrendingSharedSessions(10);
 **File Updated**: [`CHANGELOG.md`](../CHANGELOG.md)
 
 **Documentation Includes**:
+
 - Feature overview and growth impact
 - Complete feature list
 - User experience details
@@ -339,6 +381,7 @@ npx supabase db reset
 ```
 
 **Verify Migration**:
+
 ```sql
 -- Check table exists
 SELECT * FROM session_shares LIMIT 1;
@@ -359,10 +402,11 @@ Add to `.env.local` (development) and Vercel/production environment:
 SOCIAL_SHARE_SECRET="your-secure-random-secret-key-here"
 
 # Already configured (verify they exist)
-NEXT_PUBLIC_SITE_URL="https://quiversurf.app"
+NEXT_PUBLIC_SITE_URL="https://www.quiversurf.app"
 ```
 
 **Generate Secret**:
+
 ```bash
 # Generate a secure random secret
 openssl rand -hex 32
@@ -382,11 +426,13 @@ git push origin main
 ### 4. Verify Deployment
 
 **Check Share Button**:
+
 - Navigate to any session card
 - Verify share button appears (Share2 icon with count)
 - Click should open share modal
 
 **Test Share Flow**:
+
 1. Open share modal
 2. Select format (Story/Square)
 3. Click platform button
@@ -397,6 +443,7 @@ git push origin main
    ```
 
 **Verify Share Image**:
+
 - Open share modal
 - Inspect network tab for `/api/social/share/og?sessionId=...` request
 - Verify image loads correctly
@@ -408,13 +455,13 @@ git push origin main
 
 ### Week 1 Targets
 
-| Metric | Target | How to Measure |
-|--------|--------|----------------|
-| **Share Button Clicks** | 20%+ of sessions | `track("share_modal_opened")` events / total session views |
-| **Actual Shares** | 10%+ of sessions | `COUNT(*) FROM session_shares` / total sessions |
-| **Viral Coefficient** | 1.5+ | `get_user_viral_coefficient()` across all users |
-| **Image Generation Time** | <2 seconds | Monitor `/api/social/share/og` response times |
-| **Platform Breakdown** | Diverse | Instagram 40%, Twitter 30%, TikTok 20%, Other 10% |
+| Metric                    | Target           | How to Measure                                             |
+| ------------------------- | ---------------- | ---------------------------------------------------------- |
+| **Share Button Clicks**   | 20%+ of sessions | `track("share_modal_opened")` events / total session views |
+| **Actual Shares**         | 10%+ of sessions | `COUNT(*) FROM session_shares` / total sessions            |
+| **Viral Coefficient**     | 1.5+             | `get_user_viral_coefficient()` across all users            |
+| **Image Generation Time** | <2 seconds       | Monitor `/api/social/share/og` response times              |
+| **Platform Breakdown**    | Diverse          | Instagram 40%, Twitter 30%, TikTok 20%, Other 10%          |
 
 ### Analytics Queries
 
@@ -460,7 +507,9 @@ const { viralCoefficient } = await getUserViralCoefficient();
 
 // Get share stats for session detail page
 const stats = await getSessionShareStats(sessionId);
-console.log(`Shared ${stats.total_shares} times by ${stats.unique_sharers} users`);
+console.log(
+  `Shared ${stats.total_shares} times by ${stats.unique_sharers} users`
+);
 
 // Get user's share analytics for analytics dashboard
 const analytics = await getUserShareAnalytics();
@@ -476,22 +525,30 @@ console.log(`Platform breakdown:`, analytics.platformBreakdown);
 **Why**: Prevent unauthorized access to private session share images
 
 **Implementation**:
+
 ```typescript
 // Server-side signature generation
 const canonical = `${sessionId}:${variant}`;
-const signature = crypto.createHmac("sha256", secret).update(canonical).digest("hex");
+const signature = crypto
+  .createHmac("sha256", secret)
+  .update(canonical)
+  .digest("hex");
 
 // URL includes signature
 const imageUrl = `/api/social/share/og?sessionId=${sessionId}&variant=${variant}&t=${signature}`;
 
 // API route verifies signature
-const expectedSig = crypto.createHmac("sha256", secret).update(canonical).digest("hex");
+const expectedSig = crypto
+  .createHmac("sha256", secret)
+  .update(canonical)
+  .digest("hex");
 if (!timingSafeEqual(signature, expectedSig)) {
   return new Response("Forbidden", { status: 403 });
 }
 ```
 
 **Benefits**:
+
 - Prevents brute-force session ID enumeration
 - Protects private session images from unauthorized viewing
 - Uses timing-safe comparison to prevent timing attacks
@@ -499,6 +556,7 @@ if (!timingSafeEqual(signature, expectedSig)) {
 ### RLS Policies
 
 **Share Creation**:
+
 ```sql
 -- Users can only create shares for sessions they can view
 CREATE POLICY "Users can create shares for sessions they can view"
@@ -514,6 +572,7 @@ WITH CHECK (
 ```
 
 **Share Viewing**:
+
 ```sql
 -- Users can view shares for public sessions or own sessions
 CREATE POLICY "Users can view shares for public sessions or own sessions"
@@ -526,6 +585,7 @@ USING (
 ```
 
 **Spam Prevention**:
+
 ```sql
 -- Unique constraint prevents spam
 CONSTRAINT unique_daily_share UNIQUE (session_id, user_id, platform, DATE(created_at))
@@ -534,6 +594,7 @@ CONSTRAINT unique_daily_share UNIQUE (session_id, user_id, platform, DATE(create
 ### XP Tracking Integration
 
 Shares are rewarded with XP points via gamification system:
+
 ```typescript
 try {
   const { trackXP } = await import("@/lib/gamification-actions");
@@ -550,6 +611,7 @@ try {
 ### Current Implementation
 
 **Share Modal Prompts**:
+
 ```typescript
 // First share encouragement (shareCount === 0)
 <div className="bg-blue-50">
@@ -567,6 +629,7 @@ try {
 ### Future Enhancements (Post-Launch)
 
 #### 1. Share Challenges
+
 ```typescript
 // "Share 3 sessions to unlock insights"
 const unlocked = shareCount >= 3;
@@ -576,6 +639,7 @@ if (unlocked) {
 ```
 
 #### 2. Referral Tracking
+
 ```sql
 -- Track who joined from shared sessions
 CREATE TABLE share_referrals (
@@ -587,6 +651,7 @@ CREATE TABLE share_referrals (
 ```
 
 #### 3. Trending Shared Sessions Feed
+
 ```typescript
 // Homepage section: "Most Shared Sessions This Week"
 const trending = await getTrendingSharedSessions(10);
@@ -594,6 +659,7 @@ return <TrendingSessionsFeed sessions={trending} />;
 ```
 
 #### 4. Share Leaderboard
+
 ```sql
 -- Top sharers of the week
 SELECT p.full_name, COUNT(ss.id) as shares
@@ -606,6 +672,7 @@ LIMIT 10;
 ```
 
 #### 5. Share Milestones
+
 ```typescript
 // Achievement badges
 const milestones = [
@@ -618,6 +685,7 @@ const milestones = [
 ```
 
 #### 6. Share-to-Unlock Features
+
 ```typescript
 // Premium features unlocked by sharing
 const features = {
@@ -638,6 +706,7 @@ All tests implemented and passing.
 #### Unit Tests
 
 **File**: [`__tests__/lib/social-share-utils.test.ts`](../__tests__/lib/social-share-utils.test.ts) ✅ Extended
+
 ```typescript
 describe("formatSessionForShare", () => {
   it("should include star ratings", () => {
@@ -659,6 +728,7 @@ describe("formatSessionForShare", () => {
 ```
 
 **File**: `__tests__/actions/social-share-actions.test.ts` (new)
+
 ```typescript
 describe("trackSessionShare", () => {
   it("should create share record and increment count", async () => {
@@ -676,7 +746,10 @@ describe("trackSessionShare", () => {
     await trackSessionShare({ sessionId, platform: "instagram" });
 
     // Second share same day
-    const result = await trackSessionShare({ sessionId, platform: "instagram" });
+    const result = await trackSessionShare({
+      sessionId,
+      platform: "instagram",
+    });
     expect(result.alreadyShared).toBe(true);
   });
 });
@@ -691,6 +764,7 @@ describe("getUserViralCoefficient", () => {
 ```
 
 **File**: `__tests__/lib/utils/share-image-utils.test.ts` (new)
+
 ```typescript
 describe("createShareImageFile", () => {
   it("should create File with correct properties", () => {
@@ -706,23 +780,42 @@ describe("createShareImageFile", () => {
 #### Component Tests
 
 **File**: `__tests__/components/session-share-button.test.tsx` (new)
+
 ```typescript
 describe("SessionShareButton", () => {
   it("should render share count", () => {
-    render(<SessionShareButton sessionId="id" shareCount={5} onShareClick={jest.fn()} />);
+    render(
+      <SessionShareButton
+        sessionId="id"
+        shareCount={5}
+        onShareClick={jest.fn()}
+      />
+    );
     expect(screen.getByText("5")).toBeInTheDocument();
   });
 
   it("should call onShareClick when clicked", () => {
     const onShareClick = jest.fn();
-    render(<SessionShareButton sessionId="id" shareCount={0} onShareClick={onShareClick} />);
+    render(
+      <SessionShareButton
+        sessionId="id"
+        shareCount={0}
+        onShareClick={onShareClick}
+      />
+    );
 
     fireEvent.click(screen.getByTestId("share-button"));
     expect(onShareClick).toHaveBeenCalledTimes(1);
   });
 
   it("should animate on click", () => {
-    render(<SessionShareButton sessionId="id" shareCount={0} onShareClick={jest.fn()} />);
+    render(
+      <SessionShareButton
+        sessionId="id"
+        shareCount={0}
+        onShareClick={jest.fn()}
+      />
+    );
     const button = screen.getByTestId("share-button");
 
     fireEvent.click(button);
@@ -732,10 +825,18 @@ describe("SessionShareButton", () => {
 ```
 
 **File**: `__tests__/components/session-share-modal.test.tsx` (new)
+
 ```typescript
 describe("SessionShareModal", () => {
   it("should display platform options", () => {
-    render(<SessionShareModal isOpen={true} onClose={jest.fn()} sessionId="id" beachName="Malibu" />);
+    render(
+      <SessionShareModal
+        isOpen={true}
+        onClose={jest.fn()}
+        sessionId="id"
+        beachName="Malibu"
+      />
+    );
 
     expect(screen.getByText("Instagram")).toBeInTheDocument();
     expect(screen.getByText("Twitter")).toBeInTheDocument();
@@ -744,19 +845,37 @@ describe("SessionShareModal", () => {
   });
 
   it("should show gamification prompt for first share", () => {
-    render(<SessionShareModal isOpen={true} onClose={jest.fn()} sessionId="id" beachName="Malibu" shareCount={0} />);
+    render(
+      <SessionShareModal
+        isOpen={true}
+        onClose={jest.fn()}
+        sessionId="id"
+        beachName="Malibu"
+        shareCount={0}
+      />
+    );
 
     expect(screen.getByText("Be the first to share! 🌊")).toBeInTheDocument();
   });
 
   it("should track analytics on platform selection", async () => {
     const trackSpy = jest.spyOn(analytics, "track");
-    render(<SessionShareModal isOpen={true} onClose={jest.fn()} sessionId="id" beachName="Malibu" />);
+    render(
+      <SessionShareModal
+        isOpen={true}
+        onClose={jest.fn()}
+        sessionId="id"
+        beachName="Malibu"
+      />
+    );
 
     fireEvent.click(screen.getByText("Instagram"));
-    expect(trackSpy).toHaveBeenCalledWith("share_platform_selected", expect.objectContaining({
-      platform: "instagram",
-    }));
+    expect(trackSpy).toHaveBeenCalledWith(
+      "share_platform_selected",
+      expect.objectContaining({
+        platform: "instagram",
+      })
+    );
   });
 });
 ```
@@ -764,6 +883,7 @@ describe("SessionShareModal", () => {
 #### E2E Tests
 
 **File**: `e2e/session-sharing.spec.ts` (new)
+
 ```typescript
 import { test, expect } from "@playwright/test";
 
@@ -798,7 +918,9 @@ test.describe("Session Sharing", () => {
     await expect(page.getByText("Link copied to clipboard!")).toBeVisible();
 
     // Verify clipboard content
-    const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+    const clipboardText = await page.evaluate(() =>
+      navigator.clipboard.readText()
+    );
     expect(clipboardText).toContain("/sessions/test-session-id");
     expect(clipboardText).toContain("utm_source=copy");
   });
@@ -809,8 +931,9 @@ test.describe("Session Sharing", () => {
     await page.getByText("Copy Link").click();
 
     // Wait for API call
-    await page.waitForResponse(response =>
-      response.url().includes("/api/") && response.status() === 200
+    await page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/") && response.status() === 200
     );
 
     // Verify share count incremented
@@ -831,18 +954,24 @@ test.describe("Session Sharing", () => {
     await page.getByText("Copy Link").click();
 
     // Verify duplicate message
-    await expect(page.getByText("You've already shared this session today")).toBeVisible();
+    await expect(
+      page.getByText("You've already shared this session today")
+    ).toBeVisible();
   });
 
   test("should switch between Story and Square variants", async ({ page }) => {
     await page.getByTestId("share-button").click();
 
     // Default is Story
-    await expect(page.getByRole("button", { name: "Story (9:16)" })).toHaveAttribute("variant", "default");
+    await expect(
+      page.getByRole("button", { name: "Story (9:16)" })
+    ).toHaveAttribute("variant", "default");
 
     // Switch to Square
     await page.getByRole("button", { name: "Square (1:1)" }).click();
-    await expect(page.getByRole("button", { name: "Square (1:1)" })).toHaveAttribute("variant", "default");
+    await expect(
+      page.getByRole("button", { name: "Square (1:1)" })
+    ).toHaveAttribute("variant", "default");
   });
 });
 ```
@@ -852,10 +981,12 @@ test.describe("Session Sharing", () => {
 All tests implemented and passing:
 
 1. **Unit Tests** ✅
+
    - [`__tests__/lib/social-share-utils.test.ts`](../__tests__/lib/social-share-utils.test.ts) - Extended with enhanced features tests (13 new test cases)
    - [`__tests__/lib/utils/share-image-utils.test.ts`](../__tests__/lib/utils/share-image-utils.test.ts) - Complete test suite (15 test cases)
 
 2. **Component Tests** ✅
+
    - [`__tests__/components/session/session-share-button.test.tsx`](../__tests__/components/session/session-share-button.test.tsx) - Share button tests (45+ test cases covering rendering, interactions, animations, accessibility)
    - [`__tests__/components/session/session-share-modal.test.tsx`](../__tests__/components/session/session-share-modal.test.tsx) - Share modal tests (60+ test cases covering platforms, variants, analytics, gamification)
 
@@ -863,11 +994,13 @@ All tests implemented and passing:
    - [`e2e/session-sharing.spec.ts`](../e2e/session-sharing.spec.ts) - End-to-end sharing flow tests (15+ scenarios)
 
 **Test Coverage**:
+
 - Unit tests: Image generation, utility functions, share formatting
 - Component tests: UI interactions, state management, error handling
 - E2E tests: Complete user flows, database persistence, clipboard operations
 
 **Running Tests**:
+
 ```bash
 # Run all unit tests
 npx jest
@@ -891,12 +1024,15 @@ npm run test:e2e e2e/session-sharing.spec.ts
 **Symptoms**: Share modal shows error or blank image
 
 **Checks**:
+
 1. Verify `SOCIAL_SHARE_SECRET` is set:
+
    ```bash
    echo $SOCIAL_SHARE_SECRET
    ```
 
 2. Check API route logs:
+
    ```bash
    # Vercel logs
    vercel logs
@@ -907,6 +1043,7 @@ npm run test:e2e e2e/session-sharing.spec.ts
    ```
 
 3. Verify fonts are available:
+
    ```bash
    ls -la public/fonts/NotoSans/
    # Should show NotoSans-Regular.ttf and NotoSans-Bold.ttf
@@ -922,19 +1059,23 @@ npm run test:e2e e2e/session-sharing.spec.ts
 **Symptoms**: Share count doesn't increment
 
 **Checks**:
+
 1. Check database migration applied:
+
    ```sql
    SELECT * FROM session_shares LIMIT 1;
    -- Should not error
    ```
 
 2. Verify triggers exist:
+
    ```sql
    SELECT tgname FROM pg_trigger WHERE tgname LIKE '%share%';
    -- Should show: trigger_increment_share_count, trigger_decrement_share_count
    ```
 
 3. Check RLS policies:
+
    ```sql
    SELECT * FROM pg_policies WHERE tablename = 'session_shares';
    -- Should show 3 policies
@@ -952,12 +1093,15 @@ npm run test:e2e e2e/session-sharing.spec.ts
 **Symptoms**: Share modal shows but native sheet doesn't appear
 
 **Checks**:
+
 1. Verify Capacitor is installed and configured:
+
    ```bash
    npm list @capacitor/share
    ```
 
 2. Check browser support:
+
    ```javascript
    console.log("Navigator.share:", !!navigator.share);
    console.log("Can share files:", navigator.canShare?.({ files: [] }));
@@ -975,7 +1119,9 @@ npm run test:e2e e2e/session-sharing.spec.ts
 **Symptoms**: `get_user_viral_coefficient()` returns 0
 
 **Possible Causes**:
+
 1. User has no public completed sessions:
+
    ```sql
    SELECT COUNT(*) FROM sessions
    WHERE user_id = 'user-id'
@@ -985,6 +1131,7 @@ npm run test:e2e e2e/session-sharing.spec.ts
    ```
 
 2. Sessions haven't been shared:
+
    ```sql
    SELECT COUNT(*) FROM session_shares ss
    JOIN sessions s ON s.id = ss.session_id
@@ -1003,18 +1150,21 @@ npm run test:e2e e2e/session-sharing.spec.ts
 ## 📈 Growth Optimization Tips
 
 ### 1. Make Sharing Frictionless
+
 - ✅ Share button prominently placed (done)
 - ✅ One-click sharing with native sheet (done)
 - 🔄 Pre-fill share text with compelling message
 - 🔄 Add emoji to share text for visual appeal
 
 ### 2. Incentivize Sharing
+
 - ✅ XP rewards for sharing (done)
 - 🔄 "Share to unlock" premium features
 - 🔄 Leaderboard for most shares
 - 🔄 Weekly challenges: "Share 5 sessions this week"
 
 ### 3. Optimize Share Images
+
 - ✅ User attribution for credibility (done)
 - ✅ Beautiful gradients and photos (done)
 - 🔄 A/B test different layouts
@@ -1022,6 +1172,7 @@ npm run test:e2e e2e/session-sharing.spec.ts
 - 🔄 Seasonal themes (summer, winter surf)
 
 ### 4. Track and Iterate
+
 - ✅ Comprehensive analytics (done)
 - 🔄 A/B test share prompts
 - 🔄 Monitor viral coefficient weekly
@@ -1029,6 +1180,7 @@ npm run test:e2e e2e/session-sharing.spec.ts
 - 🔄 Analyze which platforms drive most installs
 
 ### 5. Create Viral Loops
+
 - 🔄 "Your friend [Name] shared this session"
 - 🔄 Invite friends directly from share modal
 - 🔄 Group challenges: "Get 5 friends to share"
@@ -1039,18 +1191,21 @@ npm run test:e2e e2e/session-sharing.spec.ts
 ## 📚 Additional Resources
 
 ### Related Documentation
+
 - [Architecture Review](./ARCHITECTURE_REVIEW.md) - System overview
 - [Design Principles](./DESIGN_PRINCIPLES.md) - Core principles
 - [Style Guide](./STYLE_GUIDE.md) - UI/UX patterns
 - [Mobile Architecture](../ARCHITECTURE.md#mobile-architecture) - Capacitor setup
 
 ### External References
+
 - [Satori Documentation](https://github.com/vercel/satori) - Image generation
 - [Web Share API](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share) - Browser sharing
 - [Capacitor Share Plugin](https://capacitorjs.com/docs/apis/share) - Mobile sharing
 - [UTM Parameters](https://support.google.com/analytics/answer/1033863) - Tracking links
 
 ### API Documentation
+
 - `/api/social/share/og` - Share image generation endpoint
 - `actions/social-share-actions.ts` - Server action reference
 - `lib/social-share-utils.ts` - Image generation utilities
@@ -1069,6 +1224,7 @@ The Instagram Share Optimization feature is **production-ready** and will drive 
 ✅ **Enterprise security** - HMAC signatures, RLS policies
 
 **Next Steps**:
+
 1. Deploy database migration
 2. Set `SOCIAL_SHARE_SECRET` environment variable
 3. Push code to production
@@ -1076,6 +1232,7 @@ The Instagram Share Optimization feature is **production-ready** and will drive 
 5. Iterate based on viral coefficient
 
 **Growth Timeline**:
+
 - Week 1: 50 users (0.5 viral coefficient)
 - Week 4: 200 users (1.0 viral coefficient)
 - Week 8: 1,000 users (1.5+ viral coefficient)

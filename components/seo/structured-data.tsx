@@ -45,13 +45,15 @@ export function StructuredData({
 
 // Specific structured data for different page types
 export function HomePageStructuredData() {
+  const siteUrl = SEO_CONFIG.structuredData.website.url;
+
   const homePageData = {
     "@context": "https://schema.org",
     "@type": "WebPage",
     name: "Quiver - Ultimate Surf Community Platform",
     description:
       "Find surf buddies, track sessions, get forecasts. Join the ultimate surf community.",
-    url: "https://quiver.surf",
+    url: siteUrl,
     mainEntity: {
       "@type": "SoftwareApplication",
       name: "Quiver Surf Community App",
@@ -70,7 +72,7 @@ export function HomePageStructuredData() {
           "@type": "ListItem",
           position: 1,
           name: "Home",
-          item: "https://quiver.surf",
+          item: siteUrl,
         },
       ],
     },

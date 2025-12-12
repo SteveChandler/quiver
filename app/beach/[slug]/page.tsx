@@ -12,7 +12,8 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
 export default async function BeachDetailBySlugPage({
   params,
@@ -131,7 +132,8 @@ export async function generateMetadata({
   if (beach) {
     // Format review count for title
     const reviewCount = beach.review_count ?? 0;
-    const reviewText = reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
+    const reviewText =
+      reviewCount === 1 ? "1 Review" : `${reviewCount} Reviews`;
 
     return buildPageMetadata({
       title: `${beach.name}, ${reviewText}, Map`,

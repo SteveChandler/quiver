@@ -1,7 +1,7 @@
 # Quiver API Documentation
 
 **Version**: 1.0
-**Base URL**: `https://quiversurf.app/api`
+**Base URL**: `https://www.quiversurf.app/api`
 **Last Updated**: November 25, 2025
 
 ---
@@ -34,7 +34,7 @@ The Quiver API is a RESTful API built with Next.js API Routes. All endpoints ret
 ### Base URL
 
 ```
-Production:  https://quiversurf.app/api
+Production:  https://www.quiversurf.app/api
 Development: http://localhost:3000/api
 ```
 
@@ -65,6 +65,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -83,6 +84,7 @@ POST /api/auth/sign-out
 ```
 
 **Response:**
+
 ```json
 {
   "success": true
@@ -114,6 +116,7 @@ GET /api/auth/check-session
 ```
 
 **Response:**
+
 ```json
 {
   "authenticated": true,
@@ -142,7 +145,9 @@ All successful responses follow this structure:
 ```json
 {
   "success": true,
-  "data": { /* response data */ },
+  "data": {
+    /* response data */
+  },
   "timestamp": "2025-10-28T12:00:00Z"
 }
 ```
@@ -156,6 +161,7 @@ GET /api/beaches?limit=20&offset=40
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -193,11 +199,13 @@ GET /api/beaches?order_by=name.asc
 **Current Status**: Not implemented (future enhancement)
 
 **Planned Limits**:
+
 - **Authenticated Users**: 100 requests/minute per user
 - **Anonymous Users**: 20 requests/minute per IP
 - **Admin Users**: 500 requests/minute
 
 **Rate Limit Headers** (future):
+
 ```
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
@@ -221,32 +229,32 @@ X-RateLimit-Reset: 1698504000
 
 ### HTTP Status Codes
 
-| Status | Meaning | Usage |
-|--------|---------|-------|
-| **200** | OK | Successful GET, PUT, PATCH, DELETE |
-| **201** | Created | Successful POST (resource created) |
-| **204** | No Content | Successful DELETE (no body) |
-| **400** | Bad Request | Invalid input, validation errors |
-| **401** | Unauthorized | Missing or invalid authentication |
-| **403** | Forbidden | Authenticated but not authorized |
-| **404** | Not Found | Resource doesn't exist |
-| **409** | Conflict | Duplicate resource (unique constraint) |
-| **422** | Unprocessable Entity | Validation failed |
-| **429** | Too Many Requests | Rate limit exceeded |
-| **500** | Internal Server Error | Unexpected server error |
-| **503** | Service Unavailable | Temporary service outage |
+| Status  | Meaning               | Usage                                  |
+| ------- | --------------------- | -------------------------------------- |
+| **200** | OK                    | Successful GET, PUT, PATCH, DELETE     |
+| **201** | Created               | Successful POST (resource created)     |
+| **204** | No Content            | Successful DELETE (no body)            |
+| **400** | Bad Request           | Invalid input, validation errors       |
+| **401** | Unauthorized          | Missing or invalid authentication      |
+| **403** | Forbidden             | Authenticated but not authorized       |
+| **404** | Not Found             | Resource doesn't exist                 |
+| **409** | Conflict              | Duplicate resource (unique constraint) |
+| **422** | Unprocessable Entity  | Validation failed                      |
+| **429** | Too Many Requests     | Rate limit exceeded                    |
+| **500** | Internal Server Error | Unexpected server error                |
+| **503** | Service Unavailable   | Temporary service outage               |
 
 ### Common Error Codes
 
-| Code | Description |
-|------|-------------|
-| `UNAUTHORIZED` | User not authenticated |
-| `FORBIDDEN` | User not authorized for resource |
-| `VALIDATION_ERROR` | Input validation failed |
-| `NOT_FOUND` | Resource not found |
-| `DUPLICATE` | Resource already exists |
-| `RATE_LIMIT_EXCEEDED` | Too many requests |
-| `INTERNAL_ERROR` | Unexpected server error |
+| Code                  | Description                      |
+| --------------------- | -------------------------------- |
+| `UNAUTHORIZED`        | User not authenticated           |
+| `FORBIDDEN`           | User not authorized for resource |
+| `VALIDATION_ERROR`    | Input validation failed          |
+| `NOT_FOUND`           | Resource not found               |
+| `DUPLICATE`           | Resource already exists          |
+| `RATE_LIMIT_EXCEEDED` | Too many requests                |
+| `INTERNAL_ERROR`      | Unexpected server error          |
 
 ---
 
@@ -259,6 +267,7 @@ X-RateLimit-Reset: 1698504000
 Sign in with email and password.
 
 **Request:**
+
 ```json
 {
   "email": "user@example.com",
@@ -267,6 +276,7 @@ Sign in with email and password.
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -285,6 +295,7 @@ Sign in with email and password.
 Sign out current user.
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true
@@ -298,6 +309,7 @@ Sign out current user.
 Check if user is authenticated.
 
 **Response:** `200 OK`
+
 ```json
 {
   "authenticated": true,
@@ -315,6 +327,7 @@ Check if user is authenticated.
 Refresh the user's session token.
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true
@@ -332,6 +345,7 @@ Get current user's profile.
 **Authentication**: Required
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -363,6 +377,7 @@ Update current user's profile.
 **Authentication**: Required
 
 **Request:**
+
 ```json
 {
   "full_name": "John Doe",
@@ -372,6 +387,7 @@ Update current user's profile.
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -391,9 +407,11 @@ Update current user's profile.
 Get user profile by username.
 
 **Parameters:**
+
 - `username` (path): Username to fetch
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -419,11 +437,13 @@ Get user profile by username.
 Get user's public sessions.
 
 **Parameters:**
+
 - `userId` (path): User ID
 - `limit` (query, optional): Max results (default: 20)
 - `offset` (query, optional): Pagination offset
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -457,6 +477,7 @@ Get user's public sessions.
 Get list of beaches.
 
 **Query Parameters:**
+
 - `limit` (optional): Max results (default: 50, max: 100)
 - `offset` (optional): Pagination offset
 - `region` (optional): Filter by region (e.g., "california")
@@ -467,6 +488,7 @@ Get list of beaches.
 - `radius_km` (optional): Radius for nearby search (default: 50)
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -499,9 +521,11 @@ Get list of beaches.
 Get beach details by ID.
 
 **Parameters:**
+
 - `id` (path): Beach ID
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -538,6 +562,7 @@ Create a new beach (Admin only).
 **Authentication**: Required (Admin)
 
 **Request:**
+
 ```json
 {
   "name": "New Beach",
@@ -564,6 +589,7 @@ Get current user's favorite beaches.
 **Authentication**: Required
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -588,6 +614,7 @@ Add beach to favorites.
 **Authentication**: Required
 
 **Parameters:**
+
 - `id` (path): Beach ID
 
 **Response:** `201 Created`
@@ -601,6 +628,7 @@ Remove beach from favorites.
 **Authentication**: Required
 
 **Parameters:**
+
 - `id` (path): Beach ID
 
 **Response:** `204 No Content`
@@ -614,6 +642,7 @@ Remove beach from favorites.
 Get list of sessions.
 
 **Query Parameters:**
+
 - `limit` (optional): Max results (default: 20)
 - `offset` (optional): Pagination offset
 - `user_id` (optional): Filter by user
@@ -623,6 +652,7 @@ Get list of sessions.
 - `is_public` (optional): Filter by public status
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -658,9 +688,11 @@ Get list of sessions.
 Get session details.
 
 **Parameters:**
+
 - `id` (path): Session ID
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -712,6 +744,7 @@ Create a new session.
 **Authentication**: Required
 
 **Request:**
+
 ```json
 {
   "beach_id": "uuid",
@@ -727,6 +760,7 @@ Create a new session.
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "success": true,
@@ -749,9 +783,11 @@ Update a session.
 **Authentication**: Required (must be session owner)
 
 **Parameters:**
+
 - `id` (path): Session ID
 
 **Request:**
+
 ```json
 {
   "rating": 5,
@@ -771,6 +807,7 @@ Delete a session.
 **Authentication**: Required (must be session owner)
 
 **Parameters:**
+
 - `id` (path): Session ID
 
 **Response:** `204 No Content`
@@ -784,10 +821,12 @@ Delete a session.
 Get forecast for a beach.
 
 **Parameters:**
+
 - `beachId` (path): Beach ID
 - `forecast_date` (query, optional): Date for forecast (default: today)
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -821,9 +860,11 @@ Get forecast for a beach.
 Get aggregated surf forecast (multi-source).
 
 **Parameters:**
+
 - `beachId` (path): Beach ID
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -853,6 +894,7 @@ Like a session.
 **Authentication**: Required
 
 **Parameters:**
+
 - `sessionId` (path): Session ID
 
 **Response:** `201 Created`
@@ -866,6 +908,7 @@ Unlike a session.
 **Authentication**: Required
 
 **Parameters:**
+
 - `sessionId` (path): Session ID
 
 **Response:** `204 No Content`
@@ -877,9 +920,11 @@ Unlike a session.
 Get comments for a session.
 
 **Parameters:**
+
 - `sessionId` (path): Session ID
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -905,6 +950,7 @@ Create a comment.
 **Authentication**: Required
 
 **Request:**
+
 ```json
 {
   "session_id": "uuid",
@@ -923,6 +969,7 @@ Follow a user.
 **Authentication**: Required
 
 **Parameters:**
+
 - `userId` (path): User ID to follow
 
 **Response:** `201 Created`
@@ -936,6 +983,7 @@ Unfollow a user.
 **Authentication**: Required
 
 **Parameters:**
+
 - `userId` (path): User ID to unfollow
 
 **Response:** `204 No Content`
@@ -951,6 +999,7 @@ Get current user's boards.
 **Authentication**: Required
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -979,6 +1028,7 @@ Create a new board.
 **Authentication**: Required
 
 **Request:**
+
 ```json
 {
   "name": "My New Board",
@@ -1013,6 +1063,7 @@ Sync buoy data from NOAA (Admin only).
 **Authentication**: Required (Admin)
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -1032,6 +1083,7 @@ Get user statistics.
 **Authentication**: Required
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -1056,6 +1108,7 @@ Get user statistics.
 Health check endpoint.
 
 **Response:** `200 OK`
+
 ```json
 {
   "success": true,
@@ -1070,16 +1123,20 @@ Health check endpoint.
 ## Webhooks (Future)
 
 Planned webhook support for:
+
 - New session created
 - User followed
 - Comment added
 - Badge earned
 
 **Format:**
+
 ```json
 {
   "event": "session.created",
-  "data": { /* event data */ },
+  "data": {
+    /* event data */
+  },
   "timestamp": "2025-10-28T12:00:00Z"
 }
 ```
@@ -1091,28 +1148,22 @@ Planned webhook support for:
 ### JavaScript/TypeScript
 
 ```typescript
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  'https://quiversurf.app',
-  'anon-key'
-)
+const supabase = createClient("https://www.quiversurf.app", "anon-key");
 
 // Get beaches
-const { data: beaches } = await supabase
-  .from('beaches')
-  .select('*')
-  .limit(10)
+const { data: beaches } = await supabase.from("beaches").select("*").limit(10);
 ```
 
 ### Curl Examples
 
 ```bash
 # Get beaches
-curl https://quiversurf.app/api/beaches
+curl https://www.quiversurf.app/api/beaches
 
 # Create session (authenticated)
-curl -X POST https://quiversurf.app/api/sessions \
+curl -X POST https://www.quiversurf.app/api/sessions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"beach_id": "uuid", "rating": 4}'
@@ -1133,15 +1184,15 @@ curl -X POST https://quiversurf.app/api/sessions \
 Always check the `success` field in responses:
 
 ```typescript
-const response = await fetch('/api/sessions')
-const json = await response.json()
+const response = await fetch("/api/sessions");
+const json = await response.json();
 
 if (!json.success) {
-  console.error('Error:', json.error)
+  console.error("Error:", json.error);
   // Handle error
 } else {
   // Process data
-  const sessions = json.data
+  const sessions = json.data;
 }
 ```
 
@@ -1151,23 +1202,23 @@ For large datasets, always use pagination:
 
 ```typescript
 async function getAllBeaches() {
-  let offset = 0
-  const limit = 100
-  const beaches = []
+  let offset = 0;
+  const limit = 100;
+  const beaches = [];
 
   while (true) {
     const response = await fetch(
       `/api/beaches?limit=${limit}&offset=${offset}`
-    )
-    const json = await response.json()
+    );
+    const json = await response.json();
 
-    beaches.push(...json.data)
+    beaches.push(...json.data);
 
-    if (json.data.length < limit) break
-    offset += limit
+    if (json.data.length < limit) break;
+    offset += limit;
   }
 
-  return beaches
+  return beaches;
 }
 ```
 
@@ -1176,6 +1227,7 @@ async function getAllBeaches() {
 ## Changelog
 
 ### Version 1.0 (October 2025)
+
 - Initial API documentation
 - Documented all core endpoints
 - Added authentication flow
@@ -1186,6 +1238,7 @@ async function getAllBeaches() {
 ## Support
 
 For API support:
+
 - **Documentation**: https://github.com/quiver/quiver/docs
 - **Issues**: https://github.com/quiver/quiver/issues
 - **Email**: support@quiversurf.app

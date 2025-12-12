@@ -15,9 +15,10 @@ import {
 import { notFound } from "next/navigation";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
 interface PageProps {
   params: {
@@ -29,15 +30,15 @@ interface PageProps {
 
 /**
  * Generic Beach Detail Page for all states
- * 
+ *
  * This route handles hierarchical beach URLs like:
  * - /ca/san-diego/ocean-beach (California beach)
  * - /or/newport/agate-beach (Oregon beach)
  * - /wa/westport/westport-jetty (Washington beach)
  * - /hi/haleiwa/pipeline (Hawaii beach)
- * 
+ *
  * Intent-based URLs like /surf-forecast/newport use the parent [intent]/[city] route.
- * 
+ *
  * The "intent" param is named for consistency with the parent route,
  * but in this 3-segment context it represents a state slug.
  */
@@ -139,7 +140,9 @@ export default async function GenericBeachDetailPage({ params }: PageProps) {
   }
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { intent: stateParam, beachSlug } = params;
 
   // Skip metadata generation for invalid state slugs (intent slugs)
@@ -172,10 +175,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       try {
         path = buildBeachUrl(beach);
       } catch (urlError) {
-        console.warn("[GenericBeachDetailPage] Error building beach URL for metadata:", {
-          beachSlug,
-          error: urlError instanceof Error ? urlError.message : "Unknown error",
-        });
+        console.warn(
+          "[GenericBeachDetailPage] Error building beach URL for metadata:",
+          {
+            beachSlug,
+            error:
+              urlError instanceof Error ? urlError.message : "Unknown error",
+          }
+        );
         path = `/beach/${beachSlug}`;
       }
 
@@ -250,7 +257,9 @@ export async function generateStaticParams() {
         beachSlug: beach.slug!,
       }));
 
-    console.log(`Generated ${beachParams.length} beach pages for generic state route`);
+    console.log(
+      `Generated ${beachParams.length} beach pages for generic state route`
+    );
     return beachParams;
   } catch (error) {
     console.warn(
@@ -261,4 +270,3 @@ export async function generateStaticParams() {
     return [];
   }
 }
-

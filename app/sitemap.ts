@@ -93,12 +93,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Generate hierarchical URLs for beaches
     beachEntries = beaches
       .filter((b) => b.slug && b.city && b.state) // Only include beaches with complete URL data
-      .map((beach) => ({
-        url: `${baseUrl}${buildBeachUrl(beach)}`,
-        lastModified: beach.created_at || lastmod,
-        changeFrequency: "weekly",
-        priority: 0.6,
-      }));
+      .map((beach) => {
+        // getBeaches() can return a subset of columns; prefer updated_at when present.
+        const updatedAt = (beach as { updated_at?: string | null }).updated_at;
+        return {
+          url: `${baseUrl}${buildBeachUrl(beach)}`,
+          lastModified: updatedAt || beach.created_at || lastmod,
+          changeFrequency: "weekly",
+          priority: 0.6,
+        };
+      });
 
     // Add forecast pages for each beach (still using ID for now)
     forecastEntries = beaches.map((b) => ({

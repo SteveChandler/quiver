@@ -5,7 +5,8 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { getSessionMetadata } from "@/actions/session-actions";
 import { format } from "date-fns";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://quiversurf.app";
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
 export default function SessionDetailPage({
   params,
@@ -41,11 +42,12 @@ export async function generateMetadata({
       const session = result.data;
       // Supabase joins return single objects for .single() queries, but TS types as arrays
       const beach = session.beach as unknown as { name: string } | null;
-      const user = session.user as unknown as { full_name: string; username: string } | null;
-      const beachName =
-        beach?.name || session.beach_name || "Unknown Beach";
-      const userName =
-        user?.full_name || user?.username || "Surfer";
+      const user = session.user as unknown as {
+        full_name: string;
+        username: string;
+      } | null;
+      const beachName = beach?.name || session.beach_name || "Unknown Beach";
+      const userName = user?.full_name || user?.username || "Surfer";
       const ratingText = session.rating ? `${session.rating}-star` : "";
       const statusText =
         session.status === "completed" ? "Surf Session" : "Planned Session";

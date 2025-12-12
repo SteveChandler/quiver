@@ -274,7 +274,7 @@ export default function IntentPage({ params }: IntentPageParams) {
                 <ul className="mt-3 space-y-2 text-sm text-sky-700">
                   <li>
                     <a
-                      href={`/ca/${city.slug}`}
+                      href={`/beaches/usa/ca/${city.slug}`}
                       className="underline-offset-2 hover:underline"
                     >
                       Back to the {city.name} surf hub

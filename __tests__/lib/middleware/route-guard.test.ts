@@ -201,10 +201,10 @@ describe("RouteGuard", () => {
       const url = RouteGuard.buildSignInRedirect(
         "/profile",
         "",
-        "https://quiver.surf"
+        "https://www.quiversurf.app"
       );
 
-      expect(url.origin).toBe("https://quiver.surf");
+      expect(url.origin).toBe("https://www.quiversurf.app");
       expect(url.pathname).toBe("/auth/sign-in");
     });
   });
@@ -218,9 +218,11 @@ describe("RouteGuard", () => {
     });
 
     it("should work with different base URLs", () => {
-      const url = RouteGuard.buildUnauthorizedRedirect("https://quiver.surf");
+      const url = RouteGuard.buildUnauthorizedRedirect(
+        "https://www.quiversurf.app"
+      );
 
-      expect(url.origin).toBe("https://quiver.surf");
+      expect(url.origin).toBe("https://www.quiversurf.app");
       expect(url.pathname).toBe("/");
     });
   });

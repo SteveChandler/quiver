@@ -25,6 +25,10 @@ import { RankingBadge } from "@/components/location/ranking-badge";
 import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
+const SITE_ORIGIN = (
+  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+).replace(/\/$/, "");
+
 // Editorial content imports
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
@@ -110,7 +114,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
     containsPlace: beaches.slice(0, 5).map((beach) => ({
       "@type": "Beach",
       name: beach.name,
-      url: `https://quiver.surf/beach/${beach.slug}`,
+      url: `${SITE_ORIGIN}/beach/${beach.slug}`,
       aggregateRating:
         (beach.average_rating || 0) > 0
           ? {
@@ -483,7 +487,7 @@ export async function generateMetadata({ params }: LocationPageProps) {
           stats.totalReviews
         } reviews.`;
 
-    const url = `https://quiver.surf/beaches/${params.country}/${params.state}/${params.city}`;
+    const url = `${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}`;
 
     return {
       title,

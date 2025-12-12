@@ -10,9 +10,7 @@ import { getAllBeachLocations } from "@/actions/beach/beach-location-list-action
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import {
   SURF_CITY_SLUGS,
-  SURF_SPOT_SLUGS,
   getCityBySlug,
-  getSpotBySlug,
 } from "@/lib/data/surf-spots";
 
 // Mock the action modules
@@ -27,9 +25,7 @@ jest.mock("@/actions/beach/beach-query-actions", () => ({
 // Mock the surf-spots module to control test data
 jest.mock("@/lib/data/surf-spots", () => ({
   SURF_CITY_SLUGS: ["san-diego", "orange-county"],
-  SURF_SPOT_SLUGS: ["la-jolla-shores", "blacks-beach"],
   getCityBySlug: jest.fn(),
-  getSpotBySlug: jest.fn(),
 }));
 
 describe("Sitemap Generation", () => {
@@ -55,12 +51,6 @@ describe("Sitemap Generation", () => {
       slug,
       name: slug === "san-diego" ? "San Diego" : "Orange County",
       featuredIntents: ["beginner", "tide"],
-    }));
-
-    (getSpotBySlug as jest.Mock).mockImplementation((slug: string) => ({
-      slug,
-      name: slug,
-      skillLevel: "Intermediate",
     }));
   });
 
@@ -129,24 +119,30 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       SURF_CITY_SLUGS.forEach((slug) => {
-        const route = result.find((r) => r.url === `${baseUrl}/ca/${slug}`);
+        const route = result.find(
+          (r) => r.url === `${baseUrl}/beaches/usa/ca/${slug}`
+        );
         expect(route).toBeDefined();
       });
     });
 
     it("should set high priority (0.9) for city routes", async () => {
       const result = await sitemap();
-      const cityRoute = result.find((r) => r.url === `${baseUrl}/ca/san-diego`);
+      const cityRoute = result.find(
+        (r) => r.url === `${baseUrl}/beaches/usa/ca/san-diego`
+      );
 
       expect(cityRoute?.priority).toBe(0.9);
     });
 
-    it("should use correct URL format /ca/{city}", async () => {
+    it("should use correct URL format /beaches/usa/ca/{city}", async () => {
       const result = await sitemap();
-      const cityRoutes = result.filter((r) => r.url.includes("/ca/"));
+      const cityRoutes = result.filter((r) =>
+        r.url.includes("/beaches/usa/ca/")
+      );
 
       cityRoutes.forEach((route) => {
-        expect(route.url).toMatch(/\/ca\/[a-z-]+$/);
+        expect(route.url).toMatch(/\/beaches\/usa\/ca\/[a-z-]+$/);
       });
     });
 
@@ -229,43 +225,12 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Curated Spot Routes", () => {
-    it("should include routes for all SURF_SPOT_SLUGS", async () => {
+    it("should not include deprecated /spots routes", async () => {
       const result = await sitemap();
-
-      SURF_SPOT_SLUGS.forEach((slug) => {
-        const route = result.find((r) => r.url === `${baseUrl}/spots/${slug}`);
-        expect(route).toBeDefined();
-      });
-    });
-
-    it("should set changeFrequency to hourly for spot routes", async () => {
-      const result = await sitemap();
-      const spotRoute = result.find(
-        (r) => r.url === `${baseUrl}/spots/la-jolla-shores`
+      const hasDeprecatedSpotsRoutes = result.some((r) =>
+        r.url.includes("/spots/")
       );
-
-      expect(spotRoute?.changeFrequency).toBe("hourly");
-    });
-
-    it("should prioritize beginner-friendly spots (0.85) over others (0.8)", async () => {
-      (getSpotBySlug as jest.Mock).mockImplementation((slug: string) => ({
-        slug,
-        name: slug,
-        skillLevel:
-          slug === "la-jolla-shores" ? "Beginner friendly" : "Advanced",
-      }));
-
-      const result = await sitemap();
-
-      const beginnerSpot = result.find(
-        (r) => r.url === `${baseUrl}/spots/la-jolla-shores`
-      );
-      const advancedSpot = result.find(
-        (r) => r.url === `${baseUrl}/spots/blacks-beach`
-      );
-
-      expect(beginnerSpot?.priority).toBe(0.85);
-      expect(advancedSpot?.priority).toBe(0.8);
+      expect(hasDeprecatedSpotsRoutes).toBe(false);
     });
   });
 

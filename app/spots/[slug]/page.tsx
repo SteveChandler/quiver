@@ -207,7 +207,7 @@ export default async function SpotPage({ params }: SpotPageParams) {
             {spot.citySlug ? (
               <a
                 className="font-semibold text-sky-700 underline-offset-2 hover:underline"
-                href={`/ca/${spot.citySlug}`}
+                href={`/beaches/usa/ca/${spot.citySlug}`}
               >
                 {city?.name} surf spots
               </a>

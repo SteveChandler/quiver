@@ -20,6 +20,7 @@ The hard technical work is complete:
 - [x] App Store content written (descriptions, keywords ready to copy-paste)
 
 **Related Documentation:**
+
 - `APP_STORE_CONTENT.md` - Copy & paste content for App Store Connect
 - `VERCEL_ENV_SETUP.md` - Environment variables configuration guide
 
@@ -110,7 +111,7 @@ APPLE_APP_BUNDLE_ID=app.quiversurf.mobile
 1. **Test the endpoint** - Open in browser:
 
    ```
-   https://quiversurf.app/.well-known/apple-app-site-association
+   https://www.quiversurf.app/.well-known/apple-app-site-association
    ```
 
 2. **Should return JSON like this:**
@@ -196,7 +197,7 @@ Still in **Signing & Capabilities** tab:
    - Search "Associated"
    - Click **Associated Domains**
    - Click **+** under Associated Domains
-   - Add: `applinks:quiversurf.app`
+   - Add: `applinks:www.quiversurf.app`
    - ⚠️ Must start with `applinks:` prefix
 
 4. **(Optional) Add Background Modes** if you want background push:
@@ -456,19 +457,19 @@ Click **Edit** and fill questionnaire:
 **Privacy Policy URL:**
 
 ```
-https://quiversurf.app/privacy
+https://www.quiversurf.app/privacy
 ```
 
 **Support URL:**
 
 ```
-https://quiversurf.app/about
+https://www.quiversurf.app/about
 ```
 
 **Marketing URL:** (optional)
 
 ```
-https://quiversurf.app
+https://www.quiversurf.app
 ```
 
 #### 8.3 Upload Screenshots
@@ -785,5 +786,3 @@ Before submitting, verify:
 **Last Updated:** October 17, 2025  
 **Created by:** Quiver Development Team  
 **For questions:** Create issue in repo or contact team
-
-

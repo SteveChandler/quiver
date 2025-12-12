@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Standardized wind alignment scoring to prefer `wind_direction_deg` (with safe fallback parsing for legacy rows).
   - Normalized condition scoring so a 100 match is achievable even when a beach is missing wind/tide metadata.
 
+- **Canonical Host Normalization (www)** (December 2025)
+
+  - Standardized canonical URLs, OpenGraph URLs, and structured data to use `https://www.quiversurf.app` as the single canonical host.
+  - Updated share URL fallbacks, docs, and tests to avoid mixing `quiver.surf` / non-www `quiversurf.app` hosts (reduces Search Console “alternate with proper canonical” noise).
+
 - **Onboarding/Tour Overlay Gating** (December 2025)
 
   - Prevented onboarding and product tour overlays from mounting on the landing page when logged out.

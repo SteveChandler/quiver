@@ -111,11 +111,12 @@ sequenceDiagram
 ```
 
 **Implementation**: `lib/supabase/client.ts`
+
 ```typescript
 const { data, error } = await supabase.auth.signInWithPassword({
-  email: 'user@example.com',
-  password: 'password123'
-})
+  email: "user@example.com",
+  password: "password123",
+});
 ```
 
 ### 2. Magic Link (Passwordless)
@@ -139,13 +140,14 @@ sequenceDiagram
 ```
 
 **Implementation**:
+
 ```typescript
 const { error } = await supabase.auth.signInWithOtp({
-  email: 'user@example.com',
+  email: "user@example.com",
   options: {
-    emailRedirectTo: 'https://quiversurf.app/auth/callback'
-  }
-})
+    emailRedirectTo: "https://www.quiversurf.app/auth/callback",
+  },
+});
 ```
 
 ### 3. OAuth (Google)
@@ -172,13 +174,14 @@ sequenceDiagram
 ```
 
 **Implementation**:
+
 ```typescript
 const { error } = await supabase.auth.signInWithOAuth({
-  provider: 'google',
+  provider: "google",
   options: {
-    redirectTo: 'https://quiversurf.app/auth/callback'
-  }
-})
+    redirectTo: "https://www.quiversurf.app/auth/callback",
+  },
+});
 ```
 
 ---
@@ -206,12 +209,13 @@ const { error } = await supabase.auth.signInWithOAuth({
   },
   "role": "authenticated",
   "aal": "aal1",
-  "amr": [{"method": "password", "timestamp": 1729999100}],
+  "amr": [{ "method": "password", "timestamp": 1729999100 }],
   "session_id": "session-uuid-here"
 }
 ```
 
 **Token Characteristics**:
+
 - **Type**: JWT (JSON Web Token)
 - **Algorithm**: HS256 (HMAC SHA-256)
 - **Expiry**: 1 hour (3600 seconds)
@@ -270,6 +274,7 @@ graph TB
 5. **Logout**: User signs out → Tokens revoked → Cookie cleared
 
 **Implementation**: `lib/supabase/client.ts`
+
 ```typescript
 export const createClient = () => {
   return createBrowserClient(
@@ -278,23 +283,23 @@ export const createClient = () => {
     {
       cookies: {
         get(name: string) {
-          return getCookie(name)
+          return getCookie(name);
         },
         set(name: string, value: string, options: CookieOptions) {
-          setCookie(name, value, options)
+          setCookie(name, value, options);
         },
         remove(name: string, options: CookieOptions) {
-          deleteCookie(name, options)
-        }
+          deleteCookie(name, options);
+        },
       },
       auth: {
-        autoRefreshToken: true,  // Auto-refresh when expiring
-        persistSession: true,     // Persist across browser sessions
-        detectSessionInUrl: true  // Handle OAuth callbacks
-      }
+        autoRefreshToken: true, // Auto-refresh when expiring
+        persistSession: true, // Persist across browser sessions
+        detectSessionInUrl: true, // Handle OAuth callbacks
+      },
     }
-  )
-}
+  );
+};
 ```
 
 ---
@@ -345,6 +350,7 @@ $$ LANGUAGE SQL STABLE;
 ### Example RLS Policies
 
 #### User Data - Own Records Only
+
 ```sql
 -- Read own profile
 CREATE POLICY "Users can view own profile"
@@ -359,6 +365,7 @@ CREATE POLICY "Users can update own profile"
 ```
 
 #### Sessions - Public Read, Owner Write
+
 ```sql
 -- Read public sessions or own private sessions
 CREATE POLICY "Users can view public or own sessions"
@@ -383,6 +390,7 @@ CREATE POLICY "Users can delete own sessions"
 ```
 
 #### Public Data - Read-Only
+
 ```sql
 -- Anyone can read beaches (public data)
 CREATE POLICY "Beaches are publicly viewable"
@@ -398,6 +406,7 @@ CREATE POLICY "Forecasts for authenticated users"
 ```
 
 #### Admin Access
+
 ```sql
 -- Admins can do everything
 CREATE POLICY "Admins have full access"
@@ -457,15 +466,15 @@ flowchart TD
 **Code Implementation**:
 
 ```typescript
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ['/', '/login', '/signup', '/auth/callback']
-const PROTECTED_ROUTES = ['/profile', '/sessions', '/settings']
+const PUBLIC_ROUTES = ["/", "/login", "/signup", "/auth/callback"];
+const PROTECTED_ROUTES = ["/profile", "/sessions", "/settings"];
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next()
+  let response = NextResponse.next();
 
   // Create Supabase client with cookie handling
   const supabase = createServerClient(
@@ -474,48 +483,50 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return request.cookies.get(name)?.value
+          return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          response.cookies.set({ name, value, ...options })
+          response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          response.cookies.delete({ name, ...options })
-        }
-      }
+          response.cookies.delete({ name, ...options });
+        },
+      },
     }
-  )
+  );
 
   // Refresh session if needed
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  const path = request.nextUrl.pathname
+  const path = request.nextUrl.pathname;
 
   // Check if route requires authentication
-  const isProtectedRoute = PROTECTED_ROUTES.some(route =>
+  const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
     path.startsWith(route)
-  )
+  );
 
   if (isProtectedRoute && !session) {
     // Redirect to login if not authenticated
-    const redirectUrl = new URL('/login', request.url)
-    redirectUrl.searchParams.set('redirect', path)
-    return NextResponse.redirect(redirectUrl)
+    const redirectUrl = new URL("/login", request.url);
+    redirectUrl.searchParams.set("redirect", path);
+    return NextResponse.redirect(redirectUrl);
   }
 
-  if (session && path === '/login') {
+  if (session && path === "/login") {
     // Redirect authenticated users away from login
-    return NextResponse.redirect(new URL('/home', request.url))
+    return NextResponse.redirect(new URL("/home", request.url));
   }
 
-  return response
+  return response;
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'
-  ]
-}
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};
 ```
 
 ---
@@ -527,49 +538,52 @@ export const config = {
 **File**: `lib/server-action-utils.ts`
 
 ```typescript
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from "@/lib/supabase/server";
 
 export async function withAuthenticatedAction<T, Args extends any[]>(
   action: (userId: string, ...args: Args) => Promise<T>
 ): Promise<(...args: Args) => Promise<T>> {
   return async (...args: Args): Promise<T> => {
-    const supabase = createClient()
+    const supabase = createClient();
 
     // Get current user from session
-    const { data: { user }, error } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
     if (error || !user) {
-      throw new Error('Unauthorized: You must be logged in')
+      throw new Error("Unauthorized: You must be logged in");
     }
 
     // Call action with user ID
-    return action(user.id, ...args)
-  }
+    return action(user.id, ...args);
+  };
 }
 ```
 
 **Usage**:
 
 ```typescript
-'use server'
+"use server";
 
-import { withAuthenticatedAction } from '@/lib/server-action-utils'
+import { withAuthenticatedAction } from "@/lib/server-action-utils";
 
 export const updateProfile = withAuthenticatedAction(
   async (userId: string, data: ProfileUpdate) => {
     // userId is guaranteed to be authenticated
-    const supabase = createClient()
+    const supabase = createClient();
 
     const { error } = await supabase
-      .from('profiles')
+      .from("profiles")
       .update(data)
-      .eq('id', userId)  // RLS ensures user can only update own profile
+      .eq("id", userId); // RLS ensures user can only update own profile
 
-    if (error) throw error
+    if (error) throw error;
 
-    return { success: true }
+    return { success: true };
   }
-)
+);
 ```
 
 ---
@@ -581,54 +595,57 @@ export const updateProfile = withAuthenticatedAction(
 **File**: `lib/api-utils.ts`
 
 ```typescript
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from "@/lib/supabase/server";
 
 export async function authenticateRequest(request: Request) {
-  const supabase = createClient()
+  const supabase = createClient();
 
-  const { data: { user }, error } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
   if (error || !user) {
-    return { user: null, error: 'Unauthorized' }
+    return { user: null, error: "Unauthorized" };
   }
 
-  return { user, error: null }
+  return { user, error: null };
 }
 
 export async function requireAuth(request: Request) {
-  const { user, error } = await authenticateRequest(request)
+  const { user, error } = await authenticateRequest(request);
 
   if (error || !user) {
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
-  return user
+  return user;
 }
 ```
 
 **Usage**:
 
 ```typescript
-import { requireAuth } from '@/lib/api-utils'
+import { requireAuth } from "@/lib/api-utils";
 
 export async function POST(request: Request) {
   // Require authentication
-  const user = await requireAuth(request)
+  const user = await requireAuth(request);
 
   // If requireAuth returns Response, user is not authenticated
   if (user instanceof Response) {
-    return user  // Return 401 response
+    return user; // Return 401 response
   }
 
   // User is authenticated, proceed with request
-  const body = await request.json()
+  const body = await request.json();
 
   // ... handle request with user.id
 
-  return Response.json({ success: true })
+  return Response.json({ success: true });
 }
 ```
 
@@ -637,28 +654,34 @@ export async function POST(request: Request) {
 ## Security Best Practices
 
 ### 1. Token Storage
+
 ✅ **Correct**: HTTP-only cookies (not accessible to JavaScript)
 ❌ **Avoid**: LocalStorage or SessionStorage (vulnerable to XSS)
 
 ### 2. Token Transmission
+
 ✅ **Correct**: HTTPS only (TLS 1.3)
 ❌ **Avoid**: HTTP or insecure connections
 
 ### 3. Token Validation
+
 ✅ **Correct**: Verify signature and expiry on every request
 ❌ **Avoid**: Trusting client-provided data
 
 ### 4. Session Management
+
 ✅ **Correct**: Auto-refresh tokens before expiry
 ✅ **Correct**: Revoke tokens on logout
 ❌ **Avoid**: Long-lived access tokens without refresh
 
 ### 5. RLS Policies
+
 ✅ **Correct**: Enable RLS on ALL tables
 ✅ **Correct**: Test policies with different user contexts
 ❌ **Avoid**: Disabling RLS for convenience
 
 ### 6. Error Handling
+
 ✅ **Correct**: Generic error messages ("Invalid credentials")
 ❌ **Avoid**: Specific errors ("User not found" vs "Wrong password")
 
@@ -671,32 +694,32 @@ export async function POST(request: Request) {
 ```typescript
 // capacitor.config.ts
 const config: CapacitorConfig = {
-  appId: 'com.quiversurf.app',
-  appName: 'Quiver',
+  appId: "com.quiversurf.app",
+  appName: "Quiver",
   plugins: {
     CapacitorCookies: {
-      enabled: true
+      enabled: true,
     },
     CapacitorHttp: {
-      enabled: true
-    }
-  }
-}
+      enabled: true,
+    },
+  },
+};
 ```
 
 ### OAuth Callback Handling
 
 ```typescript
-import { App } from '@capacitor/app'
+import { App } from "@capacitor/app";
 
 // Listen for deep link
-App.addListener('appUrlOpen', async ({ url }) => {
+App.addListener("appUrlOpen", async ({ url }) => {
   // Handle OAuth callback: quiversurf://auth/callback?code=...
-  if (url.startsWith('quiversurf://auth/callback')) {
+  if (url.startsWith("quiversurf://auth/callback")) {
     // Supabase SDK automatically handles the code exchange
-    await supabase.auth.getSession()
+    await supabase.auth.getSession();
   }
-})
+});
 ```
 
 ---
@@ -707,26 +730,20 @@ App.addListener('appUrlOpen', async ({ url }) => {
 
 ```typescript
 // Test as anonymous user
-const { data } = await supabase
-  .from('beaches')
-  .select('*')
+const { data } = await supabase.from("beaches").select("*");
 // Should only return public beaches
 
 // Test as authenticated user
 const { data } = await supabase.auth.signInWithPassword({
-  email: 'test@example.com',
-  password: 'password'
-})
+  email: "test@example.com",
+  password: "password",
+});
 
-const { data: sessions } = await supabase
-  .from('sessions')
-  .select('*')
+const { data: sessions } = await supabase.from("sessions").select("*");
 // Should only return user's own sessions
 
 // Test as admin
-const { data: auditLogs } = await supabase
-  .from('admin_audit_log')
-  .select('*')
+const { data: auditLogs } = await supabase.from("admin_audit_log").select("*");
 // Should return logs if user is admin, error otherwise
 ```
 
@@ -750,6 +767,7 @@ const { data: auditLogs } = await supabase
 ---
 
 **Security Notes**:
+
 - All authentication uses JWT tokens signed with project secret
 - Tokens are validated on every request (server-side)
 - RLS policies provide defense-in-depth at database level

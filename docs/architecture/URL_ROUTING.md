@@ -13,6 +13,7 @@ Quiver uses a hierarchical URL structure that mirrors real-world geography, prov
 **Primary Pattern**: `/[state]/[city]/[beachSlug]`
 
 Examples:
+
 - `/ca/san-diego/ocean-beach`
 - `/or/newport/agate-beach`
 - `/hi/oahu/pipeline`
@@ -26,6 +27,7 @@ This route uses state slug validation to distinguish state codes from intent slu
 **Pattern**: `/beaches/[country]/[state]/[city]`
 
 Examples:
+
 - `/beaches/usa/ca/san-diego`
 - `/beaches/usa/or/newport`
 - `/beaches/usa/hi/oahu`
@@ -33,6 +35,7 @@ Examples:
 **Implementation**: `app/beaches/[country]/[state]/[city]/page.tsx`
 
 City pages display:
+
 - Interactive map with beach markers
 - Scrollable beach list (desktop) or horizontal scroll (mobile)
 - Editorial content (when available)
@@ -44,6 +47,7 @@ City pages display:
 **Pattern**: `/[intent]/[city]`
 
 Examples:
+
 - `/surf-forecast/san-diego`
 - `/beginner/orange-county`
 - `/least-crowded/newport`
@@ -82,6 +86,7 @@ isValidStateSlug(slug: string): boolean
 **Source**: `lib/utils/beach-url-utils.ts` - `STATE_SLUG_MAP`
 
 US States (2-letter codes):
+
 - `CA`, `California` → `ca`
 - `FL`, `Florida` → `fl`
 - `HI`, `Hawaii` → `hi`
@@ -96,6 +101,7 @@ US States (2-letter codes):
 - `RI`, `Rhode Island` → `ri`
 
 International:
+
 - `Baja California` → `mexico/baja-california`
 
 ## URL Building Utilities
@@ -202,6 +208,7 @@ if (legacyCaMatch) {
 ```
 
 **Impact**:
+
 - `/ca/san-diego` → redirects to `/beaches/usa/ca/san-diego`
 - `/ca/orange-county` → redirects to `/beaches/usa/ca/orange-county`
 - Old URLs remain functional via 302 redirect
@@ -212,21 +219,25 @@ if (legacyCaMatch) {
 **Why 302 (Temporary) Instead of 301 (Permanent)?**
 
 We use 302 redirects during the migration period to:
+
 1. Preserve flexibility to adjust URL structure if needed
 2. Allow A/B testing of new URL patterns
 3. Monitor traffic patterns before committing permanently
 
 **Migration Timeline:**
+
 - **December 2025**: 302 redirects deployed
 - **January 2026**: Monitor search console for indexing status
 - **February 2026**: Evaluate and consider switching to 301
 
 **When to Switch to 301:**
+
 - Once new URLs are fully indexed by search engines
 - After confirming no further URL structure changes needed
 - When legacy URL traffic has mostly shifted to new URLs
 
 **Search Console Actions:**
+
 1. Submit new sitemap with `/beaches/usa/ca/*` URLs
 2. Monitor "URL Inspection" for both old and new patterns
 3. Track crawl stats for redirect chains
@@ -245,42 +256,49 @@ const legacyCaMatch = pathname.match(
 ## Examples for All US States
 
 ### California
+
 ```
 Beach: /ca/san-diego/ocean-beach
 City:  /beaches/usa/ca/san-diego
 ```
 
 ### Oregon
+
 ```
 Beach: /or/newport/agate-beach
 City:  /beaches/usa/or/newport
 ```
 
 ### Washington
+
 ```
 Beach: /wa/seattle/alki-beach
 City:  /beaches/usa/wa/seattle
 ```
 
 ### Hawaii
+
 ```
 Beach: /hi/oahu/pipeline
 City:  /beaches/usa/hi/oahu
 ```
 
 ### Florida
+
 ```
 Beach: /fl/jacksonville/jacksonville-beach
 City:  /beaches/usa/fl/jacksonville
 ```
 
 ### North Carolina
+
 ```
 Beach: /nc/outer-banks/cape-hatteras
 City:  /beaches/usa/nc/outer-banks
 ```
 
 ### Texas
+
 ```
 Beach: /tx/galveston/stewart-beach
 City:  /beaches/usa/tx/galveston
@@ -304,8 +322,8 @@ All routes use absolute canonical URLs:
 export async function generateMetadata({ params }) {
   return {
     alternates: {
-      canonical: `https://quiversurf.app/ca/san-diego/ocean-beach`
-    }
+      canonical: `https://www.quiversurf.app/ca/san-diego/ocean-beach`,
+    },
   };
 }
 ```
@@ -327,7 +345,11 @@ beachEntries = beaches.map((beach) => ({
 
 // Location entries use buildLocationUrl()
 locationRoutes = locations.map((location) => ({
-  url: `${baseUrl}${buildLocationUrl(location.city, location.state, location.country)}`,
+  url: `${baseUrl}${buildLocationUrl(
+    location.city,
+    location.state,
+    location.country
+  )}`,
   lastModified: lastmod,
   changeFrequency: "weekly",
   priority: 0.75,
@@ -362,29 +384,37 @@ locationRoutes = locations.map((location) => ({
 ### Beach URLs Return 404
 
 **Check**:
+
 1. Does beach have `slug`, `city`, and `state` fields?
 2. Is state code in `STATE_SLUG_MAP`?
 3. Is dynamic route configured correctly?
 
 **Debug**:
+
 ```typescript
 const url = getBeachUrlSafe(beach);
 console.log("Generated URL:", url);
-console.log("Beach data:", { slug: beach.slug, city: beach.city, state: beach.state });
+console.log("Beach data:", {
+  slug: beach.slug,
+  city: beach.city,
+  state: beach.state,
+});
 ```
 
 ### State Code Not Recognized
 
 **Check**:
+
 1. Is state code in `STATE_SLUG_MAP`?
 2. Is `getValidStateSlugs()` returning the state?
 
 **Fix**:
 Add to `STATE_SLUG_MAP` in `beach-url-utils.ts`:
+
 ```typescript
 const STATE_SLUG_MAP: Record<string, string> = {
   // Add new state
-  "NEW_STATE_CODE": "new-state-slug",
+  NEW_STATE_CODE: "new-state-slug",
   "New State Name": "new-state-slug",
   // ...
 };
