@@ -125,7 +125,7 @@ The React dashboard component (`components/admin/forecast-health-dashboard.tsx`)
 ### Forecast Sync Cron
 
 - **Path**: `/api/cron/enhanced-forecast-sync`
-- **Schedule**: Daily at 6 AM UTC (`0 6 * * *`)
+- **Schedule**: Every 2 hours (`0 */2 * * *`)
 - **Function**: Updates forecasts for all beaches
 
 ### Health Check Cron
@@ -136,14 +136,15 @@ The React dashboard component (`components/admin/forecast-health-dashboard.tsx`)
 
 ## Monitoring Thresholds
 
-| Metric              | Warning | Critical |
-| ------------------- | ------- | -------- |
-| Data Age (CDIP)     | >1.5h   | >24h     |
-| Data Age (NOAA)     | >12h    | >24h     |
-| Data Age (Fallback) | >12h    | >24h     |
-| Coverage            | <95%    | <90%     |
-| Stale Beaches       | >5      | >10      |
-| API Error Rate      | >5%     | >10%     |
+| Metric             | Warning | Critical |
+| ------------------ | ------- | -------- |
+| Enhanced Forecasts | >12h    | >24h     |
+| Marine             | >2h     | >6h      |
+| Tides              | >24h    | >48h     |
+| Sun times          | >7d     | >14d     |
+| Coverage           | <95%    | <90%     |
+| Stale Beaches      | >5      | >10      |
+| API Error Rate     | >5%     | >10%     |
 
 ## Log Formats
 
