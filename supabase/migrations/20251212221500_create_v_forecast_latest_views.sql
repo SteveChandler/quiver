@@ -13,7 +13,8 @@ select distinct on (m.beach_id)
 from public.marine_forecasts m
 join public.beaches b on b.id = m.beach_id
 where m.beach_id is not null
-order by m.beach_id, m.created_at desc, m.ts desc, m.is_observed desc;
+-- Prefer observed rows over persistence projections.
+order by m.beach_id, m.is_observed desc, m.created_at desc, m.ts desc;
 
 -- Latest tide forecast row per beach (1 row per beach).
 create or replace view public.v_tide_forecast_latest
