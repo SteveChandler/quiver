@@ -9,7 +9,7 @@ jest.mock('@/lib/utils/forecast-client-utils', () => ({
 }));
 
 type RangeResult = { data: any[] | null; error: { message: string } | null };
-const rangeMock = jest.fn<(from: number, to: number) => Promise<RangeResult>>();
+const rangeMock = jest.fn<() => Promise<RangeResult>>();
 
 jest.mock('@/lib/supabase/server', () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
@@ -29,13 +29,9 @@ jest.mock('@/lib/supabase/server', () => ({
         };
       }
 
-      if (table === 'enhanced_forecasts') {
+      if (table === 'v_enhanced_forecast_latest') {
         return {
-          select: jest.fn(() => ({
-            order: jest.fn(() => ({
-              range: rangeMock,
-            })),
-          })),
+          select: jest.fn(() => rangeMock()),
         };
       }
 
@@ -56,24 +52,14 @@ describe('Forecast Health Check', () => {
   it('paginates enhanced_forecasts so coverage is not undercounted', async () => {
     const nowIso = new Date().toISOString();
 
-    // Page 1: capped page size worth of rows, all for beach-1 (simulates clustered updates)
-    const page1 = Array.from({ length: 1000 }, () => ({
-      beach_id: 'beach-1',
-      updated_at: nowIso,
-      data_source: 'NOAA_NWS',
-    }));
-
-    // Page 2: contains the remaining beaches so we can reach full coverage
-    const page2 = [
-      { beach_id: 'beach-2', updated_at: nowIso, data_source: 'NOAA_NWS' },
-      { beach_id: 'beach-3', updated_at: nowIso, data_source: 'NOAA_NWS' },
-      // extra rows shouldn't matter
-      { beach_id: 'beach-1', updated_at: nowIso, data_source: 'NOAA_NWS' },
-    ];
-
-    rangeMock
-      .mockResolvedValueOnce({ data: page1, error: null })
-      .mockResolvedValueOnce({ data: page2, error: null });
+    rangeMock.mockResolvedValueOnce({
+      data: [
+        { beach_id: 'beach-1', updated_at: nowIso, data_source: 'NOAA_NWS' },
+        { beach_id: 'beach-2', updated_at: nowIso, data_source: 'CDIP' },
+        { beach_id: 'beach-3', updated_at: nowIso, data_source: 'CDIP' },
+      ],
+      error: null,
+    });
 
     const metrics = await checkForecastHealth();
 
@@ -83,8 +69,6 @@ describe('Forecast Health Check', () => {
     expect(metrics.beachesWithStaleData).toBe(0);
     expect(metrics.healthStatus).toBe('healthy');
 
-    expect(rangeMock).toHaveBeenCalledTimes(2);
-    expect(rangeMock).toHaveBeenNthCalledWith(1, 0, 1000 - 1);
-    expect(rangeMock).toHaveBeenNthCalledWith(2, 1000, 2 * 1000 - 1);
+    expect(rangeMock).toHaveBeenCalledTimes(1);
   });
 });
