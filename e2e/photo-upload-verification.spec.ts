@@ -9,11 +9,12 @@ import fs from "fs";
 
 // Test configuration
 // Using a session ID from the local or production database
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
 const TEST_SESSION_ID =
-  process.env.BASE_URL?.includes("localhost")
+  BASE_URL.includes("localhost")
     ? "6d04bbab-85b6-420e-ae50-4719410963dd" // Local test session
     : "2a0838d1-a108-4ec1-8b94-a35ed5ffb282"; // Production test session
-const TEST_SESSION_URL = `${process.env.BASE_URL || "http://localhost:3000"}/sessions/${TEST_SESSION_ID}`;
+const TEST_SESSION_URL = `${BASE_URL}/sessions/${TEST_SESSION_ID}`;
 
 test.describe("Photo Upload E2E Verification", () => {
   test.beforeEach(async ({ page }) => {

@@ -35,8 +35,8 @@ import {
   TEST_LOCATIONS,
   LOCATION_URLS,
   LOCATION_PAGE_TIMEOUTS,
-  VIEWPORTS,
 } from "./fixtures/location-data";
+import { VIEWPORTS } from "./fixtures/test-data";
 
 test.describe("Location Pages - URL and Routing", () => {
   test("should load location page with correct URL structure", async ({
@@ -47,6 +47,16 @@ test.describe("Location Pages - URL and Routing", () => {
 
     const url = page.url();
     expect(isLocationPageUrl(url)).toBe(true);
+    expect(url).toContain("/beaches/usa/ca/la-jolla");
+  });
+
+  test("should redirect /beaches/{state}/{city} to canonical /beaches/usa/{state}/{city}", async ({
+    page,
+  }) => {
+    await page.goto("/beaches/ca/la-jolla");
+    await waitForLocationPageLoad(page);
+
+    const url = page.url();
     expect(url).toContain("/beaches/usa/ca/la-jolla");
   });
 
