@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
-import { Suspense, lazy, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { QuiverFAQSchema } from "@/components/seo/faq-schema";
 
@@ -41,7 +41,10 @@ function ProgressiveSection({
   useEffect(() => {
     // Skip progressive loading in test environments (Playwright, Cypress)
     // This ensures tests can immediately interact with content without waiting for IntersectionObserver
-    if (typeof window !== "undefined" && (window.navigator.webdriver || window.Cypress)) {
+    if (
+      typeof window !== "undefined" &&
+      (window.navigator.webdriver || (window as any).Cypress)
+    ) {
       setIsVisible(true);
       return;
     }
@@ -106,36 +109,38 @@ export default function LandingPage() {
       {/* Modern Navigation */}
       <Navbar />
 
-      {/* Hero Section - Search-Centric */}
-      <HeroSection />
+      <main role="main">
+        {/* Hero Section - Search-Centric */}
+        <HeroSection />
 
-      {/* Progressive loading sections - Modern layout */}
-      <div className="space-y-0">
-        {/* Surf Highlights Section (replaces Social Feed) */}
-        <ProgressiveSection height="h-96">
-          <SurfHighlightsSection />
-        </ProgressiveSection>
+        {/* Progressive loading sections - Modern layout */}
+        <div className="space-y-0">
+          {/* Surf Highlights Section (replaces Social Feed) */}
+          <ProgressiveSection height="h-96">
+            <SurfHighlightsSection />
+          </ProgressiveSection>
 
-        {/* Activities Section (replaces Features) */}
-        <ProgressiveSection height="h-96">
-          <ActivitiesSection />
-        </ProgressiveSection>
+          {/* Activities Section (replaces Features) */}
+          <ProgressiveSection height="h-96">
+            <ActivitiesSection />
+          </ProgressiveSection>
 
-        {/* Forecast Section */}
-        <ProgressiveSection height="h-80">
-          <ForecastSection />
-        </ProgressiveSection>
+          {/* Forecast Section */}
+          <ProgressiveSection height="h-80">
+            <ForecastSection />
+          </ProgressiveSection>
 
-        {/* CTA Section */}
-        <ProgressiveSection height="h-64">
-          <CTASection />
-        </ProgressiveSection>
+          {/* CTA Section */}
+          <ProgressiveSection height="h-64">
+            <CTASection />
+          </ProgressiveSection>
 
-        {/* Footer Section */}
-        <ProgressiveSection height="h-48">
-          <FooterSection />
-        </ProgressiveSection>
-      </div>
+          {/* Footer Section */}
+          <ProgressiveSection height="h-48">
+            <FooterSection />
+          </ProgressiveSection>
+        </div>
+      </main>
     </div>
   );
 }

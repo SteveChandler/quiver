@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Localhost hydration regressions from stale PWA caching** (December 2025)
+
+  - Disabled PWA auto-registration and ensured `/sw.js` never registers on localhost (clears stale caches/registrations to prevent old Next.js chunk 404s).
+  - Increased `image-proxy` burst limit to avoid broken landing images during normal browsing.
+
 - **Location Pages RPC Coordinate Columns** (December 2025)
 
   - Fixed `get_beaches_by_location_with_scores` to use `lat/lon` (not `latitude/longitude`) so `/beaches/[country]/[state]/[city]` pages don't fail with `column b.latitude does not exist`.
@@ -111,6 +116,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Includes testing requirements and week-by-week implementation checklist.
 
 ### Changed
+
+- **Landing page polish (AllTrails-inspired, forecast-first)** (December 2025)
+
+  - Added hero subhead + lightweight value row while preserving lazy-loaded search performance.
+  - Shifted primary CTAs to `/map` and made sign-up secondary for “explore-first” flow.
+  - Removed mocked conditions UI from landing surf spot cards and dropped framer-motion usage in that grid.
+  - Added `<main role="main">` landmark for accessibility and hardened `SectionWrapper` max-width classes for Tailwind.
 
 - **Enhanced DRY Form Components with Character Counters and Custom Rendering** (December 2025)
 

@@ -6,6 +6,33 @@
  */
 
 /**
+ * Openverse compatibility:
+ * The Openverse API has historically returned thumbnail URLs like:
+ *   https://api.openverse.org/v1/images/{id}/thumb/?format=json
+ * That endpoint returns JSON metadata, not image bytes, which breaks <img>/<Image>.
+ * We defensively strip `format=json` for Openverse thumb URLs at render time.
+ */
+function cleanOpenverseThumbUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+
+    const isOpenverseApi = urlObj.hostname === "api.openverse.org";
+    const isThumbPath = urlObj.pathname.includes("/thumb/");
+    const format = urlObj.searchParams.get("format");
+
+    if (isOpenverseApi && isThumbPath && format?.toLowerCase() === "json") {
+      urlObj.searchParams.delete("format");
+      return urlObj.toString();
+    }
+
+    return url;
+  } catch {
+    // Best-effort fallback for malformed URLs
+    return url.replace(/\?format=json$/i, "");
+  }
+}
+
+/**
  * Determines if a URL should be proxied through the image proxy endpoint.
  *
  * URLs that should NOT be proxied:
@@ -92,14 +119,17 @@ export function getProxiedImageUrl(url: string | null | undefined): string {
     return '';
   }
 
+  // Normalize known bad thumbnail URLs (Openverse)
+  const normalizedUrl = cleanOpenverseThumbUrl(url.trim());
+
   // If URL doesn't need proxying, return as-is
-  if (!shouldProxyUrl(url)) {
-    return url;
+  if (!shouldProxyUrl(normalizedUrl)) {
+    return normalizedUrl;
   }
 
   // Proxy external URLs through the image proxy endpoint
   try {
-    const encodedUrl = encodeURIComponent(url);
+    const encodedUrl = encodeURIComponent(normalizedUrl);
     return `/api/image-proxy?url=${encodedUrl}`;
   } catch (error) {
     // If encoding fails for any reason, return empty string for safety

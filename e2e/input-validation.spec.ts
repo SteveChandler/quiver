@@ -15,7 +15,7 @@
 import { test, expect } from "@playwright/test";
 import { ensureAuthenticated } from "./utils/test-helpers";
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 // Helper to create a test session for comment tests
 async function createTestSession(request: any): Promise<string | null> {

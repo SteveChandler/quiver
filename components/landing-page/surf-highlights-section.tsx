@@ -1,12 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
-import Link from "next/link";
-import { SectionWrapper } from "./section-wrapper";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SurfSpotCard, SurfSpotCardProps } from "./surf-spot-card";
 import { CONTENT } from "@/lib/constants/features";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronRight } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { FALLBACK_IMAGE_BY_NAME } from "@/lib/constants/featured-beaches-config";
@@ -18,9 +15,15 @@ interface Beach {
   state?: string | null;
   slug?: string | null;
   photo_url?: string | null;
+  average_rating?: number | null;
+  review_count?: number | null;
+  skill_level?: string | null;
 }
 
 export function SurfHighlightsSection() {
+  const [page, setPage] = useState(0);
+  const pageSize = 4;
+
   const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {
     try {
       const response = await fetch("/api/beaches/featured");
@@ -34,7 +37,9 @@ export function SurfHighlightsSection() {
       const usedImages = new Set<string>();
       const DEFAULT_FALLBACK = "/sunsetBeach.jpg";
 
-      // Transform beaches into surf spot cards with mock conditions
+      // Transform beaches into surf spot cards.
+      // NOTE: We intentionally do NOT show mocked conditions (swell/wind/tide/crowd/etc.)
+      // on the landing page to avoid implying forecast accuracy we don't have in this view.
       // Prioritize beaches with actual photos, then unique fallback images
       const spotCards = beaches
         .map((beach, index) => {
@@ -44,13 +49,21 @@ export function SurfHighlightsSection() {
           if (beach.photo_url) {
             // Use actual photo from database (proxied for external URLs)
             imageUrl = getProxiedImageUrl(beach.photo_url);
-          } else if (FALLBACK_IMAGE_BY_NAME[beach.name]) {
-            // Use fallback image if available and not already used
-            const fallbackUrl = FALLBACK_IMAGE_BY_NAME[beach.name];
-            imageUrl = usedImages.has(fallbackUrl) ? DEFAULT_FALLBACK : fallbackUrl;
           } else {
-            // Use default fallback
-            imageUrl = DEFAULT_FALLBACK;
+            const fallbackUrl =
+              FALLBACK_IMAGE_BY_NAME[
+                beach.name as keyof typeof FALLBACK_IMAGE_BY_NAME
+              ];
+
+            if (fallbackUrl) {
+              // Use fallback image if available and not already used
+              imageUrl = usedImages.has(fallbackUrl)
+                ? DEFAULT_FALLBACK
+                : fallbackUrl;
+            } else {
+              // Use default fallback
+              imageUrl = DEFAULT_FALLBACK;
+            }
           }
 
           usedImages.add(imageUrl);
@@ -58,17 +71,17 @@ export function SurfHighlightsSection() {
           return {
             id: beach.id,
             name: beach.name,
-            location: beach.city && beach.state ? `${beach.city}, ${beach.state}` : beach.city || beach.state || "California",
+            location:
+              beach.city && beach.state
+                ? `${beach.city}, ${beach.state}`
+                : beach.city || beach.state || "California",
             slug: beach.slug,
             city: beach.city,
             state: beach.state,
             imageUrl,
-            swellHeight: getMockSwellHeight(index),
-            swellDirection: getMockSwellDirection(index),
-            windSpeed: getMockWindSpeed(index),
-            tideStatus: getMockTideStatus(index),
-            difficulty: getMockDifficulty(index),
-            crowdLevel: getMockCrowdLevel(index),
+            averageRating: beach.average_rating ?? null,
+            reviewCount: beach.review_count ?? null,
+            skillLevel: beach.skill_level ?? null,
             delay: index,
           };
         })
@@ -83,98 +96,90 @@ export function SurfHighlightsSection() {
 
   const { data: surfSpots, loading } = useDataFetcher(fetchBeaches);
 
-  // Mock data generators (replace with real API data in production)
-  function getMockSwellHeight(index: number): string {
-    const heights = ["2-3 ft", "3-5 ft", "4-6 ft", "1-2 ft", "5-7 ft"];
-    return heights[index % heights.length];
-  }
+  const total = surfSpots?.length ?? 0;
+  const pageCount = useMemo(() => {
+    if (!surfSpots || surfSpots.length === 0) return 0;
+    return Math.ceil(surfSpots.length / pageSize);
+  }, [surfSpots, pageSize]);
 
-  function getMockSwellDirection(index: number): string {
-    const directions = ["W", "SW", "NW", "S", "WSW"];
-    return directions[index % directions.length];
-  }
+  const visibleSpots = useMemo(() => {
+    if (!surfSpots || surfSpots.length === 0) return [];
+    const start = page * pageSize;
+    return surfSpots.slice(start, start + pageSize);
+  }, [surfSpots, page, pageSize]);
 
-  function getMockWindSpeed(index: number): string {
-    const speeds = [
-      "5-10 mph offshore",
-      "Light offshore",
-      "10-15 mph",
-      "Calm",
-          "5 mph offshore",
-        ];
-        return speeds[index % speeds.length];
-      }
+  // Reset to first page if data changes and current page is out of range.
+  useEffect(() => {
+    if (!surfSpots || surfSpots.length === 0) {
+      setPage(0);
+      return;
+    }
+    const maxPage = Math.max(0, Math.ceil(surfSpots.length / pageSize) - 1);
+    if (page > maxPage) setPage(0);
+  }, [surfSpots, page, pageSize]);
 
-  function getMockTideStatus(index: number): string {
-    const tides = ["Rising", "High tide", "Mid tide", "Low tide", "Falling"];
-    return tides[index % tides.length];
-  }
-
-  function getMockDifficulty(index: number): SurfSpotCardProps["difficulty"] {
-    const levels: SurfSpotCardProps["difficulty"][] = [
-      "Beginner",
-      "Intermediate",
-      "Advanced",
-      "Expert",
-    ];
-    return levels[index % levels.length];
-  }
-
-  function getMockCrowdLevel(index: number): SurfSpotCardProps["crowdLevel"] {
-    const crowds: SurfSpotCardProps["crowdLevel"][] = [
-      "Uncrowded",
-      "Moderate",
-      "Crowded",
-    ];
-    return crowds[index % crowds.length];
-  }
+  const handleNext = () => {
+    if (pageCount <= 1) return;
+    setPage((prev) => (prev + 1) % pageCount);
+  };
 
   return (
-    <SectionWrapper
-      title={CONTENT.sections.surfHighlights.title}
-      subtitle={CONTENT.sections.surfHighlights.subtitle}
-      centerContent
-      className="py-20 px-4 bg-gradient-to-b from-white to-blue-50"
-    >
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(8)].map((_, i) => (
-            <div
-              key={i}
-              className="h-80 bg-gray-200 rounded-xl animate-pulse"
-            />
-          ))}
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {surfSpots && surfSpots.length > 0 ? (
-              surfSpots.map((spot) => <SurfSpotCard key={spot.id} {...spot} />)
-            ) : (
-              <div className="col-span-full text-center py-12 text-gray-500">
-                No surf spots available at the moment.
-              </div>
-            )}
-          </div>
+    <section className="py-20 px-4 bg-gradient-to-b from-white to-blue-50">
+      {/* DOM order adjustment (from browser preview): h2 is a direct child of section */}
+      <h2 className="max-w-6xl mx-auto text-4xl md:text-5xl font-roboto font-bold text-dark-grey mb-4 text-left">
+        {CONTENT.sections.surfHighlights.title}
+      </h2>
 
-          {/* CTA */}
-          <div
-            className="text-center animate-fade-in-up"
-            style={{ animationDelay: "400ms" }}
-          >
-            <Button
-              size="lg"
-              className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
-              asChild
-            >
-              <Link href="/map">
-                Explore All Surf Spots
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
+      <div className="max-w-6xl mx-auto">
+        {CONTENT.sections.surfHighlights.subtitle ? (
+          <div className="text-center mb-12 animate-fade-in-up">
+            <p className="text-xl font-open-sans text-gray-600 max-w-2xl mx-auto">
+              {CONTENT.sections.surfHighlights.subtitle}
+            </p>
           </div>
-        </>
-      )}
-    </SectionWrapper>
+        ) : null}
+
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div
+                key={i}
+                className="h-80 bg-gray-200 rounded-xl animate-pulse"
+              />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="relative mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {visibleSpots.length > 0 ? (
+                  visibleSpots.map((spot, index) => (
+                    <SurfSpotCard key={spot.id} {...spot} delay={index} />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-12 text-gray-500">
+                    No surf spots available at the moment.
+                  </div>
+                )}
+              </div>
+
+              {/* AllTrails-style pager: show 4 cards + next arrow */}
+              {total > pageSize ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  aria-label="Next surf spots"
+                  className="hidden md:flex items-center justify-center absolute right-0 translate-x-1/2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white shadow-md hover:shadow-lg transition-shadow z-10"
+                >
+                  <ChevronRight className="h-6 w-6 text-dark-grey" />
+                </button>
+              ) : (
+                <div className="hidden" aria-hidden="true" />
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
   );
 }

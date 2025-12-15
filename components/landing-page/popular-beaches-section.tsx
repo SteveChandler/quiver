@@ -16,7 +16,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Waves, ArrowRight } from "lucide-react";
+import { MapPin, Star, Waves, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
@@ -41,7 +41,8 @@ function getBeachImageUrl(beach: EnrichedBeach): string {
   }
 
   // Use named fallback if available
-  const fallbackUrl = FALLBACK_IMAGE_BY_NAME[beach.name as keyof typeof FALLBACK_IMAGE_BY_NAME];
+  const fallbackUrl =
+    FALLBACK_IMAGE_BY_NAME[beach.name as keyof typeof FALLBACK_IMAGE_BY_NAME];
   if (fallbackUrl) {
     return fallbackUrl;
   }
@@ -68,6 +69,13 @@ function BeachCard({ beach }: { beach: EnrichedBeach }) {
     beach.city && beach.state
       ? `${beach.city}, ${beach.state}`
       : beach.city || beach.state || "";
+
+  const skillLevel = beach.skill_level
+    ? beach.skill_level
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+    : "All levels";
 
   return (
     <Link href={beachUrl} prefetch={false} className="block group">
@@ -102,6 +110,24 @@ function BeachCard({ beach }: { beach: EnrichedBeach }) {
               <span>{location}</span>
             </div>
           )}
+
+          {/* Rating + Skill level */}
+          <div className="mt-2 flex items-center gap-3 text-xs text-gray-600">
+            <div className="flex items-center gap-1">
+              <Star className="h-3.5 w-3.5 text-gray-700" aria-hidden="true" />
+              <span className="font-medium text-gray-800">
+                {typeof beach.average_rating === "number"
+                  ? beach.average_rating.toFixed(1)
+                  : "New"}
+              </span>
+              {typeof beach.review_count === "number" &&
+              beach.review_count > 0 ? (
+                <span className="text-gray-500">({beach.review_count})</span>
+              ) : null}
+            </div>
+            <span className="text-gray-300">•</span>
+            <span className="text-gray-700">{skillLevel}</span>
+          </div>
         </div>
       </div>
     </Link>

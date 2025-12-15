@@ -10,6 +10,14 @@ import { Suspense } from "react";
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 import dynamic from "next/dynamic";
 
+function shouldSendLocalAgentIngest(): boolean {
+  if (typeof window === "undefined") return false;
+  if (process.env.NODE_ENV !== "development") return false;
+  // eslint-disable-next-line no-restricted-properties
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
+
 // Capture early client-side errors (including hydration) before effects run.
 if (typeof window !== "undefined") {
   const w = window as unknown as {
@@ -23,6 +31,7 @@ if (typeof window !== "undefined") {
     const originalWarn = console.warn.bind(console);
 
     const postConsoleEvent = (level: "error" | "warn", args: unknown[]) => {
+      if (!shouldSendLocalAgentIngest()) return;
       const first =
         typeof args?.[0] === "string"
           ? args[0]
@@ -151,6 +160,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
+      if (!shouldSendLocalAgentIngest()) return;
       // #region agent log (H5)
       fetch(
         "http://127.0.0.1:7242/ingest/34f14e6e-7bc2-48aa-9171-48f9e1984d59",
@@ -180,6 +190,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     };
 
     const handleRejection = (event: PromiseRejectionEvent) => {
+      if (!shouldSendLocalAgentIngest()) return;
       // #region agent log (H5)
       fetch(
         "http://127.0.0.1:7242/ingest/34f14e6e-7bc2-48aa-9171-48f9e1984d59",
@@ -309,6 +320,10 @@ function LandingPageContent({ children }: { children: React.ReactNode }) {
     <>
       <Suspense fallback={null}>
         <AppHeader />
+      </Suspense>
+      {/* PWA SW registration/unregistration (runtime-controlled; never on localhost) */}
+      <Suspense fallback={null}>
+        <PWAAndPushListeners />
       </Suspense>
       <main id="main-content" role="main">
         {children}

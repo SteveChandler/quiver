@@ -52,6 +52,16 @@ export function HeroSection() {
           {CONTENT.hero.title}
         </h1>
 
+        {/* Supporting Subhead */}
+        {CONTENT.hero.subtitle ? (
+          <p
+            className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto mb-6 sm:mb-8 font-open-sans leading-relaxed animate-fade-in-up"
+            style={{ animationDelay: "150ms" }}
+          >
+            {CONTENT.hero.subtitle}
+          </p>
+        ) : null}
+
         {/* Search Bar - Hero Focus with lazy-loaded autocomplete */}
         <div
           className="mb-4 sm:mb-6 animate-fade-in-up"

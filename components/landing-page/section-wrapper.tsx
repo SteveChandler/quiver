@@ -11,6 +11,15 @@ interface SectionWrapperProps {
   centerContent?: boolean;
 }
 
+const MAX_WIDTH_CLASS: Record<
+  NonNullable<SectionWrapperProps["maxWidth"]>,
+  string
+> = {
+  "4xl": "max-w-4xl",
+  "6xl": "max-w-6xl",
+  "7xl": "max-w-7xl",
+};
+
 export function SectionWrapper({
   children,
   className = "py-20 px-4",
@@ -21,7 +30,7 @@ export function SectionWrapper({
   maxWidth = "6xl",
   centerContent = false,
 }: SectionWrapperProps) {
-  const containerClass = `max-w-${maxWidth} mx-auto`;
+  const containerClass = `${MAX_WIDTH_CLASS[maxWidth]} mx-auto`;
   const contentClass = centerContent ? "text-center" : "";
 
   return (

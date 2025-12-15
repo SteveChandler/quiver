@@ -70,7 +70,7 @@ export function Navbar() {
   }, {} as Record<string, typeof EXPLORE_MENU_ITEMS>);
 
   return (
-    <nav className="absolute top-0 left-0 right-0 z-50 w-full bg-transparent backdrop-blur-sm">
+    <nav className="absolute top-0 left-0 right-0 z-50 w-full bg-black/10 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -131,7 +131,7 @@ export function Navbar() {
             <div className="flex items-center gap-3 ml-2">
               <Button
                 variant="outline"
-                className="text-white border-white hover:bg-transparent hover:bg-white/10 hover:text-white font-medium rounded-full px-6 bg-transparent"
+                className="text-white border-white/70 hover:bg-white/10 hover:text-white font-medium rounded-full px-6 bg-transparent"
                 onClick={() => {
                   setAuthMode("login");
                   setAuthModalOpen(true);

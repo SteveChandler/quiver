@@ -44,15 +44,14 @@ export function CTASection() {
 
       <div className="max-w-4xl mx-auto text-center relative z-10 animate-fade-in-up">
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-roboto font-bold text-white mb-6 leading-tight animate-fade-in-up">
-          Wherever the swell takes you
+          Find the right wave today
         </h2>
 
         <p
           className="text-lg md:text-xl font-open-sans text-white/90 mb-10 max-w-3xl mx-auto leading-relaxed animate-fade-in-up"
           style={{ animationDelay: "200ms" }}
         >
-          Track, plan, and share your surf sessions with Quiver. Join the
-          community and never miss your next perfect wave.
+          Explore surf spots on the map, then save your favorites when you&apos;re ready.
         </p>
 
         {/* Social Proof */}
@@ -85,15 +84,18 @@ export function CTASection() {
             className="bg-white text-ocean-blue hover:bg-gray-100 px-8 py-4 text-lg font-roboto font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             asChild
           >
-            <Link href={preserveQueryParams("/auth/sign-up", searchParams)}>
-              Join the Lineup
+            <Link href={preserveQueryParams("/map", searchParams)}>
+              Explore the map
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
 
-          <p className="text-white/80 text-sm mt-4">
-            Free to join • No credit card required • Built for surfers
-          </p>
+          <Link
+            href={preserveQueryParams("/auth/sign-up", searchParams)}
+            className="text-white/90 underline underline-offset-4 hover:text-white text-sm sm:text-base"
+          >
+            Create a free account to save spots
+          </Link>
         </div>
       </div>
     </section>

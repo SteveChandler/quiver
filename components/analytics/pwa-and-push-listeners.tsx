@@ -12,9 +12,54 @@ export default function PWAAndPushListeners() {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
 
+    // DEV/LOCAL SAFETY:
+    // Never register the PWA service worker on localhost (even if NODE_ENV=production),
+    // because it can cache old Next.js chunks and cause hydration failures.
+    // In dev, also proactively unregister any existing /sw.js registrations.
+    const host =
+      // eslint-disable-next-line no-restricted-properties
+      window.location.hostname;
+    const isLocalhost = host === "localhost" || host === "127.0.0.1";
+    const isDev = process.env.NODE_ENV !== "production";
+
+    const unregisterQuiverSwIfPresent = async () => {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(
+          regs
+            .filter((reg) => reg.active?.scriptURL?.includes("/sw.js"))
+            .map((reg) => reg.unregister())
+        );
+
+        // Clear caches to prevent stale HTML/chunk mismatches lingering locally
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+
+        if (process.env.NODE_ENV === "development") {
+          console.info(
+            "[Quiver] Unregistered PWA service worker for dev/localhost"
+          );
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.debug(
+            "[Quiver] Unable to unregister dev service worker:",
+            (error as Error)?.message || error
+          );
+        }
+      }
+    };
+
+    if (isLocalhost || isDev) {
+      void unregisterQuiverSwIfPresent();
+      return;
+    }
+
     const isSecureContext =
-      window.location.protocol === "https:" || // eslint-disable-line no-restricted-properties
-      window.location.hostname === "localhost"; // eslint-disable-line no-restricted-properties
+      // eslint-disable-next-line no-restricted-properties
+      window.location.protocol === "https:";
     if (!isSecureContext) return;
 
     const registerServiceWorker = async () => {

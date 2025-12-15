@@ -342,7 +342,10 @@ const nextConfig = {
 const pwaConfig = withPWA({
   dest: "public",
   disable: !isProd,
-  register: true,
+  // IMPORTANT:
+  // Disable next-pwa's auto-registration so runtime code can decide whether
+  // to register/unregister based on hostname (e.g. never register on localhost).
+  register: false,
   skipWaiting: true,
   // Exclude files that don't exist or shouldn't be precached
   buildExcludes: [

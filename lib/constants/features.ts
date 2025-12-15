@@ -158,8 +158,7 @@ export const SURF_ACTIVITIES = [
 export const CONTENT = {
   hero: {
     title: "Find your next wave",
-    subtitle:
-      "Discover epic surf spots, check live conditions, and connect with the local surf community.",
+    subtitle: "",
     cta: "Join Free Today",
     secondaryCta: "Explore Features",
     benefits: [
@@ -170,9 +169,8 @@ export const CONTENT = {
   },
   sections: {
     surfHighlights: {
-      title: "Discover epic surf spots near you",
-      subtitle:
-        "Explore breaks with real-time conditions, community reviews, and local insights. Find your next perfect wave.",
+      title: "Local surf favorites near you",
+      subtitle: "",
     },
     social: {
       title: "Join the surf community that's growing every day",
@@ -183,12 +181,12 @@ export const CONTENT = {
       title: "Get the most accurate surf forecasts",
       subtitle:
         "Know exactly when to paddle out with forecasts trusted by your local surf community",
-      link: "See detailed forecasts →",
+      primaryCta: "Explore forecasts on the map",
+      secondaryCta: "Create a free account",
     },
     activities: {
       title: "Find spots that match your style",
-      subtitle:
-        "From mellow longboard waves to gnarly reef breaks — discover surf spots tailored to your vibe.",
+      subtitle: "",
     },
     features: {
       title: "Everything you need to surf with friends",

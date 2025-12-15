@@ -28,9 +28,14 @@ export const RATE_LIMITS = {
    * Very strict limits to prevent abuse
    */
   "image-proxy": {
-    requestsPerMinute: 10,
-    requestsPerHour: 100,
-    burstLimit: 5,
+    // NOTE:
+    // This endpoint is hit by Next.js Image Optimization, which can legitimately
+    // issue many parallel requests on a single page load (multiple images, sizes).
+    // Keep SSRF protections strict (domain/IP validation), but allow enough burst
+    // capacity to avoid broken images during normal browsing.
+    requestsPerMinute: 60,
+    requestsPerHour: 600,
+    burstLimit: 25,
   } as RateLimiterConfig,
 
   /**

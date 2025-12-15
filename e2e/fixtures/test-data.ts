@@ -13,8 +13,7 @@ export const TEST_USER = {
 // Local: uses slugs from local Supabase database
 // Dev: uses UUIDs from dev.quiversurf.app production database
 const isDevEnvironment =
-  process.env.PLAYWRIGHT_BASE_URL?.includes('dev.quiversurf.app') ||
-  process.env.TEST_ENV === 'dev';
+  process.env.BASE_URL?.includes('dev.quiversurf.app') || process.env.TEST_ENV === 'dev';
 
 export const TEST_BEACH_IDS = isDevEnvironment ? {
   // Dev environment: Using actual beach IDs from dev.quiversurf.app database

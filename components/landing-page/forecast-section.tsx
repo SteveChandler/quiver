@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink, Waves, Wind, Thermometer } from "lucide-react";
+import { Waves, Wind, Thermometer } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { SectionWrapper } from "./section-wrapper";
 import { CONTENT } from "@/lib/constants/features";
 
@@ -161,16 +162,28 @@ export function ForecastSection() {
           className="text-center animate-fade-in-up"
           style={{ animationDelay: "400ms" }}
         >
-          <p className="text-gray-600 mb-4 text-lg">
-            Want personalized forecasts for your favorite spots?
+          <p className="text-gray-600 mb-6 text-lg">
+            Explore forecasts by spot and plan your next paddle out.
           </p>
-          <Link
-            href="/auth/sign-up"
-            className="inline-flex items-center gap-2 bg-ocean-blue text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-ocean-blue/90 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-          >
-            {CONTENT.sections.forecast.link}
-            <ExternalLink className="h-5 w-5" />
-          </Link>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <Button
+              size="lg"
+              className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+              asChild
+            >
+              <Link href="/map">{CONTENT.sections.forecast.primaryCta}</Link>
+            </Button>
+
+            <Button
+              size="lg"
+              variant="outline"
+              className="px-8 py-4 text-lg font-roboto font-semibold rounded-full bg-white/60 hover:bg-white"
+              asChild
+            >
+              <Link href="/auth/sign-up">{CONTENT.sections.forecast.secondaryCta}</Link>
+            </Button>
+          </div>
         </div>
       </div>
     </SectionWrapper>

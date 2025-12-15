@@ -70,15 +70,17 @@ export function AuthAwareLandingWrapper() {
   return (
     <>
       <Navbar />
-      <HeroSection />
+      <main role="main">
+        <HeroSection />
 
-      {/* These sections have client-side interactivity */}
-      <div className="space-y-0">
-        <SurfHighlightsSection />
-        <ActivitiesSection />
-        <ForecastSection />
-        <CTASection />
-      </div>
+        {/* These sections have client-side interactivity */}
+        <div className="space-y-0">
+          <SurfHighlightsSection />
+          <ActivitiesSection />
+          <ForecastSection />
+          <CTASection />
+        </div>
+      </main>
     </>
   );
 }
