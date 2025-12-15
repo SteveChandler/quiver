@@ -120,6 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Landing page polish (AllTrails-inspired, forecast-first)** (December 2025)
 
   - Added hero subhead + lightweight value row while preserving lazy-loaded search performance.
+  - Added “Upgrade your next Session” promo section between Surf Highlights and Activities (animated icon + sign-up CTA).
   - Shifted primary CTAs to `/map` and made sign-up secondary for “explore-first” flow.
   - Removed mocked conditions UI from landing surf spot cards and dropped framer-motion usage in that grid.
   - Added `<main role="main">` landmark for accessibility and hardened `SectionWrapper` max-width classes for Tailwind.

@@ -9,6 +9,7 @@ import { QuiverFAQSchema } from "@/components/seo/faq-schema";
 
 // Import sections for modern landing page
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
+import { UpgradeSessionSection } from "./landing-page/upgrade-session-section";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -118,6 +119,11 @@ export default function LandingPage() {
           {/* Surf Highlights Section (replaces Social Feed) */}
           <ProgressiveSection height="h-96">
             <SurfHighlightsSection />
+          </ProgressiveSection>
+
+          {/* Upgrade Session Section */}
+          <ProgressiveSection height="h-96">
+            <UpgradeSessionSection />
           </ProgressiveSection>
 
           {/* Activities Section (replaces Features) */}

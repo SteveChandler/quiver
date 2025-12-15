@@ -8,6 +8,7 @@ import { HomeScreen } from "@/components/home-screen";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
+import { UpgradeSessionSection } from "./upgrade-session-section";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -76,6 +77,7 @@ export function AuthAwareLandingWrapper() {
         {/* These sections have client-side interactivity */}
         <div className="space-y-0">
           <SurfHighlightsSection />
+          <UpgradeSessionSection />
           <ActivitiesSection />
           <ForecastSection />
           <CTASection />

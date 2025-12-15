@@ -172,6 +172,12 @@ export const CONTENT = {
       title: "Local surf favorites near you",
       subtitle: "",
     },
+    upgradeSession: {
+      title: "Upgrade your next Session",
+      subtitle:
+        "Where you want to explore breaks or create your own, create a forecast that helps you make the most of every minute in the water.",
+      primaryCta: "Sign up",
+    },
     social: {
       title: "Join the surf community that's growing every day",
       subtitle:

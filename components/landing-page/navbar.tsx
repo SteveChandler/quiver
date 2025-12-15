@@ -84,9 +84,6 @@ export function Navbar() {
                 priority
                 className="transition-transform group-hover:scale-110"
               />
-              <span className="text-2xl font-bold font-roboto text-white drop-shadow-lg">
-                Quiver
-              </span>
             </Link>
           </div>
 
@@ -135,20 +132,13 @@ export function Navbar() {
                 onClick={() => {
                   setAuthMode("login");
                   setAuthModalOpen(true);
-                  trackAuthModalOpened({ mode: "login", source: "landing-navbar" });
+                  trackAuthModalOpened({
+                    mode: "login",
+                    source: "landing-navbar",
+                  });
                 }}
               >
                 Log in
-              </Button>
-              <Button
-                className="bg-ocean-blue hover:bg-ocean-blue/90 text-white font-medium rounded-full px-6"
-                onClick={() => {
-                  setAuthMode("signup");
-                  setAuthModalOpen(true);
-                  trackAuthModalOpened({ mode: "signup", source: "landing-navbar" });
-                }}
-              >
-                Sign Up
               </Button>
             </div>
           </div>
@@ -219,21 +209,13 @@ export function Navbar() {
                         setMobileMenuOpen(false);
                         setAuthMode("login");
                         setAuthModalOpen(true);
-                        trackAuthModalOpened({ mode: "login", source: "landing-navbar-mobile" });
+                        trackAuthModalOpened({
+                          mode: "login",
+                          source: "landing-navbar-mobile",
+                        });
                       }}
                     >
                       Log in
-                    </Button>
-                    <Button
-                      className="w-full bg-ocean-blue hover:bg-ocean-blue/90 text-white"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        setAuthMode("signup");
-                        setAuthModalOpen(true);
-                        trackAuthModalOpened({ mode: "signup", source: "landing-navbar-mobile" });
-                      }}
-                    >
-                      Sign Up
                     </Button>
                   </div>
                 </div>
