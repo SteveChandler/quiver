@@ -3,6 +3,7 @@ import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { AuthValidator } from "@/lib/middleware/auth-validator";
 import { RouteGuard } from "@/lib/middleware/route-guard";
 import { AdminChecker } from "@/lib/middleware/admin-checker";
+import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 import {
   parseUTMParams,
   parseAttributionFromRequestCookies,
@@ -42,6 +43,20 @@ export async function middleware(request: NextRequest) {
       new URL(`/beaches/usa/ca/${city}`, request.url),
       { status: 301 }
     );
+  }
+
+  // Location page shortcut redirect
+  // Redirect /beaches/ca/san-diego -> /beaches/usa/ca/san-diego
+  const beachesStateCityMatch = pathname.match(/^\/beaches\/([^/]+)\/([^/]+)$/);
+  if (beachesStateCityMatch) {
+    const state = beachesStateCityMatch[1]?.toLowerCase() || "";
+    const city = beachesStateCityMatch[2]?.toLowerCase() || "";
+
+    if (isValidStateSlug(state)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = `/beaches/usa/${state}/${city}`;
+      return NextResponse.redirect(redirectUrl, { status: 308 });
+    }
   }
 
   // Classify the route to determine access requirements

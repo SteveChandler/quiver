@@ -1480,8 +1480,9 @@ export class EnhancedForecastService {
     // Delay between batches to avoid rate limiting
     const BATCH_DELAY_MS = Number(process.env.FORECAST_BATCH_DELAY_MS ?? 1000);
     // Maximum beaches to process per cron run to avoid timeout
-    // With ~45 beaches taking 5min, limit to 30 for safety margin
-    const MAX_BEACHES_PER_RUN = Number(process.env.FORECAST_MAX_BEACHES_PER_RUN ?? 30);
+    // Default is tuned to stay under Vercel's 5 minute cron limit while improving overall rotation throughput.
+    // Override via FORECAST_MAX_BEACHES_PER_RUN if needed.
+    const MAX_BEACHES_PER_RUN = Number(process.env.FORECAST_MAX_BEACHES_PER_RUN ?? 45);
     /**
      * Freshness window for deciding what is "stale enough" to refresh.
      *

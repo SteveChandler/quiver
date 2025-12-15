@@ -246,6 +246,13 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
   - Accepts `x-vercel-cron` header (added by Vercel) OR `Authorization: Bearer <CRON_SECRET>`
   - Keep `CRON_SECRET`/`CRON_SECRET_TOKEN` in Vercel env if you need to trigger manually
 
+#### `/cron/enhanced-forecast-sync-offset/route.ts`
+
+- **Methods**: `POST`, `GET`
+- **Function**: Alias entrypoint for the enhanced forecast sync job.
+- **Why it exists**: Enables an effective **90-minute** cron cadence without relying on multiple cron entries targeting the same path.
+  - Scheduled alongside `/api/cron/enhanced-forecast-sync` in `vercel.json` (staggered schedules).
+
 ### 🔮 `/forecasts` - Surf Forecast System
 
 **Data Sources**: NOAA WaveWatch III, CO-OPS, Weather Service, NDBC
@@ -651,6 +658,7 @@ import {
 - **Usage**: Home screen "Where to Surf" card, personalized notifications
 
 **Design Notes**:
+
 - v1 does not support lat/lon coordinates - uses profile data only
 - Candidate pool limited to home beach + favorites for performance
 - Graceful degradation: returns null if no viable windows or forecast data unavailable

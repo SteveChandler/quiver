@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Redirects legacy 2-segment URLs like `/ca/encinitas` to `/map?search=Encinitas` so users land on the filtered map instead of a 404.
   - Preserves 3-segment beach detail routes like `/ca/san-diego/ocean-beach`.
 
+- **Location Page Shortcut Redirect to Canonical URL** (December 2025)
+
+  - Redirects `/beaches/{state}/{city}` (e.g., `/beaches/ca/san-diego`) to the canonical `/beaches/usa/{state}/{city}` location page.
+
 - **Forecast Cron Job Reliability Improvements** (December 2025)
 
   - Fixed parallel processing overload in `updateAllEnhancedForecasts` - now processes beaches in batches of 5 with 2-second delays between batches.
@@ -81,6 +85,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   - Fixed `/api/cron/enhanced-forecast-sync` selection incorrectly reporting most beaches as “missing” due to PostgREST row caps by switching update selection to `public.v_enhanced_forecast_latest` (one row per beach).
   - Increased sync cadence to every 2 hours to ensure all beaches are refreshed within the 24h critical freshness window without exceeding per-run time limits.
+
+- **Enhanced Forecast Sync Throughput (90-minute cadence)** (December 2025)
+
+  - Increased the default per-run update cap to **45 beaches** (still overridable via `FORECAST_MAX_BEACHES_PER_RUN`) to improve rotation throughput.
+  - Implemented an effective **90-minute** Vercel cron cadence using two staggered endpoints:
+    - `/api/cron/enhanced-forecast-sync` (every 3 hours)
+    - `/api/cron/enhanced-forecast-sync-offset` (staggered 90 minutes after the main job)
+  - Helps keep all beaches fresh within the 12h staleness warning window.
 
 - **Forecast Health Check Coverage Accuracy** (December 2025)
 

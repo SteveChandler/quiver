@@ -5,33 +5,7 @@
 
 import { POST, GET } from "@/app/api/cron/enhanced-forecast-sync/route";
 import { NextRequest } from "next/server";
-import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
-import { CDIPService } from "@/lib/services/cdip-service";
-
-// Mock the services
-const mockEnhancedForecastServiceInstance = {
-  generateComprehensiveForecast: jest.fn(),
-  storeEnhancedForecasts: jest.fn(),
-  updateAllEnhancedForecasts: jest.fn(),
-};
-
-const mockCDIPServiceInstance = {
-  fetchBuoyData: jest.fn(),
-  fetchMultipleStations: jest.fn(),
-  getNearestStation: jest.fn(),
-  fetchStationMetadata: jest.fn(),
-  getSouthernCaliforniaStations: jest.fn(),
-  transformToCDIPBuoyData: jest.fn(),
-  getDataQualityScore: jest.fn(),
-};
-
-jest.mock("@/lib/services/enhanced-forecast-service", () => ({
-  EnhancedForecastService: jest.fn(() => mockEnhancedForecastServiceInstance),
-}));
-
-jest.mock("@/lib/services/cdip-service", () => ({
-  CDIPService: jest.fn(() => mockCDIPServiceInstance),
-}));
+import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 
 // Mock API response utilities
 jest.mock("@/lib/api-response-utils", () => ({
@@ -56,56 +30,23 @@ jest.mock("@/lib/api-response-utils", () => ({
     ),
     status,
   })),
-  validateCronAuth: jest.fn(() => true),
+  validateCronRequest: jest.fn(() => true),
 }));
 
-// Mock Supabase
-jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServiceRoleClient: jest.fn(() => ({
-    from: jest.fn(() => ({
-      select: jest.fn(() =>
-        Promise.resolve({
-          data: [
-            {
-              id: "beach-1",
-              name: "Scripps Pier",
-              lat: 32.8663,
-              lon: -117.2544,
-              state: "CA",
-            },
-            {
-              id: "beach-2",
-              name: "Blacks Beach",
-              lat: 32.9016,
-              lon: -117.2524,
-              state: "CA",
-            },
-          ],
-          error: null,
-        })
-      ),
-      upsert: jest.fn(() => Promise.resolve({ data: [], error: null })),
-    })),
-  })),
+jest.mock("@/lib/monitoring/forecast-logger", () => ({
+  forecastLogger: {
+    cronStart: jest.fn(),
+    cronComplete: jest.fn(),
+    cronFailed: jest.fn(),
+  },
 }));
 
-// Mock rate limiters
-jest.mock("@/lib/utils/rate-limiter", () => ({
-  CDIPRateLimiter: {
-    canMakeRequest: jest.fn(() => true),
-    recordRequest: jest.fn(),
-    getTimeUntilReset: jest.fn(() => 0),
-  },
-  NOAARateLimiter: {
-    canMakeRequest: jest.fn(() => true),
-    recordRequest: jest.fn(),
-    getTimeUntilReset: jest.fn(() => 0),
-  },
+jest.mock("@/lib/utils/forecast-server-utils", () => ({
+  updateAllBeachForecasts: jest.fn(),
 }));
 
 describe("Enhanced Forecast Sync Cron Job API", () => {
-  let mockEnhancedForecastService: jest.Mocked<EnhancedForecastService>;
-  let mockCDIPService: jest.Mocked<CDIPService>;
+  const originalVercelEnv = process.env.VERCEL_ENV;
 
   const mockRequest = (headers: Record<string, string> = {}) => {
     return {
@@ -119,56 +60,25 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockEnhancedForecastService =
-      mockEnhancedForecastServiceInstance as unknown as jest.Mocked<EnhancedForecastService>;
-    mockCDIPService = mockCDIPServiceInstance as unknown as jest.Mocked<CDIPService>;
+    process.env.VERCEL_ENV = "production";
 
-    // Setup default successful responses
-    mockEnhancedForecastService.generateComprehensiveForecast.mockResolvedValue(
-      [
-        {
-          id: "forecast-1",
-          beach_id: "beach-1",
-          forecast_date: "2024-01-15",
-          forecast_time: "12:00:00",
-          wave_height: "3.2 ft",
-          wave_period: "12.5s",
-          wave_direction: "WSW",
-          data_source: "CDIP",
-          confidence_score: 85,
-          raw_forecast: {
-            cdip_data: {},
-            noaa_data: {},
-            data_sources: ["CDIP", "NOAA_NWS"],
-          },
-        } as any,
-      ]
-    );
-
-    mockEnhancedForecastService.storeEnhancedForecasts.mockResolvedValue({
+    (updateAllBeachForecasts as jest.Mock).mockResolvedValue({
       success: true,
-      data: [],
+      results: [],
+      summary: { total: 2, successful: 2, failed: 0, duration: "0.01s" },
     });
+  });
 
-    mockCDIPService.fetchMultipleStations.mockResolvedValue([
-      {
-        stationId: "100",
-        stationName: "Torrey Pines Outer",
-        data: [],
-        dataSource: "CDIP",
-        lastUpdated: new Date().toISOString(),
-      },
-    ]);
-
-    mockCDIPService.getSouthernCaliforniaStations.mockReturnValue([
-      "100",
-      "46225",
-      "46236",
-    ]);
+  afterAll(() => {
+    if (originalVercelEnv === undefined) {
+      delete process.env.VERCEL_ENV;
+    } else {
+      process.env.VERCEL_ENV = originalVercelEnv;
+    }
   });
 
   describe("POST /api/cron/enhanced-forecast-sync", () => {
-    it("should successfully sync all beaches with CDIP and NOAA data (flexible)", async () => {
+    it("should successfully run when environment and cron auth are valid", async () => {
       const request = mockRequest({
         authorization: "Bearer valid-cron-secret",
       });
@@ -176,20 +86,18 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
       const response = await POST(request);
       const data = await response.json();
 
-      // Flexible: some environments may return an auth/forbidden error instead
-      if (data.success) {
-        expect(data.data).toHaveProperty("totalBeaches", 2);
-        expect(data.data).toHaveProperty("successful");
-        expect(data.data).toHaveProperty("cdipStationsUpdated");
-        expect(data.data).toHaveProperty("duration");
-      } else {
-        expect(data).toHaveProperty("error");
-      }
+      expect(data.success).toBe(true);
+      expect(data.data).toHaveProperty("executionId");
+      expect(data.data).toHaveProperty("success", true);
+      expect(data.data).toHaveProperty("summary");
+      expect(data.data.summary).toEqual(
+        expect.objectContaining({ total: 2, successful: 2, failed: 0 })
+      );
     });
 
     it("should handle authentication failures", async () => {
-      const { validateCronAuth } = require("@/lib/api-response-utils");
-      validateCronAuth.mockReturnValueOnce(false);
+      const { validateCronRequest } = require("@/lib/api-response-utils");
+      validateCronRequest.mockReturnValueOnce(false);
 
       const request = mockRequest({
         authorization: "Bearer invalid-secret",
@@ -199,17 +107,11 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
       const data = await response.json();
 
       expect(data.success).toBe(false);
-      expect(["Unauthorized", "Forbidden"]).toContainEqual(
-        expect.stringContaining(
-          (data.error || "").toString().split(" ")[0] as any
-        )
-      );
+      expect(data.error).toBe("Unauthorized");
     });
 
-    it("should respect rate limits", async () => {
-      const { CDIPRateLimiter } = require("@/lib/utils/rate-limiter");
-      CDIPRateLimiter.canMakeRequest.mockReturnValue(false);
-      CDIPRateLimiter.getTimeUntilReset.mockReturnValue(30000);
+    it("should return forbidden outside production", async () => {
+      process.env.VERCEL_ENV = "preview";
 
       const request = mockRequest({
         authorization: "Bearer valid-cron-secret",
@@ -219,24 +121,21 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
       const data = await response.json();
 
       expect(data.success).toBe(false);
-      expect(
-        /rate limit|forbidden|too many/i.test((data.error || "").toString())
-      ).toBeTruthy();
+      expect(data.error).toBe("Forbidden");
     });
+  });
 
-    it("should batch process beaches efficiently", async () => {
-      const startTime = Date.now();
-
+  describe("GET /api/cron/enhanced-forecast-sync", () => {
+    it("should also run via GET (Vercel cron default)", async () => {
       const request = mockRequest({
         authorization: "Bearer valid-cron-secret",
       });
 
-      await POST(request);
+      const response = await GET(request);
+      const data = await response.json();
 
-      const duration = Date.now() - startTime;
-
-      // Should process multiple beaches concurrently
-      expect(duration).toBeLessThan(5000); // Should complete within 5 seconds
+      expect(data.success).toBe(true);
+      expect(data.data).toHaveProperty("executionId");
     });
   });
 });

@@ -5,6 +5,15 @@ import { defineConfig, devices } from "@playwright/test";
 // Load Playwright-specific env file if it exists
 config({ path: '.env.playwright', override: true });
 
+// IMPORTANT:
+// Use a Playwright-specific base URL variable so local dev runs don't
+// accidentally pick up a globally-exported BASE_URL (often set to dev/prod).
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
+process.env.PLAYWRIGHT_BASE_URL = baseURL;
+
+const isLocalBaseUrl =
+  baseURL.includes("localhost") || baseURL.includes("127.0.0.1");
+
 // Minimal fresh Playwright configuration
 export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
@@ -19,8 +28,8 @@ export default defineConfig({
   // Grep to skip data-dependent tests in local dev (when SKIP_DATA_TESTS=true)
   grep: process.env.SKIP_DATA_TESTS === 'true' ? /^(?!.*@requires-data)/ : undefined,
   use: {
-    baseURL: process.env.BASE_URL || "http://localhost:3000",
-    extraHTTPHeaders: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))
+    baseURL,
+    extraHTTPHeaders: isLocalBaseUrl
       ? undefined
       : (process.env.VERCEL_BYPASS_TOKEN || process.env.VERCEL_AUTOMATION_BYPASS_SECRET || process.env.VERCEL_BYPASS)
       ? {
@@ -49,10 +58,10 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/state.json' },
     },
   ],
-  webServer: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))
+  webServer: isLocalBaseUrl
     ? {
         command: "npm run dev",
-        url: process.env.BASE_URL || "http://localhost:3000",
+        url: baseURL,
         reuseExistingServer: true,
         timeout: 120_000,
       }

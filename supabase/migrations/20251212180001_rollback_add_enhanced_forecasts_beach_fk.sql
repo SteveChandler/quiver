@@ -8,3 +8,4 @@ alter table public.enhanced_forecasts
 
 commit;
 
+

@@ -15,6 +15,17 @@ import SunCalc from "suncalc";
 
 export const revalidate = 0;
 
+function getSupabaseProjectRef(): string | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return null;
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.split(".")[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: Request) {
   try {
     if (!validateCronRequest(request)) {
@@ -23,6 +34,12 @@ export async function GET(request: Request) {
 
     // Use service role to bypass RLS for scheduled upserts
     const supabase = createSupabaseServiceRoleClient();
+    console.log("[Forecast Refresh] Starting", {
+      timestamp: new Date().toISOString(),
+      triggeredBy: request.headers.get("user-agent"),
+      environment: process.env.VERCEL_ENV || process.env.NODE_ENV,
+      supabaseProjectRef: getSupabaseProjectRef(),
+    });
     const url = new URL(request.url);
     const onlyBeachId = url.searchParams.get("beachId");
 
