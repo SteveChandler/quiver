@@ -144,7 +144,11 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
       await context.setOffline(false);
     });
 
-    test("should retry failed requests when connection restored", async ({ page, context }) => {
+    test("should retry failed requests when connection restored", async ({
+      page,
+      context,
+    }) => {
+      test.setTimeout(TIMEOUTS.long);
       await page.goto("/");
       await waitForPageLoad(page);
 
@@ -172,7 +176,7 @@ test.describe("Error Boundaries - Phase 5 Fixes", () => {
         // May auto-retry, which is fine
         console.log("✓ No manual retry needed (auto-recovery)");
       }
-    }, TIMEOUTS.long);
+    });
 
     test("should handle API failures gracefully", async ({ page }) => {
       await page.goto("/");

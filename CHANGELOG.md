@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **TypeScript typecheck restored to green** (December 2025)
+
+  - Restored strict `tsconfig.json` defaults and fixed remaining typing issues across sessions, forms, wizard motion, social feed metadata, E2E helpers, and UI components.
+
 - **Localhost hydration regressions from stale PWA caching** (December 2025)
 
   - Disabled PWA auto-registration and ensured `/sw.js` never registers on localhost (clears stale caches/registrations to prevent old Next.js chunk 404s).

@@ -133,6 +133,7 @@ export async function getUserSessions(userId: string, limit?: number) {
         .select(
           `
           *,
+          session_date:arrival_time,
           beach:beaches(*),
           board:boards(*),
           user:profiles(*)
@@ -197,6 +198,7 @@ export async function getUserSessions(userId: string, limit?: number) {
           
           return {
             ...session,
+            session_date: session.arrival_time ?? null,
             beach,
             board: null,
             user,
@@ -225,6 +227,7 @@ export async function getUserSessionsByDateRange(
       .select(
         `
         *,
+        session_date:arrival_time,
         beach:beaches(*),
         board:boards(*),
         user:profiles(*)
@@ -259,6 +262,7 @@ export async function getSessionById(id: string, userId: string) {
       .select(
         `
         *,
+        session_date:arrival_time,
         beach:beaches(*),
         board:boards(*),
         user:profiles(*)
@@ -292,6 +296,7 @@ export async function getPublicSessions(limit = 10) {
       .select(
         `
         *,
+        session_date:arrival_time,
         beach:beaches(*),
         board:boards(*),
         user:profiles(*)

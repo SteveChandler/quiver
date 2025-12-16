@@ -264,7 +264,10 @@ export const WIZARD_MOTION = {
     rest:  { scale: 1, boxShadow: "0 0 0 0 rgba(0,119,182,0)" },
     focus: { scale: 1.01, boxShadow: "0 0 0 4px rgba(0,119,182,0.25)" },
     valid: { scale: 1.005, boxShadow: "0 0 0 4px rgba(34,197,94,0.25)" },
-    error: { x: [0,-6,6,-6,6,0], boxShadow: "0 0 0 4px rgba(239,68,68,0.25)" },
+    error: {
+      x: [0, -6, 6, -6, 6, 0] as number[],
+      boxShadow: "0 0 0 4px rgba(239,68,68,0.25)",
+    },
     transition: { duration: 0.24 }
   },
   hint: {

@@ -18,14 +18,23 @@ interface ActivityItemProps {
  * Get the appropriate link URL for an activity based on its entity type
  */
 export function getActivityLink(activity: ActivityFeedItem): string | null {
+  const meta =
+    activity.metadata &&
+    typeof activity.metadata === "object" &&
+    !Array.isArray(activity.metadata)
+      ? (activity.metadata as Record<string, unknown>)
+      : null;
+
   switch (activity.entity_type) {
     case "session":
       return `/sessions/${activity.entity_id}`;
     case "beach_review":
-      return `/beach/${activity.metadata?.beach_id || activity.entity_id}`;
+      return `/beach/${
+        (meta?.beach_id as string | undefined) || activity.entity_id
+      }`;
     case "user_follow":
       return `/profile/${
-        activity.metadata?.followed_user_id || activity.user_id
+        (meta?.followed_user_id as string | undefined) || activity.user_id
       }`;
     default:
       return null;

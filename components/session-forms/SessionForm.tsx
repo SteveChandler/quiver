@@ -463,6 +463,10 @@ export function SessionForm({
         }
       } else {
         // Create logged session data with additional fields
+        const parsedWaterTemp =
+          formState.waterTemp && formState.waterTemp.trim().length > 0
+            ? Number.parseFloat(formState.waterTemp)
+            : null;
         const loggedSessionData = {
           ...sessionData,
           ...(durationMinutes !== undefined && {
@@ -471,7 +475,10 @@ export function SessionForm({
           ...(formState.waveQuality && {
             wave_quality: parseInt(formState.waveQuality),
           }),
-          ...(formState.waterTemp && { water_temp: formState.waterTemp }),
+          ...(typeof parsedWaterTemp === "number" &&
+            Number.isFinite(parsedWaterTemp) && {
+              water_temp: parsedWaterTemp,
+            }),
           ...(formState.crowdLevel && {
             crowd_level: parseInt(formState.crowdLevel),
           }),

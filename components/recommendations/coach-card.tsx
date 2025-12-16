@@ -263,11 +263,7 @@ export function CoachCard({
         </div>
       </CardHeader>
       <CardContent>
-        {error && (
-          <div className="text-sm text-red-600">
-            {error instanceof Error ? error.message : String(error)}
-          </div>
-        )}
+        {error && <div className="text-sm text-red-600">{String(error)}</div>}
         {!error && loading && (
           <div className="text-sm text-muted-foreground">
             Loading coach pick…

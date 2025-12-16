@@ -87,10 +87,17 @@ export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
   // CRITICAL: Map lon → lng for coordinate naming convention
   const lat = beach.lat ?? 32.7157; // San Diego default
   const lon = beach.lon ?? -117.1611;
+  const fallbackSlug = beach.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  const bestSeason = Array.isArray(beach.best_months)
+    ? beach.best_months.join(", ")
+    : "";
 
   return {
     id: beach.id, // Preserve database UUID for forecast lookups
-    slug: beach.slug,
+    slug: beach.slug ?? fallbackSlug,
     name: beach.name,
     citySlug: deriveCitySlug(beach.city),
     region: beach.region ?? `${beach.city ?? "Unknown"}, ${beach.state ?? "CA"}`,
@@ -113,7 +120,7 @@ export function transformBeachToSurfSpot(beach: BeachWithMetrics): SurfSpot {
     // Safety and skill
     hazards: beach.hazards ?? [],
     skillLevel: mapSkillLevel(beach.skill_level),
-    bestSeason: beach.best_months ?? "",
+    bestSeason,
     crowdFactor: mapCrowdFactor(beach.crowd_level),
 
     // Access info

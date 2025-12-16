@@ -54,6 +54,12 @@ const accuracyConfig = {
     color: "text-red-600",
     bgColor: "bg-red-100",
   },
+  unknown: {
+    icon: AlertCircle,
+    label: "—",
+    color: "text-gray-600",
+    bgColor: "bg-gray-100",
+  },
 };
 
 const windDirectionLabels: Record<string, string> = {
@@ -86,7 +92,10 @@ export function CheckInDisplay({
   compact = false,
   className,
 }: CheckInDisplayProps) {
-  const accuracyInfo = accuracyConfig[checkIn.forecast_accuracy_rating];
+  const accuracyKey =
+    (checkIn.forecast_accuracy_rating as keyof typeof accuracyConfig | null) ??
+    "unknown";
+  const accuracyInfo = accuracyConfig[accuracyKey] ?? accuracyConfig.unknown;
   const IconComponent = accuracyInfo.icon;
 
   return (
