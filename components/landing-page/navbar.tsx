@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ChevronDown } from "lucide-react";
@@ -14,9 +14,10 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { useLandingLocation } from "@/hooks/use-landing-location";
 
-const EXPLORE_MENU_ITEMS = [
-  { label: "San Diego County", href: "/map", category: "Regions" },
+// Static menu items (non-region items)
+const STATIC_MENU_ITEMS = [
   { label: "Orange County", href: "/map", category: "Regions" },
   { label: "Los Angeles County", href: "/map", category: "Regions" },
   {
@@ -60,14 +61,27 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const { regionName } = useLandingLocation();
 
-  const groupedMenuItems = EXPLORE_MENU_ITEMS.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
-    }
-    acc[item.category].push(item);
-    return acc;
-  }, {} as Record<string, typeof EXPLORE_MENU_ITEMS>);
+  // Build menu items with dynamic first region based on user's location
+  const exploreMenuItems = useMemo(() => {
+    const dynamicRegionItem = {
+      label: `${regionName} Area`,
+      href: "/map",
+      category: "Regions",
+    };
+    return [dynamicRegionItem, ...STATIC_MENU_ITEMS];
+  }, [regionName]);
+
+  const groupedMenuItems = useMemo(() => {
+    return exploreMenuItems.reduce((acc, item) => {
+      if (!acc[item.category]) {
+        acc[item.category] = [];
+      }
+      acc[item.category].push(item);
+      return acc;
+    }, {} as Record<string, typeof exploreMenuItems>);
+  }, [exploreMenuItems]);
 
   return (
     <nav className="absolute top-0 left-0 right-0 z-50 w-full">

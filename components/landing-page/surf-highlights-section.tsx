@@ -7,6 +7,7 @@ import { ChevronRight } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getProxiedImageUrl } from "@/lib/utils/image-utils";
 import { FALLBACK_IMAGE_BY_NAME } from "@/lib/constants/featured-beaches-config";
+import { useLandingLocation } from "@/hooks/use-landing-location";
 
 interface Beach {
   id: string;
@@ -23,6 +24,7 @@ interface Beach {
 export function SurfHighlightsSection() {
   const [page, setPage] = useState(0);
   const pageSize = 4;
+  const { regionName, isLoading: locationLoading } = useLandingLocation();
 
   const fetchBeaches = useCallback(async (): Promise<SurfSpotCardProps[]> => {
     try {
@@ -129,9 +131,13 @@ export function SurfHighlightsSection() {
         {/* AllTrails-style editorial header - left-aligned with location emphasis */}
         <h2 className="text-2xl md:text-3xl font-roboto font-semibold text-dark-grey mb-8 text-left">
           Local surf favorites near{" "}
-          <span className="underline underline-offset-4 decoration-ocean-blue/40">
-            San Diego
-          </span>
+          {locationLoading ? (
+            <span className="inline-block w-28 h-7 bg-gray-200 animate-pulse rounded align-middle" />
+          ) : (
+            <span className="underline underline-offset-4 decoration-ocean-blue/40">
+              {regionName}
+            </span>
+          )}
         </h2>
 
         {loading ? (

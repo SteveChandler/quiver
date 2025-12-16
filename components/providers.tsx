@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
+import { LocationProvider } from "@/context/location-context";
 import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { Suspense } from "react";
@@ -244,10 +245,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AnalyticsLoader />
       </Suspense>
 
-      <AuthProvider>
-        {/* Global body class manager for authenticated state */}
-        <AuthBodyClassManager />
-        <ProfileProvider>
+      <LocationProvider>
+        <AuthProvider>
+          {/* Global body class manager for authenticated state */}
+          <AuthBodyClassManager />
+          <ProfileProvider>
           {/* Auth-only overlays (do not mount when logged out) */}
           <AuthOverlays />
 
@@ -277,7 +279,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <LandingPageContent>{children}</LandingPageContent>
           )}
         </ProfileProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </LocationProvider>
     </>
   );
 }

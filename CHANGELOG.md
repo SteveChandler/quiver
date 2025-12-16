@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Dynamic Location Detection on Landing Page** (December 2025)
+  - Replaced hardcoded "San Diego" text with dynamic location based on IP geolocation.
+  - Section header now shows "Local surf favorites near {region}" using detected location.
+  - Navbar "Explore" dropdown dynamically shows "{region} Area" as first region item.
+  - Two-tier location system: IP-based via Vercel edge headers (automatic, no prompt), with option to upgrade to browser geolocation on user action.
+  - Created `LocationProvider` context for app-wide location state management.
+  - Created `useLandingLocation` hook for simplified landing page component access.
+  - Metro area matching algorithm: exact city match → metro slug match → nearest coordinates → default (San Diego).
+  - Cookie-based persistence for client-side access without additional API calls.
+
 ### Changed
 
 - **AllTrails-Style Landing Page Redesign** (December 2025)
