@@ -38,9 +38,17 @@ import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
 
 interface SessionFormProps {
   initialMode?: SessionFormMode;
+  beachId?: string;
+  beachName?: string;
+  onSuccess?: () => void;
 }
 
-export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
+export function SessionForm({
+  initialMode = "plan",
+  beachId,
+  beachName,
+  onSuccess,
+}: SessionFormProps) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const paramMode =
@@ -75,6 +83,17 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
 
   const text = getFormText(mode);
   const styles = getModeStyles(mode);
+
+  // Optional: prefill beach when embedding (e.g. in a modal)
+  useEffect(() => {
+    if (beachId) {
+      updateField("selectedBeachId", beachId);
+    }
+    if (beachName) {
+      updateField("selectedBeach", beachName);
+    }
+    // Intentionally only reacts to explicit prop changes
+  }, [beachId, beachName, updateField]);
 
   useEffect(() => {
     setMode(paramMode);
@@ -269,7 +288,7 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
     setLoading(true);
 
     try {
-      // Analytics: planning attempt (non-blocking)  
+      // Analytics: planning attempt (non-blocking)
       void createActivity("session_planning_attempt", "session", "", {
         beachId: formState.selectedBeachId || null,
         beachName: formState.selectedBeach || null,
@@ -398,8 +417,11 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
           inviteesCount: formState.invitees?.length || 0,
         });
 
-        // Redirect immediately to profile to complete the flow
-        router.push("/profile");
+        // If embedded, let parent handle completion
+        if (onSuccess) {
+          onSuccess();
+          return;
+        }
 
         // Fire-and-forget invitations to avoid blocking redirect
         if (formState.invitees && formState.invitees.length > 0) {
@@ -501,6 +523,12 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
         }
 
         setSessionCreated(true);
+
+        // If embedded, let parent handle completion (avoid redirect)
+        if (onSuccess) {
+          onSuccess();
+          return;
+        }
       }
 
       // Handle completion - redirect to profile for both planned and logged sessions
@@ -546,7 +574,9 @@ export function SessionForm({ initialMode = "plan" }: SessionFormProps) {
                   <CheckCircle2 className="w-5 h-5 mr-2" />
                   <div>
                     <p className="font-medium">{text.successMessage}</p>
-                    <p className="text-sm opacity-80">{('finishMessage' in text) ? text.finishMessage : ''}</p>
+                    <p className="text-sm opacity-80">
+                      {"finishMessage" in text ? text.finishMessage : ""}
+                    </p>
                   </div>
                 </div>
               </CardContent>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useId } from "react";
 import { data } from "@/lib/data/client";
 import { useCallback } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { Beach } from "@/types/database";
+import type { ClientBeach } from "@/lib/data/client";
 import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
 
 export function BeachSelector({
@@ -13,14 +13,14 @@ export function BeachSelector({
   inputId,
   listId,
 }: {
-  onBeachSelected: (beach: Beach) => void;
+  onBeachSelected: (beach: ClientBeach) => void;
   initialValue?: string;
   inputId?: string;
   listId?: string;
 }) {
-  const [allBeaches, setAllBeaches] = useState<Beach[]>([]);
+  const [allBeaches, setAllBeaches] = useState<ClientBeach[]>([]);
   const [query, setQuery] = useState(initialValue || "");
-  const [matches, setMatches] = useState<Beach[]>([]);
+  const [matches, setMatches] = useState<ClientBeach[]>([]);
   const [selectionMade, setSelectionMade] = useState(!!initialValue);
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -34,7 +34,7 @@ export function BeachSelector({
     data: beaches,
     loading: loadingBeaches,
     error: beachesError,
-  } = useDataFetcher<Beach[]>(fetchBeaches);
+  } = useDataFetcher<ClientBeach[]>(fetchBeaches);
 
   useEffect(() => {
     if (beaches) {
@@ -61,7 +61,16 @@ export function BeachSelector({
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const results = await searchBeachesMultiple(query);
-        setMatches(results);
+        // searchBeachesMultiple currently returns the full DB Beach shape (lat/lon).
+        // Normalize to the client-safe Beach shape (latitude/longitude).
+        setMatches(
+          results.map((b: any) => ({
+            id: b.id,
+            name: b.name,
+            latitude: b.latitude ?? b.lat ?? null,
+            longitude: b.longitude ?? b.lon ?? null,
+          }))
+        );
       } catch (error) {
         console.error("Error searching beaches:", error);
         setMatches([]);
@@ -112,14 +121,12 @@ export function BeachSelector({
       onBeachSelected(found);
     } else {
       // Fall back: accept free-typed value to proceed, with empty id
-      const typed: Beach = {
+      const typed: ClientBeach = {
         id: "",
         name: beachName.trim(),
         latitude: 0,
         longitude: 0,
-        created_at: "",
-        updated_at: "",
-      } as any;
+      };
       setSelectionMade(true);
       onBeachSelected(typed);
     }
@@ -134,14 +141,12 @@ export function BeachSelector({
     setSelectionMade(false); // Reset selection state when input changes to show dropdown
 
     // Keep parent form in sync with free-typed input so required field logic can enable submit
-    const typed: Beach = {
+    const typed: ClientBeach = {
       id: "",
       name: value,
       latitude: 0,
       longitude: 0,
-      created_at: "",
-      updated_at: "",
-    } as any;
+    };
     onBeachSelected(typed);
   };
 
@@ -181,13 +186,11 @@ export function BeachSelector({
             setQuery("");
             setSelectionMade(false);
             // Clear the selection in the parent component
-            const emptyBeach = {
+            const emptyBeach: ClientBeach = {
               id: "",
               name: "",
               latitude: 0,
               longitude: 0,
-              created_at: "",
-              updated_at: "",
             };
             onBeachSelected(emptyBeach);
           }}

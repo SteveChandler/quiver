@@ -311,17 +311,14 @@ function ProfileViewContent() {
                           )}
                         </div>
 
-                        {/* Home Break - prefer DTO name, fallback to joined relation */}
-                        {(profile?.homeBeachName ??
-                          profile?.home_beach?.name) && (
+                        {/* Home Break */}
+                        {profile?.home_beach_id && (
                           <div className="text-xs font-open-sans pt-0.5">
                             <span className="text-muted-foreground">
                               Home Break{" "}
                             </span>
                             <span className="font-medium text-ocean-blue">
-                              {profile?.homeBeachName ??
-                                profile?.home_beach?.name ??
-                                "—"}
+                              Set
                             </span>
                           </div>
                         )}
@@ -370,9 +367,13 @@ function ProfileViewContent() {
                 value={activeTab}
                 onValueChange={(value) => {
                   // Update URL to reflect active tab
-                  const params = new URLSearchParams(searchParams?.toString() || "");
+                  const params = new URLSearchParams(
+                    searchParams?.toString() || ""
+                  );
                   params.set("tab", value);
-                  router.replace(`/profile?${params.toString()}`, { scroll: false });
+                  router.replace(`/profile?${params.toString()}`, {
+                    scroll: false,
+                  });
                 }}
                 className="space-y-8"
               >
@@ -477,7 +478,9 @@ function ProfileViewContent() {
                     value="surf-profile"
                     className="p-4 sm:p-6 space-y-4 m-0"
                   >
-                    <Suspense fallback={<TabLoadingSkeleton type="Surf Profile" />}>
+                    <Suspense
+                      fallback={<TabLoadingSkeleton type="Surf Profile" />}
+                    >
                       <SurfProfileSection />
                     </Suspense>
                   </TabsContent>

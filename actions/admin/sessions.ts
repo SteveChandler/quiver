@@ -76,7 +76,8 @@ export interface AdminSessionDetails {
   profiles: {
     id: string;
     email: string | null;
-    name: string | null;
+    display_name: string | null;
+    full_name: string | null;
     avatar_url: string | null;
   } | null;
   // Joined beach data
@@ -89,8 +90,7 @@ export interface AdminSessionDetails {
   // Joined session media
   session_media: Array<{
     id: string;
-    image_url: string;
-    thumb_url: string | null;
+    public_url: string;
     caption: string | null;
     created_at: string;
   }>;
@@ -121,7 +121,8 @@ export const listSessions = withAdminActionAndUser(
         *,
         profiles!sessions_profile_id_fkey (
           email,
-          name
+          display_name,
+          full_name
         )
       `
       )
@@ -177,7 +178,7 @@ export const listSessions = withAdminActionAndUser(
       return {
         ...session,
         user_email: profile?.email,
-        user_name: profile?.name,
+        user_name: profile?.display_name || profile?.full_name,
       };
     });
 
@@ -258,7 +259,8 @@ export const getSession = withAdminActionAndUser(
         profiles!sessions_profile_id_fkey (
           id,
           email,
-          name,
+          display_name,
+          full_name,
           avatar_url
         ),
         beaches!sessions_beach_id_fkey (
@@ -269,8 +271,7 @@ export const getSession = withAdminActionAndUser(
         ),
         session_media (
           id,
-          image_url,
-          thumb_url,
+          public_url,
           caption,
           created_at
         )

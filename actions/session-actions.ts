@@ -11,6 +11,7 @@ import type {
   Board,
   Beach,
   SessionMedia,
+  SessionInsert,
   Database,
 } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -32,10 +33,9 @@ async function trackXPOptional(action: string, entityId?: string, entityType?: s
   }
 }
 
-type SessionInput = Omit<
-  Session,
-  "id" | "created_at" | "updated_at" | "user_id" | "profile_id"
->;
+// Session writes should be typed like INSERT payloads (not Row), since Row types
+// include many non-nullable database-managed fields that callers should not supply.
+type SessionInput = Partial<SessionInsert>;
 type BoardInput = Omit<Board, "id" | "created_at" | "updated_at" | "user_id">;
 
 /**

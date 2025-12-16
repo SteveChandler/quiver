@@ -72,7 +72,11 @@ function ModernForecastDisplay({ forecast }: { forecast: Forecast }) {
           <div className="flex items-center justify-center gap-2 p-3 bg-white border rounded-lg">
             <Info className="h-4 w-4 text-gray-500" />
             <span className="text-sm text-gray-600">
-              Forecast for {formatForecastTime(forecast.forecast_time)}
+              Forecast for{" "}
+              {formatForecastTime(
+                forecast.forecast_date,
+                forecast.forecast_time
+              )}
             </span>
           </div>
         </div>

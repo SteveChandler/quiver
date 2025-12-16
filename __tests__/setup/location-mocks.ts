@@ -49,9 +49,9 @@ export function createMockBeachWithMetrics(
 ): BeachWithMetrics {
   return {
     ...createMockBeach(),
-    composite_score: 0.75,
-    recent_intel_count: 3,
-    avg_confirmations: 2.5,
+    compositeScore: 0.75,
+    recentIntelCount: 3,
+    avgConfirmations: 2.5,
     rank: 1,
     ...overrides,
   };
@@ -69,10 +69,10 @@ export function createMockRankedBeaches(
       id: `beach-${i + 1}`,
       name: `Beach ${i + 1}`,
       slug: `beach-${i + 1}`,
-      composite_score: Math.max(0.9 - i * 0.1, 0.1),
+      compositeScore: Math.max(0.9 - i * 0.1, 0.1),
       rank: i + 1,
       review_count: Math.max(20 - i * 2, 1),
-      recent_intel_count: Math.max(5 - i, 0),
+      recentIntelCount: Math.max(5 - i, 0),
       ...baseOverrides,
     })
   );
@@ -191,7 +191,7 @@ export function calculateMockLocationStats(
       ? beaches.reduce((sum, b) => sum + (b.average_rating || 0), 0) /
         beaches.length
       : 0;
-  const topBeaches = beaches.filter((b) => b.composite_score >= 0.8).length;
+  const topBeaches = beaches.filter((b) => b.compositeScore >= 0.8).length;
 
   return {
     locationName: beaches[0]?.city || "Test Location",
@@ -249,7 +249,7 @@ export const MOCK_LA_JOLLA_DATA: LocationPageData = {
       average_rating: 4.5,
       review_count: 12,
       skill_level: "Advanced",
-      composite_score: 0.85,
+      compositeScore: 0.85,
       rank: 1,
     }),
     createMockBeachWithMetrics({
@@ -262,7 +262,7 @@ export const MOCK_LA_JOLLA_DATA: LocationPageData = {
       average_rating: 4.2,
       review_count: 8,
       skill_level: "Beginner",
-      composite_score: 0.75,
+      compositeScore: 0.75,
       rank: 2,
     }),
     createMockBeachWithMetrics({
@@ -275,7 +275,7 @@ export const MOCK_LA_JOLLA_DATA: LocationPageData = {
       average_rating: 3.8,
       review_count: 5,
       skill_level: "Intermediate",
-      composite_score: 0.68,
+      compositeScore: 0.68,
       rank: 3,
     }),
   ],
@@ -353,10 +353,10 @@ export function createMockSupabaseClient(
  * Helper to assert beach metrics are valid
  */
 export function assertValidBeachMetrics(beach: BeachWithMetrics): void {
-  expect(beach.composite_score).toBeGreaterThanOrEqual(0);
-  expect(beach.composite_score).toBeLessThanOrEqual(1);
-  expect(beach.recent_intel_count).toBeGreaterThanOrEqual(0);
-  expect(beach.avg_confirmations).toBeGreaterThanOrEqual(0);
+  expect(beach.compositeScore).toBeGreaterThanOrEqual(0);
+  expect(beach.compositeScore).toBeLessThanOrEqual(1);
+  expect(beach.recentIntelCount).toBeGreaterThanOrEqual(0);
+  expect(beach.avgConfirmations).toBeGreaterThanOrEqual(0);
   if (beach.rank) {
     expect(beach.rank).toBeGreaterThan(0);
   }
@@ -397,8 +397,8 @@ export function assertValidLocationPageData(data: LocationPageData): void {
 
   // Verify beaches are sorted by composite score
   for (let i = 0; i < data.beaches.length - 1; i++) {
-    expect(data.beaches[i].composite_score).toBeGreaterThanOrEqual(
-      data.beaches[i + 1].composite_score
+    expect(data.beaches[i].compositeScore).toBeGreaterThanOrEqual(
+      data.beaches[i + 1].compositeScore
     );
   }
 }

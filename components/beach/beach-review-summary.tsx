@@ -24,13 +24,13 @@ export function BeachReviewSummary({
   const fetchStats = useCallback(async (): Promise<ReviewStats | null> => {
     const result = await getBeachReviewStats(beachId);
     if (result.success) {
-      return result.data;
+      return result.data ?? null;
     }
     throw new Error(result.error || "Failed to fetch review stats");
   }, [beachId]);
 
   const {
-    data: stats,
+    data: stats = null,
     loading,
     refetch,
   } = useDataFetcher<ReviewStats | null>(fetchStats, { immediate: true });

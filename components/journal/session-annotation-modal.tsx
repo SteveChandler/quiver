@@ -38,8 +38,20 @@ import { StarRating } from "@/components/ui/star-rating";
 import { useAuth } from "@/context/auth-context";
 import { updateSession } from "@/actions/session-actions";
 import { getSessionPhotosAction } from "@/actions/session-media-actions";
-import type { SessionWithDetails, SessionPhoto } from "@/types/database";
+import type { SessionWithDetails } from "@/types/database";
 import { format } from "date-fns";
+
+type SessionPhoto = {
+  id: string;
+  session_id: string;
+  user_id: string;
+  public_url: string;
+  storage_path: string;
+  caption?: string;
+  file_size: number;
+  metadata?: any;
+  created_at: string;
+};
 
 interface SessionAnnotationModalProps {
   session: SessionWithDetails;
@@ -63,13 +75,6 @@ export function SessionAnnotationModal({
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
 
-  // Load session photos when modal opens
-  useEffect(() => {
-    if (isOpen && session.id) {
-      loadSessionPhotos();
-    }
-  }, [isOpen, session.id, loadSessionPhotos]);
-
   const loadSessionPhotos = useCallback(async () => {
     if (!session.id) return;
 
@@ -77,7 +82,20 @@ export function SessionAnnotationModal({
     try {
       const result = await getSessionPhotosAction(session.id);
       if (result.success) {
-        setSessionPhotos(result.data || []);
+        const rows = (result.data as any[]) || [];
+        setSessionPhotos(
+          rows.map((row) => ({
+            id: row.id,
+            session_id: row.session_id ?? session.id,
+            user_id: row.user_id,
+            public_url: row.public_url,
+            storage_path: row.storage_path,
+            caption: row.caption ?? undefined,
+            file_size: row.file_size,
+            metadata: row.metadata ?? undefined,
+            created_at: row.created_at,
+          }))
+        );
       }
     } catch (error) {
       console.error("Error loading session photos:", error);
@@ -85,6 +103,13 @@ export function SessionAnnotationModal({
       setLoadingPhotos(false);
     }
   }, [session.id]);
+
+  // Load session photos when modal opens
+  useEffect(() => {
+    if (isOpen && session.id) {
+      loadSessionPhotos();
+    }
+  }, [isOpen, session.id, loadSessionPhotos]);
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -158,7 +183,7 @@ export function SessionAnnotationModal({
     {
       type: "water",
       label: "Water Temp",
-      value: session.water_temp ? parseFloat(session.water_temp) : null,
+      value: session.water_temp != null ? Number(session.water_temp) : null,
       color: "text-green-600",
     },
     {
@@ -311,11 +336,16 @@ export function SessionAnnotationModal({
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <StarRating
-                    rating={rating}
-                    onRatingChange={setRating}
-                    size="lg"
-                    interactive
+                  <StarRating rating={rating} size="lg" />
+                  <input
+                    type="range"
+                    min={0}
+                    max={5}
+                    step={1}
+                    value={rating}
+                    onChange={(e) => setRating(Number(e.target.value))}
+                    className="w-full"
+                    aria-label="Overall rating"
                   />
                   <p className="text-sm text-muted-foreground">
                     Rate your overall session experience

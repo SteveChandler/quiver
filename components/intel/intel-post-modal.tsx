@@ -50,9 +50,7 @@ export function IntelPostModal({
   canConfirm,
 }: IntelPostModalProps) {
   const [isConfirming, setIsConfirming] = useState(false);
-  const hasUserConfirmed = Boolean(
-    (post as any).user_has_confirmed ?? post.user_confirmed
-  );
+  const hasUserConfirmed = post.user_has_confirmed ?? false;
 
   const tagConfig = getIntelTagConfig(post.tag);
   const confidenceLevel = getConfidenceLevel(post.confirmations_count);
@@ -133,13 +131,13 @@ export function IntelPostModal({
           {/* Author and Time */}
           <div className="flex items-center gap-3">
             <UserAvatar
-              src={post.user.avatar_url}
-              name={post.user.full_name}
+              src={post.user?.avatar_url}
+              name={post.user?.full_name}
               size="sm"
             />
             <div className="flex-1">
               <p className="text-sm font-medium">
-                {post.user.full_name || "Anonymous"}
+                {post.user?.full_name || "Anonymous"}
               </p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Calendar className="h-3 w-3" />

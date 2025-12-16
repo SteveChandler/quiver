@@ -67,7 +67,8 @@ export interface AdminReviewDetails {
   profiles: {
     id: string;
     email: string | null;
-    name: string | null;
+    display_name: string | null;
+    full_name: string | null;
     avatar_url: string | null;
   } | null;
   // Joined beach data
@@ -102,7 +103,8 @@ export const listReviews = withAdminActionAndUser(
         *,
         profiles!beach_reviews_user_id_fkey (
           email,
-          name
+          display_name,
+          full_name
         ),
         beaches!beach_reviews_beach_id_fkey (
           name
@@ -154,7 +156,7 @@ export const listReviews = withAdminActionAndUser(
       return {
         ...review,
         user_email: profile?.email,
-        user_name: profile?.name,
+        user_name: profile?.display_name || profile?.full_name,
         beach_name: beach?.name,
       };
     });
@@ -250,7 +252,8 @@ export const getReview = withAdminActionAndUser(
         profiles!beach_reviews_user_id_fkey (
           id,
           email,
-          name,
+          display_name,
+          full_name,
           avatar_url
         ),
         beaches!beach_reviews_beach_id_fkey (

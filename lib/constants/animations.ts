@@ -348,7 +348,7 @@ export const MAP_MOTION = {
     hover: { 
       scale: 1.05, 
       y: -2,
-      transition: { duration: 0.2, ease: "easeOut" }
+      transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }
     },
     pressed: { 
       scale: 0.95,
@@ -357,7 +357,7 @@ export const MAP_MOTION = {
     success: {
       scale: [1, 1.1, 1],
       y: [0, -5, 0],
-      transition: { duration: 0.5, ease: "easeOut" }
+      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }
     }
   },
   mapZoom: {
@@ -385,4 +385,4 @@ export const MAP_MOTION = {
       transition: { duration: 0.8, ease: "easeOut" }
     }
   }
-} as const;
+};

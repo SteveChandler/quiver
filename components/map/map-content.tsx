@@ -21,15 +21,13 @@ interface MapContentProps {
   selectedBeach: Beach | null;
   filteredBeaches: Beach[];
   searchQuery: string;
-  regionViewport:
-    | {
-        region: string;
-        key: string;
-        center: [number, number];
-        bounds?: [[number, number], [number, number]];
-        zoom?: number;
-      }
-    | null;
+  regionViewport: {
+    region: string;
+    key: string;
+    center: [number, number];
+    bounds?: [[number, number], [number, number]];
+    zoom?: number;
+  } | null;
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
   onBeachSelect: (beach: Beach) => void;
@@ -72,19 +70,25 @@ export function MapContent({
       selectedBeach &&
       hasValidCoordinates(selectedBeach.lat, selectedBeach.lon)
     ) {
-      return { lat: selectedBeach.lat, lon: selectedBeach.lon };
+      return {
+        lat: selectedBeach.lat as number,
+        lon: selectedBeach.lon as number,
+      };
     }
     // If searching and have results, center on first result
     if (searchQuery && filteredBeaches.length > 0) {
       const firstBeach = filteredBeaches[0];
       if (hasValidCoordinates(firstBeach.lat, firstBeach.lon)) {
         return {
-          lat: firstBeach.lat,
-          lon: firstBeach.lon,
+          lat: firstBeach.lat as number,
+          lon: firstBeach.lon as number,
         };
       }
     }
-    if (userLocation && hasValidCoordinates(userLocation.lat, userLocation.lon)) {
+    if (
+      userLocation &&
+      hasValidCoordinates(userLocation.lat, userLocation.lon)
+    ) {
       return userLocation;
     }
     return { lat: 32.7503, lon: -117.2534 }; // Ocean Beach default
