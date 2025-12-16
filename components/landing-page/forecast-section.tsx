@@ -143,13 +143,13 @@ export function ForecastSection() {
   return (
     <SectionWrapper className="py-16 md:py-20 px-4 bg-white" maxWidth="6xl">
       <div
-        className="relative overflow-hidden rounded-[32px] sm:rounded-[40px] lg:rounded-[48px] bg-[#f2eee8] shadow-sm ring-1 ring-black/5 animate-fade-in-up"
+        className="relative overflow-hidden rounded-[32px] sm:rounded-[40px] lg:rounded-[48px] bg-[#F3EEE6] shadow-sm ring-1 ring-black/5 animate-fade-in-up"
         data-testid="forecast-section-panel"
       >
-        <div className="p-10 sm:p-12 lg:p-20">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-12 md:gap-14 lg:gap-20">
+        <div className="px-12 lg:px-20 py-16 lg:py-20">
+          <div className="grid grid-cols-1 md:grid-cols-[180px_auto_1fr] gap-y-12 gap-x-16 lg:gap-x-24 items-center">
             {/* Left: mini-nav (AllTrails-style) */}
-            <div className="md:w-[200px] md:shrink-0 flex flex-col items-center md:items-start md:self-stretch md:justify-center">
+            <div className="w-[180px] shrink-0 flex flex-col items-center md:items-start md:self-stretch md:justify-center">
               <div className="flex items-center justify-center md:justify-start">
                 <button
                   type="button"
@@ -169,19 +169,19 @@ export function ForecastSection() {
               >
                 <button
                   type="button"
-                  className="text-sm font-medium text-gray-900 underline underline-offset-4 decoration-black/20 hover:decoration-black/40 transition-colors text-left"
+                  className="text-sm font-normal text-slate-700 underline underline-offset-4 decoration-slate-300 hover:decoration-slate-500 transition-colors text-left"
                 >
                   Waves & swell
                 </button>
                 <button
                   type="button"
-                  className="text-sm font-medium text-gray-900 underline underline-offset-4 decoration-black/20 hover:decoration-black/40 transition-colors text-left"
+                  className="text-sm font-normal text-slate-700 underline underline-offset-4 decoration-slate-300 hover:decoration-slate-500 transition-colors text-left"
                 >
                   Wind & weather
                 </button>
                 <button
                   type="button"
-                  className="text-sm font-medium text-gray-900 underline underline-offset-4 decoration-black/20 hover:decoration-black/40 transition-colors text-left"
+                  className="text-sm font-normal text-slate-700 underline underline-offset-4 decoration-slate-300 hover:decoration-slate-500 transition-colors text-left"
                 >
                   Water & temps
                 </button>
@@ -202,15 +202,27 @@ export function ForecastSection() {
             </div>
 
             {/* Center: phone mock */}
-            <div className="flex justify-center md:justify-center md:shrink-0">
-              <div className="relative w-[300px] sm:w-[340px] md:w-[380px] lg:w-[420px]">
-                <div className="relative rounded-[54px] bg-gray-900 p-[10px] shadow-2xl">
+            <div className="flex justify-center shrink-0">
+              <div className="relative w-[260px] sm:w-[300px] md:w-[340px] lg:w-[360px]">
+                {/* Device frame */}
+                <div className="relative aspect-[9/19.5] rounded-[56px] bg-slate-900 p-[10px] shadow-2xl ring-1 ring-black/20">
+                  {/* subtle glass highlight */}
+                  <div className="pointer-events-none absolute inset-0 rounded-[56px] bg-gradient-to-b from-white/10 via-transparent to-black/20" />
+
+                  {/* Side buttons */}
+                  <div className="pointer-events-none absolute -left-[3px] top-[22%] h-10 w-[3px] rounded-full bg-slate-700/80" />
+                  <div className="pointer-events-none absolute -left-[3px] top-[30%] h-14 w-[3px] rounded-full bg-slate-700/80" />
+                  <div className="pointer-events-none absolute -right-[3px] top-[28%] h-16 w-[3px] rounded-full bg-slate-700/80" />
+
                   {/* Notch */}
-                  <div className="pointer-events-none absolute left-1/2 top-[14px] h-[22px] w-[120px] -translate-x-1/2 rounded-full bg-gray-900" />
+                  <div className="pointer-events-none absolute left-1/2 top-[10px] h-[26px] w-[122px] -translate-x-1/2 rounded-full bg-slate-950">
+                    <div className="absolute right-4 top-1/2 h-[8px] w-[8px] -translate-y-1/2 rounded-full bg-slate-700" />
+                  </div>
 
                   {/* Screen */}
-                  <div className="rounded-[44px] bg-white overflow-hidden">
-                    <div className="px-5 pt-7 pb-3">
+                  <div className="relative h-full w-full overflow-hidden rounded-[46px] bg-white">
+                    {/* Give top safe-area so content doesn't collide with notch */}
+                    <div className="px-5 pt-10 pb-3">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold text-gray-900">
                           Forecast
@@ -222,31 +234,34 @@ export function ForecastSection() {
                       </p>
                     </div>
 
-                    <div className="px-5 pb-5 space-y-3">
+                    {/* IMPORTANT: constrain content so it doesn't force a square */}
+                    <div className="px-5 pb-6 space-y-3">
                       <PhoneForecastPreview {...todayForecast} />
                       <div className="grid grid-cols-2 gap-3">
                         <PhoneForecastPreview {...tomorrowForecast} />
                         <PhoneForecastPreview {...dayAfterForecast} />
                       </div>
                     </div>
+
+                    {/* bottom home indicator */}
+                    <div className="pointer-events-none absolute bottom-3 left-1/2 h-1.5 w-28 -translate-x-1/2 rounded-full bg-slate-900" />
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Right: copy + CTAs */}
-            <div className="text-center md:text-left md:flex-1 md:max-w-[520px]">
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-roboto font-bold text-dark-grey leading-tight">
+            <div className="text-center md:text-left">
+              <h2 className="text-4xl lg:text-5xl font-roboto font-semibold tracking-tight leading-[1.05] text-slate-900">
                 {CONTENT.sections.forecast.title}
               </h2>
-              <p className="mt-5 text-sm sm:text-base font-open-sans text-gray-700 leading-relaxed max-w-xl mx-auto md:mx-0">
+              <p className="mt-5 text-base leading-7 text-slate-600 max-w-[420px] mx-auto md:mx-0">
                 {CONTENT.sections.forecast.subtitle}
               </p>
 
-              <div className="mt-10 flex flex-col gap-3 items-center md:items-start">
+              <div className="mt-10 flex flex-col gap-4 items-center md:items-start">
                 <Button
-                  size="lg"
-                  className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-7 py-3.5 text-base font-roboto font-semibold rounded-full shadow-sm"
+                  className="rounded-full px-7 py-3 text-sm font-semibold bg-ocean-blue hover:bg-ocean-blue/90 text-white shadow-sm"
                   asChild
                 >
                   <Link href="/map">
@@ -254,16 +269,12 @@ export function ForecastSection() {
                   </Link>
                 </Button>
 
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="px-7 py-3.5 text-base font-roboto font-semibold rounded-full bg-white/70 hover:bg-white border-gray-300"
-                  asChild
+                <Link
+                  href="/auth/sign-up"
+                  className="text-sm font-semibold text-slate-700 underline underline-offset-4 decoration-slate-300 hover:decoration-slate-500 transition-colors"
                 >
-                  <Link href="/auth/sign-up">
-                    {CONTENT.sections.forecast.secondaryCta}
-                  </Link>
-                </Button>
+                  {CONTENT.sections.forecast.secondaryCta}
+                </Link>
               </div>
             </div>
           </div>
