@@ -53,9 +53,9 @@ export default function HeroSearchLazy({
   // Detect test environment using multiple methods for reliability
   const isTest = useMemo(() => {
     return (
-      typeof process !== "undefined" &&
-      (process.env.NODE_ENV === "test" ||
-        process.env.PLAYWRIGHT_TEST === "true") ||
+      (typeof process !== "undefined" &&
+        (process.env.NODE_ENV === "test" ||
+          process.env.PLAYWRIGHT_TEST === "true")) ||
       (typeof window !== "undefined" &&
         (window.navigator.webdriver ||
           (window as any).Cypress ||

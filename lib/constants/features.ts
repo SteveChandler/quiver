@@ -103,7 +103,7 @@ export const SURF_ACTIVITIES = [
     title: "Longboarding",
     description:
       "Find mellow breaks perfect for longboard cruising. Classic style meets modern community.",
-    imageSrc: "/images/windandsea-surf-shack-sunset.jpg",
+    imageSrc: "/longboard.webp",
     imageAlt: "Surfer at sunset near a surf shack",
     link: "/discover?type=longboard",
     iconBgColor: "bg-blue-100",
@@ -114,7 +114,7 @@ export const SURF_ACTIVITIES = [
     title: "Reef Breaks",
     description:
       "Powerful reef breaks with consistent swells. Perfect barrels await.",
-    imageSrc: "/images/blacks.jpg",
+    imageSrc: "/reef.jpg",
     imageAlt: "Breaking wave at a reef break",
     link: "/discover?type=reef",
     iconBgColor: "bg-purple-100",
@@ -125,7 +125,7 @@ export const SURF_ACTIVITIES = [
     title: "Point Breaks",
     description:
       "Explore legendary point breaks with long, peeling waves. Chase those endless rides.",
-    imageSrc: "/images/Winter-Swamis.jpg",
+    imageSrc: "/point-break.webp",
     imageAlt: "Long peeling wave at a point break",
     link: "/discover?type=point",
     iconBgColor: "bg-green-100",
@@ -136,7 +136,7 @@ export const SURF_ACTIVITIES = [
     title: "Beginner-Friendly",
     description:
       "Safe, gentle breaks perfect for learning. Start your surf journey with confidence.",
-    imageSrc: "/4groms.jpg",
+    imageSrc: "/beginnerWhiteWater.jpg",
     imageAlt: "Young surfers at the beach",
     link: "/discover?level=beginner",
     iconBgColor: "bg-yellow-100",
@@ -147,7 +147,7 @@ export const SURF_ACTIVITIES = [
     title: "Boogie Boarding",
     description:
       "Fun, approachable waves perfect for bodyboarders. Great for shorebreak barrels.",
-    imageSrc: "/images/OceanBeachSurfers.jpg",
+    imageSrc: "/boogieboarding.jpg",
     imageAlt: "Surfers in the lineup",
     link: "/discover?type=bodyboard",
     iconBgColor: "bg-pink-100",
@@ -158,7 +158,7 @@ export const SURF_ACTIVITIES = [
     title: "Offshore Winds",
     description:
       "Find spots with optimal offshore conditions. Perfect grooming for that epic session.",
-    imageSrc: "/3sunset.jpg",
+    imageSrc: "/offShore.jpeg",
     imageAlt: "Sunset over the ocean",
     link: "/discover?conditions=offshore",
     iconBgColor: "bg-teal-100",

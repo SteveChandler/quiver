@@ -50,30 +50,17 @@ export function buildLocationUrl(
  * @param slug - URL slug (e.g., "la-jolla", "san-diego")
  * @returns Human-readable location name (e.g., "La Jolla", "San Diego")
  */
-const LOWERCASE_WORDS = new Set(['of', 'the', 'in', 'and', 'at', 'by', 'for', 'to', 'on']);
-
 export function parseLocationFromSlug(slug: string): string {
   if (!slug) return "";
 
   // Convert slug back to readable format
   // "la-jolla" → "La Jolla"
   // "san-diego" → "San Diego"
-  // "cardiff-by-the-sea" → "Cardiff by the Sea"
+  // "cardiff-by-the-sea" → "Cardiff By The Sea"
 
   return slug
     .split("-")
-    .map((word, index) => {
-      // Always capitalize first word
-      if (index === 0) return word.charAt(0).toUpperCase() + word.slice(1);
-      
-      // Lowercase small words
-      if (LOWERCASE_WORDS.has(word.toLowerCase())) {
-        return word.toLowerCase();
-      }
-      
-      // Default capitalization
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
 

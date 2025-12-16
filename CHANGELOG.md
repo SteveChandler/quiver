@@ -9,15 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **AllTrails-Style Forecast Section Redesign** (December 2025)
-  - Layout: Converted from flex to CSS grid with strict column widths (`180px_auto_1fr`) for deliberate spacing.
-  - Spacing: Updated padding to `px-12 lg:px-20 py-16 lg:py-20` with larger column gaps (`gap-x-16 lg:gap-x-24`).
-  - Card: Lightened background to `#F3EEE6` (warmer, softer tone).
-  - Typography: Editorial headline style with `font-semibold tracking-tight leading-[1.05]` and muted `slate-600` body text.
-  - Left nav: Narrowed to `w-[180px]` with softer link styles (`decoration-slate-300`).
-  - Phone mock: Reduced bezel thickness (`p-[6px]`), lightened to `bg-gray-800`, changed shadow from `shadow-2xl` to `shadow-md`.
-  - CTAs: Replaced outline button with understated text link; adjusted primary to smaller pill style.
-
 - **AllTrails-Style Landing Page Redesign** (December 2025)
   - Hero: Replaced warm orange overlay with neutral charcoal gradient (`from-black/60 via-black/20 to-black/50`) for cleaner photo treatment.
   - Hero: Added ocean-blue brand arc SVGs as decorative swooshes (top-right + bottom-left) replacing edge lines.
@@ -49,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   - Disabled PWA auto-registration and ensured `/sw.js` never registers on localhost (clears stale caches/registrations to prevent old Next.js chunk 404s).
   - Increased `image-proxy` burst limit to avoid broken landing images during normal browsing.
+
+- **Local builds intermittently failing with missing route modules** (December 2025)
+
+  - Added a pre-build `.next` cleanup step so `yarn build` doesn’t read stale dev artifacts (fixes `PageNotFoundError: Cannot find module for page: /api/auth/[...supabase]` and related routes).
 
 - **Landing page “Browse by activity” row uses full container width** (December 2025)
 

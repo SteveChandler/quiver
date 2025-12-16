@@ -9,6 +9,7 @@ interface SectionWrapperProps {
   subtitleClassName?: string;
   maxWidth?: "4xl" | "6xl" | "7xl";
   centerContent?: boolean;
+  "data-testid"?: string;
 }
 
 const MAX_WIDTH_CLASS: Record<
@@ -29,12 +30,13 @@ export function SectionWrapper({
   subtitleClassName = "text-xl font-open-sans text-gray-600 max-w-2xl mx-auto",
   maxWidth = "6xl",
   centerContent = false,
+  "data-testid": testId,
 }: SectionWrapperProps) {
   const containerClass = `${MAX_WIDTH_CLASS[maxWidth]} mx-auto`;
   const contentClass = centerContent ? "text-center" : "";
 
   return (
-    <section className={className}>
+    <section className={className} data-testid={testId}>
       <div className={containerClass}>
         {(title || subtitle) && (
           <div className={`${contentClass} mb-12 animate-fade-in-up`}>

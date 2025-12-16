@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, lazy, Suspense } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  lazy,
+  Suspense,
+} from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -104,41 +111,40 @@ import { BeachHeroCompact } from "@/components/beach-detail/beach-hero-compact";
 import { BeachPhotoGallery } from "@/components/beach-detail/beach-photo-gallery";
 import { BeachStatsGrid } from "@/components/beach-detail/beach-stats-grid";
 import { BeachActions } from "@/components/beach-detail/beach-actions";
-import { BeachTabs, BeachTabContent, type BeachTabValue } from "@/components/beach-detail/beach-tabs";
+import {
+  BeachTabs,
+  BeachTabContent,
+  type BeachTabValue,
+} from "@/components/beach-detail/beach-tabs";
 import { SessionPlanningModal } from "@/components/beach-detail/session-planning-modal";
 import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skeleton";
 
 // PERFORMANCE OPTIMIZATION: Lazy load tab content to reduce initial bundle size
 // Only load the active tab's code on-demand
-const OverviewTab = lazy(
-  () =>
-    import("@/components/beach-detail/tabs/overview-tab").then((m) => ({
-      default: m.OverviewTab,
-    }))
+const OverviewTab = lazy(() =>
+  import("@/components/beach-detail/tabs/overview-tab").then((m) => ({
+    default: m.OverviewTab,
+  }))
 );
-const ForecastTab = lazy(
-  () =>
-    import("@/components/beach-detail/tabs/forecast-tab").then((m) => ({
-      default: m.ForecastTab,
-    }))
+const ForecastTab = lazy(() =>
+  import("@/components/beach-detail/tabs/forecast-tab").then((m) => ({
+    default: m.ForecastTab,
+  }))
 );
-const ReviewsTab = lazy(
-  () =>
-    import("@/components/beach-detail/tabs/reviews-tab").then((m) => ({
-      default: m.ReviewsTab,
-    }))
+const ReviewsTab = lazy(() =>
+  import("@/components/beach-detail/tabs/reviews-tab").then((m) => ({
+    default: m.ReviewsTab,
+  }))
 );
-const IntelTab = lazy(
-  () =>
-    import("@/components/beach-detail/tabs/intel-tab").then((m) => ({
-      default: m.IntelTab,
-    }))
+const IntelTab = lazy(() =>
+  import("@/components/beach-detail/tabs/intel-tab").then((m) => ({
+    default: m.IntelTab,
+  }))
 );
-const SessionsTab = lazy(
-  () =>
-    import("@/components/beach-detail/tabs/sessions-tab").then((m) => ({
-      default: m.SessionsTab,
-    }))
+const SessionsTab = lazy(() =>
+  import("@/components/beach-detail/tabs/sessions-tab").then((m) => ({
+    default: m.SessionsTab,
+  }))
 );
 
 // Constants to prevent unnecessary re-renders
@@ -149,12 +155,17 @@ interface BeachDetailProps {
   publicMode?: boolean;
   initialBeach?: Beach;
   personalizationData?: {
-    score: import("@/lib/services/personalized-scoring-service").PersonalizedScore | null;
+    score:
+      | import("@/lib/services/personalized-scoring-service").PersonalizedScore
+      | null;
     affinityData: { sessionCount: number; lastSurfed: Date } | null;
     isLoading: boolean;
     error: boolean;
   };
-  onPersonalizationRequest?: (forecast: EnhancedForecastEntity, baseScore: number) => void;
+  onPersonalizationRequest?: (
+    forecast: EnhancedForecastEntity,
+    baseScore: number
+  ) => void;
 }
 
 function BeachDetailContent({
@@ -173,7 +184,9 @@ function BeachDetailContent({
     useState<EnhancedForecastEntity | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sessionPlanningOpen, setSessionPlanningOpen] = useState(false);
-  const [sessionPlanningMode, setSessionPlanningMode] = useState<"log" | "plan">("log");
+  const [sessionPlanningMode, setSessionPlanningMode] = useState<
+    "log" | "plan"
+  >("log");
   const [activeTab, setActiveTab] = useState<BeachTabValue>("overview");
 
   // Handle URL parameters and default section opening
@@ -198,7 +211,10 @@ function BeachDetailContent({
           try {
             // Update URL hash without navigation (pathname and search are read-only access)
             // eslint-disable-next-line no-restricted-properties
-            router.replace(`${window.location.pathname}${window.location.search}#intel`, { scroll: false });
+            router.replace(
+              `${window.location.pathname}${window.location.search}#intel`,
+              { scroll: false }
+            );
           } catch {}
           const y =
             el.getBoundingClientRect().top + window.scrollY - stickyOffset;
@@ -445,9 +461,7 @@ function BeachDetailContent({
   // Calculate destination coordinates and directions handler BEFORE early returns
   // (must be before early returns to maintain consistent hook count)
   const destinationCoordinates =
-    beach?.lat && beach?.lon
-      ? `${beach.lat},${beach.lon}`
-      : null;
+    beach?.lat && beach?.lon ? `${beach.lat},${beach.lon}` : null;
   const canGetDirections = Boolean(destinationCoordinates);
 
   const handleGetDirections = useCallback(() => {
@@ -490,8 +504,8 @@ function BeachDetailContent({
             >
               Back to Map
             </Button>
+          </div>
         </div>
-      </div>
       </div>
     );
   }
@@ -567,7 +581,11 @@ function BeachDetailContent({
         />
 
         {/* Tabbed Content */}
-        <BeachTabs activeTab={activeTab} onTabChange={setActiveTab} actions={tabActions}>
+        <BeachTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          actions={tabActions}
+        >
           {/* Overview Tab */}
           <BeachTabContent value="overview">
             <Suspense fallback={<TabLoadingSkeleton />}>
@@ -623,10 +641,7 @@ function BeachDetailContent({
           {/* Sessions Tab */}
           <BeachTabContent value="sessions">
             <Suspense fallback={<TabLoadingSkeleton />}>
-              <SessionsTab
-                beach={beach}
-                sessionSnapshots={sessionSnapshots}
-              />
+              <SessionsTab beach={beach} sessionSnapshots={sessionSnapshots} />
             </Suspense>
           </BeachTabContent>
         </BeachTabs>

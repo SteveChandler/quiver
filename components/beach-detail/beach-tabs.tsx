@@ -3,7 +3,12 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReactNode, useState, useCallback } from "react";
 
-export type BeachTabValue = "overview" | "forecast" | "reviews" | "intel" | "sessions";
+export type BeachTabValue =
+  | "overview"
+  | "forecast"
+  | "reviews"
+  | "intel"
+  | "sessions";
 
 // Prefetch functions for each tab component
 const prefetchTabModules: Record<BeachTabValue, () => Promise<any>> = {
@@ -95,11 +100,7 @@ export function BeachTabs({
   const stickyTop = "calc(var(--app-safe-area-top, 0px) + 4rem)";
 
   return (
-    <Tabs
-      value={value}
-      onValueChange={handleTabChange}
-      className={className}
-    >
+    <Tabs value={value} onValueChange={handleTabChange} className={className}>
       {/* Sticky container mimicking AllTrails-style anchor nav */}
       <div
         className="sticky z-40 mb-6 border-b-2 border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
@@ -144,7 +145,9 @@ export function BeachTabs({
             </TabsTrigger>
           </TabsList>
           {actions ? (
-            <div className="hidden flex-shrink-0 items-center gap-2 md:flex">{actions}</div>
+            <div className="hidden flex-shrink-0 items-center gap-2 md:flex">
+              {actions}
+            </div>
           ) : null}
         </div>
       </div>

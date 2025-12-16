@@ -24,12 +24,6 @@ jest.mock("@/components/landing-page/surf-highlights-section", () => ({
   ),
 }));
 
-jest.mock("@/components/landing-page/upgrade-session-section", () => ({
-  UpgradeSessionSection: () => (
-    <div data-testid="upgrade-session-section">Upgrade Session Section</div>
-  ),
-}));
-
 jest.mock("@/components/landing-page/activities-section", () => ({
   ActivitiesSection: () => (
     <div data-testid="activities-section">Activities Section</div>
@@ -77,9 +71,9 @@ describe("LandingPage", () => {
     const sectionsContainer = container.querySelector(".space-y-0");
     expect(sectionsContainer).toBeInTheDocument();
 
-    // Should have 6 progressive section containers (one for each lazy-loaded section)
+    // Should have 5 progressive section containers (one for each lazy-loaded section)
     const progressiveSections = sectionsContainer?.children;
-    expect(progressiveSections).toHaveLength(6);
+    expect(progressiveSections).toHaveLength(5);
   });
 
   it("shows AllTrails-style sections", () => {
@@ -89,9 +83,6 @@ describe("LandingPage", () => {
     // Since mocks render immediately, test that sections are present
     const surfHighlightsSection = screen.getByTestId("surf-highlights-section");
     expect(surfHighlightsSection).toBeInTheDocument();
-
-    const upgradeSessionSection = screen.getByTestId("upgrade-session-section");
-    expect(upgradeSessionSection).toBeInTheDocument();
 
     const activitiesSection = screen.getByTestId("activities-section");
     expect(activitiesSection).toBeInTheDocument();
@@ -120,6 +111,6 @@ describe("LandingPage", () => {
 
     // Verify we have the expected number of progressive sections
     const progressiveSections = sectionsContainer?.children;
-    expect(progressiveSections).toHaveLength(6); // 6 lazy-loaded sections
+    expect(progressiveSections).toHaveLength(5); // 5 lazy-loaded sections
   });
 });

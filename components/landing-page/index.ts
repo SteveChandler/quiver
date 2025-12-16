@@ -9,6 +9,9 @@ export { ForecastSection } from "./forecast-section";
 export { CTASection } from "./cta-section";
 export { FooterSection } from "./footer-section";
 
+// Promotional sections
+export { UpgradeSessionSection } from "./upgrade-session-section";
+
 // Legacy sections (kept for backward compatibility)
 export { SocialFeedSection } from "./social-feed-section";
 export { FeaturesSection } from "./features-section";
