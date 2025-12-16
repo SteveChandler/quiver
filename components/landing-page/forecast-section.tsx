@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Waves, Wind, Thermometer } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { ArrowDown, ArrowUp, Thermometer, Waves, Wind } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionWrapper } from "./section-wrapper";
 import { CONTENT } from "@/lib/constants/features";
@@ -58,7 +57,13 @@ const generateForecastData = () => {
 
 const MODERN_FORECAST_DATA = generateForecastData();
 
-function ModernForecastCard({
+function getConditionsPillClassName(conditions: string) {
+  if (conditions === "Excellent") return "bg-green-100 text-green-800";
+  if (conditions === "Good") return "bg-blue-100 text-blue-800";
+  return "bg-yellow-100 text-yellow-800";
+}
+
+function PhoneForecastPreview({
   day,
   date,
   waveHeight,
@@ -74,115 +79,193 @@ function ModernForecastCard({
   conditions: string;
 }) {
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-300">
-      <CardContent className="p-6">
-        <div className="text-center mb-4">
-          <h3 className="font-semibold text-lg text-gray-900">{day}</h3>
-          <p className="text-sm text-gray-600">{date}</p>
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold text-gray-900">{day}</p>
+            <p className="text-[11px] text-gray-500">{date}</p>
+          </div>
+          <span
+            className={`shrink-0 inline-flex px-2 py-1 rounded-full text-[10px] font-medium ${getConditionsPillClassName(
+              conditions
+            )}`}
+          >
+            {conditions}
+          </span>
         </div>
 
-        <div className="space-y-3">
+        <div className="mt-3 rounded-xl bg-gray-50 p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Waves className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium">Waves</span>
+              <Waves aria-hidden="true" className="h-3.5 w-3.5 text-blue-600" />
+              <span className="text-[11px] font-medium text-gray-700">
+                Waves
+              </span>
             </div>
-            <span className="text-sm font-semibold text-blue-600">
+            <span className="text-[11px] font-semibold text-blue-700">
               {waveHeight}
             </span>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="mt-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Wind className="h-4 w-4 text-gray-600" />
-              <span className="text-sm font-medium">Wind</span>
+              <Wind aria-hidden="true" className="h-3.5 w-3.5 text-gray-600" />
+              <span className="text-[11px] font-medium text-gray-700">
+                Wind
+              </span>
             </div>
-            <span className="text-sm">{windSpeed}</span>
+            <span className="text-[11px] text-gray-700">{windSpeed}</span>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="mt-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Thermometer className="h-4 w-4 text-orange-600" />
-              <span className="text-sm font-medium">Water</span>
+              <Thermometer
+                aria-hidden="true"
+                className="h-3.5 w-3.5 text-orange-600"
+              />
+              <span className="text-[11px] font-medium text-gray-700">
+                Water
+              </span>
             </div>
-            <span className="text-sm">{waterTemp}</span>
+            <span className="text-[11px] text-gray-700">{waterTemp}</span>
           </div>
         </div>
-
-        <div className="mt-4 pt-3 border-t">
-          <div className="text-center">
-            <span
-              className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                conditions === "Excellent"
-                  ? "bg-green-100 text-green-800"
-                  : conditions === "Good"
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-yellow-100 text-yellow-800"
-              }`}
-            >
-              {conditions}
-            </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 export function ForecastSection() {
+  const [todayForecast, tomorrowForecast, dayAfterForecast] =
+    MODERN_FORECAST_DATA;
+
   return (
-    <SectionWrapper
-      className="py-20 px-4 bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-100 relative"
-      title={CONTENT.sections.forecast.title}
-      subtitle={CONTENT.sections.forecast.subtitle}
-      maxWidth="6xl"
-      centerContent
-    >
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-ocean-blue/5 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl"></div>
-      </div>
+    <SectionWrapper className="py-16 md:py-20 px-4 bg-white" maxWidth="6xl">
+      <div
+        className="relative overflow-hidden rounded-[32px] sm:rounded-[40px] lg:rounded-[48px] bg-[#f2eee8] shadow-sm ring-1 ring-black/5 animate-fade-in-up"
+        data-testid="forecast-section-panel"
+      >
+        <div className="p-10 sm:p-12 lg:p-20">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-12 md:gap-14 lg:gap-20">
+            {/* Left: mini-nav (AllTrails-style) */}
+            <div className="md:w-[200px] md:shrink-0 flex flex-col items-center md:items-start md:self-stretch md:justify-center">
+              <div className="flex items-center justify-center md:justify-start">
+                <button
+                  type="button"
+                  aria-label="Previous highlight"
+                  className="h-10 w-10 rounded-full bg-white/70 shadow-sm ring-1 ring-black/5 hover:bg-white transition-colors"
+                >
+                  <ArrowUp
+                    aria-hidden="true"
+                    className="mx-auto h-4 w-4 text-gray-700"
+                  />
+                </button>
+              </div>
 
-      <div className="relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {MODERN_FORECAST_DATA.map((forecast, index) => (
-            <div
-              key={index}
-              className="transform hover:scale-105 transition-transform duration-300 animate-fade-in-up"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <ModernForecastCard {...forecast} />
+              <nav
+                aria-label="Forecast highlights"
+                className="mt-8 flex flex-col items-center md:items-start gap-6"
+              >
+                <button
+                  type="button"
+                  className="text-sm font-medium text-gray-900 underline underline-offset-4 decoration-black/20 hover:decoration-black/40 transition-colors text-left"
+                >
+                  Waves & swell
+                </button>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-gray-900 underline underline-offset-4 decoration-black/20 hover:decoration-black/40 transition-colors text-left"
+                >
+                  Wind & weather
+                </button>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-gray-900 underline underline-offset-4 decoration-black/20 hover:decoration-black/40 transition-colors text-left"
+                >
+                  Water & temps
+                </button>
+              </nav>
+
+              <div className="mt-8 flex items-center justify-center md:justify-start">
+                <button
+                  type="button"
+                  aria-label="Next highlight"
+                  className="h-10 w-10 rounded-full bg-white/70 shadow-sm ring-1 ring-black/5 hover:bg-white transition-colors"
+                >
+                  <ArrowDown
+                    aria-hidden="true"
+                    className="mx-auto h-4 w-4 text-gray-700"
+                  />
+                </button>
+              </div>
             </div>
-          ))}
-        </div>
 
-        {/* Enhanced CTA */}
-        <div
-          className="text-center animate-fade-in-up"
-          style={{ animationDelay: "400ms" }}
-        >
-          <p className="text-gray-600 mb-6 text-lg">
-            Explore forecasts by spot and plan your next paddle out.
-          </p>
+            {/* Center: phone mock */}
+            <div className="flex justify-center md:justify-center md:shrink-0">
+              <div className="relative w-[300px] sm:w-[340px] md:w-[380px] lg:w-[420px]">
+                <div className="relative rounded-[54px] bg-gray-900 p-[10px] shadow-2xl">
+                  {/* Notch */}
+                  <div className="pointer-events-none absolute left-1/2 top-[14px] h-[22px] w-[120px] -translate-x-1/2 rounded-full bg-gray-900" />
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            <Button
-              size="lg"
-              className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-8 py-4 text-lg font-roboto font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-              asChild
-            >
-              <Link href="/map">{CONTENT.sections.forecast.primaryCta}</Link>
-            </Button>
+                  {/* Screen */}
+                  <div className="rounded-[44px] bg-white overflow-hidden">
+                    <div className="px-5 pt-7 pb-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-gray-900">
+                          Forecast
+                        </p>
+                        <p className="text-xs text-gray-500">Live</p>
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        Trusted by your local surf community
+                      </p>
+                    </div>
 
-            <Button
-              size="lg"
-              variant="outline"
-              className="px-8 py-4 text-lg font-roboto font-semibold rounded-full bg-white/60 hover:bg-white"
-              asChild
-            >
-              <Link href="/auth/sign-up">{CONTENT.sections.forecast.secondaryCta}</Link>
-            </Button>
+                    <div className="px-5 pb-5 space-y-3">
+                      <PhoneForecastPreview {...todayForecast} />
+                      <div className="grid grid-cols-2 gap-3">
+                        <PhoneForecastPreview {...tomorrowForecast} />
+                        <PhoneForecastPreview {...dayAfterForecast} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: copy + CTAs */}
+            <div className="text-center md:text-left md:flex-1 md:max-w-[520px]">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-roboto font-bold text-dark-grey leading-tight">
+                {CONTENT.sections.forecast.title}
+              </h2>
+              <p className="mt-5 text-sm sm:text-base font-open-sans text-gray-700 leading-relaxed max-w-xl mx-auto md:mx-0">
+                {CONTENT.sections.forecast.subtitle}
+              </p>
+
+              <div className="mt-10 flex flex-col gap-3 items-center md:items-start">
+                <Button
+                  size="lg"
+                  className="bg-ocean-blue hover:bg-ocean-blue/90 text-white px-7 py-3.5 text-base font-roboto font-semibold rounded-full shadow-sm"
+                  asChild
+                >
+                  <Link href="/map">
+                    {CONTENT.sections.forecast.primaryCta}
+                  </Link>
+                </Button>
+
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="px-7 py-3.5 text-base font-roboto font-semibold rounded-full bg-white/70 hover:bg-white border-gray-300"
+                  asChild
+                >
+                  <Link href="/auth/sign-up">
+                    {CONTENT.sections.forecast.secondaryCta}
+                  </Link>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

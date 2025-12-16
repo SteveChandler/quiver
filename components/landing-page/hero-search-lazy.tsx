@@ -124,25 +124,14 @@ export default function HeroSearchLazy({
    *
    * Lightweight input that renders immediately with no dependencies.
    * Provides instant interaction while full search component loads.
+   * AllTrails style: left-aligned search icon, generous height.
    */
   const SearchPlaceholder = () => (
     <div className="relative w-full">
-      <input
-        type="text"
-        placeholder="Search by beach, spot, or region"
-        className="w-full h-14 pl-4 pr-12 text-lg bg-white/95 text-dark-grey rounded-full
-                   shadow-lg border-0 focus:outline-none focus:ring-2 focus:ring-ocean-blue
-                   transition-all duration-200"
-        value={searchValue}
-        onChange={handlePlaceholderChange}
-        onFocus={handlePlaceholderFocus}
-        onKeyDown={handlePlaceholderKeyDown}
-        aria-label="Search for beaches"
-        data-testid="hero-search-input"
-      />
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+      {/* Search icon - left side */}
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
         <svg
-          className="w-6 h-6"
+          className="w-5 h-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -156,6 +145,19 @@ export default function HeroSearchLazy({
           />
         </svg>
       </div>
+      <input
+        type="text"
+        placeholder="Search by beach, spot, or region"
+        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg bg-white/95 text-dark-grey rounded-full
+                   shadow-lg border-0 focus:outline-none focus:ring-2 focus:ring-ocean-blue
+                   placeholder:text-slate-500 transition-all duration-200"
+        value={searchValue}
+        onChange={handlePlaceholderChange}
+        onFocus={handlePlaceholderFocus}
+        onKeyDown={handlePlaceholderKeyDown}
+        aria-label="Search for beaches"
+        data-testid="hero-search-input"
+      />
     </div>
   );
 
@@ -163,23 +165,24 @@ export default function HeroSearchLazy({
    * Loading Fallback
    *
    * Shows while full search component is being loaded.
-   * Maintains UX continuity with spinner indicator.
+   * Maintains UX continuity with spinner indicator on left.
    */
   const LoadingFallback = () => (
     <div className="relative w-full">
+      {/* Loading spinner - left side */}
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+        <Loader2 className="w-5 h-5 animate-spin" aria-label="Loading search" />
+      </div>
       <input
         type="text"
         placeholder="Search by beach, spot, or region"
-        className="w-full h-14 pl-4 pr-12 text-lg bg-white/95 text-dark-grey rounded-full
+        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg bg-white/95 text-dark-grey rounded-full
                    shadow-lg border-0 focus:outline-none focus:ring-2 focus:ring-ocean-blue
-                   transition-all duration-200"
+                   placeholder:text-slate-500 transition-all duration-200"
         value={searchValue}
         disabled
         aria-label="Search loading"
       />
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
-        <Loader2 className="w-6 h-6 animate-spin" aria-label="Loading search" />
-      </div>
     </div>
   );
 
@@ -193,7 +196,7 @@ export default function HeroSearchLazy({
       <BeachSearchAutocomplete
         initialValue={searchValue}
         placeholder="Search by beach, spot, or region"
-        className="w-full h-14 pl-4 pr-0 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 [&_[cmdk-input-wrapper]]:border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden"
+        className="w-full h-14 md:h-16 pl-12 pr-6 text-lg bg-white/95 text-dark-grey rounded-full shadow-lg border-0 [&_[cmdk-input-wrapper]]:border-0 focus-within:ring-2 focus-within:ring-ocean-blue overflow-hidden placeholder:text-slate-500"
         maxResults={8}
         requireExplicitSelection
         onFallback={onFallback}

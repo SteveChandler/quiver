@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { CONTENT } from "@/lib/constants/features";
 import { HeroCarousel } from "./hero-carousel";
@@ -35,18 +34,15 @@ export function HeroSection() {
   };
 
   return (
-    <section className="relative min-h-[75svh] flex items-center justify-center overflow-clip md:overflow-visible pt-16">
-      {/* Hero Carousel Background */}
+    <section className="relative min-h-[75svh] flex items-center justify-center overflow-clip md:overflow-visible pt-20">
+      {/* Hero Carousel Background - includes gradient overlay */}
       <HeroCarousel />
 
-      {/* Enhanced Overlay with Gradient */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/60 z-20" />
-
-      {/* Hero Content - Search-Centric */}
-      <div className="relative z-30 w-full max-w-[90vw] sm:max-w-screen-sm md:max-w-4xl mx-auto px-4 sm:px-6 text-center text-white py-8 sm:py-12 animate-fade-in-up">
-        {/* Main Headline - Bold and Simple */}
+      {/* Hero Content - Search-Centric, true vertical center */}
+      <div className="relative z-30 w-full max-w-3xl mx-auto px-6 text-center text-white flex flex-col items-center gap-6">
+        {/* Main Headline - AllTrails style: lighter weight, tighter tracking */}
         <h1
-          className="font-bold leading-tight text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-roboto mb-6 sm:mb-8 animate-fade-in-up"
+          className="font-semibold leading-tight tracking-tight text-5xl md:text-6xl font-roboto animate-fade-in-up [text-shadow:_0_2px_8px_rgb(0_0_0_/_30%)]"
           style={{ animationDelay: "100ms" }}
         >
           {CONTENT.hero.title}
@@ -55,7 +51,7 @@ export function HeroSection() {
         {/* Supporting Subhead */}
         {CONTENT.hero.subtitle ? (
           <p
-            className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto mb-6 sm:mb-8 font-open-sans leading-relaxed animate-fade-in-up"
+            className="text-lg md:text-xl text-white/90 max-w-2xl font-open-sans leading-relaxed animate-fade-in-up"
             style={{ animationDelay: "150ms" }}
           >
             {CONTENT.hero.subtitle}
@@ -64,33 +60,25 @@ export function HeroSection() {
 
         {/* Search Bar - Hero Focus with lazy-loaded autocomplete */}
         <div
-          className="mb-4 sm:mb-6 animate-fade-in-up"
+          className="w-full animate-fade-in-up"
           style={{ animationDelay: "200ms" }}
         >
-          <div className="relative max-w-2xl mx-auto">
-            <HeroSearchLazy
-              onFallback={navigateToMap}
-              onQueryChange={setSearchQuery}
-              onSelect={handleBeachSelect}
-            />
-          </div>
+          <HeroSearchLazy
+            onFallback={navigateToMap}
+            onQueryChange={setSearchQuery}
+            onSelect={handleBeachSelect}
+          />
         </div>
 
-        {/* Explore Nearby Link */}
-        <div
-          className="text-center animate-fade-in-up"
+        {/* Explore Nearby Link - Simple underlined text link */}
+        <Link
+          href="/map"
+          onClick={handleExploreClick}
+          className="text-white/90 underline underline-offset-4 hover:text-white transition-colors text-base sm:text-lg animate-fade-in-up"
           style={{ animationDelay: "300ms" }}
         >
-          <Button
-            variant="link"
-            asChild
-            className="text-white underline underline-offset-4 hover:text-white/90 text-base sm:text-lg p-0 h-auto font-normal"
-          >
-            <Link href="/map" onClick={handleExploreClick}>
-              Explore nearby spots
-            </Link>
-          </Button>
-        </div>
+          Explore nearby spots
+        </Link>
       </div>
     </section>
   );

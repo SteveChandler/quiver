@@ -124,60 +124,51 @@ export function SurfHighlightsSection() {
   };
 
   return (
-    <section className="py-20 px-4 bg-gradient-to-b from-white to-blue-50">
-      {/* DOM order adjustment (from browser preview): h2 is a direct child of section */}
-      <h2 className="max-w-6xl mx-auto text-4xl md:text-5xl font-roboto font-bold text-dark-grey mb-4 text-left">
-        {CONTENT.sections.surfHighlights.title}
-      </h2>
-
-      <div className="max-w-6xl mx-auto">
-        {CONTENT.sections.surfHighlights.subtitle ? (
-          <div className="text-center mb-12 animate-fade-in-up">
-            <p className="text-xl font-open-sans text-gray-600 max-w-2xl mx-auto">
-              {CONTENT.sections.surfHighlights.subtitle}
-            </p>
-          </div>
-        ) : null}
+    <section className="py-14 bg-gradient-to-b from-white to-blue-50/50">
+      <div className="max-w-7xl mx-auto px-6">
+        {/* AllTrails-style editorial header - left-aligned with location emphasis */}
+        <h2 className="text-2xl md:text-3xl font-roboto font-semibold text-dark-grey mb-8 text-left">
+          Local surf favorites near{" "}
+          <span className="underline underline-offset-4 decoration-ocean-blue/40">
+            San Diego
+          </span>
+        </h2>
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="h-80 bg-gray-200 rounded-xl animate-pulse"
+                className="h-80 bg-gray-200 rounded-2xl animate-pulse"
               />
             ))}
           </div>
         ) : (
-          <>
-            <div className="relative mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {visibleSpots.length > 0 ? (
-                  visibleSpots.map((spot, index) => (
-                    <SurfSpotCard key={spot.id} {...spot} delay={index} />
-                  ))
-                ) : (
-                  <div className="col-span-full text-center py-12 text-gray-500">
-                    No surf spots available at the moment.
-                  </div>
-                )}
-              </div>
-
-              {/* AllTrails-style pager: show 4 cards + next arrow */}
-              {total > pageSize ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  aria-label="Next surf spots"
-                  className="hidden md:flex items-center justify-center absolute right-0 translate-x-1/2 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white shadow-md hover:shadow-lg transition-shadow z-10"
-                >
-                  <ChevronRight className="h-6 w-6 text-dark-grey" />
-                </button>
+          <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {visibleSpots.length > 0 ? (
+                visibleSpots.map((spot, index) => (
+                  <SurfSpotCard key={spot.id} {...spot} delay={index} />
+                ))
               ) : (
-                <div className="hidden" aria-hidden="true" />
+                <div className="col-span-full text-center py-12 text-gray-500">
+                  No surf spots available at the moment.
+                </div>
               )}
             </div>
-          </>
+
+            {/* AllTrails-style floating carousel control */}
+            {total > pageSize && (
+              <button
+                type="button"
+                onClick={handleNext}
+                aria-label="Next surf spots"
+                className="hidden md:flex items-center justify-center absolute -right-2 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white shadow-md hover:shadow-lg transition-shadow z-10 border border-gray-100"
+              >
+                <ChevronRight className="h-5 w-5 text-dark-grey" />
+              </button>
+            )}
+          </div>
         )}
       </div>
     </section>

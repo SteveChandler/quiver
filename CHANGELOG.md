@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **AllTrails-Style Landing Page Redesign** (December 2025)
+  - Hero: Replaced warm orange overlay with neutral charcoal gradient (`from-black/60 via-black/20 to-black/50`) for cleaner photo treatment.
+  - Hero: Added ocean-blue brand arc SVGs as decorative swooshes (top-right + bottom-left) replacing edge lines.
+  - Navbar: Increased vertical padding (`py-5`) and removed blur backdrop for cleaner look on hero gradient.
+  - Hero typography: Reduced font weight to `font-semibold` with `tracking-tight` for lighter editorial feel.
+  - Hero search bar: Moved search icon to left side, increased height (`h-14 md:h-16`), improved placeholder color.
+  - Hero "Explore nearby" CTA: Simplified from Button component to clean underlined text link.
+  - Section headers: Changed to left-aligned editorial style with location emphasis ("near San Diego").
+  - Surf spot cards: Updated to `rounded-2xl` with subtle `shadow-sm hover:shadow-md` transitions, reorganized meta row.
+  - Carousel control: Refined floating next button with consistent white/shadow styling.
+
 ### Security
 
 - **Patched transitive `jws` versions** (December 2025)
@@ -27,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   - Disabled PWA auto-registration and ensured `/sw.js` never registers on localhost (clears stale caches/registrations to prevent old Next.js chunk 404s).
   - Increased `image-proxy` burst limit to avoid broken landing images during normal browsing.
+
+- **Landing page “Browse by activity” row uses full container width** (December 2025)
+
+  - Distributed activity chips across the section container on desktop by aligning the first/last chip to the container edges (removes the “clustered left” look).
 
 - **Location Pages RPC Coordinate Columns** (December 2025)
 
@@ -124,6 +141,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Shifted primary CTAs to `/map` and made sign-up secondary for “explore-first” flow.
   - Removed mocked conditions UI from landing surf spot cards and dropped framer-motion usage in that grid.
   - Added `<main role="main">` landmark for accessibility and hardened `SectionWrapper` max-width classes for Tailwind.
+  - Restyled the “Browse by activity” landing section into AllTrails-style circular photo chips (image + label) with responsive horizontal scroll on mobile.
+
+- **Landing forecast section redesign (AllTrails-style panel)** (December 2025)
+
+  - Restyled the “Get the most accurate surf forecasts” section into a rounded panel layout with left mini-nav, phone mock preview, and right-side CTAs.
+  - Refined the module to better match AllTrails: smaller typography, roomier padding/gaps, and left-aligned copy on desktop.
 
 - **Enhanced DRY Form Components with Character Counters and Custom Rendering** (December 2025)
 

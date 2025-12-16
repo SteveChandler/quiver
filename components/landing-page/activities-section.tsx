@@ -1,86 +1,71 @@
-"use client";
-
 import Link from "next/link";
+import Image from "next/image";
 import { SectionWrapper } from "./section-wrapper";
 import { CONTENT, SURF_ACTIVITIES } from "@/lib/constants/features";
-import { LucideIcon } from "lucide-react";
-
-interface ActivityCardProps {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  link: string;
-  iconBgColor: string;
-  iconColor: string;
-  delay: number;
-}
-
-function ActivityCard({
-  icon: Icon,
-  title,
-  description,
-  link,
-  iconBgColor,
-  iconColor,
-  delay,
-}: ActivityCardProps) {
-  return (
-    <div
-      className="animate-fade-in-up"
-      style={{ animationDelay: `${delay * 100}ms` }}
-    >
-      <Link href={link} className="block group">
-        <div className="bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 h-full border border-gray-100">
-          {/* Icon */}
-          <div
-            className={`${iconBgColor} ${iconColor} w-14 h-14 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
-          >
-            <Icon className="h-7 w-7" />
-          </div>
-
-          {/* Content */}
-          <h3 className="text-xl font-bold font-roboto text-dark-grey mb-2 group-hover:text-ocean-blue transition-colors">
-            {title}
-          </h3>
-          <p className="text-gray-600 font-open-sans text-sm leading-relaxed">
-            {description}
-          </p>
-
-          {/* Hover indicator */}
-          <div className="mt-4 text-ocean-blue font-semibold text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            Explore →
-          </div>
-        </div>
-      </Link>
-    </div>
-  );
-}
 
 export function ActivitiesSection() {
   return (
     <SectionWrapper
       title={CONTENT.sections.activities.title}
       subtitle={CONTENT.sections.activities.subtitle}
-      centerContent
-      className="py-20 px-4 bg-white"
+      className="py-16 md:py-20 px-4 bg-white"
+      titleClassName="text-2xl sm:text-3xl font-roboto font-semibold text-dark-grey"
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-        {SURF_ACTIVITIES.map((activity, index) => (
-          <ActivityCard key={activity.title} {...activity} delay={index} />
+      {/* Desktop / Tablet: evenly spread across full width */}
+      <ul className="mt-10 hidden w-full items-start justify-between md:flex">
+        {SURF_ACTIVITIES.map((activity) => (
+          <li
+            key={activity.title}
+            className="flex flex-col items-center text-center"
+          >
+            <Link
+              href={activity.link}
+              className="group flex flex-col items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-4 rounded-2xl"
+            >
+              <span className="relative flex h-24 w-24 shrink-0 items-center justify-center md:h-28 md:w-28 lg:h-32 lg:w-32 rounded-full overflow-hidden shadow-md ring-1 ring-black/5 transition-all group-hover:shadow-lg group-hover:ring-ocean-blue/30 group-hover:scale-105">
+                <Image
+                  src={activity.imageSrc}
+                  alt={activity.imageAlt}
+                  width={128}
+                  height={128}
+                  className="h-full w-full object-cover object-center"
+                />
+              </span>
+              <span className="mt-4 text-sm font-medium font-open-sans text-slate-900 group-hover:text-ocean-blue transition-colors">
+                {activity.title}
+              </span>
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
 
-      {/* Additional info */}
-      <div
-        className="mt-12 text-center max-w-2xl mx-auto animate-fade-in"
-        style={{ animationDelay: "600ms" }}
-      >
-        <p className="text-gray-600 font-open-sans">
-          Whether you&apos;re a beginner looking for mellow waves or an expert
-          seeking the gnarliest breaks, Quiver helps you find the perfect spot
-          for your style.
-        </p>
-      </div>
+      {/* Mobile: horizontal scroll with snap points */}
+      <ul className="mt-10 flex w-full snap-x snap-mandatory gap-8 overflow-x-auto pb-4 -mx-4 px-4 md:hidden">
+        {SURF_ACTIVITIES.map((activity) => (
+          <li
+            key={activity.title}
+            className="shrink-0 snap-start flex flex-col items-center text-center"
+          >
+            <Link
+              href={activity.link}
+              className="group flex flex-col items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-4 rounded-2xl"
+            >
+              <span className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-full overflow-hidden shadow-md ring-1 ring-black/5 transition-all group-hover:shadow-lg group-hover:ring-ocean-blue/30">
+                <Image
+                  src={activity.imageSrc}
+                  alt={activity.imageAlt}
+                  width={96}
+                  height={96}
+                  className="h-full w-full object-cover object-center"
+                />
+              </span>
+              <span className="mt-4 text-sm font-medium font-open-sans text-slate-900 group-hover:text-ocean-blue transition-colors">
+                {activity.title}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </SectionWrapper>
   );
 }

@@ -112,8 +112,6 @@ export function HeroCarousel({
     });
   }, []);
 
-  const activeSlide = slides[displayIndex];
-
   return (
     <div
       className={`absolute inset-0 w-full h-full overflow-hidden z-10 ${className}`}
@@ -150,25 +148,52 @@ export function HeroCarousel({
         );
       })}
 
-      {/* Optional gradient overlay for text legibility */}
+      {/* Neutral gradient overlay for text legibility - AllTrails style */}
       {overlay && (
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/10 z-[5]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/50 z-[5]" />
       )}
 
-      {/* Blue edge line (per-slide position) */}
-      <div
-        aria-hidden
-        className={[
-          "absolute z-[6]",
-          activeSlide.edge === "left" && "left-0 top-0 h-full w-[6px]",
-          activeSlide.edge === "right" && "right-0 top-0 h-full w-[6px]",
-          activeSlide.edge === "top" && "top-0 left-0 w-full h-[6px]",
-          activeSlide.edge === "bottom" && "bottom-0 left-0 w-full h-[6px]",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        style={{ backgroundColor: OCEAN_BLUE }}
-      />
+      {/* Ocean-blue brand arc shapes - AllTrails swoosh style */}
+      <svg
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-20 -right-20 w-[400px] h-[400px] z-[6] opacity-30"
+        viewBox="0 0 400 400"
+        fill="none"
+      >
+        <path
+          d="M400 0C400 220.914 220.914 400 0 400"
+          stroke={OCEAN_BLUE}
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <path
+          d="M400 60C400 247.777 247.777 400 60 400"
+          stroke={OCEAN_BLUE}
+          strokeWidth="2"
+          strokeLinecap="round"
+          opacity="0.6"
+        />
+      </svg>
+      <svg
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-16 -left-16 w-[300px] h-[300px] z-[6] opacity-25"
+        viewBox="0 0 300 300"
+        fill="none"
+      >
+        <path
+          d="M0 300C0 134.315 134.315 0 300 0"
+          stroke={OCEAN_BLUE}
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <path
+          d="M0 240C0 107.452 107.452 0 240 0"
+          stroke={OCEAN_BLUE}
+          strokeWidth="2"
+          strokeLinecap="round"
+          opacity="0.6"
+        />
+      </svg>
     </div>
   );
 }
