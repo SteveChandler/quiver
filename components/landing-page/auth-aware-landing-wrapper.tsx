@@ -1,7 +1,9 @@
 "use client";
 
 import { useAuth } from "@/context/auth-context";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { isStandaloneApp } from "@/lib/isStandaloneApp";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { HomeScreen } from "@/components/home-screen";
@@ -28,6 +30,18 @@ import { CTASection } from "@/components/landing-page/cta-section";
  */
 export function AuthAwareLandingWrapper() {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
+  const redirectedRef = useRef(false);
+
+  // Redirect to sign-in in standalone/PWA mode immediately (don't wait for auth)
+  useEffect(() => {
+    if (redirectedRef.current) return;
+    if (!isStandaloneApp()) return;
+    if (user) return; // Already logged in, no redirect needed
+
+    redirectedRef.current = true;
+    router.replace("/auth/sign-in");
+  }, [user, router]);
 
   // Initialize performance monitoring
   useEffect(() => {

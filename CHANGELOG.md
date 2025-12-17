@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Removed unused `/auth/update-password` page**: Deleted insecure password update page with no session validation
+  - Page had no links or usage anywhere in the codebase
+  - Lacked proper session validation (unlike secure `/auth/reset` flow)
+  - Weaker password requirements (6 chars vs 8 chars)
+  - Proper password reset flow remains via `/auth/forgot-password` → `/auth/reset`
+
 ### Performance
 
 - **Reduced console log spam by 90%**: Removed 15+ verbose console.log statements from development environment

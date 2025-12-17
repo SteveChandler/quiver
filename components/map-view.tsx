@@ -116,23 +116,19 @@ export function MapView() {
   }, [clearSearch, userLocation, loadNearbyBeaches, getUserLocation]);
 
   // Distance calculation function using centralized utility
-  // FIXED: Updated signature to match useBeachCardData's 4-param expectation
+  // Uses userLocation from closure - child components call with (beachLat, beachLng) only
   const getDistanceFromUser = useCallback(
-    (
-      userLat: number,
-      userLon: number,
-      beachLat: number,
-      beachLng: number
-    ): string => {
+    (beachLat: number, beachLng: number): string => {
+      if (!userLocation) return "";
       return (
         calculateDistanceFormatted(
-          { lat: userLat, lon: userLon },
+          { lat: userLocation.lat, lon: userLocation.lon },
           { lat: beachLat, lon: beachLng },
           "miles"
         ) + " away"
       );
     },
-    [] // removed userLocation from deps since it's now passed as parameter
+    [userLocation]
   );
 
   const loading = locationLoading || beachLoading;

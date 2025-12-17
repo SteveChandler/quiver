@@ -61,10 +61,23 @@ describe("useSurfDiscovery", () => {
         forecast: {} as any,
         score: 85,
         matchQuality: "excellent",
+        subscores: {
+          waveHeightFit: 20,
+          periodEnergyScore: 18,
+          windAlignment: 17,
+          tideFit: 12,
+          affinityBonus: 10,
+          distancePenalty: -5,
+        },
         summary: "Perfect conditions for your skill level",
         reasons: ["Offshore winds", "Good swell period"],
+        warnings: [],
+        generated_at: "2025-12-16T14:00:00Z",
       },
     ],
+    searchCriteria: {
+      maxResults: 5,
+    },
     metadata: {
       totalBeachesConsidered: 5,
       successfulForecasts: 5,
