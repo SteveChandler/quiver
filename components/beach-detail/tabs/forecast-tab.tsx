@@ -2,7 +2,15 @@
 
 import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { ArrowUp, ArrowDown, Waves, Wind, Sun, Globe2, ChevronDown } from "lucide-react";
+import {
+  ArrowUp,
+  ArrowDown,
+  Waves,
+  Wind,
+  Sun,
+  Globe2,
+  ChevronDown,
+} from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
@@ -14,12 +22,13 @@ import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger
+  CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { BestSurfWindow } from "@/components/beach-detail/best-surf-window";
 import { SimplifiedForecastTable } from "@/components/forecast/forecast-table";
 import { TideChart } from "@/components/forecast/tide-chart-recharts";
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 
 const CamsSection = dynamic(
   () =>
@@ -60,7 +69,9 @@ export function ForecastTab({
   const [selectedForecastEntry, setSelectedForecastEntry] =
     useState<EnhancedForecastEntity | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<"today" | "tides" | "conditions">("today");
+  const [activeSubTab, setActiveSubTab] = useState<
+    "today" | "tides" | "conditions"
+  >("today");
 
   const forecastsByDate = useMemo(() => {
     const grouped: Record<string, EnhancedForecastEntity[]> = {};
@@ -124,7 +135,11 @@ export function ForecastTab({
     [forecasts, todayStr]
   );
 
-  const formatMetric = (value: string | number | null | undefined, decimals = 1, fallback = "—") => {
+  const formatMetric = (
+    value: string | number | null | undefined,
+    decimals = 1,
+    fallback = "—"
+  ) => {
     if (value === null || value === undefined) return fallback;
     if (typeof value === "number" && Number.isFinite(value)) {
       return value.toFixed(decimals);
@@ -177,7 +192,8 @@ export function ForecastTab({
   const forecastMetadata = useMemo(() => {
     if (!currentForecast) return null;
 
-    const rawForecast = currentForecast.raw_forecast as unknown as RawForecastData | null;
+    const rawForecast =
+      currentForecast.raw_forecast as unknown as RawForecastData | null;
     const dataSource = currentForecast.data_source || "FALLBACK";
 
     // Use source-specific staleness thresholds
@@ -211,32 +227,39 @@ export function ForecastTab({
                 lastUpdated={forecastMetadata.lastUpdated}
                 expandable={true}
               />
-              {forecastMetadata.cdipStation && forecastMetadata.cdipStationName && (
-                <BuoyStationLink
-                  stationId={forecastMetadata.cdipStation}
-                  stationName={forecastMetadata.cdipStationName}
-                  beachLocation={{
-                    latitude: beach.lat ?? 0,
-                    longitude: beach.lon ?? 0,
-                  }}
-                  variant="compact"
-                />
-              )}
+              {forecastMetadata.cdipStation &&
+                forecastMetadata.cdipStationName && (
+                  <BuoyStationLink
+                    stationId={forecastMetadata.cdipStation}
+                    stationName={forecastMetadata.cdipStationName}
+                    beachLocation={{
+                      latitude: beach.lat ?? 0,
+                      longitude: beach.lon ?? 0,
+                    }}
+                    variant="compact"
+                  />
+                )}
             </div>
           </div>
         </section>
       )}
 
       {/* Tabbed Content */}
-      <Tabs value={activeSubTab} onValueChange={(value) => setActiveSubTab(value as typeof activeSubTab)} className="w-full">
+      <Tabs
+        value={activeSubTab}
+        onValueChange={(value) => setActiveSubTab(value as typeof activeSubTab)}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-3 gap-2 rounded-full bg-blue-100/60 p-1">
           <TabsTrigger
             value="today"
             className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-blue"
-            onClick={() => track("forecast_subtab_click", {
-              beach_slug: slugify(beach.name),
-              tab: "today",
-            })}
+            onClick={() =>
+              track("forecast_subtab_click", {
+                beach_slug: slugify(beach.name),
+                tab: "today",
+              })
+            }
           >
             <Sun className="h-4 w-4" />
             <span>Today</span>
@@ -244,10 +267,12 @@ export function ForecastTab({
           <TabsTrigger
             value="tides"
             className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-blue"
-            onClick={() => track("forecast_subtab_click", {
-              beach_slug: slugify(beach.name),
-              tab: "tides",
-            })}
+            onClick={() =>
+              track("forecast_subtab_click", {
+                beach_slug: slugify(beach.name),
+                tab: "tides",
+              })
+            }
           >
             <Waves className="h-4 w-4" />
             <span>Tides</span>
@@ -255,10 +280,12 @@ export function ForecastTab({
           <TabsTrigger
             value="conditions"
             className="flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-white data-[state=active]:text-ocean-blue data-[state=active]:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ocean-blue"
-            onClick={() => track("forecast_subtab_click", {
-              beach_slug: slugify(beach.name),
-              tab: "conditions",
-            })}
+            onClick={() =>
+              track("forecast_subtab_click", {
+                beach_slug: slugify(beach.name),
+                tab: "conditions",
+              })
+            }
           >
             <Globe2 className="h-4 w-4" />
             <span>Conditions</span>
@@ -401,7 +428,9 @@ export function ForecastTab({
                           <span className="text-2xl font-bold text-ocean-blue">
                             {formatMetric(forecast.wave_height)}
                           </span>
-                          <span className="text-sm text-muted-foreground">ft</span>
+                          <span className="text-sm text-muted-foreground">
+                            ft
+                          </span>
                         </div>
                         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                           <Wind className="h-3 w-3" />
@@ -442,11 +471,7 @@ export function ForecastTab({
 
         {/* Tides Tab */}
         <TabsContent value="tides" className="mt-6">
-          <TideChart
-            forecasts={forecasts}
-            compact={false}
-            now={new Date()}
-          />
+          <TideChart forecasts={forecasts} compact={false} now={new Date()} />
         </TabsContent>
 
         {/* Conditions Tab */}

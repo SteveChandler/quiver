@@ -99,7 +99,8 @@ const RecentSessionsSection = dynamic(
   { ssr: false }
 );
 import { BeachReviewForm } from "@/components/beach/beach-review-form";
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 import { FullPageLoader } from "@/components/ui/loading-states";
 import { getTodayDateString } from "@/lib/utils/forecast-ui-utils";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";

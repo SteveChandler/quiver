@@ -12,8 +12,12 @@ import {
 import { uploadSessionPhotosAction } from "@/actions/session-media-actions";
 import { createActivity } from "@/actions/activity-actions";
 import { useAuth } from "@/context/auth-context";
-import { track, slugify } from "@/lib/analytics";
-import { parseSessionWizardParams, extractFormState } from "@/lib/utils/session-wizard-params";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
+import {
+  parseSessionWizardParams,
+  extractFormState,
+} from "@/lib/utils/session-wizard-params";
 
 interface NewSessionPageContentProps {
   initialFormState?: Partial<SessionFormState>;
@@ -26,7 +30,7 @@ function NewSessionPageContent({
   initialFormState,
   targetStep,
   mode,
-  convertSessionId
+  convertSessionId,
 }: NewSessionPageContentProps) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -128,15 +132,21 @@ function NewSessionPageContent({
 
         // Analytics: session_log_submit (mark as conversion in GA UI)
         try {
-          const wave = sessionData.waveQuality ? parseInt(sessionData.waveQuality) : undefined;
-          const crowd = sessionData.crowdLevel ? parseInt(sessionData.crowdLevel) : undefined;
+          const wave = sessionData.waveQuality
+            ? parseInt(sessionData.waveQuality)
+            : undefined;
+          const crowd = sessionData.crowdLevel
+            ? parseInt(sessionData.crowdLevel)
+            : undefined;
           let water: number | undefined;
           if (sessionData.waterTemp) {
             const m = String(sessionData.waterTemp).match(/(\d+)/);
             water = m ? parseInt(m[1]) : undefined;
           }
           track("session_log_submit", {
-            beach_slug: sessionData.selectedBeach ? slugify(sessionData.selectedBeach) : sessionData.selectedBeachId,
+            beach_slug: sessionData.selectedBeach
+              ? slugify(sessionData.selectedBeach)
+              : sessionData.selectedBeachId,
             wave_rating: isFinite(wave as number) ? wave : undefined,
             crowd: isFinite(crowd as number) ? crowd : undefined,
             water_temp: isFinite(water as number) ? water : undefined,
@@ -222,9 +232,7 @@ function NewSessionPageContent({
 
       if (uploadResult.success) {
         const uploaded = uploadResult.data?.uploaded ?? photos.length;
-        toast.success(
-          `Photos uploaded: ${uploaded} of ${photos.length}`
-        );
+        toast.success(`Photos uploaded: ${uploaded} of ${photos.length}`);
       } else {
         toast.warning("Some photos failed to upload");
       }
@@ -382,22 +390,31 @@ function NewSessionPageWrapper() {
     targetStep = parseResult.data.targetStep;
 
     // Log successful prefill (development only)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Session wizard prefill data:', {
+    if (process.env.NODE_ENV === "development") {
+      console.log("Session wizard prefill data:", {
         beach: parseResult.data.beachName,
         startTime: parseResult.data.startTime,
         targetStep,
       });
     }
-  } else if (parseResult.error && parseResult.error !== 'No prefill parameters provided') {
+  } else if (
+    parseResult.error &&
+    parseResult.error !== "No prefill parameters provided"
+  ) {
     // Only show warning for actual validation errors, not when user accesses /sessions/new directly
-    console.warn('Session wizard parameter validation failed:', parseResult.error);
+    console.warn(
+      "Session wizard parameter validation failed:",
+      parseResult.error
+    );
 
     // Optionally show a subtle toast notification (non-blocking)
-    if (typeof window !== 'undefined' && parseResult.error !== 'No prefill parameters provided') {
+    if (
+      typeof window !== "undefined" &&
+      parseResult.error !== "No prefill parameters provided"
+    ) {
       // Use setTimeout to avoid SSR issues with toast
       setTimeout(() => {
-        toast.warning('Some prefill data was invalid and was ignored');
+        toast.warning("Some prefill data was invalid and was ignored");
       }, 100);
     }
 

@@ -4,7 +4,6 @@ import {
   withDatabaseOperation,
   withAuthenticatedAction,
 } from "@/lib/server-action-utils";
-import { validateRequired } from "@/lib/database-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Board } from "@/types/database";
 import { revalidatePath } from "next/cache";
@@ -36,12 +35,17 @@ export async function createBoard(
     "id" | "user_id" | "session_count" | "created_at" | "updated_at"
   >
 ) {
-  // Validate required fields
-  const validationError = validateRequired(boardData, ["name", "board_type"]);
-  if (validationError) {
+  // Validate required fields locally
+  if (!boardData.name) {
     return {
       success: false,
-      error: validationError,
+      error: "name is required",
+    };
+  }
+  if (!boardData.board_type) {
+    return {
+      success: false,
+      error: "board_type is required",
     };
   }
 

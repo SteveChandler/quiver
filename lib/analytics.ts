@@ -1,4 +1,10 @@
+/**
+ * Analytics-only module.
+ * No generic utilities should live here.
+ */
+
 import { getAttributionForAnalytics } from "@/lib/attribution";
+import { currentPlatform } from "@/lib/mobile/platform";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID || "";
 
@@ -53,24 +59,6 @@ export function track(
   }
 }
 
-export function slugify(input: string): string {
-  return (input || "")
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function currentPlatform(): "ios" | "android" | "desktop" {
-  if (typeof navigator === "undefined") return "desktop";
-  const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
-  if (/android/i.test(ua)) return "android";
-  if (/iPad|iPhone|iPod/.test(ua)) return "ios";
-  return "desktop";
-}
-
 // Optional helpers for future wiring
 export function trackInstallPWA() {
   track("install_pwa", { platform: currentPlatform() });
@@ -84,4 +72,3 @@ export function trackPublicPageView(page: string, params: Record<string, any> = 
     ...params,
   });
 }
-

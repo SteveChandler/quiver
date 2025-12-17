@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { InteractiveMap } from "@/components/map/interactive-map";
 import type { BeachWithMetrics } from "@/types/location";
 import type { Beach } from "@/types/database";
-import { slugify } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 
 interface LocationMapProps {
   beaches: BeachWithMetrics[];

@@ -13,7 +13,8 @@ import {
 } from "@/lib/utils/wave-height-formatter";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 import { getFavoriteBeaches } from "@/actions/beach/beach-favorite-actions";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 

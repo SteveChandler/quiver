@@ -19,7 +19,8 @@ import type { LucideIcon } from "lucide-react";
 import { ChevronDown, Globe2, Sun, Waves, Wind } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 import { BestSurfWindow } from "./best-surf-window";
 
 interface ForecastAndTidesProps {

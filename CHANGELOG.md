@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **Dead Code Cleanup - Track 1 (Zero-Risk Mechanical Deletions)** (December 2025)
+  - Removed `lib/onboarding.ts` - Unused onboarding utility module (no production imports)
+  - Removed `__tests__/unit/lib/onboarding.test.ts` - Associated test file
+  - Removed `lib/bestTimes.ts` - Unused best times utility module (no production imports)
+  - Removed `__tests__/lib/bestTimes.integration.test.ts` - Associated test file
+  - Removed `lib/beach-cluster-cache.ts` - Test-only Pacific Beach cluster caching system (never reached production)
+  - Removed `__tests__/lib/beach-cluster-cache.test.ts` - Associated test file
+  - Total: ~584 lines of unused code removed (includes ~160 lines from cluster cache)
+  - Verification: TypeScript compilation (`tsc --noEmit`) passed with zero errors
+  - Risk: Zero - no transitive dependencies or production references
+  - Rationale: Cluster caching superseded by edge caching, personalized scoring, and enhanced forecast service
+
 ### Security
 
 - **Removed unused `/auth/update-password` page**: Deleted insecure password update page with no session validation

@@ -31,7 +31,8 @@ import {
   ForecastLoadingSkeleton,
 } from "@/components/forecast/forecast-error-state";
 import { isDataStale } from "@/lib/utils/forecast-client-utils";
-import { track, slugify } from "@/lib/analytics";
+import { track } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { adaptDiscoveryResponse } from "@/lib/adapters/discovery-to-personalized";

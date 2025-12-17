@@ -104,19 +104,23 @@ describe("useSurfDiscovery", () => {
         json: async () => ({
           data: {
             ...mockDiscoveryResponse,
-            recommendations: mockDiscoveryResponse.recommendations.map((rec) => ({
-              ...rec,
-              window: {
-                ...rec.window,
-                start: rec.window.start.toISOString(),
-                end: rec.window.end.toISOString(),
-              },
-            })),
+            recommendations: mockDiscoveryResponse.recommendations.map(
+              (rec) => ({
+                ...rec,
+                window: {
+                  ...rec.window,
+                  start: rec.window.start.toISOString(),
+                  end: rec.window.end.toISOString(),
+                },
+              })
+            ),
           },
         }),
       });
 
-      const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+      const { result } = renderHook(() =>
+        useSurfDiscovery({ immediate: true })
+      );
 
       expect(result.current.loading).toBe(true);
 
@@ -132,7 +136,9 @@ describe("useSurfDiscovery", () => {
       const { useAuth } = require("@/context/auth-context");
       useAuth.mockReturnValueOnce({ user: null });
 
-      const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+      const { result } = renderHook(() =>
+        useSurfDiscovery({ immediate: true })
+      );
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -242,12 +248,12 @@ describe("useSurfDiscovery", () => {
         json: async () => ({ error: "Not found" }),
       });
 
-      renderHook(() =>
-        useSurfDiscovery({ immediate: true, onError })
-      );
+      renderHook(() => useSurfDiscovery({ immediate: true, onError }));
 
       await waitFor(() => expect(onError).toHaveBeenCalled());
-      expect(onError).toHaveBeenCalledWith(expect.stringContaining("Not found"));
+      expect(onError).toHaveBeenCalledWith(
+        expect.stringContaining("Not found")
+      );
     });
 
     it("calls onSuccess callback on success", async () => {
@@ -257,21 +263,21 @@ describe("useSurfDiscovery", () => {
         json: async () => ({
           data: {
             ...mockDiscoveryResponse,
-            recommendations: mockDiscoveryResponse.recommendations.map((rec) => ({
-              ...rec,
-              window: {
-                ...rec.window,
-                start: rec.window.start.toISOString(),
-                end: rec.window.end.toISOString(),
-              },
-            })),
+            recommendations: mockDiscoveryResponse.recommendations.map(
+              (rec) => ({
+                ...rec,
+                window: {
+                  ...rec.window,
+                  start: rec.window.start.toISOString(),
+                  end: rec.window.end.toISOString(),
+                },
+              })
+            ),
           },
         }),
       });
 
-      renderHook(() =>
-        useSurfDiscovery({ immediate: true, onSuccess })
-      );
+      renderHook(() => useSurfDiscovery({ immediate: true, onSuccess }));
 
       await waitFor(() => expect(onSuccess).toHaveBeenCalled());
       expect(onSuccess).toHaveBeenCalledWith(
@@ -320,14 +326,16 @@ describe("useSurfDiscovery", () => {
         json: async () => ({
           data: {
             ...mockDiscoveryResponse,
-            recommendations: mockDiscoveryResponse.recommendations.map((rec) => ({
-              ...rec,
-              window: {
-                ...rec.window,
-                start: rec.window.start.toISOString(),
-                end: rec.window.end.toISOString(),
-              },
-            })),
+            recommendations: mockDiscoveryResponse.recommendations.map(
+              (rec) => ({
+                ...rec,
+                window: {
+                  ...rec.window,
+                  start: rec.window.start.toISOString(),
+                  end: rec.window.end.toISOString(),
+                },
+              })
+            ),
           },
         }),
       });
@@ -390,14 +398,16 @@ describe("useSurfDiscovery", () => {
         json: async () => ({
           data: {
             ...mockDiscoveryResponse,
-            recommendations: mockDiscoveryResponse.recommendations.map((rec) => ({
-              ...rec,
-              window: {
-                ...rec.window,
-                start: rec.window.start.toISOString(),
-                end: rec.window.end.toISOString(),
-              },
-            })),
+            recommendations: mockDiscoveryResponse.recommendations.map(
+              (rec) => ({
+                ...rec,
+                window: {
+                  ...rec.window,
+                  start: rec.window.start.toISOString(),
+                  end: rec.window.end.toISOString(),
+                },
+              })
+            ),
           },
         }),
       });
@@ -429,14 +439,16 @@ describe("useSurfDiscovery", () => {
         json: async () => ({
           data: {
             ...mockDiscoveryResponse,
-            recommendations: mockDiscoveryResponse.recommendations.map((rec) => ({
-              ...rec,
-              window: {
-                ...rec.window,
-                start: rec.window.start.toISOString(),
-                end: rec.window.end.toISOString(),
-              },
-            })),
+            recommendations: mockDiscoveryResponse.recommendations.map(
+              (rec) => ({
+                ...rec,
+                window: {
+                  ...rec.window,
+                  start: rec.window.start.toISOString(),
+                  end: rec.window.end.toISOString(),
+                },
+              })
+            ),
           },
         }),
       });

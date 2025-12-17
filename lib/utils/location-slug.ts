@@ -5,7 +5,7 @@
  * for the AllTrails-style location browsing feature.
  */
 
-import { slugify } from "@/lib/analytics";
+import { slugify } from "@/lib/utils/text-utils";
 
 /**
  * Generate a URL-friendly slug from location text
