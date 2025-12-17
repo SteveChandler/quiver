@@ -78,11 +78,11 @@ export interface UnifiedAuthModalProps {
  * Internal view states for the modal
  */
 type AuthView =
-  | "providers"        // Choose auth method
-  | "email-password"   // Email + password form
-  | "magic-link"       // Email-only magic link form
-  | "verify-email"     // Post-signup verification message
-  | "success";         // Success confirmation
+  | "providers" // Choose auth method
+  | "email-password" // Email + password form
+  | "magic-link" // Email-only magic link form
+  | "verify-email" // Post-signup verification message
+  | "success"; // Success confirmation
 
 /**
  * Unified authentication modal component
@@ -135,7 +135,10 @@ export function UnifiedAuthModal({
 
   // Focus email input when view changes to forms
   useEffect(() => {
-    if ((view === "email-password" || view === "magic-link") && emailInputRef.current) {
+    if (
+      (view === "email-password" || view === "magic-link") &&
+      emailInputRef.current
+    ) {
       emailInputRef.current.focus();
     }
   }, [view]);
@@ -267,7 +270,8 @@ export function UnifiedAuthModal({
       }
     } catch (err: unknown) {
       const errorType = categorizeAuthError(err);
-      const errorMessage = err instanceof Error ? err.message : "Authentication failed";
+      const errorMessage =
+        err instanceof Error ? err.message : "Authentication failed";
 
       if (mode === "signup") {
         trackSignupFailed({ method: "password", error_type: errorType });
@@ -386,7 +390,8 @@ export function UnifiedAuthModal({
 
         {returnTo && returnTo !== "/" && (
           <p className="text-xs text-muted-foreground">
-            Return to <span className="font-medium">{returnTo}</span> after you sign in.
+            Return to <span className="font-medium">{returnTo}</span> after you
+            sign in.
           </p>
         )}
 

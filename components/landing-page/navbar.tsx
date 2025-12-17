@@ -175,63 +175,67 @@ export function Navbar() {
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-80">
-                <div className="flex flex-col gap-6 mt-8">
-                  {/* Mobile Explore Section */}
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                      Explore
-                    </h3>
-                    {Object.entries(groupedMenuItems).map(
-                      ([category, items]) => (
-                        <div key={category} className="mb-4">
-                          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                            {category}
+              <SheetContent side="right" className="w-80 p-0 flex flex-col">
+                {/* Scrollable menu content */}
+                <div className="flex-1 overflow-y-auto px-6">
+                  <div className="flex flex-col gap-6 mt-8">
+                    {/* Mobile Explore Section */}
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                        Explore
+                      </h3>
+                      {Object.entries(groupedMenuItems).map(
+                        ([category, items]) => (
+                          <div key={category} className="mb-4">
+                            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                              {category}
+                            </div>
+                            {items.map((item) => (
+                              <Link
+                                key={item.label}
+                                href={item.href}
+                                className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded"
+                                onClick={() => setMobileMenuOpen(false)}
+                              >
+                                {item.label}
+                              </Link>
+                            ))}
                           </div>
-                          {items.map((item) => (
-                            <Link
-                              key={item.label}
-                              href={item.href}
-                              className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded"
-                              onClick={() => setMobileMenuOpen(false)}
-                            >
-                              {item.label}
-                            </Link>
-                          ))}
-                        </div>
-                      )
-                    )}
-                  </div>
+                        )
+                      )}
+                    </div>
 
-                  {/* Mobile Other Links */}
-                  <div className="border-t pt-4">
-                    <Link
-                      href="/discover"
-                      className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded font-medium"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Discover
-                    </Link>
+                    {/* Mobile Other Links */}
+                    <div className="border-t pt-4">
+                      <Link
+                        href="/discover"
+                        className="block px-3 py-2 text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded font-medium"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Discover
+                      </Link>
+                    </div>
                   </div>
+                </div>
 
-                  {/* Mobile Auth Buttons */}
-                  <div className="border-t pt-4 flex flex-col gap-3">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        setAuthMode("login");
-                        setAuthModalOpen(true);
-                        trackAuthModalOpened({
-                          mode: "login",
-                          source: "landing-navbar-mobile",
-                        });
-                      }}
-                    >
-                      Log in
-                    </Button>
-                  </div>
+                {/* Mobile Auth Buttons - Pinned to bottom */}
+                <div className="border-t pt-4 pb-6 px-6 mt-auto">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setAuthMode("login");
+                      setAuthModalOpen(true);
+                      trackAuthModalOpened({
+                        mode: "login",
+                        source: "landing-navbar-mobile",
+                      });
+                    }}
+                  >
+                    Log in
+                  </Button>
                 </div>
               </SheetContent>
             </Sheet>

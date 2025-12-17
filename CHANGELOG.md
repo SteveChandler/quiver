@@ -48,6 +48,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Mobile Login Button Reachability & Touch Target** (December 2025)
+
+  - Restructured mobile hamburger menu layout to pin login button at the bottom of the screen for easy thumb reach.
+  - Changed from single-column flow layout to full-height flex layout with scrollable menu content and fixed bottom button.
+  - Increased button size from `h-10` (40px) to `h-11` (44px) by adding `size="lg"` prop.
+  - Meets iOS minimum touch target guidelines (44x44px) and follows iOS design patterns for bottom action buttons.
+  - Fixes ergonomic issue where button was positioned too high on tall modern phones for one-handed use.
+
+- **Auth gate no longer blocks after successful login** (December 2025)
+
+  - Fixed `AuthGate` treating a post-login modal close as a dismissal, which could incorrectly show the “Please sign up to continue” blocking overlay on `/map`.
+
 - **TypeScript typecheck restored to green** (December 2025)
 
   - Restored strict `tsconfig.json` defaults and fixed remaining typing issues across sessions, forms, wizard motion, social feed metadata, E2E helpers, and UI components.
