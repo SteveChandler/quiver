@@ -77,12 +77,22 @@ export function ForecastTab({
   const topRecommendation = discovery?.recommendations[0];
 
   // Fetch insights for the top recommendation
-  const { insights, loading: insightsLoading, error: insightsError } = useInsights({
-    beachId: topRecommendation?.beach.id || '',
-    beachName: topRecommendation?.beach.name || '',
-    waveHeight: topRecommendation?.window.waveHeight ? parseFloat(topRecommendation.window.waveHeight.replace(/[^\d.]/g, '')) : 0,
-    wavePeriod: topRecommendation?.window.wavePeriod ? parseFloat(topRecommendation.window.wavePeriod.replace(/[^\d.]/g, '')) : 0,
-    windSpeed: topRecommendation?.window.wind ? parseFloat(topRecommendation.window.wind.split(' ')[0]) : 0,
+  const {
+    insights,
+    loading: insightsLoading,
+    error: insightsError,
+  } = useInsights({
+    beachId: topRecommendation?.beach.id || "",
+    beachName: topRecommendation?.beach.name || "",
+    waveHeight: topRecommendation?.window.waveHeight
+      ? parseFloat(topRecommendation.window.waveHeight.replace(/[^\d.]/g, ""))
+      : 0,
+    wavePeriod: topRecommendation?.window.wavePeriod
+      ? parseFloat(topRecommendation.window.wavePeriod.replace(/[^\d.]/g, ""))
+      : 0,
+    windSpeed: topRecommendation?.window.wind
+      ? parseFloat(topRecommendation.window.wind.split(" ")[0])
+      : 0,
     enabled: !!topRecommendation && !!profile,
   });
 
@@ -722,11 +732,15 @@ export function ForecastTab({
         open={showSimilarSessions}
         onOpenChange={setShowSimilarSessions}
         sessions={insights?.similarSessions || []}
-        currentConditions={topRecommendation ? {
-          waveHeight: topRecommendation.window.waveHeight,
-          wavePeriod: topRecommendation.window.wavePeriod,
-          wind: topRecommendation.window.wind,
-        } : undefined}
+        currentConditions={
+          topRecommendation
+            ? {
+                waveHeight: topRecommendation.window.waveHeight,
+                wavePeriod: topRecommendation.window.wavePeriod,
+                wind: topRecommendation.window.wind,
+              }
+            : undefined
+        }
       />
     </div>
   );

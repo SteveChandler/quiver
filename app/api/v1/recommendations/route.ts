@@ -8,6 +8,10 @@ export const dynamic = 'force-dynamic';
 
 async function recommendationsHandler(request: NextRequest) {
   try {
+    const DEBUG_RECOMMENDATIONS_PERF =
+      process.env.DEBUG_RECOMMENDATIONS_PERF === "true" ||
+      process.env.NEXT_PUBLIC_DEBUG_PERF === "true";
+
     const apiStartTime = Date.now();
     const supabase = createAPIServerClient();
     const url = new URL(request.url);
@@ -82,7 +86,11 @@ async function recommendationsHandler(request: NextRequest) {
     const queryTime = Date.now() - perfStart;
     const marineRows = marineResult.data?.length || 0;
     const tideRows = tideResult.data?.length || 0;
-    console.log(`[PERF] Forecast queries: ${queryTime}ms (marine: ${marineRows} rows, tide: ${tideRows} rows)`);
+    if (DEBUG_RECOMMENDATIONS_PERF) {
+      console.warn(
+        `[PERF] Forecast queries: ${queryTime}ms (marine: ${marineRows} rows, tide: ${tideRows} rows)`
+      );
+    }
 
     // Group forecasts by beach_id for fast lookup
     const marineByBeach: Record<string, any[]> = {};
@@ -199,9 +207,11 @@ async function recommendationsHandler(request: NextRequest) {
     const totalTime = Date.now() - apiStartTime;
 
     // Performance breakdown logging
-    console.log(`[PERF] PostGIS nearby beaches: ${postGisTime}ms`);
-    console.log(`[PERF] Processing & scoring: ${processingTime}ms`);
-    console.log(`[PERF] Total API time: ${totalTime}ms`);
+    if (DEBUG_RECOMMENDATIONS_PERF) {
+      console.warn(`[PERF] PostGIS nearby beaches: ${postGisTime}ms`);
+      console.warn(`[PERF] Processing & scoring: ${processingTime}ms`);
+      console.warn(`[PERF] Total API time: ${totalTime}ms`);
+    }
 
     return createSuccessResponse({ 
       recommendations: allRecommendations,

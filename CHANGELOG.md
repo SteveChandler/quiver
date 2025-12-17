@@ -11,10 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Recommendations API Optimization** (December 17, 2025)
   - Reduced forecast time window from 24 hours to ±6 hours (50% less data fetched)
-  - Added composite database indexes: `idx_marine_forecasts_beach_ts` and `idx_tide_forecasts_beach_ts`
-  - Added detailed performance logging (PostGIS, queries, processing, total time)
+  - Leveraged existing composite database indexes on `(beach_id, ts)` for `marine_forecasts` and `tide_forecasts`
+  - Added detailed performance logging (PostGIS, queries, processing, total time) behind debug flags
   - Result: API response time reduced from ~4800ms to ~989ms (**80% improvement**)
-  - Migration: `20251217000000_optimize_forecast_indexes.sql`
   - Files modified: `app/api/v1/recommendations/route.ts`
 
 ### Fixed
