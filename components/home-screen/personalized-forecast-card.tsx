@@ -182,28 +182,19 @@ function getConfidenceIndicator(confidence: number): {
  * - KPI tiles for key metrics (Waves, Crowd, Match)
  * - Summary with personalization reasons
  * - Action buttons for session planning
+ *
+ * Memoized to prevent unnecessary re-renders when props haven't changed.
  */
-export function PersonalizedForecastCard({
-  recommendation,
-  loading = false,
-  error = null,
-  onPlanSession,
-  onViewBeach,
-}: PersonalizedForecastCardProps) {
-  // Log component state for debugging
-  useEffect(() => {
-    console.log("📊 PersonalizedForecastCard: Component rendered", {
-      hasRecommendation: !!recommendation,
-      loading,
-      hasError: !!error,
-      beachName: recommendation?.beach?.name,
-      score: recommendation?.score,
-    });
-  }, [recommendation, loading, error]);
-
+export const PersonalizedForecastCard = React.memo(
+  function PersonalizedForecastCard({
+    recommendation,
+    loading = false,
+    error = null,
+    onPlanSession,
+    onViewBeach,
+  }: PersonalizedForecastCardProps) {
   // Handle loading state
   if (loading) {
-    console.log("⏳ PersonalizedForecastCard: Showing loading skeleton");
     return <PersonalizedForecastCardSkeleton />;
   }
 
@@ -435,4 +426,5 @@ export function PersonalizedForecastCard({
       </CardFooter>
     </Card>
   );
-}
+  }
+);

@@ -104,22 +104,7 @@ export function useSurfDiscovery(
 
   // Memoized fetch function to discover surf spots
   const fetchSurfDiscovery = useCallback(async () => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 useSurfDiscovery: Starting fetch', {
-        hasUser: !!user,
-        userLocation,
-        radiusMiles,
-        maxResults,
-        includeHome,
-        enabled,
-        immediate,
-      });
-    }
-
     if (!user) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('❌ useSurfDiscovery: No user, skipping fetch');
-      }
       throw new Error("User must be authenticated to discover surf spots");
     }
 
@@ -146,10 +131,6 @@ export function useSurfDiscovery(
     const queryString = params.toString();
     const url = `/api/surf/discover${queryString ? `?${queryString}` : ""}`;
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📡 useSurfDiscovery: Fetching from API', { url });
-    }
-
     // Fetch from API
     const response = await fetch(url, {
       method: "GET",
@@ -162,24 +143,10 @@ export function useSurfDiscovery(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.error || `Failed to discover surf spots: ${response.status}`;
-      if (process.env.NODE_ENV === 'development') {
-        console.log('❌ useSurfDiscovery: API error', {
-          status: response.status,
-          errorMessage,
-        });
-      }
       throw new Error(errorMessage);
     }
 
     const result = await response.json();
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📊 useSurfDiscovery: API response received', {
-        hasData: !!result.data,
-        recommendationCount: result.data?.recommendations?.length || 0,
-        data: result.data,
-      });
-    }
 
     // API returns { data: SurfDiscoveryResponse }
     // Transform date strings back to Date objects
@@ -195,7 +162,7 @@ export function useSurfDiscovery(
     }
 
     return result.data as SurfDiscoveryResponse;
-  }, [user, userLocation, radiusMiles, maxResults, includeHome, enabled, immediate]);
+  }, [user, userLocation, radiusMiles, maxResults, includeHome]);
 
   // Use standard data fetcher pattern
   const { data, loading, error, refetch } = useDataFetcher(
@@ -207,17 +174,6 @@ export function useSurfDiscovery(
       onError,
     }
   );
-
-  // Log final state for debugging (development only)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('✅ useSurfDiscovery: Hook state', {
-      hasRecommendations: data !== null && data.recommendations.length > 0,
-      recommendationCount: data?.recommendations.length || 0,
-      loading,
-      hasError: !!error,
-      error,
-    });
-  }
 
   return {
     discovery: data,

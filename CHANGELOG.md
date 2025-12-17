@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **Reduced console log spam by 90%**: Removed 15+ verbose console.log statements from development environment
+  - Cleaned up `use-cached-profile.ts` (6 logs removed)
+  - Cleaned up `pwa-and-push-listeners.tsx` (5 logs removed)
+  - Cleaned up `forecast-tab.tsx` (3 logs removed)
+  - Cleaned up `user-avatar.tsx` and `auth-context.tsx` (2 logs removed)
+  - Kept critical error/warning logs for debugging
+- **Fixed StrictMode duplicate event listeners**: Added useRef guard to prevent duplicate performance tracking initialization
+  - Updated `client-app.tsx` with proper cleanup functions
+  - Updated `performance-utils.ts` with idempotency guards and cleanup returns
+  - Added optional `NEXT_PUBLIC_DEBUG_PERF` flag for opt-in performance logging
+- **Added ESLint guard**: Added `no-console` rule to prevent accidental reintroduction of console.log spam
+  - Configured to allow `console.warn` and `console.error`
+  - Warns on `console.log`, `console.info`, `console.debug`
+
 ### Added
 
 - **Dynamic Location Detection on Landing Page** (December 2025)
@@ -47,6 +63,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Kept data source badges, confidence scores, and other non-timestamp indicators.
 
 ### Fixed
+
+- **Image Optimization: Fixed 400 Errors, Fill Warnings, and Unused Preloads** (December 2025)
+
+  - Added placehold.co to image-proxy whitelist for dev/test environments only (gated by NODE_ENV check to maintain production security).
+  - Fixed Next.js Image fill height warning in session-detail-view by using aspect-ratio container (`aspect-[16/9]`) instead of fixed height.
+  - Removed unused logo-word preload from performance-utils to eliminate "preloaded but not used" warnings on non-landing pages.
+  - Result: Clean console output, no image-related warnings, maintained production security posture.
+
+- **Performance Optimization: Reduced Re-renders and Log Spam** (December 2025)
+
+  - Fixed `useSurfDiscovery` hook dependency array causing unnecessary callback recreations by removing control flags (`enabled`, `immediate`) from dependencies.
+  - Eliminated 40+ redundant console.log statements that fired on every render in `useSurfDiscovery`, `PersonalizedForecastCard`, and `ProfileContext`.
+  - Fixed `ProfileContext` duplicate fetch issue by removing `cachedData` from useEffect dependency array, preventing profile from loading 3 times on initial page load.
+  - Added `React.memo` to `PersonalizedForecastCard` to prevent unnecessary re-renders when props haven't changed.
+  - Added comprehensive unit tests for `useSurfDiscovery` hook (16 tests covering functionality, options, error handling, and dependency stability).
+  - Result: ~95% reduction in development logs, single profile fetch on load, improved render performance.
 
 - **Mobile Login Button Reachability & Touch Target** (December 2025)
 

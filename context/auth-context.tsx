@@ -183,8 +183,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           (event: AuthChangeEvent, session: Session | null) => {
             if (!mounted) return;
 
-            console.log("[AuthContext] Auth state changed:", event);
-
             if (shouldSendLocalAgentIngest()) {
               // #region agent log (H1/H4)
               fetch(

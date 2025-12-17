@@ -10,7 +10,7 @@
  */
 
 import { useAuth } from "@/context/auth-context";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { HomeScreen } from "@/components/home-screen";
@@ -59,21 +59,30 @@ function ComponentErrorFallback({
 
 export default function ClientApp() {
   const { user, isLoading } = useAuth();
+  const didInit = useRef(false);
 
   // Initialize performance monitoring and preload critical resources
   useEffect(() => {
-    // Track Web Vitals
-    PerformanceUtils.trackWebVitals();
+    // Prevent double initialization even in StrictMode
+    if (didInit.current) return;
+    didInit.current = true;
 
-    // Preload critical resources for better LCP
-    PerformanceUtils.preloadCriticalResources();
+    // Initialize with cleanup functions
+    const vitalsCleanup = PerformanceUtils.trackWebVitals();
+    const preloadCleanup = PerformanceUtils.preloadCriticalResources();
 
-    // Monitor memory usage in development
+    let memTimer: ReturnType<typeof setTimeout> | null = null;
     if (process.env.NODE_ENV === "development") {
-      setTimeout(() => {
+      memTimer = setTimeout(() => {
         PerformanceUtils.monitorMemoryUsage();
       }, 5000);
     }
+
+    return () => {
+      vitalsCleanup?.();
+      preloadCleanup?.();
+      if (memTimer) clearTimeout(memTimer);
+    };
   }, []);
 
   // Show loading spinner while checking authentication

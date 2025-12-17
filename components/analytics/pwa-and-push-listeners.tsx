@@ -36,19 +36,8 @@ export default function PWAAndPushListeners() {
           const keys = await caches.keys();
           await Promise.all(keys.map((k) => caches.delete(k)));
         }
-
-        if (process.env.NODE_ENV === "development") {
-          console.info(
-            "[Quiver] Unregistered PWA service worker for dev/localhost"
-          );
-        }
       } catch (error) {
-        if (process.env.NODE_ENV === "development") {
-          console.debug(
-            "[Quiver] Unable to unregister dev service worker:",
-            (error as Error)?.message || error
-          );
-        }
+        // Silent fail in development
       }
     };
 
@@ -64,15 +53,9 @@ export default function PWAAndPushListeners() {
 
     const registerServiceWorker = async () => {
       try {
-        const registration = await navigator.serviceWorker.register("/sw.js", {
+        await navigator.serviceWorker.register("/sw.js", {
           scope: "/",
         });
-        if (process.env.NODE_ENV !== "production") {
-          console.info(
-            "[Quiver] Service worker registered",
-            registration.scope
-          );
-        }
       } catch (error) {
         console.error("[Quiver] Failed to register service worker", error);
       }
@@ -115,19 +98,9 @@ export default function PWAAndPushListeners() {
 
         // Register for push notifications
         void registerPushNotifications();
-
-        if (process.env.NODE_ENV !== "production") {
-          console.info("[Quiver] Mobile push notifications initialized");
-        }
       })
-      .catch((error) => {
+      .catch(() => {
         // Silent fail - mobile modules may not be available on web
-        if (process.env.NODE_ENV !== "production") {
-          console.debug(
-            "[Quiver] Mobile push notifications not available:",
-            error.message
-          );
-        }
       });
   }, [user]);
 
@@ -149,19 +122,9 @@ export default function PWAAndPushListeners() {
 
         // Register for push notifications
         void registerWebPushNotifications();
-
-        if (process.env.NODE_ENV !== "production") {
-          console.info("[Quiver] Web push notifications initialized");
-        }
       })
-      .catch((error) => {
+      .catch(() => {
         // Silent fail - web push may not be available
-        if (process.env.NODE_ENV !== "production") {
-          console.debug(
-            "[Quiver] Web push notifications not available:",
-            error.message
-          );
-        }
       });
   }, [user]);
 

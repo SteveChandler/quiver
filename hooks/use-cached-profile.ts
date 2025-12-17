@@ -36,11 +36,6 @@ export function useCachedProfile() {
         const isExpired = Date.now() - parsedData.timestamp > CACHE_DURATION;
 
         if (!isExpired) {
-          console.log("🔄 Using cached profile data:", {
-            hasProfile: !!parsedData.profile,
-            hasHomeBeach: !!(parsedData.homeBeach || (parsedData as any).defaultBeach),
-            age: Math.round((Date.now() - parsedData.timestamp) / 1000) + "s",
-          });
           // Backward compat: migrate defaultBeach -> homeBeach in-memory
           if (!parsedData.homeBeach && (parsedData as any).defaultBeach) {
             (parsedData as any).homeBeach = (parsedData as any).defaultBeach;
@@ -48,7 +43,6 @@ export function useCachedProfile() {
           }
           setCachedData(parsedData);
         } else {
-          console.log("⏰ Cached profile data expired, will refetch");
           localStorage.removeItem(CACHE_KEY);
         }
       }
@@ -72,15 +66,10 @@ export function useCachedProfile() {
       const profileResult = await getProfile(user.id);
 
       if (!profileResult.success || !profileResult.data) {
-        console.log("❌ No profile found");
         return { profile: null, homeBeach: null };
       }
 
       const profile = profileResult.data;
-      console.log("✅ Profile loaded:", {
-        id: profile.id,
-        homeBeachId: profile.home_beach_id,
-      });
 
       let homeBeach: Beach | null = null;
 
@@ -92,7 +81,6 @@ export function useCachedProfile() {
         const beachResult = await getBeachById(profile.home_beach_id);
         if (beachResult.success && beachResult.data) {
           homeBeach = beachResult.data;
-          console.log("✅ Found home beach by ID:", homeBeach.name);
         }
       }
 
@@ -106,7 +94,6 @@ export function useCachedProfile() {
 
       try {
         localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-        console.log("💾 Cached profile data");
       } catch (error) {
         console.warn("Failed to cache profile data:", error);
       }

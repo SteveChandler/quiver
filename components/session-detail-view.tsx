@@ -135,9 +135,12 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
     }
   };
 
-  const handleSessionUpdated = useCallback((updatedSession: SessionWithDetails) => {
-    setSession(updatedSession);
-  }, []);
+  const handleSessionUpdated = useCallback(
+    (updatedSession: SessionWithDetails) => {
+      setSession(updatedSession);
+    },
+    []
+  );
 
   if (loading) {
     return (
@@ -290,7 +293,7 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
         )}
 
         {/* Session Image/Map - Show map for all sessions, photos as additional content */}
-        <div className="relative h-48 rounded-lg overflow-hidden">
+        <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden">
           <MapImage
             src={getSessionMapImageUrl(session)}
             alt={`Map of ${session.beach?.name || "session location"}`}
@@ -329,7 +332,11 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-1 text-muted-foreground">
               <MapPin className="h-4 w-4" />
-              <span>{session.beach ? getBeachLocation(session.beach) : "Unknown Location"}</span>
+              <span>
+                {session.beach
+                  ? getBeachLocation(session.beach)
+                  : "Unknown Location"}
+              </span>
             </div>
             <div className="flex items-center gap-1 text-muted-foreground">
               <Calendar className="h-4 w-4" />

@@ -92,11 +92,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         const isCorrectUser = parsedData.profile?.id === user.id;
 
         if (!isExpired && isCorrectUser) {
-          console.log("🔄 Using cached profile data:", {
-            hasProfile: !!parsedData.profile,
-            hasHomeBeach: !!parsedData.homeBeach,
-            age: Math.round((Date.now() - parsedData.timestamp) / 1000) + "s",
-          });
           setCachedData(parsedData);
           setProfile(parsedData.profile);
           setHomeBeach(parsedData.homeBeach);
@@ -104,9 +99,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           // Don't return here - we want to continue to set up state
           // but we can set the loading state immediately
         } else {
-          console.log(
-            "⏰ Cached profile data expired or invalid user, will refetch"
-          );
           localStorage.removeItem(cacheKey);
         }
       }
@@ -133,28 +125,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     // Return existing in-flight request to prevent duplicates
     if (profileRequestCache.has(requestCacheKey)) {
-      console.log("♻️ Reusing in-flight profile request");
       return profileRequestCache.get(requestCacheKey)!;
     }
 
     const requestPromise = (async () => {
       try {
-        console.log("🔍 Fetching fresh profile data");
 
         // Get profile
         const profileResult = await getProfile(user.id);
 
         if (!profileResult.success || !profileResult.data) {
-          console.log("❌ No profile found");
           return { profile: null, homeBeach: null };
         }
 
         const profileData = profileResult.data;
-
-        console.log("✅ Profile loaded:", {
-          id: profileData.id,
-          homeBeachId: profileData.home_beach_id,
-        });
 
         let homeBeachData: Beach | null = null;
 
@@ -165,7 +149,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
             if (beachResult.success && beachResult.data) {
               homeBeachData = beachResult.data;
-              console.log("✅ Found home beach by ID:", homeBeachData.name);
             }
           } catch (e) {
             // Continue without homeBeach; do not fail profile load here.
@@ -184,7 +167,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           const cacheKey = getCacheKey();
           if (cacheKey) {
             localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-            console.log("💾 Cached profile data");
           }
         } catch (error) {
           console.warn("Failed to cache profile data:", error);
@@ -237,7 +219,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     // Skip initial fetch if we have valid cached data
     if (cachedData && cachedData.profile && cachedData.profile.id === user.id) {
-      console.log("✨ Skipping initial fetch - using cached data");
       // Ensure loading is false if we have cached data
       setIsLoading(false);
       return;
@@ -254,7 +235,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     fetchProfileAndHomeBeach().finally(() => {
       initializingRef.current = false;
     });
-  }, [user?.id, cachedData, fetchProfileAndHomeBeach]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, fetchProfileAndHomeBeach]); // Removed cachedData to prevent re-fetch loops
 
   // Clear cache function
   const clearCache = useCallback(() => {
@@ -265,7 +247,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   // Refresh function that clears cache and refetches
   const refreshProfile = useCallback(async () => {
-    console.log("🔄 Refreshing profile data");
     clearCache();
     setIsLoading(true);
     await fetchProfileAndHomeBeach();
@@ -274,7 +255,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Optimistic update for immediate UI feedback
   const updateProfile = useCallback(
     (updatedProfile: Profile) => {
-      console.log("⚡ Optimistic profile update");
       setProfile(updatedProfile);
 
       // Update cache with new profile data
@@ -300,9 +280,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Listen for onboarding completion to refresh data immediately
   useEffect(() => {
     const handleOnboardingComplete = () => {
-      console.log(
-        "🎉 Onboarding completed event received, refreshing profile..."
-      );
       refreshProfile();
     };
 

@@ -127,10 +127,6 @@ export function ForecastTab({
     setForecastState("loading");
     setForecastError(null);
 
-    console.log(
-      `🏠 Home page fetching forecast for beach: ${effectiveBeach.name} (${effectiveBeach.id})`
-    );
-
     try {
       // Use the same API endpoint as beach detail page for consistency
       const response = await fetch(
@@ -159,8 +155,6 @@ export function ForecastTab({
       // Extract forecasts from the API response
       const forecasts = data?.data?.forecasts || data?.forecasts || [];
 
-      console.log(`📊 Home page received ${forecasts.length} forecasts`);
-
       if (forecasts.length === 0) {
         setForecastState("no_coverage");
         return null;
@@ -174,10 +168,6 @@ export function ForecastTab({
         getCurrentForecast<EnhancedForecastEntity>(forecasts);
 
       if (currentForecast) {
-        console.log(
-          `✅ Home page selected forecast: ${currentForecast.forecast_time}, wave: ${currentForecast.wave_height}, updated: ${currentForecast.updated_at}`
-        );
-
         // Check if data is stale
         const dataSource = currentForecast.data_source;
         const isStale = isDataStale(currentForecast.updated_at, dataSource);
