@@ -12,6 +12,44 @@ import type {
 } from "@/types/database";
 
 /**
+ * Filters for querying the authenticated user's forecast history.
+ *
+ * Note: JSONB filters (e.g. rating inside actual_conditions) are applied client-side
+ * to keep queries simple and portable.
+ */
+export interface ForecastHistoryFilters {
+  startDate?: Date;
+  endDate?: Date;
+  beachId?: string;
+  dataSource?: string;
+  minRating?: number;
+  minConfidence?: number;
+}
+
+/**
+ * Aggregated analysis of the authenticated user's preferred conditions.
+ * Derived from sessions with rating >= minRating.
+ */
+export interface PreferredConditionsAnalysis {
+  userId: string;
+  totalSessions: number;
+  highlyRatedSessions: number; // rating >= minRating
+  averageConditions: {
+    waveHeight: number | null;
+    wavePeriod: number | null;
+    windSpeed: number | null;
+    tideStatus: Record<string, number>; // tide_status -> count
+  };
+  preferredDataSource: string | null;
+  averageConfidence: number | null;
+  beachFrequency: Array<{
+    beachId: string;
+    sessionCount: number;
+    averageRating: number;
+  }>;
+}
+
+/**
  * Get session forecast snapshots for a user
  * Used for personal calibration analysis
  */
@@ -143,15 +181,60 @@ export async function createForecastSnapshot(
       throw new Error("Session not found or access denied");
     }
 
-    // Check if snapshot already exists
-    const { data: existingSnapshot } = await supabase
+    // Check if snapshot already exists (log flow may create an automatic snapshot)
+    const { data: existingSnapshot, error: existingSnapshotError } = await supabase
       .from("session_forecast_snapshots")
       .select("id")
       .eq("session_id", sessionId)
-      .single();
+      .maybeSingle();
 
-    if (existingSnapshot) {
-      throw new Error("Forecast snapshot already exists for this session");
+    if (existingSnapshotError) {
+      throw new Error(
+        `Failed to check existing forecast snapshot: ${existingSnapshotError.message}`
+      );
+    }
+
+    const sessionDate = new Date(session.arrival_time)
+      .toISOString()
+      .split("T")[0];
+
+    const safeActual = actualConditions || {};
+    const safeForecast = forecastSnapshot || {};
+    const hasForecastFields = Object.keys(safeForecast).length > 0;
+
+    // If a snapshot already exists, update it instead of failing.
+    if (existingSnapshot?.id) {
+      // IMPORTANT:
+      // - The DB trigger may have already populated `forecast_snapshot`.
+      // - When the user submits feedback, we should never wipe forecast fields if we
+      //   couldn't load a forecast in the client (e.g. network error).
+      const updatePayload = {
+        actual_conditions: safeActual,
+        session_date: sessionDate,
+        ...(hasForecastFields
+          ? {
+              forecast_snapshot: safeForecast,
+              forecast_confidence_score: safeForecast?.confidence_score ?? null,
+              data_source: safeForecast?.data_source ?? null,
+            }
+          : {}),
+      };
+
+      const { data: updated, error: updateError } = await supabase
+        .from("session_forecast_snapshots")
+        .update(updatePayload)
+        .eq("id", existingSnapshot.id)
+        .eq("user_id", user.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw new Error(
+          `Failed to update forecast snapshot: ${updateError.message}`
+        );
+      }
+
+      return updated as SessionForecastSnapshot;
     }
 
     // Create the forecast snapshot
@@ -161,13 +244,11 @@ export async function createForecastSnapshot(
         session_id: sessionId,
         user_id: user.id,
         beach_id: session.beach_id,
-        forecast_snapshot: forecastSnapshot,
-        actual_conditions: actualConditions,
-        forecast_confidence_score: forecastSnapshot.confidence_score || null,
-        data_source: forecastSnapshot.data_source || null,
-        session_date: new Date(session.arrival_time)
-          .toISOString()
-          .split("T")[0],
+        forecast_snapshot: safeForecast,
+        actual_conditions: safeActual,
+        forecast_confidence_score: safeForecast?.confidence_score ?? null,
+        data_source: safeForecast?.data_source ?? null,
+        session_date: sessionDate,
       })
       .select()
       .single();
@@ -177,6 +258,228 @@ export async function createForecastSnapshot(
     }
 
     return data;
+  });
+}
+
+/**
+ * Get the authenticated user's historical forecast snapshots with optional filters.
+ */
+export async function getUserForecastHistory(
+  filters?: ForecastHistoryFilters
+): Promise<ServerActionResponse<SessionForecastSnapshot[]>> {
+  return withAuthenticatedAction(async (user, supabase) => {
+    let query = supabase
+      .from("session_forecast_snapshots")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("session_date", { ascending: false });
+
+    if (filters?.startDate) {
+      query = query.gte(
+        "session_date",
+        filters.startDate.toISOString().split("T")[0]
+      );
+    }
+    if (filters?.endDate) {
+      query = query.lte(
+        "session_date",
+        filters.endDate.toISOString().split("T")[0]
+      );
+    }
+    if (filters?.beachId) {
+      query = query.eq("beach_id", filters.beachId);
+    }
+    if (filters?.dataSource) {
+      query = query.eq("data_source", filters.dataSource);
+    }
+    if (filters?.minConfidence !== undefined) {
+      query = query.gte("forecast_confidence_score", filters.minConfidence);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw new Error(`Failed to fetch user forecast history: ${error.message}`);
+    }
+
+    let snapshots = (data || []) as SessionForecastSnapshot[];
+
+    // Rating is stored in JSONB, apply filter client-side
+    if (filters?.minRating !== undefined) {
+      snapshots = snapshots.filter((snapshot) => {
+        const rating = (snapshot as any)?.actual_conditions?.rating;
+        return rating !== null && rating !== undefined && rating >= filters.minRating!;
+      });
+    }
+
+    return snapshots;
+  });
+}
+
+/**
+ * Analyze a user's preferred conditions based on their highly-rated sessions.
+ */
+export async function analyzePreferredConditions(
+  minRating: number = 4
+): Promise<ServerActionResponse<PreferredConditionsAnalysis>> {
+  return withAuthenticatedAction(async (user, supabase) => {
+    const { data: snapshots, error } = await supabase
+      .from("session_forecast_snapshots")
+      .select("*")
+      .eq("user_id", user.id);
+
+    if (error) {
+      throw new Error(`Failed to fetch snapshots for analysis: ${error.message}`);
+    }
+
+    const typedSnapshots = (snapshots || []) as SessionForecastSnapshot[];
+    const highlyRatedSnapshots = typedSnapshots.filter((s) => {
+      const rating = (s as any)?.actual_conditions?.rating;
+      return rating !== null && rating !== undefined && rating >= minRating;
+    });
+
+    const tideStatusCounts: Record<string, number> = {};
+    const dataSourceCounts: Record<string, number> = {};
+    const beachCounts: Record<string, { count: number; ratings: number[] }> = {};
+
+    const waveHeights: number[] = [];
+    const wavePeriods: number[] = [];
+    const windSpeeds: number[] = [];
+    const confidenceScores: number[] = [];
+
+    for (const s of highlyRatedSnapshots) {
+      const fs = (s as any)?.forecast_snapshot || {};
+      const waveHeight = fs.wave_height;
+      const wavePeriod = fs.wave_period;
+      const windSpeed = fs.wind_speed;
+      const tideStatus = fs.tide_status;
+
+      if (typeof waveHeight === "number") waveHeights.push(waveHeight);
+      if (typeof wavePeriod === "number") wavePeriods.push(wavePeriod);
+      if (typeof windSpeed === "number") windSpeeds.push(windSpeed);
+
+      if (tideStatus) {
+        tideStatusCounts[String(tideStatus)] =
+          (tideStatusCounts[String(tideStatus)] || 0) + 1;
+      }
+
+      const source = (s as any)?.data_source;
+      if (source) {
+        dataSourceCounts[String(source)] = (dataSourceCounts[String(source)] || 0) + 1;
+      }
+
+      const conf = (s as any)?.forecast_confidence_score;
+      if (typeof conf === "number") {
+        confidenceScores.push(conf);
+      }
+
+      const beachId = (s as any)?.beach_id;
+      if (beachId) {
+        if (!beachCounts[beachId]) {
+          beachCounts[beachId] = { count: 0, ratings: [] };
+        }
+        beachCounts[beachId].count++;
+        const r = (s as any)?.actual_conditions?.rating;
+        if (typeof r === "number") {
+          beachCounts[beachId].ratings.push(r);
+        }
+      }
+    }
+
+    const avg = (arr: number[]) =>
+      arr.length > 0 ? arr.reduce((sum, n) => sum + n, 0) / arr.length : null;
+
+    const preferredDataSource =
+      Object.entries(dataSourceCounts).sort(([, a], [, b]) => b - a)[0]?.[0] ??
+      null;
+
+    const beachFrequency = Object.entries(beachCounts)
+      .map(([beachId, { count, ratings }]) => ({
+        beachId,
+        sessionCount: count,
+        averageRating:
+          ratings.length > 0
+            ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+            : 0,
+      }))
+      .sort((a, b) => b.sessionCount - a.sessionCount)
+      .slice(0, 10);
+
+    return {
+      userId: user.id,
+      totalSessions: typedSnapshots.length,
+      highlyRatedSessions: highlyRatedSnapshots.length,
+      averageConditions: {
+        waveHeight: avg(waveHeights),
+        wavePeriod: avg(wavePeriods),
+        windSpeed: avg(windSpeeds),
+        tideStatus: tideStatusCounts,
+      },
+      preferredDataSource,
+      averageConfidence: avg(confidenceScores),
+      beachFrequency,
+    };
+  });
+}
+
+/**
+ * Get snapshot count by data source for the authenticated user.
+ */
+export async function getDataSourceDistribution(): Promise<
+  ServerActionResponse<Record<string, number>>
+> {
+  return withAuthenticatedAction(async (user, supabase) => {
+    const { data: snapshots, error } = await supabase
+      .from("session_forecast_snapshots")
+      .select("data_source")
+      .eq("user_id", user.id);
+
+    if (error) {
+      throw new Error(`Failed to fetch data source distribution: ${error.message}`);
+    }
+
+    const distribution: Record<string, number> = {};
+    (snapshots || []).forEach((s: any) => {
+      const source = s?.data_source || "UNKNOWN";
+      distribution[source] = (distribution[source] || 0) + 1;
+    });
+
+    return distribution;
+  });
+}
+
+/**
+ * Get monthly session count with snapshots for the authenticated user.
+ */
+export async function getMonthlyCoverage(
+  months: number = 12
+): Promise<ServerActionResponse<Array<{ month: string; count: number }>>> {
+  return withAuthenticatedAction(async (user, supabase) => {
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+
+    const { data: snapshots, error } = await supabase
+      .from("session_forecast_snapshots")
+      .select("session_date")
+      .eq("user_id", user.id)
+      .gte("session_date", startDate.toISOString().split("T")[0])
+      .order("session_date", { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch monthly coverage: ${error.message}`);
+    }
+
+    const monthlyCounts: Record<string, number> = {};
+    (snapshots || []).forEach((s: any) => {
+      const d = String(s?.session_date || "");
+      if (d.length >= 7) {
+        const month = d.substring(0, 7); // YYYY-MM
+        monthlyCounts[month] = (monthlyCounts[month] || 0) + 1;
+      }
+    });
+
+    return Object.entries(monthlyCounts)
+      .map(([month, count]) => ({ month, count }))
+      .sort((a, b) => b.month.localeCompare(a.month));
   });
 }
 

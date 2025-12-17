@@ -295,6 +295,7 @@ CREATE TABLE session_forecast_snapshots (
 **JSONB Structure**:
 
 forecast_snapshot:
+
 ```typescript
 {
   wave_height: number,
@@ -312,6 +313,7 @@ forecast_snapshot:
 ```
 
 actual_conditions:
+
 ```typescript
 {
   wave_quality: string,
@@ -352,12 +354,12 @@ actual_conditions:
 
 **Query Service**:
 
-- [lib/services/session-forecast-service.ts](/lib/services/session-forecast-service.ts) provides query functions:
-  - `getSessionForecastSnapshot()` - Get snapshot for specific session
-  - `getUserForecastHistory()` - Get user's historical snapshots with filters
-  - `analyzePreferredConditions()` - Aggregate analysis of user's preferred conditions
-  - `getDataSourceDistribution()` - Understand which forecast sources are most common
-  - `getMonthlyCoverage()` - Track data collection coverage over time
+- Querying and analysis is exposed via authenticated server actions:
+  - [actions/forecast-calibration-actions.ts](/actions/forecast-calibration-actions.ts)
+    - `getUserForecastHistory()` - Get user's historical snapshots with filters
+    - `analyzePreferredConditions()` - Aggregate analysis of user's preferred conditions
+    - `getDataSourceDistribution()` - Understand which forecast sources are most common
+    - `getMonthlyCoverage()` - Track data collection coverage over time
 
 ### **3. Data Source Integration**
 
@@ -846,6 +848,7 @@ Before any new migration:
   - **Current Usage**: None - supports `mv_best_times` which is also not yet consumed.
 
 - **Data Engineering Review**: See `docs/data-engineering/BEACH_RECOMMENDATION_CLEANUP_REVIEW.md` for recommendations on:
+
   - Whether to continue pg_cron refresh jobs for unused materialized views
   - Storage and compute cost analysis
   - Timeline for best-times feature launch
@@ -871,6 +874,7 @@ All weights are in [0, 1]. The view `public.v_beach_hourly_scores` reads these t
 ### Database Schema Standards
 
 **Canonical Coordinate Columns**:
+
 ```sql
 -- Legacy tables (beaches) use PostGIS naming
 center_lat DOUBLE PRECISION   -- Latitude
@@ -886,6 +890,7 @@ longitude DOUBLE PRECISION    -- Longitude
 ### Database Function Parameters
 
 All database functions use explicit naming:
+
 ```sql
 CREATE OR REPLACE FUNCTION get_nearby_intel_posts(
   center_lat DOUBLE PRECISION,    -- Explicit: latitude
@@ -898,29 +903,31 @@ CREATE OR REPLACE FUNCTION get_nearby_intel_posts(
 ### Application Layer Mapping
 
 **Database → TypeScript Mapping**:
+
 ```typescript
 // Database type (matches schema exactly)
 interface Beach {
-  center_lat: number;  // From beaches.center_lat
-  center_lng: number;  // From beaches.center_lng
+  center_lat: number; // From beaches.center_lat
+  center_lng: number; // From beaches.center_lng
 }
 
 // Component props (use full names)
 interface ComponentProps {
-  latitude: number;   // Full name
-  longitude: number;  // Full name (NOT lng)
+  latitude: number; // Full name
+  longitude: number; // Full name (NOT lng)
 }
 
 // Explicit mapping required
 <Component
-  latitude={beach.center_lat}   // Map: center_lat → latitude
-  longitude={beach.center_lng}  // Map: center_lng → longitude
-/>
+  latitude={beach.center_lat} // Map: center_lat → latitude
+  longitude={beach.center_lng} // Map: center_lng → longitude
+/>;
 ```
 
 ### Migration Considerations
 
 **DO NOT change database column names without:**
+
 1. Migration script to rename columns
 2. Update all database functions that reference columns
 3. Update TypeScript generated types
@@ -940,6 +947,7 @@ interface ComponentProps {
 **Changes**:
 
 1. **New Column: `sessions.board_snapshot`**
+
    - Type: `jsonb` (nullable)
    - Purpose: Preserves board details even if board is later modified or deleted
    - Structure:
@@ -968,25 +976,28 @@ interface ComponentProps {
      - Supports 12-month lookback queries with single index scan
 
 **Performance Impact**:
+
 - Similarity insights queries: 95% faster (full table scan → index scan)
 - Index size: ~15% of full sessions table (only rated, completed sessions)
 - Write overhead: Minimal (most sessions don't have ratings)
 
 **Data Migration**:
+
 - Column added with `DEFAULT NULL` (no backfill required)
 - Existing sessions without board_snapshot work gracefully
 - Future sessions automatically populate board_snapshot on creation
 
 **Integration**:
+
 - Used by `lib/services/similarity-insights-service.ts`
 - Queried via composite index for optimal performance
 - Supports board tip generation (≥60% same board threshold)
 
 **Rollback**:
+
 ```sql
 BEGIN;
 DROP INDEX IF EXISTS public.idx_sessions_user_rated_completed;
 ALTER TABLE public.sessions DROP COLUMN IF EXISTS board_snapshot;
 COMMIT;
 ```
-

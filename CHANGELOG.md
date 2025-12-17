@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs
+
+- Updated `PHASE1_LIB_AUDIT_REPORT.md` with per-recommendation completion status (done/partial/not done) and current Supabase import usage counts.
+
+### Added
+
+- End-to-end forecast calibration loop using real session feedback.
+- Post-session forecast feedback capture after `/sessions/new?mode=log`.
+
+### Changed
+
+- Canonical Supabase client documentation and doc-only deprecation guidance for `lib/supabase-browser.ts`.
+- Migrated legacy session forecast history + analysis logic into authenticated server actions (`actions/forecast-calibration-actions.ts`).
+
+### Removed
+
+- Removed legacy `lib/services/session-forecast-service.ts` and its unit test.
+
 ### Performance
+
+- Improved Home → Profile → Back navigation performance by fixing `sessions` beach join schema mismatch and adding lightweight request deduping/caching for profile/session/likes and achievements data.
 
 - **Recommendations API Optimization** (December 17, 2025)
   - Reduced forecast time window from 24 hours to ±6 hours (50% less data fetched)

@@ -487,6 +487,12 @@ export function AnimatedSessionWizard({
         crowdLevel: formState.crowdLevel,
         parkingEase: formState.parkingEase,
         overallRating: formState.overallRating,
+        // Actual conditions + calibration fields (collected in SessionDetailsSection)
+        waveHeight: formState.waveHeight,
+        windSpeed: formState.windSpeed,
+        windDirection: formState.windDirection,
+        forecastAccuracy: formState.forecastAccuracy,
+        waveTypes: formState.waveTypes,
       };
 
       if (onComplete) {

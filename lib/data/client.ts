@@ -17,6 +17,33 @@ export type ClientBeach = {
   // Other columns exist; we keep this minimal to avoid tight coupling.
 };
 
+type __CacheEntry<T> = { value: T; expiresAt: number };
+const __CACHE_TTL_MS = 30_000;
+const __cache = {
+  usersProfile: new Map<string, __CacheEntry<any>>(),
+  usersSessions: new Map<string, __CacheEntry<any[]>>(), // key: `${userId}:${limit}`
+  sessionLikesStatus: new Map<string, __CacheEntry<{ liked: boolean; likesCount: number }>>(),
+  inflight: new Map<string, Promise<any>>(),
+};
+
+function __now() {
+  return Date.now();
+}
+
+function __getCached<T>(map: Map<string, __CacheEntry<T>>, key: string): T | null {
+  const entry = map.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= __now()) {
+    map.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function __setCached<T>(map: Map<string, __CacheEntry<T>>, key: string, value: T) {
+  map.set(key, { value, expiresAt: __now() + __CACHE_TTL_MS });
+}
+
 async function getAllBeaches(): Promise<ClientBeach[]> {
   const response = await fetch("/api/beaches", {
     method: "GET",
@@ -39,14 +66,32 @@ export const data = {
   sessions: {
     likes: {
       async getStatus(sessionId: string): Promise<{ liked: boolean; likesCount: number }> {
-        const res = await fetch(`/api/sessions/${sessionId}/likes`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error(`Failed to load like status: ${res.status}`);
-        const json = await res.json();
-        return { liked: !!json.data?.liked, likesCount: Number(json.data?.likesCount || 0) };
+        const cached = __getCached(__cache.sessionLikesStatus, sessionId);
+        if (cached) return cached;
+
+        const inflightKey = `likesStatus:${sessionId}`;
+        const inflight = __cache.inflight.get(inflightKey);
+        if (inflight) return inflight;
+
+        const p = (async () => {
+          const res = await fetch(`/api/sessions/${sessionId}/likes`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+          });
+          if (!res.ok) throw new Error(`Failed to load like status: ${res.status}`);
+          const json = await res.json();
+          const value = { liked: !!json.data?.liked, likesCount: Number(json.data?.likesCount || 0) };
+          __setCached(__cache.sessionLikesStatus, sessionId, value);
+          return value;
+        })();
+
+        __cache.inflight.set(inflightKey, p);
+        try {
+          return await p;
+        } finally {
+          __cache.inflight.delete(inflightKey);
+        }
       },
       async toggle(sessionId: string) {
         const res = await fetch(`/api/sessions/${sessionId}/likes/toggle`, {
@@ -90,15 +135,32 @@ export const data = {
   users: {
     profile: {
       async get(userId: string) {
+        const cached = __getCached(__cache.usersProfile, userId);
+        if (cached) return cached;
+
+        const inflightKey = `usersProfile:${userId}`;
+        const inflight = __cache.inflight.get(inflightKey);
+        if (inflight) return inflight;
+
         // Prefer new namespaced route; keep legacy as fallback via server redirect if present
-        const res = await fetch(`/api/users/${userId}/profile`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error(`Failed to load profile: ${res.status}`);
-        const json = await res.json();
-        return json.data;
+        const p = (async () => {
+          const res = await fetch(`/api/users/${userId}/profile`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+          });
+          if (!res.ok) throw new Error(`Failed to load profile: ${res.status}`);
+          const json = await res.json();
+          __setCached(__cache.usersProfile, userId, json.data);
+          return json.data;
+        })();
+
+        __cache.inflight.set(inflightKey, p);
+        try {
+          return await p;
+        } finally {
+          __cache.inflight.delete(inflightKey);
+        }
       },
     },
     follow: {
@@ -147,16 +209,35 @@ export const data = {
     },
     sessions: {
       async list(userId: string, limit = 5) {
+        const cacheKey = `${userId}:${limit}`;
+        const cached = __getCached(__cache.usersSessions, cacheKey);
+        if (cached) return cached;
+
+        const inflightKey = `usersSessions:${cacheKey}`;
+        const inflight = __cache.inflight.get(inflightKey);
+        if (inflight) return inflight;
+
         const params = new URLSearchParams();
         if (limit) params.set("limit", String(limit));
-        const res = await fetch(`/api/users/${userId}/sessions?${params.toString()}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error(`Failed to load user sessions: ${res.status}`);
-        const json = await res.json();
-        return json.data?.sessions || [];
+        const p = (async () => {
+          const res = await fetch(`/api/users/${userId}/sessions?${params.toString()}`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+          });
+          if (!res.ok) throw new Error(`Failed to load user sessions: ${res.status}`);
+          const json = await res.json();
+          const sessions = json.data?.sessions || [];
+          __setCached(__cache.usersSessions, cacheKey, sessions);
+          return sessions;
+        })();
+
+        __cache.inflight.set(inflightKey, p);
+        try {
+          return await p;
+        } finally {
+          __cache.inflight.delete(inflightKey);
+        }
       },
     },
   },

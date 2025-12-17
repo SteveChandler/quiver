@@ -18,6 +18,33 @@ Analyzed 181 files in the `lib/` directory. Found:
 
 ---
 
+## Status (as of 2025-12-17)
+
+This report was originally written as recommendations. The table below audits each actionable bullet against the current repo state.
+
+**Legend**: ✅ Done · 🟡 Partially done · ❌ Not done · ℹ️ No action (monitor/keep)
+
+| Area              | Recommendation (from this report)                                                        |       Status | Evidence (current repo)                                                                                                                                                                                                                            | Remaining work                  |
+| ----------------- | ---------------------------------------------------------------------------------------- | -----------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Dead code         | Delete `lib/onboarding.ts` + associated test                                             |           ✅ | `lib/onboarding.ts` removed; `__tests__/unit/lib/onboarding.test.ts` removed (also recorded in `CHANGELOG.md`)                                                                                                                                     | None                            |
+| Dead code         | Delete `lib/bestTimes.ts` + associated test                                              |           ✅ | `lib/bestTimes.ts` removed; `__tests__/lib/bestTimes.integration.test.ts` removed (also recorded in `CHANGELOG.md`)                                                                                                                                | None                            |
+| Dead code         | Inline/remove `lib/database-utils.ts`                                                    |           ✅ | `lib/database-utils.ts` removed                                                                                                                                                                                                                    | None                            |
+| Test-only feature | Investigate `lib/beach-cluster-cache.ts` then implement or delete                        | ✅ (deleted) | `lib/beach-cluster-cache.ts` removed; `__tests__/lib/beach-cluster-cache.test.ts` removed (also recorded in `CHANGELOG.md`)                                                                                                                        | None                            |
+| Test-only feature | Investigate `lib/services/session-forecast-service.ts` then ship or delete               |           ✅ | Migrated read helpers into authenticated server actions (`actions/forecast-calibration-actions.ts`) and deleted legacy `lib/services/session-forecast-service.ts` + its unit test                                                                  | None                            |
+| Misplaced utils   | Move `slugify()` out of `lib/analytics.ts`                                               |           ✅ | `slugify()` now in `lib/utils/text-utils.ts`; `lib/analytics.ts` no longer exports it                                                                                                                                                              | None                            |
+| Misplaced utils   | Move `currentPlatform()` to `lib/mobile/platform.ts`                                     |           ✅ | `currentPlatform()` in `lib/mobile/platform.ts`; `lib/analytics.ts` imports it                                                                                                                                                                     | None                            |
+| Supabase patterns | Document canonical Supabase client imports + add deprecation warnings                    |           ✅ | Added canonical header comment to `lib/supabase/client.ts` and doc-only `@deprecated` guidance to `lib/supabase-browser.ts`                                                                                                                        | None                            |
+| Supabase patterns | Gradually migrate legacy imports (`@/lib/supabase`, `@/lib/supabase-browser`)            |           🟡 | Legacy imports still exist (`@/lib/supabase`: ~8 matches/7 files; `@/lib/supabase-browser`: ~6 matches/5 files). Canonical imports are widely used (`@/lib/supabase/server`: ~91 matches/84 files; `@/lib/supabase/client`: ~16 matches/15 files). | Ongoing opportunistic migration |
+| Naming clarity    | Add clarifying comments for `lib/navigation-utils.ts` vs `lib/utils/navigation-utils.ts` |           ✅ | Both files now have clear top-of-file comments describing distinct responsibilities                                                                                                                                                                | None                            |
+| Monitor/keep      | `lib/parsers/wavecast-parser.ts`                                                         |           ℹ️ | No changes required by this report                                                                                                                                                                                                                 | None                            |
+| Monitor/keep      | `lib/hooks/useProfileFormState.ts`                                                       |           ℹ️ | No changes required by this report                                                                                                                                                                                                                 | None                            |
+| Keep              | `lib/social-share-utils.ts` defensive logging                                            |           ℹ️ | No changes required by this report                                                                                                                                                                                                                 | None                            |
+
+**Notes**
+
+- The ✅ markers in the original report indicate “safe / belongs here”, not “already completed.” This section adds explicit completion state.
+- Evidence is based on file existence + import usage within this repo as of 2025-12-17.
+
 ## High-Confidence Dead Code (Safe to Delete)
 
 ### 1. `lib/onboarding.ts` (17 lines)
@@ -36,6 +63,8 @@ Analyzed 181 files in the `lib/` directory. Found:
 **Recommendation**: **DELETE** - Feature appears incomplete or superseded
 **Confidence**: ⭐⭐⭐⭐⭐ (100%)
 
+**Status (2025-12-17)**: ✅ Done — file deleted.
+
 ---
 
 ### 2. `lib/bestTimes.ts` (27 lines)
@@ -52,6 +81,8 @@ Analyzed 181 files in the `lib/` directory. Found:
 **Functions**: `fetchBestTimes()` - RPC call to get best surf times
 **Recommendation**: **DELETE** - Feature never completed, test should be removed too
 **Confidence**: ⭐⭐⭐⭐⭐ (100%)
+
+**Status (2025-12-17)**: ✅ Done — file deleted.
 
 ---
 
@@ -71,6 +102,8 @@ Analyzed 181 files in the `lib/` directory. Found:
 **Assessment**: Well-documented, has tests, but NOT used in production
 **Recommendation**: **INVESTIGATE** - Either implement in forecast service OR delete if superseded
 **Confidence**: ⭐⭐⭐⭐ (80%)
+
+**Status (2025-12-17)**: ✅ Done (decision: delete) — file and associated test were removed and recorded in `CHANGELOG.md`.
 
 ---
 
@@ -94,6 +127,8 @@ Analyzed 181 files in the `lib/` directory. Found:
 - B) Delete if feature deprioritized (400+ lines saved)
   **Confidence**: ⭐⭐⭐⭐ (85%)
 
+**Status (2025-12-17)**: ✅ Done — read-only query helpers were migrated into authenticated server actions (`actions/forecast-calibration-actions.ts`) and the legacy `lib/services/session-forecast-service.ts` + unit test were removed.
+
 ---
 
 ### 3. `lib/database-utils.ts` (11 lines)
@@ -112,6 +147,8 @@ Analyzed 181 files in the `lib/` directory. Found:
 **Assessment**: Over-abstracted for a 7-line function used once
 **Recommendation**: **INLINE** - Move validation logic directly into board-actions.ts
 **Confidence**: ⭐⭐⭐⭐ (80%)
+
+**Status (2025-12-17)**: ✅ Done — `lib/database-utils.ts` has been removed.
 
 ---
 
@@ -174,6 +211,18 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 **Confidence**: ⭐⭐⭐ (60%) - High usage means high risk
 
+**Status (2025-12-17)**: 🟡 Partially done
+
+- ✅ Canonical docs exist: `lib/supabase/ARCHITECTURE.md` documents canonical usage patterns.
+- ❌ Requested inline canonical comment block is not present in `lib/supabase/client.ts`.
+- ❌ Requested deprecation warning is not present in `lib/supabase-browser.ts`.
+- 🟡 Legacy imports still exist:
+  - `@/lib/supabase`: ~8 matches / 7 files
+  - `@/lib/supabase-browser`: ~6 matches / 5 files
+- ✅ Canonical imports are widely used:
+  - `@/lib/supabase/server`: ~91 matches / 84 files
+  - `@/lib/supabase/client`: ~16 matches / 15 files
+
 ---
 
 ### 2. Analytics + Utility Function Mix
@@ -203,6 +252,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 **Confidence**: ⭐⭐⭐⭐ (85%)
 
+**Status (2025-12-17)**: ✅ Done
+
+- `slugify()` moved to `lib/utils/text-utils.ts`
+- `currentPlatform()` lives in `lib/mobile/platform.ts` and is imported by `lib/analytics.ts`
+
 ---
 
 ### 3. Navigation Utilities (Similar Names, Different Purposes)
@@ -218,6 +272,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 **Assessment**: NOT redundant - different purposes, similar names
 **Recommendation**: **KEEP BOTH** - Add clarifying comments at top of each file
 **Confidence**: ⭐⭐⭐⭐⭐ (100%)
+
+**Status (2025-12-17)**: ✅ Done — both files contain clarifying top-of-file comments.
 
 ---
 
@@ -335,9 +391,7 @@ if (missingFields.length) {
 
 **Recommendation**: **HIGH-VALUE DECISION NEEDED**
 
-- Option A: **Ship it** - Add UI components to show forecast accuracy (4-8 hours)
-- Option B: **Delete it** - Remove service + keep DB tables for future (400 lines saved)
-- Option C: **Freeze it** - Document as "planned feature", revisit in Q1 2026
+- Decision: **Ship it** via the forecast calibration loop and authenticated server actions (and delete legacy service file)
 
 **Business context needed**: Is forecast calibration analysis a near-term priority?
 
@@ -458,6 +512,8 @@ These areas are critical to app functionality and should NOT be refactored witho
 
 **Expected impact**: ~60 lines removed, 0 risk
 
+**Status (2025-12-17)**: ✅ Completed.
+
 ---
 
 **Phase B: Extract Misplaced Utilities**
@@ -467,6 +523,8 @@ These areas are critical to app functionality and should NOT be refactored witho
 3. Move `currentPlatform()` to `lib/mobile/platform.ts` (file exists)
 
 **Expected impact**: Better code organization, 0 breaking changes
+
+**Status (2025-12-17)**: ✅ Completed (note: `slugify()` landed in `lib/utils/text-utils.ts`, not `lib/utils.ts`).
 
 ---
 
@@ -488,6 +546,13 @@ These areas are critical to app functionality and should NOT be refactored witho
 
 **Expected impact**: Reduced confusion, clear patterns
 
+**Status (2025-12-17)**: 🟡 Partially completed
+
+- ✅ `lib/supabase/ARCHITECTURE.md` exists and describes the desired patterns.
+- ❌ `lib/supabase/client.ts` is still a thin wrapper without the requested canonical comment block.
+- ❌ `lib/supabase-browser.ts` does not include a deprecation warning.
+- ❌ No explicit migration plan is recorded here; migration appears opportunistic.
+
 ---
 
 **Phase D: Investigate Test-Only Code**
@@ -498,6 +563,11 @@ These areas are critical to app functionality and should NOT be refactored witho
    - Decision: Ship feature OR delete implementation?
 
 **Expected impact**: Potentially 500+ lines removed OR new features shipped
+
+**Status (2025-12-17)**: 🟡 Partially completed
+
+- ✅ `lib/beach-cluster-cache.ts` was deleted (decision: delete).
+- ✅ `lib/services/session-forecast-service.ts` was migrated (actions) and removed; no longer test-only.
 
 ---
 
@@ -510,6 +580,11 @@ These areas are critical to app functionality and should NOT be refactored witho
 3. Target: 140+ import statements to migrate
 
 **Expected impact**: Long-term consistency
+
+**Status (2025-12-17)**: 🟡 In progress (opportunistic) / ❌ Not formally tracked
+
+- Canonical imports are heavily used, but legacy imports remain (see counts above).
+- No explicit “legacy import” ESLint rule was found referenced outside this report.
 
 ---
 
@@ -524,7 +599,7 @@ These areas are critical to app functionality and should NOT be refactored witho
 ### ⭐⭐⭐⭐ INVESTIGATE THEN DELETE (80-90%)
 
 - `lib/beach-cluster-cache.ts` (160 lines)
-- `lib/services/session-forecast-service.ts` (400+ lines)
+- `lib/services/session-forecast-service.ts` (400+ lines) ✅ (migrated + deleted)
 
 ### ⭐⭐⭐⭐ CONSOLIDATE (80-90%)
 
@@ -578,7 +653,7 @@ These areas are critical to app functionality and should NOT be refactored witho
 
 ## Notes
 
-- Git status shows `lib/isStandaloneApp.ts` as untracked (new file) - only used in 1 file, appears intentional
+- `lib/isStandaloneApp.ts` is present and imported (e.g., `components/landing-page/auth-aware-landing-wrapper.tsx`). The earlier note about it being “untracked” is no longer accurate.
 - Several files have strong test coverage - this is GOOD
 - No obvious security issues found
 - Type safety appears well-maintained throughout

@@ -83,14 +83,21 @@ export function parseSessionWizardParams(
   searchParams: URLSearchParams | ReadonlyURLSearchParams
 ): ParseResult<ValidatedSessionWizardParams> {
   try {
+    const getParam = (key: string): string | undefined => {
+      const v = searchParams.get(key);
+      return v === null ? undefined : v;
+    };
+
     // Extract raw parameters from URL
     const rawParams = {
-      mode: searchParams.get('mode'),
-      beach: searchParams.get('beach'),
-      beachName: searchParams.get('beachName'),
-      startTime: searchParams.get('startTime'),
-      endTime: searchParams.get('endTime'),
-      step: searchParams.get('step'),
+      // Note: Next.js searchParams.get() returns null when missing; Zod optional/default
+      // expects undefined, so we normalize null → undefined here.
+      mode: getParam('mode'),
+      beach: getParam('beach'),
+      beachName: getParam('beachName'),
+      startTime: getParam('startTime'),
+      endTime: getParam('endTime'),
+      step: getParam('step'),
     };
 
     // Validate using Zod schema
