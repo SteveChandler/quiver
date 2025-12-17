@@ -171,6 +171,21 @@ export const RATE_LIMITS = {
     requestsPerHour: 100,
     burstLimit: 3,
   } as RateLimiterConfig,
+
+  /**
+   * Surf Insights - MEDIUM
+   *
+   * Endpoint: /api/surf/insights
+   * Risk: Complex similarity scoring algorithm
+   * Cost: Database queries for user sessions, similarity computation
+   *
+   * Moderate limits for personalized insights (same as surf-discovery)
+   */
+  "surf-insights": {
+    requestsPerMinute: 10,
+    requestsPerHour: 100,
+    burstLimit: 3,
+  } as RateLimiterConfig,
 } as const;
 
 /**
@@ -199,6 +214,8 @@ const RATE_LIMIT_MESSAGES = {
     "Personalized forecast rate limit exceeded. Please wait before requesting another recommendation.",
   "surf-discovery":
     "Surf discovery rate limit exceeded. Please wait before requesting more recommendations.",
+  "surf-insights":
+    "Surf insights rate limit exceeded. Please wait before requesting more insights.",
 } as const;
 
 /**

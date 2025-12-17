@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **Recommendations API Optimization** (December 17, 2025)
+  - Reduced forecast time window from 24 hours to ±6 hours (50% less data fetched)
+  - Added composite database indexes: `idx_marine_forecasts_beach_ts` and `idx_tide_forecasts_beach_ts`
+  - Added detailed performance logging (PostGIS, queries, processing, total time)
+  - Result: API response time reduced from ~4800ms to ~989ms (**80% improvement**)
+  - Migration: `20251217000000_optimize_forecast_indexes.sql`
+  - Files modified: `app/api/v1/recommendations/route.ts`
+
+### Fixed
+
+- **E2E Test Suite** (December 17, 2025)
+  - Removed obsolete "Sign Up button" test from guest landing page spec
+  - Test was checking for a button that was intentionally removed from the landing page navbar
+  - Test suite now has 15 tests (previously 16)
+  - Beach discovery performance test now passes consistently with optimized API
+  - Files modified: `e2e/guest-landing.spec.ts`
+
 ### Removed
 
 - **Dead Code Cleanup - Track 1 (Zero-Risk Mechanical Deletions)** (December 2025)
@@ -46,6 +65,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Warns on `console.log`, `console.info`, `console.debug`
 
 ### Added
+
+- **Personalized Insights Backend** (December 2025)
+
+  - Added board snapshot capture to session actions for preserving board configuration history
+  - Captures board details (name, type, size, volume, dimensions) when creating or completing sessions
+  - Board snapshots stored in `sessions.board_snapshot` JSONB column for insights analysis
+  - Created similarity insights service with bucket-based scoring algorithm
+  - Computes personalized insights by comparing forecast conditions to user's past high-rated sessions
+  - Similarity algorithm uses weighted scoring: wave height (35%), wave period (25%), wind speed (20%), wind direction (10%), tide (10%)
+  - Returns top 5 similar sessions with >=60% similarity threshold
+  - Generates match quality labels: Perfect (>=80%), Great (60-79%), Good (40-59%), Low (<40%)
+  - Includes cross-spot explanations when >50% of similar sessions are from different beaches
+  - Provides board recommendations when >=60% of similar sessions used same board type
+  - Created `/api/surf/insights` GET endpoint for accessing personalized insights
+  - Requires authentication and includes rate limiting (10 req/min)
+  - Query parameters: beachId, beachName, waveHeight, wavePeriod, windSpeed (required); windDirection, tideHeight, tideStatus (optional)
+  - Returns insights states: ready (insights available), onboarding (<3 rated sessions), degraded (no forecast snapshots)
+  - Private cache with 5-minute TTL for user-specific insights
+  - Files: `actions/session-actions.ts` (modified), `lib/services/similarity-insights-service.ts` (new), `app/api/surf/insights/route.ts` (new)
 
 - **Dynamic Location Detection on Landing Page** (December 2025)
   - Replaced hardcoded "San Diego" text with dynamic location based on IP geolocation.

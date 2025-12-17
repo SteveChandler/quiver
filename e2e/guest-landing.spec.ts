@@ -48,16 +48,6 @@ test.describe('Guest Landing Page', () => {
     expect(hasHero || hasMain).toBe(true);
   });
 
-  test('should display navigation with login/signup buttons @smoke', async ({ page }) => {
-    // Should see login button
-    const loginButton = page.getByRole('button', { name: /log in/i });
-    await expect(loginButton).toBeVisible();
-
-    // Should see signup button
-    const signupButton = page.getByRole('button', { name: /sign up/i });
-    await expect(signupButton).toBeVisible();
-  });
-
   test('should open auth modal when clicking login', async ({ page }) => {
     const loginButton = page.getByRole('button', { name: /log in/i });
     await loginButton.click();

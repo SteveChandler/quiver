@@ -33,7 +33,7 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 ### 📁 `/admin` - Administrative Operations
 
-**Access Level**: Admin-only  
+**Access Level**: Admin-only
 **Authentication**: Role-based admin verification
 
 #### `/admin/cleanup-inactive-buoys/route.ts`
@@ -94,7 +94,7 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 ### 🔐 `/auth` - Authentication System
 
-**Provider**: Supabase Auth  
+**Provider**: Supabase Auth
 **Runtime**: Edge functions for optimal performance
 
 #### `/auth/[...supabase]/route.ts`
@@ -221,7 +221,7 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 ### ⏰ `/cron` - Scheduled Job Management
 
-**Authentication**: Vercel Cron header or cron token  
+**Authentication**: Vercel Cron header or cron token
 **Usage**: Automated data synchronization
 
 #### `/cron/enhanced-forecast-sync/route.ts`
@@ -436,6 +436,46 @@ The `/app/api` directory implements a comprehensive REST API layer using Next.js
 
 - `beach`: Beach name (e.g., "Ocean Beach")
 - `lat`, `lng`: Geographic coordinates (alternative to beach name)
+
+#### `/surf/insights/route.ts`
+
+- **Methods**: `GET`
+- **Authentication**: Required (user session)
+- **Function**: Returns personalized insights comparing current forecast to user's past high-rated sessions
+- **Features**:
+  - ML-powered session matching using bucket-based similarity scoring
+  - Three response states: ready, onboarding, degraded
+  - Board recommendations when pattern detected (≥60% of similar sessions used same board)
+  - Cross-spot explanations when >50% of matches are from different beaches
+  - Top 5 similar sessions ranked by similarity score
+- **Query Parameters (Required)**:
+  - `beachId`: Beach UUID
+  - `beachName`: Beach name
+  - `waveHeight`: Wave height in feet (0-50)
+  - `wavePeriod`: Wave period in seconds (0-30)
+  - `windSpeed`: Wind speed in mph (0-100)
+- **Query Parameters (Optional)**:
+  - `windDirection`: Wind direction in degrees (0-360)
+  - `tideHeight`: Tide height in feet (-5 to 15)
+  - `tideStatus`: Tide status (e.g., "Rising", "High Slack")
+  - `windowStart`: ISO timestamp for forecast window
+- **Rate Limit**: 10 requests/minute
+- **Caching**: Private per-user cache (5 minutes)
+- **Response**: `PersonalizedInsights`
+  - `matchPercent`: Overall similarity percentage (0-100)
+  - `label`: Match quality ("Perfect" ≥80%, "Great" 60-79%, "Good" 40-59%, "Low" <40%)
+  - `reasonBullets`: 2-4 explanation bullets
+  - `similarSessions`: Top 5 similar sessions with conditions and board info
+  - `boardTip`: Board recommendation if majority pattern detected (≥60% threshold)
+  - `sessionCount`: Total rated sessions in user's history
+  - `state`: "ready" (≥3 sessions), "onboarding" (<3 sessions), or "degraded" (no forecast snapshots)
+- **Service Layer**: `lib/services/similarity-insights-service.ts`
+- **Algorithm Details**:
+  - Weighted similarity scoring: wave height (35%), wave period (25%), wind speed (20%), wind direction (10%), tide (10%)
+  - Bucket-based matching for robustness (e.g., 2-4 ft waves, 8-12s period)
+  - Adjacent bucket matches receive 50% credit
+  - Minimum similarity threshold: 60% to be included in results
+  - Lookback period: 12 months of completed sessions rated ≥3 stars
 
 ---
 

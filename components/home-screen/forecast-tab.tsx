@@ -35,9 +35,11 @@ import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
+import { useInsights } from "@/hooks/use-insights";
 import { adaptDiscoveryResponse } from "@/lib/adapters/discovery-to-personalized";
 import { PersonalizedForecastCard } from "@/components/home-screen/personalized-forecast-card";
 import { BeachDiscoveryList } from "@/components/discover/beach-discovery-list";
+import { SimilarSessionsDrawer } from "@/components/home-screen/similar-sessions-drawer";
 
 interface ForecastTabProps {
   profile: Profile | null;
@@ -71,7 +73,21 @@ export function ForecastTab({
   const personalizedError = discoveryError;
   const hasRecommendation = hasRecommendations;
 
+  // Get top recommendation for insights
+  const topRecommendation = discovery?.recommendations[0];
+
+  // Fetch insights for the top recommendation
+  const { insights, loading: insightsLoading, error: insightsError } = useInsights({
+    beachId: topRecommendation?.beach.id || '',
+    beachName: topRecommendation?.beach.name || '',
+    waveHeight: topRecommendation?.window.waveHeight ? parseFloat(topRecommendation.window.waveHeight.replace(/[^\d.]/g, '')) : 0,
+    wavePeriod: topRecommendation?.window.wavePeriod ? parseFloat(topRecommendation.window.wavePeriod.replace(/[^\d.]/g, '')) : 0,
+    windSpeed: topRecommendation?.window.wind ? parseFloat(topRecommendation.window.wind.split(' ')[0]) : 0,
+    enabled: !!topRecommendation && !!profile,
+  });
+
   const [showAdjusted, setShowAdjusted] = useState(false);
+  const [showSimilarSessions, setShowSimilarSessions] = useState(false);
   const [forecastState, setForecastState] =
     useState<ForecastDataState>("loading");
   const [forecastError, setForecastError] = useState<Error | null>(null);
@@ -433,10 +449,13 @@ export function ForecastTab({
       {profile && (
         <PersonalizedForecastCard
           recommendation={recommendation}
+          insights={insights}
+          insightsLoading={insightsLoading}
           loading={personalizedLoading}
           error={personalizedError ? new Error(personalizedError) : null}
           onPlanSession={handlePlanSession}
           onViewBeach={handleViewBeachFromPersonalized}
+          onViewSimilarSessions={() => setShowSimilarSessions(true)}
         />
       )}
       {/* Surf Discovery - Top Spots for You (uses same data as personalized card) */}
@@ -697,6 +716,18 @@ export function ForecastTab({
           </CardContent>
         </Card>
       )}
+
+      {/* Similar Sessions Drawer */}
+      <SimilarSessionsDrawer
+        open={showSimilarSessions}
+        onOpenChange={setShowSimilarSessions}
+        sessions={insights?.similarSessions || []}
+        currentConditions={topRecommendation ? {
+          waveHeight: topRecommendation.window.waveHeight,
+          wavePeriod: topRecommendation.window.wavePeriod,
+          wind: topRecommendation.window.wind,
+        } : undefined}
+      />
     </div>
   );
 }

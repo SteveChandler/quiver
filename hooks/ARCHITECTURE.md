@@ -453,6 +453,94 @@ function HomePage() {
 }
 ```
 
+
+### **useInsights** (Personalized Insights Hook) - December 2025
+
+- **Purpose**: Fetch personalized insights comparing forecast conditions to user's session history
+- **Location**: `hooks/use-insights.ts`
+- **Features**:
+  - Automatic fetching when enabled with valid beach and conditions
+  - Three states: ready (≥3 sessions), onboarding (<3 sessions), degraded (no snapshots)
+  - Similar sessions list with match percentages
+  - Board recommendations when pattern detected
+  - Match quality labels (Perfect/Great/Good/Low)
+
+**TypeScript Interface:**
+
+```typescript
+interface UseInsightsOptions extends SimilarityInsightsInput {
+  beachId: string;           // Beach UUID
+  beachName: string;         // Beach name
+  waveHeight: number;        // Wave height in feet
+  wavePeriod: number;        // Wave period in seconds
+  windSpeed: number;         // Wind speed in mph
+  windDirection?: number;    // Wind direction in degrees (optional)
+  tideHeight?: number;       // Tide height in feet (optional)
+  tideStatus?: string;       // Tide status (optional)
+  windowStart?: string;      // ISO timestamp (optional)
+  enabled?: boolean;         // Whether hook is enabled (default: true)
+}
+
+interface UseInsightsReturn {
+  insights: PersonalizedInsights | null;  // Insights data
+  loading: boolean;                        // Loading state
+  error: string | null;                    // Error message
+  refetch: () => Promise<void>;            // Manual refetch function
+}
+```
+
+**Usage Example:**
+
+```typescript
+function PersonalizedForecastCard({ recommendation }) {
+  const { insights, loading, error } = useInsights({
+    beachId: recommendation.beach.id,
+    beachName: recommendation.beach.name,
+    waveHeight: parseWaveHeight(recommendation.window.waveHeight),
+    wavePeriod: parseWavePeriod(recommendation.window.wavePeriod),
+    windSpeed: parseWindSpeed(recommendation.window.wind),
+    windDirection: 270, // SW wind
+    enabled: !!recommendation,
+  });
+
+  if (loading) return <InsightsLoader />;
+  if (error) return <InsightsError message={error} />;
+  if (!insights || insights.state === 'onboarding') return <OnboardingMessage />;
+
+  return (
+    <div>
+      <Badge>{insights.label} ({insights.matchPercent}%)</Badge>
+      {insights.reasonBullets.map(reason => <p key={reason}>{reason}</p>)}
+      {insights.boardTip && <BoardTip text={insights.boardTip} />}
+      {insights.similarSessions.length > 0 && (
+        <Button onClick={() => setDrawerOpen(true)}>
+          View {insights.similarSessions.length} similar sessions
+        </Button>
+      )}
+    </div>
+  );
+}
+```
+
+**Data Flow:**
+
+1. Hook validates required parameters (beachId, beachName, wave/wind data)
+2. Constructs query params with required + optional conditions
+3. Fetches from `/api/surf/insights?beachId=...&waveHeight=...`
+4. Parses response into PersonalizedInsights type
+5. Provides loading/error/data states via useDataFetcher pattern
+
+**Performance:**
+- Respects useDataFetcher caching patterns
+- Private per-user API caching (5 minutes)
+- Skip fetch when conditions invalid or user not authenticated
+- Automatic refetch capability for manual refresh
+
+**Integration:**
+- Used by `PersonalizedForecastCard` component
+- Drives similar sessions drawer display
+- Provides board recommendation UI
+- Shows match quality indicators
 ### **👥 Social & Real-time Hooks**
 
 #### **useOptimizedRealtime** (Real-time Optimization)

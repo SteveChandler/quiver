@@ -383,3 +383,54 @@ const { beachAccuracy } = useForecastCalibration({
 **Status**: Production-ready with lazy loading and caching optimizations
 **Next Review**: After push notifications implementation
 **Recent Changes**: Removed Best Conditions and Nearby Tab features (Nov 18, 2025)
+
+## 🔮 **Personalized Insights Integration (December 2025)**
+
+### **PersonalizedForecastCard** - Enhanced with Insights
+
+- **File**: `components/home-screen/personalized-forecast-card.tsx`
+- **New Features**:
+  - Displays personalized insights comparing forecast to user's session history
+  - "For You" KPI tile shows match label (Perfect/Great/Good) or personalization boost
+  - Board recommendations displayed in amber tip box when detected
+  - Similar sessions drawer accessible via button or clicking "For You" tile
+  - Three states: ready (insights shown), onboarding (encouragement message), degraded (graceful fallback)
+- **Props**:
+  - `insights`: PersonalizedInsights from useInsights hook
+  - `insightsLoading`: boolean loading state
+  - `onViewSimilarSessions`: callback to open drawer
+- **UI Elements**:
+  - Match percentage badge (e.g., "85% Match")
+  - Reason bullets in summary section
+  - Board tip in amber box with ruler icon
+  - "View X similar sessions" button when available
+  - Clickable "For You" tile opens similar sessions drawer
+
+### **SimilarSessionsDrawer** - Session History Comparison
+
+- **File**: `components/home-screen/similar-sessions-drawer.tsx`
+- **Purpose**: Display user's past sessions with similar conditions
+- **Features**:
+  - Current forecast conditions summary at top
+  - List of similar sessions sorted by similarity score
+  - Match quality badges (Perfect green, Great blue, Good yellow, Low outline)
+  - Session details: beach name, date, rating (stars), conditions (wave/wind), board used
+  - Empty state when no similar sessions found
+  - Touch-friendly mobile design
+- **Props**:
+  - `open`: boolean drawer state
+  - `onOpenChange`: state setter callback
+  - `sessions`: SimilarSessionInsight[] array
+  - `currentConditions`: { waveHeight, wavePeriod, wind } for comparison header
+- **Design**:
+  - Max height 85vh with scrollable content
+  - Color-coded match badges
+  - Icon-based condition indicators (Waves, Wind, Ruler for board)
+  - Close button in header
+
+---
+
+**Last Updated**: December 16, 2025
+**Status**: Production-ready with lazy loading, caching optimizations, and personalized insights
+**Next Review**: After push notifications implementation
+**Recent Changes**: Added PersonalizedInsights integration with ML-powered session matching (Dec 16, 2025)

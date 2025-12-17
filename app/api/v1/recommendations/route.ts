@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 
 async function recommendationsHandler(request: NextRequest) {
   try {
+    const apiStartTime = Date.now();
     const supabase = createAPIServerClient();
     const url = new URL(request.url);
     const latParam = url.searchParams.get("lat");
@@ -27,6 +28,7 @@ async function recommendationsHandler(request: NextRequest) {
     }
 
     // 1) Nearby beaches via PostGIS helper
+    const postGisStart = Date.now();
     let beaches: any[] = [];
     const nearby = await supabase.rpc("get_nearby_beaches", {
       input_lat: lat,
@@ -41,6 +43,7 @@ async function recommendationsHandler(request: NextRequest) {
       const raw = await supabase.from("beaches").select("id,name,lat,lon").limit(25);
       beaches = raw.data || [];
     }
+    const postGisTime = Date.now() - postGisStart;
 
     // 2) Pull forecast snapshot for given hour from marine_forecasts (new schema)
     const hourIso = new Date(timeIso);
@@ -50,10 +53,11 @@ async function recommendationsHandler(request: NextRequest) {
     // PERFORMANCE FIX: Batch fetch all forecasts with .in() to avoid N+1 queries
     // Before: 50 queries for 25 beaches (25 marine + 25 tide)
     // After: 2 queries total (1 marine + 1 tide)
+    // OPTIMIZATION: Fetch only ±6 hours instead of full 24 hours (50% less data)
     const perfStart = Date.now();
     const beachIds = beaches.map(b => b.id);
-    const dayStart = new Date(dateStr + "T00:00:00Z").toISOString();
-    const dayEnd = new Date(dateStr + "T23:59:59Z").toISOString();
+    const windowStart = new Date(hourIso.getTime() - 6 * 60 * 60 * 1000).toISOString();
+    const windowEnd = new Date(hourIso.getTime() + 6 * 60 * 60 * 1000).toISOString();
 
     // Fetch all marine and tide forecasts in parallel with a single query each
     const [marineResult, tideResult] = await Promise.all([
@@ -61,22 +65,24 @@ async function recommendationsHandler(request: NextRequest) {
         .from("marine_forecasts")
         .select("beach_id,ts,wave_height_m,wave_period_s,wind_speed_ms,wind_direction_deg,wave_direction_deg")
         .in("beach_id", beachIds)
-        .gte("ts", dayStart)
-        .lte("ts", dayEnd)
+        .gte("ts", windowStart)
+        .lte("ts", windowEnd)
         .order("beach_id", { ascending: true })
         .order("ts", { ascending: true }),
       supabase
         .from("tide_forecasts")
         .select("beach_id,ts,tide_height_m")
         .in("beach_id", beachIds)
-        .gte("ts", dayStart)
-        .lte("ts", dayEnd)
+        .gte("ts", windowStart)
+        .lte("ts", windowEnd)
         .order("beach_id", { ascending: true })
         .order("ts", { ascending: true })
     ]);
 
     const queryTime = Date.now() - perfStart;
-    console.log(`[PERF] Fetched forecasts for ${beachIds.length} beaches in ${queryTime}ms (was ${beachIds.length * 2} queries, now 2)`);
+    const marineRows = marineResult.data?.length || 0;
+    const tideRows = tideResult.data?.length || 0;
+    console.log(`[PERF] Forecast queries: ${queryTime}ms (marine: ${marineRows} rows, tide: ${tideRows} rows)`);
 
     // Group forecasts by beach_id for fast lookup
     const marineByBeach: Record<string, any[]> = {};
@@ -103,6 +109,7 @@ async function recommendationsHandler(request: NextRequest) {
       m == null ? null : Math.round(m * 3.28084 * 10) / 10;
 
     // Process each beach with pre-fetched data (no more queries!)
+    const processingStart = Date.now();
     const rows = beaches.map((beach: any) => {
       const mrows = marineByBeach[beach.id] || [];
       const trows = tideByBeach[beach.id] || [];
@@ -187,6 +194,14 @@ async function recommendationsHandler(request: NextRequest) {
         },
       },
     }));
+
+    const processingTime = Date.now() - processingStart;
+    const totalTime = Date.now() - apiStartTime;
+
+    // Performance breakdown logging
+    console.log(`[PERF] PostGIS nearby beaches: ${postGisTime}ms`);
+    console.log(`[PERF] Processing & scoring: ${processingTime}ms`);
+    console.log(`[PERF] Total API time: ${totalTime}ms`);
 
     return createSuccessResponse({ 
       recommendations: allRecommendations,
