@@ -284,7 +284,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowing();
 
       expect(result.success).toBe(true);
-      expect(result.data!.data).toEqual([mockTargetUser]);
+      expect(result.data).toEqual([mockTargetUser]);
     });
 
     it("should get users for specific user ID", async () => {
@@ -298,7 +298,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowing("user-3", 10);
 
       expect(result.success).toBe(true);
-      expect(result.data!.data).toEqual([mockTargetUser]);
+      expect(result.data).toEqual([mockTargetUser]);
     });
 
     it("should handle empty following list", async () => {
@@ -312,7 +312,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowing();
 
       expect(result.success).toBe(true);
-      expect(result.data!.data).toEqual([]);
+      expect(result.data).toEqual([]);
     });
 
     it("should handle database errors", async () => {
@@ -352,7 +352,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowing();
 
       expect(result.success).toBe(true);
-      expect(result.data!.data).toEqual([mockTargetUser]);
+      expect(result.data).toEqual([mockTargetUser]);
     });
   });
 
@@ -379,7 +379,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowers();
 
       expect(result.success).toBe(true);
-      expect(result.data!.data).toEqual([mockFollowerData[0].follower]);
+      expect(result.data).toEqual([mockFollowerData[0].follower]);
     });
 
     it("should get followers for specific user ID", async () => {
@@ -393,7 +393,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowers("user-3", 20);
 
       expect(result.success).toBe(true);
-      expect(result.data!.data).toEqual([mockFollowerData[0].follower]);
+      expect(result.data).toEqual([mockFollowerData[0].follower]);
     });
 
     it("should handle empty followers list", async () => {
@@ -407,7 +407,7 @@ describe("Social Actions", () => {
       const result = await getUserFollowers();
 
       expect(result.success).toBe(true);
-      expect(result.data!.data).toEqual([]);
+      expect(result.data).toEqual([]);
     });
 
     it("should handle database errors", async () => {

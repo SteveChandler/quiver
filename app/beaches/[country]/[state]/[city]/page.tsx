@@ -300,7 +300,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
           {/* Beaches List (2/3 width on desktop) */}
           <div className="lg:col-span-2 space-y-4">
             {beaches.map((beach) => {
-              const tier = getRankingTier(beach.composite_score);
+              const tier = getRankingTier(beach.compositeScore);
               const badgeLabel = getRankingBadgeLabel(tier);
 
               return (
@@ -364,10 +364,10 @@ export default async function LocationPage({ params }: LocationPageProps) {
                             {beach.break_type}
                           </span>
                         )}
-                        {beach.recent_intel_count > 0 && (
+                        {beach.recentIntelCount > 0 && (
                           <span className="text-green-600 font-medium">
-                            {beach.recent_intel_count} recent intel post
-                            {beach.recent_intel_count !== 1 ? "s" : ""}
+                            {beach.recentIntelCount} recent intel post
+                            {beach.recentIntelCount !== 1 ? "s" : ""}
                           </span>
                         )}
                       </div>

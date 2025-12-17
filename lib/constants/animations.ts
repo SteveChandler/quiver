@@ -264,7 +264,10 @@ export const WIZARD_MOTION = {
     rest:  { scale: 1, boxShadow: "0 0 0 0 rgba(0,119,182,0)" },
     focus: { scale: 1.01, boxShadow: "0 0 0 4px rgba(0,119,182,0.25)" },
     valid: { scale: 1.005, boxShadow: "0 0 0 4px rgba(34,197,94,0.25)" },
-    error: { x: [0,-6,6,-6,6,0], boxShadow: "0 0 0 4px rgba(239,68,68,0.25)" },
+    error: {
+      x: [0, -6, 6, -6, 6, 0] as number[],
+      boxShadow: "0 0 0 4px rgba(239,68,68,0.25)",
+    },
     transition: { duration: 0.24 }
   },
   hint: {
@@ -348,7 +351,7 @@ export const MAP_MOTION = {
     hover: { 
       scale: 1.05, 
       y: -2,
-      transition: { duration: 0.2, ease: "easeOut" }
+      transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }
     },
     pressed: { 
       scale: 0.95,
@@ -357,7 +360,7 @@ export const MAP_MOTION = {
     success: {
       scale: [1, 1.1, 1],
       y: [0, -5, 0],
-      transition: { duration: 0.5, ease: "easeOut" }
+      transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }
     }
   },
   mapZoom: {
@@ -385,4 +388,4 @@ export const MAP_MOTION = {
       transition: { duration: 0.8, ease: "easeOut" }
     }
   }
-} as const;
+};

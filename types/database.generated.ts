@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.3 (519615d)"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -891,6 +896,7 @@ export type Database = {
           access_tips: string | null
           amenities: string[] | null
           aspect_deg: number | null
+          average_rating: number | null
           best_conditions_prose: string | null
           best_months: string[] | null
           best_swell_direction: string | null
@@ -930,9 +936,12 @@ export type Database = {
           preferred_tide_ft_max: number | null
           preferred_tide_ft_min: number | null
           real_takeaways: string[] | null
+          region: string | null
           region_id: string | null
+          review_count: number | null
           shoreline_aspect_deg: number | null
           skill_level: string | null
+          slug: string | null
           state: string | null
           swell_window_center_deg: number | null
           swell_window_halfwidth_deg: number | null
@@ -953,6 +962,7 @@ export type Database = {
           access_tips?: string | null
           amenities?: string[] | null
           aspect_deg?: number | null
+          average_rating?: number | null
           best_conditions_prose?: string | null
           best_months?: string[] | null
           best_swell_direction?: string | null
@@ -992,9 +1002,12 @@ export type Database = {
           preferred_tide_ft_max?: number | null
           preferred_tide_ft_min?: number | null
           real_takeaways?: string[] | null
+          region?: string | null
           region_id?: string | null
+          review_count?: number | null
           shoreline_aspect_deg?: number | null
           skill_level?: string | null
+          slug?: string | null
           state?: string | null
           swell_window_center_deg?: number | null
           swell_window_halfwidth_deg?: number | null
@@ -1015,6 +1028,7 @@ export type Database = {
           access_tips?: string | null
           amenities?: string[] | null
           aspect_deg?: number | null
+          average_rating?: number | null
           best_conditions_prose?: string | null
           best_months?: string[] | null
           best_swell_direction?: string | null
@@ -1054,9 +1068,12 @@ export type Database = {
           preferred_tide_ft_max?: number | null
           preferred_tide_ft_min?: number | null
           real_takeaways?: string[] | null
+          region?: string | null
           region_id?: string | null
+          review_count?: number | null
           shoreline_aspect_deg?: number | null
           skill_level?: string | null
+          slug?: string | null
           state?: string | null
           swell_window_center_deg?: number | null
           swell_window_halfwidth_deg?: number | null
@@ -1183,6 +1200,54 @@ export type Database = {
         }
         Relationships: []
       }
+      city_editorial_content: {
+        Row: {
+          city_name: string
+          city_slug: string
+          country_slug: string
+          created_at: string
+          description: string[]
+          featured_intents: string[]
+          id: string
+          planning_checklist: string[]
+          quick_links: Json
+          region_label: string
+          session_timing: Json
+          state_slug: string
+          updated_at: string
+        }
+        Insert: {
+          city_name: string
+          city_slug: string
+          country_slug?: string
+          created_at?: string
+          description?: string[]
+          featured_intents?: string[]
+          id?: string
+          planning_checklist?: string[]
+          quick_links?: Json
+          region_label: string
+          session_timing?: Json
+          state_slug?: string
+          updated_at?: string
+        }
+        Update: {
+          city_name?: string
+          city_slug?: string
+          country_slug?: string
+          created_at?: string
+          description?: string[]
+          featured_intents?: string[]
+          id?: string
+          planning_checklist?: string[]
+          quick_links?: Json
+          region_label?: string
+          session_timing?: Json
+          state_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       comments: {
         Row: {
           content: string
@@ -1231,6 +1296,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      data_cleanup_audit: {
+        Row: {
+          backup_data: Json | null
+          cleanup_date: string
+          cleanup_reason: string
+          created_at: string
+          id: string
+          records_affected: number
+          table_name: string
+        }
+        Insert: {
+          backup_data?: Json | null
+          cleanup_date?: string
+          cleanup_reason: string
+          created_at?: string
+          id?: string
+          records_affected: number
+          table_name: string
+        }
+        Update: {
+          backup_data?: Json | null
+          cleanup_date?: string
+          cleanup_reason?: string
+          created_at?: string
+          id?: string
+          records_affected?: number
+          table_name?: string
+        }
+        Relationships: []
       }
       enhanced_forecasts: {
         Row: {
@@ -3321,7 +3416,6 @@ export type Database = {
           wave_period: string | null
           weather_condition: string | null
           wind_direction: string | null
-          wind_direction_deg: number | null
           wind_speed: string | null
           wind_wave_direction: string | null
           wind_wave_height: string | null
@@ -3355,7 +3449,6 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
-          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -3389,7 +3482,6 @@ export type Database = {
           wave_period?: string | null
           weather_condition?: string | null
           wind_direction?: string | null
-          wind_direction_deg?: number | null
           wind_speed?: string | null
           wind_wave_direction?: string | null
           wind_wave_height?: string | null
@@ -3420,6 +3512,74 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_enhanced_forecast_latest: {
+        Row: {
+          beach_id: string | null
+          data_source: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enhanced_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_marine_forecast_latest: {
+        Row: {
+          beach_id: string | null
+          created_at: string | null
+          is_observed: boolean | null
+          source: string | null
+          ts: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marine_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_sun_times_latest: {
+        Row: {
+          beach_id: string | null
+          created_at: string | null
+          date: string | null
+          source: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sun_times_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_tide_forecast_latest: {
+        Row: {
+          beach_id: string | null
+          created_at: string | null
+          source: string | null
+          ts: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tide_forecasts_beach_id_fkey"
             columns: ["beach_id"]
             isOneToOne: false
             referencedRelation: "beaches"
@@ -3522,35 +3682,35 @@ export type Database = {
       addgeometrycolumn:
         | {
             Args: {
-              column_name: string
-              new_dim: number
-              new_srid: number
-              new_type: string
-              schema_name: string
-              table_name: string
-              use_typmod?: boolean
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              column_name: string
-              new_dim: number
-              new_srid: number
-              new_type: string
-              table_name: string
-              use_typmod?: boolean
-            }
-            Returns: string
-          }
-        | {
-            Args: {
               catalog_name: string
               column_name: string
               new_dim: number
               new_srid_in: number
               new_type: string
               schema_name: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              new_dim: number
+              new_srid: number
+              new_type: string
+              schema_name: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              new_dim: number
+              new_srid: number
+              new_type: string
               table_name: string
               use_typmod?: boolean
             }
@@ -3607,6 +3767,15 @@ export type Database = {
       dropgeometrycolumn:
         | {
             Args: {
+              catalog_name: string
+              column_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
               column_name: string
               schema_name: string
               table_name: string
@@ -3614,26 +3783,17 @@ export type Database = {
             Returns: string
           }
         | { Args: { column_name: string; table_name: string }; Returns: string }
+      dropgeometrytable:
         | {
             Args: {
               catalog_name: string
-              column_name: string
               schema_name: string
               table_name: string
             }
             Returns: string
           }
-      dropgeometrytable:
         | { Args: { schema_name: string; table_name: string }; Returns: string }
         | { Args: { table_name: string }; Returns: string }
-        | {
-            Args: {
-              catalog_name: string
-              schema_name: string
-              table_name: string
-            }
-            Returns: string
-          }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       find_orphaned_session_media: {
@@ -3871,6 +4031,30 @@ export type Database = {
           start_ts: string
         }[]
       }
+      get_city_editorial: {
+        Args: { p_city: string; p_country?: string; p_state?: string }
+        Returns: {
+          city_name: string
+          city_slug: string
+          country_slug: string
+          created_at: string
+          description: string[]
+          featured_intents: string[]
+          id: string
+          planning_checklist: string[]
+          quick_links: Json
+          region_label: string
+          session_timing: Json
+          state_slug: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "city_editorial_content"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_coach_picks: {
         Args: { _beach_id: string; _radius_km?: number }
         Returns: {
@@ -3928,6 +4112,7 @@ export type Database = {
           max_distance_meters?: number
         }
         Returns: {
+          city: string
           distance_meters: number
           id: string
           is_private: boolean
@@ -3935,9 +4120,8 @@ export type Database = {
           location: string
           lon: number
           name: string
-          slug: string | null
-          city: string | null
-          state: string | null
+          slug: string
+          state: string
         }[]
       }
       get_nearby_buoys: {
@@ -4084,8 +4268,8 @@ export type Database = {
         }
       }
       populate_geometry_columns:
-        | { Args: { use_typmod?: boolean }; Returns: string }
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
+        | { Args: { use_typmod?: boolean }; Returns: string }
       postgis_constraint_dims: {
         Args: { geomcolumn: string; geomschema: string; geomtable: string }
         Returns: number
@@ -4205,6 +4389,14 @@ export type Database = {
       st_asewkt: { Args: { "": string }; Returns: string }
       st_asgeojson:
         | {
+            Args: { geog: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
             Args: {
               geom_column?: string
               maxdecimaldigits?: number
@@ -4213,18 +4405,32 @@ export type Database = {
             }
             Returns: string
           }
-        | {
-            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
-            Returns: string
-          }
-        | {
-            Args: { geog: unknown; maxdecimaldigits?: number; options?: number }
-            Returns: string
-          }
         | { Args: { "": string }; Returns: string }
       st_asgml:
         | {
+            Args: {
+              geog: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+            }
+            Returns: string
+          }
+        | {
             Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+        | {
+            Args: {
+              geog: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+              version: number
+            }
             Returns: string
           }
         | {
@@ -4238,35 +4444,13 @@ export type Database = {
             }
             Returns: string
           }
-        | {
-            Args: {
-              geog: unknown
-              id?: string
-              maxdecimaldigits?: number
-              nprefix?: string
-              options?: number
-              version: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              geog: unknown
-              id?: string
-              maxdecimaldigits?: number
-              nprefix?: string
-              options?: number
-            }
-            Returns: string
-          }
-        | { Args: { "": string }; Returns: string }
       st_askml:
         | {
-            Args: { geom: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Args: { geog: unknown; maxdecimaldigits?: number; nprefix?: string }
             Returns: string
           }
         | {
-            Args: { geog: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Args: { geom: unknown; maxdecimaldigits?: number; nprefix?: string }
             Returns: string
           }
         | { Args: { "": string }; Returns: string }
@@ -4287,11 +4471,11 @@ export type Database = {
       }
       st_assvg:
         | {
-            Args: { geom: unknown; maxdecimaldigits?: number; rel?: number }
+            Args: { geog: unknown; maxdecimaldigits?: number; rel?: number }
             Returns: string
           }
         | {
-            Args: { geog: unknown; maxdecimaldigits?: number; rel?: number }
+            Args: { geom: unknown; maxdecimaldigits?: number; rel?: number }
             Returns: string
           }
         | { Args: { "": string }; Returns: string }
@@ -4299,8 +4483,7 @@ export type Database = {
       st_astwkb:
         | {
             Args: {
-              geom: unknown[]
-              ids: number[]
+              geom: unknown
               prec?: number
               prec_m?: number
               prec_z?: number
@@ -4311,7 +4494,8 @@ export type Database = {
           }
         | {
             Args: {
-              geom: unknown
+              geom: unknown[]
+              ids: number[]
               prec?: number
               prec_m?: number
               prec_z?: number
@@ -4325,8 +4509,8 @@ export type Database = {
         Returns: string
       }
       st_azimuth:
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
         | { Args: { geog1: unknown; geog2: unknown }; Returns: number }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
       st_boundingdiagonal: {
         Args: { fits?: boolean; geom: unknown }
         Returns: unknown
@@ -4391,11 +4575,11 @@ export type Database = {
         Returns: boolean
       }
       st_distance:
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
         | {
             Args: { geog1: unknown; geog2: unknown; use_spheroid?: boolean }
             Returns: number
           }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
       st_distancesphere:
         | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
         | {
@@ -4417,6 +4601,11 @@ export type Database = {
       }
       st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_expand:
+        | { Args: { box: unknown; dx: number; dy: number }; Returns: unknown }
+        | {
+            Args: { box: unknown; dx: number; dy: number; dz?: number }
+            Returns: unknown
+          }
         | {
             Args: {
               dm?: number
@@ -4427,11 +4616,6 @@ export type Database = {
             }
             Returns: unknown
           }
-        | {
-            Args: { box: unknown; dx: number; dy: number; dz?: number }
-            Returns: unknown
-          }
-        | { Args: { box: unknown; dx: number; dy: number }; Returns: unknown }
       st_force3d: { Args: { geom: unknown; zvalue?: number }; Returns: unknown }
       st_force3dm: {
         Args: { geom: unknown; mvalue?: number }
@@ -4454,8 +4638,8 @@ export type Database = {
       st_geogfromtext: { Args: { "": string }; Returns: unknown }
       st_geographyfromtext: { Args: { "": string }; Returns: unknown }
       st_geohash:
-        | { Args: { geom: unknown; maxchars?: number }; Returns: string }
         | { Args: { geog: unknown; maxchars?: number }; Returns: string }
+        | { Args: { geom: unknown; maxchars?: number }; Returns: string }
       st_geomcollfromtext: { Args: { "": string }; Returns: unknown }
       st_geometricmedian: {
         Args: {
@@ -4499,8 +4683,8 @@ export type Database = {
         Returns: unknown
       }
       st_intersects:
-        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
         | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_isvaliddetail: {
         Args: { flags?: number; geom: unknown }
         Returns: Database["public"]["CompositeTypes"]["valid_detail"]
@@ -4653,8 +4837,8 @@ export type Database = {
         Returns: unknown
       }
       st_setsrid:
-        | { Args: { geom: unknown; srid: number }; Returns: unknown }
         | { Args: { geog: unknown; srid: number }; Returns: unknown }
+        | { Args: { geom: unknown; srid: number }; Returns: unknown }
       st_sharedpaths: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -4677,8 +4861,8 @@ export type Database = {
         Returns: Record<string, unknown>[]
       }
       st_srid:
-        | { Args: { geom: unknown }; Returns: number }
         | { Args: { geog: unknown }; Returns: number }
+        | { Args: { geom: unknown }; Returns: number }
       st_subdivide: {
         Args: { geom: unknown; gridsize?: number; maxvertices?: number }
         Returns: unknown[]
@@ -4707,15 +4891,15 @@ export type Database = {
       }
       st_touches: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_transform:
-        | { Args: { geom: unknown; to_proj: string }; Returns: unknown }
-        | {
-            Args: { from_proj: string; geom: unknown; to_srid: number }
-            Returns: unknown
-          }
         | {
             Args: { from_proj: string; geom: unknown; to_proj: string }
             Returns: unknown
           }
+        | {
+            Args: { from_proj: string; geom: unknown; to_srid: number }
+            Returns: unknown
+          }
+        | { Args: { geom: unknown; to_proj: string }; Returns: unknown }
       st_triangulatepolygon: { Args: { g1: unknown }; Returns: unknown }
       st_union:
         | { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
@@ -4921,4 +5105,3 @@ export const Constants = {
     },
   },
 } as const
-

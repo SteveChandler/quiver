@@ -9,6 +9,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Removed unused `/auth/update-password` page**: Deleted insecure password update page with no session validation
+  - Page had no links or usage anywhere in the codebase
+  - Lacked proper session validation (unlike secure `/auth/reset` flow)
+  - Weaker password requirements (6 chars vs 8 chars)
+  - Proper password reset flow remains via `/auth/forgot-password` → `/auth/reset`
+
+### Performance
+
+- **Reduced console log spam by 90%**: Removed 15+ verbose console.log statements from development environment
+  - Cleaned up `use-cached-profile.ts` (6 logs removed)
+  - Cleaned up `pwa-and-push-listeners.tsx` (5 logs removed)
+  - Cleaned up `forecast-tab.tsx` (3 logs removed)
+  - Cleaned up `user-avatar.tsx` and `auth-context.tsx` (2 logs removed)
+  - Kept critical error/warning logs for debugging
+- **Fixed StrictMode duplicate event listeners**: Added useRef guard to prevent duplicate performance tracking initialization
+  - Updated `client-app.tsx` with proper cleanup functions
+  - Updated `performance-utils.ts` with idempotency guards and cleanup returns
+  - Added optional `NEXT_PUBLIC_DEBUG_PERF` flag for opt-in performance logging
+- **Added ESLint guard**: Added `no-console` rule to prevent accidental reintroduction of console.log spam
+  - Configured to allow `console.warn` and `console.error`
+  - Warns on `console.log`, `console.info`, `console.debug`
+
+### Added
+
+- **Dynamic Location Detection on Landing Page** (December 2025)
+  - Replaced hardcoded "San Diego" text with dynamic location based on IP geolocation.
+  - Section header now shows "Local surf favorites near {region}" using detected location.
+  - Navbar "Explore" dropdown dynamically shows "{region} Area" as first region item.
+  - Two-tier location system: IP-based via Vercel edge headers (automatic, no prompt), with option to upgrade to browser geolocation on user action.
+  - Created `LocationProvider` context for app-wide location state management.
+  - Created `useLandingLocation` hook for simplified landing page component access.
+  - Metro area matching algorithm: exact city match → metro slug match → nearest coordinates → default (San Diego).
+  - Cookie-based persistence for client-side access without additional API calls.
+
+### Changed
+
+- **AllTrails-Style Landing Page Redesign** (December 2025)
+  - Hero: Replaced warm orange overlay with neutral charcoal gradient (`from-black/60 via-black/20 to-black/50`) for cleaner photo treatment.
+  - Hero: Added ocean-blue brand arc SVGs as decorative swooshes (top-right + bottom-left) replacing edge lines.
+  - Navbar: Increased vertical padding (`py-5`) and removed blur backdrop for cleaner look on hero gradient.
+  - Hero typography: Reduced font weight to `font-semibold` with `tracking-tight` for lighter editorial feel.
+  - Hero search bar: Moved search icon to left side, increased height (`h-14 md:h-16`), improved placeholder color.
+  - Hero "Explore nearby" CTA: Simplified from Button component to clean underlined text link.
+  - Section headers: Changed to left-aligned editorial style with location emphasis ("near San Diego").
+  - Surf spot cards: Updated to `rounded-2xl` with subtle `shadow-sm hover:shadow-md` transitions, reorganized meta row.
+  - Carousel control: Refined floating next button with consistent white/shadow styling.
+
+### Security
+
 - **Patched transitive `jws` versions** (December 2025)
   - Forced `jws` resolutions to `3.2.3` and `4.0.1` to address the auth0/node-jws HS256 improper signature verification advisory.
 
@@ -22,6 +71,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Kept data source badges, confidence scores, and other non-timestamp indicators.
 
 ### Fixed
+
+- **Image Optimization: Fixed 400 Errors, Fill Warnings, and Unused Preloads** (December 2025)
+
+  - Added placehold.co to image-proxy whitelist for dev/test environments only (gated by NODE_ENV check to maintain production security).
+  - Fixed Next.js Image fill height warning in session-detail-view by using aspect-ratio container (`aspect-[16/9]`) instead of fixed height.
+  - Removed unused logo-word preload from performance-utils to eliminate "preloaded but not used" warnings on non-landing pages.
+  - Result: Clean console output, no image-related warnings, maintained production security posture.
+
+- **Performance Optimization: Reduced Re-renders and Log Spam** (December 2025)
+
+  - Fixed `useSurfDiscovery` hook dependency array causing unnecessary callback recreations by removing control flags (`enabled`, `immediate`) from dependencies.
+  - Eliminated 40+ redundant console.log statements that fired on every render in `useSurfDiscovery`, `PersonalizedForecastCard`, and `ProfileContext`.
+  - Fixed `ProfileContext` duplicate fetch issue by removing `cachedData` from useEffect dependency array, preventing profile from loading 3 times on initial page load.
+  - Added `React.memo` to `PersonalizedForecastCard` to prevent unnecessary re-renders when props haven't changed.
+  - Added comprehensive unit tests for `useSurfDiscovery` hook (16 tests covering functionality, options, error handling, and dependency stability).
+  - Result: ~95% reduction in development logs, single profile fetch on load, improved render performance.
+
+- **Mobile Login Button Reachability & Touch Target** (December 2025)
+
+  - Restructured mobile hamburger menu layout to pin login button at the bottom of the screen for easy thumb reach.
+  - Changed from single-column flow layout to full-height flex layout with scrollable menu content and fixed bottom button.
+  - Increased button size from `h-10` (40px) to `h-11` (44px) by adding `size="lg"` prop.
+  - Meets iOS minimum touch target guidelines (44x44px) and follows iOS design patterns for bottom action buttons.
+  - Fixes ergonomic issue where button was positioned too high on tall modern phones for one-handed use.
+
+- **Auth gate no longer blocks after successful login** (December 2025)
+
+  - Fixed `AuthGate` treating a post-login modal close as a dismissal, which could incorrectly show the “Please sign up to continue” blocking overlay on `/map`.
+
+- **TypeScript typecheck restored to green** (December 2025)
+
+  - Restored strict `tsconfig.json` defaults and fixed remaining typing issues across sessions, forms, wizard motion, social feed metadata, E2E helpers, and UI components.
+
+- **Localhost hydration regressions from stale PWA caching** (December 2025)
+
+  - Disabled PWA auto-registration and ensured `/sw.js` never registers on localhost (clears stale caches/registrations to prevent old Next.js chunk 404s).
+  - Increased `image-proxy` burst limit to avoid broken landing images during normal browsing.
+
+- **Local builds intermittently failing with missing route modules** (December 2025)
+
+  - Added a pre-build `.next` cleanup step so `yarn build` doesn’t read stale dev artifacts (fixes `PageNotFoundError: Cannot find module for page: /api/auth/[...supabase]` and related routes).
+
+- **Landing page “Browse by activity” row uses full container width** (December 2025)
+
+  - Distributed activity chips across the section container on desktop by aligning the first/last chip to the container edges (removes the “clustered left” look).
 
 - **Location Pages RPC Coordinate Columns** (December 2025)
 
@@ -111,6 +205,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Includes testing requirements and week-by-week implementation checklist.
 
 ### Changed
+
+- **Landing page polish (AllTrails-inspired, forecast-first)** (December 2025)
+
+  - Added hero subhead + lightweight value row while preserving lazy-loaded search performance.
+  - Added “Upgrade your next Session” promo section between Surf Highlights and Activities (animated icon + sign-up CTA).
+  - Shifted primary CTAs to `/map` and made sign-up secondary for “explore-first” flow.
+  - Removed mocked conditions UI from landing surf spot cards and dropped framer-motion usage in that grid.
+  - Added `<main role="main">` landmark for accessibility and hardened `SectionWrapper` max-width classes for Tailwind.
+  - Restyled the “Browse by activity” landing section into AllTrails-style circular photo chips (image + label) with responsive horizontal scroll on mobile.
+
+- **Landing forecast section redesign (AllTrails-style panel)** (December 2025)
+
+  - Restyled the “Get the most accurate surf forecasts” section into a rounded panel layout with left mini-nav, phone mock preview, and right-side CTAs.
+  - Refined the module to better match AllTrails: smaller typography, roomier padding/gaps, and left-aligned copy on desktop.
 
 - **Enhanced DRY Form Components with Character Counters and Custom Rendering** (December 2025)
 

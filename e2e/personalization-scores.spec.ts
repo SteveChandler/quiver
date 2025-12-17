@@ -27,8 +27,8 @@ import {
  * These tests require local database setup with seeded personalization data
  */
 const isDevEnvironment =
-  process.env.PLAYWRIGHT_BASE_URL?.includes('dev.quiversurf.app') ||
-  process.env.PLAYWRIGHT_BASE_URL?.includes('quiversurf.app') ||
+  process.env.BASE_URL?.includes('dev.quiversurf.app') ||
+  process.env.BASE_URL?.includes('quiversurf.app') ||
   process.env.TEST_ENV === 'dev';
 
 test.describe('Personalization Match Scores', () => {

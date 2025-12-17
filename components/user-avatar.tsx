@@ -58,7 +58,6 @@ export function UserAvatar({
   })();
 
   const handleImageError = () => {
-    console.log("Avatar image failed to load:", src);
     setImageError(true);
   };
 
@@ -69,11 +68,6 @@ export function UserAvatar({
           src={cleanSrc}
           alt={name ? `Profile picture of ${name}` : "User profile picture"}
           onError={handleImageError}
-          onLoad={() => {
-            if (process.env.NODE_ENV === "development") {
-              console.log("Avatar image loaded successfully:", cleanSrc);
-            }
-          }}
         />
       )}
       <AvatarFallback className="bg-blue-500 text-white">

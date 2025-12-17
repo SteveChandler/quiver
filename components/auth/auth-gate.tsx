@@ -5,7 +5,11 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { AuthBlockingOverlay } from "@/components/auth/auth-blocking-overlay";
-import { trackAuthWallShown, trackAuthWallDismissed, trackAuthModalReappeared } from "@/lib/analytics/auth-events";
+import {
+  trackAuthWallShown,
+  trackAuthWallDismissed,
+  trackAuthModalReappeared,
+} from "@/lib/analytics/auth-events";
 
 type Props = {
   /** If true, prevent any background interaction entirely */
@@ -45,6 +49,24 @@ export default function AuthGate({
   }, [block]);
 
   React.useEffect(() => {
+    const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
+      // If auth succeeds while the gate is open (or previously dismissed),
+      // ensure we tear down any guest-blocking UI immediately.
+      if (event === "SIGNED_IN" && session) {
+        document.body.style.overflow = "";
+        try {
+          localStorage.removeItem("auth_gate_dismissed");
+        } catch {}
+        setOpen(false);
+        setWasDismissed(false);
+      }
+    });
+    return () => {
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, [sb]);
+
+  React.useEffect(() => {
     let alive = true;
     let timer: NodeJS.Timeout;
 
@@ -59,7 +81,7 @@ export default function AuthGate({
       }
 
       // Check if modal was recently dismissed (within last 30 seconds)
-      const dismissedAt = localStorage.getItem('auth_gate_dismissed');
+      const dismissedAt = localStorage.getItem("auth_gate_dismissed");
       if (dismissedAt) {
         const timeSinceDismissal = Date.now() - parseInt(dismissedAt, 10);
         const thirtySeconds = 30 * 1000;
@@ -94,14 +116,35 @@ export default function AuthGate({
     };
   }, [sb, block, delayMs, pathname]);
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (!closable) return;
+
+    // If the user just authenticated, closing the modal is NOT a "dismiss".
+    // We must verify session state before setting wasDismissed=true.
+    let hasSession = false;
+    try {
+      const { data } = await sb.auth.getSession();
+      hasSession = !!data.session;
+    } catch {
+      hasSession = false;
+    }
+
+    if (hasSession) {
+      // Auth succeeded; close modal and ensure overlay never appears.
+      document.body.style.overflow = "";
+      try {
+        localStorage.removeItem("auth_gate_dismissed");
+      } catch {}
+      setOpen(false);
+      setWasDismissed(false);
+      return;
+    }
 
     // User dismissed the modal - show blocking overlay
     document.body.style.overflow = "";
 
     // Save dismissal time to localStorage
-    localStorage.setItem('auth_gate_dismissed', Date.now().toString());
+    localStorage.setItem("auth_gate_dismissed", Date.now().toString());
 
     trackAuthWallDismissed();
     setOpen(false);

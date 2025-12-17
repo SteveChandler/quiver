@@ -444,6 +444,7 @@ function IntelPostCard({
   isConfirming,
 }: IntelPostCardProps) {
   const tagConfig = getIntelTagConfig(post.tag);
+  const isConfirmed = post.user_has_confirmed ?? false;
   const timeAgo = formatDistanceToNow(new Date(post.created_at), {
     addSuffix: true,
   });
@@ -452,22 +453,13 @@ function IntelPostCard({
     <div className="bg-white/70 rounded-xl border border-blue-100/80 p-4 transition-all duration-200 hover:bg-white/90 hover:shadow-md">
       <div className="flex items-start gap-3">
         {/* User Avatar */}
-        {post.user?.id ? (
-          <UserAvatarButton
-            userId={post.user.id}
-            src={post.user?.avatar_url}
-            name={post.user?.full_name}
-            size="sm"
-            className="ring-2 ring-white shadow-sm"
-          />
-        ) : (
-          <UserAvatar
-            src={post.user?.avatar_url}
-            name={post.user?.full_name}
-            size="sm"
-            className="ring-2 ring-white shadow-sm"
-          />
-        )}
+        <UserAvatarButton
+          userId={post.user_id}
+          src={post.user?.avatar_url ?? undefined}
+          name={post.user?.full_name ?? "Anonymous"}
+          size="sm"
+          className="ring-2 ring-white shadow-sm"
+        />
 
         <div className="flex-1 min-w-0">
           {/* Header */}
@@ -480,7 +472,7 @@ function IntelPostCard({
                     tagConfig.color
                   )}
                 >
-                  {tagConfig.icon}
+                  {tagConfig.emoji}
                   <span className="ml-1">{tagConfig.label}</span>
                 </Badge>
 
@@ -524,11 +516,11 @@ function IntelPostCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onConfirm(post.id, post.user_has_confirmed)}
+                  onClick={() => onConfirm(post.id, isConfirmed)}
                   disabled={isConfirming}
                   className={cn(
                     "h-7 px-2 text-xs transition-all duration-200",
-                    post.user_has_confirmed
+                    isConfirmed
                       ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
                       : "text-gray-600 hover:bg-blue-50 hover:text-blue-700",
                     isConfirming && "opacity-50 cursor-wait"
@@ -540,13 +532,13 @@ function IntelPostCard({
                     <ThumbsUp
                       className={cn(
                         "h-3 w-3 mr-1 transition-transform duration-200",
-                        post.user_has_confirmed && "scale-110"
+                        isConfirmed && "scale-110"
                       )}
                     />
                   )}
                   {isConfirming
                     ? "Processing..."
-                    : post.user_has_confirmed
+                    : isConfirmed
                     ? "Confirmed"
                     : "Confirm"}
                 </Button>

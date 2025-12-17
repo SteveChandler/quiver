@@ -8,7 +8,7 @@
 import { test, expect } from "@playwright/test";
 
 // Base URL for API requests
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 test.describe("API Rate Limiting", () => {
   test.describe("Image Proxy Rate Limiting (CRITICAL)", () => {
@@ -18,9 +18,9 @@ test.describe("API Rate Limiting", () => {
       );
       const endpoint = `${BASE_URL}/api/image-proxy?url=${imageUrl}`;
 
-      // Burst limit is 5 - make 6 requests rapidly
+      // Burst limit is 25 - make 26 requests rapidly
       const results = [];
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 26; i++) {
         const response = await request.get(endpoint);
         results.push({
           status: response.status(),
@@ -46,7 +46,7 @@ test.describe("API Rate Limiting", () => {
 
       // Make requests until rate limited
       let rateLimitedResponse;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 40; i++) {
         const response = await request.get(endpoint);
         if (response.status() === 429) {
           rateLimitedResponse = response;

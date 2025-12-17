@@ -34,7 +34,7 @@ Day-to-day development references:
 - **[guides/DEV_TESTING.md](guides/DEV_TESTING.md)** - Testing against dev.quiversurf.app
 - **[guides/DEPLOYMENT_CHECKLIST.md](guides/DEPLOYMENT_CHECKLIST.md)** - Production deployment checklist
 - **[guides/IOS_RELEASE_GUIDE.md](guides/IOS_RELEASE_GUIDE.md)** - Complete iOS App Store submission guide
-- **[archive/reports/TUNNEL_AUTOMATION_SUMMARY.md](archive/reports/TUNNEL_AUTOMATION_SUMMARY.md)** - Mobile development tunnel automation
+- **[guides/TUNNEL_AUTOMATION_SUMMARY.md](guides/TUNNEL_AUTOMATION_SUMMARY.md)** - Mobile development tunnel automation
 - **[guides/E2E_TEST_PLAN.md](guides/E2E_TEST_PLAN.md)** - End-to-end testing strategy
 
 ### 🏗️ **Architecture & Strategy**
@@ -78,8 +78,8 @@ Database schema and data management:
 
 - **[data/database-coordinate-conventions.md](data/database-coordinate-conventions.md)** - Coordinate system conventions
 - **[data/coordinate-naming-audit.md](data/coordinate-naming-audit.md)** - Coordinate naming audit results
-- **[archive/reports/data-quality-audit-results.md](archive/reports/data-quality-audit-results.md)** - Data quality audit findings
-- **[archive/reports/PHASE_5_METRO_AREAS.md](archive/reports/PHASE_5_METRO_AREAS.md)** - Metro areas implementation
+- **[data/data-quality-audit-results.md](data/data-quality-audit-results.md)** - Data quality audit findings
+- **[data/PHASE_5_METRO_AREAS.md](data/PHASE_5_METRO_AREAS.md)** - Metro areas implementation
 
 ### 📍 **Coordinate Conventions**
 
@@ -155,14 +155,7 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 
 ## 🔄 **Recent Updates**
 
-**December 2025 (Latest)**:
-- Geographic expansion: East Coast, Southeast, Gulf Coast, Puerto Rico beaches added
-- City Editorial Content System with map-first redesign
-- PopularBeachesSection for improved SEO and initial load performance
-- Best surf window evening cutoff adjusted (9 PM → 6 PM)
-- Data quality improvements and database optimizations
-
-**November 2025**: Phase 2 Documentation Consolidation - reduced redundancy
+**November 2025 (Latest)**: Phase 2 Documentation Consolidation - reduced redundancy
 
 **Phase 2 Changes:**
 
@@ -216,6 +209,6 @@ The documentation is streamlined to support the **growth-first strategy** (0 →
 
 ---
 
-**Last Updated**: December 2025
+**Last Updated**: November 2025
 **Status**: Complete reorganization by purpose
-**Next Review**: January 2026
+**Next Review**: December 2025

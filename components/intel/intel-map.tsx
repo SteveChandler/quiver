@@ -214,7 +214,7 @@ export function IntelMap({
               </div>
               <p class="text-sm text-gray-600 mb-2">${post.description}</p>
               <div class="text-xs text-gray-500">
-                by ${post.user.full_name || "Anonymous"} • ${
+                by ${post.user?.full_name || "Anonymous"} • ${
             post.confirmations_count
           } confirmations
               </div>
@@ -254,7 +254,7 @@ export function IntelMap({
 
         if (result.success) {
           toast.success(
-            result.data.confirmed ? "Intel confirmed!" : "Confirmation removed"
+            result.data?.confirmed ? "Intel confirmed!" : "Confirmation removed"
           );
           // The posts will be updated by the parent component's refetch
         } else {

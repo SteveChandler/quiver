@@ -228,9 +228,9 @@ export function createMockBeachWithMetrics(
 ): BeachWithMetrics {
   return {
     ...createMockBeach(overrides),
-    composite_score: 0.75,
-    recent_intel_count: 5,
-    avg_confirmations: 3.0,
+    compositeScore: 0.75,
+    recentIntelCount: 5,
+    avgConfirmations: 3.0,
     rank: undefined,
     ...overrides,
   };

@@ -1,13 +1,16 @@
 "use client";
 
 import { useAuth } from "@/context/auth-context";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { isStandaloneApp } from "@/lib/isStandaloneApp";
 import { AuthLoadingStates } from "@/lib/utils/loading-utils";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { HomeScreen } from "@/components/home-screen";
 import { Navbar } from "@/components/landing-page/navbar";
 import { HeroSection } from "@/components/landing-page/hero-section";
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
+import { UpgradeSessionSection } from "./upgrade-session-section";
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
@@ -27,6 +30,18 @@ import { CTASection } from "@/components/landing-page/cta-section";
  */
 export function AuthAwareLandingWrapper() {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
+  const redirectedRef = useRef(false);
+
+  // Redirect to sign-in in standalone/PWA mode immediately (don't wait for auth)
+  useEffect(() => {
+    if (redirectedRef.current) return;
+    if (!isStandaloneApp()) return;
+    if (user) return; // Already logged in, no redirect needed
+
+    redirectedRef.current = true;
+    router.replace("/auth/sign-in");
+  }, [user, router]);
 
   // Initialize performance monitoring
   useEffect(() => {
@@ -70,15 +85,18 @@ export function AuthAwareLandingWrapper() {
   return (
     <>
       <Navbar />
-      <HeroSection />
+      <main role="main">
+        <HeroSection />
 
-      {/* These sections have client-side interactivity */}
-      <div className="space-y-0">
-        <SurfHighlightsSection />
-        <ActivitiesSection />
-        <ForecastSection />
-        <CTASection />
-      </div>
+        {/* These sections have client-side interactivity */}
+        <div className="space-y-0">
+          <SurfHighlightsSection />
+          <UpgradeSessionSection />
+          <ActivitiesSection />
+          <ForecastSection />
+          <CTASection />
+        </div>
+      </main>
     </>
   );
 }

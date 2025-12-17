@@ -7,7 +7,7 @@
  * Server-side variants with full access to server actions live in lib/data/server.ts.
  */
 
-type Beach = {
+export type ClientBeach = {
   id: string;
   name: string;
   latitude: number | null;
@@ -17,7 +17,7 @@ type Beach = {
   // Other columns exist; we keep this minimal to avoid tight coupling.
 };
 
-async function getAllBeaches(): Promise<Beach[]> {
+async function getAllBeaches(): Promise<ClientBeach[]> {
   const response = await fetch("/api/beaches", {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -28,7 +28,7 @@ async function getAllBeaches(): Promise<Beach[]> {
     throw new Error(`Failed to load beaches: ${response.status}`);
   }
 
-  const json = (await response.json()) as { beaches?: Beach[] };
+  const json = (await response.json()) as { beaches?: ClientBeach[] };
   return Array.isArray(json.beaches) ? json.beaches : [];
 }
 

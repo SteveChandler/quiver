@@ -52,6 +52,7 @@ export default tseslint.config(
       },
     },
     rules: {
+      "no-console": ["warn", { allow: ["warn", "error"] }],
       "react-hooks/error-boundaries": "off",
       "react-hooks/incompatible-library": "off",
       "react-hooks/preserve-manual-memoization": "off",
@@ -106,4 +107,3 @@ export default tseslint.config(
     },
   }
 );
-

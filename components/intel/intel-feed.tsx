@@ -217,20 +217,12 @@ export function IntelFeedCard({
         <div className="space-y-3">
           {/* Header */}
           <div className="flex items-start gap-3">
-            {(post as any).user?.id ? (
-              <UserAvatarButton
-                userId={(post as any).user.id}
-                src={post.user.avatar_url}
-                name={post.user.full_name}
-                size="sm"
-              />
-            ) : (
-              <UserAvatar
-                src={post.user?.avatar_url}
-                name={post.user?.full_name}
-                size="sm"
-              />
-            )}
+            <UserAvatarButton
+              userId={post.user_id}
+              src={post.user?.avatar_url ?? undefined}
+              name={post.user?.full_name ?? "Anonymous"}
+              size="sm"
+            />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">{tagConfig.emoji}</span>
@@ -242,7 +234,7 @@ export function IntelFeedCard({
                 )}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{post.user.full_name || "Anonymous"}</span>
+                <span>{post.user?.full_name || "Anonymous"}</span>
                 <span>•</span>
                 <Calendar className="h-3 w-3" />
                 <span>

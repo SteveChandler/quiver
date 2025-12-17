@@ -4,11 +4,20 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import { ProfileProvider } from "@/context/profile-context";
+import { LocationProvider } from "@/context/location-context";
 import { ReactQueryProvider } from "@/components/providers/react-query-provider";
 import { SelectedBeachProvider } from "@/state/selectedBeach";
 import { Suspense } from "react";
 import { AnalyticsLoader } from "@/components/analytics/analytics-loader";
 import dynamic from "next/dynamic";
+
+function shouldSendLocalAgentIngest(): boolean {
+  if (typeof window === "undefined") return false;
+  if (process.env.NODE_ENV !== "development") return false;
+  // eslint-disable-next-line no-restricted-properties
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
 
 // Capture early client-side errors (including hydration) before effects run.
 if (typeof window !== "undefined") {
@@ -23,6 +32,7 @@ if (typeof window !== "undefined") {
     const originalWarn = console.warn.bind(console);
 
     const postConsoleEvent = (level: "error" | "warn", args: unknown[]) => {
+      if (!shouldSendLocalAgentIngest()) return;
       const first =
         typeof args?.[0] === "string"
           ? args[0]
@@ -151,6 +161,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
+      if (!shouldSendLocalAgentIngest()) return;
       // #region agent log (H5)
       fetch(
         "http://127.0.0.1:7242/ingest/34f14e6e-7bc2-48aa-9171-48f9e1984d59",
@@ -180,6 +191,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     };
 
     const handleRejection = (event: PromiseRejectionEvent) => {
+      if (!shouldSendLocalAgentIngest()) return;
       // #region agent log (H5)
       fetch(
         "http://127.0.0.1:7242/ingest/34f14e6e-7bc2-48aa-9171-48f9e1984d59",
@@ -233,10 +245,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AnalyticsLoader />
       </Suspense>
 
-      <AuthProvider>
-        {/* Global body class manager for authenticated state */}
-        <AuthBodyClassManager />
-        <ProfileProvider>
+      <LocationProvider>
+        <AuthProvider>
+          {/* Global body class manager for authenticated state */}
+          <AuthBodyClassManager />
+          <ProfileProvider>
           {/* Auth-only overlays (do not mount when logged out) */}
           <AuthOverlays />
 
@@ -266,7 +279,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <LandingPageContent>{children}</LandingPageContent>
           )}
         </ProfileProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </LocationProvider>
     </>
   );
 }
@@ -309,6 +323,10 @@ function LandingPageContent({ children }: { children: React.ReactNode }) {
     <>
       <Suspense fallback={null}>
         <AppHeader />
+      </Suspense>
+      {/* PWA SW registration/unregistration (runtime-controlled; never on localhost) */}
+      <Suspense fallback={null}>
+        <PWAAndPushListeners />
       </Suspense>
       <main id="main-content" role="main">
         {children}

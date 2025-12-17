@@ -163,9 +163,9 @@ export function ConditionsSection({
     loading: forecastLoading,
     error: forecastError,
   } = useSessionForecast(
-    formState.selectedBeachId,
-    formState.selectedDate,
-    formState.selectedTime
+    formState.selectedBeachId ?? null,
+    formState.selectedDate ?? null,
+    formState.selectedTime ?? null
   );
 
   // Breadcrumb for diagnostics (log once on mount)

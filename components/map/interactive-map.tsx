@@ -367,7 +367,7 @@ export function InteractiveMap({
                     ...b,
                     _d: calculateDistanceInMiles(
                       { lat: latitude, lon: longitude },
-                      { lat: b.lat, lon: b.lon }
+                      { lat: b.lat ?? NaN, lon: b.lon ?? NaN }
                     ),
                   }))
                   .filter((b: any) => isFinite(b._d) && b._d <= 30)
@@ -428,8 +428,9 @@ export function InteractiveMap({
           isFinite(lon);
 
         // Filter out beaches with invalid coordinates before creating markers
-        const validLocations = locations.filter((location) =>
-          hasValidCoordinates(location.lat, location.lon)
+        const validLocations = locations.filter(
+          (location): location is Beach & { lat: number; lon: number } =>
+            hasValidCoordinates(location.lat, location.lon)
         );
 
         // Create markers for each beach with valid coordinates

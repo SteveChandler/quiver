@@ -5,11 +5,11 @@
  * into a profile page or settings page.
  */
 
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { PreferencesDisplayCard } from './preferences-display-card';
-import type { Profile } from '@/types/database';
+import { useRouter } from "next/navigation";
+import { PreferencesDisplayCard } from "./preferences-display-card";
+import type { Profile } from "@/types/database";
 
 // Example 1: Basic usage without edit functionality
 export function BasicExample({ profile }: { profile: Profile }) {
@@ -25,7 +25,7 @@ export function WithEditExample({ profile }: { profile: Profile }) {
   const router = useRouter();
 
   const handleEdit = () => {
-    router.push('/profile/preferences');
+    router.push("/profile/preferences");
   };
 
   return (
@@ -47,7 +47,7 @@ export function ProfilePageExample({ profile }: { profile: Profile }) {
       {/* Preferences Section */}
       <PreferencesDisplayCard
         profile={profile}
-        onEdit={() => router.push('/profile/preferences')}
+        onEdit={() => router.push("/profile/preferences")}
       />
 
       {/* Other profile sections */}
@@ -57,30 +57,28 @@ export function ProfilePageExample({ profile }: { profile: Profile }) {
 
 // Example 4: Mock profile data for testing
 export const mockProfile: Profile = {
-  id: 'user-123',
-  user_id: 'user-123',
-  full_name: 'Test Surfer',
+  id: "user-123",
+  full_name: "Test Surfer",
   avatar_url: null,
   bio: null,
   home_beach_id: null,
-  experience_level: 'intermediate',
-  surf_styles: ['shortboard', 'longboard'],
-  preferred_wave_size: 'medium',
-  preferred_break_type: 'beach',
-  crowd_preference: 'moderate',
+  experience_level: "intermediate",
+  surf_styles: ["shortboard", "longboard"],
+  preferred_wave_size: "medium",
+  preferred_break_type: "beach",
+  crowd_preference: "moderate",
   notif_reminders: false,
   digest_session_invites: false,
   inapp_session_invites: true,
   email_session_invites: true,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-};
+} as unknown as Profile;
 
 // Example 5: Empty profile (no preferences set)
 export const emptyProfile: Profile = {
-  id: 'user-456',
-  user_id: 'user-456',
-  full_name: 'New Surfer',
+  id: "user-456",
+  full_name: "New Surfer",
   avatar_url: null,
   bio: null,
   home_beach_id: null,
@@ -95,7 +93,7 @@ export const emptyProfile: Profile = {
   email_session_invites: true,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-};
+} as unknown as Profile;
 
 // Example usage in a page component
 export default function ExamplePage() {

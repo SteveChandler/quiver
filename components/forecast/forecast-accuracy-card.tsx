@@ -18,7 +18,6 @@ import type { BeachForecastAccuracy } from "@/types/database";
 interface ExtendedAccuracy extends BeachForecastAccuracy {
   wave_height_accuracy?: number | null;
   wind_accuracy?: number | null;
-  updated_at?: string;
 }
 
 interface ForecastAccuracyCardProps {
@@ -34,14 +33,14 @@ export function ForecastAccuracyCard({
   className,
   showTrend = true,
 }: ForecastAccuracyCardProps) {
-  const getAccuracyColor = (score: number | null) => {
+  const getAccuracyColor = (score: number | null | undefined) => {
     if (!score) return "text-gray-500";
     if (score >= 85) return "text-green-600";
     if (score >= 70) return "text-yellow-600";
     return "text-red-600";
   };
 
-  const getAccuracyBadgeVariant = (score: number | null) => {
+  const getAccuracyBadgeVariant = (score: number | null | undefined) => {
     if (!score) return "secondary";
     if (score >= 85) return "default"; // green
     if (score >= 70) return "secondary"; // yellow
@@ -80,7 +79,9 @@ export function ForecastAccuracyCard({
                   Based on {accuracy.total_sessions_count} user sessions
                   <br />
                   Last updated:{" "}
-                  {accuracy.updated_at ? new Date(accuracy.updated_at).toLocaleDateString() : "N/A"}
+                  {accuracy.updated_at
+                    ? new Date(accuracy.updated_at).toLocaleDateString()
+                    : "N/A"}
                 </p>
               </TooltipContent>
             </Tooltip>

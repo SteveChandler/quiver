@@ -1,20 +1,25 @@
-'use client';
+"use client";
 
-import { useCallback, useState, useRef } from 'react';
-import { useDataFetcher } from '@/hooks/use-data-fetcher';
-import { getUserLearnedPreferences, validateUserPreferences, updateUserSurfPreferences } from '@/actions/preference-actions';
-import { LearnedPreferencesDisplay } from './learned-preferences-display';
-import { ValidationPrompt } from './validation-prompt';
-import { PreferenceOverrideForm } from './preference-override-form';
-import { ProfilePreferences } from './profile-preferences';
-import { PreferencesDisplayCard } from './preferences-display-card';
-import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Loader2, Waves, Settings } from 'lucide-react';
-import type { UserSurfPreferences } from '@/lib/services/preference-learning-service';
-import { useAuth } from '@/context/auth-context';
-import { data as gateway } from '@/lib/data/client';
-import type { Beach, Profile } from '@/types/database';
+import { useCallback, useState, useRef } from "react";
+import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import {
+  getUserLearnedPreferences,
+  validateUserPreferences,
+  updateUserSurfPreferences,
+} from "@/actions/preference-actions";
+import { LearnedPreferencesDisplay } from "./learned-preferences-display";
+import { ValidationPrompt } from "./validation-prompt";
+import { PreferenceOverrideForm } from "./preference-override-form";
+import { ProfilePreferences } from "./profile-preferences";
+import { PreferencesDisplayCard } from "./preferences-display-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Loader2, Waves, Settings } from "lucide-react";
+import type { UserSurfPreferences } from "@/lib/services/preference-learning-service";
+import { useAuth } from "@/context/auth-context";
+import { data as gateway } from "@/lib/data/client";
+import { getBeaches } from "@/actions/beach-actions";
+import type { Beach, Profile } from "@/types/database";
 
 /**
  * SurfProfileSection - Main container for the "Your Surf Profile" feature
@@ -44,7 +49,7 @@ import type { Beach, Profile } from '@/types/database';
  */
 export function SurfProfileSection() {
   const { user } = useAuth();
-  const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [mode, setMode] = useState<"view" | "edit">("view");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [beaches, setBeaches] = useState<Beach[]>([]);
   const [isEditingExplicit, setIsEditingExplicit] = useState(false); // Toggle for explicit preferences edit
@@ -52,13 +57,15 @@ export function SurfProfileSection() {
 
   // Fetch profile and beaches data
   const fetchProfileData = useCallback(async () => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user) throw new Error("User not authenticated");
 
     const profileData = await gateway.users.profile.get(user.id);
     setProfile(profileData as Profile);
 
-    const beachesData = await gateway.beaches.getAll();
-    setBeaches(beachesData as Beach[]);
+    const beachesResult = await getBeaches();
+    const beachesData =
+      beachesResult.success && beachesResult.data ? beachesResult.data : [];
+    setBeaches(beachesData);
 
     return { profile: profileData, beaches: beachesData };
   }, [user]);
@@ -73,7 +80,12 @@ export function SurfProfileSection() {
     return await getUserLearnedPreferences();
   }, []);
 
-  const { data, loading: prefsLoading, error, refetch } = useDataFetcher(fetchPreferences);
+  const {
+    data,
+    loading: prefsLoading,
+    error,
+    refetch,
+  } = useDataFetcher(fetchPreferences);
 
   const loading = profileLoading || prefsLoading;
 
@@ -83,25 +95,25 @@ export function SurfProfileSection() {
       await validateUserPreferences(true);
       await refetch();
     } catch (err) {
-      console.error('Failed to validate preferences:', err);
+      console.error("Failed to validate preferences:", err);
     }
   };
 
   // Handle edit mode
   const handleEdit = () => {
-    setMode('edit');
+    setMode("edit");
   };
 
   // Handle save overrides
   const handleSave = async (overrides: Partial<UserSurfPreferences>) => {
     await updateUserSurfPreferences(overrides);
-    setMode('view');
+    setMode("view");
     await refetch();
   };
 
   // Handle cancel
   const handleCancel = () => {
-    setMode('view');
+    setMode("view");
   };
 
   // Handle edit button click from display card - toggle to edit mode
@@ -110,8 +122,8 @@ export function SurfProfileSection() {
     // Scroll to form after state update
     setTimeout(() => {
       editFormRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
+        behavior: "smooth",
+        block: "start",
       });
     }, 100);
   };
@@ -160,17 +172,25 @@ export function SurfProfileSection() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Settings className="h-5 w-5 text-ocean-blue" />
-              <h2 className="text-lg font-semibold text-dark-grey">Your Preferences</h2>
+              <h2 className="text-lg font-semibold text-dark-grey">
+                Your Preferences
+              </h2>
             </div>
 
             {!isEditingExplicit ? (
               /* Display Card - Read-only view */
               <div className="mb-6">
-                <PreferencesDisplayCard profile={profile} onEdit={handleEditClick} />
+                <PreferencesDisplayCard
+                  profile={profile}
+                  onEdit={handleEditClick}
+                />
               </div>
             ) : (
               /* Editable Form - Only shown when editing */
-              <div ref={editFormRef} className="transition-all duration-300 rounded-lg space-y-4">
+              <div
+                ref={editFormRef}
+                className="transition-all duration-300 rounded-lg space-y-4"
+              >
                 <ProfilePreferences
                   userId={user.id}
                   profile={profile}
@@ -201,13 +221,15 @@ export function SurfProfileSection() {
             <div className="text-6xl mb-4">🏄‍♂️</div>
             <h3 className="text-lg font-semibold">Not enough data yet</h3>
             <p className="text-gray-600 max-w-md mx-auto">
-              Log at least 5 surf sessions with ratings to see your learned preferences.
-              We&apos;ll analyze your sessions to understand what conditions you love!
+              Log at least 5 surf sessions with ratings to see your learned
+              preferences. We&apos;ll analyze your sessions to understand what
+              conditions you love!
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6 max-w-md mx-auto">
               <p className="text-sm text-gray-700">
-                💡 <strong>Tip:</strong> Rate your sessions to help us learn your preferences faster.
-                The more sessions you log, the better we understand your ideal conditions.
+                💡 <strong>Tip:</strong> Rate your sessions to help us learn
+                your preferences faster. The more sessions you log, the better
+                we understand your ideal conditions.
               </p>
             </div>
           </CardContent>
@@ -217,7 +239,7 @@ export function SurfProfileSection() {
   }
 
   // Edit mode
-  if (mode === 'edit') {
+  if (mode === "edit") {
     return (
       <PreferenceOverrideForm
         currentPreferences={preferencesData.learned}
@@ -237,17 +259,25 @@ export function SurfProfileSection() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Settings className="h-5 w-5 text-ocean-blue" />
-            <h2 className="text-lg font-semibold text-dark-grey">Your Preferences</h2>
+            <h2 className="text-lg font-semibold text-dark-grey">
+              Your Preferences
+            </h2>
           </div>
 
           {!isEditingExplicit ? (
             /* Display Card - Read-only view */
             <div className="mb-6">
-              <PreferencesDisplayCard profile={profile} onEdit={handleEditClick} />
+              <PreferencesDisplayCard
+                profile={profile}
+                onEdit={handleEditClick}
+              />
             </div>
           ) : (
             /* Editable Form - Only shown when editing */
-            <div ref={editFormRef} className="transition-all duration-300 rounded-lg space-y-4">
+            <div
+              ref={editFormRef}
+              className="transition-all duration-300 rounded-lg space-y-4"
+            >
               <ProfilePreferences
                 userId={user.id}
                 profile={profile}
@@ -272,7 +302,9 @@ export function SurfProfileSection() {
           <span className="w-full border-t border-gray-200" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-gray-500">Learned from Sessions</span>
+          <span className="bg-white px-2 text-gray-500">
+            Learned from Sessions
+          </span>
         </div>
       </div>
 
@@ -292,7 +324,11 @@ export function SurfProfileSection() {
 
         {/* Edit Button */}
         <div className="flex justify-center pt-4">
-          <Button onClick={handleEdit} variant="outline" className="w-full sm:w-auto">
+          <Button
+            onClick={handleEdit}
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
             Edit Learned Preferences
           </Button>
         </div>
@@ -300,9 +336,11 @@ export function SurfProfileSection() {
         {/* Additional Info */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
           <p>
-            <strong>How it works:</strong> We analyze your highly-rated sessions (3+ stars)
-            to learn your ideal wave height, period, wind, and tide conditions.
-            {preferencesData.learned.sample_size && ` Based on ${preferencesData.learned.sample_size} sessions.`}
+            <strong>How it works:</strong> We analyze your highly-rated sessions
+            (3+ stars) to learn your ideal wave height, period, wind, and tide
+            conditions.
+            {preferencesData.learned.sample_size &&
+              ` Based on ${preferencesData.learned.sample_size} sessions.`}
           </p>
         </div>
       </div>

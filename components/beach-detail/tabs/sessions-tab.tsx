@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { Beach } from "@/types/database";
+import type { SessionForecastSnapshot } from "@/types/database";
 
 const RecentSessionsSection = dynamic(
   () =>
@@ -19,16 +20,9 @@ const SessionForecastComparison = dynamic(
   { ssr: false }
 );
 
-interface SessionSnapshot {
-  id: string;
-  forecast_snapshot: Record<string, any>;
-  actual_conditions: Record<string, any>;
-  created_at: string;
-}
-
 interface SessionsTabProps {
   beach: Beach;
-  sessionSnapshots?: SessionSnapshot[] | null;
+  sessionSnapshots?: SessionForecastSnapshot[] | null;
 }
 
 export function SessionsTab({ beach, sessionSnapshots }: SessionsTabProps) {

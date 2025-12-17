@@ -17,7 +17,7 @@ import { ensureAuthenticated, waitForPageLoad } from "./utils/test-helpers";
 import { TIMEOUTS, TEST_BEACHES } from "./fixtures/test-data";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 // Type definitions for test fixtures
 interface PageFixture { page: Page }

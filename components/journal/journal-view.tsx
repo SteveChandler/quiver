@@ -59,8 +59,8 @@ export function JournalView({ className }: JournalViewProps) {
   );
   const [showAnnotationModal, setShowAnnotationModal] = useState(false);
   const [displayOptions, setDisplayOptions] = useState<JournalDisplayOptions>({
-    viewMode: "list",
-    showPrivate: true,
+    showRatings: true,
+    showPhotos: true,
   });
 
   // Fetch user sessions

@@ -211,7 +211,7 @@ export async function uploadPhotosToSession(
       .locator('input[type="file"]')
       .first();
 
-    const isAttached = await fileInput.isAttached().catch(() => false);
+    const isAttached = (await fileInput.count().catch(() => 0)) > 0;
 
     if (!isAttached) {
       // Try alternate selector - look for "Add Photos" button area

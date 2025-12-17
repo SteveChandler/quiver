@@ -2,10 +2,10 @@
 
 import { memo } from "react";
 import { Waves, Wind, Thermometer, Loader2 } from "lucide-react";
-import type { ForecastPreview } from "@/types/forecast";
+import type { ForecastPreview as ForecastPreviewType } from "@/types/forecast";
 
 interface ForecastPreviewProps {
-  forecastPreview: ForecastPreview | null;
+  forecastPreview: ForecastPreviewType | null;
   loading: boolean;
   error?: string | null;
   showConfidenceScore?: boolean;
@@ -61,7 +61,9 @@ function ForecastPreviewComponent({
         </div>
         <div className="flex items-center text-orange-600">
           <Thermometer className="h-4 w-4 mr-1" />
-          <span>{forecastPreview.weather_condition?.split(" ")?.[0] || "N/A"}</span>
+          <span>
+            {forecastPreview.weather_condition?.split(" ")?.[0] || "N/A"}
+          </span>
         </div>
         {showConfidenceScore && forecastPreview.confidence_score && (
           <div className="text-sm text-muted-foreground">
@@ -85,7 +87,9 @@ function ForecastPreviewComponent({
         </div>
         <div className="flex items-center text-orange-600">
           <Thermometer className="h-4 w-4 mr-1" />
-          <span>{forecastPreview.weather_condition?.split(" ")?.[0] || "N/A"}</span>
+          <span>
+            {forecastPreview.weather_condition?.split(" ")?.[0] || "N/A"}
+          </span>
         </div>
       </div>
       {showConfidenceScore && forecastPreview.confidence_score && (
@@ -120,8 +124,10 @@ const areForecastPreviewPropsEqual = (
   return (
     prev.forecastPreview.wave_height === next.forecastPreview.wave_height &&
     prev.forecastPreview.wind_speed === next.forecastPreview.wind_speed &&
-    prev.forecastPreview.weather_condition === next.forecastPreview.weather_condition &&
-    prev.forecastPreview.confidence_score === next.forecastPreview.confidence_score
+    prev.forecastPreview.weather_condition ===
+      next.forecastPreview.weather_condition &&
+    prev.forecastPreview.confidence_score ===
+      next.forecastPreview.confidence_score
   );
 };
 
@@ -133,4 +139,4 @@ export const ForecastPreview = memo(
   ForecastPreviewComponent,
   areForecastPreviewPropsEqual
 );
-ForecastPreview.displayName = 'ForecastPreview';
+ForecastPreview.displayName = "ForecastPreview";

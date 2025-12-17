@@ -137,9 +137,9 @@ export default function IntentPage({ params }: IntentPageParams) {
         state: "CA",
         region: spot.region,
         description: spot.overview,
-        composite_score: 0,
-        recent_intel_count: 0,
-        avg_confirmations: 0,
+        compositeScore: 0,
+        recentIntelCount: 0,
+        avgConfirmations: 0,
         created_at: "",
         updated_at: "",
       } as unknown as BeachWithMetrics)

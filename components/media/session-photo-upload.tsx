@@ -69,7 +69,7 @@ export default function SessionPhotoUpload({
     try {
       const result = await getUserStorageUsageAction();
       if (result.success) {
-        setStorageInfo(result.data);
+        setStorageInfo(result.data ?? null);
       }
     } catch (error) {
       console.error("Failed to load storage info:", error);

@@ -164,6 +164,9 @@ echo ""
 echo "$TUNNEL_URL" > "$TUNNEL_URL_FILE"
 echo -e "${GREEN}✅ Tunnel URL saved to ${TUNNEL_URL_FILE}${NC}"
 
+# Export for downstream tools (Capacitor config can read this)
+export CAPACITOR_DEV_URL="$TUNNEL_URL"
+
 # Update iOS Capacitor config
 if [[ -f "$IOS_CONFIG" ]]; then
     echo ""
@@ -183,7 +186,15 @@ fi
 if [[ "$AUTO_SYNC_IOS" == true ]]; then
     echo ""
     echo -e "${BLUE}🔄 Syncing iOS project...${NC}"
-    npx cap sync ios
+    # Ensure the generated ios/App/App/capacitor.config.json uses the fresh tunnel URL
+    CAPACITOR_DEV_URL="$TUNNEL_URL" npx cap sync ios
+
+    # Safety: re-apply the URL after sync in case any tooling overwrote it
+    if [[ -f "$IOS_CONFIG" ]]; then
+        TMP_FILE=$(mktemp)
+        jq --arg url "$TUNNEL_URL" '.server.url = $url' "$IOS_CONFIG" > "$TMP_FILE"
+        mv "$TMP_FILE" "$IOS_CONFIG"
+    fi
     echo -e "${GREEN}✅ iOS sync complete${NC}"
 fi
 

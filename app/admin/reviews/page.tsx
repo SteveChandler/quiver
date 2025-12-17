@@ -14,7 +14,13 @@ import { StarIcon, TrendingUp, ThumbsUp, Trash2, Award } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { ReviewTable } from "@/components/admin/review-table";
 import { ConfirmActionDialog } from "@/components/admin/confirm-action-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -47,34 +53,49 @@ export default function ReviewsAdminPage() {
 
   // State
   const [showDeleted, setShowDeleted] = useState(false);
-  const [reviewToDelete, setReviewToDelete] = useState<AdminReviewListItem | null>(null);
-  const [reviewToRestore, setReviewToRestore] = useState<AdminReviewListItem | null>(null);
+  const [reviewToDelete, setReviewToDelete] =
+    useState<AdminReviewListItem | null>(null);
+  const [reviewToRestore, setReviewToRestore] =
+    useState<AdminReviewListItem | null>(null);
   const [selectedReview, setSelectedReview] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Data fetching - unwrap server action responses
   const fetchReviews = useCallback(async (): Promise<AdminReviewListItem[]> => {
     const response = await listReviews({ includeDeleted: showDeleted });
-    if (!response.success) throw new Error(response.error || 'Failed to fetch reviews');
+    if (!response.success)
+      throw new Error(response.error || "Failed to fetch reviews");
     return (response.data as AdminReviewListItem[]) ?? [];
   }, [showDeleted]);
 
   const fetchStats = useCallback(async (): Promise<ReviewStats | null> => {
     const response = await getReviewStats({});
-    if (!response.success) throw new Error(response.error || 'Failed to fetch stats');
+    if (!response.success)
+      throw new Error(response.error || "Failed to fetch stats");
     return (response.data as ReviewStats) ?? null;
   }, []);
 
-  const fetchReviewDetails = useCallback(async (): Promise<AdminReviewDetails | null> => {
-    if (!selectedReview) return null;
-    const response = await getReview(selectedReview);
-    if (!response.success) throw new Error(response.error || 'Failed to fetch review details');
-    return (response.data as AdminReviewDetails) ?? null;
-  }, [selectedReview]);
+  const fetchReviewDetails =
+    useCallback(async (): Promise<AdminReviewDetails | null> => {
+      if (!selectedReview) return null;
+      const response = await getReview(selectedReview);
+      if (!response.success)
+        throw new Error(response.error || "Failed to fetch review details");
+      return (response.data as AdminReviewDetails) ?? null;
+    }, [selectedReview]);
 
-  const { data: reviews, loading: loadingReviews, refetch: refetchReviews } = useDataFetcher<AdminReviewListItem[]>(fetchReviews);
-  const { data: stats, loading: loadingStats, refetch: refetchStats } = useDataFetcher<ReviewStats | null>(fetchStats);
-  const { data: reviewDetails, loading: loadingDetails } = useDataFetcher<AdminReviewDetails | null>(fetchReviewDetails);
+  const {
+    data: reviews,
+    loading: loadingReviews,
+    refetch: refetchReviews,
+  } = useDataFetcher<AdminReviewListItem[]>(fetchReviews);
+  const {
+    data: stats,
+    loading: loadingStats,
+    refetch: refetchStats,
+  } = useDataFetcher<ReviewStats | null>(fetchStats);
+  const { data: reviewDetails, loading: loadingDetails } =
+    useDataFetcher<AdminReviewDetails | null>(fetchReviewDetails);
 
   // Handlers
   const handleViewDetails = (review: AdminReviewListItem) => {
@@ -97,7 +118,8 @@ export default function ReviewsAdminPage() {
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete review",
+        description:
+          error instanceof Error ? error.message : "Failed to delete review",
         variant: "destructive",
       });
     }
@@ -118,7 +140,8 @@ export default function ReviewsAdminPage() {
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to restore review",
+        description:
+          error instanceof Error ? error.message : "Failed to restore review",
         variant: "destructive",
       });
     }
@@ -139,7 +162,9 @@ export default function ReviewsAdminPage() {
             <StarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loadingStats ? "..." : stats?.total || 0}</div>
+            <div className="text-2xl font-bold">
+              {loadingStats ? "..." : stats?.total || 0}
+            </div>
             <p className="text-xs text-muted-foreground">
               {stats?.totalHelpfulVotes || 0} helpful votes
             </p>
@@ -148,30 +173,42 @@ export default function ReviewsAdminPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Overall Rating</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Avg Overall Rating
+            </CardTitle>
             <Award className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {loadingStats ? "..." : stats?.avgOverallRating ? `${stats.avgOverallRating.toFixed(1)}/5` : "—"}
+              {loadingStats
+                ? "..."
+                : stats?.avgOverallRating
+                ? `${stats.avgOverallRating.toFixed(1)}/5`
+                : "—"}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Across all beaches
-            </p>
+            <p className="text-xs text-muted-foreground">Across all beaches</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Wave Quality</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Avg Wave Quality
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {loadingStats ? "..." : stats?.avgWaveQuality ? `${stats.avgWaveQuality.toFixed(1)}/5` : "—"}
+              {loadingStats
+                ? "..."
+                : stats?.avgWaveQuality
+                ? `${stats.avgWaveQuality.toFixed(1)}/5`
+                : "—"}
             </div>
             <p className="text-xs text-muted-foreground">
-              Avg crowd: {stats?.avgCrowdDensity ? stats.avgCrowdDensity.toFixed(1) : "—"}/5
+              Avg crowd:{" "}
+              {stats?.avgCrowdDensity ? stats.avgCrowdDensity.toFixed(1) : "—"}
+              /5
             </p>
           </CardContent>
         </Card>
@@ -182,8 +219,12 @@ export default function ReviewsAdminPage() {
             <Trash2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loadingStats ? "..." : stats?.deleted || 0}</div>
-            <p className="text-xs text-muted-foreground">Soft deleted reviews</p>
+            <div className="text-2xl font-bold">
+              {loadingStats ? "..." : stats?.deleted || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Soft deleted reviews
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -263,27 +304,53 @@ export default function ReviewsAdminPage() {
 
           {loadingDetails ? (
             <div className="flex items-center justify-center py-8">
-              <div className="text-muted-foreground">Loading review details...</div>
+              <div className="text-muted-foreground">
+                Loading review details...
+              </div>
             </div>
           ) : reviewDetails ? (
             <div className="mt-6 space-y-6">
               {/* Beach Info */}
               <div>
-                <h3 className="text-sm font-semibold mb-2">Beach Information</h3>
+                <h3 className="text-sm font-semibold mb-2">
+                  Beach Information
+                </h3>
                 <div className="space-y-1 text-sm">
-                  <div><span className="font-medium">Beach:</span> {reviewDetails.beaches?.name || "Unknown"}</div>
-                  <div><span className="font-medium">Region:</span> {reviewDetails.beaches?.region}</div>
-                  <div><span className="font-medium">Beach ID:</span> <code className="text-xs">{reviewDetails.beach_id}</code></div>
+                  <div>
+                    <span className="font-medium">Beach:</span>{" "}
+                    {reviewDetails.beaches?.name || "Unknown"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Region:</span>{" "}
+                    {reviewDetails.beaches?.region}
+                  </div>
+                  <div>
+                    <span className="font-medium">Beach ID:</span>{" "}
+                    <code className="text-xs">{reviewDetails.beach_id}</code>
+                  </div>
                 </div>
               </div>
 
               {/* User Info */}
               <div>
-                <h3 className="text-sm font-semibold mb-2">Reviewer Information</h3>
+                <h3 className="text-sm font-semibold mb-2">
+                  Reviewer Information
+                </h3>
                 <div className="space-y-1 text-sm">
-                  <div><span className="font-medium">Name:</span> {reviewDetails.profiles?.name || "Unknown"}</div>
-                  <div><span className="font-medium">Email:</span> {reviewDetails.profiles?.email}</div>
-                  <div><span className="font-medium">User ID:</span> <code className="text-xs">{reviewDetails.user_id}</code></div>
+                  <div>
+                    <span className="font-medium">Name:</span>{" "}
+                    {reviewDetails.profiles?.display_name ||
+                      reviewDetails.profiles?.full_name ||
+                      "Unknown"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Email:</span>{" "}
+                    {reviewDetails.profiles?.email}
+                  </div>
+                  <div>
+                    <span className="font-medium">User ID:</span>{" "}
+                    <code className="text-xs">{reviewDetails.user_id}</code>
+                  </div>
                 </div>
               </div>
 
@@ -292,12 +359,20 @@ export default function ReviewsAdminPage() {
                 <h3 className="text-sm font-semibold mb-2">Review Content</h3>
                 <div className="space-y-2">
                   <div>
-                    <span className="text-xs font-medium text-muted-foreground">Title:</span>
-                    <p className="text-sm font-medium mt-1">{reviewDetails.title}</p>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Title:
+                    </span>
+                    <p className="text-sm font-medium mt-1">
+                      {reviewDetails.title}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-xs font-medium text-muted-foreground">Content:</span>
-                    <p className="text-sm mt-1 whitespace-pre-wrap">{reviewDetails.content}</p>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Content:
+                    </span>
+                    <p className="text-sm mt-1 whitespace-pre-wrap">
+                      {reviewDetails.content}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -307,33 +382,53 @@ export default function ReviewsAdminPage() {
                 <h3 className="text-sm font-semibold mb-2">Ratings</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Overall</span>
+                    <span className="text-xs text-muted-foreground">
+                      Overall
+                    </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="default">{reviewDetails.overall_rating}/5</Badge>
+                      <Badge variant="default">
+                        {reviewDetails.overall_rating}/5
+                      </Badge>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Wave Quality</span>
+                    <span className="text-xs text-muted-foreground">
+                      Wave Quality
+                    </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{reviewDetails.wave_quality_rating}/5</Badge>
+                      <Badge variant="secondary">
+                        {reviewDetails.wave_quality_rating}/5
+                      </Badge>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Crowd Density</span>
+                    <span className="text-xs text-muted-foreground">
+                      Crowd Density
+                    </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{reviewDetails.crowd_density_rating}/5</Badge>
+                      <Badge variant="secondary">
+                        {reviewDetails.crowd_density_rating}/5
+                      </Badge>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Parking</span>
+                    <span className="text-xs text-muted-foreground">
+                      Parking
+                    </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{reviewDetails.parking_rating}/5</Badge>
+                      <Badge variant="secondary">
+                        {reviewDetails.parking_rating}/5
+                      </Badge>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Accessibility</span>
+                    <span className="text-xs text-muted-foreground">
+                      Accessibility
+                    </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{reviewDetails.accessibility_rating}/5</Badge>
+                      <Badge variant="secondary">
+                        {reviewDetails.accessibility_rating}/5
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -344,14 +439,35 @@ export default function ReviewsAdminPage() {
                 <h3 className="text-sm font-semibold mb-2">Metadata</h3>
                 <div className="space-y-1 text-sm">
                   {reviewDetails.visit_date && (
-                    <div><span className="font-medium">Visit Date:</span> {format(new Date(reviewDetails.visit_date), "MMMM d, yyyy")}</div>
+                    <div>
+                      <span className="font-medium">Visit Date:</span>{" "}
+                      {format(
+                        new Date(reviewDetails.visit_date),
+                        "MMMM d, yyyy"
+                      )}
+                    </div>
                   )}
-                  <div><span className="font-medium">Helpful Votes:</span> {reviewDetails.helpful_count}</div>
+                  <div>
+                    <span className="font-medium">Helpful Votes:</span>{" "}
+                    {reviewDetails.helpful_count}
+                  </div>
                   {reviewDetails.created_at && (
-                    <div><span className="font-medium">Created:</span> {format(new Date(reviewDetails.created_at), "MMMM d, yyyy h:mm a")}</div>
+                    <div>
+                      <span className="font-medium">Created:</span>{" "}
+                      {format(
+                        new Date(reviewDetails.created_at),
+                        "MMMM d, yyyy h:mm a"
+                      )}
+                    </div>
                   )}
                   {reviewDetails.updated_at && (
-                    <div><span className="font-medium">Updated:</span> {format(new Date(reviewDetails.updated_at), "MMMM d, yyyy h:mm a")}</div>
+                    <div>
+                      <span className="font-medium">Updated:</span>{" "}
+                      {format(
+                        new Date(reviewDetails.updated_at),
+                        "MMMM d, yyyy h:mm a"
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

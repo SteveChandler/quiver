@@ -1,4 +1,22 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import fs from "node:fs";
+import path from "node:path";
+
+function getDevTunnelUrl(): string | undefined {
+  const envUrl = process.env.CAPACITOR_DEV_URL?.trim();
+  if (envUrl) return envUrl;
+
+  // When using `yarn tunnel:*`, the script writes `.tunnel-url` at the repo root.
+  try {
+    const filePath = path.join(process.cwd(), ".tunnel-url");
+    const fileUrl = fs.readFileSync(filePath, "utf8").trim();
+    if (fileUrl) return fileUrl;
+  } catch {
+    // ignore
+  }
+
+  return undefined;
+}
 
 /**
  * LOCAL DEVELOPMENT CONFIG - SECURE TUNNEL
@@ -39,10 +57,13 @@ const config: CapacitorConfig = {
   webDir: "out",
   server: {
     androidScheme: "https",
-    // Your current tunnel URL - update when it changes
-    url: process.env.CAPACITOR_DEV_URL || 'https://rep-randy-marble-join.trycloudflare.com',
+    // Local dev runs via a secure tunnel. Prefer CAPACITOR_DEV_URL, then `.tunnel-url`.
+    // If neither is set, fall back to a placeholder to avoid silently pointing at a stale tunnel.
+    url:
+      getDevTunnelUrl() ||
+      "https://YOUR-TUNNEL-URL-HERE.trycloudflare.com",
     cleartext: false,
-    allowNavigation: ['*']
+    allowNavigation: ["*"],
   },
   loggingBehavior: "debug",
   plugins: {

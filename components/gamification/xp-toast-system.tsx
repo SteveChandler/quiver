@@ -33,12 +33,7 @@ export function useXPToastSystem() {
   const showXPGainedToast = (result: XPTrackingResult) => {
     // Show XP gained toast
     toast({
-      title: (
-        <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 text-yellow-500" />
-          <span>+{result.xp_gained} XP</span>
-        </div>
-      ),
+      title: `+${result.xp_gained} XP`,
       description: `Total: ${result.total_xp} XP`,
       duration: 3000,
       className: "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200",
@@ -66,25 +61,8 @@ export function useXPToastSystem() {
 
     // Show level up toast
     toast({
-      title: (
-        <div className="flex items-center gap-2">
-          <Crown className="h-5 w-5 text-yellow-500" />
-          <span className="font-bold">Level Up!</span>
-        </div>
-      ),
-      description: (
-        <div className="space-y-1">
-          <p>
-            You’re now a{" "}
-            <span className="font-semibold text-blue-600">
-              {result.level_title}
-            </span>
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Level {result.new_level}
-          </p>
-        </div>
-      ),
+      title: "Level Up!",
+      description: `You're now a ${result.level_title} (Level ${result.new_level})`,
       duration: 6000,
       className:
         "bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300",
@@ -104,25 +82,11 @@ export function useXPToastSystem() {
       // Stagger badge notifications
       setTimeout(() => {
         toast({
-          title: (
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              <span className="font-bold">Badge Unlocked!</span>
-            </div>
-          ),
-          description: (
-            <div className="flex items-center gap-3">
-              <BadgeIcon icon={badge.icon} size="lg" />
-              <div>
-                <p className="font-medium">{badge.name}</p>
-                {badge.xp_reward > 0 && (
-                  <p className="text-sm text-green-600">
-                    +{badge.xp_reward} bonus XP
-                  </p>
-                )}
-              </div>
-            </div>
-          ),
+          title: "Badge Unlocked!",
+          description:
+            badge.xp_reward > 0
+              ? `${badge.name} (+${badge.xp_reward} bonus XP)`
+              : badge.name,
           duration: 5000,
           className:
             "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200",
@@ -133,12 +97,7 @@ export function useXPToastSystem() {
 
   const showGenericXPToast = (xpGained: number, action: string) => {
     toast({
-      title: (
-        <div className="flex items-center gap-2">
-          <Star className="h-4 w-4 text-blue-500" />
-          <span>+{xpGained} XP</span>
-        </div>
-      ),
+      title: `+${xpGained} XP`,
       description: action,
       duration: 2000,
       className: "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200",

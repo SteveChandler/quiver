@@ -29,6 +29,30 @@ export function EditProfileModal({
   profile,
   onProfileUpdated,
 }: EditProfileModalProps) {
+  const initialData = profile
+    ? {
+        full_name: profile.full_name ?? undefined,
+        bio: profile.bio ?? undefined,
+        location: profile.location ?? undefined,
+        experience_level: profile.experience_level ?? undefined,
+        instagram: profile.instagram ?? undefined,
+        avatar_url: profile.avatar_url ?? undefined,
+        home_beach_id: profile.home_beach_id ?? undefined,
+        surf_styles: profile.surf_styles ?? undefined,
+        preferred_wave_size: profile.preferred_wave_size ?? undefined,
+        preferred_break_type: profile.preferred_break_type ?? undefined,
+        crowd_preference: profile.crowd_preference ?? undefined,
+        notif_push_enabled: profile.notif_push_enabled,
+        notif_email_enabled: profile.notif_email_enabled,
+        notif_inapp_enabled: profile.notif_inapp_enabled,
+        notif_session_invites: profile.notif_session_invites,
+        notif_likes: profile.notif_likes,
+        notif_follows: profile.notif_follows,
+        notif_reminders: profile.notif_reminders,
+        notif_xp_updates: profile.notif_xp_updates,
+      }
+    : undefined;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
@@ -39,7 +63,7 @@ export function EditProfileModal({
 
         <div className="flex-1 overflow-auto py-2">
           <EditProfileForm
-            initialData={profile || undefined}
+            initialData={initialData}
             onSuccess={onProfileUpdated}
           />
         </div>

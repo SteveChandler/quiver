@@ -784,7 +784,7 @@ The feature is working correctly if:
 ## 📚 Related Documentation
 
 - **[AllTrails UX Flows](../research/ALLTRAILS_UX_FLOWS.md)** - Pattern research
-- **[Data Quality Audit](../archive/reports/data-quality-audit-results.md)** - Quality metrics
+- **[Data Quality Audit](../data/data-quality-audit-results.md)** - Quality metrics
 - **[Database Functions](../../supabase/migrations/20251029172934_create_location_ranking_functions.sql)** - SQL implementation
 - **[Location Utilities](../../lib/utils/location-slug.ts)** - Slug generation
 - **[Test Report](../reports/archive/TEST_RESULTS_LOCATION_PAGES.md)** - Complete test results (archived)

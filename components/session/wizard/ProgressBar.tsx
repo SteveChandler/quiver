@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, type Transition } from "framer-motion";
 import { CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WIZARD_MOTION } from "@/lib/constants/animations";
@@ -25,33 +25,42 @@ export function ProgressBar({
   isStepValid,
   className,
 }: ProgressBarProps) {
-  
   // Check for reduced motion preference
-  const prefersReducedMotion = typeof window !== 'undefined' && 
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  
-  // Use simplified animations for users who prefer reduced motion
-  const progressMotion = prefersReducedMotion ? {
-    initial: { scaleX: 0 },
-    animate: { scaleX: progress / 100 },
-    transition: { duration: 0.2 }
-  } : {
-    ...WIZARD_MOTION.progress,
-    animate: { scaleX: progress / 100 },
-  };
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const stepMotion = prefersReducedMotion ? {
-    transition: { duration: 0.15 }
-  } : {
-    transition: { duration: 0.24, type: "spring", damping: 20 }
-  };
+  // Use simplified animations for users who prefer reduced motion
+  const progressMotion = prefersReducedMotion
+    ? {
+        initial: { scaleX: 0 },
+        animate: { scaleX: progress / 100 },
+        transition: { duration: 0.2 },
+      }
+    : {
+        ...WIZARD_MOTION.progress,
+        animate: { scaleX: progress / 100 },
+      };
+
+  const stepMotion = prefersReducedMotion
+    ? {
+        transition: { duration: 0.15 } satisfies Transition,
+      }
+    : {
+        transition: {
+          duration: 0.24,
+          type: "spring",
+          damping: 20,
+        } satisfies Transition,
+      };
 
   return (
     <div className={cn("w-full space-y-4", className)}>
-      
       {/* Progress Statistics */}
       <div className="flex items-center justify-between text-sm text-gray-600">
-        <span>{completedSteps} of {totalSteps} steps completed</span>
+        <span>
+          {completedSteps} of {totalSteps} steps completed
+        </span>
         <span>{Math.round(progress)}% complete</span>
       </div>
 
@@ -76,40 +85,56 @@ export function ProgressBar({
             const isCompleted = isStepValid ? isStepValid(stepNumber) : false;
             const isCurrent = stepNumber === currentStep;
             const isClickable = onStepClick && stepNumber <= currentStep;
-            
+
             return (
               <motion.button
                 key={stepNumber}
-                onClick={isClickable ? () => onStepClick(stepNumber) : undefined}
+                onClick={
+                  isClickable ? () => onStepClick(stepNumber) : undefined
+                }
                 disabled={!isClickable}
                 className={cn(
                   "relative flex items-center justify-center w-6 h-6 rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-                  isCompleted 
-                    ? "bg-green-500 border-green-500 text-white" 
-                    : isCurrent 
-                      ? "bg-blue-500 border-blue-500 text-white" 
-                      : "bg-white border-gray-300 text-gray-500",
+                  isCompleted
+                    ? "bg-green-500 border-green-500 text-white"
+                    : isCurrent
+                    ? "bg-blue-500 border-blue-500 text-white"
+                    : "bg-white border-gray-300 text-gray-500",
                   isClickable && "hover:scale-110 cursor-pointer",
                   !isClickable && "cursor-default"
                 )}
-                whileHover={isClickable && !prefersReducedMotion ? { scale: 1.1 } : undefined}
-                whileTap={isClickable && !prefersReducedMotion ? { scale: 0.95 } : undefined}
+                whileHover={
+                  isClickable && !prefersReducedMotion
+                    ? { scale: 1.1 }
+                    : undefined
+                }
+                whileTap={
+                  isClickable && !prefersReducedMotion
+                    ? { scale: 0.95 }
+                    : undefined
+                }
                 transition={stepMotion.transition}
                 data-testid={`step-indicator-${stepNumber}`}
-                aria-label={`Step ${stepNumber + 1}${isCompleted ? ' - Completed' : isCurrent ? ' - Current' : ''}`}
+                aria-label={`Step ${stepNumber + 1}${
+                  isCompleted ? " - Completed" : isCurrent ? " - Current" : ""
+                }`}
               >
                 {isCompleted ? (
                   <CheckCircle2 className="w-3 h-3" />
                 ) : isCurrent ? (
                   <motion.div
                     className="w-2 h-2 bg-white rounded-full"
-                    animate={prefersReducedMotion ? {} : {
-                      scale: [1, 1.2, 1],
-                    }}
+                    animate={
+                      prefersReducedMotion
+                        ? {}
+                        : {
+                            scale: [1, 1.2, 1],
+                          }
+                    }
                     transition={{
                       duration: 2,
                       repeat: Infinity,
-                      ease: "easeInOut"
+                      ease: "easeInOut",
                     }}
                   />
                 ) : (
@@ -126,7 +151,7 @@ export function ProgressBar({
         {Array.from({ length: totalSteps }, (_, index) => {
           const stepNumber = index + 1;
           const isCurrent = index === currentStep;
-          
+
           return (
             <div
               key={index}
@@ -142,13 +167,14 @@ export function ProgressBar({
       </div>
 
       {/* Accessibility: Screen reader progress announcement */}
-      <div 
-        className="sr-only" 
-        aria-live="polite" 
+      <div
+        className="sr-only"
+        aria-live="polite"
         aria-atomic="true"
         data-testid="progress-announcement"
       >
-        Step {currentStep + 1} of {totalSteps}. {Math.round(progress)}% complete.
+        Step {currentStep + 1} of {totalSteps}. {Math.round(progress)}%
+        complete.
         {completedSteps > 0 && ` ${completedSteps} steps completed.`}
       </div>
     </div>

@@ -40,8 +40,9 @@ export function useBeachForecast(): UseBeachForecastReturn {
     }
     
     const data = await response.json();
-    if (data.success && data.data?.forecasts?.length > 0) {
-      return getCurrentForecast(data.data.forecasts);
+    const forecasts = data?.data?.forecasts as EnhancedForecastEntity[] | undefined;
+    if (data.success && Array.isArray(forecasts) && forecasts.length > 0) {
+      return getCurrentForecast(forecasts);
     }
     return null;
   };

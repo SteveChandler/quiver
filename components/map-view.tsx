@@ -116,9 +116,10 @@ export function MapView() {
   }, [clearSearch, userLocation, loadNearbyBeaches, getUserLocation]);
 
   // Distance calculation function using centralized utility
+  // Uses userLocation from closure - child components call with (beachLat, beachLng) only
   const getDistanceFromUser = useCallback(
     (beachLat: number, beachLng: number): string => {
-      if (!userLocation) return "Unknown distance";
+      if (!userLocation) return "";
       return (
         calculateDistanceFormatted(
           { lat: userLocation.lat, lon: userLocation.lon },
@@ -145,10 +146,7 @@ export function MapView() {
 
     const coordinates = regionBeaches
       .map((beach) => {
-        if (
-          typeof beach.lat === "number" &&
-          typeof beach.lon === "number"
-        ) {
+        if (typeof beach.lat === "number" && typeof beach.lon === "number") {
           return { lat: beach.lat, lon: beach.lon };
         }
         return null;

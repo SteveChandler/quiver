@@ -30,7 +30,7 @@ export function NearbyBeachScroll({
 
   // Use the centralized beach card data hook with standardized presets
   const { beachCardData } = useBeachCardData(nearbyBeachesForScroll, {
-    userLocation,
+    userLocation: userLocation ?? undefined,
     calculateDistance: userLocation ? getDistanceFromUser : undefined,
     defaultLocationText: "San Diego",
     mapOptions: MAP_PRESET_USAGE.BEACH_CARD_SCROLL,
@@ -72,8 +72,8 @@ export function NearbyBeachScroll({
                   rating={beach.rating}
                   reviewCount={beach.reviewCount}
                   imageUrl={beach.mapImageUrl}
-                  latitude={beach.lat}
-                  longitude={beach.lon}
+                  latitude={beach.latitude}
+                  longitude={beach.longitude}
                   slug={originalBeach?.slug}
                   city={originalBeach?.city}
                   state={originalBeach?.state}

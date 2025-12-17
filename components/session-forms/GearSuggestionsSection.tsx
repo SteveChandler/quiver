@@ -162,7 +162,7 @@ export function GearSuggestionsSection({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {error.message ||
+              {error ||
                 "Failed to analyze your boards. You can still manually select equipment."}
             </AlertDescription>
           </Alert>

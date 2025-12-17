@@ -43,9 +43,13 @@ export async function GET(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get: (name) => cookieStore.get(name)?.value,
-          set: (name, value, options) => cookieStore.set(name, value, options),
-          remove: (name, options) => cookieStore.set(name, "", { ...options, maxAge: 0 }),
+          getAll: () =>
+            cookieStore.getAll().map(({ name, value }) => ({ name, value })),
+          setAll: (cookiesToSet) => {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
         },
       }
     );

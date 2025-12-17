@@ -137,6 +137,44 @@ export default async function RootLayout({
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
+        {/* 
+          Localhost safety: if a PWA service worker was previously registered, it can cache
+          stale Next.js chunk references and break hydration. This runs before React/JS bundles
+          execute to ensure we can always recover.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  var host = window.location && window.location.hostname;
+                  if (host !== "localhost" && host !== "127.0.0.1") return;
+                  if (!("serviceWorker" in navigator)) return;
+                  if (window.sessionStorage && sessionStorage.getItem("__quiver_sw_cleared") === "1") return;
+
+                  navigator.serviceWorker.getRegistrations().then(function (regs) {
+                    var targets = (regs || []).filter(function (reg) {
+                      return reg && reg.active && reg.active.scriptURL && reg.active.scriptURL.indexOf("/sw.js") !== -1;
+                    });
+                    if (targets.length === 0) return;
+
+                    return Promise.all(targets.map(function (reg) { return reg.unregister(); }))
+                      .then(function () {
+                        if (!("caches" in window)) return;
+                        return caches.keys().then(function (keys) {
+                          return Promise.all((keys || []).map(function (k) { return caches.delete(k); }));
+                        });
+                      })
+                      .then(function () {
+                        try { sessionStorage.setItem("__quiver_sw_cleared", "1"); } catch (_) {}
+                        window.location.reload();
+                      });
+                  });
+                } catch (_) {}
+              })();
+            `,
+          }}
+        />
         {/* Map-related DNS prefetch removed from root layout. Now loaded in route-specific layouts (map, beaches, forecast). This saves 3-5 connection slots on landing page */}
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0f172a" />

@@ -127,8 +127,8 @@ export function BeachReviewsList({
             <div className="flex items-start gap-4">
               <UserAvatarButton
                 userId={review.user_id}
-                src={undefined} // No avatar_url in profiles table yet
-                name={review.user.full_name}
+                src={review.profiles?.avatar_url ?? undefined}
+                name={review.profiles?.full_name ?? "Anonymous"}
                 email={undefined} // No email in profiles table yet
                 size="lg"
                 className="shrink-0"
@@ -140,12 +140,14 @@ export function BeachReviewsList({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">
-                        {review.user.full_name}
+                        {review.profiles?.full_name ?? "Anonymous"}
                       </span>
                       <StarRating rating={review.overall_rating} size="sm" />
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(review.created_at), "MMM d, yyyy")}
+                      {review.created_at
+                        ? format(new Date(review.created_at), "MMM d, yyyy")
+                        : "—"}
                       {review.visit_date && (
                         <span className="flex items-center gap-1 mt-1">
                           <Calendar className="h-3 w-3" />
