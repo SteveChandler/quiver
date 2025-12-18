@@ -128,14 +128,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let subscription: any = null;
     let timeoutId: NodeJS.Timeout;
 
-    const shouldSendLocalAgentIngest = (): boolean => {
-      if (typeof window === "undefined") return false;
-      if (process.env.NODE_ENV !== "development") return false;
-      // eslint-disable-next-line no-restricted-properties
-      const host = window.location.hostname;
-      return host === "localhost" || host === "127.0.0.1";
-    };
-
     const initializeAuth = async () => {
       if (initializingRef.current || !mounted) return;
 
@@ -182,33 +174,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } = supabase.auth.onAuthStateChange(
           (event: AuthChangeEvent, session: Session | null) => {
             if (!mounted) return;
-
-            if (shouldSendLocalAgentIngest()) {
-              // #region agent log (H1/H4)
-              fetch(
-                "http://127.0.0.1:7242/ingest/34f14e6e-7bc2-48aa-9171-48f9e1984d59",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    sessionId: "debug-session",
-                    runId: "pre-fix",
-                    hypothesisId: "H4",
-                    location: "context/auth-context.tsx:onAuthStateChange",
-                    message: "auth state change event received",
-                    data: {
-                      event,
-                      hasSession: !!session,
-                      userIdSuffix: session?.user?.id
-                        ? session.user.id.slice(-6)
-                        : null,
-                    },
-                    timestamp: Date.now(),
-                  }),
-                }
-              ).catch(() => {});
-              // #endregion agent log
-            }
 
             // Handle post-auth redirect when user signs in
             if (event === "SIGNED_IN" && session) {

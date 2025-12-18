@@ -203,6 +203,12 @@ export interface SurfDiscoveryOptions {
   userLocation?: { lat: number; lon: number };
   /** Search radius in miles (default: 25, Phase 2) */
   radiusMiles?: number;
+  /**
+   * Hard cap for how far in the future a "best window" may start (in hours).
+   * If provided, discovery will ignore forecast slots beyond this horizon when
+   * selecting each beach’s best window. Intended for "next 24 hours" UX.
+   */
+  horizonHours?: number;
   /** Maximum recommendations to return (default: 5, max: 10) */
   maxResults?: number;
   /** Include home beach in results (default: true) */

@@ -72,21 +72,43 @@ export async function generateMetadata({
     if (result.success && result.data && result.data.name) {
       const beachName = result.data.name;
 
-      return buildPageMetadata({
-        title: `${beachName} Surf Forecast - 10-Day Conditions & Wave Reports`,
-        description: `View the 10-day surf forecast for ${beachName}. Get live buoy data, swell heights, wind conditions, tides, and confidence ratings. Plan your next surf session with accurate forecasts.`,
-        path: `/forecast/${params.beachId}`,
-      });
+      return {
+        ...buildPageMetadata({
+          title: `${beachName} Surf Forecast - 10-Day Conditions & Wave Reports`,
+          description: `View the 10-day surf forecast for ${beachName}. Get live buoy data, swell heights, wind conditions, tides, and confidence ratings. Plan your next surf session with accurate forecasts.`,
+          path: `/forecast/${params.beachId}`,
+        }),
+        // Forecast pages are intentionally not indexable (ephemeral/duplicative).
+        robots: {
+          index: false,
+          follow: true,
+          googleBot: {
+            index: false,
+            follow: true,
+          },
+        },
+      };
     }
   } catch (error) {
     // Fall through to generic metadata
   }
 
   // Fallback to generic metadata
-  return buildPageMetadata({
-    title: "Surf Forecast - 10-Day Wave Reports | Quiver",
-    description:
-      "View detailed 10-day surf forecasts with live buoy data, swell heights, wind conditions, and confidence ratings. Plan your next surf session.",
-    path: `/forecast/${params.beachId}`,
-  });
+  return {
+    ...buildPageMetadata({
+      title: "Surf Forecast - 10-Day Wave Reports | Quiver",
+      description:
+        "View detailed 10-day surf forecasts with live buoy data, swell heights, wind conditions, and confidence ratings. Plan your next surf session.",
+      path: `/forecast/${params.beachId}`,
+    }),
+    // Forecast pages are intentionally not indexable (ephemeral/duplicative).
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    },
+  };
 }

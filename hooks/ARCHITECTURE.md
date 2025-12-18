@@ -221,15 +221,15 @@ export function useBeachCardData(
         ? calculateDistance(
             userLocation.lat,
             userLocation.lon,
-            beach.center_lat,  // Map from database field
-            beach.center_lng   // Map from database field
+            beach.center_lat, // Map from database field
+            beach.center_lng // Map from database field
           )
         : defaultLocationText,
       mapImageUrl: generateMapImageUrl(beach, mapOptions),
       // Map database fields to component prop names
       coordinates: {
-        latitude: beach.center_lat,   // center_lat -> latitude
-        longitude: beach.center_lng   // center_lng -> longitude
+        latitude: beach.center_lat, // center_lat -> latitude
+        longitude: beach.center_lng, // center_lng -> longitude
       },
     }));
 

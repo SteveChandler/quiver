@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,7 @@ export function ForecastTab({
     hasRecommendations,
   } = useSurfDiscovery({
     maxResults: 3, // Fetch 3 recommendations - first goes to personalized card, all to list
+    horizonHours: 24, // Home screen: only consider windows in next 24 hours
     enabled: !!profile, // Only fetch when user has profile
     immediate: true, // Fetch on mount
   });
@@ -76,7 +77,19 @@ export function ForecastTab({
   // Get top recommendation for insights
   const topRecommendation = discovery?.recommendations[0];
 
-  // Fetch insights for the top recommendation
+  // Defer insights loading by 500ms to prioritize main content rendering
+  const [insightsEnabled, setInsightsEnabled] = useState(false);
+  useEffect(() => {
+    if (!topRecommendation || !profile) return;
+
+    const timer = setTimeout(() => {
+      setInsightsEnabled(true);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [topRecommendation, profile]);
+
+  // Fetch insights for the top recommendation (deferred for performance)
   const {
     insights,
     loading: insightsLoading,
@@ -93,7 +106,7 @@ export function ForecastTab({
     windSpeed: topRecommendation?.window.wind
       ? parseFloat(topRecommendation.window.wind.split(" ")[0])
       : 0,
-    enabled: !!topRecommendation && !!profile,
+    enabled: insightsEnabled && !!topRecommendation && !!profile,
   });
 
   const [showAdjusted, setShowAdjusted] = useState(false);
@@ -209,7 +222,7 @@ export function ForecastTab({
       setForecastError(error as Error);
       return null;
     }
-  }, [effectiveBeach?.id, effectiveBeach?.name]);
+  }, [effectiveBeach?.id]);
 
   const {
     data: todaysForecast,

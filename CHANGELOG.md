@@ -35,10 +35,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Reduced forecast time window from 24 hours to ±6 hours (50% less data fetched)
   - Leveraged existing composite database indexes on `(beach_id, ts)` for `marine_forecasts` and `tide_forecasts`
   - Added detailed performance logging (PostGIS, queries, processing, total time) behind debug flags
+  - Tightened input validation: invalid/missing `lat`/`lon` now returns 400 instead of silently returning an empty success payload
+  - Added optional `metadata.degradation` for PostGIS/forecast query failures and `quality_indicators.forecast_age_hours` + computed `data_freshness` for top picks
   - Result: API response time reduced from ~4800ms to ~989ms (**80% improvement**)
   - Files modified: `app/api/v1/recommendations/route.ts`
 
 ### Fixed
+
+- Tide height values in Home → Forecast: fix CO-OPS timezone drift by requesting predictions in GMT and parsing timestamps as UTC (adds unit coverage).
+- Forecast weather: treat NWS `InvalidPoint` (404) responses from `api.weather.gov/points/{lat},{lon}` as “no coverage” (avoid hard errors for out-of-coverage beaches).
+- Forecast cron stability: prevent NWS wave fetch crash when `forecastGridData` is null (guard grid URL construction) and gracefully fall back when NWS hourly marine forecasts return 404 “Marine Forecast Not Supported”.
+- CDIP robustness: blacklist known-bad station IDs that consistently 404 on the current ERDDAP dataset to avoid selecting them during batch forecast generation.
 
 - **E2E Test Suite** (December 17, 2025)
 

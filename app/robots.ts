@@ -19,6 +19,7 @@ export default function robots(): MetadataRoute.Robots {
           allow: "/",
           disallow: [
             "/api/*", // Don't crawl API routes
+            "/forecast/*", // Ephemeral/per-beach forecast pages are noindex
             "/inbox", // Private: notifications
             "/profile", // Private: user's own profile
             "/auth/*", // Auth pages

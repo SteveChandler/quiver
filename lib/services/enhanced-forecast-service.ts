@@ -37,6 +37,8 @@ import {
   ValidationError,
   ApiError,
   StorageError,
+  isNoaaInvalidPointError,
+  isNoaaMarineForecastNotSupportedError,
   withErrorHandling,
   withRetry,
   logError,
@@ -178,29 +180,47 @@ class NOAAWeatherDataSource implements WeatherDataSource {
       }
 
       const pointsData = await pointsResponse.json();
-      const forecastUrl = pointsData.properties.forecastHourly;
+      const hourlyUrl: string | null =
+        pointsData?.properties?.forecastHourly ?? null;
+      const nonHourlyUrl: string | null = pointsData?.properties?.forecast ?? null;
 
-      if (!forecastUrl) {
-        throw new DataSourceError(
-          "NOAA Weather",
-          new Error("No forecast URL available")
-        );
+      // Some points (especially marine/offshore) do not have hourly or any forecast URLs.
+      // Treat as "no coverage" rather than throwing and spamming cron logs.
+      if (!hourlyUrl && !nonHourlyUrl) {
+        return { periods: [] };
       }
 
-      const forecastResponse = await fetch(forecastUrl, {
-        headers: { "User-Agent": "quiver-surf-app (contact@quiver.com)" },
-      });
+      const fetchForecast = async (url: string): Promise<any> => {
+        const forecastResponse = await fetch(url, {
+          headers: { "User-Agent": "quiver-surf-app (contact@quiver.com)" },
+        });
 
-      if (!forecastResponse.ok) {
-        throw new ApiError(
-          forecastUrl,
-          forecastResponse.status,
-          await forecastResponse.text()
-        );
+        if (!forecastResponse.ok) {
+          throw new ApiError(url, forecastResponse.status, await forecastResponse.text());
+        }
+
+        return await forecastResponse.json();
+      };
+
+      // Prefer hourly, but gracefully fall back for "Marine Forecast Not Supported".
+      try {
+        if (hourlyUrl) {
+          const forecastData = await fetchForecast(hourlyUrl);
+          return { periods: forecastData?.properties?.periods || [] };
+        }
+      } catch (error) {
+        // If hourly is unsupported in marine areas, fall back to non-hourly.
+        if (!isNoaaMarineForecastNotSupportedError(error)) {
+          throw error;
+        }
       }
 
-      const forecastData = await forecastResponse.json();
-      return { periods: forecastData.properties.periods || [] };
+      if (nonHourlyUrl) {
+        const forecastData = await fetchForecast(nonHourlyUrl);
+        return { periods: forecastData?.properties?.periods || [] };
+      }
+
+      return { periods: [] };
     } catch (error) {
       if (error instanceof ForecastError) {
         throw error;
@@ -393,11 +413,23 @@ export class EnhancedForecastService {
         latitude: beach.lat as any, // Type assertion for now
         longitude: beach.lon as any,
       };
-      const result = await weatherSource.fetchWeatherData(
-        location,
-        FORECAST_CONSTANTS.DAYS
-      );
-      return result.periods;
+      try {
+        const result = await weatherSource.fetchWeatherData(
+          location,
+          FORECAST_CONSTANTS.DAYS
+        );
+        return result.periods;
+      } catch (error) {
+        // Expected for some beaches (e.g. outside NWS coverage like Baja): treat as "no weather coverage".
+        if (isNoaaInvalidPointError(error)) {
+          return [];
+        }
+        // Expected for some coast/offshore points: hourly marine forecasts not supported.
+        if (isNoaaMarineForecastNotSupportedError(error)) {
+          return [];
+        }
+        throw error;
+      }
     });
   }
 

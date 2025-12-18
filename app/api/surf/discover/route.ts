@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-utils';
 import { withRateLimit } from '@/lib/middleware/rate-limiter';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
+import { generateETag, isETagMatch } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,8 @@ const QuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90).optional(),
   lon: z.coerce.number().min(-180).max(180).optional(),
   radius: z.coerce.number().positive().max(100).optional(), // miles
+  // Window horizon
+  horizonHours: z.coerce.number().int().min(1).max(72).optional(),
   // Result limits
   maxResults: z.coerce.number().int().min(1).max(10).optional(),
   includeHome: z
@@ -75,6 +78,7 @@ async function surfDiscoveryHandler(request: NextRequest): Promise<NextResponse>
       lat: searchParams.get('lat') || undefined,
       lon: searchParams.get('lon') || undefined,
       radius: searchParams.get('radius') || undefined,
+      horizonHours: searchParams.get('horizonHours') || undefined,
       maxResults: searchParams.get('maxResults') || undefined,
       includeHome: searchParams.get('includeHome') || undefined,
     };
@@ -84,7 +88,8 @@ async function surfDiscoveryHandler(request: NextRequest): Promise<NextResponse>
       return validationResult.error;
     }
 
-    const { lat, lon, radius, maxResults, includeHome } = validationResult.data;
+    const { lat, lon, radius, horizonHours, maxResults, includeHome } =
+      validationResult.data;
 
     // 3. Validate GPS parameters (Phase 2)
     let userLocation: { lat: number; lon: number } | undefined;
@@ -104,15 +109,33 @@ async function surfDiscoveryHandler(request: NextRequest): Promise<NextResponse>
     const discovery = await discoverSurfSpots(user.id, {
       userLocation,
       radiusMiles: radius,
+      horizonHours,
       maxResults,
       includeHome,
     });
 
-    // 5. Return success response with private caching
+    // 5. Generate ETag for conditional request support
+    const responseData = { success: true, data: discovery };
+    const etag = await generateETag(responseData);
+
+    // 6. Check If-None-Match header - return 304 if data unchanged
+    const ifNoneMatch = request.headers.get('If-None-Match');
+    if (ifNoneMatch && await isETagMatch(ifNoneMatch, responseData)) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          'ETag': `"${etag}"`,
+          'Cache-Control': 'private, max-age=300, stale-while-revalidate=900',
+        },
+      });
+    }
+
+    // 7. Return success response with ETag and improved caching
     const response = createSuccessResponse(discovery);
 
-    // Add private cache header (5 minutes)
-    response.headers.set('Cache-Control', 'private, max-age=300');
+    // Private cache: 5 min max-age + 15 min stale-while-revalidate
+    response.headers.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900');
+    response.headers.set('ETag', `"${etag}"`);
 
     return response;
   } catch (error) {

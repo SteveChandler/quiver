@@ -52,9 +52,16 @@ export class CDIPService {
       this.stationCache.set(station.id, station);
     });
 
-    // Support blacklist via env (comma separated), default to station 67 which is returning 404
+    // Support blacklist via env (comma separated).
+    // Defaults include known-bad stations that frequently 404 on the current ERDDAP dataset.
     const fromEnv = (process.env.CDIP_BLACKLIST || "").split(",").map((s) => s.trim()).filter(Boolean);
-    const defaults = ["67"]; // San Pedro South ERDDAP endpoint frequently 404s
+    const defaults = [
+      "67", // San Pedro South ERDDAP endpoint frequently 404s
+      "71", // Half Moon Bay: observed 404s on wave_agg
+      "46221", // Point Arena: observed 404s on wave_agg
+      "46225", // Point Reyes: observed 404s on wave_agg
+      "46236", // Monterey Bay: treat as non-CDIP for now; observed issues on wave_agg
+    ];
     this.blacklist = new Set([...
       new Set<string>([...defaults, ...fromEnv])
     ]);

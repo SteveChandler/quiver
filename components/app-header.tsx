@@ -4,7 +4,19 @@ import { useCallback, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/context/auth-context";
-import { Loader2, User, LogOut, Bell, Search, Menu, Home, Map, Users, CalendarDays, Settings } from "lucide-react";
+import {
+  Loader2,
+  User,
+  LogOut,
+  Bell,
+  Search,
+  Menu,
+  Home,
+  Map,
+  Users,
+  CalendarDays,
+  Settings,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { preserveQueryParams } from "@/lib/utils/navigation-utils";
@@ -187,7 +199,9 @@ export function AppHeader() {
             href={getPreservedHref("/")}
             className="flex items-center space-x-2 group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
           >
-            <div className="text-xl font-bold text-primary transition-colors duration-300 hover:text-primary/90">Quiver</div>
+            <div className="text-xl font-bold text-primary transition-colors duration-300 hover:text-primary/90">
+              Quiver
+            </div>
           </Link>
 
           {/* Desktop Navigation - Only show on desktop (≥1024px) */}
@@ -320,7 +334,9 @@ export function AppHeader() {
                         <p className="text-base font-semibold">
                           {profile?.full_name || "Surfer"}
                         </p>
-                        <p className="text-sm text-muted-foreground">{user?.email}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {user?.email}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -328,7 +344,8 @@ export function AppHeader() {
                   {/* Primary Navigation */}
                   <nav className="flex-1 py-4 flex flex-col gap-1">
                     {mobileNavItems.map((item) => {
-                      const isActive = pathname === item.href ||
+                      const isActive =
+                        pathname === item.href ||
                         (item.href !== "/" && pathname.startsWith(item.href));
 
                       return (
@@ -341,7 +358,9 @@ export function AppHeader() {
                               ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
                               : "text-foreground/80 hover:bg-muted hover:text-foreground"
                           )}
-                          onClick={() => setMobileMenuOpen(false)}
+                          onClick={(e) => {
+                            setMobileMenuOpen(false);
+                          }}
                           data-testid={`mobile-nav-${item.name.toLowerCase()}`}
                         >
                           <item.icon className="h-5 w-5" />
@@ -363,8 +382,11 @@ export function AppHeader() {
                       <Bell className="h-5 w-5" />
                       <span>Notifications</span>
                       {unreadCount > 0 && (
-                        <Badge variant="destructive" className="ml-auto h-5 min-w-5">
-                          {unreadCount > 9 ? '9+' : unreadCount}
+                        <Badge
+                          variant="destructive"
+                          className="ml-auto h-5 min-w-5"
+                        >
+                          {unreadCount > 9 ? "9+" : unreadCount}
                         </Badge>
                       )}
                     </Link>
@@ -451,7 +473,10 @@ export function AppHeader() {
                         setMobileMenuOpen(false);
                         setAuthMode("login");
                         setAuthModalOpen(true);
-                        trackAuthModalOpened({ mode: "login", source: "app-header-mobile" });
+                        trackAuthModalOpened({
+                          mode: "login",
+                          source: "app-header-mobile",
+                        });
                       }}
                       data-testid="mobile-nav-login"
                     >
@@ -464,7 +489,10 @@ export function AppHeader() {
                         setMobileMenuOpen(false);
                         setAuthMode("signup");
                         setAuthModalOpen(true);
-                        trackAuthModalOpened({ mode: "signup", source: "app-header-mobile" });
+                        trackAuthModalOpened({
+                          mode: "signup",
+                          source: "app-header-mobile",
+                        });
                       }}
                       data-testid="mobile-nav-signup"
                     >
@@ -509,11 +537,14 @@ export function AppHeader() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </Link>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    router.push("/profile");
+                  }}
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -542,7 +573,10 @@ export function AppHeader() {
                   onClick={() => {
                     setAuthMode("login");
                     setAuthModalOpen(true);
-                    trackAuthModalOpened({ mode: "login", source: "app-header" });
+                    trackAuthModalOpened({
+                      mode: "login",
+                      source: "app-header",
+                    });
                   }}
                 >
                   Log in
@@ -553,7 +587,10 @@ export function AppHeader() {
                   onClick={() => {
                     setAuthMode("signup");
                     setAuthModalOpen(true);
-                    trackAuthModalOpened({ mode: "signup", source: "app-header" });
+                    trackAuthModalOpened({
+                      mode: "signup",
+                      source: "app-header",
+                    });
                   }}
                 >
                   Sign Up

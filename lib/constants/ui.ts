@@ -8,4 +8,6 @@ export const CACHE_TTL = {
   MAP_BUOY_CONDITIONS: 4 * 60 * 60 * 1000, // 4 hours - real NOAA data
   MAP_NEARBY_BUOYS: 24 * 60 * 60 * 1000, // 24 hours - static locations
   MAP_NEARBY_BEACHES: 12 * 60 * 60 * 1000, // 12 hours - static beach data
+  // Surf discovery cache - personalized recommendations for home page
+  SURF_DISCOVERY: 30 * 60 * 1000, // 30 minutes - balances performance with freshness
 } as const;

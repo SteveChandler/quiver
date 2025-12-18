@@ -83,7 +83,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Dynamic beaches and forecasts
   let beachEntries: MetadataRoute.Sitemap = [];
-  let forecastEntries: MetadataRoute.Sitemap = [];
   
   // Use direct DB call instead of fetch to avoid self-request issues
   const beachesResponse = await getBeaches();
@@ -99,14 +98,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: "weekly",
         priority: 0.6,
       }));
-
-    // Add forecast pages for each beach (still using ID for now)
-    forecastEntries = beaches.map((b) => ({
-      url: `${baseUrl}/forecast/${b.id}`,
-      lastModified: lastmod, // Use current date for forecasts as they update frequently
-      changeFrequency: "daily",
-      priority: 0.8, // High priority for forecast pages
-    }));
   }
 
   return [
@@ -115,6 +106,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...intentRoutes,
     ...locationRoutes,
     ...beachEntries,
-    ...forecastEntries,
   ];
 }

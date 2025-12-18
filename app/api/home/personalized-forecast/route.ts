@@ -92,6 +92,7 @@ async function personalizedForecastHandler(
     const discovery = await discoverSurfSpots(user.id, {
       maxResults: 1, // Single recommendation for backward compatibility
       includeHome: true,
+      horizonHours: 24, // Home screen UX: keep recommendation within next 24 hours
     });
 
     // 4. Adapt discovery response to personalized format
