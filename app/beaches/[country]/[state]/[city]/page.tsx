@@ -24,6 +24,8 @@ import { getRankingTier, getRankingBadgeLabel } from "@/types/location";
 import { RankingBadge } from "@/components/location/ranking-badge";
 import { isMetroArea, getMetroConfig } from "@/lib/constants/metro-areas";
 import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
+import { buildCityUrl } from "@/lib/utils/beach-url-utils";
+import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 
 const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
@@ -487,7 +489,12 @@ export async function generateMetadata({ params }: LocationPageProps) {
           stats.totalReviews
         } reviews.`;
 
-    const url = `${SITE_ORIGIN}/beaches/${params.country}/${params.state}/${params.city}`;
+    const isUsa = params.country.toLowerCase() === "usa";
+    const canonicalPath =
+      isUsa && isValidStateSlug(params.state)
+        ? `/${params.state}/${params.city}`
+        : `/beaches/${params.country}/${params.state}/${params.city}`;
+    const url = `${SITE_ORIGIN}${canonicalPath}`;
 
     return {
       title,

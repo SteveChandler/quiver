@@ -120,7 +120,7 @@ describe("Sitemap Generation", () => {
 
       SURF_CITY_SLUGS.forEach((slug) => {
         const route = result.find(
-          (r) => r.url === `${baseUrl}/beaches/usa/ca/${slug}`
+          (r) => r.url === `${baseUrl}/ca/${slug}`
         );
         expect(route).toBeDefined();
       });
@@ -129,20 +129,20 @@ describe("Sitemap Generation", () => {
     it("should set high priority (0.9) for city routes", async () => {
       const result = await sitemap();
       const cityRoute = result.find(
-        (r) => r.url === `${baseUrl}/beaches/usa/ca/san-diego`
+        (r) => r.url === `${baseUrl}/ca/san-diego`
       );
 
       expect(cityRoute?.priority).toBe(0.9);
     });
 
-    it("should use correct URL format /beaches/usa/ca/{city}", async () => {
+    it("should use correct URL format /ca/{city}", async () => {
       const result = await sitemap();
       const cityRoutes = result.filter((r) =>
-        r.url.includes("/beaches/usa/ca/")
+        r.url.includes("/ca/")
       );
 
       cityRoutes.forEach((route) => {
-        expect(route.url).toMatch(/\/beaches\/usa\/ca\/[a-z-]+$/);
+        expect(route.url).toMatch(/\/ca\/[a-z-]+$/);
       });
     });
 
@@ -247,7 +247,7 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       const laJollaRoute = result.find((r) =>
-        r.url.includes("/beaches/usa/ca/la-jolla")
+        r.url.endsWith("/ca/la-jolla")
       );
       expect(laJollaRoute).toBeDefined();
     });
@@ -260,7 +260,7 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
       const locationRoute = result.find((r) =>
-        r.url.includes("/beaches/usa/ca/la-jolla")
+        r.url.endsWith("/ca/la-jolla")
       );
 
       expect(locationRoute?.priority).toBe(0.75);
@@ -274,7 +274,7 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
       const locationRoute = result.find((r) =>
-        r.url.includes("/beaches/usa/ca/la-jolla")
+        r.url.endsWith("/ca/la-jolla")
       );
 
       expect(locationRoute?.changeFrequency).toBe("weekly");
@@ -349,18 +349,11 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
       // Beach with null slug should not be in beach entries (hierarchical URLs)
-      // Note: forecast entries (/forecast/{id}) still include all beaches
       const beachHierarchicalRoute = result.find(
         (r) => r.url.includes("/ca/san-diego/")
       );
 
       expect(beachHierarchicalRoute).toBeUndefined();
-
-      // But forecast route for the beach ID should still exist
-      const forecastRoute = result.find(
-        (r) => r.url.includes("/forecast/beach-1")
-      );
-      expect(forecastRoute).toBeDefined();
     });
 
     it("should filter out beaches without city", async () => {
@@ -453,7 +446,7 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Forecast Routes", () => {
-    it("should include forecast routes for each beach", async () => {
+    it("should not include forecast routes (noindex + excluded from sitemap)", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -467,53 +460,9 @@ describe("Sitemap Generation", () => {
       });
 
       const result = await sitemap();
-      const forecastRoute = result.find(
-        (r) => r.url === `${baseUrl}/forecast/beach-123`
-      );
+      const hasForecastRoutes = result.some((r) => r.url.includes("/forecast/"));
 
-      expect(forecastRoute).toBeDefined();
-    });
-
-    it("should set priority 0.8 for forecast routes", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-123",
-            slug: "sunset-cliffs",
-            city: "San Diego",
-            state: "CA",
-          },
-        ],
-      });
-
-      const result = await sitemap();
-      const forecastRoute = result.find(
-        (r) => r.url === `${baseUrl}/forecast/beach-123`
-      );
-
-      expect(forecastRoute?.priority).toBe(0.8);
-    });
-
-    it("should set changeFrequency to daily for forecast routes", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-123",
-            slug: "sunset-cliffs",
-            city: "San Diego",
-            state: "CA",
-          },
-        ],
-      });
-
-      const result = await sitemap();
-      const forecastRoute = result.find(
-        (r) => r.url === `${baseUrl}/forecast/beach-123`
-      );
-
-      expect(forecastRoute?.changeFrequency).toBe("daily");
+      expect(hasForecastRoutes).toBe(false);
     });
   });
 

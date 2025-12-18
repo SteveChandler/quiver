@@ -12,6 +12,19 @@ The city editorial content system allows for rich, curated content on city surf 
 - Planning checklists
 - Featured intent guides
 
+## Indexability (SEO) and "Fully Developed" City Pages
+
+City pages are a primary crawl + discovery surface for Quiver. In practice, **Google is much more likely to index city pages that are “fully developed”** (unique, useful, non-templated content) and much more likely to leave thin/duplicative city pages in Search Console buckets like **“Crawled – currently not indexed”**.
+
+For Quiver, “fully developed” city pages typically means:
+
+- **Unique editorial description**: 3–5 paragraphs with local knowledge (not generic filler).
+- **Session timing modules**: actionable “Today / Now / Weekend” guidance that differs by city.
+- **Useful internal linking**: quick links + intent guides that help users navigate deeper (and help Google understand site structure).
+- **Clear, stable canonical URL**: avoid multiple URL families for the same city page; prefer one canonical and redirect the rest.
+
+Operational takeaway: expanding `city_editorial_content` coverage is not just UX polish — it’s part of the indexing strategy.
+
 ## Database Schema
 
 **Migration**: `supabase/migrations/20251204030000_create_city_editorial_content.sql`
@@ -88,6 +101,7 @@ CREATE POLICY "city_editorial_content_admin_write"
 **Purpose**: Paragraphs describing the city's surf culture, seasonality, and local knowledge.
 
 **Example**:
+
 ```sql
 description => ARRAY[
   'San Diego surf culture is a rhythm of dawn patrols, parking lot burritos, and checking canyon buoys more often than work email.',
@@ -103,6 +117,7 @@ description => ARRAY[
 **Purpose**: Tactical advice for different time horizons (Today, Now, Weekend).
 
 **Schema**:
+
 ```typescript
 interface SessionTimingModule {
   icon: "sun" | "clock" | "calendar";
@@ -112,6 +127,7 @@ interface SessionTimingModule {
 ```
 
 **Example**:
+
 ```json
 [
   {
@@ -139,6 +155,7 @@ interface SessionTimingModule {
 **Purpose**: Navigation shortcuts to related city pages.
 
 **Schema**:
+
 ```typescript
 interface QuickLink {
   label: string;
@@ -147,12 +164,13 @@ interface QuickLink {
 ```
 
 **Example**:
+
 ```json
 [
-  {"label": "San Diego surf map", "href": "/map?city=san-diego"},
-  {"label": "Today's tide chart", "href": "/tide/san-diego"},
-  {"label": "Beginner-friendly breaks", "href": "/beginner/san-diego"},
-  {"label": "Session log templates", "href": "/app"}
+  { "label": "San Diego surf map", "href": "/map?city=san-diego" },
+  { "label": "Today's tide chart", "href": "/tide/san-diego" },
+  { "label": "Beginner-friendly breaks", "href": "/beginner/san-diego" },
+  { "label": "Session log templates", "href": "/features" }
 ]
 ```
 
@@ -165,6 +183,7 @@ interface QuickLink {
 **Valid Values**: `"beginner"`, `"least-crowded"`, `"tide"`, `"water-temp"`, `"surf-forecast"`
 
 **Example**:
+
 ```sql
 featured_intents => ARRAY['beginner', 'least-crowded', 'tide', 'water-temp']
 ```
@@ -176,6 +195,7 @@ featured_intents => ARRAY['beginner', 'least-crowded', 'tide', 'water-temp']
 **Purpose**: Actionable checklist items for session planning.
 
 **Example**:
+
 ```sql
 planning_checklist => ARRAY[
   'Refresh buoy readings before dawn to confirm swell angle.',
@@ -191,6 +211,7 @@ planning_checklist => ARRAY[
 **Purpose**: Fetch editorial content for a specific city.
 
 **Parameters**:
+
 - `p_city` (TEXT): City slug (e.g., "san-diego")
 - `p_state` (TEXT, default "ca"): State slug
 - `p_country` (TEXT, default "usa"): Country slug
@@ -198,6 +219,7 @@ planning_checklist => ARRAY[
 **Returns**: Single row from `city_editorial_content` table or NULL
 
 **Example**:
+
 ```sql
 SELECT * FROM get_city_editorial('san-diego', 'ca', 'usa');
 ```
@@ -209,6 +231,7 @@ SELECT * FROM get_city_editorial('san-diego', 'ca', 'usa');
 Gather the following content:
 
 1. **City Information**:
+
    - City slug (e.g., "newport")
    - State slug (e.g., "or")
    - Country slug (e.g., "usa")
@@ -216,22 +239,26 @@ Gather the following content:
    - Region label (e.g., "Lincoln County, Oregon")
 
 2. **Description Paragraphs** (3-5 paragraphs):
+
    - Local surf culture and community
    - Seasonality and swell patterns
    - Key insights for session planning
 
 3. **Session Timing Modules** (3 cards):
+
    - Today: Marine layer, tide, crowd patterns
    - Now: Current wind and conditions
    - Weekend: Planning advice
 
 4. **Quick Links** (4-6 links):
+
    - Map view
    - Tide chart
    - Beginner guide
    - Other relevant pages
 
 5. **Featured Intents** (2-4 intent slugs):
+
    - Which guides are most relevant for this city
 
 6. **Planning Checklist** (2-4 items):
@@ -312,10 +339,11 @@ export async function getCityEditorialContent(
   citySlug: string,
   stateSlug: string = "ca",
   countrySlug: string = "usa"
-): Promise<ActionResponse<CityEditorialContent | null>>
+): Promise<ActionResponse<CityEditorialContent | null>>;
 ```
 
 **Usage**:
+
 ```typescript
 const editorialResponse = await getCityEditorialContent(city, state, country);
 const editorial = editorialResponse.data;
@@ -333,8 +361,14 @@ if (editorial) {
       <CityMapView spots={transformedSpots} cityName={editorial.city_name} />
       <QuickActionsBar links={editorial.quick_links} />
       <SessionTimingModules modules={editorial.session_timing} />
-      <AboutAccordion description={editorial.description} cityName={editorial.city_name} />
-      <GuidesByIntentGrid intents={editorial.featured_intents} citySlug={citySlug} />
+      <AboutAccordion
+        description={editorial.description}
+        cityName={editorial.city_name}
+      />
+      <GuidesByIntentGrid
+        intents={editorial.featured_intents}
+        citySlug={citySlug}
+      />
       <PlanningChecklist items={editorial.planning_checklist} />
     </>
   );
@@ -351,6 +385,7 @@ return <BeachList beaches={beaches} />;
 **Location**: `components/city/city-map-view.tsx`
 
 **Props**:
+
 ```typescript
 interface CityMapViewProps {
   spots: SurfSpot[];
@@ -362,6 +397,7 @@ interface CityMapViewProps {
 ```
 
 **Features**:
+
 - Desktop: Beach list (380px) on left, interactive map (600px) on right
 - Mobile: Map (350px) on top, horizontal beach scroll below
 - Click beach → navigate to detail page
@@ -374,6 +410,7 @@ See `/components/city/ARCHITECTURE.md` for details.
 **Location**: `components/city/quick-actions-bar.tsx`
 
 **Props**:
+
 ```typescript
 interface QuickActionsBarProps {
   links: QuickLink[];
@@ -381,6 +418,7 @@ interface QuickActionsBarProps {
 ```
 
 **Features**:
+
 - Horizontal pill navigation
 - Auto-detects icons from href content
 - Responsive wrapping
@@ -390,6 +428,7 @@ interface QuickActionsBarProps {
 **Location**: `components/city/session-timing-modules.tsx`
 
 **Props**:
+
 ```typescript
 interface SessionTimingModulesProps {
   modules: SessionTimingModule[];
@@ -397,6 +436,7 @@ interface SessionTimingModulesProps {
 ```
 
 **Features**:
+
 - 3-column grid (desktop), stacked (mobile)
 - Icons: Sun (Today), Clock (Now), Calendar (Weekend)
 
@@ -405,6 +445,7 @@ interface SessionTimingModulesProps {
 **Location**: `components/city/about-accordion.tsx`
 
 **Props**:
+
 ```typescript
 interface AboutAccordionProps {
   cityName: string;
@@ -416,6 +457,7 @@ interface AboutAccordionProps {
 ```
 
 **Features**:
+
 - Collapsible to reduce above-fold text
 - Dynamic links to top spots and less-crowded guides
 - Accessible accordion component
@@ -425,6 +467,7 @@ interface AboutAccordionProps {
 **Location**: `components/city/guides-by-intent-grid.tsx`
 
 **Props**:
+
 ```typescript
 interface GuidesByIntentGridProps {
   intents: string[];
@@ -433,6 +476,7 @@ interface GuidesByIntentGridProps {
 ```
 
 **Features**:
+
 - 2x2 grid of intent cards
 - Links to intent-specific city pages
 
@@ -441,6 +485,7 @@ interface GuidesByIntentGridProps {
 **Location**: `components/city/planning-checklist.tsx`
 
 **Props**:
+
 ```typescript
 interface PlanningChecklistProps {
   items: string[];
@@ -448,6 +493,7 @@ interface PlanningChecklistProps {
 ```
 
 **Features**:
+
 - Checkmark bullet list
 - Actionable session planning tips
 
@@ -506,6 +552,7 @@ interface PlanningChecklistProps {
 ### Content Management
 
 Consider building an admin UI for:
+
 - WYSIWYG editing of descriptions
 - Drag-and-drop reordering of quick links
 - Preview before publish
@@ -524,11 +571,13 @@ Consider building an admin UI for:
 ### Editorial Content Not Showing
 
 **Check**:
+
 1. Does row exist in `city_editorial_content` table?
 2. Do city/state/country slugs match route params exactly?
 3. Is RLS policy allowing read access?
 
 **Debug**:
+
 ```typescript
 const result = await getCityEditorialContent("san-diego", "ca", "usa");
 console.log("Editorial content:", result);
@@ -539,6 +588,7 @@ console.log("Editorial content:", result);
 **Issue**: Invalid JSON in `session_timing` or `quick_links`
 
 **Fix**: Validate JSON before inserting:
+
 ```sql
 -- Test JSON validity
 SELECT '{"icon": "sun", "title": "Today"}'::jsonb;
@@ -549,8 +599,9 @@ SELECT '{"icon": "sun", "title": "Today"}'::jsonb;
 **Issue**: Component expecting field that doesn't exist
 
 **Fix**: Check component prop types match database schema. Use optional chaining:
+
 ```typescript
-editorial?.session_timing || []
+editorial?.session_timing || [];
 ```
 
 ## Change Log
