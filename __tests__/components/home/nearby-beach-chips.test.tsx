@@ -2,9 +2,9 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { NearbyBeachChips } from "@/components/home-screen/nearby-beach-chips";
 
-// Mock useGeo to control permission flow
-jest.mock("@/hooks/useGeo", () => ({
-  useGeo: () => ({
+// Mock useGeolocation to control permission flow
+jest.mock("@/hooks/use-geolocation", () => ({
+  useGeolocation: () => ({
     coords: null,
     loading: false,
     error: null,

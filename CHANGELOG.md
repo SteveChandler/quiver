@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Canonical Supabase client documentation and doc-only deprecation guidance for `lib/supabase-browser.ts`.
 - Migrated legacy session forecast history + analysis logic into authenticated server actions (`actions/forecast-calibration-actions.ts`).
+- Home personalized forecast card now renders `PersonalizedBadge` (match % + breakdown) instead of a generic "For You" pill.
+- Consolidated home/map geolocation behavior into `useGeolocation` (manual vs auto-request), with `useGeo` kept as a deprecated thin wrapper.
 
 ### Removed
 
@@ -39,11 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **E2E Test Suite** (December 17, 2025)
+
   - Removed obsolete "Sign Up button" test from guest landing page spec
   - Test was checking for a button that was intentionally removed from the landing page navbar
   - Test suite now has 15 tests (previously 16)
   - Beach discovery performance test now passes consistently with optimized API
   - Files modified: `e2e/guest-landing.spec.ts`
+
+- Home forecast: hide the “For You” KPI tile when insights match is `0%`.
 
 ### Removed
 

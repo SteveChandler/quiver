@@ -54,7 +54,7 @@ const { profile, homeBeach, profileLoading, hasCachedData } =
 ### **Location-Permissioned Nearby Chips**
 
 ```typescript
-// Follows useDataFetcher pattern and useGeo for permissioned location
+// Follows useDataFetcher pattern and `useGeolocation({ autoRequest: false })` for permissioned location
 <NearbyBeachChips onSelect={(b) => setSelectedBeachOverride(b)} />
 
 // Chip click sets override beach to immediately preview Today at <beach>
@@ -69,7 +69,7 @@ Behavior:
 
 Constraints:
 
-- Uses `useDataFetcher` and `useGeo` per hooks/ARCHITECTURE.md.
+- Uses `useDataFetcher` and `useGeolocation` (manual request) per hooks/ARCHITECTURE.md.
 - No new data fetching patterns introduced.
 
 ## 📊 **COMPONENT RESPONSIBILITIES**

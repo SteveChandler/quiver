@@ -10,7 +10,7 @@ import { useHomeData } from "./use-home-data";
 import { useCachedProfile } from "@/hooks/use-cached-profile";
 import type { Beach } from "@/types/database";
 import { BeachSearchBar } from "./beach-search-bar";
-import { useGeo } from "@/hooks/useGeo";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import { useNativePushRegistration } from "@/hooks/use-native-push-registration";
 import { track } from "@/lib/analytics";
 import { BookOpen, Plus } from "lucide-react";
@@ -60,7 +60,11 @@ export function HomeScreen() {
   const { profile, homeBeach, profileLoading, hasCachedData } =
     useCachedProfile();
 
-  const { coords, source, requestLocation } = useGeo();
+  // Home screen should never auto-prompt for location.
+  // We still expose `requestLocation()` for explicit CTAs (e.g. NearbyBeachChips).
+  const { coords, source, requestLocation } = useGeolocation({
+    autoRequest: false,
+  });
 
   // Check if we should show the preferences announcement popup
   useEffect(() => {

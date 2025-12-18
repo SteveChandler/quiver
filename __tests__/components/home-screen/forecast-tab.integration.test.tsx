@@ -2,8 +2,8 @@ import { render } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { HomeScreen } from "@/components/home-screen";
 
-jest.mock("@/hooks/useGeo", () => ({
-  useGeo: () => ({
+jest.mock("@/hooks/use-geolocation", () => ({
+  useGeolocation: () => ({
     coords: { lat: 32.75, lon: -117.25 },
     loading: false,
     error: null,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { format } from "date-fns";
 import {
   Card,
@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { KpiTile } from "@/components/ui/kpi-tile";
+import { PersonalizedBadge } from "@/components/recommendations/PersonalizedBadge";
 import {
   Target,
   MapPin,
@@ -25,7 +26,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PersonalizedForecastRecommendation, PersonalizedInsights } from "@/types/personalization";
+import type {
+  PersonalizedForecastRecommendation,
+  PersonalizedInsights,
+} from "@/types/personalization";
 
 /**
  * Props for PersonalizedForecastCard component
@@ -235,6 +239,11 @@ export const PersonalizedForecastCard = React.memo(
         ? "Good"
         : "Standard";
 
+    // If insights exist but matchPercent is 0, hide the entire "For You" tile
+    // (avoids an empty/incorrect personalization container).
+    const shouldHideForYouTile =
+      !!insights && (insights.matchPercent ?? 0) === 0;
+
     return (
       <Card className="w-full" data-testid="personalized-forecast-card">
         <CardHeader>
@@ -249,13 +258,17 @@ export const PersonalizedForecastCard = React.memo(
                 {format(window.start, "EEEE, MMM d")}
               </p>
             </div>
-            <Badge
-              variant="blue"
-              className="shrink-0"
-              data-testid="personalization-badge"
-            >
-              For You
-            </Badge>
+            <div className="shrink-0">
+              <PersonalizedBadge
+                personalized={recommendation.personalized}
+                score={score}
+                breakdown={breakdown}
+                displayMode="score"
+                size="md"
+                showDelta
+                baseScore={breakdown?.base}
+              />
+            </div>
           </div>
         </CardHeader>
 
@@ -367,7 +380,12 @@ export const PersonalizedForecastCard = React.memo(
           </div>
 
           {/* KPI Tiles Grid */}
-          <div className="grid grid-cols-3 gap-3">
+          <div
+            className={cn(
+              "grid gap-3",
+              shouldHideForYouTile ? "grid-cols-2" : "grid-cols-3"
+            )}
+          >
             <KpiTile
               value={window.waveHeight}
               label={
@@ -383,26 +401,36 @@ export const PersonalizedForecastCard = React.memo(
               labelClassName="text-blue-500"
             />
 
-            <KpiTile
-              value={insights?.state === 'ready' ? insights.label : boostLabel}
-              label={
-                <div className="space-y-0.5">
-                  <div>For You</div>
-                  {insights && (
-                    <div className="text-[10px] opacity-70">
-                      {insights.matchPercent}% Match
-                    </div>
-                  )}
-                </div>
-              }
-              className={cn(
-                "bg-purple-50 transition-all",
-                onViewSimilarSessions && insights?.similarSessions.length && "cursor-pointer hover:bg-purple-100"
-              )}
-              valueClassName="text-purple-600 text-base"
-              labelClassName="text-purple-500"
-              onClick={onViewSimilarSessions && insights?.similarSessions.length ? onViewSimilarSessions : undefined}
-            />
+            {!shouldHideForYouTile && (
+              <KpiTile
+                value={
+                  insights?.state === "ready" ? insights.label : boostLabel
+                }
+                label={
+                  <div className="space-y-0.5">
+                    <div>For You</div>
+                    {insights && (
+                      <div className="text-[10px] opacity-70">
+                        {insights.matchPercent}% Match
+                      </div>
+                    )}
+                  </div>
+                }
+                className={cn(
+                  "bg-purple-50 transition-all",
+                  onViewSimilarSessions &&
+                    insights?.similarSessions.length &&
+                    "cursor-pointer hover:bg-purple-100"
+                )}
+                valueClassName="text-purple-600 text-base"
+                labelClassName="text-purple-500"
+                onClick={
+                  onViewSimilarSessions && insights?.similarSessions.length
+                    ? onViewSimilarSessions
+                    : undefined
+                }
+              />
+            )}
 
             <KpiTile
               value={Math.round(score)}
@@ -423,9 +451,7 @@ export const PersonalizedForecastCard = React.memo(
                   <p className="text-xs font-medium text-amber-900 mb-0.5">
                     Board Recommendation
                   </p>
-                  <p className="text-sm text-amber-800">
-                    {insights.boardTip}
-                  </p>
+                  <p className="text-sm text-amber-800">{insights.boardTip}</p>
                 </div>
               </div>
             </div>
@@ -434,13 +460,18 @@ export const PersonalizedForecastCard = React.memo(
           {/* Summary Section */}
           <div className="space-y-3 p-4 rounded-lg bg-slate-50 border border-slate-200">
             {/* Onboarding state: show first reason as helpful text */}
-            {insights?.state === 'onboarding' && insights.reasonBullets.length > 0 ? (
+            {insights?.state === "onboarding" &&
+            insights.reasonBullets.length > 0 ? (
               <div className="text-sm text-slate-700 leading-relaxed">
-                <p className="font-medium mb-2">Getting to know your preferences</p>
+                <p className="font-medium mb-2">
+                  Getting to know your preferences
+                </p>
                 <p>{insights.reasonBullets[0]}</p>
               </div>
             ) : (
-              <p className="text-sm text-slate-700 leading-relaxed">{summary}</p>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {summary}
+              </p>
             )}
 
             {reasons && reasons.length > 0 && (
@@ -458,19 +489,22 @@ export const PersonalizedForecastCard = React.memo(
             )}
 
             {/* View Similar Sessions Link */}
-            {insights?.similarSessions && insights.similarSessions.length > 0 && onViewSimilarSessions && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onViewSimilarSessions}
-                className="w-full justify-between text-blue-600 hover:text-blue-700 hover:bg-blue-50 mt-2"
-              >
-                <span className="text-sm">
-                  View {insights.similarSessions.length} similar session{insights.similarSessions.length !== 1 ? 's' : ''}
-                </span>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            )}
+            {insights?.similarSessions &&
+              insights.similarSessions.length > 0 &&
+              onViewSimilarSessions && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onViewSimilarSessions}
+                  className="w-full justify-between text-blue-600 hover:text-blue-700 hover:bg-blue-50 mt-2"
+                >
+                  <span className="text-sm">
+                    View {insights.similarSessions.length} similar session
+                    {insights.similarSessions.length !== 1 ? "s" : ""}
+                  </span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              )}
           </div>
         </CardContent>
 
