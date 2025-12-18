@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Tide height values in Home → Forecast: fix CO-OPS timezone drift by requesting predictions in GMT and parsing timestamps as UTC (adds unit coverage).
+- Profile: show the saved home break name (e.g. “Home Break: Ocean Beach Pier”) on `/profile` instead of a generic “Home Break Set”.
 - SEO/indexing: stop emitting `/forecast/*` URLs in the sitemap and mark forecast pages as `noindex`; canonicalize US city pages to `/{state}/{city}` with legacy `/beaches/usa/{state}/{city}` redirecting to the canonical.
 - Forecast weather: treat NWS `InvalidPoint` (404) responses from `api.weather.gov/points/{lat},{lon}` as “no coverage” (avoid hard errors for out-of-coverage beaches).
 - Forecast cron stability: prevent NWS wave fetch crash when `forecastGridData` is null (guard grid URL construction) and gracefully fall back when NWS hourly marine forecasts return 404 “Marine Forecast Not Supported”.

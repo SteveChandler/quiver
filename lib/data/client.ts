@@ -136,11 +136,15 @@ export const data = {
     profile: {
       async get(userId: string) {
         const cached = __getCached(__cache.usersProfile, userId);
-        if (cached) return cached;
+        if (cached) {
+          return cached;
+        }
 
         const inflightKey = `usersProfile:${userId}`;
         const inflight = __cache.inflight.get(inflightKey);
-        if (inflight) return inflight;
+        if (inflight) {
+          return inflight;
+        }
 
         // Prefer new namespaced route; keep legacy as fallback via server redirect if present
         const p = (async () => {

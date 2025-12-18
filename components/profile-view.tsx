@@ -119,6 +119,7 @@ function ProfileViewContent() {
   const fetchData = useCallback(async () => {
     if (!user) throw new Error("User not authenticated");
     const profileData = await gateway.users.profile.get(user.id);
+
     setProfile(profileData as Profile);
     const userSessions = await gateway.users.sessions.list(user.id, 5);
     setSessions(userSessions as SessionWithDetails[]);
@@ -315,10 +316,16 @@ function ProfileViewContent() {
                         {profile?.home_beach_id && (
                           <div className="text-xs font-open-sans pt-0.5">
                             <span className="text-muted-foreground">
-                              Home Break{" "}
+                              Home Break:{" "}
                             </span>
                             <span className="font-medium text-ocean-blue">
-                              Set
+                              {(typeof (profile as any)?.homeBeachName ===
+                                "string" &&
+                                (profile as any).homeBeachName) ||
+                                (typeof (profile as any)?.home_beach?.name ===
+                                  "string" &&
+                                  (profile as any).home_beach.name) ||
+                                "Set"}
                             </span>
                           </div>
                         )}
